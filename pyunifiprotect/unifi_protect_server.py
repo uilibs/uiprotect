@@ -70,7 +70,7 @@ class UpvServer:
         """Updates the status of devices."""
 
         await self._get_camera_list()
-        await self._get_motion_events(10)
+        await self._get_events(10)
         return self.devices
 
     async def check_unifi_os(self):
@@ -237,7 +237,8 @@ class UpvServer:
                                 "event_score": 0,
                                 "event_thumbnail": None,
                                 "event_on": False,
-                                "ring_on": False,
+                                "event_ring_on": False,
+                                "event_type": None,
                             }
                         }
                         self.device_data.update(item)
@@ -254,7 +255,7 @@ class UpvServer:
                     f"Fetching Camera List failed: {response.status} - Reason: {response.reason}"
                 )
 
-    async def _get_motion_events(self, lookback: int = 86400) -> None:
+    async def _get_events(self, lookback: int = 86400) -> None:
         """Load the Event Log and loop through items to find motion events."""
 
         await self.ensureAuthenticated()
@@ -263,6 +264,12 @@ class UpvServer:
         event_end = datetime.datetime.now() + datetime.timedelta(seconds=10)
         start_time = int(time.mktime(event_start.timetuple())) * 1000
         end_time = int(time.mktime(event_end.timetuple())) * 1000
+        event_on = False
+        event_ring_on = False
+        event_ring_check = datetime.datetime.now() - datetime.timedelta(seconds=3)
+        event_ring_check_converted = (
+            int(time.mktime(event_ring_check.timetuple())) * 1000
+        )
 
         event_uri = f"{self._base_url}/{self.api_path}/events"
         params = {
@@ -292,14 +299,29 @@ class UpvServer:
                                     event_on = False
                         else:
                             if event["end"]:
-                                event_on = False
+                                if (
+                                    event["start"] >= event_ring_check_converted
+                                    and event["end"] >= event_ring_check_converted
+                                ):
+                                    _LOGGER.debug(
+                                        "EVENT: DOORBELL HAS RUNG IN LAST 3 SECONDS!"
+                                    )
+                                    event_ring_on = True
+                                else:
+                                    _LOGGER.debug(
+                                        "EVENT: DOORBELL WAS NOT RUNG IN LAST 3 SECONDS"
+                                    )
+                                    event_ring_on = False
                             else:
-                                event_on = True
+                                _LOGGER.debug("EVENT: DOORBELL IS RINGING")
+                                event_ring_on = True
 
                         camera_id = event["camera"]
                         self.device_data[camera_id]["event_start"] = start_time
                         self.device_data[camera_id]["event_score"] = event["score"]
                         self.device_data[camera_id]["event_on"] = event_on
+                        self.device_data[camera_id]["event_ring_on"] = event_ring_on
+                        self.device_data[camera_id]["event_type"] = event["type"]
                         if (
                             event["thumbnail"] is not None
                         ):  # Only update if there is a new Motion Event
@@ -315,7 +337,7 @@ class UpvServer:
         """Returns the last recorded Thumbnail, based on Camera ID."""
 
         await self.ensureAuthenticated()
-        await self._get_motion_events()
+        await self._get_events()
 
         thumbnail_id = self.device_data[camera_id]["event_thumbnail"]
 
