@@ -73,6 +73,10 @@ class UpvServer:
         await self._get_events(10)
         return self.devices
 
+    async def unique_id(self):
+        """Returns a Unique ID for this NVR."""
+        return await self._get_unique_id()
+        
     async def check_unifi_os(self):
         if self.is_unifi_os is not None:
             return
@@ -151,6 +155,24 @@ class UpvServer:
             else:
                 raise NvrError(
                     f"Request failed: {response.status} - Reason: {response.reason}"
+                )
+
+    async def _get_unique_id(self) -> None:
+        """Get a Unique ID for this NVR."""
+
+        await self.ensureAuthenticated()
+
+        bootstrap_uri = f"{self._base_url}/{self.api_path}/bootstrap"
+        async with self.req.get(
+            bootstrap_uri, headers=self.headers, verify_ssl=self._verify_ssl,
+        ) as response:
+            if response.status == 200:
+                json_response = await response.json()
+                unique_id = json_response["nvr"]["name"]
+                return unique_id
+            else:
+                raise NvrError(
+                    f"Fetching Unique ID failed: {response.status} - Reason: {response.reason}"
                 )
 
     async def _get_camera_list(self) -> None:
