@@ -246,6 +246,7 @@ class UpvServer:
                                 "name": str(camera["name"]),
                                 "type": device_type,
                                 "model": str(camera["type"]),
+                                "mac": str(camera["mac"]),
                                 "recording_mode": recording_mode,
                                 "ir_mode": ir_mode,
                                 "rtsp": rtsp,
