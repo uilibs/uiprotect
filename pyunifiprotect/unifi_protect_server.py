@@ -184,6 +184,9 @@ class UpvServer:
         ) as response:
             if response.status == 200:
                 json_response = await response.json()
+                server_version = json_response["nvr"]["version"]
+                server_id = json_response["nvr"]["mac"]
+                
                 cameras = json_response["cameras"]
 
                 for camera in cameras:
@@ -247,6 +250,8 @@ class UpvServer:
                                 "type": device_type,
                                 "model": str(camera["type"]),
                                 "mac": str(camera["mac"]),
+                                "server_version": server_version,
+                                "server_id": server_id,
                                 "recording_mode": recording_mode,
                                 "ir_mode": ir_mode,
                                 "rtsp": rtsp,
