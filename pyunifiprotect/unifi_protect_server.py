@@ -3,7 +3,6 @@
 import datetime
 import logging
 import time
-import urllib3
 import jwt
 
 import aiohttp
@@ -57,7 +56,6 @@ class UpvServer:
         self.access_key = None
         self.device_data = {}
 
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         self.req = session
         self.headers = None
 
@@ -76,14 +74,14 @@ class UpvServer:
     async def unique_id(self):
         """Returns a Unique ID for this NVR."""
         return await self._get_unique_id()
-        
+
     async def check_unifi_os(self):
         if self.is_unifi_os is not None:
             return
 
         response = await self.request("get", url=self._base_url, allow_redirects=False)
         if response.status == 200:
-            if "x-csrf-token" in response.headers:
+            if response.headers.get("x-csrf-token"):
                 self.is_unifi_os = True
                 self.api_path = "proxy/protect/api"
                 self.headers = {"x-csrf-token": response.headers.get("x-csrf-token")}
