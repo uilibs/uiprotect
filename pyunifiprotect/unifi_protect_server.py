@@ -186,6 +186,7 @@ class UpvServer:
                 json_response = await response.json()
                 server_version = json_response["nvr"]["version"]
                 server_id = json_response["nvr"]["mac"]
+                server_model = json_response["nvr"]["hardwarePlatform"]
                 
                 cameras = json_response["cameras"]
 
@@ -252,6 +253,7 @@ class UpvServer:
                                 "mac": str(camera["mac"]),
                                 "server_version": server_version,
                                 "server_id": server_id,
+                                "server_model": server_model,
                                 "recording_mode": recording_mode,
                                 "ir_mode": ir_mode,
                                 "rtsp": rtsp,
