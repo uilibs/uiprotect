@@ -75,6 +75,10 @@ class UpvServer:
         """Returns a Unique ID for this NVR."""
         return await self._get_unique_id()
 
+    async def server_information(self):
+        """Returns a Server Information for this NVR."""
+        return await self._get_server_info()
+
     async def check_unifi_os(self):
         if self.is_unifi_os is not None:
             return
@@ -168,6 +172,28 @@ class UpvServer:
                 json_response = await response.json()
                 unique_id = json_response["nvr"]["name"]
                 return unique_id
+            else:
+                raise NvrError(
+                    f"Fetching Unique ID failed: {response.status} - Reason: {response.reason}"
+                )
+
+    async def _get_server_info(self) -> None:
+        """Get Server Information for this NVR."""
+
+        await self.ensureAuthenticated()
+
+        bootstrap_uri = f"{self._base_url}/{self.api_path}/bootstrap"
+        async with self.req.get(
+            bootstrap_uri, headers=self.headers, verify_ssl=self._verify_ssl,
+        ) as response:
+            if response.status == 200:
+                json_response = await response.json()
+                return {
+                    "unique_id": json_response["nvr"]["name"],
+                    "server_version": json_response["nvr"]["version"],
+                    "server_id": json_response["nvr"]["mac"],
+                    "server_model": json_response["nvr"]["hardwarePlatform"],
+                }
             else:
                 raise NvrError(
                     f"Fetching Unique ID failed: {response.status} - Reason: {response.reason}"
