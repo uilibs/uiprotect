@@ -210,9 +210,7 @@ class UpvServer:
         ) as response:
             if response.status == 200:
                 json_response = await response.json()
-                server_version = json_response["nvr"]["version"]
                 server_id = json_response["nvr"]["mac"]
-                server_model = json_response["nvr"]["type"]
                 
                 cameras = json_response["cameras"]
 
@@ -250,12 +248,14 @@ class UpvServer:
                             int(camera["upSince"]) / 1000
                         ).strftime("%Y-%m-%d %H:%M:%S")
                     )
-
+                    # Check if Regular Camera or Doorbell
                     device_type = (
                         "camera"
                         if "doorbell" not in str(camera["type"]).lower()
                         else "doorbell"
                     )
+                    # Get Firmware Version
+                    firmware_version = str(camera["firmwareVersion"])
 
                     if camera["id"] not in self.device_data:
                         # Add rtsp streaming url if enabled
@@ -277,9 +277,8 @@ class UpvServer:
                                 "type": device_type,
                                 "model": str(camera["type"]),
                                 "mac": str(camera["mac"]),
-                                "server_version": server_version,
+                                "firmware_version": firmware_version,
                                 "server_id": server_id,
-                                "server_model": server_model,
                                 "recording_mode": recording_mode,
                                 "ir_mode": ir_mode,
                                 "rtsp": rtsp,
