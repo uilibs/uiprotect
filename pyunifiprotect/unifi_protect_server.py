@@ -192,7 +192,7 @@ class UpvServer:
                     "unique_id": json_response["nvr"]["name"],
                     "server_version": json_response["nvr"]["version"],
                     "server_id": json_response["nvr"]["mac"],
-                    "server_model": json_response["nvr"]["hardwarePlatform"],
+                    "server_model": json_response["nvr"]["type"],
                 }
             else:
                 raise NvrError(
@@ -212,7 +212,7 @@ class UpvServer:
                 json_response = await response.json()
                 server_version = json_response["nvr"]["version"]
                 server_id = json_response["nvr"]["mac"]
-                server_model = json_response["nvr"]["hardwarePlatform"]
+                server_model = json_response["nvr"]["type"]
                 
                 cameras = json_response["cameras"]
 
