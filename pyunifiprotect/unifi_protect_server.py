@@ -340,11 +340,13 @@ class UpvServer:
                             start_time = datetime.datetime.fromtimestamp(
                                 int(event["start"]) / 1000
                             ).strftime("%Y-%m-%d %H:%M:%S")
+                            event_length = 0
                         else:
                             start_time = None
                         if event["type"] == "motion":
                             if event["end"]:
                                 event_on = False
+                                event_length = (float(event["end"]) / 1000) - (float(event["start"]) / 1000)
                             else:
                                 if int(event["score"]) >= self._minimum_score:
                                     event_on = True
@@ -375,6 +377,7 @@ class UpvServer:
                         self.device_data[camera_id]["event_on"] = event_on
                         self.device_data[camera_id]["event_ring_on"] = event_ring_on
                         self.device_data[camera_id]["event_type"] = event["type"]
+                        self.device_data[camera_id]["event_length"] = event_length
                         if (
                             event["thumbnail"] is not None
                         ):  # Only update if there is a new Motion Event
