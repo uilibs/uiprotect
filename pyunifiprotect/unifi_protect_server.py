@@ -292,6 +292,7 @@ class UpvServer:
                                 "event_on": False,
                                 "event_ring_on": False,
                                 "event_type": None,
+                                "event_length": 0,
                             }
                         }
                         self.device_data.update(item)
