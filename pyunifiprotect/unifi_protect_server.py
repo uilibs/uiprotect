@@ -8,6 +8,18 @@ import jwt
 import aiohttp
 from aiohttp import client_exceptions
 
+CAMERA_UPDATE_INTERVAL_SECONDS = 60
+
+EMPTY_EVENT = {
+    "event_start": None,
+    "event_score": 0,
+    "event_thumbnail": None,
+    "event_on": False,
+    "event_ring_on": False,
+    "event_type": None,
+    "event_length": 0,
+}
+
 
 class Invalid(Exception):
     """Invalid return from Authorization Request."""
@@ -53,6 +65,7 @@ class UpvServer:
         self.is_unifi_os = None
         self.api_path = "api"
         self._is_authenticated = False
+        self._last_camera_update_time = 0
         self.access_key = None
         self.device_data = {}
 
@@ -67,7 +80,18 @@ class UpvServer:
     async def update(self) -> dict:
         """Updates the status of devices."""
 
-        await self._get_camera_list()
+        current_time = time.time()
+
+        if (
+            current_time - CAMERA_UPDATE_INTERVAL_SECONDS
+        ) > self._last_camera_update_time:
+            _LOGGER.debug("Doing camera update")
+            await self._get_camera_list()
+            self._last_camera_update_time = current_time
+        else:
+            _LOGGER.debug("Skipping camera update")
+
+        self._reset_camera_events()
         await self._get_events(10)
         return self.devices
 
@@ -211,7 +235,7 @@ class UpvServer:
             if response.status == 200:
                 json_response = await response.json()
                 server_id = json_response["nvr"]["mac"]
-                
+
                 cameras = json_response["cameras"]
 
                 for camera in cameras:
@@ -286,13 +310,6 @@ class UpvServer:
                                 "last_motion": lastmotion,
                                 "last_ring": lastring,
                                 "online": online,
-                                "event_start": None,
-                                "event_score": 0,
-                                "event_thumbnail": None,
-                                "event_on": False,
-                                "event_ring_on": False,
-                                "event_type": None,
-                                "event_length": 0,
                             }
                         }
                         self.device_data.update(item)
@@ -308,6 +325,11 @@ class UpvServer:
                 raise NvrError(
                     f"Fetching Camera List failed: {response.status} - Reason: {response.reason}"
                 )
+
+    def _reset_camera_events(self) -> None:
+        """Reset camera events between camera updates."""
+        for camera_id in self.device_data:
+            self.device_data[camera_id].update(EMPTY_EVENT)
 
     async def _get_events(self, lookback: int = 86400) -> None:
         """Load the Event Log and loop through items to find motion events."""
@@ -336,6 +358,8 @@ class UpvServer:
             if response.status == 200:
                 events = await response.json()
                 for event in events:
+                    camera_id = event["camera"]
+
                     if event["type"] == "motion" or event["type"] == "ring":
                         if event["start"]:
                             start_time = datetime.datetime.fromtimestamp(
@@ -347,13 +371,17 @@ class UpvServer:
                         if event["type"] == "motion":
                             if event["end"]:
                                 event_on = False
-                                event_length = (float(event["end"]) / 1000) - (float(event["start"]) / 1000)
+                                event_length = (float(event["end"]) / 1000) - (
+                                    float(event["start"]) / 1000
+                                )
                             else:
                                 if int(event["score"]) >= self._minimum_score:
                                     event_on = True
                                 else:
                                     event_on = False
+                            self.device_data[camera_id]["last_motion"] = start_time
                         else:
+                            self.device_data[camera_id]["last_ring"] = start_time
                             if event["end"]:
                                 if (
                                     event["start"] >= event_ring_check_converted
@@ -372,7 +400,6 @@ class UpvServer:
                                 _LOGGER.debug("EVENT: DOORBELL IS RINGING")
                                 event_ring_on = True
 
-                        camera_id = event["camera"]
                         self.device_data[camera_id]["event_start"] = start_time
                         self.device_data[camera_id]["event_score"] = event["score"]
                         self.device_data[camera_id]["event_on"] = event_on
