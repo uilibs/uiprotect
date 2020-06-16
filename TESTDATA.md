@@ -3,7 +3,7 @@
 Do the following:
 
 1. Ensure Python 3.7 or 3.8 is installed
-2. Download [this](https://github.com/briis/pyunifiprotect/dumpeventdata.py) file to your computer
+2. Download [this](https://github.com/briis/pyunifiprotect/blob/master/dumpeventdata.py) file to your computer
 3. Edit the file you just downloaded and insert your Unifi Protect Username, Password, IP Address and Port in the relevant places.
 4. Install pyunifiprotect by issuing this command: `pip3 install pyunifiprotect`
 5. Make sure that you are visible to one of your Cameras, and that motion detection is enabled on that camera
