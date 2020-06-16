@@ -22,7 +22,7 @@ async def event_data():
         UFP_PASSWORD,
     )
 
-    for i in range(10):
+    for i in range(15):
         data = await unifiprotect.get_raw_events(10)
         print(json.dumps(data, indent=1))
         time.sleep(2)
