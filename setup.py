@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name = 'pyunifiprotect',
   packages = ['pyunifiprotect'],
-  version = '0.16',
+  version = '0.17',
   license='MIT',
   description = 'Python Wrapper for Unifi Protect API', 
   author = 'Bjarne Riis',
@@ -11,6 +11,7 @@ setup(
   keywords = ['UnifiProtect', 'Surveilance', "Unifi", "Home Assistant", 'Python'],
   install_requires=[
           'aiohttp',
+          'pyjwt',
       ],
   classifiers=[
     'Development Status :: 4 - Beta',      # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package

@@ -417,6 +417,38 @@ class UpvServer:
                     f"Fetching Eventlog failed: {response.status} - Reason: {response.reason}"
                 )
 
+    async def get_raw_events(self, lookback: int = 86400) -> None:
+        """Load the Event Log and return the Raw Data - Used for debugging only."""
+
+        await self.ensureAuthenticated()
+
+        event_start = datetime.datetime.now() - datetime.timedelta(seconds=lookback)
+        event_end = datetime.datetime.now() + datetime.timedelta(seconds=10)
+        start_time = int(time.mktime(event_start.timetuple())) * 1000
+        end_time = int(time.mktime(event_end.timetuple())) * 1000
+        event_on = False
+        event_ring_on = False
+        event_ring_check = datetime.datetime.now() - datetime.timedelta(seconds=3)
+        event_ring_check_converted = (
+            int(time.mktime(event_ring_check.timetuple())) * 1000
+        )
+
+        event_uri = f"{self._base_url}/{self.api_path}/events"
+        params = {
+            "end": str(end_time),
+            "start": str(start_time),
+        }
+        async with self.req.get(
+            event_uri, params=params, headers=self.headers, verify_ssl=self._verify_ssl,
+        ) as response:
+            if response.status == 200:
+                events = await response.json()
+                return events
+            else:
+                raise NvrError(
+                    f"Fetching Eventlog failed: {response.status} - Reason: {response.reason}"
+                )
+
     async def get_thumbnail(self, camera_id: str, width: int = 640) -> bytes:
         """Returns the last recorded Thumbnail, based on Camera ID."""
 
