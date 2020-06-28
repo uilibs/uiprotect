@@ -301,6 +301,7 @@ class UpvServer:
                                 "type": device_type,
                                 "model": str(camera["type"]),
                                 "mac": str(camera["mac"]),
+                                "ip_address": str(camera["host"]),
                                 "firmware_version": firmware_version,
                                 "server_id": server_id,
                                 "recording_mode": recording_mode,
@@ -511,6 +512,29 @@ class UpvServer:
                     f"Error Code: {response.status} - Error Status: {response.reason}"
                 )
                 return None
+
+    async def get_snapshot_image_direct(self, camera_id: str) -> bytes:
+        """ Returns a Snapshot image of a recording event. 
+            This function will only work if Anonymous Snapshots
+            are enabled on the Camera.
+        """
+        ip_address = self.device_data[camera_id]["ip_address"]
+        model_type = self.device_data[camera_id]["model"]
+        if model_type.find("G4") != -1:
+            image_width = "1280"
+            image_height = "720"
+        else:
+            image_width = "1024"
+            image_height = "576"
+
+        img_uri = f"http://{ip_address}/snap.jpeg"
+        async with self.req.get(img_uri) as response:
+            if response.status == 200:
+                return await response.read()
+            else:
+                raise NvrError(
+                    f"Direct Snapshot failed: {response.status} - Reason: {response.reason}"
+                )
 
     async def set_camera_recording(self, camera_id: str, mode: str) -> bool:
         """ Sets the camera recoding mode to what is supplied with 'mode'.

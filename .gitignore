@@ -129,3 +129,5 @@ dmypy.json
 .pyre/
 .DS_Store
 test.py
+camerasnapshot.py
+dumpeventdata.py
