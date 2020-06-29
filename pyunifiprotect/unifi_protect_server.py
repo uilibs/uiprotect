@@ -489,11 +489,11 @@ class UpvServer:
         time_since = int(time.mktime(datetime.datetime.now().timetuple())) * 1000
         model_type = self.device_data[camera_id]["model"]
         if model_type.find("G4") != -1:
-            image_width = "1280"
-            image_height = "720"
+            image_width = "3840"
+            image_height = "2160"
         else:
-            image_width = "1024"
-            image_height = "576"
+            image_width = "1920"
+            image_height = "1080"
 
         img_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}/snapshot"
         params = {
@@ -519,13 +519,6 @@ class UpvServer:
             are enabled on the Camera.
         """
         ip_address = self.device_data[camera_id]["ip_address"]
-        model_type = self.device_data[camera_id]["model"]
-        if model_type.find("G4") != -1:
-            image_width = "1280"
-            image_height = "720"
-        else:
-            image_width = "1024"
-            image_height = "576"
 
         img_uri = f"http://{ip_address}/snap.jpeg"
         async with self.req.get(img_uri) as response:
