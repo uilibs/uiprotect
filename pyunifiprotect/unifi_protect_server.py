@@ -287,12 +287,7 @@ class UpvServer:
                         channels = camera["channels"]
                         for channel in channels:
                             if channel["isRtspEnabled"]:
-                                rtsp = (
-                                    "rtsp://"
-                                    + str(camera["connectionHost"])
-                                    + ":7447/"
-                                    + str(channel["rtspAlias"])
-                                )
+                                rtsp = f"rtsp://{camera['connectionHost']}:7447/{channel['rtspAlias']}"
                                 break
 
                         item = {
@@ -500,6 +495,7 @@ class UpvServer:
             "accessKey": access_key,
             "h": image_height,
             "ts": str(time_since),
+            "force": "true",
             "w": image_width,
         }
         async with self.req.get(
