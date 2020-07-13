@@ -14,6 +14,7 @@ EMPTY_EVENT = {
     "event_start": None,
     "event_score": 0,
     "event_thumbnail": None,
+    "event_heatmap": None,
     "event_on": False,
     "event_ring_on": False,
     "event_type": None,
@@ -408,6 +409,12 @@ class UpvServer:
                             self.device_data[camera_id]["event_thumbnail"] = event[
                                 "thumbnail"
                             ]
+                        if (
+                            event["heatmap"] is not None
+                        ):  # Only update if there is a new Motion Event
+                            self.device_data[camera_id]["event_heatmap"] = event[
+                                "heatmap"
+                            ]
             else:
                 raise NvrError(
                     f"Fetching Eventlog failed: {response.status} - Reason: {response.reason}"
@@ -472,6 +479,36 @@ class UpvServer:
                 else:
                     raise NvrError(
                         f"Thumbnail Request failed: {response.status} - Reason: {response.reason}"
+                    )
+        return None
+
+    async def get_heatmap(self, camera_id: str, width: int = 640) -> bytes:
+        """Returns the last recorded Heatmap, based on Camera ID."""
+
+        await self.ensureAuthenticated()
+        await self._get_events()
+
+        heatmap_id = self.device_data[camera_id]["event_heatmap"]
+
+        if heatmap_id is not None:
+            height = float(width) / 16 * 9
+            img_uri = f"{self._base_url}/{self.api_path}/heatmaps/{heatmap_id}"
+            params = {
+                "accessKey": await self._get_api_access_key(),
+                "h": str(height),
+                "w": str(width),
+            }
+            async with self.req.get(
+                img_uri,
+                params=params,
+                headers=self.headers,
+                verify_ssl=self._verify_ssl,
+            ) as response:
+                if response.status == 200:
+                    return await response.read()
+                else:
+                    raise NvrError(
+                        f"Heatmap Request failed: {response.status} - Reason: {response.reason}"
                     )
         return None
 
