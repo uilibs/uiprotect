@@ -482,7 +482,7 @@ class UpvServer:
                     )
         return None
 
-    async def get_heatmap(self, camera_id: str, width: int = 640) -> bytes:
+    async def get_heatmap(self, camera_id: str) -> bytes:
         """Returns the last recorded Heatmap, based on Camera ID."""
 
         await self.ensureAuthenticated()
@@ -491,12 +491,9 @@ class UpvServer:
         heatmap_id = self.device_data[camera_id]["event_heatmap"]
 
         if heatmap_id is not None:
-            height = float(width) / 16 * 9
             img_uri = f"{self._base_url}/{self.api_path}/heatmaps/{heatmap_id}"
             params = {
                 "accessKey": await self._get_api_access_key(),
-                "h": str(height),
-                "w": str(width),
             }
             async with self.req.get(
                 img_uri,
