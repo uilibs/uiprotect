@@ -98,7 +98,7 @@ class UpvServer:
         self._reset_camera_events()
         await self._get_events(10)
 
-        if self.ws is None:
+        if self.ws is None and self.is_unifi_os == True:
             if self.ws_task is not None:
                 try:
                     self.ws_task.cancel()
@@ -663,12 +663,6 @@ class UpvServer:
             raise NvrError(f"Error requesting data from {self._host}: {err}") from None
 
     async def _setup_websocket(self):
-            if self.is_unifi_os != True:
-                return
-
-            if self.ws is not None:
-                return
-
             await self.ensureAuthenticated()
             ip = self._base_url.split('://')
             url = f"wss://{ip[1]}/api/ws/system"
