@@ -5,6 +5,7 @@ import logging
 import time
 import jwt
 
+import asyncio
 import aiohttp
 from aiohttp import client_exceptions
 
@@ -72,6 +73,8 @@ class UpvServer:
 
         self.req = session
         self.headers = None
+        self.ws = None
+        self.ws_task = None
 
     @property
     def devices(self):
@@ -94,6 +97,16 @@ class UpvServer:
 
         self._reset_camera_events()
         await self._get_events(10)
+
+        if self.ws is None and self.is_unifi_os == True:
+            if self.ws_task is not None:
+                try:
+                    self.ws_task.cancel()
+                    self.ws = None
+                except Exception as e:
+                    print("Could not cancel ws_task")
+            self.ws_task = asyncio.ensure_future(self._setup_websocket())
+
         return self.devices
 
     async def unique_id(self):
@@ -138,7 +151,10 @@ class UpvServer:
 
         response = await self.request("post", url=url, json=auth)
         if self.is_unifi_os is True:
-            self.headers = {"x-csrf-token": response.headers.get("x-csrf-token")}
+            self.headers = {
+                "x-csrf-token": response.headers.get("x-csrf-token"),
+                "cookie": response.headers.get("set-cookie"),
+            }
         else:
             self.headers = {
                 "Authorization": f"Bearer {response.headers.get('Authorization')}"
@@ -645,3 +661,41 @@ class UpvServer:
 
         except client_exceptions.ClientError as err:
             raise NvrError(f"Error requesting data from {self._host}: {err}") from None
+
+    async def _setup_websocket(self):
+            await self.ensureAuthenticated()
+            ip = self._base_url.split('://')
+            url = f"wss://{ip[1]}/api/ws/system"
+            session = aiohttp.ClientSession()
+            _LOGGER.debug("WS connecting to: %s", url)
+
+            async with session.ws_connect(url, verify_ssl=self._verify_ssl, headers=self.headers) as ws:
+                self.ws = ws
+                async for msg in ws:
+                    if msg.type == aiohttp.WSMsgType.TEXT:
+                        if msg.data == 'close cmd':
+                            await ws.close()
+                            self.ws = None
+                            break
+                        else:
+                            await self._process_ws_events(msg)
+                    elif msg.type == aiohttp.WSMsgType.ERROR:
+                        break
+
+    async def _process_ws_events(self, msg):
+        json = msg.json()
+
+        if json["type"] != "DEVICE_STATE_CHANGED" or "apps" not in json:
+            return
+
+        for app in json['apps']['controllers']:
+            if app['name'] != 'protect':
+                continue
+            if "info" not in app:
+                continue
+            info = app["info"]
+            for camera_id in self.device_data:
+                camera = self.device_data[camera_id]
+                if camera["ip_address"] == info.get("lastMotionCameraAddress"):
+                    self.device_data[camera_id]["last_motion"] = info.get("lastMotion")
+                    _LOGGER.debug("Last Motion Set: %s at %s",  info.get("lastMotionCamera"), info.get("lastMotion"))
