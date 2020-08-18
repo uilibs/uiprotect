@@ -373,7 +373,7 @@ class UpvServer:
                 for event in events:
                     camera_id = event["camera"]
 
-                    if event["type"] == "motion" or event["type"] == "ring":
+                    if event["type"] == "motion" or event["type"] == "ring" or event["type"] == "smartDetectZone":
                         if event["start"]:
                             start_time = datetime.datetime.fromtimestamp(
                                 int(event["start"]) / 1000
@@ -381,7 +381,7 @@ class UpvServer:
                             event_length = 0
                         else:
                             start_time = None
-                        if event["type"] == "motion":
+                        if event["type"] == "motion" or event["type"] == "smartDetectZone":
                             if event["end"]:
                                 event_on = False
                                 event_length = (float(event["end"]) / 1000) - (
