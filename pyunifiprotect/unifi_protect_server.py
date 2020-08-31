@@ -265,6 +265,8 @@ class UpvServer:
                     recording_mode = str(camera["recordingSettings"]["mode"])
                     # Get Infrared Mode
                     ir_mode = str(camera["ispSettings"]["irLedMode"])
+                    # Get Status Light Setting
+                    status_light = str(camera["ledSettings"]["isEnabled"])
                     # Get the last time motion occured
                     lastmotion = (
                         None
@@ -318,6 +320,7 @@ class UpvServer:
                                 "server_id": server_id,
                                 "recording_mode": recording_mode,
                                 "ir_mode": ir_mode,
+                                "status_light": status_light,
                                 "rtsp": rtsp,
                                 "up_since": upsince,
                                 "last_motion": lastmotion,
@@ -334,6 +337,7 @@ class UpvServer:
                         self.device_data[camera_id]["up_since"] = upsince
                         self.device_data[camera_id]["recording_mode"] = recording_mode
                         self.device_data[camera_id]["ir_mode"] = ir_mode
+                        self.device_data[camera_id]["status_light"] = status_light
             else:
                 raise NvrError(
                     f"Fetching Camera List failed: {response.status} - Reason: {response.reason}"
@@ -466,6 +470,24 @@ class UpvServer:
             else:
                 raise NvrError(
                     f"Fetching Eventlog failed: {response.status} - Reason: {response.reason}"
+                )
+
+
+    async def get_raw_camera_info(self) -> None:
+        """Return the RAW JSON data from this NVR."""
+
+        await self.ensureAuthenticated()
+
+        bootstrap_uri = f"{self._base_url}/{self.api_path}/bootstrap"
+        async with self.req.get(
+            bootstrap_uri, headers=self.headers, verify_ssl=self._verify_ssl,
+        ) as response:
+            if response.status == 200:
+                json_response = await response.json()
+                return json_response
+            else:
+                raise NvrError(
+                    f"Fetching Unique ID failed: {response.status} - Reason: {response.reason}"
                 )
 
     async def get_thumbnail(self, camera_id: str, width: int = 640) -> bytes:
@@ -630,6 +652,28 @@ class UpvServer:
             else:
                 raise NvrError(
                     "Set IR Mode failed: %s - Reason: %s"
+                    % (response.status, response.reason)
+                )
+
+    async def set_camera_status_light(self, camera_id: str, mode: bool) -> bool:
+        """ Sets the camera status light settings to what is supplied with 'mode'.
+            Valid inputs for mode: False and True
+        """
+
+        await self.ensureAuthenticated()
+
+        cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
+        data = {"ledSettings": {"isEnabled": mode, "blinkRate": 0}}
+
+        async with self.req.patch(
+            cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
+        ) as response:
+            if response.status == 200:
+                self.device_data[camera_id]["status_light"] = mode
+                return True
+            else:
+                raise NvrError(
+                    "Change Status Light failed: %s - Reason: %s"
                     % (response.status, response.reason)
                 )
 

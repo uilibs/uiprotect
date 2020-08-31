@@ -135,3 +135,6 @@ eventdata.json
 dumpeventdata.py
 heatmap_snapshot.py
 smartdetect.json
+dumpcameradata.py
+cameras.json
+setstatuslight.py
