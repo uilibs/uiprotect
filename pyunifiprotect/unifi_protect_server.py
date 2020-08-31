@@ -98,14 +98,14 @@ class UpvServer:
         self._reset_camera_events()
         await self._get_events(10)
 
-        if self.ws is None and self.is_unifi_os == True:
-            if self.ws_task is not None:
-                try:
-                    self.ws_task.cancel()
-                    self.ws = None
-                except Exception as e:
-                    print("Could not cancel ws_task")
-            self.ws_task = asyncio.ensure_future(self._setup_websocket())
+        # if self.ws is None and self.is_unifi_os == True:
+        #     if self.ws_task is not None:
+        #         try:
+        #             self.ws_task.cancel()
+        #             self.ws = None
+        #         except Exception as e:
+        #             print("Could not cancel ws_task")
+        #     self.ws_task = asyncio.ensure_future(self._setup_websocket())
 
         return self.devices
 
@@ -669,7 +669,7 @@ class UpvServer:
             cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
-                self.device_data[camera_id]["status_light"] = mode
+                self.device_data[camera_id]["status_light"] = str(mode)
                 return True
             else:
                 raise NvrError(
