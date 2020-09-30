@@ -138,3 +138,4 @@ smartdetect.json
 dumpcameradata.py
 cameras.json
 setstatuslight.py
+websocket.py
