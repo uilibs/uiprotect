@@ -267,6 +267,8 @@ class UpvServer:
                     ir_mode = str(camera["ispSettings"]["irLedMode"])
                     # Get Status Light Setting
                     status_light = str(camera["ledSettings"]["isEnabled"])
+                    # Get HDR Mode
+                    hdr_mode = str(camera["hdrMode"])
                     # Get the last time motion occured
                     lastmotion = (
                         None
@@ -321,6 +323,7 @@ class UpvServer:
                                 "recording_mode": recording_mode,
                                 "ir_mode": ir_mode,
                                 "status_light": status_light,
+                                "hdr_mode": hdr_mode,
                                 "rtsp": rtsp,
                                 "up_since": upsince,
                                 "last_motion": lastmotion,
@@ -338,6 +341,7 @@ class UpvServer:
                         self.device_data[camera_id]["recording_mode"] = recording_mode
                         self.device_data[camera_id]["ir_mode"] = ir_mode
                         self.device_data[camera_id]["status_light"] = status_light
+                        self.device_data[camera_id]["hdr_mode"] = hdr_mode
             else:
                 raise NvrError(
                     f"Fetching Camera List failed: {response.status} - Reason: {response.reason}"
@@ -359,6 +363,7 @@ class UpvServer:
         end_time = int(time.mktime(event_end.timetuple())) * 1000
         event_on = False
         event_ring_on = False
+        event_length = 0
         event_ring_check = datetime.datetime.now() - datetime.timedelta(seconds=3)
         event_ring_check_converted = (
             int(time.mktime(event_ring_check.timetuple())) * 1000
@@ -674,6 +679,28 @@ class UpvServer:
             else:
                 raise NvrError(
                     "Change Status Light failed: %s - Reason: %s"
+                    % (response.status, response.reason)
+                )
+
+    async def set_camera_hdr_mode(self, camera_id: str, mode: bool) -> bool:
+        """ Sets the camera HDR recording to what is supplied with 'mode'.
+            Valid inputs for mode: False and True
+        """
+
+        await self.ensureAuthenticated()
+
+        cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
+        data = {"hdrMode": mode}
+
+        async with self.req.patch(
+            cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
+        ) as response:
+            if response.status == 200:
+                self.device_data[camera_id]["hdr_mode"] = str(mode)
+                return True
+            else:
+                raise NvrError(
+                    "Change HDR mode failed: %s - Reason: %s"
                     % (response.status, response.reason)
                 )
 
