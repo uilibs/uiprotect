@@ -755,6 +755,28 @@ class UpvServer:
                     % (response.status, response.reason)
                 )
 
+    async def set_doorbell_standard_text(self, custom_text: str) -> bool:
+        """Sets a Standard Text string for the Doorbell LCD'. DOES NOT WORK"""
+
+        await self.ensureAuthenticated()
+
+        message_type = "LEAVE_PACKAGE_AT_DOOR"
+
+        # resetAt is Unix timestam in the future
+        cam_uri = f"{self._base_url}/{self.api_path}/nvr"
+        data = {"doorbellSettings": { "allMessages": {"type": message_type, "text": custom_text}}}
+
+        async with self.req.patch(
+            cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
+        ) as response:
+            if response.status == 200:
+                return True
+            else:
+                raise NvrError(
+                    "Setting Doorbell Custom Text failed: %s - Reason: %s"
+                    % (response.status, response.reason)
+                )
+
     async def request(self, method, url, json=None, **kwargs):
         """Make a request to the API."""
 
