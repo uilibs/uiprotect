@@ -740,6 +740,7 @@ class UpvServer:
 
         message_type = "CUSTOM_MESSAGE"
 
+        # resetAt is Unix timestam in the future
         cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
         data = {"lcdMessage": {"type": message_type, "text": custom_text, "resetAt": None}}
 
