@@ -5,9 +5,10 @@ import logging
 import time
 import jwt
 
-import asyncio
+# import asyncio
 import aiohttp
 from aiohttp import client_exceptions
+from datetime import timezone
 
 CAMERA_UPDATE_INTERVAL_SECONDS = 60
 
@@ -733,16 +734,22 @@ class UpvServer:
                     % (response.status, response.reason)
                 )
 
-    async def set_doorbell_custom_text(self, camera_id: str, custom_text: str) -> bool:
+    async def set_doorbell_custom_text(self, camera_id: str, custom_text: str, duration = None) -> bool:
         """Sets a Custom Text string for the Doorbell LCD'."""
 
         await self.ensureAuthenticated()
 
         message_type = "CUSTOM_MESSAGE"
 
+        # Calculate ResetAt time
+        if duration is not None:
+            now = datetime.datetime.now()
+            now_plus_duration = now + datetime.timedelta(minutes = int(duration))
+            duration = int(now_plus_duration.timestamp() * 1000)
+
         # resetAt is Unix timestam in the future
         cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
-        data = {"lcdMessage": {"type": message_type, "text": custom_text, "resetAt": None}}
+        data = {"lcdMessage": {"type": message_type, "text": custom_text, "resetAt": duration}}
 
         async with self.req.patch(
             cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
@@ -756,7 +763,7 @@ class UpvServer:
                 )
 
     async def set_doorbell_standard_text(self, custom_text: str) -> bool:
-        """Sets a Standard Text string for the Doorbell LCD'. DOES NOT WORK"""
+        """Sets a Standard Text string for the Doorbell LCD. *** DOES NOT WORK ***"""
 
         await self.ensureAuthenticated()
 
