@@ -268,10 +268,6 @@ class UpvServer:
                     ir_mode = str(camera["ispSettings"]["irLedMode"])
                     # Get Status Light Setting
                     status_light = str(camera["ledSettings"]["isEnabled"])
-                    # Get HDR Mode
-                    hdr_mode = str(camera["hdrMode"])
-                    # Get Video Mode
-                    video_mode = str(camera["videoMode"])
                     
                     # Get the last time motion occured
                     lastmotion = (
@@ -327,8 +323,6 @@ class UpvServer:
                                 "recording_mode": recording_mode,
                                 "ir_mode": ir_mode,
                                 "status_light": status_light,
-                                "hdr_mode": hdr_mode,
-                                "video_mode": video_mode,
                                 "rtsp": rtsp,
                                 "up_since": upsince,
                                 "last_motion": lastmotion,
@@ -346,8 +340,6 @@ class UpvServer:
                         self.device_data[camera_id]["recording_mode"] = recording_mode
                         self.device_data[camera_id]["ir_mode"] = ir_mode
                         self.device_data[camera_id]["status_light"] = status_light
-                        self.device_data[camera_id]["hdr_mode"] = hdr_mode
-                        self.device_data[camera_id]["video_mode"] = video_mode
             else:
                 raise NvrError(
                     f"Fetching Camera List failed: {response.status} - Reason: {response.reason}"
@@ -702,7 +694,6 @@ class UpvServer:
             cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
-                self.device_data[camera_id]["hdr_mode"] = str(mode)
                 return True
             else:
                 raise NvrError(
@@ -726,7 +717,6 @@ class UpvServer:
             cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
-                self.device_data[camera_id]["video_mode"] = highfps
                 return True
             else:
                 raise NvrError(
