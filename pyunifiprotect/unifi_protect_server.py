@@ -21,6 +21,7 @@ EMPTY_EVENT = {
     "event_ring_on": False,
     "event_type": None,
     "event_length": 0,
+    "event_object": [],
 }
 
 
@@ -366,7 +367,7 @@ class UpvServer:
         event_ring_check_converted = (
             int(time.mktime(event_ring_check.timetuple())) * 1000
         )
-
+        event_objects = None
         event_uri = f"{self._base_url}/{self.api_path}/events"
         params = {
             "end": str(end_time),
@@ -394,9 +395,13 @@ class UpvServer:
                                 event_length = (float(event["end"]) / 1000) - (
                                     float(event["start"]) / 1000
                                 )
+                                if event["type"] == "smartDetectZone":
+                                    event_objects = event["smartDetectTypes"]
                             else:
                                 if int(event["score"]) >= self._minimum_score:
                                     event_on = True
+                                    if event["type"] == "smartDetectZone":
+                                        event_objects = event["smartDetectTypes"]
                                 else:
                                     event_on = False
                             self.device_data[camera_id]["last_motion"] = start_time
@@ -426,6 +431,8 @@ class UpvServer:
                         self.device_data[camera_id]["event_ring_on"] = event_ring_on
                         self.device_data[camera_id]["event_type"] = event["type"]
                         self.device_data[camera_id]["event_length"] = event_length
+                        if (event_objects is not None):
+                            self.device_data[camera_id]["event_object"] = event_objects
                         if (
                             event["thumbnail"] is not None
                         ):  # Only update if there is a new Motion Event
