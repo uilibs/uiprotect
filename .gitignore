@@ -143,3 +143,4 @@ test_function.py
 test_event.py
 events.json
 event_obj.json
+pyunifiprotect/unifi_protect_server_ws.py
