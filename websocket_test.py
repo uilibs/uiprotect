@@ -28,7 +28,7 @@ async def event_data():
         UFP_PASSWORD,
     )
 
-    await unifiprotect.check_unifi_os()
+    await unifiprotect.ensureAuthenticated()
     await unifiprotect.update()
 
     unsub = unifiprotect.subscribe_websocket(subscriber)
@@ -38,6 +38,7 @@ async def event_data():
 
     # Close the Session
     await session.close()
+    await unifiprotect.async_disconnect_ws()
     unsub()
 
 

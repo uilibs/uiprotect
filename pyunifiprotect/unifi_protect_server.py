@@ -94,6 +94,7 @@ class UpvServer:
 
         self.req = session
         self.headers = None
+        self.ws_session = None
         self.ws = None
         self.ws_task = None
         self._ws_subscriptions = []
@@ -103,7 +104,7 @@ class UpvServer:
         """ Returns a JSON formatted list of Devices. """
         return self.device_data
 
-    async def update(self) -> dict:
+    async def update(self, force_camera_update=False) -> dict:
         """Updates the status of devices."""
 
         current_time = time.time()
@@ -118,8 +119,10 @@ class UpvServer:
 
         camera_update = False
         if (
-            current_time - CAMERA_UPDATE_INTERVAL_SECONDS
-        ) > self._last_camera_update_time:
+            force_camera_update
+            or (current_time - CAMERA_UPDATE_INTERVAL_SECONDS)
+            > self._last_camera_update_time
+        ):
             _LOGGER.debug("Doing camera update")
             camera_update = True
             await self._get_camera_list()
@@ -152,6 +155,14 @@ class UpvServer:
             except Exception as e:
                 _LOGGER.debug("Could not cancel ws_task")
         self.ws_task = asyncio.ensure_future(self._setup_websocket())
+
+    async def async_disconnect_ws(self):
+        """Disconnect the websocket."""
+        if self.ws is None:
+            return
+
+        await self.ws.close()
+        await self.ws_session.close()
 
     async def unique_id(self):
         """Returns a Unique ID for this NVR."""
@@ -891,10 +902,11 @@ class UpvServer:
         url = f"wss://{ip[1]}/{self.ws_path}/updates"
         if self.last_update_id:
             url += f"?lastUpdateId={self.last_update_id}"
-        session = aiohttp.ClientSession()
+        if not self.ws_session:
+            self.ws_session = aiohttp.ClientSession()
         _LOGGER.debug("WS connecting to: %s", url)
 
-        self.ws = await session.ws_connect(
+        self.ws = await self.ws_session.ws_connect(
             url, verify_ssl=self._verify_ssl, headers=self.headers
         )
         try:
