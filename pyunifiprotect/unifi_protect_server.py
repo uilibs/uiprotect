@@ -309,7 +309,7 @@ class UpvServer:
                         channels = camera["channels"]
                         for channel in channels:
                             if channel["isRtspEnabled"]:
-                                rtsp = f"rtsp://{camera['connectionHost']}:7447/{channel['rtspAlias']}"
+                                rtsp = f"rtsp://{self._host}:7447/{channel['rtspAlias']}"
                                 break
 
                         item = {
