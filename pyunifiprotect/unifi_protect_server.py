@@ -814,6 +814,9 @@ class UpvServer:
 
         message_type = "CUSTOM_MESSAGE"
 
+        # Truncate text to max 30 characters, as this is what is supported
+        message_text = (custom_text[:30]) if len(custom_text) > 30 else custom_text
+
         # Calculate ResetAt time
         if duration is not None:
             now = datetime.datetime.now()
@@ -825,7 +828,7 @@ class UpvServer:
         data = {
             "lcdMessage": {
                 "type": message_type,
-                "text": custom_text,
+                "text": message_text,
                 "resetAt": duration,
             }
         }
