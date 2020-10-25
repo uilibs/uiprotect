@@ -297,6 +297,7 @@ class UpvServer:
                     "server_version": json_response["nvr"]["version"],
                     "server_id": json_response["nvr"]["mac"],
                     "server_model": json_response["nvr"]["type"],
+                    "unifios": self.is_unifi_os,
                 }
             else:
                 raise NvrError(
