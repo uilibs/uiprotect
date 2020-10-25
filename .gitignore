@@ -145,3 +145,4 @@ events.json
 event_obj.json
 pyunifiprotect/unifi_protect_server_ws.py
 websocket_test.py
+test_ws.py
