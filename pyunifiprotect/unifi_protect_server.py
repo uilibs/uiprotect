@@ -372,11 +372,7 @@ class UpvServer:
                     if featureflags.get("videoModes") is None:
                         has_highfps = False
                     else:
-                        has_highfps = (
-                            True
-                            if "highFps" in featureflags.get("videoModes")
-                            else False
-                        )
+                        has_highfps = "highFps" in featureflags.get("videoModes")
                     video_mode = (
                         "default"
                         if camera.get("videoMode") is None
