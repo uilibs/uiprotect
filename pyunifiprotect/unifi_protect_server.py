@@ -369,7 +369,10 @@ class UpvServer:
 
                     # Get High FPS Video Mode
                     featureflags = camera.get("featureFlags")
-                    has_highfps = False if featureflags.get("videoModes") is None else True
+                    if featureflags.get("videoModes") is None:
+                        has_highfps = False
+                    else:
+                        has_highfps = True if "highFps" in featureflags.get("videoModes") else False
                     video_mode = "default" if camera.get("videoMode") is None else camera.get("videoMode")
 
                     # Get HDR Mode
