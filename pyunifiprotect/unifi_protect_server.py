@@ -367,10 +367,13 @@ class UpvServer:
                     # Get Firmware Version
                     firmware_version = str(camera["firmwareVersion"])
 
-                    # Get Video Mode
+                    # Get High FPS Video Mode
+                    featureflags = camera.get("featureFlags")
+                    has_highfps = False if featureflags.get("videoModes") is None else True
                     video_mode = "default" if camera.get("videoMode") is None else camera.get("videoMode")
 
                     # Get HDR Mode
+                    has_hdr = featureflags.get("hasHdr")
                     hdr_mode = False if camera.get("hdrMode") is None else camera.get("hdrMode")
 
                     if camera["id"] not in self.device_data:
@@ -401,6 +404,8 @@ class UpvServer:
                                 "last_motion": lastmotion,
                                 "last_ring": lastring,
                                 "online": online,
+                                "has_highfps": has_highfps,
+                                "has_hdr": has_hdr,
                                 "video_mode": video_mode,
                                 "hdr_mode": hdr_mode,
                             }
