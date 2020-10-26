@@ -2,17 +2,19 @@
 
 import asyncio
 import datetime
-import enum
-import json
+import json as pjson
 import logging
-import struct
 import time
-import zlib
-from datetime import timezone
 
 import aiohttp
 import jwt
 from aiohttp import client_exceptions
+from .unifi_data import (
+    process_camera,
+    process_event,
+    decode_ws_frame,
+    ProtectWSPayloadFormat,
+)
 
 CAMERA_UPDATE_INTERVAL_SECONDS = 60
 WEBSOCKET_CHECK_INTERVAL_SECONDS = 120
@@ -29,40 +31,23 @@ EMPTY_EVENT = {
     "event_object": [],
 }
 
-WS_HEADER_SIZE = 8
-
-
-@enum.unique
-class ProtectWSPayloadFormat(enum.Enum):
-    """Websocket Payload formats."""
-
-    JSON = 1
-    UTF8String = 2
-    NodeBuffer = 3
-
 
 class Invalid(Exception):
     """Invalid return from Authorization Request."""
-
-    pass
 
 
 class NotAuthorized(Exception):
     """Wrong username and/or Password."""
 
-    pass
-
 
 class NvrError(Exception):
     """Other error."""
-
-    pass
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class UpvServer:
+class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-attributes
     """Updates device States and Attributes."""
 
     def __init__(
@@ -95,7 +80,7 @@ class UpvServer:
         self.req = session
         self.headers = None
         self.ws_session = None
-        self.ws = None
+        self.ws_connection = None
         self.ws_task = None
         self._ws_subscriptions = []
 
@@ -132,7 +117,7 @@ class UpvServer:
 
         # If the websocket is connected
         # we do not need to get events
-        if self.ws and not camera_update:
+        if self.ws_connection and not camera_update:
             _LOGGER.debug("Skipping update since websocket is active")
             return {}
 
@@ -145,23 +130,23 @@ class UpvServer:
 
     async def async_connect_ws(self):
         """Connect the websocket."""
-        if self.ws is not None:
+        if self.ws_connection is not None:
             return
 
         if self.ws_task is not None:
             try:
                 self.ws_task.cancel()
-                self.ws = None
-            except Exception as e:
-                _LOGGER.debug("Could not cancel ws_task")
+                self.ws_connection = None
+            except Exception:
+                _LOGGER.exception("Could not cancel ws_task")
         self.ws_task = asyncio.ensure_future(self._setup_websocket())
 
     async def async_disconnect_ws(self):
         """Disconnect the websocket."""
-        if self.ws is None:
+        if self.ws_connection is None:
             return
 
-        await self.ws.close()
+        await self.ws_connection.close()
         await self.ws_session.close()
 
     async def unique_id(self):
@@ -173,6 +158,7 @@ class UpvServer:
         return await self._get_server_info()
 
     async def check_unifi_os(self):
+        """Check to see if the device is running unifi os."""
         if self.is_unifi_os is not None:
             return
 
@@ -188,11 +174,13 @@ class UpvServer:
             self.is_unifi_os = False
         _LOGGER.debug("Unifi OS: %s", self.is_unifi_os)
 
-    async def ensureAuthenticated(self):
+    async def ensure_authenticated(self):
+        """Ensure we are authenticated."""
         if self.is_authenticated() is False:
             await self.authenticate()
 
     async def authenticate(self):
+        """Authenticate and get a token."""
         await self.check_unifi_os()
         if self.is_unifi_os:
             url = f"{self._base_url}/api/auth/login"
@@ -220,22 +208,23 @@ class UpvServer:
         _LOGGER.debug("Authenticated successfully!")
 
     def is_authenticated(self) -> bool:
+        """Check to see if we are already authenticated."""
         if self._is_authenticated is True and self.is_unifi_os is True:
             # Check if token is expired.
             cookies = self.req.cookie_jar.filter_cookies(self._base_url)
-            tokenCookie = cookies.get("TOKEN")
-            if tokenCookie is None:
+            token_cookie = cookies.get("TOKEN")
+            if token_cookie is None:
                 return False
             try:
                 jwt.decode(
-                    tokenCookie.value,
+                    token_cookie.value,
                     options={"verify_signature": False, "verify_exp": True},
                 )
             except jwt.ExpiredSignatureError:
                 _LOGGER.debug("Authentication token has expired.")
                 return False
-            except Exception as e:
-                _LOGGER.debug("Authentication token decode error: %s", e)
+            except Exception as broad_ex:
+                _LOGGER.debug("Authentication token decode error: %s", broad_ex)
                 return False
 
         return self._is_authenticated
@@ -254,15 +243,14 @@ class UpvServer:
             if response.status == 200:
                 json_response = await response.json()
                 return json_response["accessKey"]
-            else:
-                raise NvrError(
-                    f"Request failed: {response.status} - Reason: {response.reason}"
-                )
+            raise NvrError(
+                f"Request failed: {response.status} - Reason: {response.reason}"
+            )
 
     async def _get_unique_id(self) -> None:
         """Get a Unique ID for this NVR."""
 
-        await self.ensureAuthenticated()
+        await self.ensure_authenticated()
 
         bootstrap_uri = f"{self._base_url}/{self.api_path}/bootstrap"
         async with self.req.get(
@@ -274,15 +262,14 @@ class UpvServer:
                 json_response = await response.json()
                 unique_id = json_response["nvr"]["name"]
                 return unique_id
-            else:
-                raise NvrError(
-                    f"Fetching Unique ID failed: {response.status} - Reason: {response.reason}"
-                )
+            raise NvrError(
+                f"Fetching Unique ID failed: {response.status} - Reason: {response.reason}"
+            )
 
     async def _get_server_info(self) -> None:
         """Get Server Information for this NVR."""
 
-        await self.ensureAuthenticated()
+        await self.ensure_authenticated()
 
         bootstrap_uri = f"{self._base_url}/{self.api_path}/bootstrap"
         async with self.req.get(
@@ -299,143 +286,35 @@ class UpvServer:
                     "server_model": json_response["nvr"]["type"],
                     "unifios": self.is_unifi_os,
                 }
-            else:
-                raise NvrError(
-                    f"Fetching Unique ID failed: {response.status} - Reason: {response.reason}"
-                )
+            raise NvrError(
+                f"Fetching Unique ID failed: {response.status} - Reason: {response.reason}"
+            )
 
     async def _get_camera_list(self) -> None:
         """Get a list of Cameras connected to the NVR."""
 
-        await self.ensureAuthenticated()
+        await self.ensure_authenticated()
 
         bootstrap_uri = f"{self._base_url}/{self.api_path}/bootstrap"
-        async with self.req.get(
+        response = await self.req.get(
             bootstrap_uri,
             headers=self.headers,
             verify_ssl=self._verify_ssl,
-        ) as response:
-            if response.status == 200:
-                json_response = await response.json()
-                server_id = json_response["nvr"]["mac"]
+        )
+        if response.status != 200:
+            raise NvrError(
+                f"Fetching Camera List failed: {response.status} - Reason: {response.reason}"
+            )
+        json_response = await response.json()
+        server_id = json_response["nvr"]["mac"]
+        for camera in json_response["cameras"]:
+            procesed_update = process_camera(server_id, self._host, camera)
+            camera_id = str(camera["id"])
 
-                cameras = json_response["cameras"]
-
-                for camera in cameras:
-                    # Get if camera is online
-                    if camera["state"] == "CONNECTED":
-                        online = True
-                    else:
-                        online = False
-                    # Get Recording Mode
-                    recording_mode = str(camera["recordingSettings"]["mode"])
-                    # Get Infrared Mode
-                    ir_mode = str(camera["ispSettings"]["irLedMode"])
-                    # Get Status Light Setting
-                    status_light = str(camera["ledSettings"]["isEnabled"])
-
-                    # Get the last time motion occured
-                    lastmotion = (
-                        None
-                        if camera["lastMotion"] is None
-                        else datetime.datetime.fromtimestamp(
-                            int(camera["lastMotion"]) / 1000
-                        ).strftime("%Y-%m-%d %H:%M:%S")
-                    )
-                    # Get the last time doorbell was ringing
-                    lastring = (
-                        None
-                        if camera.get("lastRing") is None
-                        else datetime.datetime.fromtimestamp(
-                            int(camera["lastRing"]) / 1000
-                        ).strftime("%Y-%m-%d %H:%M:%S")
-                    )
-                    # Get when the camera came online
-                    upsince = (
-                        "Offline"
-                        if camera["upSince"] is None
-                        else datetime.datetime.fromtimestamp(
-                            int(camera["upSince"]) / 1000
-                        ).strftime("%Y-%m-%d %H:%M:%S")
-                    )
-                    # Check if Regular Camera or Doorbell
-                    device_type = (
-                        "camera"
-                        if "doorbell" not in str(camera["type"]).lower()
-                        else "doorbell"
-                    )
-                    # Get Firmware Version
-                    firmware_version = str(camera["firmwareVersion"])
-
-                    # Get High FPS Video Mode
-                    featureflags = camera.get("featureFlags")
-                    if featureflags.get("videoModes") is None:
-                        has_highfps = False
-                    else:
-                        has_highfps = "highFps" in featureflags.get("videoModes")
-                    video_mode = (
-                        "default"
-                        if camera.get("videoMode") is None
-                        else camera.get("videoMode")
-                    )
-
-                    # Get HDR Mode
-                    has_hdr = featureflags.get("hasHdr")
-                    hdr_mode = (
-                        False
-                        if camera.get("hdrMode") is None
-                        else camera.get("hdrMode")
-                    )
-
-                    if camera["id"] not in self.device_data:
-                        # Add rtsp streaming url if enabled
-                        rtsp = None
-                        channels = camera["channels"]
-                        for channel in channels:
-                            if channel["isRtspEnabled"]:
-                                rtsp = (
-                                    f"rtsp://{self._host}:7447/{channel['rtspAlias']}"
-                                )
-                                break
-
-                        item = {
-                            str(camera["id"]): {
-                                "name": str(camera["name"]),
-                                "type": device_type,
-                                "model": str(camera["type"]),
-                                "mac": str(camera["mac"]),
-                                "ip_address": str(camera["host"]),
-                                "firmware_version": firmware_version,
-                                "server_id": server_id,
-                                "recording_mode": recording_mode,
-                                "ir_mode": ir_mode,
-                                "status_light": status_light,
-                                "rtsp": rtsp,
-                                "up_since": upsince,
-                                "last_motion": lastmotion,
-                                "last_ring": lastring,
-                                "online": online,
-                                "has_highfps": has_highfps,
-                                "has_hdr": has_hdr,
-                                "video_mode": video_mode,
-                                "hdr_mode": hdr_mode,
-                            }
-                        }
-                        self.device_data.update(item)
-                    else:
-                        camera_id = camera["id"]
-                        self.device_data[camera_id]["last_motion"] = lastmotion
-                        self.device_data[camera_id]["last_ring"] = lastring
-                        self.device_data[camera_id]["online"] = online
-                        self.device_data[camera_id]["up_since"] = upsince
-                        self.device_data[camera_id]["recording_mode"] = recording_mode
-                        self.device_data[camera_id]["ir_mode"] = ir_mode
-                        self.device_data[camera_id]["video_mode"] = video_mode
-                        self.device_data[camera_id]["hdr_mode"] = hdr_mode
+            if camera_id in self.device_data:
+                self.device_data[camera_id].update(procesed_update)
             else:
-                raise NvrError(
-                    f"Fetching Camera List failed: {response.status} - Reason: {response.reason}"
-                )
+                self.device_data[camera_id] = procesed_update
 
     def _reset_camera_events(self) -> None:
         """Reset camera events between camera updates."""
@@ -445,20 +324,17 @@ class UpvServer:
     async def _get_events(self, lookback: int = 86400, camera=None) -> None:
         """Load the Event Log and loop through items to find motion events."""
 
-        await self.ensureAuthenticated()
+        await self.ensure_authenticated()
 
         event_start = datetime.datetime.now() - datetime.timedelta(seconds=lookback)
         event_end = datetime.datetime.now() + datetime.timedelta(seconds=10)
         start_time = int(time.mktime(event_start.timetuple())) * 1000
         end_time = int(time.mktime(event_end.timetuple())) * 1000
-        event_on = False
-        event_ring_on = False
-        event_length = 0
+
         event_ring_check = datetime.datetime.now() - datetime.timedelta(seconds=3)
         event_ring_check_converted = (
             int(time.mktime(event_ring_check.timetuple())) * 1000
         )
-        event_objects = None
         event_uri = f"{self._base_url}/{self.api_path}/events"
         params = {
             "end": str(end_time),
@@ -476,91 +352,33 @@ class UpvServer:
             raise NvrError(
                 f"Fetching Eventlog failed: {response.status} - Reason: {response.reason}"
             )
-        events = await response.json()
+
         updated = {}
-        for event in events:
+        for event in await response.json():
+            if event["type"] not in ("motion", "ring", "smartDetectZone"):
+                continue
+
+            proccessed_event = process_event(
+                event, self._minimum_score, event_ring_check_converted
+            )
+
             camera_id = event["camera"]
 
-            if (
-                event["type"] == "motion"
-                or event["type"] == "ring"
-                or event["type"] == "smartDetectZone"
-            ):
-                if event["start"]:
-                    start_time = datetime.datetime.fromtimestamp(
-                        int(event["start"]) / 1000
-                    ).strftime("%Y-%m-%d %H:%M:%S")
-                    event_length = 0
-                else:
-                    start_time = None
-                if event["type"] == "motion" or event["type"] == "smartDetectZone":
-                    if event["end"]:
-                        event_on = False
-                        event_length = (float(event["end"]) / 1000) - (
-                            float(event["start"]) / 1000
-                        )
-                        if event["type"] == "smartDetectZone":
-                            event_objects = event["smartDetectTypes"]
-                    else:
-                        if int(event["score"]) >= self._minimum_score:
-                            event_on = True
-                            if event["type"] == "smartDetectZone":
-                                event_objects = event["smartDetectTypes"]
-                        else:
-                            event_on = False
-                    self.device_data[camera_id]["last_motion"] = start_time
-                else:
-                    self.device_data[camera_id]["last_ring"] = start_time
-                    if event["end"]:
-                        if (
-                            event["start"] >= event_ring_check_converted
-                            and event["end"] >= event_ring_check_converted
-                        ):
-                            _LOGGER.debug("EVENT: DOORBELL HAS RUNG IN LAST 3 SECONDS!")
-                            event_ring_on = True
-                        else:
-                            _LOGGER.debug(
-                                "EVENT: DOORBELL WAS NOT RUNG IN LAST 3 SECONDS"
-                            )
-                            event_ring_on = False
-                    else:
-                        _LOGGER.debug("EVENT: DOORBELL IS RINGING")
-                        event_ring_on = True
+            self.device_data[camera_id].update(proccessed_event)
 
-                updated[camera_id] = self.device_data[camera_id]
-                self.device_data[camera_id]["event_start"] = start_time
-                self.device_data[camera_id]["event_score"] = event["score"]
-                self.device_data[camera_id]["event_on"] = event_on
-                self.device_data[camera_id]["event_ring_on"] = event_ring_on
-                self.device_data[camera_id]["event_type"] = event["type"]
-                self.device_data[camera_id]["event_length"] = event_length
-                if event_objects is not None:
-                    self.device_data[camera_id]["event_object"] = event_objects
-                if (
-                    event["thumbnail"] is not None
-                ):  # Only update if there is a new Motion Event
-                    self.device_data[camera_id]["event_thumbnail"] = event["thumbnail"]
-                if (
-                    event["heatmap"] is not None
-                ):  # Only update if there is a new Motion Event
-                    self.device_data[camera_id]["event_heatmap"] = event["heatmap"]
+            updated[camera_id] = self.device_data[camera_id]
+
         return updated
 
     async def get_raw_events(self, lookback: int = 86400) -> None:
         """Load the Event Log and return the Raw Data - Used for debugging only."""
 
-        await self.ensureAuthenticated()
+        await self.ensure_authenticated()
 
         event_start = datetime.datetime.now() - datetime.timedelta(seconds=lookback)
         event_end = datetime.datetime.now() + datetime.timedelta(seconds=10)
         start_time = int(time.mktime(event_start.timetuple())) * 1000
         end_time = int(time.mktime(event_end.timetuple())) * 1000
-        event_on = False
-        event_ring_on = False
-        event_ring_check = datetime.datetime.now() - datetime.timedelta(seconds=3)
-        event_ring_check_converted = (
-            int(time.mktime(event_ring_check.timetuple())) * 1000
-        )
 
         event_uri = f"{self._base_url}/{self.api_path}/events"
         params = {
@@ -573,18 +391,16 @@ class UpvServer:
             headers=self.headers,
             verify_ssl=self._verify_ssl,
         ) as response:
-            if response.status == 200:
-                events = await response.json()
-                return events
-            else:
+            if response.status != 200:
                 raise NvrError(
                     f"Fetching Eventlog failed: {response.status} - Reason: {response.reason}"
                 )
+            return await response.json()
 
     async def get_raw_camera_info(self) -> None:
         """Return the RAW JSON data from this NVR."""
 
-        await self.ensureAuthenticated()
+        await self.ensure_authenticated()
 
         bootstrap_uri = f"{self._base_url}/{self.api_path}/bootstrap"
         async with self.req.get(
@@ -592,75 +408,72 @@ class UpvServer:
             headers=self.headers,
             verify_ssl=self._verify_ssl,
         ) as response:
-            if response.status == 200:
-                json_response = await response.json()
-                return json_response
-            else:
+            if response.status != 200:
                 raise NvrError(
                     f"Fetching Unique ID failed: {response.status} - Reason: {response.reason}"
                 )
+            return await response.json()
 
     async def get_thumbnail(self, camera_id: str, width: int = 640) -> bytes:
         """Returns the last recorded Thumbnail, based on Camera ID."""
 
-        await self.ensureAuthenticated()
+        await self.ensure_authenticated()
         await self._get_events()
 
         thumbnail_id = self.device_data[camera_id]["event_thumbnail"]
 
-        if thumbnail_id is not None:
-            height = float(width) / 16 * 9
-            img_uri = f"{self._base_url}/{self.api_path}/thumbnails/{thumbnail_id}"
-            params = {
-                "accessKey": await self._get_api_access_key(),
-                "h": str(height),
-                "w": str(width),
-            }
-            async with self.req.get(
-                img_uri,
-                params=params,
-                headers=self.headers,
-                verify_ssl=self._verify_ssl,
-            ) as response:
-                if response.status == 200:
-                    return await response.read()
-                else:
-                    raise NvrError(
-                        f"Thumbnail Request failed: {response.status} - Reason: {response.reason}"
-                    )
-        return None
+        if thumbnail_id is None:
+            return None
+        height = float(width) / 16 * 9
+        img_uri = f"{self._base_url}/{self.api_path}/thumbnails/{thumbnail_id}"
+        params = {
+            "accessKey": await self._get_api_access_key(),
+            "h": str(height),
+            "w": str(width),
+        }
+        async with self.req.get(
+            img_uri,
+            params=params,
+            headers=self.headers,
+            verify_ssl=self._verify_ssl,
+        ) as response:
+            if response.status != 200:
+                raise NvrError(
+                    f"Thumbnail Request failed: {response.status} - Reason: {response.reason}"
+                )
+            return await response.read()
 
     async def get_heatmap(self, camera_id: str) -> bytes:
         """Returns the last recorded Heatmap, based on Camera ID."""
 
-        await self.ensureAuthenticated()
+        await self.ensure_authenticated()
         await self._get_events()
 
         heatmap_id = self.device_data[camera_id]["event_heatmap"]
 
-        if heatmap_id is not None:
-            img_uri = f"{self._base_url}/{self.api_path}/heatmaps/{heatmap_id}"
-            params = {
-                "accessKey": await self._get_api_access_key(),
-            }
-            async with self.req.get(
-                img_uri,
-                params=params,
-                headers=self.headers,
-                verify_ssl=self._verify_ssl,
-            ) as response:
-                if response.status == 200:
-                    return await response.read()
-                else:
-                    raise NvrError(
-                        f"Heatmap Request failed: {response.status} - Reason: {response.reason}"
-                    )
-        return None
+        if heatmap_id is None:
+            return None
+
+        img_uri = f"{self._base_url}/{self.api_path}/heatmaps/{heatmap_id}"
+        params = {
+            "accessKey": await self._get_api_access_key(),
+        }
+        async with self.req.get(
+            img_uri,
+            params=params,
+            headers=self.headers,
+            verify_ssl=self._verify_ssl,
+        ) as response:
+            if response.status != 200:
+                raise NvrError(
+                    f"Heatmap Request failed: {response.status} - Reason: {response.reason}"
+                )
+            return await response.read()
 
     async def get_snapshot_image(self, camera_id: str) -> bytes:
         """ Returns a Snapshot image of a recording event. """
 
-        await self.ensureAuthenticated()
+        await self.ensure_authenticated()
 
         access_key = await self._get_api_access_key()
         time_since = int(time.mktime(datetime.datetime.now().timetuple())) * 1000
@@ -685,11 +498,10 @@ class UpvServer:
         ) as response:
             if response.status == 200:
                 return await response.read()
-            else:
-                _LOGGER.warning(
-                    f"Error Code: {response.status} - Error Status: {response.reason}"
-                )
-                return None
+            _LOGGER.warning(
+                "Error Code: %s - Error Status: %s", response.status, response.reason
+            )
+            return None
 
     async def get_snapshot_image_direct(self, camera_id: str) -> bytes:
         """Returns a Snapshot image of a recording event.
@@ -702,17 +514,16 @@ class UpvServer:
         async with self.req.get(img_uri) as response:
             if response.status == 200:
                 return await response.read()
-            else:
-                raise NvrError(
-                    f"Direct Snapshot failed: {response.status} - Reason: {response.reason}"
-                )
+            raise NvrError(
+                f"Direct Snapshot failed: {response.status} - Reason: {response.reason}"
+            )
 
     async def set_camera_recording(self, camera_id: str, mode: str) -> bool:
         """Sets the camera recoding mode to what is supplied with 'mode'.
         Valid inputs for mode: never, motion, always
         """
 
-        await self.ensureAuthenticated()
+        await self.ensure_authenticated()
 
         cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
         data = {
@@ -731,17 +542,16 @@ class UpvServer:
             if response.status == 200:
                 self.device_data[camera_id]["recording_mode"] = mode
                 return True
-            else:
-                raise NvrError(
-                    f"Set Recording Mode failed: {response.status} - Reason: {response.reason}"
-                )
+            raise NvrError(
+                f"Set Recording Mode failed: {response.status} - Reason: {response.reason}"
+            )
 
     async def set_camera_ir(self, camera_id: str, mode: str) -> bool:
         """Sets the camera infrared settings to what is supplied with 'mode'.
         Valid inputs for mode: auto, on, autoFilterOnly
         """
 
-        await self.ensureAuthenticated()
+        await self.ensure_authenticated()
 
         if mode == "led_off":
             mode = "autoFilterOnly"
@@ -759,18 +569,17 @@ class UpvServer:
             if response.status == 200:
                 self.device_data[camera_id]["ir_mode"] = mode
                 return True
-            else:
-                raise NvrError(
-                    "Set IR Mode failed: %s - Reason: %s"
-                    % (response.status, response.reason)
-                )
+            raise NvrError(
+                "Set IR Mode failed: %s - Reason: %s"
+                % (response.status, response.reason)
+            )
 
     async def set_camera_status_light(self, camera_id: str, mode: bool) -> bool:
         """Sets the camera status light settings to what is supplied with 'mode'.
         Valid inputs for mode: False and True
         """
 
-        await self.ensureAuthenticated()
+        await self.ensure_authenticated()
 
         cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
         data = {"ledSettings": {"isEnabled": mode, "blinkRate": 0}}
@@ -781,18 +590,17 @@ class UpvServer:
             if response.status == 200:
                 self.device_data[camera_id]["status_light"] = str(mode)
                 return True
-            else:
-                raise NvrError(
-                    "Change Status Light failed: %s - Reason: %s"
-                    % (response.status, response.reason)
-                )
+            raise NvrError(
+                "Change Status Light failed: %s - Reason: %s"
+                % (response.status, response.reason)
+            )
 
     async def set_camera_hdr_mode(self, camera_id: str, mode: bool) -> bool:
         """Sets the camera HDR mode to what is supplied with 'mode'.
         Valid inputs for mode: False and True
         """
 
-        await self.ensureAuthenticated()
+        await self.ensure_authenticated()
 
         cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
         data = {"hdrMode": mode}
@@ -803,20 +611,19 @@ class UpvServer:
             if response.status == 200:
                 self.device_data[camera_id]["hdr_mode"] = mode
                 return True
-            else:
-                raise NvrError(
-                    "Change HDR mode failed: %s - Reason: %s"
-                    % (response.status, response.reason)
-                )
+            raise NvrError(
+                "Change HDR mode failed: %s - Reason: %s"
+                % (response.status, response.reason)
+            )
 
     async def set_camera_video_mode_highfps(self, camera_id: str, mode: bool) -> bool:
         """Sets the camera High FPS video mode to what is supplied with 'mode'.
         Valid inputs for mode: False and True
         """
 
-        highfps = "highFps" if mode == True else "default"
+        highfps = "highFps" if mode is True else "default"
 
-        await self.ensureAuthenticated()
+        await self.ensure_authenticated()
 
         cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
         data = {"videoMode": highfps}
@@ -827,18 +634,17 @@ class UpvServer:
             if response.status == 200:
                 self.device_data[camera_id]["video_mode"] = highfps
                 return True
-            else:
-                raise NvrError(
-                    "Change Video mode failed: %s - Reason: %s"
-                    % (response.status, response.reason)
-                )
+            raise NvrError(
+                "Change Video mode failed: %s - Reason: %s"
+                % (response.status, response.reason)
+            )
 
     async def set_doorbell_custom_text(
         self, camera_id: str, custom_text: str, duration=None
     ) -> bool:
         """Sets a Custom Text string for the Doorbell LCD'."""
 
-        await self.ensureAuthenticated()
+        await self.ensure_authenticated()
 
         message_type = "CUSTOM_MESSAGE"
 
@@ -866,16 +672,15 @@ class UpvServer:
         ) as response:
             if response.status == 200:
                 return True
-            else:
-                raise NvrError(
-                    "Setting Doorbell Custom Text failed: %s - Reason: %s"
-                    % (response.status, response.reason)
-                )
+            raise NvrError(
+                "Setting Doorbell Custom Text failed: %s - Reason: %s"
+                % (response.status, response.reason)
+            )
 
     async def set_doorbell_standard_text(self, custom_text: str) -> bool:
         """Sets a Standard Text string for the Doorbell LCD. *** DOES NOT WORK ***"""
 
-        await self.ensureAuthenticated()
+        await self.ensure_authenticated()
 
         message_type = "LEAVE_PACKAGE_AT_DOOR"
 
@@ -892,11 +697,10 @@ class UpvServer:
         ) as response:
             if response.status == 200:
                 return True
-            else:
-                raise NvrError(
-                    "Setting Doorbell Custom Text failed: %s - Reason: %s"
-                    % (response.status, response.reason)
-                )
+            raise NvrError(
+                "Setting Doorbell Custom Text failed: %s - Reason: %s"
+                % (response.status, response.reason)
+            )
 
     async def request(self, method, url, json=None, **kwargs):
         """Make a request to the API."""
@@ -928,27 +732,27 @@ class UpvServer:
             raise NvrError(f"Error requesting data from {self._host}: {err}") from None
 
     async def _setup_websocket(self):
-        await self.ensureAuthenticated()
-        ip = self._base_url.split("://")
-        url = f"wss://{ip[1]}/{self.ws_path}/updates"
+        await self.ensure_authenticated()
+        ip_address = self._base_url.split("://")
+        url = f"wss://{ip_address[1]}/{self.ws_path}/updates"
         if self.last_update_id:
             url += f"?lastUpdateId={self.last_update_id}"
         if not self.ws_session:
             self.ws_session = aiohttp.ClientSession()
         _LOGGER.debug("WS connecting to: %s", url)
 
-        self.ws = await self.ws_session.ws_connect(
+        self.ws_connection = await self.ws_session.ws_connect(
             url, verify_ssl=self._verify_ssl, headers=self.headers
         )
         try:
-            async for msg in self.ws:
+            async for msg in self.ws_connection:
                 if msg.type == aiohttp.WSMsgType.BINARY:
                     await self._process_ws_events(msg)
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     break
         finally:
             _LOGGER.debug("websocket disconnected")
-            self.ws = None
+            self.ws_connection = None
 
     def subscribe_websocket(self, ws_callback):
         """Subscribe to websocket events.
@@ -966,17 +770,17 @@ class UpvServer:
     async def _process_ws_events(self, msg):
         """Process websocket messages."""
         try:
-            action_frame, action_frame_payload_format, position = _decode_frame(
+            action_frame, action_frame_payload_format, position = decode_ws_frame(
                 msg.data, 0
             )
-        except Exception as ex:
+        except Exception:
             _LOGGER.exception("Error processing action frame")
             return
 
         if action_frame_payload_format != ProtectWSPayloadFormat.JSON:
             return
 
-        action_json = json.loads(action_frame)
+        action_json = pjson.loads(action_frame)
         _LOGGER.debug("Action Frame: %s", action_json)
 
         if (
@@ -986,18 +790,19 @@ class UpvServer:
             return
 
         try:
-            data_frame, data_frame_payload_format, _ = _decode_frame(msg.data, position)
-        except Exception as ex:
+            data_frame, data_frame_payload_format, _ = decode_ws_frame(
+                msg.data, position
+            )
+        except Exception:
             _LOGGER.exception("Error processing data frame")
             return
 
         if data_frame_payload_format != ProtectWSPayloadFormat.JSON:
             return
 
-        data_json = json.loads(data_frame)
+        data_json = pjson.loads(data_frame)
         _LOGGER.debug("Data Frame: %s", data_json)
 
-        is_motion_detected = data_json.get("isMotionDetected")
         last_motion = data_json.get("lastMotion")
         last_ring = data_json.get("lastRing")
 
@@ -1038,15 +843,3 @@ class UpvServer:
 
         for subscriber in self._ws_subscriptions:
             subscriber(updated)
-
-
-def _decode_frame(frame, position):
-    packet_type, payload_format, deflated, unknown, payload_size = struct.unpack(
-        "!bbbbi", frame[position : position + WS_HEADER_SIZE]
-    )
-    position += WS_HEADER_SIZE
-    frame = frame[position : position + payload_size]
-    if deflated:
-        frame = zlib.decompress(frame)
-    position += payload_size
-    return frame, ProtectWSPayloadFormat(payload_format), position
