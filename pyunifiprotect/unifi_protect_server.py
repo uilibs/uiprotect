@@ -367,6 +367,12 @@ class UpvServer:
                     # Get Firmware Version
                     firmware_version = str(camera["firmwareVersion"])
 
+                    # Get Video Mode
+                    video_mode = "default" if camera.get("videoMode") is None else camera.get("videoMode")
+
+                    # Get HDR Mode
+                    hdr_mode = False if camera.get("hdrMode") is None else camera.get("hdrMode")
+
                     if camera["id"] not in self.device_data:
                         # Add rtsp streaming url if enabled
                         rtsp = None
@@ -395,6 +401,8 @@ class UpvServer:
                                 "last_motion": lastmotion,
                                 "last_ring": lastring,
                                 "online": online,
+                                "video_mode": video_mode,
+                                "hdr_mode": hdr_mode,
                             }
                         }
                         self.device_data.update(item)
@@ -406,7 +414,8 @@ class UpvServer:
                         self.device_data[camera_id]["up_since"] = upsince
                         self.device_data[camera_id]["recording_mode"] = recording_mode
                         self.device_data[camera_id]["ir_mode"] = ir_mode
-                        self.device_data[camera_id]["status_light"] = status_light
+                        self.device_data[camera_id]["video_mode"] = video_mode
+                        self.device_data[camera_id]["hdr_mode"] = hdr_mode
             else:
                 raise NvrError(
                     f"Fetching Camera List failed: {response.status} - Reason: {response.reason}"
@@ -776,6 +785,7 @@ class UpvServer:
             cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
+                self.device_data[camera_id]["hdr_mode"] = mode
                 return True
             else:
                 raise NvrError(
@@ -799,6 +809,7 @@ class UpvServer:
             cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
+                self.device_data[camera_id]["video_mode"] = highfps
                 return True
             else:
                 raise NvrError(
