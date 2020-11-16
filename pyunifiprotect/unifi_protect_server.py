@@ -103,15 +103,6 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         else:
             _LOGGER.debug("Skipping camera update")
 
-        # If the websocket is connected
-        # we do not need to get events
-        if self.ws_connection:
-            _LOGGER.debug("Skipping update since websocket is active")
-            return self.devices if camera_update else {}
-
-        self._reset_camera_events()
-        updates = await self._get_events(lookback=10)
-
         if (
             self.is_unifi_os
             and (current_time - WEBSOCKET_CHECK_INTERVAL_SECONDS)
@@ -120,6 +111,15 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             _LOGGER.debug("Checking websocket")
             self._last_websocket_check = current_time
             await self.async_connect_ws()
+
+        # If the websocket is connected/connecting
+        # we do not need to get events
+        if self.ws_connection or self._last_websocket_check == current_time:
+            _LOGGER.debug("Skipping update since websocket is active")
+            return self.devices if camera_update else {}
+
+        self._reset_camera_events()
+        updates = await self._get_events(lookback=10)
 
         return self.devices if camera_update else updates
 
@@ -305,13 +305,18 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         if not self.ws_connection and "lastUpdateId" in json_response:
             self.last_update_id = json_response["lastUpdateId"]
         for camera in json_response["cameras"]:
-            if camera["id"] not in self.device_data:
-                include_events = True
+            camera_id = camera["id"]
+
+            first_update = camera_id not in self.device_data
 
             self._update_camera(
-                camera["id"],
-                process_camera(server_id, self._host, camera, include_events),
+                camera_id,
+                process_camera(
+                    server_id, self._host, camera, include_events or first_update
+                ),
             )
+            if first_update:
+                self._update_camera(camera_id, PROCESSED_EVENT_EMPTY)
 
     def _reset_camera_events(self) -> None:
         """Reset camera events between camera updates."""
