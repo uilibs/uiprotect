@@ -7,16 +7,18 @@ import logging
 import time
 
 import aiohttp
-import jwt
 from aiohttp import client_exceptions
+import jwt
 
 from .unifi_data import (
     EVENT_MOTION,
     EVENT_RING,
     EVENT_SMART_DETECT_ZONE,
     PROCESSED_EVENT_EMPTY,
+    ProtectStateMachine,
     ProtectWSPayloadFormat,
     decode_ws_frame,
+    event_from_ws_frames,
     process_camera,
     process_event,
 )
@@ -68,6 +70,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self._last_websocket_check = 0
         self.access_key = None
         self.device_data = {}
+        self._state_machine = ProtectStateMachine()
         self._motion_start_time = {}
         self.last_update_id = None
 
@@ -87,6 +90,28 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         """Updates the status of devices."""
 
         current_time = time.time()
+        camera_update = False
+        if (
+            force_camera_update
+            or (current_time - CAMERA_UPDATE_INTERVAL_SECONDS)
+            > self._last_camera_update_time
+        ):
+            _LOGGER.debug("Doing camera update")
+            camera_update = True
+            await self._get_camera_list(not self.ws_connection)
+            self._last_camera_update_time = current_time
+        else:
+            _LOGGER.debug("Skipping camera update")
+
+        # If the websocket is connected
+        # we do not need to get events
+        if self.ws_connection:
+            _LOGGER.debug("Skipping update since websocket is active")
+            return self.devices if camera_update else {}
+
+        self._reset_camera_events()
+        updates = await self._get_events(lookback=10)
+
         if (
             self.is_unifi_os
             and (current_time - WEBSOCKET_CHECK_INTERVAL_SECONDS)
@@ -96,31 +121,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             self._last_websocket_check = current_time
             await self.async_connect_ws()
 
-        camera_update = False
-        if (
-            force_camera_update
-            or (current_time - CAMERA_UPDATE_INTERVAL_SECONDS)
-            > self._last_camera_update_time
-        ):
-            _LOGGER.debug("Doing camera update")
-            camera_update = True
-            await self._get_camera_list()
-            self._last_camera_update_time = current_time
-        else:
-            _LOGGER.debug("Skipping camera update")
-
-        # If the websocket is connected
-        # we do not need to get events
-        if self.ws_connection and not camera_update:
-            _LOGGER.debug("Skipping update since websocket is active")
-            return {}
-
-        self._reset_camera_events()
-        updates = await self._get_events(lookback=10)
-
-        if camera_update:
-            return self.devices
-        return updates
+        return self.devices if camera_update else updates
 
     async def async_connect_ws(self):
         """Connect the websocket."""
@@ -284,7 +285,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 f"Fetching Unique ID failed: {response.status} - Reason: {response.reason}"
             )
 
-    async def _get_camera_list(self) -> None:
+    async def _get_camera_list(self, include_events) -> None:
         """Get a list of Cameras connected to the NVR."""
 
         await self.ensure_authenticated()
@@ -301,19 +302,21 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             )
         json_response = await response.json()
         server_id = json_response["nvr"]["mac"]
+        if not self.ws_connection and "lastUpdateId" in json_response:
+            self.last_update_id = json_response["lastUpdateId"]
         for camera in json_response["cameras"]:
-            procesed_update = process_camera(server_id, self._host, camera)
-            camera_id = str(camera["id"])
+            if camera["id"] not in self.device_data:
+                include_events = True
 
-            if camera_id in self.device_data:
-                self.device_data[camera_id].update(procesed_update)
-            else:
-                self.device_data[camera_id] = procesed_update
+            self._update_camera(
+                camera["id"],
+                process_camera(server_id, self._host, camera, include_events),
+            )
 
     def _reset_camera_events(self) -> None:
         """Reset camera events between camera updates."""
         for camera_id in self.device_data:
-            self.device_data[camera_id].update(PROCESSED_EVENT_EMPTY)
+            self._update_camera(camera_id, PROCESSED_EVENT_EMPTY)
 
     async def _get_events(
         self, lookback: int = 86400, camera=None, start_time=None, end_time=None
@@ -354,10 +357,10 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 continue
 
             camera_id = event["camera"]
-            proccessed_event = process_event(
-                event, self._minimum_score, event_ring_check_converted
+            self._update_camera(
+                camera_id,
+                process_event(event, self._minimum_score, event_ring_check_converted),
             )
-            self.device_data[camera_id].update(proccessed_event)
             updated[camera_id] = self.device_data[camera_id]
 
         return updated
@@ -410,7 +413,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         """Returns the last recorded Thumbnail, based on Camera ID."""
 
         await self.ensure_authenticated()
-        await self._get_events()
+        await self._get_events(camera=camera_id)
 
         thumbnail_id = self.device_data[camera_id]["event_thumbnail"]
 
@@ -439,7 +442,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         """Returns the last recorded Heatmap, based on Camera ID."""
 
         await self.ensure_authenticated()
-        await self._get_events()
+        await self._get_events(camera=camera_id)
 
         heatmap_id = self.device_data[camera_id]["event_heatmap"]
 
@@ -739,7 +742,11 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         try:
             async for msg in self.ws_connection:
                 if msg.type == aiohttp.WSMsgType.BINARY:
-                    await self._process_ws_events(msg)
+                    try:
+                        self._process_ws_message(msg)
+                    except Exception:
+                        _LOGGER.exception("Error processing websocket message")
+                        return
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     break
         finally:
@@ -759,35 +766,25 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self._ws_subscriptions.append(ws_callback)
         return _unsub_ws_callback
 
-    async def _process_ws_events(self, msg):
+    def _process_ws_message(self, msg):
         """Process websocket messages."""
-        try:
-            action_frame, action_frame_payload_format, position = decode_ws_frame(
-                msg.data, 0
-            )
-        except Exception:
-            _LOGGER.exception("Error processing action frame")
-            return
+        action_frame, action_frame_payload_format, position = decode_ws_frame(
+            msg.data, 0
+        )
 
         if action_frame_payload_format != ProtectWSPayloadFormat.JSON:
             return
 
         action_json = pjson.loads(action_frame)
-        _LOGGER.debug("Action Frame: %s", action_json)
 
-        if (
-            action_json.get("action") != "update"
-            or action_json.get("modelKey") != "camera"
+        if action_json.get("modelKey") != "event" or action_json.get("action") not in (
+            "add",
+            "update",
         ):
             return
 
-        try:
-            data_frame, data_frame_payload_format, _ = decode_ws_frame(
-                msg.data, position
-            )
-        except Exception:
-            _LOGGER.exception("Error processing data frame")
-            return
+        _LOGGER.debug("Action Frame: %s", action_json)
+        data_frame, data_frame_payload_format, _ = decode_ws_frame(msg.data, position)
 
         if data_frame_payload_format != ProtectWSPayloadFormat.JSON:
             return
@@ -795,52 +792,37 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         data_json = pjson.loads(data_frame)
         _LOGGER.debug("Data Frame: %s", data_json)
 
-        if "lastMotion" not in data_json and "lastRing" not in data_json:
+        camera_id, processed_event = event_from_ws_frames(
+            self._state_machine, self._minimum_score, action_json, data_json
+        )
+
+        if camera_id is None:
             return
 
-        camera_id = action_json.get("id")
+        _LOGGER.debug("Procesed event: %s", processed_event)
 
-        if camera_id not in self.device_data:
-            return
+        self.fire_event(camera_id, processed_event)
 
-        if "lastRing" in data_json:
-            # Make sure the event fetch does not miss the ring
-            # by narrowing the start/end time to just the ring
-            start_time = data_json["lastRing"]
-            end_time = data_json["lastRing"]
-        else:
-            start_time = self._motion_start_time.get(camera_id, data_json["lastMotion"])
-            end_time = None
+        if processed_event["event_ring_on"]:
+            # The websocket will not send any more events since
+            # doorbell rings do not have a length. We fire an
+            # additional event to turn off the ring.
+            processed_event["event_ring_on"] = False
+            self.fire_event(camera_id, processed_event)
+        elif processed_event["event_on"] and processed_event["event_length"]:
+            # If the event has ended the websocket will not give
+            # us any additional updates so we fire another callback
+            # to turn off the event.
+            processed_event["event_on"] = False
+            self.fire_event(camera_id, processed_event)
 
-        self.device_data[camera_id].update(PROCESSED_EVENT_EMPTY)
-        # Remember the start or end of a motion event
-        # so we can look backwards
-        if "isMotionDetected" in data_json:
-            if data_json.get("isMotionDetected"):
-                self._motion_start_time[camera_id] = data_json["lastMotion"]
-            elif camera_id in self._motion_start_time:
-                del self._motion_start_time[camera_id]
-
-        try:
-            updated = await self._get_events(
-                camera=camera_id, start_time=start_time, end_time=end_time
-            )
-        except NvrError:
-            _LOGGER.exception(
-                "Failed to fetch events after websocket update for %s", camera_id
-            )
-            return
-        except asyncio.TimeoutError:
-            _LOGGER.exception(
-                "Timed out fetching events after websocket update for %s", camera_id
-            )
-            return
-
-        if not updated:
-            _LOGGER.debug(
-                "No events were found for: %s. Time may be out of sync", camera_id
-            )
-            return
+    def fire_event(self, camera_id, processed_event):
+        """Callback and event to the subscribers and update data."""
+        self._update_camera(camera_id, processed_event)
 
         for subscriber in self._ws_subscriptions:
-            subscriber(updated)
+            subscriber({camera_id: processed_event})
+
+    def _update_camera(self, camera_id, processed_update):
+        """Update internal state of a camera."""
+        self.device_data.setdefault(camera_id, {}).update(processed_update)
