@@ -15,8 +15,10 @@ from .unifi_data import (
     EVENT_RING,
     EVENT_SMART_DETECT_ZONE,
     PROCESSED_EVENT_EMPTY,
-    ProtectStateMachine,
+    ProtectCameraStateMachine,
+    ProtectEventStateMachine,
     ProtectWSPayloadFormat,
+    camera_update_from_ws_frames,
     decode_ws_frame,
     event_from_ws_frames,
     process_camera,
@@ -70,7 +72,9 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self._last_websocket_check = 0
         self.access_key = None
         self.device_data = {}
-        self._state_machine = ProtectStateMachine()
+        self._event_state_machine = ProtectEventStateMachine()
+        self._camera_state_machine = ProtectCameraStateMachine()
+
         self._motion_start_time = {}
         self.last_update_id = None
 
@@ -92,7 +96,8 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         current_time = time.time()
         camera_update = False
         if (
-            force_camera_update
+            not self.ws_connection
+            and force_camera_update
             or (current_time - CAMERA_UPDATE_INTERVAL_SECONDS)
             > self._last_camera_update_time
         ):
@@ -309,6 +314,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
             first_update = camera_id not in self.device_data
 
+            self._camera_state_machine.update(camera_id, camera)
             self._update_camera(
                 camera_id,
                 process_camera(
@@ -609,6 +615,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
+                self._camera_state_machine.update(camera_id, data)
                 self.device_data[camera_id]["hdr_mode"] = mode
                 return True
             raise NvrError(
@@ -632,6 +639,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
+                self._camera_state_machine.update(camera_id, data)
                 self.device_data[camera_id]["video_mode"] = highfps
                 return True
             raise NvrError(
@@ -782,13 +790,19 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         action_json = pjson.loads(action_frame)
 
-        if action_json.get("modelKey") != "event" or action_json.get("action") not in (
+        if action_json.get("action") not in (
             "add",
             "update",
         ):
             return
 
+        model_key = action_json.get("modelKey")
+
+        if model_key not in ("event", "camera"):
+            return
+
         _LOGGER.debug("Action Frame: %s", action_json)
+
         data_frame, data_frame_payload_format, _ = decode_ws_frame(msg.data, position)
 
         if data_frame_payload_format != ProtectWSPayloadFormat.JSON:
@@ -797,8 +811,31 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         data_json = pjson.loads(data_frame)
         _LOGGER.debug("Data Frame: %s", data_json)
 
+        if model_key == "event":
+            self._process_event_ws_message(action_json, data_json)
+            return
+
+        if model_key == "camera":
+            self._process_camera_ws_message(action_json, data_json)
+            return
+
+        raise ValueError(f"Unexpected model key: {model_key}")
+
+    def _process_camera_ws_message(self, action_json, data_json):
+        """Process a decoded camera websocket message."""
+        camera_id, processed_camera = camera_update_from_ws_frames(
+            self._camera_state_machine, self._host, action_json, data_json
+        )
+
+        if camera_id is None:
+            return
+        _LOGGER.debug("Procesed camera: %s", processed_camera)
+        self.fire_event(camera_id, processed_camera)
+
+    def _process_event_ws_message(self, action_json, data_json):
+        """Process a decoded event websocket message."""
         camera_id, processed_event = event_from_ws_frames(
-            self._state_machine, self._minimum_score, action_json, data_json
+            self._event_state_machine, self._minimum_score, action_json, data_json
         )
 
         if camera_id is None:
