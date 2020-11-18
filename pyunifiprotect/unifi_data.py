@@ -30,6 +30,25 @@ MAX_EVENT_HISTORY_IN_STATE_MACHINE = MAX_SUPPORTED_CAMERAS * 2
 
 LIVE_RING_FROM_WEBSOCKET = -1
 
+CAMERA_KEYS = {
+    "state",
+    "recordingSettings",
+    "ispSettings",
+    "ledSettings",
+    "upSince",
+    "firmwareVersion",
+    "featureFlags",
+    "hdrMode",
+    "videoMode",
+    "channels",
+    "name",
+    "type",
+    "mac",
+    "host",
+    "lastMotion",
+    "lastRing"
+}
+
 
 @enum.unique
 class ProtectWSPayloadFormat(enum.Enum):
@@ -59,8 +78,12 @@ def decode_ws_frame(frame, position):
     return frame, ProtectWSPayloadFormat(payload_format), position
 
 
+
 def process_camera(server_id, host, camera, include_events):
     """Process the camera json."""
+
+    # If addtional keys are checked, update CAMERA_KEYS
+
     # Get if camera is online
     online = camera["state"] == "CONNECTED"
     # Get Recording Mode
@@ -108,7 +131,6 @@ def process_camera(server_id, host, camera, include_events):
         "mac": str(camera["mac"]),
         "ip_address": str(camera["host"]),
         "firmware_version": firmware_version,
-        "server_id": server_id,
         "recording_mode": recording_mode,
         "ir_mode": ir_mode,
         "status_light": status_light,
@@ -120,6 +142,8 @@ def process_camera(server_id, host, camera, include_events):
         "video_mode": video_mode,
         "hdr_mode": hdr_mode,
     }
+    if server_id is not None:
+        camera_update["server_id"] = server_id
     if include_events:
         # Get the last time motion occured
         camera_update["last_motion"] = (
@@ -166,7 +190,7 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
     """
 
     if action_json["modelKey"] != "event":
-        raise ValueError("Model key must be event or camera")
+        raise ValueError("Model key must be event")
 
     action = action_json["action"]
     event_id = action_json["id"]
@@ -189,6 +213,25 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
     processed_event = process_event(event, minimum_score, LIVE_RING_FROM_WEBSOCKET)
 
     return camera_id, processed_event
+
+
+def camera_update_from_ws_frames(state_machine, host, action_json, data_json):
+    """Convert a websocket frame to internal format."""
+
+    if action_json["modelKey"] != "camera":
+        raise ValueError("Model key must be camera")
+
+    camera_id = action_json["id"]
+    camera = state_machine.update(action_json["id"], data_json)
+
+    if data_json.keys().isdisjoint(CAMERA_KEYS):
+        _LOGGER.debug("Skipping camera data: %s", data_json)
+        return None, None
+
+    _LOGGER.debug("Processing camera: %s", camera)
+    processed_camera = process_camera(None, host, camera, True)
+
+    return camera_id, processed_camera
 
 
 def process_event(event, minimum_score, ring_interval):
@@ -248,8 +291,20 @@ def _process_timestamp(time_stamp):
     )
 
 
-class ProtectStateMachine:
+class ProtectCameraStateMachine:
     """A simple state machine for camera events."""
+
+    def __init__(self):
+        """Init the state machine."""
+        self._cameras = {}
+
+    def update(self, camera_id, new_json):
+        """Update an camera in the state machine."""
+        self._cameras.setdefault(camera_id, {}).update(new_json)
+        return self._cameras[camera_id]
+
+class ProtectEventStateMachine:
+    """A simple state machine for cameras."""
 
     def __init__(self):
         """Init the state machine."""
