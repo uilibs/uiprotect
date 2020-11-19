@@ -15,9 +15,11 @@ from .unifi_data import (
     EVENT_RING,
     EVENT_SMART_DETECT_ZONE,
     PROCESSED_EVENT_EMPTY,
+    TYPE_RECORD_NEVER,
     ProtectCameraStateMachine,
     ProtectEventStateMachine,
     ProtectWSPayloadFormat,
+    camera_event_from_ws_frames,
     camera_update_from_ws_frames,
     decode_ws_frame,
     event_from_ws_frames,
@@ -829,7 +831,16 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         if camera_id is None:
             return
-        _LOGGER.debug("Procesed camera: %s", processed_camera)
+        _LOGGER.debug("Processed camera: %s", processed_camera)
+
+        if processed_camera["recording_mode"] == TYPE_RECORD_NEVER:
+            processed_event = camera_event_from_ws_frames(
+                self._camera_state_machine, action_json, data_json
+            )
+            if processed_event is not None:
+                _LOGGER.debug("Processed camera event: %s", processed_event)
+                processed_camera.update(processed_event)
+
         self.fire_event(camera_id, processed_camera)
 
     def _process_event_ws_message(self, action_json, data_json):
