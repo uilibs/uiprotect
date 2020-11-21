@@ -4,6 +4,7 @@ import datetime
 import enum
 import logging
 import struct
+import time
 import zlib
 
 WS_HEADER_SIZE = 8
@@ -12,6 +13,10 @@ _LOGGER = logging.getLogger(__name__)
 EVENT_SMART_DETECT_ZONE = "smartDetectZone"
 EVENT_MOTION = "motion"
 EVENT_RING = "ring"
+
+EVENT_LENGTH_PRECISION = 3
+
+TYPE_RECORD_NEVER = "never"
 
 PROCESSED_EVENT_EMPTY = {
     "event_start": None,
@@ -46,7 +51,8 @@ CAMERA_KEYS = {
     "mac",
     "host",
     "lastMotion",
-    "lastRing"
+    "lastRing",
+    "isMotionDetected",
 }
 
 
@@ -76,7 +82,6 @@ def decode_ws_frame(frame, position):
         frame = zlib.decompress(frame)
     position += payload_size
     return frame, ProtectWSPayloadFormat(payload_format), position
-
 
 
 def process_camera(server_id, host, camera, include_events):
@@ -234,6 +239,48 @@ def camera_update_from_ws_frames(state_machine, host, action_json, data_json):
     return camera_id, processed_camera
 
 
+def camera_event_from_ws_frames(state_machine, action_json, data_json):
+    """Create processed events from the camera model."""
+
+    if "isMotionDetected" not in data_json and "lastMotion" not in data_json:
+        return None
+
+    camera_id = action_json["id"]
+    start_time = None
+    event_length = 0
+    event_on = False
+
+    last_motion = data_json.get("lastMotion")
+    is_motion_detected = data_json.get("isMotionDetected")
+
+    if is_motion_detected is None:
+        start_time = state_machine.get_motion_detected_time(camera_id)
+        event_on = start_time is not None
+    else:
+        if is_motion_detected:
+            event_on = True
+            start_time = last_motion
+            state_machine.set_motion_detected_time(camera_id, start_time)
+        else:
+            start_time = state_machine.get_motion_detected_time(camera_id)
+            state_machine.set_motion_detected_time(camera_id, None)
+            if last_motion is None:
+                last_motion = round(time.time() * 1000)
+
+    if start_time is not None and last_motion is not None:
+        event_length = round(
+            (float(last_motion) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION
+        )
+
+    return {
+        "event_on": event_on,
+        "event_type": "motion",
+        "event_start": start_time,
+        "event_length": event_length,
+        "event_score": 0,
+    }
+
+
 def process_event(event, minimum_score, ring_interval):
     """Convert an event to our format."""
     start = event.get("start")
@@ -247,7 +294,9 @@ def process_event(event, minimum_score, ring_interval):
     if start:
         start_time = _process_timestamp(start)
     if end:
-        event_length = round((float(end) / 1000) - (float(start) / 1000), 3)
+        event_length = round(
+            (float(end) / 1000) - (float(start) / 1000), EVENT_LENGTH_PRECISION
+        )
 
     processed_event = {
         "event_on": False,
@@ -297,11 +346,21 @@ class ProtectCameraStateMachine:
     def __init__(self):
         """Init the state machine."""
         self._cameras = {}
+        self._motion_detected_time = {}
 
     def update(self, camera_id, new_json):
         """Update an camera in the state machine."""
         self._cameras.setdefault(camera_id, {}).update(new_json)
         return self._cameras[camera_id]
+
+    def set_motion_detected_time(self, camera_id, timestamp):
+        """Set camera motion start detected time."""
+        self._motion_detected_time[camera_id] = timestamp
+
+    def get_motion_detected_time(self, camera_id):
+        """Get camera motion start detected time."""
+        return self._motion_detected_time.get(camera_id)
+
 
 class ProtectEventStateMachine:
     """A simple state machine for cameras."""
