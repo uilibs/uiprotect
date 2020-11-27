@@ -862,12 +862,6 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             # additional event to turn off the ring.
             processed_event["event_ring_on"] = False
             self.fire_event(camera_id, processed_event)
-        elif processed_event["event_on"] and processed_event["event_length"]:
-            # If the event has ended the websocket will not give
-            # us any additional updates so we fire another callback
-            # to turn off the event.
-            processed_event["event_on"] = False
-            self.fire_event(camera_id, processed_event)
 
     def fire_event(self, camera_id, processed_event):
         """Callback and event to the subscribers and update data."""
