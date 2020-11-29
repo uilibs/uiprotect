@@ -310,7 +310,7 @@ def process_event(event, minimum_score, ring_interval):
 
     if event_type in (EVENT_MOTION, EVENT_SMART_DETECT_ZONE):
         processed_event["last_motion"] = start_time
-        if score is not None and int(score) >= minimum_score:
+        if score is not None and int(score) >= minimum_score and not end:
             processed_event["event_on"] = True
     else:
         processed_event["last_ring"] = start_time
