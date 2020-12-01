@@ -120,6 +120,8 @@ def process_camera(server_id, host, camera, include_events):
     # Get HDR Mode
     has_hdr = featureflags.get("hasHdr")
     hdr_mode = camera.get("hdrMode") or False
+    # Get SmartDetect capabilities
+    has_smartdetect = featureflags.get("hasSmartDetect")
 
     # Add rtsp streaming url if enabled
     rtsp = None
@@ -146,6 +148,7 @@ def process_camera(server_id, host, camera, include_events):
         "has_hdr": has_hdr,
         "video_mode": video_mode,
         "hdr_mode": hdr_mode,
+        "has_smartdetect": has_smartdetect,
     }
     if server_id is not None:
         camera_update["server_id"] = server_id
