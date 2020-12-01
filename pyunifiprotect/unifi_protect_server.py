@@ -530,7 +530,9 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         """Sets the camera recoding mode to what is supplied with 'mode'.
         Valid inputs for mode: never, motion, always, smartDetect
         """
-
+        if 'smart' in mode:
+            mode = 'SmartDetect'
+            
         await self.ensure_authenticated()
 
         cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
