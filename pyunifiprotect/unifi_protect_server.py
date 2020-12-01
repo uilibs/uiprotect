@@ -531,8 +531,8 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         Valid inputs for mode: never, motion, always, smartDetect
         """
         if 'smart' in mode:
-            mode = 'SmartDetect'
-            
+            mode = 'smartDetect'
+
         await self.ensure_authenticated()
 
         cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
