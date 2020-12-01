@@ -528,7 +528,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
     async def set_camera_recording(self, camera_id: str, mode: str) -> bool:
         """Sets the camera recoding mode to what is supplied with 'mode'.
-        Valid inputs for mode: never, motion, always
+        Valid inputs for mode: never, motion, always, smartDetect
         """
 
         await self.ensure_authenticated()
