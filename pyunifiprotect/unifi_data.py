@@ -13,6 +13,7 @@ _LOGGER = logging.getLogger(__name__)
 EVENT_SMART_DETECT_ZONE = "smartDetectZone"
 EVENT_MOTION = "motion"
 EVENT_RING = "ring"
+EVENT_DISCONNECT = "disconnect"
 
 EVENT_LENGTH_PRECISION = 3
 
@@ -316,15 +317,16 @@ def process_event(event, minimum_score, ring_interval):
         if score is not None and int(score) >= minimum_score and not end:
             processed_event["event_on"] = True
     else:
-        processed_event["last_ring"] = start_time
-        if ring_interval == LIVE_RING_FROM_WEBSOCKET or not end:
-            _LOGGER.debug("EVENT: DOORBELL IS RINGING")
-            processed_event["event_ring_on"] = True
-        elif start >= ring_interval and end >= ring_interval:
-            _LOGGER.debug("EVENT: DOORBELL HAS RUNG IN LAST 3 SECONDS!")
-            processed_event["event_ring_on"] = True
-        else:
-            _LOGGER.debug("EVENT: DOORBELL WAS NOT RUNG IN LAST 3 SECONDS")
+        if event_type != EVENT_DISCONNECT:
+            processed_event["last_ring"] = start_time
+            if ring_interval == LIVE_RING_FROM_WEBSOCKET or not end:
+                _LOGGER.debug("EVENT: DOORBELL IS RINGING")
+                processed_event["event_ring_on"] = True
+            elif start >= ring_interval and end >= ring_interval:
+                _LOGGER.debug("EVENT: DOORBELL HAS RUNG IN LAST 3 SECONDS!")
+                processed_event["event_ring_on"] = True
+            else:
+                _LOGGER.debug("EVENT: DOORBELL WAS NOT RUNG IN LAST 3 SECONDS")
 
     thumbail = event.get("thumbnail")
     if thumbail is not None:  # Only update if there is a new Motion Event
