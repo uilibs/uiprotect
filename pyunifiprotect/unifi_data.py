@@ -328,6 +328,7 @@ def process_event(event, minimum_score, ring_interval):
             else:
                 _LOGGER.debug("EVENT: DOORBELL WAS NOT RUNG IN LAST 3 SECONDS")
 
+
     thumbail = event.get("thumbnail")
     if thumbail is not None:  # Only update if there is a new Motion Event
         processed_event["event_thumbnail"] = thumbail
