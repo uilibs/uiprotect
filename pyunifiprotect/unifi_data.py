@@ -317,18 +317,16 @@ def process_event(event, minimum_score, ring_interval):
         processed_event["last_motion"] = start_time
         if score is not None and int(score) >= minimum_score and not end:
             processed_event["event_on"] = True
-    else:
-        if event_type not in [EVENT_DISCONNECT, EVENT_PROVISION]:
-            processed_event["last_ring"] = start_time
-            if ring_interval == LIVE_RING_FROM_WEBSOCKET or not end:
-                _LOGGER.debug("EVENT: DOORBELL IS RINGING")
-                processed_event["event_ring_on"] = True
-            elif start >= ring_interval and end >= ring_interval:
-                _LOGGER.debug("EVENT: DOORBELL HAS RUNG IN LAST 3 SECONDS!")
-                processed_event["event_ring_on"] = True
-            else:
-                _LOGGER.debug("EVENT: DOORBELL WAS NOT RUNG IN LAST 3 SECONDS")
-
+    elif event_type == EVENT_RING:
+        processed_event["last_ring"] = start_time
+        if ring_interval == LIVE_RING_FROM_WEBSOCKET or not end:
+            _LOGGER.debug("EVENT: DOORBELL IS RINGING")
+            processed_event["event_ring_on"] = True
+        elif start >= ring_interval and end >= ring_interval:
+            _LOGGER.debug("EVENT: DOORBELL HAS RUNG IN LAST 3 SECONDS!")
+            processed_event["event_ring_on"] = True
+        else:
+            _LOGGER.debug("EVENT: DOORBELL WAS NOT RUNG IN LAST 3 SECONDS")
 
     thumbail = event.get("thumbnail")
     if thumbail is not None:  # Only update if there is a new Motion Event
