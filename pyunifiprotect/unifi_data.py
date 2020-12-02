@@ -14,6 +14,7 @@ EVENT_SMART_DETECT_ZONE = "smartDetectZone"
 EVENT_MOTION = "motion"
 EVENT_RING = "ring"
 EVENT_DISCONNECT = "disconnect"
+EVENT_PROVISION = "provision"
 
 EVENT_LENGTH_PRECISION = 3
 
@@ -317,7 +318,7 @@ def process_event(event, minimum_score, ring_interval):
         if score is not None and int(score) >= minimum_score and not end:
             processed_event["event_on"] = True
     else:
-        if event_type != EVENT_DISCONNECT:
+        if event_type not in [EVENT_DISCONNECT, EVENT_PROVISION]:
             processed_event["last_ring"] = start_time
             if ring_interval == LIVE_RING_FROM_WEBSOCKET or not end:
                 _LOGGER.debug("EVENT: DOORBELL IS RINGING")
