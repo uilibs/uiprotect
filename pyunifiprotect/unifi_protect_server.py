@@ -651,6 +651,33 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 % (response.status, response.reason)
             )
 
+    async def set_mic_volume(self, camera_id: str, level: int) -> bool:
+        """Sets the camera microphone volume level.
+        Valid inputs is an integer between 0 and 100.
+        """
+
+        if level < 0:
+            level = 0
+        elif level > 100:
+            level = 100
+
+        await self.ensure_authenticated()
+
+        cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
+        data = {"micVolume": level}
+
+        async with self.req.patch(
+            cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
+        ) as response:
+            if response.status == 200:
+                # self._camera_state_machine.update(camera_id, data)
+                # self.device_data[camera_id]["mic_volume"] = level
+                return True
+            raise NvrError(
+                "Change Microphone Level failed: %s - Reason: %s"
+                % (response.status, response.reason)
+            )
+
     async def set_doorbell_custom_text(
         self, camera_id: str, custom_text: str, duration=None
     ) -> bool:
