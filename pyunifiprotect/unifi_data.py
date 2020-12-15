@@ -47,6 +47,7 @@ CAMERA_KEYS = {
     "featureFlags",
     "hdrMode",
     "videoMode",
+    "micVolume",
     "channels",
     "name",
     "type",
@@ -122,6 +123,8 @@ def process_camera(server_id, host, camera, include_events):
     # Get HDR Mode
     has_hdr = featureflags.get("hasHdr")
     hdr_mode = camera.get("hdrMode") or False
+    # Get Microphone Volume
+    mic_volume = camera.get("micVolume") or 0
     # Get SmartDetect capabilities
     has_smartdetect = featureflags.get("hasSmartDetect")
     # Get if soroundings are Dark
@@ -152,6 +155,7 @@ def process_camera(server_id, host, camera, include_events):
         "has_hdr": has_hdr,
         "video_mode": video_mode,
         "hdr_mode": hdr_mode,
+        "mic_volume": mic_volume,
         "has_smartdetect": has_smartdetect,
         "is_dark": is_dark,
     }

@@ -670,8 +670,8 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
-                # self._camera_state_machine.update(camera_id, data)
-                # self.device_data[camera_id]["mic_volume"] = level
+                self._camera_state_machine.update(camera_id, data)
+                self.device_data[camera_id]["mic_volume"] = level
                 return True
             raise NvrError(
                 "Change Microphone Level failed: %s - Reason: %s"
