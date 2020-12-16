@@ -14,8 +14,11 @@ from .unifi_data import (
     EVENT_MOTION,
     EVENT_RING,
     EVENT_SMART_DETECT_ZONE,
+    PRIVACY_OFF,
+    PRIVACY_ON,
     PROCESSED_EVENT_EMPTY,
     TYPE_RECORD_NEVER,
+    ZONE_NAME,
     ProtectCameraStateMachine,
     ProtectEventStateMachine,
     ProtectWSPayloadFormat,
@@ -418,7 +421,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         ) as response:
             if response.status != 200:
                 raise NvrError(
-                    f"Fetching Unique ID failed: {response.status} - Reason: {response.reason}"
+                    f"Fetching Raw Camera Data failed: {response.status} - Reason: {response.reason}"
                 )
             return await response.json()
 
@@ -677,6 +680,65 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 "Change Microphone Level failed: %s - Reason: %s"
                 % (response.status, response.reason)
             )
+
+    async def set_privacy_mode(self, camera_id: str, mode: bool) -> bool:
+        """Sets the camera privacy mode.
+           When True, creates a privacy zone that fills the camera
+           When False, removes the Privacy Zone
+           Valid inputs for mode: False and True
+        """
+
+        if mode:
+            privacy_value = PRIVACY_ON
+        else:
+            privacy_value = PRIVACY_OFF
+
+        # We need the current camera setup
+        caminfo = await self._get_camera_detail(camera_id)
+        privdata = caminfo["privacyZones"]
+        items = []
+
+        # Update Zone Information
+        for row in privdata:
+            if row['name'] == ZONE_NAME:
+                row["points"] = privacy_value
+            items.append(row)
+        if len(items) == 0:
+            # items.append({"name": "hass zone", "color": "#85BCEC", "points": [[0,0], [1,0], [1,1], [0,1]]})
+            items.append({"name": "hass zone", "color": "#85BCEC", "points": privacy_value})
+
+        # Update the Privacy Mode
+        await self.ensure_authenticated()
+
+        cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
+        data = {"privacyZones": items}
+        async with self.req.patch(
+            cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
+        ) as response:
+            if response.status == 200:
+                await self.update(True)
+                return True
+            raise NvrError(
+                "Change Privacy Zone failed: %s - Reason: %s"
+                % (response.status, response.reason)
+            )
+
+    async def _get_camera_detail(self, camera_id: str) -> None:
+        """Return the RAW JSON data for Camera."""
+
+        await self.ensure_authenticated()
+
+        bootstrap_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
+        async with self.req.get(
+            bootstrap_uri,
+            headers=self.headers,
+            verify_ssl=self._verify_ssl,
+        ) as response:
+            if response.status != 200:
+                raise NvrError(
+                    f"Fetching Camera Details failed: {response.status} - Reason: {response.reason}"
+                )
+            return await response.json()
 
     async def set_doorbell_custom_text(
         self, camera_id: str, custom_text: str, duration=None

@@ -20,6 +20,10 @@ EVENT_LENGTH_PRECISION = 3
 
 TYPE_RECORD_NEVER = "never"
 
+PRIVACY_OFF = [[0,0], [0,0], [0,0], [0,0]]
+PRIVACY_ON = [[0,0], [1,0], [1,1], [0,1]]
+ZONE_NAME = "hass zone"
+
 PROCESSED_EVENT_EMPTY = {
     "event_start": None,
     "event_score": 0,
@@ -129,6 +133,12 @@ def process_camera(server_id, host, camera, include_events):
     has_smartdetect = featureflags.get("hasSmartDetect")
     # Get if soroundings are Dark
     is_dark = camera.get("isDark") or False
+    # Get Privacy Mode
+    privacyzones = camera.get("privacyZones")
+    privacy_on = False
+    for row in privacyzones:
+        if row['name'] == ZONE_NAME:
+            privacy_on = row['points'] == PRIVACY_ON
 
     # Add rtsp streaming url if enabled
     rtsp = None
@@ -158,7 +168,10 @@ def process_camera(server_id, host, camera, include_events):
         "mic_volume": mic_volume,
         "has_smartdetect": has_smartdetect,
         "is_dark": is_dark,
+        "privacy_on": privacy_on,
     }
+    _LOGGER.info(camera_update)
+
     if server_id is not None:
         camera_update["server_id"] = server_id
     if include_events:
