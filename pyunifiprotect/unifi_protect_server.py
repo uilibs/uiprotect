@@ -704,7 +704,6 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 row["points"] = privacy_value
             items.append(row)
         if len(items) == 0:
-            # items.append({"name": "hass zone", "color": "#85BCEC", "points": [[0,0], [1,0], [1,1], [0,1]]})
             items.append({"name": "hass zone", "color": "#85BCEC", "points": privacy_value})
 
         # Update the Privacy Mode
