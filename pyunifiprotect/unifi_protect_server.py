@@ -243,7 +243,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         async with self.req.post(
             access_key_uri,
             headers=self.headers,
-            verify_ssl=self._verify_ssl,
+            ssl=self._verify_ssl,
         ) as response:
             if response.status == 200:
                 json_response = await response.json()
@@ -261,7 +261,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         async with self.req.get(
             bootstrap_uri,
             headers=self.headers,
-            verify_ssl=self._verify_ssl,
+            ssl=self._verify_ssl,
         ) as response:
             if response.status == 200:
                 json_response = await response.json()
@@ -280,7 +280,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         async with self.req.get(
             bootstrap_uri,
             headers=self.headers,
-            verify_ssl=self._verify_ssl,
+            ssl=self._verify_ssl,
         ) as response:
             if response.status == 200:
                 json_response = await response.json()
@@ -304,7 +304,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         response = await self.req.get(
             bootstrap_uri,
             headers=self.headers,
-            verify_ssl=self._verify_ssl,
+            ssl=self._verify_ssl,
         )
         if response.status != 200:
             raise NvrError(
@@ -360,7 +360,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             event_uri,
             params=params,
             headers=self.headers,
-            verify_ssl=self._verify_ssl,
+            ssl=self._verify_ssl,
         )
         if response.status != 200:
             raise NvrError(
@@ -400,7 +400,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             event_uri,
             params=params,
             headers=self.headers,
-            verify_ssl=self._verify_ssl,
+            ssl=self._verify_ssl,
         ) as response:
             if response.status != 200:
                 raise NvrError(
@@ -417,7 +417,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         async with self.req.get(
             bootstrap_uri,
             headers=self.headers,
-            verify_ssl=self._verify_ssl,
+            ssl=self._verify_ssl,
         ) as response:
             if response.status != 200:
                 raise NvrError(
@@ -446,7 +446,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             img_uri,
             params=params,
             headers=self.headers,
-            verify_ssl=self._verify_ssl,
+            ssl=self._verify_ssl,
         ) as response:
             if response.status != 200:
                 raise NvrError(
@@ -473,7 +473,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             img_uri,
             params=params,
             headers=self.headers,
-            verify_ssl=self._verify_ssl,
+            ssl=self._verify_ssl,
         ) as response:
             if response.status != 200:
                 raise NvrError(
@@ -505,7 +505,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             "w": image_width,
         }
         async with self.req.get(
-            img_uri, params=params, headers=self.headers, verify_ssl=self._verify_ssl
+            img_uri, params=params, headers=self.headers, ssl=self._verify_ssl
         ) as response:
             if response.status == 200:
                 return await response.read()
@@ -550,7 +550,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         }
 
         async with self.req.patch(
-            cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
+            cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
                 self.device_data[camera_id]["recording_mode"] = mode
@@ -577,7 +577,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         data = {"ispSettings": {"irLedMode": mode, "irLedLevel": 255}}
 
         async with self.req.patch(
-            cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
+            cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
                 self.device_data[camera_id]["ir_mode"] = mode
@@ -598,7 +598,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         data = {"ledSettings": {"isEnabled": mode, "blinkRate": 0}}
 
         async with self.req.patch(
-            cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
+            cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
                 self.device_data[camera_id]["status_light"] = str(mode)
@@ -619,7 +619,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         data = {"hdrMode": mode}
 
         async with self.req.patch(
-            cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
+            cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
                 self._camera_state_machine.update(camera_id, data)
@@ -643,7 +643,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         data = {"videoMode": highfps}
 
         async with self.req.patch(
-            cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
+            cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
                 self._camera_state_machine.update(camera_id, data)
@@ -670,7 +670,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         data = {"micVolume": level}
 
         async with self.req.patch(
-            cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
+            cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
                 self._camera_state_machine.update(camera_id, data)
@@ -713,7 +713,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
         data = {"privacyZones": items}
         async with self.req.patch(
-            cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
+            cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
                 await self.update(True)
@@ -732,7 +732,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         async with self.req.get(
             bootstrap_uri,
             headers=self.headers,
-            verify_ssl=self._verify_ssl,
+            ssl=self._verify_ssl,
         ) as response:
             if response.status != 200:
                 raise NvrError(
@@ -769,7 +769,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         }
 
         async with self.req.patch(
-            cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
+            cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
                 return True
@@ -794,7 +794,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         }
 
         async with self.req.patch(
-            cam_uri, headers=self.headers, verify_ssl=self._verify_ssl, json=data
+            cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
                 return True
@@ -812,7 +812,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             async with self.req.request(
                 method,
                 url,
-                verify_ssl=self._verify_ssl,
+                ssl=self._verify_ssl,
                 json=json,
                 headers=self.headers,
                 **kwargs,
@@ -843,7 +843,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         _LOGGER.debug("WS connecting to: %s", url)
 
         self.ws_connection = await self.ws_session.ws_connect(
-            url, verify_ssl=self._verify_ssl, headers=self.headers
+            url, ssl=self._verify_ssl, headers=self.headers
         )
         try:
             async for msg in self.ws_connection:
