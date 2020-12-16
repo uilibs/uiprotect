@@ -696,14 +696,16 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         # We need the current camera setup
         caminfo = await self._get_camera_detail(camera_id)
         privdata = caminfo["privacyZones"]
+        zone_exist = False
         items = []
 
         # Update Zone Information
         for row in privdata:
             if row['name'] == ZONE_NAME:
                 row["points"] = privacy_value
+                zone_exist = True
             items.append(row)
-        if len(items) == 0:
+        if len(items) == 0 or not zone_exist:
             items.append({"name": "hass zone", "color": "#85BCEC", "points": privacy_value})
 
         # Update the Privacy Mode
