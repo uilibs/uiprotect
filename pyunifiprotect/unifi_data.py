@@ -139,6 +139,7 @@ def process_camera(server_id, host, camera, include_events):
     for row in privacyzones:
         if row['name'] == ZONE_NAME:
             privacy_on = row['points'] == PRIVACY_ON
+            break
 
     # Add rtsp streaming url if enabled
     rtsp = None
@@ -170,7 +171,6 @@ def process_camera(server_id, host, camera, include_events):
         "is_dark": is_dark,
         "privacy_on": privacy_on,
     }
-    _LOGGER.info(camera_update)
 
     if server_id is not None:
         camera_update["server_id"] = server_id
