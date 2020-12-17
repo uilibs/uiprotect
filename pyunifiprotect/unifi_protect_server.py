@@ -717,7 +717,6 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
-                await self.update(True)
                 return True
             raise NvrError(
                 "Change Privacy Zone failed: %s - Reason: %s"
