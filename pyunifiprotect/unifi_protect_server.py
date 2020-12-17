@@ -681,13 +681,22 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 % (response.status, response.reason)
             )
 
-    async def set_privacy_mode(self, camera_id: str, mode: bool) -> bool:
+    async def set_privacy_mode(self, camera_id: str, mode: bool, mic_level=-1, recording_mode="notset") -> bool:
         """Sets the camera privacy mode.
            When True, creates a privacy zone that fills the camera
            When False, removes the Privacy Zone
            Valid inputs for mode: False and True
         """
 
+        # Set Microphone Level if needed
+        if mic_level >= 0:
+            await self.set_mic_volume(camera_id, mic_level)
+
+        # Set recording mode if needed
+        if recording_mode != "notset":
+            await self.set_camera_recording(camera_id, recording_mode)
+
+        # Set Privacy Mask
         if mode:
             privacy_value = PRIVACY_ON
         else:
