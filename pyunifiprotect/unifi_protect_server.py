@@ -315,6 +315,12 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         if not self.ws_connection and "lastUpdateId" in json_response:
             self.last_update_id = json_response["lastUpdateId"]
         for camera in json_response["cameras"]:
+
+            # Ignore cameras adopted by another controller on the same network
+            # since they appear in the api on 1.17+
+            if "isAdopted" in camera and not camera["isAdopted"]:
+                continue
+
             camera_id = camera["id"]
 
             first_update = camera_id not in self.device_data
@@ -533,8 +539,8 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         """Sets the camera recoding mode to what is supplied with 'mode'.
         Valid inputs for mode: never, motion, always, smartDetect
         """
-        if 'smart' in mode:
-            mode = 'smartDetect'
+        if "smart" in mode:
+            mode = "smartDetect"
 
         await self.ensure_authenticated()
 
@@ -681,11 +687,13 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 % (response.status, response.reason)
             )
 
-    async def set_privacy_mode(self, camera_id: str, mode: bool, mic_level=-1, recording_mode="notset") -> bool:
+    async def set_privacy_mode(
+        self, camera_id: str, mode: bool, mic_level=-1, recording_mode="notset"
+    ) -> bool:
         """Sets the camera privacy mode.
-           When True, creates a privacy zone that fills the camera
-           When False, removes the Privacy Zone
-           Valid inputs for mode: False and True
+        When True, creates a privacy zone that fills the camera
+        When False, removes the Privacy Zone
+        Valid inputs for mode: False and True
         """
 
         # Set Microphone Level if needed
@@ -710,12 +718,14 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         # Update Zone Information
         for row in privdata:
-            if row['name'] == ZONE_NAME:
+            if row["name"] == ZONE_NAME:
                 row["points"] = privacy_value
                 zone_exist = True
             items.append(row)
         if len(items) == 0 or not zone_exist:
-            items.append({"name": "hass zone", "color": "#85BCEC", "points": privacy_value})
+            items.append(
+                {"name": "hass zone", "color": "#85BCEC", "points": privacy_value}
+            )
 
         # Update the Privacy Mode
         await self.ensure_authenticated()
