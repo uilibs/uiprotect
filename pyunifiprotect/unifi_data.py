@@ -20,8 +20,8 @@ EVENT_LENGTH_PRECISION = 3
 
 TYPE_RECORD_NEVER = "never"
 
-PRIVACY_OFF = [[0,0], [0,0], [0,0], [0,0]]
-PRIVACY_ON = [[0,0], [1,0], [1,1], [0,1]]
+PRIVACY_OFF = [[0, 0], [0, 0], [0, 0], [0, 0]]
+PRIVACY_ON = [[0, 0], [1, 0], [1, 1], [0, 1]]
 ZONE_NAME = "hass zone"
 
 PROCESSED_EVENT_EMPTY = {
@@ -96,10 +96,6 @@ def process_camera(server_id, host, camera, include_events):
 
     # If addtional keys are checked, update CAMERA_KEYS
 
-    # If Non Adopted Camera, abort
-    if "state" not in camera:
-        return
-
     # Get if camera is online
     online = camera["state"] == "CONNECTED"
     # Get Recording Mode
@@ -141,8 +137,8 @@ def process_camera(server_id, host, camera, include_events):
     privacyzones = camera.get("privacyZones")
     privacy_on = False
     for row in privacyzones:
-        if row['name'] == ZONE_NAME:
-            privacy_on = row['points'] == PRIVACY_ON
+        if row["name"] == ZONE_NAME:
+            privacy_on = row["points"] == PRIVACY_ON
             break
 
     # Add rtsp streaming url if enabled
@@ -256,7 +252,12 @@ def camera_update_from_ws_frames(state_machine, host, action_json, data_json):
         raise ValueError("Model key must be camera")
 
     camera_id = action_json["id"]
-    camera = state_machine.update(action_json["id"], data_json)
+
+    if not state_machine.has_camera(camera_id):
+        _LOGGER.debug("Skipping non-adopted camera: %s", data_json)
+        return None, None
+
+    camera = state_machine.update(camera_id, data_json)
 
     if data_json.keys().isdisjoint(CAMERA_KEYS):
         _LOGGER.debug("Skipping camera data: %s", data_json)
@@ -376,6 +377,10 @@ class ProtectCameraStateMachine:
         """Init the state machine."""
         self._cameras = {}
         self._motion_detected_time = {}
+
+    def has_camera(self, camera_id):
+        """Check to see if a camera id is in the state machine."""
+        return camera_id in self._cameras
 
     def update(self, camera_id, new_json):
         """Update an camera in the state machine."""
