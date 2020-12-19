@@ -96,6 +96,10 @@ def process_camera(server_id, host, camera, include_events):
 
     # If addtional keys are checked, update CAMERA_KEYS
 
+    # If Non Adopted Camera, abort
+    if "state" not in camera:
+        return
+
     # Get if camera is online
     online = camera["state"] == "CONNECTED"
     # Get Recording Mode

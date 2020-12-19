@@ -939,7 +939,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             self._camera_state_machine, self._host, action_json, data_json
         )
 
-        if camera_id is None:
+        if camera_id is None or processed_camera is None:
             return
         _LOGGER.debug("Processed camera: %s", processed_camera)
 
