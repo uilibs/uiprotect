@@ -660,6 +660,28 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 % (response.status, response.reason)
             )
 
+
+    async def set_camera_zoom_position(self, camera_id: str, position: int) -> bool:
+        """Sets the cameras optical zoom position.
+        Valid inputs for position: Integer from 0 to 100
+        """
+
+        await self.ensure_authenticated()
+
+        cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
+        data = {"ispSettings": {"zoomPosition": position}}
+
+        async with self.req.patch(
+            cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
+        ) as response:
+            if response.status == 200:
+                self.device_data[camera_id]["zoom_position"] = position
+                return True
+            raise NvrError(
+                "Set Zoom Position failed: %s - Reason: %s"
+                % (response.status, response.reason)
+            )
+
     async def set_mic_volume(self, camera_id: str, level: int) -> bool:
         """Sets the camera microphone volume level.
         Valid inputs is an integer between 0 and 100.
