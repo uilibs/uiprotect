@@ -665,6 +665,10 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         """Sets the cameras optical zoom position.
         Valid inputs for position: Integer from 0 to 100
         """
+        if position < 0:
+            position = 0
+        elif position > 100:
+            position = 100
 
         await self.ensure_authenticated()
 
