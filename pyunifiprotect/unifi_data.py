@@ -60,6 +60,7 @@ CAMERA_KEYS = {
     "lastMotion",
     "lastRing",
     "isMotionDetected",
+    "zoomPosition",
 }
 
 
