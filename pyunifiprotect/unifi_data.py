@@ -61,6 +61,7 @@ CAMERA_KEYS = {
     "lastRing",
     "isMotionDetected",
     "zoomPosition",
+    "light_mode",
 }
 
 
@@ -90,6 +91,67 @@ def decode_ws_frame(frame, position):
         frame = zlib.decompress(frame)
     position += payload_size
     return frame, ProtectWSPayloadFormat(payload_format), position
+
+
+def process_light(server_id, host, light, include_events):
+    """Process the light json."""
+
+    # TODO: impement light processing
+    # GEt if Light is Online
+    online = light["isConnected"]
+    # Get if Light is On
+    is_on = light["isLightOn"]
+    # Get Firmware Version
+    firmware_version = str(light["firmwareVersion"])
+    # Get when the camera came online
+    upsince = (
+        "Offline"
+        if light["upSince"] is None
+        else datetime.datetime.fromtimestamp(int(light["upSince"]) / 1000).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+    )
+    # Get Light Mode Settings
+    lightmodesettings = light.get("lightModeSettings")
+    light_mode = lightmodesettings.get("mode")
+    light_mode_enabled_at = lightmodesettings.get("enableAt")
+    # Get Light Device Setting
+    device_type = "light"
+    lightdevicesettings = light.get("lightDeviceSettings")
+    brightness = lightdevicesettings.get("ledLevel")
+    lux_sensitivity = lightdevicesettings.get("luxSensitivity")
+    pir_duration = lightdevicesettings.get("pirDuration")
+    pir_sensitivity = lightdevicesettings.get("pirSensitivity")
+
+    light_update = {
+        "name": str(light["name"]),
+        "type": device_type,
+        "model": str(light["type"]),
+        "mac": str(light["mac"]),
+        "ip_address": str(light["host"]),
+        "firmware_version": firmware_version,
+        "light_mode": light_mode,
+        "light_mode_enabled_at": light_mode_enabled_at,
+        "up_since": upsince,
+        "online": online,
+        "is_on": is_on,
+        "brightness": brightness,
+        "lux_sensitivity": lux_sensitivity,
+        "pir_duration": pir_duration,
+        "pir_sensitivity": pir_sensitivity
+
+    }
+
+    if include_events:
+        # Get the last time motion occured
+        light_update["last_motion"] = (
+            None
+            if light["lastMotion"] is None
+            else datetime.datetime.fromtimestamp(
+                int(light["lastMotion"]) / 1000
+            ).strftime("%Y-%m-%d %H:%M:%S")
+        )
+    return light_update
 
 
 def process_camera(server_id, host, camera, include_events):
@@ -223,6 +285,10 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
     Camera Ring (event)
     {'action': 'add', 'newUpdateId': 'da36377d-b947-4b05-ba11-c17b0d2703f9', 'modelKey': 'event', 'id': '5fb1964b03b352038700184d'}
     {'type': 'ring', 'start': 1605473867945, 'end': 1605473868945, 'score': 0, 'smartDetectTypes': [], 'smartDetectEvents': [], 'camera': '5f9f43f102f7d90387004da5', 'partition': None, 'id': '5fb1964b03b352038700184d', 'modelKey': 'event'}
+
+    Light Motion (event) 
+    {'action': 'update', 'newUpdateId': '41fddb04-e79f-4726-945f-0de74294045e', 'modelKey': 'light', 'id': '5fec968501ce7d038700539b'}
+    {'isPirMotionDetected': True, 'lastMotion': 1609579367419}
     """
 
     if action_json["modelKey"] != "event":
@@ -233,7 +299,8 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
 
     if action == "add":
         camera_id = data_json.get("camera")
-        if camera_id is None:
+        light_id = data_json.get("light")
+        if camera_id and light_id is None:
             return None, None
         state_machine.add(event_id, data_json)
         event = data_json
@@ -242,6 +309,7 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
         if not event:
             return None, None
         camera_id = event.get("camera")
+        light_id = event.get("light")
     else:
         raise ValueError("The action must be add or update")
 
@@ -250,6 +318,30 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
 
     return camera_id, processed_event
 
+#TODO: implement light_update_from_ws_frames
+
+def light_update_from_ws_frames(state_machine, host, action_json, data_json):
+    """Convert a websocket frame to internal format."""
+
+    if action_json["modelKey"] != "light":
+        raise ValueError("Model key must be light")
+
+    light_id = action_json["id"]
+
+    if not state_machine.has_camera(light_id):
+        _LOGGER.debug("Skipping non-adopted light: %s", data_json)
+        return None, None
+
+    light = state_machine.update(light_id, data_json)
+
+    if data_json.keys().isdisjoint(CAMERA_KEYS):
+        _LOGGER.debug("Skipping light data: %s", data_json)
+        return None, None
+
+    _LOGGER.debug("Processing light: %s", light)
+    processed_light = process_light(None, host, light, True)
+
+    return light_id, processed_light
 
 def camera_update_from_ws_frames(state_machine, host, action_json, data_json):
     """Convert a websocket frame to internal format."""
@@ -300,6 +392,47 @@ def camera_event_from_ws_frames(state_machine, action_json, data_json):
         else:
             start_time = state_machine.get_motion_detected_time(camera_id)
             state_machine.set_motion_detected_time(camera_id, None)
+            if last_motion is None:
+                last_motion = round(time.time() * 1000)
+
+    if start_time is not None and last_motion is not None:
+        event_length = round(
+            (float(last_motion) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION
+        )
+
+    return {
+        "event_on": event_on,
+        "event_type": "motion",
+        "event_start": start_time,
+        "event_length": event_length,
+        "event_score": 0,
+    }
+
+def light_event_from_ws_frames(state_machine, action_json, data_json):
+    """Create processed events from the light model."""
+
+    if "isPirMotionDetected" not in data_json and "lastMotion" not in data_json:
+        return None
+
+    light_id = action_json["id"]
+    start_time = None
+    event_length = 0
+    event_on = False
+
+    last_motion = data_json.get("lastMotion")
+    is_motion_detected = data_json.get("isPirMotionDetected")
+
+    if is_motion_detected is None:
+        start_time = state_machine.get_motion_detected_time(light_id)
+        event_on = start_time is not None
+    else:
+        if is_motion_detected:
+            event_on = True
+            start_time = last_motion
+            state_machine.set_motion_detected_time(light_id, start_time)
+        else:
+            start_time = state_machine.get_motion_detected_time(light_id)
+            state_machine.set_motion_detected_time(light_id, None)
             if last_motion is None:
                 last_motion = round(time.time() * 1000)
 
