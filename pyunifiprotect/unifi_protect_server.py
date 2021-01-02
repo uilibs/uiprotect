@@ -415,7 +415,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             return await response.json()
 
     async def get_raw_camera_info(self) -> None:
-        """Return the RAW JSON data from this NVR."""
+        """Return the RAW JSON data from this NVR - used for debugging purposes only."""
 
         await self.ensure_authenticated()
 
