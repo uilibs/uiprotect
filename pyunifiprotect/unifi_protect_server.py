@@ -24,13 +24,16 @@ from .unifi_data import (
     ProtectWSPayloadFormat,
     camera_event_from_ws_frames,
     camera_update_from_ws_frames,
+    light_event_from_ws_frames,
+    light_update_from_ws_frames,
     decode_ws_frame,
     event_from_ws_frames,
     process_camera,
     process_event,
+    process_light,
 )
 
-CAMERA_UPDATE_INTERVAL_SECONDS = 60
+DEVICE_UPDATE_INTERVAL_SECONDS = 60
 WEBSOCKET_CHECK_INTERVAL_SECONDS = 120
 
 
@@ -73,7 +76,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self.api_path = "api"
         self.ws_path = "ws"
         self._is_authenticated = False
-        self._last_camera_update_time = 0
+        self._last_device_update_time = 0
         self._last_websocket_check = 0
         self.access_key = None
         self.device_data = {}
@@ -99,19 +102,19 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         """Updates the status of devices."""
 
         current_time = time.time()
-        camera_update = False
+        device_update = False
         if (
             not self.ws_connection
             and force_camera_update
-            or (current_time - CAMERA_UPDATE_INTERVAL_SECONDS)
-            > self._last_camera_update_time
+            or (current_time - DEVICE_UPDATE_INTERVAL_SECONDS)
+            > self._last_device_update_time
         ):
-            _LOGGER.debug("Doing camera update")
-            camera_update = True
-            await self._get_camera_list(not self.ws_connection)
-            self._last_camera_update_time = current_time
+            _LOGGER.debug("Doing device update")
+            device_update = True
+            await self._get_device_list(not self.ws_connection)
+            self._last_device_update_time = current_time
         else:
-            _LOGGER.debug("Skipping camera update")
+            _LOGGER.debug("Skipping device update")
 
         if (
             self.is_unifi_os
@@ -126,12 +129,12 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         # we do not need to get events
         if self.ws_connection or self._last_websocket_check == current_time:
             _LOGGER.debug("Skipping update since websocket is active")
-            return self.devices if camera_update else {}
+            return self.devices if device_update else {}
 
         self._reset_camera_events()
         updates = await self._get_events(lookback=10)
 
-        return self.devices if camera_update else updates
+        return self.devices if device_update else updates
 
     async def async_connect_ws(self):
         """Connect the websocket."""
@@ -295,8 +298,8 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 f"Fetching Unique ID failed: {response.status} - Reason: {response.reason}"
             )
 
-    async def _get_camera_list(self, include_events) -> None:
-        """Get a list of Cameras connected to the NVR."""
+    async def _get_device_list(self, include_events) -> None:
+        """Get a list of devices connected to the NVR."""
 
         await self.ensure_authenticated()
 
@@ -314,6 +317,11 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         server_id = json_response["nvr"]["mac"]
         if not self.ws_connection and "lastUpdateId" in json_response:
             self.last_update_id = json_response["lastUpdateId"]
+
+        self._process_cameras_json(json_response, server_id, include_events)
+        self._process_lights_json(json_response, server_id, include_events)
+
+    def _process_cameras_json(self, json_response, server_id, include_events):
         for camera in json_response["cameras"]:
 
             # Ignore cameras adopted by another controller on the same network
@@ -326,19 +334,47 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             first_update = camera_id not in self.device_data
 
             self._camera_state_machine.update(camera_id, camera)
-            self._update_camera(
+            self._update_device(
                 camera_id,
                 process_camera(
                     server_id, self._host, camera, include_events or first_update
                 ),
             )
             if first_update:
-                self._update_camera(camera_id, PROCESSED_EVENT_EMPTY)
+                self._update_device(camera_id, PROCESSED_EVENT_EMPTY)
+
+    def _process_lights_json(self, json_response, server_id, include_events):
+        for light in json_response["lights"]:
+
+            # Ignore lights adopted by another controller on the same network
+            # since they appear in the api on 1.17+
+            if "isAdopted" in light and not light["isAdopted"]:
+                continue
+
+            light_id = light["id"]
+
+            first_update = light_id not in self.device_data
+
+            # something similar to _process_cameras_json
+            # if cameras are similar enough to lights in the
+            # implementation we may be able to use the same state machine?
+            self._camera_state_machine.update(light_id, light)
+
+            self._update_device(
+                light_id,
+                process_light(
+                    server_id, self._host, light, include_events or first_update
+                ),
+            )
+            if first_update:
+                self._update_device(light_id, PROCESSED_EVENT_EMPTY)
 
     def _reset_camera_events(self) -> None:
         """Reset camera events between camera updates."""
         for camera_id in self.device_data:
-            self._update_camera(camera_id, PROCESSED_EVENT_EMPTY)
+            # TODO: do we need seperate event types for lights?
+            # should this only affect "doorbell" and "camera"?
+            self._update_device(camera_id, PROCESSED_EVENT_EMPTY)
 
     async def _get_events(
         self, lookback: int = 86400, camera=None, start_time=None, end_time=None
@@ -379,7 +415,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 continue
 
             camera_id = event["camera"]
-            self._update_camera(
+            self._update_device(
                 camera_id,
                 process_event(event, self._minimum_score, event_ring_check_converted),
             )
@@ -415,7 +451,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             return await response.json()
 
     async def get_raw_camera_info(self) -> None:
-        """Return the RAW JSON data from this NVR - used for debugging purposes only."""
+        """Return the RAW JSON data from this NVR."""
 
         await self.ensure_authenticated()
 
@@ -659,7 +695,6 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 "Change Video mode failed: %s - Reason: %s"
                 % (response.status, response.reason)
             )
-
 
     async def set_camera_zoom_position(self, camera_id: str, position: int) -> bool:
         """Sets the cameras optical zoom position.
@@ -936,7 +971,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         model_key = action_json.get("modelKey")
 
-        if model_key not in ("event", "camera"):
+        if model_key not in ("event", "camera", "light"):
             return
 
         _LOGGER.debug("Action Frame: %s", action_json)
@@ -957,6 +992,9 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             self._process_camera_ws_message(action_json, data_json)
             return
 
+        if model_key == "light":
+            self._process_light_ws_message(action_json, data_json)
+            return
         raise ValueError(f"Unexpected model key: {model_key}")
 
     def _process_camera_ws_message(self, action_json, data_json):
@@ -979,9 +1017,29 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         self.fire_event(camera_id, processed_camera)
 
+    def _process_light_ws_message(self, action_json, data_json):
+        """Process a decoded light websocket message."""
+        light_id, processed_light = light_update_from_ws_frames(
+            self._camera_state_machine, self._host, action_json, data_json
+        )
+
+        if light_id is None:
+            return
+        _LOGGER.debug("Processed light: %s", processed_light)
+
+        if processed_light["light_mode"] == "off":
+            processed_event = light_event_from_ws_frames(
+                self._camera_state_machine, action_json, data_json
+            )
+            if processed_event is not None:
+                _LOGGER.debug("Processed light event: %s", processed_event)
+                processed_light.update(processed_event)
+
+        self.fire_event(light_id, processed_light)
+
     def _process_event_ws_message(self, action_json, data_json):
         """Process a decoded event websocket message."""
-        camera_id, processed_event = event_from_ws_frames(
+        device_id, processed_event = event_from_ws_frames(
             self._event_state_machine, self._minimum_score, action_json, data_json
         )
 
@@ -999,13 +1057,14 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             processed_event["event_ring_on"] = False
             self.fire_event(camera_id, processed_event)
 
-    def fire_event(self, camera_id, processed_event):
+
+    def fire_event(self, device_id, processed_event):
         """Callback and event to the subscribers and update data."""
-        self._update_camera(camera_id, processed_event)
+        self._update_device(device_id, processed_event)
 
         for subscriber in self._ws_subscriptions:
-            subscriber({camera_id: processed_event})
+            subscriber({device_id: processed_event})
 
-    def _update_camera(self, camera_id, processed_update):
-        """Update internal state of a camera."""
-        self.device_data.setdefault(camera_id, {}).update(processed_update)
+    def _update_device(self, device_id, processed_update):
+        """Update internal state of a device."""
+        self.device_data.setdefault(device_id, {}).update(processed_update)
