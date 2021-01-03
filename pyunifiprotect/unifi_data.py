@@ -299,8 +299,7 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
 
     if action == "add":
         device_id = data_json.get("camera") or data_json.get("light")
-        light_id = data_json.get("light")
-        if camera_id and light_id is None:
+        if device_id is None:
             return None, None
         state_machine.add(event_id, data_json)
         event = data_json
