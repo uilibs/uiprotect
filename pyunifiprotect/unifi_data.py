@@ -332,7 +332,7 @@ def light_update_from_ws_frames(state_machine, host, action_json, data_json):
 
     light = state_machine.update(light_id, data_json)
 
-    if data_json.keys().isdisjoint(CAMERA_KEYS):
+    if data_json.keys().isdisjoint(LIGHT_KEYS):
         _LOGGER.debug("Skipping light data: %s", data_json)
         return None, None
 
