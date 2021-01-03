@@ -19,7 +19,7 @@ from .unifi_data import (
     PROCESSED_EVENT_EMPTY,
     TYPE_RECORD_NEVER,
     ZONE_NAME,
-    ProtectCameraStateMachine,
+    ProtectDeviceStateMachine,
     ProtectEventStateMachine,
     ProtectWSPayloadFormat,
     camera_event_from_ws_frames,
@@ -81,7 +81,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self.access_key = None
         self.device_data = {}
         self._event_state_machine = ProtectEventStateMachine()
-        self._camera_state_machine = ProtectCameraStateMachine()
+        self._device_state_machine = ProtectDeviceStateMachine()
 
         self._motion_start_time = {}
         self.last_update_id = None
@@ -131,7 +131,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             _LOGGER.debug("Skipping update since websocket is active")
             return self.devices if device_update else {}
 
-        self._reset_camera_events()
+        self._reset_device_events()
         updates = await self._get_events(lookback=10)
 
         return self.devices if device_update else updates
@@ -333,7 +333,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
             first_update = camera_id not in self.device_data
 
-            self._camera_state_machine.update(camera_id, camera)
+            self._device_state_machine.update(camera_id, camera)
             self._update_device(
                 camera_id,
                 process_camera(
@@ -358,7 +358,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             # something similar to _process_cameras_json
             # if cameras are similar enough to lights in the
             # implementation we may be able to use the same state machine?
-            self._camera_state_machine.update(light_id, light)
+            self._device_state_machine.update(light_id, light)
 
             self._update_device(
                 light_id,
@@ -369,12 +369,10 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             if first_update:
                 self._update_device(light_id, PROCESSED_EVENT_EMPTY)
 
-    def _reset_camera_events(self) -> None:
-        """Reset camera events between camera updates."""
-        for camera_id in self.device_data:
-            # TODO: do we need seperate event types for lights?
-            # should this only affect "doorbell" and "camera"?
-            self._update_device(camera_id, PROCESSED_EVENT_EMPTY)
+    def _reset_device_events(self) -> None:
+        """Reset device events between device updates."""
+        for device_id in self.device_data:
+            self._update_device(device_id, PROCESSED_EVENT_EMPTY)
 
     async def _get_events(
         self, lookback: int = 86400, camera=None, start_time=None, end_time=None
@@ -664,7 +662,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
-                self._camera_state_machine.update(camera_id, data)
+                self._device_state_machine.update(camera_id, data)
                 self.device_data[camera_id]["hdr_mode"] = mode
                 return True
             raise NvrError(
@@ -688,7 +686,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
-                self._camera_state_machine.update(camera_id, data)
+                self._device_state_machine.update(camera_id, data)
                 self.device_data[camera_id]["video_mode"] = highfps
                 return True
             raise NvrError(
@@ -740,7 +738,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
-                self._camera_state_machine.update(camera_id, data)
+                self._device_state_machine.update(camera_id, data)
                 self.device_data[camera_id]["mic_volume"] = level
                 return True
             raise NvrError(
@@ -1000,7 +998,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
     def _process_camera_ws_message(self, action_json, data_json):
         """Process a decoded camera websocket message."""
         camera_id, processed_camera = camera_update_from_ws_frames(
-            self._camera_state_machine, self._host, action_json, data_json
+            self._device_state_machine, self._host, action_json, data_json
         )
 
         if camera_id is None:
@@ -1009,7 +1007,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         if processed_camera["recording_mode"] == TYPE_RECORD_NEVER:
             processed_event = camera_event_from_ws_frames(
-                self._camera_state_machine, action_json, data_json
+                self._device_state_machine, action_json, data_json
             )
             if processed_event is not None:
                 _LOGGER.debug("Processed camera event: %s", processed_event)
@@ -1020,7 +1018,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
     def _process_light_ws_message(self, action_json, data_json):
         """Process a decoded light websocket message."""
         light_id, processed_light = light_update_from_ws_frames(
-            self._camera_state_machine, self._host, action_json, data_json
+            self._device_state_machine, self._host, action_json, data_json
         )
 
         if light_id is None:
@@ -1029,7 +1027,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         if processed_light["light_mode"] == "off":
             processed_event = light_event_from_ws_frames(
-                self._camera_state_machine, action_json, data_json
+                self._device_state_machine, action_json, data_json
             )
             if processed_event is not None:
                 _LOGGER.debug("Processed light event: %s", processed_event)
@@ -1043,19 +1041,19 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             self._event_state_machine, self._minimum_score, action_json, data_json
         )
 
-        if camera_id is None:
+        if device_id is None:
             return
 
         _LOGGER.debug("Procesed event: %s", processed_event)
 
-        self.fire_event(camera_id, processed_event)
+        self.fire_event(device_id, processed_event)
 
         if processed_event["event_ring_on"]:
             # The websocket will not send any more events since
             # doorbell rings do not have a length. We fire an
             # additional event to turn off the ring.
             processed_event["event_ring_on"] = False
-            self.fire_event(camera_id, processed_event)
+            self.fire_event(device_id, processed_event)
 
 
     def fire_event(self, device_id, processed_event):
