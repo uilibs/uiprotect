@@ -314,7 +314,7 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
     _LOGGER.debug("Processing event: %s", event)
     processed_event = process_event(event, minimum_score, LIVE_RING_FROM_WEBSOCKET)
 
-    return camera_id, processed_event
+    return device_id, processed_event
 
 #TODO: implement light_update_from_ws_frames
 
