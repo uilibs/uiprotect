@@ -1040,7 +1040,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
     def _process_event_ws_message(self, action_json, data_json):
         """Process a decoded event websocket message."""
-        camera_id, processed_event = event_from_ws_frames(
+        device_id, processed_event = event_from_ws_frames(
             self._event_state_machine, self._minimum_score, action_json, data_json
         )
 
