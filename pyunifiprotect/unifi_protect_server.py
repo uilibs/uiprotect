@@ -993,7 +993,6 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             return
 
         if model_key == "light":
-            # TODO:
             self._process_light_ws_message(action_json, data_json)
             return
         raise ValueError(f"Unexpected model key: {model_key}")
