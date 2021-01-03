@@ -307,8 +307,7 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
         event = state_machine.update(event_id, data_json)
         if not event:
             return None, None
-        camera_id = event.get("camera")
-        light_id = event.get("light")
+        device_id = event.get("camera") or event.get("light")
     else:
         raise ValueError("The action must be add or update")
 
