@@ -61,9 +61,19 @@ CAMERA_KEYS = {
     "lastRing",
     "isMotionDetected",
     "zoomPosition",
-    "light_mode",
 }
 
+LIGHT_KEYS = {
+    "isConnected",
+    "name",
+    "type",
+    "light_mode",
+    "isPirMotionDetected",
+    "lightDeviceSettings",
+    "lightModeSettings",
+    "firmwareVersion",
+    "lastMotion",
+}
 
 @enum.unique
 class ProtectWSPayloadFormat(enum.Enum):
@@ -96,8 +106,7 @@ def decode_ws_frame(frame, position):
 def process_light(server_id, host, light, include_events):
     """Process the light json."""
 
-    # TODO: impement light processing
-    # GEt if Light is Online
+    # Get if Light is Online
     online = light["isConnected"]
     # Get if Light is On
     is_on = light["isLightOn"]
@@ -316,8 +325,6 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
 
     return device_id, processed_event
 
-#TODO: implement light_update_from_ws_frames
-
 def light_update_from_ws_frames(state_machine, host, action_json, data_json):
     """Convert a websocket frame to internal format."""
 
@@ -349,7 +356,7 @@ def camera_update_from_ws_frames(state_machine, host, action_json, data_json):
 
     camera_id = action_json["id"]
 
-    if not state_machine.has_camera(camera_id):
+    if not state_machine.has_device(camera_id):
         _LOGGER.debug("Skipping non-adopted camera: %s", data_json)
         return None, None
 
@@ -507,30 +514,30 @@ def _process_timestamp(time_stamp):
     )
 
 
-class ProtectCameraStateMachine:
-    """A simple state machine for camera events."""
+class ProtectDeviceStateMachine:
+    """A simple state machine for events."""
 
     def __init__(self):
         """Init the state machine."""
-        self._cameras = {}
+        self._devices = {}
         self._motion_detected_time = {}
 
-    def has_camera(self, camera_id):
-        """Check to see if a camera id is in the state machine."""
-        return camera_id in self._cameras
+    def has_device(self, device_id):
+        """Check to see if a device id is in the state machine."""
+        return device_id in self._devices
 
-    def update(self, camera_id, new_json):
-        """Update an camera in the state machine."""
-        self._cameras.setdefault(camera_id, {}).update(new_json)
-        return self._cameras[camera_id]
+    def update(self, device_id, new_json):
+        """Update an device in the state machine."""
+        self._devices.setdefault(device_id, {}).update(new_json)
+        return self._devices[device_id]
 
-    def set_motion_detected_time(self, camera_id, timestamp):
-        """Set camera motion start detected time."""
-        self._motion_detected_time[camera_id] = timestamp
+    def set_motion_detected_time(self, device_id, timestamp):
+        """Set device motion start detected time."""
+        self._motion_detected_time[device_id] = timestamp
 
-    def get_motion_detected_time(self, camera_id):
-        """Get camera motion start detected time."""
-        return self._motion_detected_time.get(camera_id)
+    def get_motion_detected_time(self, device_id):
+        """Get device motion start detected time."""
+        return self._motion_detected_time.get(device_id)
 
 
 class ProtectEventStateMachine:
