@@ -328,7 +328,7 @@ def light_update_from_ws_frames(state_machine, host, action_json, data_json):
 
     light_id = action_json["id"]
 
-    if not state_machine.has_camera(light_id):
+    if not state_machine.has_device(light_id):
         _LOGGER.debug("Skipping non-adopted light: %s", data_json)
         return None, None
 
