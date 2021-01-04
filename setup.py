@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name = 'pyunifiprotect',
   packages = ['pyunifiprotect'],
-  version = '0.27.0',
+  version = '0.28.0',
   license='MIT',
   description = 'Python Wrapper for Unifi Protect API', 
   author = 'Bjarne Riis',
