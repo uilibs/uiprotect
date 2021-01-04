@@ -75,6 +75,7 @@ LIGHT_KEYS = {
     "lastMotion",
 }
 
+
 @enum.unique
 class ProtectWSPayloadFormat(enum.Enum):
     """Websocket Payload formats."""
@@ -147,8 +148,7 @@ def process_light(server_id, host, light, include_events):
         "brightness": brightness,
         "lux_sensitivity": lux_sensitivity,
         "pir_duration": pir_duration,
-        "pir_sensitivity": pir_sensitivity
-
+        "pir_sensitivity": pir_sensitivity,
     }
 
     if include_events:
@@ -295,7 +295,7 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
     {'action': 'add', 'newUpdateId': 'da36377d-b947-4b05-ba11-c17b0d2703f9', 'modelKey': 'event', 'id': '5fb1964b03b352038700184d'}
     {'type': 'ring', 'start': 1605473867945, 'end': 1605473868945, 'score': 0, 'smartDetectTypes': [], 'smartDetectEvents': [], 'camera': '5f9f43f102f7d90387004da5', 'partition': None, 'id': '5fb1964b03b352038700184d', 'modelKey': 'event'}
 
-    Light Motion (event) 
+    Light Motion (event)
     {'action': 'update', 'newUpdateId': '41fddb04-e79f-4726-945f-0de74294045e', 'modelKey': 'light', 'id': '5fec968501ce7d038700539b'}
     {'isPirMotionDetected': True, 'lastMotion': 1609579367419}
     """
@@ -325,6 +325,7 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
 
     return device_id, processed_event
 
+
 def light_update_from_ws_frames(state_machine, host, action_json, data_json):
     """Convert a websocket frame to internal format."""
 
@@ -347,6 +348,7 @@ def light_update_from_ws_frames(state_machine, host, action_json, data_json):
     processed_light = process_light(None, host, light, True)
 
     return light_id, processed_light
+
 
 def camera_update_from_ws_frames(state_machine, host, action_json, data_json):
     """Convert a websocket frame to internal format."""
@@ -397,47 +399,6 @@ def camera_event_from_ws_frames(state_machine, action_json, data_json):
         else:
             start_time = state_machine.get_motion_detected_time(camera_id)
             state_machine.set_motion_detected_time(camera_id, None)
-            if last_motion is None:
-                last_motion = round(time.time() * 1000)
-
-    if start_time is not None and last_motion is not None:
-        event_length = round(
-            (float(last_motion) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION
-        )
-
-    return {
-        "event_on": event_on,
-        "event_type": "motion",
-        "event_start": start_time,
-        "event_length": event_length,
-        "event_score": 0,
-    }
-
-def light_event_from_ws_frames(state_machine, action_json, data_json):
-    """Create processed events from the light model."""
-
-    if "isPirMotionDetected" not in data_json and "lastMotion" not in data_json:
-        return None
-
-    light_id = action_json["id"]
-    start_time = None
-    event_length = 0
-    event_on = False
-
-    last_motion = data_json.get("lastMotion")
-    is_motion_detected = data_json.get("isPirMotionDetected")
-
-    if is_motion_detected is None:
-        start_time = state_machine.get_motion_detected_time(light_id)
-        event_on = start_time is not None
-    else:
-        if is_motion_detected:
-            event_on = True
-            start_time = last_motion
-            state_machine.set_motion_detected_time(light_id, start_time)
-        else:
-            start_time = state_machine.get_motion_detected_time(light_id)
-            state_machine.set_motion_detected_time(light_id, None)
             if last_motion is None:
                 last_motion = round(time.time() * 1000)
 
