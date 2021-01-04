@@ -24,6 +24,7 @@ from .unifi_data import (
     ProtectWSPayloadFormat,
     camera_event_from_ws_frames,
     camera_update_from_ws_frames,
+    light_event_from_ws_frames,
     light_update_from_ws_frames,
     decode_ws_frame,
     event_from_ws_frames,
@@ -1022,8 +1023,16 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         if light_id is None:
             return
-
         _LOGGER.debug("Processed light: %s", processed_light)
+
+        if processed_light["light_mode"] == "off":
+            processed_event = light_event_from_ws_frames(
+                self._device_state_machine, action_json, data_json
+            )
+            if processed_event is not None:
+                _LOGGER.debug("Processed light event: %s", processed_event)
+                processed_light.update(processed_event)
+
         self.fire_event(light_id, processed_light)
 
     def _process_event_ws_message(self, action_json, data_json):
@@ -1045,6 +1054,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             # additional event to turn off the ring.
             processed_event["event_ring_on"] = False
             self.fire_event(device_id, processed_event)
+
 
     def fire_event(self, device_id, processed_event):
         """Callback and event to the subscribers and update data."""
