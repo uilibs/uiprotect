@@ -122,7 +122,7 @@ def process_light(server_id, host, light, include_events):
     )
     # Get Light Mode Settings
     lightmodesettings = light.get("lightModeSettings")
-    light_mode = lightmodesettings.get("mode")
+    recording_mode = lightmodesettings.get("mode")
     light_mode_enabled_at = lightmodesettings.get("enableAt")
     # Get Light Device Setting
     device_type = "light"
@@ -131,6 +131,7 @@ def process_light(server_id, host, light, include_events):
     lux_sensitivity = lightdevicesettings.get("luxSensitivity")
     pir_duration = lightdevicesettings.get("pirDuration")
     pir_sensitivity = lightdevicesettings.get("pirSensitivity")
+    status_light = lightdevicesettings.get("isIndicatorEnabled")
 
     light_update = {
         "name": str(light["name"]),
@@ -139,7 +140,7 @@ def process_light(server_id, host, light, include_events):
         "mac": str(light["mac"]),
         "ip_address": str(light["host"]),
         "firmware_version": firmware_version,
-        "light_mode": light_mode,
+        "recording_mode": recording_mode,
         "light_mode_enabled_at": light_mode_enabled_at,
         "up_since": upsince,
         "online": online,
@@ -147,7 +148,9 @@ def process_light(server_id, host, light, include_events):
         "brightness": brightness,
         "lux_sensitivity": lux_sensitivity,
         "pir_duration": pir_duration,
-        "pir_sensitivity": pir_sensitivity
+        "pir_sensitivity": pir_sensitivity,
+        "status_light": status_light,
+        "has_irmode": False,
     }
 
     if include_events:
@@ -246,6 +249,7 @@ def process_camera(server_id, host, camera, include_events):
         "privacy_on": privacy_on,
         "has_opticalzoom": has_opticalzoom,
         "zoom_position": zoom_position,
+        "has_irmode": True,
     }
 
     if server_id is not None:
