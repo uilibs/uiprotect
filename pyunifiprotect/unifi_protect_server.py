@@ -355,9 +355,6 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
             first_update = light_id not in self.device_data
 
-            # something similar to _process_cameras_json
-            # if cameras are similar enough to lights in the
-            # implementation we may be able to use the same state machine?
             self._device_state_machine.update(light_id, light)
 
             self._update_device(
@@ -802,7 +799,9 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             )
 
     async def _get_camera_detail(self, camera_id: str) -> None:
-        """Return the RAW JSON data for Camera."""
+        """Return the RAW JSON data for Camera.
+        Used for debugging only.
+        """
 
         await self.ensure_authenticated()
 

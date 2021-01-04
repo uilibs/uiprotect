@@ -148,7 +148,6 @@ def process_light(server_id, host, light, include_events):
         "lux_sensitivity": lux_sensitivity,
         "pir_duration": pir_duration,
         "pir_sensitivity": pir_sensitivity
-
     }
 
     if include_events:
