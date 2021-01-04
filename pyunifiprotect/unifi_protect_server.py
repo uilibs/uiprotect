@@ -35,7 +35,9 @@ from .unifi_data import (
 
 DEVICE_UPDATE_INTERVAL_SECONDS = 60
 WEBSOCKET_CHECK_INTERVAL_SECONDS = 120
-
+LIGHT_MODES = ["off", "motion", "always"]
+LIGHT_ENABLED = ["dark", "fulltime"]
+LIGHT_DURATIONS = [15000, 30000, 60000, 300000, 900000]
 
 class Invalid(Exception):
     """Invalid return from Authorization Request."""
@@ -445,8 +447,10 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 )
             return await response.json()
 
-    async def get_raw_camera_info(self) -> None:
-        """Return the RAW JSON data from this NVR."""
+    async def get_raw_device_info(self) -> None:
+        """Return the RAW JSON data from this NVR.
+        Used for debugging purposes only.
+        """
 
         await self.ensure_authenticated()
 
@@ -458,7 +462,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         ) as response:
             if response.status != 200:
                 raise NvrError(
-                    f"Fetching Raw Camera Data failed: {response.status} - Reason: {response.reason}"
+                    f"Fetching Raw Device Data failed: {response.status} - Reason: {response.reason}"
                 )
             return await response.json()
 
@@ -740,6 +744,88 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 return True
             raise NvrError(
                 "Change Microphone Level failed: %s - Reason: %s"
+                % (response.status, response.reason)
+            )
+
+    async def set_light_on_off(self, light_id: str, turn_on: bool) -> bool:
+        """Sets the light on or off.
+        Valid inputs is a boolean true or false.
+        """
+
+        await self.ensure_authenticated()
+
+        light_uri = f"{self._base_url}/{self.api_path}/lights/{light_id}"
+        data = {"lightOnSettings": {"isLedForceOn": turn_on}}
+
+        async with self.req.patch(
+            light_uri, headers=self.headers, ssl=self._verify_ssl, json=data
+        ) as response:
+            if response.status == 200:
+                self._device_state_machine.update(light_id, data)
+                self.device_data[light_id]["is_on"] = turn_on
+                return True
+            raise NvrError(
+                "Turn on/off light failed: %s - Reason: %s"
+                % (response.status, response.reason)
+            )
+
+    async def light_motion_settings(self, light_id: str, mode: str, enable_at: str, duration: int, sensitivity: int) -> bool:
+        """Sets PIR settings for a Light Device.
+        mode can be: off, motion or always
+        enableAt can be: dark, fulltime
+        pirDuration: A number between 15000 and 900000 (ms)
+        pirSensitivity: A number between 0 and 100
+        """
+        await self.ensure_authenticated()
+
+        if mode not in LIGHT_MODES:
+            mode = "motion"
+        if enable_at not in LIGHT_ENABLED:
+            enable_at = "fulltime"
+        if duration not in LIGHT_DURATIONS:
+            duration = 30000
+
+        light_uri = f"{self._base_url}/{self.api_path}/lights/{light_id}"
+        data = {"lightModeSettings": {"mode": mode, "enableAt": enable_at}, "lightDeviceSettings": {"pirDuration": duration, "pirSensitivity": sensitivity}}
+
+        async with self.req.patch(
+            light_uri, headers=self.headers, ssl=self._verify_ssl, json=data
+        ) as response:
+            if response.status == 200:
+                self._device_state_machine.update(light_id, data)
+                self.device_data[light_id]["light_mode"] = mode
+                self.device_data[light_id]["light_mode_enabled_at"] = enable_at
+                self.device_data[light_id]["pir_duration"] = duration
+                self.device_data[light_id]["pir_sensitivity"] = sensitivity
+                return True
+            raise NvrError(
+                "Changing light motion failed: %s - Reason: %s"
+                % (response.status, response.reason)
+            )
+
+    async def light_settings(self, light_id: str, led_level: int) -> bool:
+        """Sets various settings for a Light Device.
+        ledLevel can be: A number between 1 and 6
+        """
+        await self.ensure_authenticated()
+
+        if led_level < 0:
+            led_level = 1
+        elif led_level > 6:
+            led_level = 6
+
+        light_uri = f"{self._base_url}/{self.api_path}/lights/{light_id}"
+        data = {"lightDeviceSettings": {"ledLevel": led_level}}
+
+        async with self.req.patch(
+            light_uri, headers=self.headers, ssl=self._verify_ssl, json=data
+        ) as response:
+            if response.status == 200:
+                self._device_state_machine.update(light_id, data)
+                self.device_data[light_id]["brightness"] = led_level
+                return True
+            raise NvrError(
+                "Changing light settings failed: %s - Reason: %s"
                 % (response.status, response.reason)
             )
 
