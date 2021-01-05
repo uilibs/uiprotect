@@ -1125,7 +1125,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             return
         _LOGGER.debug("Processed light: %s", processed_light)
 
-        if processed_light["light_mode"] == "off":
+        if processed_light["motion_mode"] == "off":
             processed_event = light_event_from_ws_frames(
                 self._device_state_machine, action_json, data_json
             )
