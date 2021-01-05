@@ -11,12 +11,14 @@ from aiohttp import client_exceptions
 import jwt
 
 from .unifi_data import (
+    DEVICE_MODEL_LIGHT,
     EVENT_MOTION,
     EVENT_RING,
     EVENT_SMART_DETECT_ZONE,
     PRIVACY_OFF,
     PRIVACY_ON,
     PROCESSED_EVENT_EMPTY,
+    TYPE_MOTION_OFF,
     TYPE_RECORD_NEVER,
     ZONE_NAME,
     ProtectDeviceStateMachine,
@@ -628,21 +630,25 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 % (response.status, response.reason)
             )
 
-    async def set_camera_status_light(self, camera_id: str, mode: bool) -> bool:
-        """Sets the camera status light settings to what is supplied with 'mode'.
+    async def set_device_status_light(self, device_id: str, mode: bool, device_model: str) -> bool:
+        """Sets the device status light settings to what is supplied with 'mode'.
         Valid inputs for mode: False and True
         """
 
         await self.ensure_authenticated()
 
-        cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
-        data = {"ledSettings": {"isEnabled": mode, "blinkRate": 0}}
+        if device_model == DEVICE_MODEL_LIGHT:
+            uri = f"{self._base_url}/{self.api_path}/lights/{device_id}"
+            data = {"lightDeviceSettings": {"isIndicatorEnabled": mode}}
+        else:
+            uri = f"{self._base_url}/{self.api_path}/cameras/{device_id}"
+            data = {"ledSettings": {"isEnabled": mode, "blinkRate": 0}}
 
         async with self.req.patch(
-            cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
+            uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
-                self.device_data[camera_id]["status_light"] = str(mode)
+                self.device_data[device_id]["status_light"] = mode
                 return True
             raise NvrError(
                 "Change Status Light failed: %s - Reason: %s"
@@ -769,7 +775,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 % (response.status, response.reason)
             )
 
-    async def light_motion_settings(self, light_id: str, mode: str, duration=30000, sensitivity=90) -> bool:
+    async def light_motion_settings(self, light_id: str, mode: str, duration=15000, sensitivity=90) -> bool:
         """Sets PIR settings for a Light Device.
         mode can be: off, motion or always
         pirDuration: A number between 15000 and 900000 (ms)
@@ -818,7 +824,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 % (response.status, response.reason)
             )
 
-    async def light_settings(self, light_id: str, led_level = 3, status_light = None) -> bool:
+    async def light_settings(self, light_id: str, led_level: int) -> bool:
         """Sets various settings for a Light Device.
         ledLevel can be: A number between 1 and 6
         """
@@ -830,10 +836,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             led_level = 6
 
         light_uri = f"{self._base_url}/{self.api_path}/lights/{light_id}"
-        if not status_light:
-            data = {"lightDeviceSettings": {"ledLevel": led_level}}
-        else:
-            data = {"lightDeviceSettings": {"isIndicatorEnabled": status_light}}
+        data = {"lightDeviceSettings": {"ledLevel": led_level}}
 
         async with self.req.patch(
             light_uri, headers=self.headers, ssl=self._verify_ssl, json=data
@@ -1128,7 +1131,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             return
         _LOGGER.debug("Processed light: %s", processed_light)
 
-        if processed_light["motion_mode"] == "off":
+        if processed_light["motion_mode"] == TYPE_MOTION_OFF:
             processed_event = light_event_from_ws_frames(
                 self._device_state_machine, action_json, data_json
             )

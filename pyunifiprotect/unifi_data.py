@@ -10,6 +10,9 @@ import zlib
 WS_HEADER_SIZE = 8
 _LOGGER = logging.getLogger(__name__)
 
+DEVICE_MODEL_CAMERA = "camera"
+DEVICE_MODEL_LIGHT = "light"
+
 EVENT_SMART_DETECT_ZONE = "smartDetectZone"
 EVENT_MOTION = "motion"
 EVENT_RING = "ring"
@@ -18,6 +21,7 @@ EVENT_PROVISION = "provision"
 
 EVENT_LENGTH_PRECISION = 3
 
+TYPE_MOTION_OFF = "off"
 TYPE_RECORD_NEVER = "never"
 
 PRIVACY_OFF = [[0, 0], [0, 0], [0, 0], [0, 0]]
@@ -67,7 +71,7 @@ LIGHT_KEYS = {
     "isConnected",
     "name",
     "type",
-    "light_mode",
+    "motion_mode",
     "isPirMotionDetected",
     "lightDeviceSettings",
     "lightModeSettings",
