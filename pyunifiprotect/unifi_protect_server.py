@@ -364,7 +364,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             self._update_device(
                 light_id,
                 process_light(
-                    server_id, self._host, light, include_events or first_update
+                    server_id, light, include_events or first_update
                 ),
             )
             if first_update:
@@ -1124,20 +1124,20 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
     def _process_light_ws_message(self, action_json, data_json):
         """Process a decoded light websocket message."""
         light_id, processed_light = light_update_from_ws_frames(
-            self._device_state_machine, self._host, action_json, data_json
+            self._device_state_machine, action_json, data_json
         )
 
         if light_id is None:
             return
-        _LOGGER.debug("Processed light: %s", processed_light)
+        _LOGGER.debug("Processed light: %s", processed_light["motion_mode"], processed_light)
 
-        if processed_light["motion_mode"] == TYPE_MOTION_OFF:
-            processed_event = light_event_from_ws_frames(
-                self._device_state_machine, action_json, data_json
-            )
-            if processed_event is not None:
-                _LOGGER.debug("Processed light event: %s", processed_event)
-                processed_light.update(processed_event)
+        # Lights behave differently than Cameras so no check for recording state
+        processed_event = light_event_from_ws_frames(
+            self._device_state_machine, action_json, data_json
+        )
+        if processed_event is not None:
+            _LOGGER.debug("Processed light event: %s", processed_event)
+            processed_light.update(processed_event)
 
         self.fire_event(light_id, processed_light)
 

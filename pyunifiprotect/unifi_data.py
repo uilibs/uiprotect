@@ -71,12 +71,16 @@ LIGHT_KEYS = {
     "isConnected",
     "name",
     "type",
-    "motion_mode",
+    "upSince",
+    "firmwareVersion",
+    "mac",
+    "host",
     "isPirMotionDetected",
     "lightDeviceSettings",
     "lightModeSettings",
     "firmwareVersion",
     "lastMotion",
+    "isLedForceOn",
 }
 
 @enum.unique
@@ -107,16 +111,16 @@ def decode_ws_frame(frame, position):
     return frame, ProtectWSPayloadFormat(payload_format), position
 
 
-def process_light(server_id, host, light, include_events):
+def process_light(server_id, light, include_events):
     """Process the light json."""
 
     # Get if Light is Online
-    online = light["isConnected"]
+    online = light["state"] == "CONNECTED"
     # Get if Light is On
     is_on = light["isLightOn"]
     # Get Firmware Version
     firmware_version = str(light["firmwareVersion"])
-    # Get when the camera came online
+    # Get when the light came online
     upsince = (
         "Offline"
         if light["upSince"] is None
@@ -129,7 +133,7 @@ def process_light(server_id, host, light, include_events):
     motion_mode = lightmodesettings.get("mode")
     motion_mode_enabled_at = lightmodesettings.get("enableAt")
     # Get Light Device Setting
-    device_type = "light"
+    device_type = light["modelKey"]
     lightdevicesettings = light.get("lightDeviceSettings")
     brightness = lightdevicesettings.get("ledLevel")
     lux_sensitivity = lightdevicesettings.get("luxSensitivity")
@@ -156,6 +160,10 @@ def process_light(server_id, host, light, include_events):
         "status_light": status_light,
     }
 
+
+    if server_id is not None:
+        light_update["server_id"] = server_id
+
     if include_events:
         # Get the last time motion occured
         light_update["last_motion"] = (
@@ -180,7 +188,7 @@ def process_camera(server_id, host, camera, include_events):
     # Get Infrared Mode
     ir_mode = str(camera["ispSettings"]["irLedMode"])
     # Get Status Light Setting
-    status_light = str(camera["ledSettings"]["isEnabled"])
+    status_light = camera["ledSettings"]["isEnabled"]
 
     # Get when the camera came online
     upsince = (
@@ -330,7 +338,7 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
 
     return device_id, processed_event
 
-def light_update_from_ws_frames(state_machine, host, action_json, data_json):
+def light_update_from_ws_frames(state_machine, action_json, data_json):
     """Convert a websocket frame to internal format."""
 
     if action_json["modelKey"] != "light":
@@ -349,7 +357,7 @@ def light_update_from_ws_frames(state_machine, host, action_json, data_json):
         return None, None
 
     _LOGGER.debug("Processing light: %s", light)
-    processed_light = process_light(None, host, light, True)
+    processed_light = process_light(None, light, True)
 
     return light_id, processed_light
 
@@ -428,6 +436,7 @@ def light_event_from_ws_frames(state_machine, action_json, data_json):
     start_time = None
     event_length = 0
     event_on = False
+    _LOGGER.debug("Processed light event: %s", data_json)
 
     last_motion = data_json.get("lastMotion")
     is_motion_detected = data_json.get("isPirMotionDetected")
