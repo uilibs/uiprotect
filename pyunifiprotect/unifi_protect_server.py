@@ -818,19 +818,22 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 % (response.status, response.reason)
             )
 
-    async def light_settings(self, light_id: str, led_level: int) -> bool:
+    async def light_settings(self, light_id: str, led_level = 3, status_light = None) -> bool:
         """Sets various settings for a Light Device.
         ledLevel can be: A number between 1 and 6
         """
         await self.ensure_authenticated()
 
-        if led_level < 0:
+        if led_level < 1:
             led_level = 1
         elif led_level > 6:
             led_level = 6
 
         light_uri = f"{self._base_url}/{self.api_path}/lights/{light_id}"
-        data = {"lightDeviceSettings": {"ledLevel": led_level}}
+        if not status_light:
+            data = {"lightDeviceSettings": {"ledLevel": led_level}}
+        else:
+            data = {"lightDeviceSettings": {"isIndicatorEnabled": status_light}}
 
         async with self.req.patch(
             light_uri, headers=self.headers, ssl=self._verify_ssl, json=data
