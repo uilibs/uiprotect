@@ -793,8 +793,8 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         ) as response:
             if response.status == 200:
                 self._device_state_machine.update(light_id, data)
-                self.device_data[light_id]["recording_mode"] = mode
-                self.device_data[light_id]["light_mode_enabled_at"] = enable_at
+                self.device_data[light_id]["motion_mode"] = mode
+                self.device_data[light_id]["motion_mode_enabled_at"] = enable_at
                 self.device_data[light_id]["pir_duration"] = duration
                 self.device_data[light_id]["pir_sensitivity"] = sensitivity
                 return True
