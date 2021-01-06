@@ -753,7 +753,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 % (response.status, response.reason)
             )
 
-    async def set_light_on_off(self, light_id: str, turn_on: bool) -> bool:
+    async def set_light_on_off(self, light_id: str, turn_on: bool, led_level = 6) -> bool:
         """Sets the light on or off.
         Valid inputs is a boolean true or false.
         """
@@ -761,7 +761,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         await self.ensure_authenticated()
 
         light_uri = f"{self._base_url}/{self.api_path}/lights/{light_id}"
-        data = {"lightOnSettings": {"isLedForceOn": turn_on}}
+        data = {"lightOnSettings": {"isLedForceOn": turn_on}, "lightDeviceSettings": {"ledLevel": led_level}}
 
         async with self.req.patch(
             light_uri, headers=self.headers, ssl=self._verify_ssl, json=data
