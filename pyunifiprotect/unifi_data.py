@@ -81,6 +81,7 @@ LIGHT_KEYS = {
     "firmwareVersion",
     "lastMotion",
     "isLedForceOn",
+    "isLightOn",
 }
 
 @enum.unique
