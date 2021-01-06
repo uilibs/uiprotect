@@ -772,15 +772,18 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             if response.status == 200:
                 self._device_state_machine.update(light_id, data)
                 self.device_data[light_id]["is_on"] = turn_on
+                if led_level is not None:
+                    self.device_data[light_id]["brightness"] = led_level
                 return True
             raise NvrError(
                 "Turn on/off light failed: %s - Reason: %s"
                 % (response.status, response.reason)
             )
 
-    async def light_motion_settings(self, light_id: str, mode: str, duration=15000, sensitivity=90) -> bool:
+    async def light_settings(self, light_id: str, mode: str, enable_at=None, duration=None, sensitivity=None) -> bool:
         """Sets PIR settings for a Light Device.
         mode can be: off, motion or always
+        enableAt can be: dark, fulltime
         pirDuration: A number between 15000 and 900000 (ms)
         pirSensitivity: A number between 0 and 100
         """
@@ -790,7 +793,22 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             mode = "motion"
 
         light_uri = f"{self._base_url}/{self.api_path}/lights/{light_id}"
-        data = {"lightModeSettings": {"mode": mode}, "lightDeviceSettings": {"pirDuration": duration, "pirSensitivity": sensitivity}}
+        data = {"lightModeSettings": {"mode": mode}}
+        if enable_at is not None:
+                setting = data["lightModeSettings"]
+                setting["enableAt"] = enable_at
+        if duration is not None:
+            if data.get("lightDeviceSettings"):
+                setting = data["lightDeviceSettings"]
+                setting["pirDuration"] = duration
+            else:
+                data["lightDeviceSettings"] = {"pirDuration": duration}        
+        if sensitivity is not None:
+            if data.get("lightDeviceSettings"):
+                setting = data["lightDeviceSettings"]
+                setting["pirSensitivity"] = sensitivity
+            else:
+                data["lightDeviceSettings"] = {"pirSensitivity": sensitivity}
 
         async with self.req.patch(
             light_uri, headers=self.headers, ssl=self._verify_ssl, json=data
@@ -798,58 +816,15 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             if response.status == 200:
                 self._device_state_machine.update(light_id, data)
                 self.device_data[light_id]["motion_mode"] = mode
-                self.device_data[light_id]["pir_duration"] = duration
-                self.device_data[light_id]["pir_sensitivity"] = sensitivity
+                if enable_at is not None:
+                    self.device_data[light_id]["motion_mode_enabled_at"] = enable_at
+                if duration is not None:
+                    self.device_data[light_id]["pir_duration"] = duration
+                if sensitivity is not None:
+                    self.device_data[light_id]["pir_sensitivity"] = sensitivity
                 return True
             raise NvrError(
                 "Changing light motion failed: %s - Reason: %s"
-                % (response.status, response.reason)
-            )
-
-    async def light_motion_enabled_at(self, light_id: str, enable_at: str) -> bool:
-        """Sets when motion is enabled for a Light Device.
-        enableAt can be: dark, fulltime
-        """
-        await self.ensure_authenticated()
-
-        light_uri = f"{self._base_url}/{self.api_path}/lights/{light_id}"
-        data = {"lightModeSettings": {"enableAt": enable_at}}
-
-        async with self.req.patch(
-            light_uri, headers=self.headers, ssl=self._verify_ssl, json=data
-        ) as response:
-            if response.status == 200:
-                self._device_state_machine.update(light_id, data)
-                self.device_data[light_id]["motion_mode_enabled_at"] = enable_at
-                return True
-            raise NvrError(
-                "Changing light motion enabled at failed: %s - Reason: %s"
-                % (response.status, response.reason)
-            )
-
-    async def light_settings(self, light_id: str, led_level: int) -> bool:
-        """Sets various settings for a Light Device.
-        ledLevel can be: A number between 1 and 6
-        """
-        await self.ensure_authenticated()
-
-        if led_level < 1:
-            led_level = 1
-        elif led_level > 6:
-            led_level = 6
-
-        light_uri = f"{self._base_url}/{self.api_path}/lights/{light_id}"
-        data = {"lightDeviceSettings": {"ledLevel": led_level}}
-
-        async with self.req.patch(
-            light_uri, headers=self.headers, ssl=self._verify_ssl, json=data
-        ) as response:
-            if response.status == 200:
-                self._device_state_machine.update(light_id, data)
-                self.device_data[light_id]["brightness"] = led_level
-                return True
-            raise NvrError(
-                "Changing light settings failed: %s - Reason: %s"
                 % (response.status, response.reason)
             )
 
