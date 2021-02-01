@@ -84,6 +84,7 @@ LIGHT_KEYS = {
     "isLightOn",
 }
 
+
 @enum.unique
 class ProtectWSPayloadFormat(enum.Enum):
     """Websocket Payload formats."""
@@ -160,7 +161,6 @@ def process_light(server_id, light, include_events):
         "pir_sensitivity": pir_sensitivity,
         "status_light": status_light,
     }
-
 
     if server_id is not None:
         light_update["server_id"] = server_id
@@ -309,7 +309,7 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
     {'action': 'add', 'newUpdateId': 'da36377d-b947-4b05-ba11-c17b0d2703f9', 'modelKey': 'event', 'id': '5fb1964b03b352038700184d'}
     {'type': 'ring', 'start': 1605473867945, 'end': 1605473868945, 'score': 0, 'smartDetectTypes': [], 'smartDetectEvents': [], 'camera': '5f9f43f102f7d90387004da5', 'partition': None, 'id': '5fb1964b03b352038700184d', 'modelKey': 'event'}
 
-    Light Motion (event) 
+    Light Motion (event)
     {'action': 'update', 'newUpdateId': '41fddb04-e79f-4726-945f-0de74294045e', 'modelKey': 'light', 'id': '5fec968501ce7d038700539b'}
     {'isPirMotionDetected': True, 'lastMotion': 1609579367419}
     """
@@ -339,6 +339,7 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
 
     return device_id, processed_event
 
+
 def light_update_from_ws_frames(state_machine, action_json, data_json):
     """Convert a websocket frame to internal format."""
 
@@ -361,6 +362,7 @@ def light_update_from_ws_frames(state_machine, action_json, data_json):
     processed_light = process_light(None, light, True)
 
     return light_id, processed_light
+
 
 def camera_update_from_ws_frames(state_machine, host, action_json, data_json):
     """Convert a websocket frame to internal format."""
@@ -426,6 +428,7 @@ def camera_event_from_ws_frames(state_machine, action_json, data_json):
         "event_length": event_length,
         "event_score": 0,
     }
+
 
 def light_event_from_ws_frames(state_machine, action_json, data_json):
     """Create processed events from the light model."""
