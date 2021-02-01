@@ -10,6 +10,7 @@ import aiohttp
 from aiohttp import client_exceptions
 import jwt
 
+from .const import SERVER_ID, SERVER_NAME
 from .unifi_data import (
     DEVICE_MODEL_LIGHT,
     EVENT_MOTION,
@@ -18,7 +19,6 @@ from .unifi_data import (
     PRIVACY_OFF,
     PRIVACY_ON,
     PROCESSED_EVENT_EMPTY,
-    TYPE_MOTION_OFF,
     TYPE_RECORD_NEVER,
     ZONE_NAME,
     ProtectDeviceStateMachine,
@@ -26,10 +26,10 @@ from .unifi_data import (
     ProtectWSPayloadFormat,
     camera_event_from_ws_frames,
     camera_update_from_ws_frames,
-    light_event_from_ws_frames,
-    light_update_from_ws_frames,
     decode_ws_frame,
     event_from_ws_frames,
+    light_event_from_ws_frames,
+    light_update_from_ws_frames,
     process_camera,
     process_event,
     process_light,
@@ -40,6 +40,7 @@ WEBSOCKET_CHECK_INTERVAL_SECONDS = 120
 LIGHT_MODES = ["off", "motion", "always"]
 LIGHT_ENABLED = ["dark", "fulltime"]
 LIGHT_DURATIONS = [15000, 30000, 60000, 300000, 900000]
+
 
 class Invalid(Exception):
     """Invalid return from Authorization Request."""
@@ -96,6 +97,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self.ws_connection = None
         self.ws_task = None
         self._ws_subscriptions = []
+        self._is_first_update = True
 
     @property
     def devices(self):
@@ -160,10 +162,6 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         await self.ws_connection.close()
         await self.ws_session.close()
-
-    async def unique_id(self):
-        """Returns a Unique ID for this NVR."""
-        return await self._get_unique_id()
 
     async def server_information(self):
         """Returns a Server Information for this NVR."""
@@ -262,21 +260,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
     async def _get_unique_id(self) -> None:
         """Get a Unique ID for this NVR."""
 
-        await self.ensure_authenticated()
-
-        bootstrap_uri = f"{self._base_url}/{self.api_path}/bootstrap"
-        async with self.req.get(
-            bootstrap_uri,
-            headers=self.headers,
-            ssl=self._verify_ssl,
-        ) as response:
-            if response.status == 200:
-                json_response = await response.json()
-                unique_id = json_response["nvr"]["name"]
-                return unique_id
-            raise NvrError(
-                f"Fetching Unique ID failed: {response.status} - Reason: {response.reason}"
-            )
+        return await self._get_server_info()[SERVER_ID]
 
     async def _get_server_info(self) -> None:
         """Get Server Information for this NVR."""
@@ -284,23 +268,23 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         await self.ensure_authenticated()
 
         bootstrap_uri = f"{self._base_url}/{self.api_path}/bootstrap"
-        async with self.req.get(
+        response = await self.req.get(
             bootstrap_uri,
             headers=self.headers,
             ssl=self._verify_ssl,
-        ) as response:
-            if response.status == 200:
-                json_response = await response.json()
-                return {
-                    "unique_id": json_response["nvr"]["name"],
-                    "server_version": json_response["nvr"]["version"],
-                    "server_id": json_response["nvr"]["mac"],
-                    "server_model": json_response["nvr"]["type"],
-                    "unifios": self.is_unifi_os,
-                }
+        )
+        if response.status != 200:
             raise NvrError(
                 f"Fetching Unique ID failed: {response.status} - Reason: {response.reason}"
             )
+        json_response = await response.json()
+        return {
+            SERVER_NAME: json_response["nvr"]["name"],
+            "server_version": json_response["nvr"]["version"],
+            SERVER_ID: json_response["nvr"]["mac"],
+            "server_model": json_response["nvr"]["type"],
+            "unifios": self.is_unifi_os,
+        }
 
     async def _get_device_list(self, include_events) -> None:
         """Get a list of devices connected to the NVR."""
@@ -325,6 +309,8 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self._process_cameras_json(json_response, server_id, include_events)
         self._process_lights_json(json_response, server_id, include_events)
 
+        self._is_first_update = False
+
     def _process_cameras_json(self, json_response, server_id, include_events):
         for camera in json_response["cameras"]:
 
@@ -335,17 +321,18 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
             camera_id = camera["id"]
 
-            first_update = camera_id not in self.device_data
-
+            if self._is_first_update:
+                self._update_device(camera_id, PROCESSED_EVENT_EMPTY)
             self._device_state_machine.update(camera_id, camera)
             self._update_device(
                 camera_id,
                 process_camera(
-                    server_id, self._host, camera, include_events or first_update
+                    server_id,
+                    self._host,
+                    camera,
+                    include_events or self._is_first_update,
                 ),
             )
-            if first_update:
-                self._update_device(camera_id, PROCESSED_EVENT_EMPTY)
 
     def _process_lights_json(self, json_response, server_id, include_events):
         for light in json_response["lights"]:
@@ -357,18 +344,16 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
             light_id = light["id"]
 
-            first_update = light_id not in self.device_data
-
+            if self._is_first_update:
+                self._update_device(light_id, PROCESSED_EVENT_EMPTY)
             self._device_state_machine.update(light_id, light)
 
             self._update_device(
                 light_id,
                 process_light(
-                    server_id, light, include_events or first_update
+                    server_id, light, include_events or self._is_first_update
                 ),
             )
-            if first_update:
-                self._update_device(light_id, PROCESSED_EVENT_EMPTY)
 
     def _reset_device_events(self) -> None:
         """Reset device events between device updates."""
@@ -630,7 +615,9 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 % (response.status, response.reason)
             )
 
-    async def set_device_status_light(self, device_id: str, mode: bool, device_model: str) -> bool:
+    async def set_device_status_light(
+        self, device_id: str, mode: bool, device_model: str
+    ) -> bool:
         """Sets the device status light settings to what is supplied with 'mode'.
         Valid inputs for mode: False and True
         """
@@ -753,7 +740,9 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 % (response.status, response.reason)
             )
 
-    async def set_light_on_off(self, light_id: str, turn_on: bool, led_level = None) -> bool:
+    async def set_light_on_off(
+        self, light_id: str, turn_on: bool, led_level=None
+    ) -> bool:
         """Sets the light on or off.
         turn_on can be: true or false.
         led_level: must be between 1 and 6 or None
@@ -780,7 +769,9 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 % (response.status, response.reason)
             )
 
-    async def light_settings(self, light_id: str, mode: str, enable_at=None, duration=None, sensitivity=None) -> bool:
+    async def light_settings(
+        self, light_id: str, mode: str, enable_at=None, duration=None, sensitivity=None
+    ) -> bool:
         """Sets PIR settings for a Light Device.
         mode can be: off, motion or always
         enableAt can be: dark, fulltime
@@ -795,14 +786,14 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         light_uri = f"{self._base_url}/{self.api_path}/lights/{light_id}"
         data = {"lightModeSettings": {"mode": mode}}
         if enable_at is not None:
-                setting = data["lightModeSettings"]
-                setting["enableAt"] = enable_at
+            setting = data["lightModeSettings"]
+            setting["enableAt"] = enable_at
         if duration is not None:
             if data.get("lightDeviceSettings"):
                 setting = data["lightDeviceSettings"]
                 setting["pirDuration"] = duration
             else:
-                data["lightDeviceSettings"] = {"pirDuration": duration}        
+                data["lightDeviceSettings"] = {"pirDuration": duration}
         if sensitivity is not None:
             if data.get("lightDeviceSettings"):
                 setting = data["lightDeviceSettings"]
@@ -1107,7 +1098,9 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         if light_id is None:
             return
-        _LOGGER.debug("Processed light: %s", processed_light["motion_mode"], processed_light)
+        _LOGGER.debug(
+            "Processed light: %s", processed_light["motion_mode"], processed_light
+        )
 
         # Lights behave differently than Cameras so no check for recording state
         processed_event = light_event_from_ws_frames(
@@ -1138,7 +1131,6 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             # additional event to turn off the ring.
             processed_event["event_ring_on"] = False
             self.fire_event(device_id, processed_event)
-
 
     def fire_event(self, device_id, processed_event):
         """Callback and event to the subscribers and update data."""
