@@ -84,7 +84,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self._last_device_update_time = 0
         self._last_websocket_check = 0
         self.access_key = None
-        self.device_data = {}
+        self._processed_data = {}
         self._event_state_machine = ProtectEventStateMachine()
         self._device_state_machine = ProtectDeviceStateMachine()
 
@@ -102,7 +102,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
     @property
     def devices(self):
         """ Returns a JSON formatted list of Devices. """
-        return self.device_data
+        return self._processed_data
 
     async def update(self, force_camera_update=False) -> dict:
         """Updates the status of devices."""
@@ -135,12 +135,12 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         # we do not need to get events
         if self.ws_connection or self._last_websocket_check == current_time:
             _LOGGER.debug("Skipping update since websocket is active")
-            return self.devices if device_update else {}
+            return self._processed_data if device_update else {}
 
         self._reset_device_events()
         updates = await self._get_events(lookback=10)
 
-        return self.devices if device_update else updates
+        return self._processed_data if device_update else updates
 
     async def async_connect_ws(self):
         """Connect the websocket."""
@@ -278,11 +278,13 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 f"Fetching Unique ID failed: {response.status} - Reason: {response.reason}"
             )
         json_response = await response.json()
+        nvr_data = json_response["nvr"]
+
         return {
-            SERVER_NAME: json_response["nvr"]["name"],
-            "server_version": json_response["nvr"]["version"],
-            SERVER_ID: json_response["nvr"]["mac"],
-            "server_model": json_response["nvr"]["type"],
+            SERVER_NAME: nvr_data["name"],
+            "server_version": nvr_data["version"],
+            SERVER_ID: nvr_data["mac"],
+            "server_model": nvr_data["type"],
             "unifios": self.is_unifi_os,
         }
 
@@ -357,7 +359,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
     def _reset_device_events(self) -> None:
         """Reset device events between device updates."""
-        for device_id in self.device_data:
+        for device_id in self._processed_data:
             self._update_device(device_id, PROCESSED_EVENT_EMPTY)
 
     async def _get_events(
@@ -403,7 +405,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 camera_id,
                 process_event(event, self._minimum_score, event_ring_check_converted),
             )
-            updated[camera_id] = self.device_data[camera_id]
+            updated[camera_id] = self._processed_data[camera_id]
 
         return updated
 
@@ -459,7 +461,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         await self.ensure_authenticated()
         await self._get_events(camera=camera_id)
 
-        thumbnail_id = self.device_data[camera_id]["event_thumbnail"]
+        thumbnail_id = self._processed_data[camera_id]["event_thumbnail"]
 
         if thumbnail_id is None:
             return None
@@ -488,7 +490,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         await self.ensure_authenticated()
         await self._get_events(camera=camera_id)
 
-        heatmap_id = self.device_data[camera_id]["event_heatmap"]
+        heatmap_id = self._processed_data[camera_id]["event_heatmap"]
 
         if heatmap_id is None:
             return None
@@ -516,7 +518,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         access_key = await self._get_api_access_key()
         time_since = int(time.mktime(datetime.datetime.now().timetuple())) * 1000
-        model_type = self.device_data[camera_id]["model"]
+        model_type = self._processed_data[camera_id]["model"]
         if model_type.find("G4") != -1:
             image_width = "3840"
             image_height = "2160"
@@ -547,7 +549,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         This function will only work if Anonymous Snapshots
         are enabled on the Camera.
         """
-        ip_address = self.device_data[camera_id]["ip_address"]
+        ip_address = self._processed_data[camera_id]["ip_address"]
 
         img_uri = f"http://{ip_address}/snap.jpeg"
         async with self.req.get(img_uri) as response:
@@ -581,7 +583,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
-                self.device_data[camera_id]["recording_mode"] = mode
+                self._processed_data[camera_id]["recording_mode"] = mode
                 return True
             raise NvrError(
                 f"Set Recording Mode failed: {response.status} - Reason: {response.reason}"
@@ -608,7 +610,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
-                self.device_data[camera_id]["ir_mode"] = mode
+                self._processed_data[camera_id]["ir_mode"] = mode
                 return True
             raise NvrError(
                 "Set IR Mode failed: %s - Reason: %s"
@@ -635,7 +637,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
-                self.device_data[device_id]["status_light"] = mode
+                self._processed_data[device_id]["status_light"] = mode
                 return True
             raise NvrError(
                 "Change Status Light failed: %s - Reason: %s"
@@ -657,7 +659,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         ) as response:
             if response.status == 200:
                 self._device_state_machine.update(camera_id, data)
-                self.device_data[camera_id]["hdr_mode"] = mode
+                self._processed_data[camera_id]["hdr_mode"] = mode
                 return True
             raise NvrError(
                 "Change HDR mode failed: %s - Reason: %s"
@@ -681,7 +683,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         ) as response:
             if response.status == 200:
                 self._device_state_machine.update(camera_id, data)
-                self.device_data[camera_id]["video_mode"] = highfps
+                self._processed_data[camera_id]["video_mode"] = highfps
                 return True
             raise NvrError(
                 "Change Video mode failed: %s - Reason: %s"
@@ -706,7 +708,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
-                self.device_data[camera_id]["zoom_position"] = position
+                self._processed_data[camera_id]["zoom_position"] = position
                 return True
             raise NvrError(
                 "Set Zoom Position failed: %s - Reason: %s"
@@ -733,7 +735,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         ) as response:
             if response.status == 200:
                 self._device_state_machine.update(camera_id, data)
-                self.device_data[camera_id]["mic_volume"] = level
+                self._processed_data[camera_id]["mic_volume"] = level
                 return True
             raise NvrError(
                 "Change Microphone Level failed: %s - Reason: %s"
@@ -760,9 +762,10 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         ) as response:
             if response.status == 200:
                 self._device_state_machine.update(light_id, data)
-                self.device_data[light_id]["is_on"] = turn_on
+                processed_light = self._processed_data[light_id]
+                processed_light["is_on"] = turn_on
                 if led_level is not None:
-                    self.device_data[light_id]["brightness"] = led_level
+                    processed_light["brightness"] = led_level
                 return True
             raise NvrError(
                 "Turn on/off light failed: %s - Reason: %s"
@@ -806,13 +809,14 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         ) as response:
             if response.status == 200:
                 self._device_state_machine.update(light_id, data)
-                self.device_data[light_id]["motion_mode"] = mode
+                processed_light = self._processed_data[light_id]
+                processed_light["motion_mode"] = mode
                 if enable_at is not None:
-                    self.device_data[light_id]["motion_mode_enabled_at"] = enable_at
+                    processed_light["motion_mode_enabled_at"] = enable_at
                 if duration is not None:
-                    self.device_data[light_id]["pir_duration"] = duration
+                    processed_light["pir_duration"] = duration
                 if sensitivity is not None:
-                    self.device_data[light_id]["pir_sensitivity"] = sensitivity
+                    processed_light["pir_sensitivity"] = sensitivity
                 return True
             raise NvrError(
                 "Changing light motion failed: %s - Reason: %s"
@@ -1137,8 +1141,8 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self._update_device(device_id, processed_event)
 
         for subscriber in self._ws_subscriptions:
-            subscriber({device_id: processed_event})
+            subscriber({device_id: self._processed_data[device_id]})
 
     def _update_device(self, device_id, processed_update):
         """Update internal state of a device."""
-        self.device_data.setdefault(device_id, {}).update(processed_update)
+        self._processed_data.setdefault(device_id, {}).update(processed_update)
