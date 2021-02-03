@@ -1,0 +1,11 @@
+base36
+flake8
+flake8-docstrings
+pydocstyle
+pylint
+pylint_strict_informational
+pytest
+pytest-asyncio
+pytest-cov
+pytest-timeout>=1.2.1
+tox

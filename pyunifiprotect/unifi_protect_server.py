@@ -151,7 +151,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             try:
                 self.ws_task.cancel()
                 self.ws_connection = None
-            except Exception:
+            except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Could not cancel ws_task")
         self.ws_task = asyncio.ensure_future(self._setup_websocket())
 
@@ -233,7 +233,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             except jwt.ExpiredSignatureError:
                 _LOGGER.debug("Authentication token has expired.")
                 return False
-            except Exception as broad_ex:
+            except Exception as broad_ex:  # pylint: disable=broad-except
                 _LOGGER.debug("Authentication token decode error: %s", broad_ex)
                 return False
 
@@ -1003,7 +1003,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 if msg.type == aiohttp.WSMsgType.BINARY:
                     try:
                         self._process_ws_message(msg)
-                    except Exception:
+                    except Exception:  # pylint: disable=broad-except
                         _LOGGER.exception("Error processing websocket message")
                         return
                 elif msg.type == aiohttp.WSMsgType.ERROR:
@@ -1099,7 +1099,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         if light_id is None:
             return
         _LOGGER.debug(
-            "Processed light: %s", processed_light["motion_mode"], processed_light
+            "Processed light: %s %s", processed_light["motion_mode"], processed_light
         )
 
         # Lights behave differently than Cameras so no check for recording state
