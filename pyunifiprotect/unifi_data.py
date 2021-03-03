@@ -219,9 +219,11 @@ def process_camera(server_id, host, camera, include_events):
     has_smartdetect = featureflags.get("hasSmartDetect")
     # Get if soroundings are Dark
     is_dark = camera.get("isDark") or False
-    # Get Optival Zom capabilities
+    # Get Optical Zom capabilities
     has_opticalzoom = featureflags.get("canOpticalZoom")
     zoom_position = str(camera["ispSettings"]["zoomPosition"])
+    # Wide Dynamic Range
+    wdr = str(camera["ispSettings"]["wdr"])
     # Get Privacy Mode
     privacyzones = camera.get("privacyZones")
     privacy_on = False
@@ -261,6 +263,7 @@ def process_camera(server_id, host, camera, include_events):
         "privacy_on": privacy_on,
         "has_opticalzoom": has_opticalzoom,
         "zoom_position": zoom_position,
+        "wdr": wdr,
     }
 
     if server_id is not None:
