@@ -715,6 +715,31 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 % (response.status, response.reason)
             )
 
+    async def set_camera_wdr(self, camera_id: str, value: int) -> bool:
+        """Sets the cameras Wide Dynamic Range.
+        Valid inputs for position: Integer from 0 to 3
+        """
+        if value < 0:
+            value = 0
+        elif value > 3:
+            value = 3
+
+        await self.ensure_authenticated()
+
+        cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
+        data = {"ispSettings": {"wdr": value}}
+
+        async with self.req.patch(
+            cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
+        ) as response:
+            if response.status == 200:
+                self._processed_data[camera_id]["wdr"] = value
+                return True
+            raise NvrError(
+                "Set Wide Dynamic Range failed: %s - Reason: %s"
+                % (response.status, response.reason)
+            )
+
     async def set_mic_volume(self, camera_id: str, level: int) -> bool:
         """Sets the camera microphone volume level.
         Valid inputs is an integer between 0 and 100.
