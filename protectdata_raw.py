@@ -3,15 +3,12 @@ from aiohttp import ClientSession, CookieJar
 import asyncio
 import json
 
-UFP_USERNAME = "YOUR_USERNAME"
-UFP_PASSWORD = "YOUR_PASSWORD"
-UFP_IPADDRESS = "IP_ADDRESS_OF_UFP"
-UFP_USERNAME = "briis"
-UFP_PASSWORD = "QGX9P4zaLQTji7TX"
-UFP_IPADDRESS = "192.168.1.1"
+UFP_USERNAME = "YOUR USERNAME"
+UFP_PASSWORD = "YOUR PASSWORD"
+UFP_IPADDRESS = "IP ADDRESS OF UFP"
 UFP_PORT = 443
 
-async def devicedata():
+async def raw_data():
     session = ClientSession(cookie_jar=CookieJar(unsafe=True))
 
     # Log in to Unifi Protect
@@ -23,12 +20,12 @@ async def devicedata():
         UFP_PASSWORD,
     )
 
-    data = await unifiprotect.update(True)
+    data = await unifiprotect.get_raw_device_info()
     print(json.dumps(data, indent=1))
 
     # Close the Session
     await session.close()
 
 loop = asyncio.get_event_loop()
-loop.run_until_complete(devicedata())
+loop.run_until_complete(raw_data())
 loop.close()

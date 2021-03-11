@@ -84,7 +84,14 @@ LIGHT_KEYS = {
     "isLightOn",
 }
 
-
+SENSOR_KEYS = {
+    "upSince",
+    "firmwareVersion",
+    "isMotionDetected",
+    "isOpened",
+    "motionDetectedAt",
+    "openStatusChangedAt"
+}
 @enum.unique
 class ProtectWSPayloadFormat(enum.Enum):
     """Websocket Payload formats."""
@@ -175,6 +182,82 @@ def process_light(server_id, light, include_events):
             ).strftime("%Y-%m-%d %H:%M:%S")
         )
     return light_update
+
+def process_sensor(server_id, sensor, include_events):
+    """Process the sensor json."""
+
+    device_type = sensor["modelKey"]
+    # Get if Sensor is Online
+    online = sensor["state"] == "CONNECTED"
+    # Get Firmware Version
+    firmware_version = str(sensor["firmwareVersion"])
+    # Get when the Sensor came online
+    upsince = (
+        "Offline"
+        if sensor["upSince"] is None
+        else datetime.datetime.fromtimestamp(int(sensor["upSince"]) / 1000).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+    )
+    # Get Sensor Status
+    stats = sensor.get("stats")
+    light_value = stats["light"]["value"]
+    humidity_value = stats["humidity"]["value"]
+    temperature_value = stats["temperature"]["value"]
+    battery_status = sensor["batteryStatus"]["percentage"]
+
+    # Get Sensor Mode Settings
+    alarm_enabled = sensor["alarmSettings"]["isEnabled"]
+    light_enabled = sensor["lightSettings"]["isEnabled"]
+    motion_enabled = sensor["motionSettings"]["isEnabled"]
+    temperature_enabled = sensor["temperatureSettings"]["isEnabled"]
+    humidity_enabled = sensor["humiditySettings"]["isEnabled"]
+    led_enabled = sensor["ledSettings"]["isEnabled"]
+
+    sensor_update = {
+        "name": str(sensor["name"]),
+        "type": device_type,
+        "model": str(sensor["type"]),
+        "mac": str(sensor["mac"]),
+        "ip_address": str(sensor["host"]),
+        "firmware_version": firmware_version,
+        "up_since": upsince,
+        "online": online,
+        "light_value": light_value,
+        "humidity_value": humidity_value,
+        "temperature_value": temperature_value,
+        "battery_status": battery_status,
+        "alarm_enabled": alarm_enabled,
+        "light_enabled": light_enabled,
+        "motion_enabled": motion_enabled,
+        "temperature_enabled": temperature_enabled,
+        "humidity_enabled": humidity_enabled,
+        "led_enabled": led_enabled,
+    }
+
+    if server_id is not None:
+        sensor_update["server_id"] = server_id
+
+    if include_events:
+        # Get the last time motion occured
+        sensor_update["last_motion"] = (
+            None
+            if sensor["motionDetectedAt"] is None
+            else datetime.datetime.fromtimestamp(
+                int(sensor["motionDetectedAt"]) / 1000
+            ).strftime("%Y-%m-%d %H:%M:%S")
+        )
+
+        # Get the last time open/close sensor changed
+        sensor_update["last_openchange"] = (
+            None
+            if sensor["openStatusChangedAt"] is None
+            else datetime.datetime.fromtimestamp(
+                int(sensor["openStatusChangedAt"]) / 1000
+            ).strftime("%Y-%m-%d %H:%M:%S")
+        )
+
+    return sensor_update
 
 
 def process_camera(server_id, host, camera, include_events):
@@ -324,7 +407,7 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
     event_id = action_json["id"]
 
     if action == "add":
-        device_id = data_json.get("camera") or data_json.get("light")
+        device_id = data_json.get("camera") or data_json.get("light") or data_json.get("sensor")
         if device_id is None:
             return None, None
         state_machine.add(event_id, data_json)
@@ -333,7 +416,7 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
         event = state_machine.update(event_id, data_json)
         if not event:
             return None, None
-        device_id = event.get("camera") or event.get("light")
+        device_id = event.get("camera") or event.get("light") or data_json.get("sensor")
     else:
         raise ValueError("The action must be add or update")
 
@@ -342,6 +425,29 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
 
     return device_id, processed_event
 
+
+def sensor_update_from_ws_frames(state_machine, action_json, data_json):
+    """Convert a websocket frame to internal format."""
+
+    if action_json["modelKey"] != "sensor":
+        raise ValueError("Model key must be sensor")
+
+    sensor_id = action_json["id"]
+
+    if not state_machine.has_device(sensor_id):
+        _LOGGER.debug("Skipping non-adopted sensor: %s", data_json)
+        return None, None
+
+    sensor = state_machine.update(sensor_id, data_json)
+
+    if data_json.keys().isdisjoint(SENSOR_KEYS):
+        _LOGGER.debug("Skipping sensor data: %s", data_json)
+        return None, None
+
+    _LOGGER.debug("Processing sensor: %s", sensor)
+    processed_sensor = process_light(None, sensor, True)
+
+    return sensor_id, processed_sensor
 
 def light_update_from_ws_frames(state_machine, action_json, data_json):
     """Convert a websocket frame to internal format."""
@@ -436,6 +542,48 @@ def camera_event_from_ws_frames(state_machine, action_json, data_json):
 def light_event_from_ws_frames(state_machine, action_json, data_json):
     """Create processed events from the light model."""
 
+    if "isPirMotionDetected" not in data_json and "lastMotion" not in data_json:
+        return None
+
+    light_id = action_json["id"]
+    start_time = None
+    event_length = 0
+    event_on = False
+    _LOGGER.debug("Processed light event: %s", data_json)
+
+    last_motion = data_json.get("lastMotion")
+    is_motion_detected = data_json.get("isPirMotionDetected")
+
+    if is_motion_detected is None:
+        start_time = state_machine.get_motion_detected_time(light_id)
+        event_on = start_time is not None
+    else:
+        if is_motion_detected:
+            event_on = True
+            start_time = last_motion
+            state_machine.set_motion_detected_time(light_id, start_time)
+        else:
+            start_time = state_machine.get_motion_detected_time(light_id)
+            state_machine.set_motion_detected_time(light_id, None)
+            if last_motion is None:
+                last_motion = round(time.time() * 1000)
+
+    if start_time is not None and last_motion is not None:
+        event_length = round(
+            (float(last_motion) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION
+        )
+
+    return {
+        "event_on": event_on,
+        "event_type": "motion",
+        "event_start": start_time,
+        "event_length": event_length,
+        "event_score": 0,
+    }
+
+def sensor_event_from_ws_frames(state_machine, action_json, data_json):
+    """Create processed events from the sensor model."""
+    # TODO: Add the events that can occur (Motion and Door Open/Close)
     if "isPirMotionDetected" not in data_json and "lastMotion" not in data_json:
         return None
 

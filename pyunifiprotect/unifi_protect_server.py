@@ -33,6 +33,9 @@ from .unifi_data import (
     process_camera,
     process_event,
     process_light,
+    process_sensor,
+    sensor_event_from_ws_frames,
+    sensor_update_from_ws_frames,
 )
 
 DEVICE_UPDATE_INTERVAL_SECONDS = 60
@@ -310,6 +313,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         self._process_cameras_json(json_response, server_id, include_events)
         self._process_lights_json(json_response, server_id, include_events)
+        self._process_sensors_json(json_response, server_id, include_events)
 
         self._is_first_update = False
 
@@ -354,6 +358,28 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 light_id,
                 process_light(
                     server_id, light, include_events or self._is_first_update
+                ),
+            )
+
+
+    def _process_sensors_json(self, json_response, server_id, include_events):
+        for sensor in json_response["sensors"]:
+
+            # Ignore lights adopted by another controller on the same network
+            # since they appear in the api on 1.17+
+            if "isAdopted" in sensor and not sensor["isAdopted"]:
+                continue
+
+            sensor_id = sensor["id"]
+
+            if self._is_first_update:
+                self._update_device(sensor_id, PROCESSED_EVENT_EMPTY)
+            self._device_state_machine.update(sensor_id, sensor)
+
+            self._update_device(
+                sensor_id,
+                process_sensor(
+                    server_id, sensor, include_events or self._is_first_update
                 ),
             )
 
@@ -1140,6 +1166,28 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             processed_light.update(processed_event)
 
         self.fire_event(light_id, processed_light)
+
+    def _process_sensor_ws_message(self, action_json, data_json):
+        """Process a decoded sensor websocket message."""
+        sensor_id, processed_sensor = sensor_update_from_ws_frames(
+            self._device_state_machine, action_json, data_json
+        )
+
+        if sensor_id is None:
+            return
+        _LOGGER.debug(
+            "Processed sensor: %s %s", processed_sensor["motion_enabled"], processed_sensor
+        )
+
+        # Sensors behave differently than Cameras so no check for recording state
+        processed_event = sensor_event_from_ws_frames(
+            self._device_state_machine, action_json, data_json
+        )
+        if processed_event is not None:
+            _LOGGER.debug("Processed sensor event: %s", processed_event)
+            processed_sensor.update(processed_event)
+
+        self.fire_event(sensor_id, processed_sensor)
 
     def _process_event_ws_message(self, action_json, data_json):
         """Process a decoded event websocket message."""
