@@ -90,8 +90,10 @@ SENSOR_KEYS = {
     "isMotionDetected",
     "isOpened",
     "motionDetectedAt",
-    "openStatusChangedAt"
+    "openStatusChangedAt",
 }
+
+
 @enum.unique
 class ProtectWSPayloadFormat(enum.Enum):
     """Websocket Payload formats."""
@@ -182,6 +184,7 @@ def process_light(server_id, light, include_events):
             ).strftime("%Y-%m-%d %H:%M:%S")
         )
     return light_update
+
 
 def process_sensor(server_id, sensor, include_events):
     """Process the sensor json."""
@@ -407,7 +410,9 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
     event_id = action_json["id"]
 
     if action == "add":
-        device_id = data_json.get("camera") or data_json.get("light") or data_json.get("sensor")
+        device_id = (
+            data_json.get("camera") or data_json.get("light") or data_json.get("sensor")
+        )
         if device_id is None:
             return None, None
         state_machine.add(event_id, data_json)
@@ -448,6 +453,7 @@ def sensor_update_from_ws_frames(state_machine, action_json, data_json):
     processed_sensor = process_light(None, sensor, True)
 
     return sensor_id, processed_sensor
+
 
 def light_update_from_ws_frames(state_machine, action_json, data_json):
     """Convert a websocket frame to internal format."""
@@ -580,6 +586,7 @@ def light_event_from_ws_frames(state_machine, action_json, data_json):
         "event_length": event_length,
         "event_score": 0,
     }
+
 
 def sensor_event_from_ws_frames(state_machine, action_json, data_json):
     """Create processed events from the sensor model."""

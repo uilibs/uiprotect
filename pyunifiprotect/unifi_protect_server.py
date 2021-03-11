@@ -361,7 +361,6 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 ),
             )
 
-
     def _process_sensors_json(self, json_response, server_id, include_events):
         for sensor in json_response["sensors"]:
 
@@ -1176,7 +1175,9 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         if sensor_id is None:
             return
         _LOGGER.debug(
-            "Processed sensor: %s %s", processed_sensor["motion_enabled"], processed_sensor
+            "Processed sensor: %s %s",
+            processed_sensor["motion_enabled"],
+            processed_sensor,
         )
 
         # Sensors behave differently than Cameras so no check for recording state
