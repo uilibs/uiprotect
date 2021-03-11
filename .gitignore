@@ -148,3 +148,4 @@ websocket_test.py
 test_ws.py
 camera_cloudkey.json
 camera_cloudkey_privacy.json
+cameras_upsense.json
