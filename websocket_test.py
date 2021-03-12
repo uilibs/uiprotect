@@ -8,9 +8,9 @@ from aiohttp import ClientSession, CookieJar
 
 from pyunifiprotect.unifi_protect_server import UpvServer
 
-UFP_USERNAME = "YOUR USERNAME"
-UFP_PASSWORD = "YOUR PASSWORD"
-UFP_IPADDRESS = "IP ADDRESS OF UFP"
+UFP_USERNAME = "YOUR_USERNAME"
+UFP_PASSWORD = "YOUR_PASSWORD"
+UFP_IPADDRESS = "IP_ADDRESS_OF_UFP"
 UFP_PORT = 443
 
 _LOGGER = logging.getLogger(__name__)
