@@ -7,6 +7,7 @@ UFP_USERNAME = "YOUR_USERNAME"
 UFP_PASSWORD = "YOUR_PASSWORD"
 UFP_IPADDRESS = "IP_ADDRESS_OF_UFP"
 UFP_PORT = 443
+CAM_ID = "ID_OF_CAMERA"
 
 async def raw_data():
     session = ClientSession(cookie_jar=CookieJar(unsafe=True))
@@ -20,8 +21,9 @@ async def raw_data():
         UFP_PASSWORD,
     )
 
-    data = await unifiprotect.get_raw_device_info()
-    print(json.dumps(data, indent=1))
+    await unifiprotect.update(True)
+    data = await unifiprotect.set_camera_recording(CAM_ID, "never")
+    print(data)
 
     # Close the Session
     await session.close()

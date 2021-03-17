@@ -594,13 +594,10 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         await self.ensure_authenticated()
 
         cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
+
         data = {
             "recordingSettings": {
                 "mode": mode,
-                "prePaddingSecs": 2,
-                "postPaddingSecs": 2,
-                "minMotionEventTrigger": 1000,
-                "enablePirTimelapse": False,
             }
         }
 
