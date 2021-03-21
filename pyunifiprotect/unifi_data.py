@@ -10,6 +10,8 @@ import zlib
 WS_HEADER_SIZE = 8
 _LOGGER = logging.getLogger(__name__)
 
+CHIME_DISABLED = [0]
+
 DEVICE_MODEL_CAMERA = "camera"
 DEVICE_MODEL_LIGHT = "light"
 
@@ -301,7 +303,7 @@ def process_camera(server_id, host, camera, include_events):
     hdr_mode = camera.get("hdrMode") or False
     # Doorbell Chime
     has_chime = featureflags.get("hasChime")
-    chime_enabled = False if camera.get("chimeDuration") == 0 else True
+    chime_enabled = camera.get("chimeDuration") not in CHIME_DISABLED
     # Get Microphone Volume
     mic_volume = camera.get("micVolume") or 0
     # Get SmartDetect capabilities
