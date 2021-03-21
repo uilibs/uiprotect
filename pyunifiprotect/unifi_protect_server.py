@@ -688,15 +688,18 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 % (response.status, response.reason)
             )
 
-    async def set_doorbell_chime(self, camera_id: str, mode: bool) -> bool:
-        """Sets the Doorbells Mechanical/Digital Chime to On or Off.
-        Valid inputs for mode: False and True
+    async def set_doorbell_chime_duration(self, camera_id: str, duration: int) -> bool:
+        """Sets the Doorbells chime duration.
+        Valid inputs for duration: 0 to 10000
         This is not the ideal solution, but the only possible.
         """
 
         await self.ensure_authenticated()
 
-        chime_duration = 300 if mode else 0
+        if duration < 0:
+            chime_duration = 0
+        if duration > 10000:
+            chime_duration = 10000
 
         cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
         data = {"chimeDuration": chime_duration}

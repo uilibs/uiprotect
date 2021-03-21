@@ -22,7 +22,7 @@ async def raw_data():
     )
 
     await unifiprotect.update(True)
-    data = await unifiprotect.set_doorbell_chime(CAM_ID, True)
+    data = await unifiprotect.set_doorbell_chime_duration(CAM_ID, 300)
     print(data)
 
     # Close the Session
