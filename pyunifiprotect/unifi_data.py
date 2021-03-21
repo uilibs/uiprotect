@@ -67,6 +67,7 @@ CAMERA_KEYS = {
     "lastRing",
     "isMotionDetected",
     "zoomPosition",
+    "chimeDuration",
 }
 
 LIGHT_KEYS = {
