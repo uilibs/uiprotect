@@ -3,9 +3,9 @@ from aiohttp import ClientSession, CookieJar
 import asyncio
 import json
 
-UFP_USERNAME = "YOUR USERNAME"
-UFP_PASSWORD = "YOUR PASSWORD"
-UFP_IPADDRESS = "IP ADDRESS OF UFP"
+UFP_USERNAME = "YOUR_USERNAME"
+UFP_PASSWORD = "YOUR_PASSWORD"
+UFP_IPADDRESS = "IP_ADDRESS_OF_UFP"
 UFP_PORT = 443
 
 async def raw_data():
