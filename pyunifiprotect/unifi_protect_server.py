@@ -698,8 +698,10 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         if duration < 0:
             chime_duration = 0
-        if duration > 10000:
+        elif duration > 10000:
             chime_duration = 10000
+        else:
+            chime_duration = duration
 
         cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
         data = {"chimeDuration": chime_duration}
