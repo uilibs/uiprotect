@@ -691,7 +691,6 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
     async def set_doorbell_chime_duration(self, camera_id: str, duration: int) -> bool:
         """Sets the Doorbells chime duration.
         Valid inputs for duration: 0 to 10000
-        This is not the ideal solution, but the only possible.
         """
 
         await self.ensure_authenticated()
