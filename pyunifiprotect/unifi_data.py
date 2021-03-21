@@ -301,7 +301,7 @@ def process_camera(server_id, host, camera, include_events):
     hdr_mode = camera.get("hdrMode") or False
     # Doorbell Chime
     has_chime = featureflags.get("hasChime")
-    chime_mode = camera.get("chimeDuration") or 0
+    chime_enabled = False if camera.get("chimeDuration") == 0 else True
     # Get Microphone Volume
     mic_volume = camera.get("micVolume") or 0
     # Get SmartDetect capabilities
@@ -354,7 +354,7 @@ def process_camera(server_id, host, camera, include_events):
         "zoom_position": zoom_position,
         "wdr": wdr,
         "has_chime": has_chime,
-        "chime_mode": chime_mode,
+        "chime_enabled": chime_enabled,
     }
 
     if server_id is not None:
