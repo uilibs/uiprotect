@@ -688,6 +688,31 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 % (response.status, response.reason)
             )
 
+    async def set_doorbell_chime(self, camera_id: str, mode: bool) -> bool:
+        """Sets the Doorbells Mechanical/Digital Chime to On or Off.
+        Valid inputs for mode: False and True
+        This is not the ideal solution, but the only possible.
+        """
+
+        await self.ensure_authenticated()
+
+        chime_duration = 300 if mode else 0
+
+        cam_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}"
+        data = {"chimeDuration": chime_duration}
+
+        async with self.req.patch(
+            cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
+        ) as response:
+            if response.status == 200:
+                self._device_state_machine.update(camera_id, data)
+                self._processed_data[camera_id]["chime_duration"] = chime_duration
+                return True
+            raise NvrError(
+                "Change Doorbel Chime failed: %s - Reason: %s"
+                % (response.status, response.reason)
+            )
+
     async def set_camera_video_mode_highfps(self, camera_id: str, mode: bool) -> bool:
         """Sets the camera High FPS video mode to what is supplied with 'mode'.
         Valid inputs for mode: False and True
