@@ -104,7 +104,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
     @property
     def devices(self):
-        """ Returns a JSON formatted list of Devices. """
+        """Returns a JSON formatted list of Devices."""
         return self._processed_data
 
     async def update(self, force_camera_update=False) -> dict:
@@ -537,7 +537,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             return await response.read()
 
     async def get_snapshot_image(self, camera_id: str) -> bytes:
-        """ Returns a Snapshot image of a recording event. """
+        """Returns a Snapshot image of a recording event."""
 
         await self.ensure_authenticated()
 
