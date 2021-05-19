@@ -331,6 +331,8 @@ def process_camera(server_id, host, camera, include_events):
     for channel in channels:
         if channel["isRtspEnabled"]:
             rtsp = f"rtsp://{host}:7447/{channel['rtspAlias']}"
+            image_width = channel['width']
+            image_height = channel['height']
             break
 
     camera_update = {
@@ -344,6 +346,8 @@ def process_camera(server_id, host, camera, include_events):
         "ir_mode": ir_mode,
         "status_light": status_light,
         "rtsp": rtsp,
+        "image_width": image_width,
+        "image_height": image_height,
         "up_since": upsince,
         "online": online,
         "has_highfps": has_highfps,
