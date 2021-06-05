@@ -150,3 +150,4 @@ camera_cloudkey.json
 camera_cloudkey_privacy.json
 cameras_upsense.json
 event.json
+test_websocket.py
