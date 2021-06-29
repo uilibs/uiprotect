@@ -225,7 +225,7 @@ def process_sensor(server_id, sensor, include_events):
         "type": device_type,
         "model": str(sensor["type"]),
         "mac": str(sensor["mac"]),
-        "ip_address": str(sensor["host"]),
+        "ip_address": str(sensor.get("host", "0.0.0.0")),
         "firmware_version": firmware_version,
         "up_since": upsince,
         "online": online,
