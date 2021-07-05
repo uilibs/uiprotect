@@ -34,6 +34,7 @@ from .unifi_data import (
     process_event,
     process_light,
     process_sensor,
+    process_viewport,
     sensor_event_from_ws_frames,
     sensor_update_from_ws_frames,
 )
@@ -314,6 +315,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self._process_cameras_json(json_response, server_id, include_events)
         self._process_lights_json(json_response, server_id, include_events)
         self._process_sensors_json(json_response, server_id, include_events)
+        self._process_viewports_json(json_response, server_id, include_events)
 
         self._is_first_update = False
 
@@ -379,6 +381,27 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 sensor_id,
                 process_sensor(
                     server_id, sensor, include_events or self._is_first_update
+                ),
+            )
+
+    def _process_viewports_json(self, json_response, server_id, include_events):
+        for viewport in json_response["viewers"]:
+
+            # Ignore viewports adopted by another controller on the same network
+            # since they appear in the api on 1.17+
+            if "isAdopted" in viewport and not viewport["isAdopted"]:
+                continue
+
+            viewport_id = viewport["id"]
+
+            if self._is_first_update:
+                self._update_device(viewport_id, PROCESSED_EVENT_EMPTY)
+            self._device_state_machine.update(viewport_id, viewport)
+
+            self._update_device(
+                viewport_id,
+                process_viewport(
+                    server_id, viewport, include_events or self._is_first_update
                 ),
             )
 
@@ -1030,6 +1053,27 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             raise NvrError(
                 "Setting Doorbell Custom Text failed: %s - Reason: %s"
                 % (response.status, response.reason)
+            )
+
+    async def set_viewport_view(self, viewport_id: str, view_id: str) -> bool:
+        """Sets the Viewport current View to what is supplied in view_id.
+            Valid input for view_id is a pre-defined view in Protect.
+        """
+        await self.ensure_authenticated()
+
+        cam_uri = f"{self._base_url}/{self.api_path}/viewers/{viewport_id}"
+
+        data = {"liveview": view_id}
+
+        async with self.req.patch(
+            cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
+        ) as response:
+            if response.status == 200:
+                processed_viewport = self._processed_data[viewport_id]
+                processed_viewport["view_id"] = view_id
+                return True
+            raise NvrError(
+                f"Set LivieView failed: {response.status} - Reason: {response.reason}"
             )
 
     async def request(self, method, url, json=None, **kwargs):

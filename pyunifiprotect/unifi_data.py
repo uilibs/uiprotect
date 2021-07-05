@@ -124,6 +124,36 @@ def decode_ws_frame(frame, position):
     position += payload_size
     return frame, ProtectWSPayloadFormat(payload_format), position
 
+def process_viewport(server_id, viewport, include_events):
+    """Process the viewport json."""
+
+    # Get if Viewport is Online
+    online = viewport["state"] == "CONNECTED"
+    # Get when the Viewport came online
+    upsince = (
+        "Offline"
+        if viewport["upSince"] is None
+        else datetime.datetime.fromtimestamp(int(viewport["upSince"]) / 1000).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+    )
+
+    viewport_update = {
+        "name": str(viewport["name"]),
+        "type": viewport["modelKey"],
+        "model": str(viewport["type"]),
+        "mac": str(viewport["mac"]),
+        "ip_address": str(viewport["host"]),
+        "firmware_version": str(viewport["firmwareVersion"]),
+        "up_since": upsince,
+        "online": online,
+        "view_id": str(viewport["liveview"]),
+    }
+
+    if server_id is not None:
+        viewport_update["server_id"] = server_id
+
+    return viewport_update
 
 def process_light(server_id, light, include_events):
     """Process the light json."""

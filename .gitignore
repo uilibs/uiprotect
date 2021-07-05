@@ -152,3 +152,4 @@ cameras_upsense.json
 event.json
 test_websocket.py
 test_raw.py
+rawdata.json
