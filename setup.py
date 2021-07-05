@@ -4,7 +4,7 @@ import setuptools  # noqa
 setup(
     name="pyunifiprotect",
     packages=["pyunifiprotect"],
-    version="0.31.3",
+    version="0.31.4",
     license="MIT",
     description="Python Wrapper for Unifi Protect API",
     author="Bjarne Riis",
