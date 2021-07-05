@@ -1069,6 +1069,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             cam_uri, headers=self.headers, ssl=self._verify_ssl, json=data
         ) as response:
             if response.status == 200:
+                self._device_state_machine.update(viewport_id, data)
                 processed_viewport = self._processed_data[viewport_id]
                 processed_viewport["view_id"] = view_id
                 return True
