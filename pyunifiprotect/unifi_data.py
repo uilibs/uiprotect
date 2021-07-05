@@ -124,6 +124,7 @@ def decode_ws_frame(frame, position):
     position += payload_size
     return frame, ProtectWSPayloadFormat(payload_format), position
 
+
 def process_viewport(server_id, viewport, include_events):
     """Process the viewport json."""
 
@@ -154,6 +155,7 @@ def process_viewport(server_id, viewport, include_events):
         viewport_update["server_id"] = server_id
 
     return viewport_update
+
 
 def process_light(server_id, light, include_events):
     """Process the light json."""

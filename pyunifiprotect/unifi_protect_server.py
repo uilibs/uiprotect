@@ -1057,7 +1057,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
     async def set_viewport_view(self, viewport_id: str, view_id: str) -> bool:
         """Sets the Viewport current View to what is supplied in view_id.
-            Valid input for view_id is a pre-defined view in Protect.
+        Valid input for view_id is a pre-defined view in Protect.
         """
         await self.ensure_authenticated()
 
@@ -1098,7 +1098,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 item = {
                     "name": view.get("name"),
                     "id": view.get("id"),
-                    "modelKey": view.get("modelKey")
+                    "modelKey": view.get("modelKey"),
                 }
                 views.append(item)
             return views
