@@ -1076,6 +1076,33 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 f"Set LivieView failed: {response.status} - Reason: {response.reason}"
             )
 
+    async def get_live_views(self) -> dict:
+        """Returns a list of all defined Live Views."""
+
+        await self.ensure_authenticated()
+
+        bootstrap_uri = f"{self._base_url}/{self.api_path}/liveviews"
+        async with self.req.get(
+            bootstrap_uri,
+            headers=self.headers,
+            ssl=self._verify_ssl,
+        ) as response:
+            if response.status != 200:
+                raise NvrError(
+                    f"Fetching Livieview Details failed: {response.status} - Reason: {response.reason}"
+                )
+
+            json_response = await response.json()
+            views = []
+            for view in json_response:
+                item = {
+                    "name": view.get("name"),
+                    "id": view.get("id"),
+                    "modelKey": view.get("modelKey")
+                }
+                views.append(item)
+            return views
+
     async def request(self, method, url, json=None, **kwargs):
         """Make a request to the API."""
 
