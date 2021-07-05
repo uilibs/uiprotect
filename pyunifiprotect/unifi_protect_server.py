@@ -1095,10 +1095,13 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             json_response = await response.json()
             views = []
             for view in json_response:
+                # item = {
+                #     "name": view.get("name"),
+                #     "id": view.get("id"),
+                #     "modelKey": view.get("modelKey"),
+                # }
                 item = {
-                    "name": view.get("name"),
-                    "id": view.get("id"),
-                    "modelKey": view.get("modelKey"),
+                    view.get("id"): view.get("name"),
                 }
                 views.append(item)
             return views
@@ -1215,6 +1218,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         if model_key == "light":
             self._process_light_ws_message(action_json, data_json)
             return
+
         raise ValueError(f"Unexpected model key: {model_key}")
 
     def _process_camera_ws_message(self, action_json, data_json):
