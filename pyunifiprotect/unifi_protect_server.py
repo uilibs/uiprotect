@@ -1095,13 +1095,10 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             json_response = await response.json()
             views = []
             for view in json_response:
-                # item = {
-                #     "name": view.get("name"),
-                #     "id": view.get("id"),
-                #     "modelKey": view.get("modelKey"),
-                # }
                 item = {
-                    view.get("id"): view.get("name"),
+                    view.get("id"): {
+                        "name": view.get("name"),
+                    }
                 }
                 views.append(item)
             return views
