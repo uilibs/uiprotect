@@ -96,10 +96,8 @@ SENSOR_KEYS = {
     "openStatusChangedAt",
 }
 
-VIEWPORT_KEYS = {
-    "view_id",
-    "online"
-}
+VIEWPORT_KEYS = {"view_id", "online"}
+
 
 @enum.unique
 class ProtectWSPayloadFormat(enum.Enum):
