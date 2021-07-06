@@ -344,6 +344,8 @@ def process_camera(server_id, host, camera, include_events):
     mic_volume = camera.get("micVolume") or 0
     # Get SmartDetect capabilities
     has_smartdetect = featureflags.get("hasSmartDetect")
+    # Can we switch LED on/off
+    has_ledstatus = featureflags.get("hasLedStatus")
     # Get if soroundings are Dark
     is_dark = camera.get("isDark") or False
     # Get Optical Zom capabilities
