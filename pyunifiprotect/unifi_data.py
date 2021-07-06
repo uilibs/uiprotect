@@ -96,7 +96,7 @@ SENSOR_KEYS = {
     "openStatusChangedAt",
 }
 
-VIEWPORT_KEYS = {"view_id", "online"}
+VIEWPORT_KEYS = {"liveview", "online"}
 
 
 @enum.unique
@@ -150,7 +150,7 @@ def process_viewport(server_id, viewport, include_events):
         "firmware_version": str(viewport["firmwareVersion"]),
         "up_since": upsince,
         "online": online,
-        "view_id": str(viewport["liveview"]),
+        "liveview": str(viewport["liveview"]),
     }
 
     if server_id is not None:

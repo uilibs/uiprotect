@@ -1071,7 +1071,7 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
             if response.status == 200:
                 self._device_state_machine.update(viewport_id, data)
                 processed_viewport = self._processed_data[viewport_id]
-                processed_viewport["view_id"] = view_id
+                processed_viewport["liveview"] = view_id
                 return True
             raise NvrError(
                 f"Set LivieView failed: {response.status} - Reason: {response.reason}"
