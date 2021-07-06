@@ -392,6 +392,7 @@ def process_camera(server_id, host, camera, include_events):
         "hdr_mode": hdr_mode,
         "mic_volume": mic_volume,
         "has_smartdetect": has_smartdetect,
+        "has_ledstatus": has_ledstatus,
         "is_dark": is_dark,
         "privacy_on": privacy_on,
         "has_opticalzoom": has_opticalzoom,
