@@ -992,6 +992,25 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 )
             return await response.json()
 
+    async def _get_viewport_detail(self, viewport_id: str) -> None:
+        """Return the RAW JSON data for a Viewport.
+        Used for debugging only.
+        """
+
+        await self.ensure_authenticated()
+
+        bootstrap_uri = f"{self._base_url}/{self.api_path}/viewers/{viewport_id}"
+        async with self.req.get(
+            bootstrap_uri,
+            headers=self.headers,
+            ssl=self._verify_ssl,
+        ) as response:
+            if response.status != 200:
+                raise NvrError(
+                    f"Fetching Viewport Details failed: {response.status} - Reason: {response.reason}"
+                )
+            return await response.json()
+
     async def set_doorbell_custom_text(
         self, camera_id: str, custom_text: str, duration=None
     ) -> bool:
