@@ -570,8 +570,8 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         access_key = await self._get_api_access_key()
         time_since = int(time.mktime(datetime.datetime.now().timetuple())) * 1000
         cam = self._processed_data[camera_id]
-        image_width = width or cam.get("image_width", 1920)
-        image_height = height or cam.get("image_height", 1080)
+        image_width = width or cam.get("image_width") or 1920
+        image_height = height or cam.get("image_height") or 1080
 
         img_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}/snapshot"
         params = {

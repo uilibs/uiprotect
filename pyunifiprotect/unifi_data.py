@@ -363,6 +363,8 @@ def process_camera(server_id, host, camera, include_events):
 
     # Add rtsp streaming url if enabled
     rtsp = None
+    image_width = None
+    image_height = None
     channels = camera["channels"]
     for channel in channels:
         image_width = channel.get("width")
