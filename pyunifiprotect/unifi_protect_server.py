@@ -5,6 +5,7 @@ import datetime
 import json as pjson
 import logging
 import time
+from typing import Optional
 
 import aiohttp
 from aiohttp import client_exceptions
@@ -44,6 +45,9 @@ WEBSOCKET_CHECK_INTERVAL_SECONDS = 120
 LIGHT_MODES = ["off", "motion", "always"]
 LIGHT_ENABLED = ["dark", "fulltime"]
 LIGHT_DURATIONS = [15000, 30000, 60000, 300000, 900000]
+
+DEFAULT_SNAPSHOT_WIDTH = 1920
+DEFAULT_SNAPSHOT_HEIGHT = 1080
 
 
 class Invalid(Exception):
@@ -559,7 +563,9 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 )
             return await response.read()
 
-    async def get_snapshot_image(self, camera_id: str) -> bytes:
+    async def get_snapshot_image(
+        self, camera_id: str, width: Optional[int], height: Optional[int]
+    ) -> bytes:
         """Returns a Snapshot image of a recording event."""
 
         await self.ensure_authenticated()
@@ -567,8 +573,8 @@ class UpvServer:  # pylint: disable=too-many-public-methods, too-many-instance-a
         access_key = await self._get_api_access_key()
         time_since = int(time.mktime(datetime.datetime.now().timetuple())) * 1000
         cam = self._processed_data[camera_id]
-        image_width = cam.get("image_width", 1920)
-        image_height = cam.get("image_height", 1080)
+        image_width = width or cam.get("image_width") or DEFAULT_SNAPSHOT_WIDTH
+        image_height = height or cam.get("image_height") or DEFAULT_SNAPSHOT_HEIGHT
 
         img_uri = f"{self._base_url}/{self.api_path}/cameras/{camera_id}/snapshot"
         params = {
