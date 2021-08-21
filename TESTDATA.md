@@ -2,7 +2,7 @@
 
 Do the following:
 
-1. Ensure Python 3.7 or 3.8 is installed
+1. Ensure Python 3.8 or 3.9 is installed
 2. Install pyunifiprotect by issuing this command: `pip3 install pyunifiprotect`
 3. Make sure that you are visible to one of your Cameras, and that motion detection is enabled on that camera
 4. Create a `.env` file in your current directory with the following (replacing any values as nessecary):
