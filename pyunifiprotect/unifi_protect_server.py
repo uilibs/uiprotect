@@ -156,12 +156,11 @@ class BaseApiClient:
                     response.release()
 
                 return response
-            except Exception as e:
+            except Exception:
                 # make sure response is released
                 response.release()
-
-                # re-raise e
-                raise e
+                # re-raise exception
+                raise
 
         except client_exceptions.ClientError as err:
             raise NvrError(f"Error requesting data from {self._host}: {err}") from None
@@ -204,11 +203,16 @@ class BaseApiClient:
             data: Optional[Union[bytes, dict]] = None
             if raw:
                 data = await response.read()
-            data = await response.json()
+            else:
+                data = await response.json()
+            response.release()
 
             return data
-        finally:
+        except Exception:
+            # make sure response is released
             response.release()
+            # re-raise exception
+            raise
 
     async def check_unifi_os(self):
         """Check to see if the device is running unifi os."""
@@ -357,7 +361,6 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
         self._minimum_score = minimum_score
         self._last_device_update_time = 0
         self._last_websocket_check = 0
-        self.access_key = None
         self._processed_data = {}
         self._event_state_machine = ProtectEventStateMachine()
         self._device_state_machine = ProtectDeviceStateMachine()
@@ -608,7 +611,9 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
 
         return await self.api_request(f"heatmaps/{heatmap_id}", raw=True, access_key=True)
 
-    async def get_snapshot_image(self, camera_id: str, width: Optional[int], height: Optional[int]) -> bytes:
+    async def get_snapshot_image(
+        self, camera_id: str, width: Optional[int] = None, height: Optional[int] = None
+    ) -> bytes:
         """Returns a Snapshot image of a recording event."""
 
         time_since = int(time.mktime(datetime.datetime.now().timetuple())) * 1000
@@ -623,7 +628,7 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
             "w": image_width,
         }
         return await self.api_request(
-            f"cameras/{camera_id}/snapshot", params=params, raise_exception=False, access_key=True
+            f"cameras/{camera_id}/snapshot", params=params, raise_exception=False, raw=True, access_key=True
         )
 
     async def get_snapshot_image_direct(self, camera_id: str) -> bytes:

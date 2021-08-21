@@ -1,13 +1,18 @@
 import asyncio
 import json
+import sys
 
-from IPython import embed
 from aiohttp import ClientSession, CookieJar
-from termcolor import colored
 from traitlets.config import get_config
 import typer
 
 from pyunifiprotect.unifi_protect_server import UpvServer
+
+try:
+    from IPython import embed
+    from termcolor import colored
+except ImportError:
+    embed = termcolor = None
 
 OPTION_USERNAME = typer.Option(
     ...,
@@ -112,7 +117,13 @@ def shell(
     port: int = OPTION_PORT,
     verify: bool = OPTION_VERIFY,
 ):
-    protect = _get_server(username, password, address, port, verify)  # noqa  # pylint: disable=unused-variable
+    if embed is None or colored is None:
+        typer.echo("ipython and termcolor required for shell subcommand")
+        sys.exit(1)
+
+    protect = _get_server(username, password, address, port, verify)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(protect.update(True))
 
     c = get_config()
     c.InteractiveShellEmbed.colors = "Linux"
