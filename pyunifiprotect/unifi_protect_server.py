@@ -173,12 +173,22 @@ class BaseApiClient:
         raw=False,
         require_auth=True,
         raise_exception=True,
+        access_key=False,
         **kwargs,
     ):
         """Make a request to Unifi Protect API"""
 
         if require_auth:
             await self.ensure_authenticated()
+
+        if access_key:
+            params = kwargs.get("params", {})
+            params.update(
+                {
+                    "accessKey": await self._get_api_access_key(),
+                }
+            )
+            kwargs["params"] = params
 
         url = urljoin(self.api_path, url)
         response = await self.request(method, url, require_auth=False, auto_close=False, **kwargs)
@@ -269,6 +279,14 @@ class BaseApiClient:
                 return False
 
         return self._is_authenticated
+
+    async def _get_api_access_key(self) -> str:
+        """get API Access Key."""
+        if self.is_unifi_os:
+            return ""
+
+        data = await self.api_request("auth/access-key", method="post", require_auth=False)
+        return data["accessKey"]
 
     async def async_connect_ws(self):
         """Connect the websocket."""
@@ -389,14 +407,6 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
     async def server_information(self):
         """Returns a Server Information for this NVR."""
         return await self._get_server_info()
-
-    async def _get_api_access_key(self) -> str:
-        """get API Access Key."""
-        if self.is_unifi_os:
-            return ""
-
-        data = await self.api_request("auth/access-key", method="post", require_auth=False)
-        return data["accessKey"]
 
     async def _get_unique_id(self) -> None:
         """Get a Unique ID for this NVR."""
@@ -581,11 +591,10 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
             return None
         height = float(width) / 16 * 9
         params = {
-            "accessKey": await self._get_api_access_key(),
             "h": str(height),
             "w": str(width),
         }
-        return await self.api_request(f"thumbnails/{thumbnail_id}", params=params, raw=True)
+        return await self.api_request(f"thumbnails/{thumbnail_id}", params=params, raw=True, access_key=True)
 
     async def get_heatmap(self, camera_id: str) -> bytes:
         """Returns the last recorded Heatmap, based on Camera ID."""
@@ -597,28 +606,25 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
         if heatmap_id is None:
             return None
 
-        params = {
-            "accessKey": await self._get_api_access_key(),
-        }
-        return await self.api_request(f"heatmaps/{heatmap_id}", params=params, raw=True)
+        return await self.api_request(f"heatmaps/{heatmap_id}", raw=True, access_key=True)
 
     async def get_snapshot_image(self, camera_id: str, width: Optional[int], height: Optional[int]) -> bytes:
         """Returns a Snapshot image of a recording event."""
 
-        access_key = await self._get_api_access_key()
         time_since = int(time.mktime(datetime.datetime.now().timetuple())) * 1000
         cam = self._processed_data[camera_id]
         image_width = width or cam.get("image_width") or DEFAULT_SNAPSHOT_WIDTH
         image_height = height or cam.get("image_height") or DEFAULT_SNAPSHOT_HEIGHT
 
         params = {
-            "accessKey": access_key,
             "h": image_height,
             "ts": str(time_since),
             "force": "true",
             "w": image_width,
         }
-        return await self.api_request(f"cameras/{camera_id}/snapshot", params=params, raise_exception=False)
+        return await self.api_request(
+            f"cameras/{camera_id}/snapshot", params=params, raise_exception=False, access_key=True
+        )
 
     async def get_snapshot_image_direct(self, camera_id: str) -> bytes:
         """Returns a Snapshot image of a recording event.
