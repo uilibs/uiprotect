@@ -116,9 +116,7 @@ def decode_ws_frame(frame, position):
     # b: deflated
     # b: unknown
     # i: payload_size
-    _, payload_format, deflated, _, payload_size = struct.unpack(
-        "!bbbbi", frame[position : position + WS_HEADER_SIZE]
-    )
+    _, payload_format, deflated, _, payload_size = struct.unpack("!bbbbi", frame[position : position + WS_HEADER_SIZE])
     position += WS_HEADER_SIZE
     frame = frame[position : position + payload_size]
     if deflated:
@@ -136,9 +134,7 @@ def process_viewport(server_id, viewport, include_events):
     upsince = (
         "Offline"
         if viewport["upSince"] is None
-        else datetime.datetime.fromtimestamp(int(viewport["upSince"]) / 1000).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        else datetime.datetime.fromtimestamp(int(viewport["upSince"]) / 1000).strftime("%Y-%m-%d %H:%M:%S")
     )
 
     viewport_update = {
@@ -172,9 +168,7 @@ def process_light(server_id, light, include_events):
     upsince = (
         "Offline"
         if light["upSince"] is None
-        else datetime.datetime.fromtimestamp(int(light["upSince"]) / 1000).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        else datetime.datetime.fromtimestamp(int(light["upSince"]) / 1000).strftime("%Y-%m-%d %H:%M:%S")
     )
     # Get Light Mode Settings
     lightmodesettings = light.get("lightModeSettings")
@@ -216,9 +210,7 @@ def process_light(server_id, light, include_events):
         light_update["last_motion"] = (
             None
             if light["lastMotion"] is None
-            else datetime.datetime.fromtimestamp(
-                int(light["lastMotion"]) / 1000
-            ).strftime("%Y-%m-%d %H:%M:%S")
+            else datetime.datetime.fromtimestamp(int(light["lastMotion"]) / 1000).strftime("%Y-%m-%d %H:%M:%S")
         )
     return light_update
 
@@ -235,9 +227,7 @@ def process_sensor(server_id, sensor, include_events):
     upsince = (
         "Offline"
         if sensor["upSince"] is None
-        else datetime.datetime.fromtimestamp(int(sensor["upSince"]) / 1000).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        else datetime.datetime.fromtimestamp(int(sensor["upSince"]) / 1000).strftime("%Y-%m-%d %H:%M:%S")
     )
     # Get Sensor Status
     stats = sensor.get("stats")
@@ -283,18 +273,16 @@ def process_sensor(server_id, sensor, include_events):
         sensor_update["last_motion"] = (
             None
             if sensor["motionDetectedAt"] is None
-            else datetime.datetime.fromtimestamp(
-                int(sensor["motionDetectedAt"]) / 1000
-            ).strftime("%Y-%m-%d %H:%M:%S")
+            else datetime.datetime.fromtimestamp(int(sensor["motionDetectedAt"]) / 1000).strftime("%Y-%m-%d %H:%M:%S")
         )
 
         # Get the last time open/close sensor changed
         sensor_update["last_openchange"] = (
             None
             if sensor["openStatusChangedAt"] is None
-            else datetime.datetime.fromtimestamp(
-                int(sensor["openStatusChangedAt"]) / 1000
-            ).strftime("%Y-%m-%d %H:%M:%S")
+            else datetime.datetime.fromtimestamp(int(sensor["openStatusChangedAt"]) / 1000).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         )
 
     return sensor_update
@@ -318,14 +306,10 @@ def process_camera(server_id, host, camera, include_events):
     upsince = (
         "Offline"
         if camera["upSince"] is None
-        else datetime.datetime.fromtimestamp(int(camera["upSince"]) / 1000).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        else datetime.datetime.fromtimestamp(int(camera["upSince"]) / 1000).strftime("%Y-%m-%d %H:%M:%S")
     )
     # Check if Regular Camera or Doorbell
-    device_type = (
-        "camera" if "doorbell" not in str(camera["type"]).lower() else "doorbell"
-    )
+    device_type = "camera" if "doorbell" not in str(camera["type"]).lower() else "doorbell"
     # Get Firmware Version
     firmware_version = str(camera["firmwareVersion"])
 
@@ -412,17 +396,13 @@ def process_camera(server_id, host, camera, include_events):
         camera_update["last_motion"] = (
             None
             if camera["lastMotion"] is None
-            else datetime.datetime.fromtimestamp(
-                int(camera["lastMotion"]) / 1000
-            ).strftime("%Y-%m-%d %H:%M:%S")
+            else datetime.datetime.fromtimestamp(int(camera["lastMotion"]) / 1000).strftime("%Y-%m-%d %H:%M:%S")
         )
         # Get the last time doorbell was ringing
         camera_update["last_ring"] = (
             None
             if camera.get("lastRing") is None
-            else datetime.datetime.fromtimestamp(
-                int(camera["lastRing"]) / 1000
-            ).strftime("%Y-%m-%d %H:%M:%S")
+            else datetime.datetime.fromtimestamp(int(camera["lastRing"]) / 1000).strftime("%Y-%m-%d %H:%M:%S")
         )
 
     return camera_update
@@ -463,9 +443,7 @@ def event_from_ws_frames(state_machine, minimum_score, action_json, data_json):
     event_id = action_json["id"]
 
     if action == "add":
-        device_id = (
-            data_json.get("camera") or data_json.get("light") or data_json.get("sensor")
-        )
+        device_id = data_json.get("camera") or data_json.get("light") or data_json.get("sensor")
         if device_id is None:
             return None, None
         state_machine.add(event_id, data_json)
@@ -585,9 +563,7 @@ def camera_event_from_ws_frames(state_machine, action_json, data_json):
                 last_motion = round(time.time() * 1000)
 
     if start_time is not None and last_motion is not None:
-        event_length = round(
-            (float(last_motion) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION
-        )
+        event_length = round((float(last_motion) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION)
 
     return {
         "event_on": event_on,
@@ -628,9 +604,7 @@ def light_event_from_ws_frames(state_machine, action_json, data_json):
                 last_motion = round(time.time() * 1000)
 
     if start_time is not None and last_motion is not None:
-        event_length = round(
-            (float(last_motion) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION
-        )
+        event_length = round((float(last_motion) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION)
 
     return {
         "event_on": event_on,
@@ -671,9 +645,7 @@ def sensor_event_from_ws_frames(state_machine, action_json, data_json):
                 last_motion = round(time.time() * 1000)
 
     if start_time is not None and last_motion is not None:
-        event_length = round(
-            (float(last_motion) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION
-        )
+        event_length = round((float(last_motion) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION)
 
     return {
         "event_on": event_on,
@@ -697,9 +669,7 @@ def process_event(event, minimum_score, ring_interval):
     if start:
         start_time = _process_timestamp(start)
     if end:
-        event_length = round(
-            (float(end) / 1000) - (float(start) / 1000), EVENT_LENGTH_PRECISION
-        )
+        event_length = round((float(end) / 1000) - (float(start) / 1000), EVENT_LENGTH_PRECISION)
 
     processed_event = {
         "event_on": False,
@@ -744,9 +714,7 @@ def process_event(event, minimum_score, ring_interval):
 
 
 def _process_timestamp(time_stamp):
-    return datetime.datetime.fromtimestamp(int(time_stamp) / 1000).strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
+    return datetime.datetime.fromtimestamp(int(time_stamp) / 1000).strftime("%Y-%m-%d %H:%M:%S")
 
 
 class ProtectDeviceStateMachine:
