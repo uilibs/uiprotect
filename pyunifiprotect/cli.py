@@ -1,12 +1,13 @@
 import asyncio
 import json
+import logging
 import sys
 
 from aiohttp import ClientSession, CookieJar
 from traitlets.config import get_config
 import typer
 
-from pyunifiprotect.unifi_protect_server import UpvServer
+from pyunifiprotect.unifi_protect_server import _LOGGER, UpvServer
 
 try:
     from IPython import embed
@@ -124,6 +125,11 @@ def shell(
     protect = _get_server(username, password, address, port, verify)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(protect.update(True))
+
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+    _LOGGER.setLevel(logging.DEBUG)
+    _LOGGER.addHandler(console_handler)
 
     c = get_config()
     c.InteractiveShellEmbed.colors = "Linux"

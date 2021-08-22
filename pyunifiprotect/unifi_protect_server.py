@@ -316,7 +316,7 @@ class BaseApiClient:
     async def _setup_websocket(self):
         await self.ensure_authenticated()
 
-        url = urljoin(self._base_ws_url, self.ws_path, "updates")
+        url = urljoin(f"{self._base_ws_url}{self.ws_path}", "updates")
         if self.last_update_id:
             url += f"?lastUpdateId={self.last_update_id}"
 
@@ -401,6 +401,9 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
         if self.ws_connection or self._last_websocket_check == current_time:
             _LOGGER.debug("Skipping update since websocket is active")
             return self._processed_data if device_update else {}
+
+        if self.is_unifi_os:
+            _LOGGER.warning("Unifi OS: Websocket connection not active, failing back to polling")
 
         self._reset_device_events()
         updates = await self._get_events(lookback=10)
