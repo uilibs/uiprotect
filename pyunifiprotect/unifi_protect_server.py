@@ -411,12 +411,12 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
         """Returns a Server Information for this NVR."""
         return await self._get_server_info()
 
-    async def _get_unique_id(self) -> None:
+    async def _get_unique_id(self) -> str:
         """Get a Unique ID for this NVR."""
 
         return await self._get_server_info()[SERVER_ID]
 
-    async def _get_server_info(self) -> None:
+    async def _get_server_info(self) -> dict:
         """Get Server Information for this NVR."""
 
         data = await self.api_request("bootstrap")
@@ -530,7 +530,7 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
         for device_id in self._processed_data:
             self._update_device(device_id, PROCESSED_EVENT_EMPTY)
 
-    async def _get_events(self, lookback: int = 86400, camera=None, start_time=None, end_time=None) -> None:
+    async def _get_events(self, lookback: int = 86400, camera=None, start_time=None, end_time=None) -> dict:
         """Load the Event Log and loop through items to find motion events."""
 
         now = int(time.time() * 1000)
@@ -562,7 +562,7 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
 
         return updated
 
-    async def get_raw_events(self, lookback: int = 86400) -> None:
+    async def get_raw_events(self, lookback: int = 86400) -> dict:
         """Load the Event Log and return the Raw Data - Used for debugging only."""
 
         event_start = datetime.datetime.now() - datetime.timedelta(seconds=lookback)
@@ -576,22 +576,22 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
         }
         return await self.api_request("events", params=params)
 
-    async def get_raw_device_info(self) -> None:
+    async def get_raw_device_info(self) -> dict:
         """Return the RAW JSON data from this NVR.
         Used for debugging purposes only.
         """
 
         return await self.api_request("bootstrap")
 
-    async def get_thumbnail(self, camera_id: str, width: int = 640) -> bytes:
+    async def get_thumbnail(self, camera_id: str, width: int = 640) -> Optional[bytes]:
         """Returns the last recorded Thumbnail, based on Camera ID."""
 
         await self._get_events(camera=camera_id)
 
         thumbnail_id = self._processed_data[camera_id]["event_thumbnail"]
-
         if thumbnail_id is None:
             return None
+
         height = float(width) / 16 * 9
         params = {
             "h": str(height),
@@ -599,13 +599,12 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
         }
         return await self.api_request(f"thumbnails/{thumbnail_id}", params=params, raw=True, access_key=True)
 
-    async def get_heatmap(self, camera_id: str) -> bytes:
+    async def get_heatmap(self, camera_id: str) -> Optional[bytes]:
         """Returns the last recorded Heatmap, based on Camera ID."""
 
         await self._get_events(camera=camera_id)
 
         heatmap_id = self._processed_data[camera_id]["event_heatmap"]
-
         if heatmap_id is None:
             return None
 
@@ -879,17 +878,14 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
         await self.api_request(f"cameras/{camera_id}", method="patch", json=data)
         return True
 
-    async def _get_camera_detail(self, camera_id: str) -> None:
+    async def _get_camera_detail(self, camera_id: str) -> dict:
         """Return the RAW JSON data for Camera.
         Used for debugging only.
         """
 
-        response = await self.api_request(f"cameras/{camera_id}")
-        if response.status != 200:
-            raise NvrError(f"Fetching Camera Details failed: {response.status} - Reason: {response.reason}")
-        return await response.json()
+        return await self.api_request(f"cameras/{camera_id}")
 
-    async def _get_viewport_detail(self, viewport_id: str) -> None:
+    async def _get_viewport_detail(self, viewport_id: str) -> dict:
         """Return the RAW JSON data for a Viewport.
         Used for debugging only.
         """
