@@ -6,7 +6,11 @@
 #
 aiohttp==3.7.4.post0
     # via pyunifiprotect (setup.cfg)
-astroid==2.6.5
+appdirs==1.4.4
+    # via
+    #   black
+    #   pylint
+astroid==2.7.2
     # via pylint
 async-timeout==3.0.1
     # via aiohttp
@@ -16,16 +20,25 @@ attrs==21.2.0
     # via
     #   aiohttp
     #   pytest
+backcall==0.2.0
+    # via ipython
 backports.entry-points-selectable==1.1.0
     # via virtualenv
 base36==0.1.1
     # via pyunifiprotect (setup.cfg)
+black==21.7b0
+    # via pyunifiprotect (setup.cfg)
 chardet==4.0.0
     # via aiohttp
-click==8.0.1
-    # via pip-tools
+click==7.1.2
+    # via
+    #   black
+    #   pip-tools
+    #   typer
 coverage==5.5
     # via pytest-cov
+decorator==5.0.9
+    # via ipython
 distlib==0.3.2
     # via virtualenv
 filelock==3.0.12
@@ -43,10 +56,18 @@ idna==3.2
     # via yarl
 iniconfig==1.1.1
     # via pytest
+ipython==7.26.0
+    # via pyunifiprotect (setup.cfg)
+ipython-genutils==0.2.0
+    # via traitlets
 isort==5.9.3
     # via pylint
+jedi==0.18.0
+    # via ipython
 lazy-object-proxy==1.6.0
     # via astroid
+matplotlib-inline==0.1.2
+    # via ipython
 mccabe==0.6.1
     # via
     #   flake8
@@ -55,12 +76,22 @@ multidict==5.1.0
     # via
     #   aiohttp
     #   yarl
+mypy-extensions==0.4.3
+    # via black
 packaging==21.0
     # via
     #   pytest
     #   tox
+parso==0.8.2
+    # via jedi
+pathspec==0.9.0
+    # via black
 pep517==0.11.0
     # via pip-tools
+pexpect==4.8.0
+    # via ipython
+pickleshare==0.7.5
+    # via ipython
 pip-tools==6.2.0
     # via pyunifiprotect (setup.cfg)
 platformdirs==2.2.0
@@ -69,6 +100,10 @@ pluggy==0.13.1
     # via
     #   pytest
     #   tox
+prompt-toolkit==3.0.20
+    # via ipython
+ptyprocess==0.7.0
+    # via pexpect
 py==1.10.0
     # via
     #   pytest
@@ -81,9 +116,11 @@ pydocstyle==6.1.1
     #   pyunifiprotect (setup.cfg)
 pyflakes==2.3.1
     # via flake8
+pygments==2.10.0
+    # via ipython
 pyjwt==2.1.0
     # via pyunifiprotect (setup.cfg)
-pylint==2.9.6
+pylint==2.10.1
     # via
     #   pylint-strict-informational
     #   pyunifiprotect (setup.cfg)
@@ -105,12 +142,18 @@ pytest-cov==2.12.1
     # via pyunifiprotect (setup.cfg)
 pytest-timeout==1.4.2
     # via pyunifiprotect (setup.cfg)
+python-dotenv==0.19.0
+    # via pyunifiprotect (setup.cfg)
+regex==2021.8.3
+    # via black
 six==1.16.0
     # via
     #   tox
     #   virtualenv
 snowballstemmer==2.1.0
     # via pydocstyle
+termcolor==1.1.0
+    # via pyunifiprotect (setup.cfg)
 toml==0.10.2
     # via
     #   pylint
@@ -118,15 +161,25 @@ toml==0.10.2
     #   pytest
     #   pytest-cov
     #   tox
-tomli==1.1.0
-    # via pep517
-tox==3.24.0
+tomli==1.2.1
+    # via
+    #   black
+    #   pep517
+tox==3.24.3
+    # via pyunifiprotect (setup.cfg)
+traitlets==5.0.5
+    # via
+    #   ipython
+    #   matplotlib-inline
+typer==0.3.2
     # via pyunifiprotect (setup.cfg)
 typing-extensions==3.10.0.0
     # via aiohttp
-virtualenv==20.6.0
+virtualenv==20.7.2
     # via tox
-wheel==0.36.2
+wcwidth==0.2.5
+    # via prompt-toolkit
+wheel==0.37.0
     # via pip-tools
 wrapt==1.12.1
     # via astroid

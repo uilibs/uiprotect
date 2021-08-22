@@ -20,7 +20,7 @@
         "python.defaultInterpreterPath": "/usr/local/bin/python",
         "python.formatting.blackArgs": [
             "--line-length",
-            "88"
+            "120"
         ],
         "python.formatting.provider": "black",
         "python.linting.banditEnabled": false,

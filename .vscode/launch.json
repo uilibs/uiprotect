@@ -5,6 +5,42 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Run Subcommand: shell",
+            "type": "python",
+            "request": "launch",
+            "module": "pyunifiprotect",
+            "args": [
+                "shell",
+            ]
+        },
+        {
+            "name": "Run Subcommand: sensor",
+            "type": "python",
+            "request": "launch",
+            "module": "pyunifiprotect",
+            "args": [
+                "sensor",
+            ]
+        },
+        {
+            "name": "Run Subcommand: raw-data",
+            "type": "python",
+            "request": "launch",
+            "module": "pyunifiprotect",
+            "args": [
+                "raw-data",
+            ]
+        },
+        {
+            "name": "Run Subcommand: event-data",
+            "type": "python",
+            "request": "launch",
+            "module": "pyunifiprotect",
+            "args": [
+                "event-data",
+            ]
+        },
+        {
             "name": "Debug Tests",
             "type": "python",
             "request": "test",
