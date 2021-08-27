@@ -1,0 +1,499 @@
+{
+    "isDeleting": false,
+    "mac": "044E3C56CAE8",
+    "host": "192.168.161.202",
+    "connectionHost": "192.168.65.137",
+    "type": "UVC G4 Doorbell",
+    "name": "Eyjbyrr Stkrdn",
+    "upSince": 1630240423322,
+    "uptime": 49942,
+    "lastSeen": 1630290365322,
+    "connectedSince": 1630240561373,
+    "state": "CONNECTED",
+    "hardwareRevision": "21",
+    "firmwareVersion": "4.41.16",
+    "latestFirmwareVersion": "4.41.16",
+    "firmwareBuild": "db78752.210719.1708",
+    "isUpdating": false,
+    "isAdopting": false,
+    "isAdopted": true,
+    "isAdoptedByOther": false,
+    "isProvisioned": true,
+    "isRebooting": false,
+    "isSshEnabled": false,
+    "canAdopt": false,
+    "isAttemptingToConnect": false,
+    "lastMotion": 1630290346886,
+    "micVolume": 100,
+    "isMicEnabled": true,
+    "isRecording": true,
+    "isMotionDetected": false,
+    "phyRate": 72,
+    "hdrMode": true,
+    "videoMode": "highFps",
+    "isProbingForWifi": false,
+    "apMac": null,
+    "apRssi": null,
+    "elementInfo": null,
+    "chimeDuration": 300,
+    "isDark": true,
+    "lastPrivacyZonePositionId": null,
+    "lastRing": 1630245065909,
+    "isLiveHeatmapEnabled": false,
+    "anonymousDeviceId": "06154cb5-13ab-4a37-9be3-91249eeeec9f",
+    "eventStats": {
+        "motion": {
+            "today": 29,
+            "average": 71,
+            "lastDays": [
+                25,
+                71,
+                50,
+                237,
+                67,
+                37,
+                12
+            ],
+            "recentHours": [
+                4,
+                11,
+                7,
+                0,
+                0,
+                2,
+                0,
+                0,
+                0,
+                2,
+                1,
+                0,
+                0
+            ]
+        },
+        "smart": {
+            "today": 0,
+            "average": 12,
+            "lastDays": [
+                5,
+                11,
+                10,
+                10,
+                35,
+                8,
+                6
+            ]
+        }
+    },
+    "wiredConnectionState": {
+        "phyRate": null
+    },
+    "channels": [
+        {
+            "id": 0,
+            "videoId": "video1",
+            "name": "Vjnz Izyczfb",
+            "enabled": true,
+            "isRtspEnabled": true,
+            "rtspAlias": "qnVDns8ajnOXJITk",
+            "width": 1600,
+            "height": 1200,
+            "fps": 45,
+            "bitrate": 6000000,
+            "minBitrate": 32000,
+            "maxBitrate": 6000000,
+            "minClientAdaptiveBitRate": 0,
+            "minMotionAdaptiveBitRate": 750000,
+            "fpsValues": [
+                36,
+                40,
+                45
+            ],
+            "idrInterval": 5
+        },
+        {
+            "id": 1,
+            "videoId": "video3",
+            "name": "Pgxoctm Bceyfnk",
+            "enabled": true,
+            "isRtspEnabled": false,
+            "rtspAlias": null,
+            "width": 960,
+            "height": 720,
+            "fps": 24,
+            "bitrate": 1200000,
+            "minBitrate": 32000,
+            "maxBitrate": 2000000,
+            "minClientAdaptiveBitRate": 150000,
+            "minMotionAdaptiveBitRate": 750000,
+            "fpsValues": [
+                24
+            ],
+            "idrInterval": 5
+        },
+        {
+            "id": 2,
+            "videoId": "video2",
+            "name": "Lndbj Hqm",
+            "enabled": true,
+            "isRtspEnabled": false,
+            "rtspAlias": null,
+            "width": 480,
+            "height": 360,
+            "fps": 24,
+            "bitrate": 200000,
+            "minBitrate": 32000,
+            "maxBitrate": 1000000,
+            "minClientAdaptiveBitRate": 0,
+            "minMotionAdaptiveBitRate": 200000,
+            "fpsValues": [
+                24
+            ],
+            "idrInterval": 5
+        }
+    ],
+    "ispSettings": {
+        "aeMode": "auto",
+        "irLedMode": "auto",
+        "irLedLevel": 255,
+        "wdr": 1,
+        "icrSensitivity": 0,
+        "brightness": 51,
+        "contrast": 50,
+        "hue": 50,
+        "saturation": 50,
+        "sharpness": 50,
+        "denoise": 50,
+        "isFlippedVertical": false,
+        "isFlippedHorizontal": false,
+        "isAutoRotateEnabled": false,
+        "isLdcEnabled": true,
+        "is3dnrEnabled": true,
+        "isExternalIrEnabled": false,
+        "isAggressiveAntiFlickerEnabled": false,
+        "isPauseMotionEnabled": false,
+        "dZoomCenterX": 50,
+        "dZoomCenterY": 50,
+        "dZoomScale": 0,
+        "dZoomStreamId": 4,
+        "focusMode": "ztrig",
+        "focusPosition": 0,
+        "touchFocusX": 1001,
+        "touchFocusY": 1001,
+        "zoomPosition": 0,
+        "mountPosition": null
+    },
+    "talkbackSettings": {
+        "typeFmt": "aac",
+        "typeIn": "serverudp",
+        "bindAddr": "0.0.0.0",
+        "bindPort": 7004,
+        "filterAddr": "",
+        "filterPort": 0,
+        "channels": 1,
+        "samplingRate": 22050,
+        "bitsPerSample": 16,
+        "quality": 100
+    },
+    "osdSettings": {
+        "isNameEnabled": true,
+        "isDateEnabled": true,
+        "isLogoEnabled": false,
+        "isDebugEnabled": false
+    },
+    "ledSettings": {
+        "isEnabled": true,
+        "blinkRate": 0
+    },
+    "speakerSettings": {
+        "isEnabled": true,
+        "areSystemSoundsEnabled": false,
+        "volume": 80
+    },
+    "recordingSettings": {
+        "prePaddingSecs": 10,
+        "postPaddingSecs": 10,
+        "minMotionEventTrigger": 3000,
+        "endMotionEventDelay": 3000,
+        "suppressIlluminationSurge": false,
+        "mode": "always",
+        "geofencing": "off",
+        "motionAlgorithm": "enhanced",
+        "enablePirTimelapse": false,
+        "useNewMotionAlgorithm": true
+    },
+    "smartDetectSettings": {
+        "objectTypes": [
+            "person",
+            "vehicle"
+        ]
+    },
+    "recordingSchedule": null,
+    "motionZones": [
+        {
+            "id": 1,
+            "name": "Default",
+            "color": "#AB46BC",
+            "points": [
+                [
+                    0,
+                    0
+                ],
+                [
+                    1,
+                    0
+                ],
+                [
+                    1,
+                    1
+                ],
+                [
+                    0,
+                    1
+                ]
+            ],
+            "sensitivity": 50
+        }
+    ],
+    "privacyZones": [],
+    "smartDetectZones": [
+        {
+            "id": 1,
+            "name": "Default",
+            "color": "#AB46BC",
+            "points": [
+                [
+                    0,
+                    0
+                ],
+                [
+                    0.639,
+                    0
+                ],
+                [
+                    0.689,
+                    0.554
+                ],
+                [
+                    0.854,
+                    0.575
+                ],
+                [
+                    1,
+                    0.601
+                ],
+                [
+                    1,
+                    1
+                ],
+                [
+                    0,
+                    1
+                ]
+            ],
+            "sensitivity": 50,
+            "objectTypes": [
+                "person"
+            ]
+        },
+        {
+            "id": 2,
+            "name": "Plivywx Pmwu",
+            "color": "#FF0075",
+            "points": [
+                [
+                    0,
+                    0
+                ],
+                [
+                    0.389,
+                    0
+                ],
+                [
+                    0.356,
+                    0.533
+                ],
+                [
+                    0.648,
+                    0.554
+                ],
+                [
+                    0.841,
+                    0.578
+                ],
+                [
+                    1,
+                    0.601
+                ],
+                [
+                    1,
+                    1
+                ],
+                [
+                    0,
+                    1
+                ]
+            ],
+            "sensitivity": 50,
+            "objectTypes": [
+                "vehicle"
+            ]
+        }
+    ],
+    "smartDetectLines": [],
+    "stats": {
+        "rxBytes": 347070393,
+        "txBytes": 12111113548,
+        "wifi": {
+            "channel": 6,
+            "frequency": 2437,
+            "linkSpeedMbps": null,
+            "signalQuality": 100,
+            "signalStrength": -59
+        },
+        "battery": {
+            "percentage": null,
+            "isCharging": false,
+            "sleepState": "disconnected"
+        },
+        "video": {
+            "recordingStart": 1627698365249,
+            "recordingEnd": 1630290382998,
+            "recordingStartLQ": 1627687585821,
+            "recordingEndLQ": 1630290398947,
+            "timelapseStart": 1627698365249,
+            "timelapseEnd": 1630290000131,
+            "timelapseStartLQ": 1614499304836,
+            "timelapseEndLQ": 1630289840817
+        },
+        "storage": {
+            "used": 928786677760,
+            "rate": 789.27756005892
+        },
+        "wifiQuality": 100,
+        "wifiStrength": -59
+    },
+    "featureFlags": {
+        "canAdjustIrLedLevel": false,
+        "canMagicZoom": false,
+        "canOpticalZoom": false,
+        "canTouchFocus": false,
+        "hasAccelerometer": false,
+        "hasAec": true,
+        "hasBattery": false,
+        "hasBluetooth": true,
+        "hasChime": true,
+        "hasExternalIr": false,
+        "hasIcrSensitivity": true,
+        "hasLdc": true,
+        "hasLedIr": true,
+        "hasLedStatus": true,
+        "hasLineIn": false,
+        "hasMic": true,
+        "hasPrivacyMask": true,
+        "hasRtc": false,
+        "hasSdCard": false,
+        "hasSpeaker": true,
+        "hasWifi": true,
+        "hasHdr": false,
+        "hasAutoICROnly": true,
+        "videoModes": [
+            "default",
+            "highFps"
+        ],
+        "videoModeMaxFps": [
+            24,
+            45
+        ],
+        "hasMotionZones": true,
+        "hasLcdScreen": true,
+        "mountPositions": [],
+        "smartDetectTypes": [
+            "person",
+            "vehicle"
+        ],
+        "motionAlgorithms": [
+            "enhanced"
+        ],
+        "hasSquareEventThumbnail": true,
+        "privacyMaskCapability": {
+            "maxMasks": 16,
+            "rectangleOnly": false
+        },
+        "focus": {
+            "steps": {
+                "max": null,
+                "min": null,
+                "step": null
+            },
+            "degrees": {
+                "max": null,
+                "min": null,
+                "step": null
+            }
+        },
+        "pan": {
+            "steps": {
+                "max": null,
+                "min": null,
+                "step": null
+            },
+            "degrees": {
+                "max": null,
+                "min": null,
+                "step": null
+            }
+        },
+        "tilt": {
+            "steps": {
+                "max": null,
+                "min": null,
+                "step": null
+            },
+            "degrees": {
+                "max": null,
+                "min": null,
+                "step": null
+            }
+        },
+        "zoom": {
+            "steps": {
+                "max": null,
+                "min": null,
+                "step": null
+            },
+            "degrees": {
+                "max": null,
+                "min": null,
+                "step": null
+            }
+        },
+        "hasSmartDetect": true
+    },
+    "pirSettings": {
+        "pirSensitivity": 100,
+        "pirMotionClipLength": 15,
+        "timelapseFrameInterval": 15,
+        "timelapseTransferInterval": 600
+    },
+    "lcdMessage": {
+        "type": "CUSTOM_MESSAGE",
+        "text": "Welcome",
+        "resetAt": null
+    },
+    "wifiConnectionState": {
+        "channel": 6,
+        "frequency": 2437,
+        "phyRate": 72,
+        "signalQuality": 100,
+        "signalStrength": -59
+    },
+    "id": "311e3037fce635ba57f6f4b1",
+    "isConnected": true,
+    "platform": "s5l",
+    "hasSpeaker": true,
+    "hasWifi": true,
+    "audioBitrate": 64000,
+    "canManage": false,
+    "isManaged": true,
+    "modelKey": "camera"
+}

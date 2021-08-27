@@ -22,7 +22,7 @@ decorator==5.0.9
     # via ipython
 idna==3.2
     # via yarl
-ipython==7.26.0
+ipython==7.27.0
     # via pyunifiprotect (setup.cfg)
 ipython-genutils==0.2.0
     # via traitlets
@@ -40,6 +40,8 @@ pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
+pillow==8.3.1
+    # via pyunifiprotect (setup.cfg)
 prompt-toolkit==3.0.20
     # via ipython
 ptyprocess==0.7.0
@@ -58,7 +60,7 @@ traitlets==5.0.5
     #   matplotlib-inline
 typer==0.3.2
     # via pyunifiprotect (setup.cfg)
-typing-extensions==3.10.0.0
+typing-extensions==3.10.0.1
     # via aiohttp
 wcwidth==0.2.5
     # via prompt-toolkit

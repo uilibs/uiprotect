@@ -5,7 +5,7 @@ import datetime
 import json as pjson
 import logging
 import time
-from typing import Optional, Union
+from typing import Callable, List, Optional, Union
 from urllib.parse import urljoin
 
 import aiohttp
@@ -14,6 +14,7 @@ from aiohttp.client import _WSRequestContextManager
 import jwt
 
 from .const import SERVER_ID, SERVER_NAME
+from .exceptions import NotAuthorized, NvrError
 from .unifi_data import (
     DEVICE_MODEL_LIGHT,
     EVENT_MOTION,
@@ -52,18 +53,6 @@ DEFAULT_SNAPSHOT_WIDTH = 1920
 DEFAULT_SNAPSHOT_HEIGHT = 1080
 
 
-class Invalid(Exception):
-    """Invalid return from Authorization Request."""
-
-
-class NotAuthorized(Exception):
-    """Wrong username and/or Password."""
-
-
-class NvrError(Exception):
-    """Other error."""
-
-
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -83,6 +72,7 @@ class BaseApiClient:
     ws_session: Optional[aiohttp.ClientSession] = None
     ws_connection: Optional[_WSRequestContextManager] = None
     ws_task: Optional[asyncio.Task] = None
+    ws_callback: Optional[Callable[[aiohttp.WSMessage], None]] = None
 
     def __init__(
         self,
@@ -327,6 +317,9 @@ class BaseApiClient:
         self.ws_connection = await self.ws_session.ws_connect(url, ssl=self._verify_ssl, headers=self.headers)
         try:
             async for msg in self.ws_connection:
+                if self.ws_callback is not None:
+                    self.ws_callback(msg)  # pylint: disable=not-callable
+
                 if msg.type == aiohttp.WSMsgType.BINARY:
                     try:
                         self._process_ws_message(msg)
@@ -533,6 +526,21 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
         for device_id in self._processed_data:
             self._update_device(device_id, PROCESSED_EVENT_EMPTY)
 
+    def _process_events(self, events: List[dict], ring_interval: int) -> dict:
+        updated = {}
+        for event in events:
+            if event["type"] not in (EVENT_MOTION, EVENT_RING, EVENT_SMART_DETECT_ZONE):
+                continue
+
+            camera_id = event["camera"]
+            self._update_device(
+                camera_id,
+                process_event(event, self._minimum_score, ring_interval),
+            )
+            updated[camera_id] = self._processed_data[camera_id]
+
+        return updated
+
     async def _get_events(self, lookback: int = 86400, camera=None, start_time=None, end_time=None) -> dict:
         """Load the Event Log and loop through items to find motion events."""
 
@@ -551,19 +559,7 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
             params["cameras"] = camera
         data = await self.api_request("events", params=params)
 
-        updated = {}
-        for event in data:
-            if event["type"] not in (EVENT_MOTION, EVENT_RING, EVENT_SMART_DETECT_ZONE):
-                continue
-
-            camera_id = event["camera"]
-            self._update_device(
-                camera_id,
-                process_event(event, self._minimum_score, event_ring_check_converted),
-            )
-            updated[camera_id] = self._processed_data[camera_id]
-
-        return updated
+        return self._process_events(data, event_ring_check_converted)
 
     async def get_raw_events(self, lookback: int = 86400) -> dict:
         """Load the Event Log and return the Raw Data - Used for debugging only."""
@@ -894,6 +890,13 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
         """
 
         return await self.api_request(f"viewers/{viewport_id}")
+
+    async def _get_light_detail(self, light_id: str) -> dict:
+        """Return the RAW JSON data for a Light.
+        Used for debugging only.
+        """
+
+        return await self.api_request(f"lights/{light_id}")
 
     async def set_doorbell_custom_text(self, camera_id: str, custom_text: str, duration=None) -> bool:
         """Sets a Custom Text string for the Doorbell LCD'."""

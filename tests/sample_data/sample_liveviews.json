@@ -1,0 +1,73 @@
+[
+    {
+        "name": "Whlt Gozqtfa",
+        "isDefault": false,
+        "isGlobal": false,
+        "layout": 1,
+        "slots": [
+            {
+                "cameras": [
+                    "5fcaeae80232780387000f80"
+                ],
+                "cycleMode": "time",
+                "cycleInterval": 10
+            }
+        ],
+        "owner": "417ad692724d92bfa412e428",
+        "id": "d82e2e665cdf751223b4b6d7",
+        "modelKey": "liveview"
+    },
+    {
+        "name": "Default",
+        "isDefault": true,
+        "isGlobal": true,
+        "layout": 6,
+        "slots": [
+            {
+                "cameras": [
+                    "5fcaeae80232780387000f80"
+                ],
+                "cycleMode": "time",
+                "cycleInterval": 10
+            },
+            {
+                "cameras": [
+                    "6101c9ac0245de0387003bc3"
+                ],
+                "cycleMode": "time",
+                "cycleInterval": 10
+            },
+            {
+                "cameras": [
+                    "6102cc41003cde038700439d"
+                ],
+                "cycleMode": "time",
+                "cycleInterval": 10
+            },
+            {
+                "cameras": [
+                    "6102ced5021cde03870043ba"
+                ],
+                "cycleMode": "time",
+                "cycleInterval": 10
+            },
+            {
+                "cameras": [
+                    "6102d0790379de03870043dc"
+                ],
+                "cycleMode": "time",
+                "cycleInterval": 10
+            },
+            {
+                "cameras": [
+                    "6101cf1100acde0387003c11"
+                ],
+                "cycleMode": "time",
+                "cycleInterval": 10
+            }
+        ],
+        "owner": "cb07e8ccf2f93a142ac0e6d7",
+        "id": "c977da776ac0e6488e4c074e",
+        "modelKey": "liveview"
+    }
+]

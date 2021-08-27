@@ -6,10 +6,6 @@
 #
 aiohttp==3.7.4.post0
     # via pyunifiprotect (setup.cfg)
-appdirs==1.4.4
-    # via
-    #   black
-    #   pylint
 astroid==2.7.2
     # via pylint
 async-timeout==3.0.1
@@ -26,7 +22,7 @@ backports.entry-points-selectable==1.1.0
     # via virtualenv
 base36==0.1.1
     # via pyunifiprotect (setup.cfg)
-black==21.7b0
+black==21.8b0
     # via pyunifiprotect (setup.cfg)
 chardet==4.0.0
     # via aiohttp
@@ -56,7 +52,7 @@ idna==3.2
     # via yarl
 iniconfig==1.1.1
     # via pytest
-ipython==7.26.0
+ipython==7.27.0
     # via pyunifiprotect (setup.cfg)
 ipython-genutils==0.2.0
     # via traitlets
@@ -92,10 +88,15 @@ pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
+pillow==8.3.1
+    # via pyunifiprotect (setup.cfg)
 pip-tools==6.2.0
     # via pyunifiprotect (setup.cfg)
 platformdirs==2.2.0
-    # via virtualenv
+    # via
+    #   black
+    #   pylint
+    #   virtualenv
 pluggy==0.13.1
     # via
     #   pytest
@@ -120,7 +121,7 @@ pygments==2.10.0
     # via ipython
 pyjwt==2.1.0
     # via pyunifiprotect (setup.cfg)
-pylint==2.10.1
+pylint==2.10.2
     # via
     #   pylint-strict-informational
     #   pyunifiprotect (setup.cfg)
@@ -144,7 +145,7 @@ pytest-timeout==1.4.2
     # via pyunifiprotect (setup.cfg)
 python-dotenv==0.19.0
     # via pyunifiprotect (setup.cfg)
-regex==2021.8.3
+regex==2021.8.28
     # via black
 six==1.16.0
     # via
@@ -173,8 +174,10 @@ traitlets==5.0.5
     #   matplotlib-inline
 typer==0.3.2
     # via pyunifiprotect (setup.cfg)
-typing-extensions==3.10.0.0
-    # via aiohttp
+typing-extensions==3.10.0.1
+    # via
+    #   aiohttp
+    #   black
 virtualenv==20.7.2
     # via tox
 wcwidth==0.2.5

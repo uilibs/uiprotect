@@ -41,6 +41,15 @@
             ]
         },
         {
+            "name": "Run Subcommand: generate-sample-data",
+            "type": "python",
+            "request": "launch",
+            "module": "pyunifiprotect",
+            "args": [
+                "generate-sample-data",
+            ]
+        },
+        {
             "name": "Debug Tests",
             "type": "python",
             "request": "test",
