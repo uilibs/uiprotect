@@ -1,9 +1,9 @@
 {
-    "mac": "DC8BC876132F",
-    "host": "192.168.206.210",
-    "connectionHost": "192.168.203.134",
+    "mac": "6F18AE6673CE",
+    "host": "192.168.17.59",
+    "connectionHost": "192.168.7.18",
     "type": "UP FloodLight",
-    "name": "Qpe Gyeseu",
+    "name": "Tjnt Ukm",
     "upSince": 1629580303294,
     "uptime": null,
     "lastSeen": 1629580367271,
@@ -45,7 +45,7 @@
         "enableAt": "fulltime"
     },
     "camera": null,
-    "id": "f7a43691982566c9ac23a212",
+    "id": "882323263fd4ebe38a2a9bd5",
     "isConnected": false,
     "isCameraPaired": false,
     "modelKey": "light"

@@ -49,7 +49,7 @@ OPTION_PORT = typer.Option(443, "--port", "-p", help="Unifi Protect Port", envva
 OPTION_SECONDS = typer.Option(15, "--seconds", "-s", help="Seconds to pull events")
 OPTION_VERIFY = typer.Option(True, "--verify", "-v", help="Verify SSL", envvar="UFP_SSL_VERIFY")
 OPTION_ANON = typer.Option(True, "--actual", help="Do not anonymize test data")
-OPTION_WAIT = typer.Option(120, "--wait", "-w", help="Time to wait for Websocket messages")
+OPTION_WAIT = typer.Option(30, "--wait", "-w", help="Time to wait for Websocket messages")
 OPTION_OUTPUT = typer.Option(
     None, "--output", "-o", help="Output folder, defaults to `tests` folder one level above this file"
 )

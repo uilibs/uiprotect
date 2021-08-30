@@ -1,12 +1,12 @@
 {
-    "mac": "BCE0DF6F61F4",
-    "host": "192.168.255.221",
-    "connectionHost": "192.168.141.181",
+    "mac": "9433A4786651",
+    "host": "192.168.212.66",
+    "connectionHost": "192.168.14.238",
     "type": "UFP Viewport",
-    "name": "Amla Lhlrort",
-    "upSince": 1630351495910,
-    "uptime": 2179,
-    "lastSeen": 1630353674910,
+    "name": "Xpxvwuq Jtxix",
+    "upSince": 1630351496018,
+    "uptime": 2719,
+    "lastSeen": 1630354215018,
     "connectedSince": 1630351550042,
     "state": "CONNECTED",
     "hardwareRevision": null,
@@ -27,8 +27,8 @@
     "wiredConnectionState": {
         "phyRate": 1000
     },
-    "liveview": "da99d2169ec8ebf4f9648f5d",
-    "id": "108d43afb5f04a64cdac87fc",
+    "liveview": "d79c32553b10ab3cc2fa0970",
+    "id": "a7cc4b770667d1e3e1042d59",
     "isConnected": true,
     "modelKey": "viewer"
 }
