@@ -1,6 +1,6 @@
 import secrets
 import string
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 import uuid
 
@@ -8,18 +8,7 @@ import typer
 
 from ..unifi_data import ModelType
 
-object_id_mapping: Dict[Union[ModelType, Literal["ip"], Literal["any"]], Dict[str, str]] = {}
-
-
-def anonymize_object_id(obj_type: ModelType, obj_id: str) -> str:
-    if obj_type not in object_id_mapping:
-        object_id_mapping[obj_type] = {}
-
-    if obj_id not in object_id_mapping[obj_type]:
-        random_id = random_hex(24)
-        object_id_mapping[obj_type][obj_id] = random_id
-
-    return object_id_mapping[obj_type][obj_id]
+object_id_mapping: Dict[str, str] = {}
 
 
 def anonymize_data(value: Any, name: Optional[str] = None):
@@ -35,9 +24,9 @@ def anonymize_data(value: Any, name: Optional[str] = None):
 
 def anonymize_user(user_dict: dict) -> dict:
     for index, group_id in enumerate(user_dict.get("groups", [])):
-        user_dict["groups"][index] = anonymize_object_id(ModelType.GROUP, group_id)
+        user_dict["groups"][index] = anonymize_object_id(group_id)
 
-    user_dict["id"] = anonymize_object_id(ModelType.USER, user_dict["id"])
+    user_dict["id"] = anonymize_object_id(user_dict["id"])
 
     if "firstName" in user_dict:
         user_dict["firstName"] = random_word().title()
@@ -52,13 +41,13 @@ def anonymize_user(user_dict: dict) -> dict:
         user_dict["cloudAccount"]["name"] = user_dict["name"]
         user_dict["cloudAccount"]["email"] = user_dict["email"]
         user_dict["cloudAccount"]["user"] = random_hex(24)
-        user_dict["cloudAccount"]["id"] = anonymize_object_id(ModelType.CLOUD_IDENTITY, user_dict["cloudAccount"]["id"])
+        user_dict["cloudAccount"]["id"] = anonymize_object_id(user_dict["cloudAccount"]["id"])
         user_dict["cloudAccount"]["cloudId"] = random_identifier()
 
     camera_order = (user_dict.get("settings") or {}).get("cameraOrder")
     if camera_order is not None:
         for index, camera_id in enumerate(camera_order):
-            camera_order[index] = anonymize_object_id(ModelType.CAMERA, camera_id)
+            camera_order[index] = anonymize_object_id(camera_id)
         user_dict["settings"]["cameraOrder"] = camera_order
 
     if "allPermissions" in user_dict:
@@ -86,14 +75,14 @@ def anonymize_value(value: Any, name: Optional[str] = None):
         elif name == "name" and value != "Default":
             value = f"{random_word()} {random_word()}".title()
         elif name in ("owner", "user"):
-            value = anonymize_object_id(ModelType.USER, value)
+            value = anonymize_object_id(value)
         elif name == "camera":
-            value = anonymize_object_id(ModelType.CAMERA, value)
+            value = anonymize_object_id(value)
         elif name == "rtsp":
             value = anonymize_rstp_url(value)
         elif value.startswith("liveview:*:"):
             liveview_id = value.split(":")[-1]
-            value = f"liveview:*:{anonymize_object_id(ModelType.LIVEVIEW, liveview_id)}"
+            value = f"liveview:*:{anonymize_object_id(liveview_id)}"
 
     return value
 
@@ -113,7 +102,7 @@ def anonymize_dict(obj: dict, name: Optional[str] = None) -> dict:
         handled = False
         if obj_type is not None:
             if key == "id":
-                obj[key] = anonymize_object_id(obj_type, value)
+                obj[key] = anonymize_object_id(value)
                 handled = True
             elif obj_type == ModelType.EVENT and key in ("thumbnail", "heatmap"):
                 obj[key] = anonymize_prefixed_event_id(value)
@@ -131,9 +120,9 @@ def anonymize_list(items: List, name: Optional[str] = None) -> List:
             if name == "hosts":
                 items[index] = anonymize_ip(items[index])
             elif name == "smartDetectEvents":
-                items[index] = anonymize_object_id(ModelType.EVENT, value)
+                items[index] = anonymize_object_id(value)
             elif name == "camera":
-                items[index] = anonymize_object_id(ModelType.CAMERA, value)
+                items[index] = anonymize_object_id(value)
         else:
             items[index] = anonymize_data(value)
 
@@ -143,7 +132,7 @@ def anonymize_list(items: List, name: Optional[str] = None) -> List:
 def anonymize_prefixed_event_id(event_id: str) -> str:
     event_id = event_id[2:]
 
-    return f"e-{anonymize_object_id(ModelType.EVENT, event_id)}"
+    return f"e-{anonymize_object_id(event_id)}"
 
 
 def anonymize_ip(ip: Any):
@@ -153,14 +142,11 @@ def anonymize_ip(ip: Any):
     if ip in ("0.0.0.0", "127.0.0.1", "255.255.255.255"):
         return ip
 
-    if "ip" not in object_id_mapping:
-        object_id_mapping["ip"] = {}
+    return anonymize_peristent_string(ip, random_ip(ip))
 
-    if ip not in object_id_mapping["ip"]:
-        new_ip = random_ip(ip)
-        object_id_mapping["ip"][ip] = new_ip
 
-    return object_id_mapping["ip"][ip]
+def anonymize_object_id(obj_id: str) -> str:
+    return anonymize_peristent_string(obj_id, random_hex(24))
 
 
 def anonymize_peristent_string(value: str, default: str):
