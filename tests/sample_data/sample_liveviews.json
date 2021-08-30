@@ -1,8 +1,8 @@
 [
     {
-        "name": "Whlt Gozqtfa",
+        "name": "Tihu Hdoruo",
         "isDefault": false,
-        "isGlobal": false,
+        "isGlobal": true,
         "layout": 1,
         "slots": [
             {
@@ -13,8 +13,8 @@
                 "cycleInterval": 10
             }
         ],
-        "owner": "417ad692724d92bfa412e428",
-        "id": "d82e2e665cdf751223b4b6d7",
+        "owner": "7d55369c045d3ed6b0b14139",
+        "id": "da99d2169ec8ebf4f9648f5d",
         "modelKey": "liveview"
     },
     {
@@ -66,8 +66,8 @@
                 "cycleInterval": 10
             }
         ],
-        "owner": "cb07e8ccf2f93a142ac0e6d7",
-        "id": "c977da776ac0e6488e4c074e",
+        "owner": "aeff6eedf386622b26b1e426",
+        "id": "3f3347e0921d9c1324087461",
         "modelKey": "liveview"
     }
 ]

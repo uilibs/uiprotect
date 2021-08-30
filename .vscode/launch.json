@@ -50,6 +50,17 @@
             ]
         },
         {
+            "name": "Run Subcommand: generate-sample-data (No Wait)",
+            "type": "python",
+            "request": "launch",
+            "module": "pyunifiprotect",
+            "args": [
+                "generate-sample-data",
+                "-w",
+                "0"
+            ]
+        },
+        {
             "name": "Debug Tests",
             "type": "python",
             "request": "test",

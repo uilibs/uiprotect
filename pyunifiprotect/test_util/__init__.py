@@ -66,12 +66,17 @@ class SampleDataGenerator:
         self.write_json_file("sample_liveviews", data)
 
         await self.record_ws_events()
+        await self.generate_event_data()
         await self.generate_device_data()
 
         # Close the Session
         await self.client.req.close()
 
     async def record_ws_events(self):
+        if self.wait_time <= 0:
+            typer.echo("Skipping recording Websocket messages...")
+            return
+
         self._record_num_ws = 0
         self._record_ws_start_time = datetime.now()
         self._record_listen_for_events = True
@@ -85,17 +90,6 @@ class SampleDataGenerator:
         self._record_listen_for_events = False
         await self.client.async_disconnect_ws()
         self.write_json_file("sample_ws_messages", self._record_ws_messages, anonymize=False)
-
-        data = await self.client.get_raw_events()
-        heatmap_event = None
-        for event in data:
-            if event.get("heatmap") is not None and event.get("type") in (EVENT_MOTION, EVENT_SMART_DETECT_ZONE):
-                heatmap_event = event
-
-        if heatmap_event is not None:
-            self.client._process_events([heatmap_event], LIVE_RING_FROM_WEBSOCKET)
-
-        self.write_json_file("sample_raw_events", data)
 
     def write_json_file(self, name: str, data: dict, anonymize: Optional[bool] = None):
         if anonymize is None:
@@ -114,6 +108,18 @@ class SampleDataGenerator:
         with open(self.output_folder / f"{name}.png", "wb") as f:
             f.write(raw)
 
+    async def generate_event_data(self):
+        data = await self.client.get_raw_events()
+        heatmap_event = None
+        for event in data:
+            if event.get("heatmap") is not None and event.get("type") in (EVENT_MOTION, EVENT_SMART_DETECT_ZONE):
+                heatmap_event = event
+
+        if heatmap_event is not None:
+            self.client._process_events([heatmap_event], LIVE_RING_FROM_WEBSOCKET)
+
+        self.write_json_file("sample_raw_events", data)
+
     async def generate_device_data(self):
         has_heatmap = False
         is_camera_online = False
@@ -121,6 +127,9 @@ class SampleDataGenerator:
 
         is_light_online = False
         light_id: Optional[str] = None
+
+        is_viewport_online = False
+        viewport_id: Optional[str] = None
 
         for key, item in self.client.devices.items():
             if item["type"] in ("camera", "doorbell") and not has_heatmap:
@@ -141,8 +150,10 @@ class SampleDataGenerator:
                 light_id = key
                 if item["online"]:
                     is_light_online = True
-
-        # TODO: Viewport _get_viewport_detail(viewport_id)
+            elif item["type"] == "viewer" and not is_viewport_online:
+                viewport_id = key
+                if item["online"]:
+                    is_viewport_online = True
 
         if camera_id is None:
             typer.echo("No camera found. Skipping camera endpoints...")
@@ -153,6 +164,11 @@ class SampleDataGenerator:
             typer.echo("No light found. Skipping light endpoints...")
         else:
             await self.generate_light_data(light_id)
+
+        if viewport_id is None:
+            typer.echo("No viewport found. Skipping viewport endpoints...")
+        else:
+            await self.generate_viewport_data(viewport_id)
 
     async def generate_camera_data(self, camera_id: str):
         data = await self.client._get_events(camera=camera_id)
@@ -183,6 +199,10 @@ class SampleDataGenerator:
     async def generate_light_data(self, light_id: str):
         data = await self.client._get_light_detail(light_id=light_id)
         self.write_json_file("sample_light", data)
+
+    async def generate_viewport_data(self, viewport_id: str):
+        data = await self.client._get_viewport_detail(viewport_id=viewport_id)
+        self.write_json_file("sample_viewport", data)
 
     def _handle_ws_message(self, msg: aiohttp.WSMessage):
         if not self._record_listen_for_events:

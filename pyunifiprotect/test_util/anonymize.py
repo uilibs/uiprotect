@@ -74,9 +74,7 @@ def anonymize_value(value: Any, name: Optional[str] = None):
             value = anonymize_peristent_string(value, random_hex(12).upper())
         elif name == "name" and value != "Default":
             value = f"{random_word()} {random_word()}".title()
-        elif name in ("owner", "user"):
-            value = anonymize_object_id(value)
-        elif name == "camera":
+        elif name in ("owner", "user", "camera", "liveview"):
             value = anonymize_object_id(value)
         elif name == "rtsp":
             value = anonymize_rstp_url(value)
@@ -96,7 +94,7 @@ def anonymize_dict(obj: dict, name: Optional[str] = None) -> dict:
             typer.secho(f"Unknown modelKey: {obj['modelKey']}", fg="yellow")
 
     if obj_type == ModelType.USER:
-        obj = anonymize_user(obj)
+        return anonymize_user(obj)
 
     for key, value in obj.items():
         handled = False
@@ -116,14 +114,18 @@ def anonymize_dict(obj: dict, name: Optional[str] = None) -> dict:
 
 def anonymize_list(items: List, name: Optional[str] = None) -> List:
     for index, value in enumerate(items):
-        if isinstance(value, str):
+        handled = False
+
+        if isinstance(value, str) and name in ("hosts", "smartDetectEvents", "camera"):
+            handled = True
             if name == "hosts":
                 items[index] = anonymize_ip(items[index])
             elif name == "smartDetectEvents":
                 items[index] = anonymize_object_id(value)
             elif name == "camera":
                 items[index] = anonymize_object_id(value)
-        else:
+
+        if not handled:
             items[index] = anonymize_data(value)
 
     return items

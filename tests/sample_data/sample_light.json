@@ -1,9 +1,9 @@
 {
-    "mac": "A7D03416C01B",
-    "host": "192.168.235.114",
-    "connectionHost": "192.168.150.103",
+    "mac": "DC8BC876132F",
+    "host": "192.168.206.210",
+    "connectionHost": "192.168.203.134",
     "type": "UP FloodLight",
-    "name": "Buhqupb Apb",
+    "name": "Qpe Gyeseu",
     "upSince": 1629580303294,
     "uptime": null,
     "lastSeen": 1629580367271,
@@ -45,7 +45,7 @@
         "enableAt": "fulltime"
     },
     "camera": null,
-    "id": "f4a22123f65127fefc34fa35",
+    "id": "f7a43691982566c9ac23a212",
     "isConnected": false,
     "isCameraPaired": false,
     "modelKey": "light"

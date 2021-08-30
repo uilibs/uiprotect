@@ -788,6 +788,7 @@ class ModelType(str, Enum):
     NVR = "nvr"
     USER = "user"
     USER_LOCATION = "userLocation"
+    VIEWPORT = "viewer"
 
 
 @dataclass
