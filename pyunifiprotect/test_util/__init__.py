@@ -97,7 +97,7 @@ class SampleDataGenerator:
 
         self.write_json_file("sample_raw_events", data)
 
-    def write_json_file(self, name, data, anonymize: Optional[bool] = None):
+    def write_json_file(self, name: str, data: dict, anonymize: Optional[bool] = None):
         if anonymize is None:
             anonymize = self.anonymize
 
@@ -108,6 +108,11 @@ class SampleDataGenerator:
         with open(self.output_folder / f"{name}.json", "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
             f.write("\n")
+
+    def write_image_file(self, name: str, raw: bytes):
+        typer.echo(f"Writing {name}...")
+        with open(self.output_folder / f"{name}.png", "wb") as f:
+            f.write(raw)
 
     async def generate_device_data(self):
         has_heatmap = False
@@ -153,19 +158,24 @@ class SampleDataGenerator:
         data = await self.client._get_events(camera=camera_id)
         self.write_json_file("sample_raw_events_camera", data)
 
-        typer.echo("Writing camera thumbnail data...")
-        placeholder_image(self.output_folder / "sample_camera_thumbnail.png", 640)
+        filename = "sample_camera_thumbnail"
+        if self.anonymize:
+            typer.echo(f"Writing {filename}...")
+            placeholder_image(self.output_folder / f"{filename}.png", 640)
+        else:
+            self.write_image_file(filename, await self.client.get_thumbnail(camera_id=camera_id))
 
         if self.client.devices[camera_id]["event_heatmap"] is None:
             typer.echo("Camera has no heatmap, skipping heatmap generation...")
         else:
-            data = await self.client.get_heatmap(camera_id=camera_id)
-            typer.echo("Writing camera heatmap sample data...")
-            with open(self.output_folder / "sample_camera_heatmap.png", "wb") as f:
-                f.write(data)
+            self.write_image_file("sample_camera_heatmap", await self.client.get_heatmap(camera_id=camera_id))
 
-        typer.echo("Writing camera snapshot data...")
-        placeholder_image(self.output_folder / "sample_camera_snapshot.png", 1920, 1080)
+        filename = "sample_camera_snapshot"
+        if self.anonymize:
+            typer.echo(f"Writing {filename}...")
+            placeholder_image(self.output_folder / f"{filename}.png", 1920, 1080)
+        else:
+            self.write_image_file(filename, await self.client.get_snapshot_image(camera_id=camera_id))
 
         data = await self.client._get_camera_detail(camera_id=camera_id)
         self.write_json_file("sample_camera", data)
