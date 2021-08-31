@@ -32,6 +32,8 @@ def placeholder_image(output_path: Path, width: int, height: Optional[int] = Non
 
 
 class SampleDataGenerator:
+    """Generate sample data for debugging and testing purposes"""
+
     _record_num_ws: int = 0
     _record_ws_start_time: Optional[datetime] = None
     _record_listen_for_events: bool = False
@@ -52,7 +54,7 @@ class SampleDataGenerator:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.async_generate())
 
-    async def async_generate(self):
+    async def async_generate(self, close_session=True):
         self.output_folder.mkdir(parents=True, exist_ok=True)
         self.client.ws_callback = self._handle_ws_message
 
@@ -69,8 +71,8 @@ class SampleDataGenerator:
         await self.generate_event_data()
         await self.generate_device_data()
 
-        # Close the Session
-        await self.client.req.close()
+        if close_session:
+            await self.client.req.close()
 
     async def record_ws_events(self):
         if self.wait_time <= 0:
@@ -171,9 +173,6 @@ class SampleDataGenerator:
             await self.generate_viewport_data(viewport_id)
 
     async def generate_camera_data(self, camera_id: str):
-        data = await self.client._get_events(camera=camera_id)
-        self.write_json_file("sample_raw_events_camera", data)
-
         filename = "sample_camera_thumbnail"
         if self.anonymize:
             typer.echo(f"Writing {filename}...")
