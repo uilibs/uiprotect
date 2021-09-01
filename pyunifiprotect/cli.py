@@ -1,12 +1,17 @@
 import asyncio
+import base64
 import json
 import logging
+from pathlib import Path
 import sys
+from typing import Optional
 
 from aiohttp import ClientSession, CookieJar
 from traitlets.config import get_config
 import typer
 
+from .test_util import SampleDataGenerator
+from .unifi_data import WSPacket
 from .unifi_protect_server import _LOGGER, UpvServer
 
 try:
@@ -43,6 +48,13 @@ OPTION_ADDRESS = typer.Option(
 OPTION_PORT = typer.Option(443, "--port", "-p", help="Unifi Protect Port", envvar="UFP_PORT")
 OPTION_SECONDS = typer.Option(15, "--seconds", "-s", help="Seconds to pull events")
 OPTION_VERIFY = typer.Option(True, "--verify", "-v", help="Verify SSL", envvar="UFP_SSL_VERIFY")
+OPTION_ANON = typer.Option(True, "--actual", help="Do not anonymize test data")
+OPTION_WAIT = typer.Option(30, "--wait", "-w", help="Time to wait for Websocket messages")
+OPTION_OUTPUT = typer.Option(
+    None, "--output", "-o", help="Output folder, defaults to `tests` folder one level above this file"
+)
+OPTION_WS_FILE = typer.Option(None, "--file", "-f", help="Path or raw binary Websocket message")
+ARG_WS_DATA = typer.Argument(None, help="base64 encoded Websocket message")
 
 
 app = typer.Typer()
@@ -134,3 +146,44 @@ def shell(
     c = get_config()
     c.InteractiveShellEmbed.colors = "Linux"
     embed(header=colored("protect = UpvServer(*args)", "green"), config=c, using="asyncio")
+
+
+@app.command()
+def generate_sample_data(
+    username: str = OPTION_USERNAME,
+    password: str = OPTION_PASSWORD,
+    address: str = OPTION_ADDRESS,
+    port: int = OPTION_PORT,
+    verify: bool = OPTION_VERIFY,
+    anonymize: bool = OPTION_ANON,
+    wait_type: int = OPTION_WAIT,
+    output_folder: Optional[Path] = OPTION_OUTPUT,
+):
+    if output_folder is None:
+        tests_folder = Path(__file__).parent.parent / "tests"
+
+        if not tests_folder.exists():
+            typer.secho("Output folder required when not in dev-mode", fg="red")
+            sys.exit(1)
+        output_folder = (tests_folder / "sample_data").absolute()
+
+    protect = _get_server(username, password, address, port, verify)
+    SampleDataGenerator(protect, output_folder, anonymize, wait_type).generate()
+
+
+@app.command()
+def decode_ws_msg(ws_file: typer.FileBinaryRead = OPTION_WS_FILE, ws_data=ARG_WS_DATA):
+    if ws_file is None and ws_data is None:
+        typer.secho("Websocket data required", fg="red")
+        sys.exit(1)
+
+    ws_data_raw = b""
+    if ws_file is not None:
+        ws_data_raw = ws_file.read()
+    elif ws_data is not None:
+        ws_data_raw = base64.b64decode(ws_data.encode("utf8"))
+
+    packet = WSPacket(ws_data_raw)
+    response = {"action": packet.action_frame.data, "data": packet.data_frame.data}
+
+    typer.echo(json.dumps(response))

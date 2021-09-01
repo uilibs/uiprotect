@@ -1,0 +1,52 @@
+{
+    "mac": "6F18AE6673CE",
+    "host": "192.168.17.59",
+    "connectionHost": "192.168.7.18",
+    "type": "UP FloodLight",
+    "name": "Tjnt Ukm",
+    "upSince": 1629580303294,
+    "uptime": null,
+    "lastSeen": 1629580367271,
+    "connectedSince": null,
+    "state": "DISCONNECTED",
+    "hardwareRevision": null,
+    "firmwareVersion": "1.6.4",
+    "latestFirmwareVersion": "1.6.4",
+    "firmwareBuild": "gdc4ce68.210308.352",
+    "isUpdating": false,
+    "isAdopting": false,
+    "isAdopted": true,
+    "isAdoptedByOther": false,
+    "isProvisioned": false,
+    "isRebooting": false,
+    "isSshEnabled": false,
+    "canAdopt": false,
+    "isAttemptingToConnect": false,
+    "isPirMotionDetected": false,
+    "lastMotion": null,
+    "isDark": false,
+    "isLightOn": false,
+    "isLocating": false,
+    "wiredConnectionState": {
+        "phyRate": null
+    },
+    "lightDeviceSettings": {
+        "isIndicatorEnabled": true,
+        "ledLevel": 6,
+        "luxSensitivity": "medium",
+        "pirDuration": 15000,
+        "pirSensitivity": 88
+    },
+    "lightOnSettings": {
+        "isLedForceOn": false
+    },
+    "lightModeSettings": {
+        "mode": "motion",
+        "enableAt": "fulltime"
+    },
+    "camera": null,
+    "id": "882323263fd4ebe38a2a9bd5",
+    "isConnected": false,
+    "isCameraPaired": false,
+    "modelKey": "light"
+}
