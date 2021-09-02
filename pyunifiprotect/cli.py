@@ -7,7 +7,6 @@ import sys
 from typing import Optional
 
 from aiohttp import ClientSession, CookieJar
-from traitlets.config import get_config
 import typer
 
 from .test_util import SampleDataGenerator
@@ -15,10 +14,11 @@ from .unifi_data import WSPacket
 from .unifi_protect_server import _LOGGER, UpvServer
 
 try:
-    from IPython import embed
+    from IPython import embed  # type: ignore
     from termcolor import colored
+    from traitlets.config import get_config  # type: ignore
 except ImportError:
-    embed = termcolor = None
+    embed = termcolor = get_config = None
 
 OPTION_USERNAME = typer.Option(
     ...,
