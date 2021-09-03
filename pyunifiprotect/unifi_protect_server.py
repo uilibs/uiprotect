@@ -5,13 +5,14 @@ import datetime
 import json as pjson
 import logging
 import time
-from typing import Callable, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 from urllib.parse import urljoin
 
 import aiohttp
 from aiohttp import client_exceptions
 from aiohttp.client import _WSRequestContextManager
 import jwt
+from yarl import URL
 
 from .const import SERVER_ID, SERVER_NAME
 from .exceptions import NotAuthorized, NvrError
@@ -62,7 +63,7 @@ class BaseApiClient:
     _base_url: str
     _username: str
     _password: str
-    _verify_ssl: str
+    _verify_ssl: bool
     _is_authenticated: bool = False
     _is_unifi_os: Optional[bool] = None
 
@@ -256,7 +257,7 @@ class BaseApiClient:
         """Check to see if we are already authenticated."""
         if self._is_authenticated is True and self.is_unifi_os is True:
             # Check if token is expired.
-            cookies = self.req.cookie_jar.filter_cookies(self._base_url)
+            cookies = self.req.cookie_jar.filter_cookies(URL(self._base_url))
             token_cookie = cookies.get("TOKEN")
             if token_cookie is None:
                 return False
@@ -339,6 +340,16 @@ class BaseApiClient:
 class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-many-instance-attributes
     """Updates device States and Attributes."""
 
+    _minimum_score: int
+
+    _event_state_machine: ProtectEventStateMachine = ProtectEventStateMachine()
+    _device_state_machine: ProtectDeviceStateMachine = ProtectDeviceStateMachine()
+    _processed_data: Dict[str, dict] = {}
+    _last_websocket_check: float = 0
+    _last_device_update_time: float = 0
+    _ws_subscriptions: List[Callable[[Dict[str, dict]], None]] = []
+    _is_first_update: bool = True
+
     def __init__(
         self,
         session: Optional[aiohttp.ClientSession],
@@ -352,15 +363,6 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
         super().__init__(session, host, port, username, password, verify_ssl)
 
         self._minimum_score = minimum_score
-        self._last_device_update_time = 0
-        self._last_websocket_check = 0
-        self._processed_data = {}
-        self._event_state_machine = ProtectEventStateMachine()
-        self._device_state_machine = ProtectDeviceStateMachine()
-
-        self._motion_start_time = {}
-        self._ws_subscriptions = []
-        self._is_first_update = True
 
     @property
     def devices(self):
@@ -410,7 +412,7 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
     async def _get_unique_id(self) -> str:
         """Get a Unique ID for this NVR."""
 
-        return await self._get_server_info()[SERVER_ID]
+        return (await self._get_server_info())[SERVER_ID]
 
     async def _get_server_info(self) -> dict:
         """Get Server Information for this NVR."""
@@ -682,7 +684,7 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
 
         if device_model == DEVICE_MODEL_LIGHT:
             uri = f"lights/{device_id}"
-            data = {"lightDeviceSettings": {"isIndicatorEnabled": mode}}
+            data: Dict[str, dict] = {"lightDeviceSettings": {"isIndicatorEnabled": mode}}
         else:
             uri = f"cameras/{device_id}"
             data = {"ledSettings": {"isEnabled": mode, "blinkRate": 0}}
@@ -944,7 +946,7 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
         processed_viewport["liveview"] = view_id
         return True
 
-    async def get_live_views(self) -> dict:
+    async def get_live_views(self) -> List[Dict[str, dict]]:
         """Returns a list of all defined Live Views."""
 
         data = await self.api_request("liveviews")

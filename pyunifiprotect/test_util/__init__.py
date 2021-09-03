@@ -35,7 +35,7 @@ class SampleDataGenerator:
     """Generate sample data for debugging and testing purposes"""
 
     _record_num_ws: int = 0
-    _record_ws_start_time: Optional[datetime] = None
+    _record_ws_start_time: datetime = datetime.now()
     _record_listen_for_events: bool = False
     _record_ws_messages: Dict[str, dict] = {}
 
@@ -178,12 +178,16 @@ class SampleDataGenerator:
             typer.echo(f"Writing {filename}...")
             placeholder_image(self.output_folder / f"{filename}.png", 640)
         else:
-            self.write_image_file(filename, await self.client.get_thumbnail(camera_id=camera_id))
+            thumbnail = await self.client.get_thumbnail(camera_id=camera_id)
+            if thumbnail is not None:
+                self.write_image_file(filename, thumbnail)
 
         if self.client.devices[camera_id]["event_heatmap"] is None:
             typer.echo("Camera has no heatmap, skipping heatmap generation...")
         else:
-            self.write_image_file("sample_camera_heatmap", await self.client.get_heatmap(camera_id=camera_id))
+            thumbnail = await self.client.get_heatmap(camera_id=camera_id)
+            if thumbnail is not None:
+                self.write_image_file("sample_camera_heatmap", thumbnail)
 
         filename = "sample_camera_snapshot"
         if self.anonymize:
@@ -226,7 +230,7 @@ class SampleDataGenerator:
                 packet.action_frame.data = anonymize_data(packet.action_frame.data)
                 packet.data_frame.data = anonymize_data(packet.data_frame.data)
 
-            self._record_ws_messages[time_offset] = {
+            self._record_ws_messages[str(time_offset)] = {
                 "raw": packet.raw_base64,
                 "action": packet.action_frame.data,
                 "data": packet.data_frame.data,

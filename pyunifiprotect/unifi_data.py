@@ -11,7 +11,7 @@ import json
 import logging
 import struct
 import time
-from typing import Optional, Type
+from typing import Any, Dict, Optional, Type
 import zlib
 
 from .exceptions import WSDecodeError
@@ -39,7 +39,7 @@ PRIVACY_OFF = [[0, 0], [0, 0], [0, 0], [0, 0]]
 PRIVACY_ON = [[0, 0], [1, 0], [1, 1], [0, 1]]
 ZONE_NAME = "hass zone"
 
-PROCESSED_EVENT_EMPTY = {
+PROCESSED_EVENT_EMPTY: Dict[str, Any] = {
     "event_start": None,
     "event_score": 0,
     "event_thumbnail": None,
@@ -810,7 +810,7 @@ class WSRawPacketFrame:
 
     def set_data_from_binary(self, data: bytes):
         self.data = data
-        if self.header.delated:
+        if self.header is not None and self.header.delated:
             self.data = zlib.decompress(self.data)
 
     def get_binary_from_data(self) -> bytes:
@@ -878,11 +878,11 @@ class WSRawPacketFrame:
 
 
 class WSJSONPacketFrame(WSRawPacketFrame):
-    data: dict = {}
+    data: dict = {}  # type: ignore
     payload_format: ProtectWSPayloadFormat = ProtectWSPayloadFormat.NodeBuffer
 
     def set_data_from_binary(self, data: bytes):
-        if self.header.delated:
+        if self.header is not None and self.header.delated:
             data = zlib.decompress(data)
 
         self.data = json.loads(data)

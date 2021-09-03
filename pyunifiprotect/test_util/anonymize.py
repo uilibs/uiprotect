@@ -152,13 +152,10 @@ def anonymize_object_id(obj_id: str) -> str:
 
 
 def anonymize_peristent_string(value: str, default: str):
-    if "all" not in object_id_mapping:
-        object_id_mapping["all"] = {}
+    if value not in object_id_mapping:
+        object_id_mapping[value] = default
 
-    if value not in object_id_mapping["all"]:
-        object_id_mapping["all"][value] = default
-
-    return object_id_mapping["all"][value]
+    return object_id_mapping[value]
 
 
 def anonymize_rstp_url(url: str) -> str:
