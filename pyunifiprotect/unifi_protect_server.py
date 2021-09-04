@@ -44,6 +44,7 @@ from .unifi_data import (
     sensor_update_from_ws_frames,
 )
 
+NEVER_RAN = -1000
 DEVICE_UPDATE_INTERVAL_SECONDS = 60
 WEBSOCKET_CHECK_INTERVAL_SECONDS = 120
 LIGHT_MODES = ["off", "motion", "always"]
@@ -345,8 +346,8 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
     _event_state_machine: ProtectEventStateMachine = ProtectEventStateMachine()
     _device_state_machine: ProtectDeviceStateMachine = ProtectDeviceStateMachine()
     _processed_data: Dict[str, dict] = {}
-    _last_websocket_check: float = 0
-    _last_device_update_time: float = 0
+    _last_websocket_check: float = NEVER_RAN
+    _last_device_update_time: float = NEVER_RAN
     _ws_subscriptions: List[Callable[[Dict[str, dict]], None]] = []
     _is_first_update: bool = True
 
@@ -374,11 +375,9 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
 
         current_time = time.monotonic()
         device_update = False
-        if (
-            not self.ws_connection
-            and force_camera_update
-            or (current_time - DEVICE_UPDATE_INTERVAL_SECONDS) > self._last_device_update_time
-        ):
+
+        time_since_device = current_time - self._last_device_update_time
+        if not self.ws_connection and force_camera_update or time_since_device > DEVICE_UPDATE_INTERVAL_SECONDS:
             _LOGGER.debug("Doing device update")
             device_update = True
             await self._get_device_list(not self.ws_connection)
@@ -386,7 +385,8 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
         else:
             _LOGGER.debug("Skipping device update")
 
-        if self.is_unifi_os and (current_time - WEBSOCKET_CHECK_INTERVAL_SECONDS) > self._last_websocket_check:
+        time_since_websocket = current_time - self._last_websocket_check
+        if self.is_unifi_os and time_since_websocket > WEBSOCKET_CHECK_INTERVAL_SECONDS:
             _LOGGER.debug("Checking websocket")
             self._last_websocket_check = current_time
             await self.async_connect_ws()
