@@ -59,6 +59,17 @@ To test your code to verify all the tests pass:
 pytest
 ```
 
+### Updating Requirements
+
+To generate an updated pinned requirements file to be used for testing and CI:
+
+```
+pip-compile --upgrade --extra=shell --output-file=requirements_all.txt setup.cfg
+pip-compile --upgrade --extra=dev --output-file=requirements_test.txt --pip-args='-c requirements_all.txt' setup.cfg
+```
+
+There is also a [VS Code task](https://code.visualstudio.com/Docs/editor/tasks) to run this as well.
+
 #### VS Code Integration
 
 Tests can also be ran directly from within VS Code using the testing side panel.
