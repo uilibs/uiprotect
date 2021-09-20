@@ -1,6 +1,6 @@
 # Python Wrapper for Unifi Protect API
 
-This module communicates with Unifi Protect Surveilance software installed on either a Ubiquiti CloudKey+ or Unifi Dream Machine Pro.
+This module communicates with Unifi Protect Surveillance software installed on either a Ubiquiti CloudKey+ or Unifi Dream Machine Pro.
 
 The API is not documented by Ubiquiti, so there might be misses and/or frequent changes in this module, as Ubiquiti evolves the software.
 
@@ -10,7 +10,7 @@ The module is written for the sole purpose as being used in Home Assistant for t
 
 ### Setup
 
-This project is primarily designed to developed using [VS Code](https://code.visualstudio.com/) using the [Remote Containers exention](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers). This also requires [Docker](https://docs.docker.com/get-docker/).
+This project is primarily designed to developed using [VS Code](https://code.visualstudio.com/) using the [Remote Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers). This also requires [Docker](https://docs.docker.com/get-docker/).
 
 Once you have all three setup,
 
@@ -18,11 +18,11 @@ Once you have all three setup,
 2. Open the main folder
 3. You should be prompted to "Reopen folder to develop in a container". If you are not, you can open the [Command Palette](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette) run the "Remote-Containers: Reopen in Container" command.
 
-This should be all you need to do to get a working development environment. The docker container will automatically be build and VS Code will attach itself to it. The intergrated terminal in VS Code will already be set up with the `unifi-protect` command.
+This should be all you need to do to get a working development environment. The docker container will automatically be build and VS Code will attach itself to it. The integrated terminal in VS Code will already be set up with the `unifi-protect` command.
 
 ### Authenticating with your Local Protect Instance
 
-The project allows you to create an environment file to put your local protect instance data into so you do not need to constantly enter in or accidently commit it to the Git repo.
+The project allows you to create an environment file to put your local protect instance data into so you do not need to constantly enter in or accidentally commit it to the Git repo.
 
 Make a file in the root of the project named `.env` with the following and change accordingly:
 
@@ -31,7 +31,8 @@ UFP_USERNAME=YOUR_USERNAME_HERE
 UFP_PASSWORD=YOUR_PASSWORD_HERE
 UFP_ADDRESS=YOUR_IP_ADDRESS
 UFP_PORT=443
-UFP_SSL_VERIFY=True # change to false if you do not have a valid HTTPS Certificate for your instance
+# change to false if you do not have a valid HTTPS Certificate for your instance
+UFP_SSL_VERIFY=True
 ```
 
 ### Generating Test Data
