@@ -1,9 +1,25 @@
+import contextlib
 from datetime import datetime
 from typing import Any, Dict, Optional
+
+from aiohttp import ClientResponse
 
 from pyunifiprotect.unifi_data import StateType
 
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+async def get_response_reason(response: ClientResponse) -> str:
+    reason = str(response.reason)
+
+    try:
+        json = await response.json()
+        reason = json.get("error", str(json))
+    except Exception:  # pylint: disable=broad-except
+        with contextlib.suppress(Exception):
+            reason = await response.text()
+
+    return reason
 
 
 def to_js_time(dt) -> int:
