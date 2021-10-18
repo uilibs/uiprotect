@@ -109,7 +109,6 @@ async def test_get_thumbnail(protect_client: UpvServer, camera):
             "w": "640",
         },
         raw=True,
-        access_key=True,
     )
 
     assert data is not None
@@ -137,7 +136,6 @@ async def test_get_snapshot(protect_client: UpvServer, now, camera):
         },
         raise_exception=False,
         raw=True,
-        access_key=True,
     )
 
     img = Image.open(BytesIO(data))
