@@ -52,7 +52,6 @@ async def test_server_info(protect_client: UpvServer):
         "server_model": "UDM-PRO",
         "server_name": CONSTANTS["server_name"],
         "server_version": CONSTANTS["server_version"],
-        "unifios": True,
     }
 
 
