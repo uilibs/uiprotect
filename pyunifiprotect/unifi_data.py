@@ -381,13 +381,27 @@ def process_camera(server_id, host, camera, include_events):
     image_width = None
     image_height = None
     channels = camera["channels"]
+    stream_sources = []
     for channel in channels:
         image_width = channel.get("width")
         image_height = channel.get("height")
         if channel["isRtspEnabled"]:
-            rtsp = f"rtsps://{host}:7441/{channel['rtspAlias']}"
-            break
-
+            stream_name = channel.get("name")
+            stream_id = channel.get("id")
+            stream_videoid = channel.get("videoId")
+            if rtsp is None:
+                # Always Return the Highest Default Resolution
+                rtsp = f"rtsps://{host}:7441/{channel['rtspAlias']}?enableSrtp"
+            stream_sources.append(
+                {
+                    "name": stream_name,
+                    "id": stream_id,
+                    "video_id": stream_videoid,
+                    "rtsp": f"rtsps://{host}:7441/{channel['rtspAlias']}?enableSrtp",
+                    "image_width": image_width,
+                    "image_height": image_height,
+                }
+            )
     camera_update = {
         "name": str(camera["name"]),
         "type": device_type,
@@ -418,6 +432,7 @@ def process_camera(server_id, host, camera, include_events):
         "has_chime": has_chime,
         "chime_enabled": chime_enabled,
         "chime_duration": chime_duration,
+        "stream_source": stream_sources,
     }
 
     if server_id is not None:
