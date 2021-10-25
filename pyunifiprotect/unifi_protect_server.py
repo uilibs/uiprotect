@@ -936,15 +936,6 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
         await self.api_request(f"cameras/{camera_id}", method="patch", json=data)
         return True
 
-    async def set_doorbell_standard_text(self, custom_text: str) -> bool:
-        """Sets a Standard Text string for the Doorbell LCD. *** DOES NOT WORK ***"""
-
-        message_type = "LEAVE_PACKAGE_AT_DOOR"
-
-        data = {"doorbellSettings": {"allMessages": {"type": message_type, "text": custom_text}}}
-        await self.api_request("nvr", method="patch", json=data)
-        return True
-
     async def set_viewport_view(self, viewport_id: str, view_id: str) -> bool:
         """Sets the Viewport current View to what is supplied in view_id.
         Valid input for view_id is a pre-defined view in Protect.

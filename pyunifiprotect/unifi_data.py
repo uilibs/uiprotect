@@ -368,6 +368,11 @@ def process_camera(server_id, host, camera, include_events):
     zoom_position = str(camera["ispSettings"]["zoomPosition"])
     # Wide Dynamic Range
     wdr = str(camera["ispSettings"]["wdr"])
+    # Doorbell LCD Text
+    lcdmessage = camera.get("lcdMessage")
+    doorbell_text = None
+    if lcdmessage is not None:
+        doorbell_text = lcdmessage.get("text")
     # Get Privacy Mode
     privacyzones = camera.get("privacyZones")
     privacy_on = False
@@ -442,6 +447,7 @@ def process_camera(server_id, host, camera, include_events):
         "chime_enabled": chime_enabled,
         "chime_duration": chime_duration,
         "stream_source": stream_sources,
+        "doorbell_text": doorbell_text,
     }
 
     if server_id is not None:
