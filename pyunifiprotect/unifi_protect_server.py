@@ -682,17 +682,10 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
 
     async def set_camera_ir(self, camera_id: str, mode: str) -> bool:
         """Sets the camera infrared settings to what is supplied with 'mode'.
-        Valid inputs for mode: auto, on, autoFilterOnly
+        Valid inputs for mode: auto, on, autoFilterOnly, off
         """
 
-        if mode == "led_off":
-            mode = "autoFilterOnly"
-        elif mode == "always_on":
-            mode = "on"
-        elif mode == "always_off":
-            mode = "off"
-
-        data = {"ispSettings": {"irLedMode": mode, "irLedLevel": 255}}
+        data = {"ispSettings": {"irLedMode": mode}}
         await self.api_request(f"cameras/{camera_id}", method="patch", json=data)
         self._processed_data[camera_id]["ir_mode"] = mode
         return True
