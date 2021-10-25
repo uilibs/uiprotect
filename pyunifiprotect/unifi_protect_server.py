@@ -913,13 +913,11 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
 
         return await self.api_request(f"lights/{light_id}")
 
-    async def set_doorbell_custom_text(self, camera_id: str, custom_text: str, duration=None) -> bool:
-        """Sets a Custom Text string for the Doorbell LCD'."""
-
-        message_type = "CUSTOM_MESSAGE"
+    async def set_doorbell_lcd_text(self, camera_id: str, text_type: str, text_display: str, duration=None) -> bool:
+        """Sets a Text string for the Doorbell LCD'."""
 
         # Truncate text to max 30 characters, as this is what is supported
-        custom_text = custom_text[:30]
+        text_display = text_display[:30]
 
         # Calculate ResetAt time
         if duration is not None:
@@ -927,11 +925,11 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
             now_plus_duration = now + timedelta(minutes=int(duration))
             duration = int(now_plus_duration.timestamp() * 1000)
 
-        # resetAt is Unix timestam in the future
+        # resetAt is Unix timestamp in the future
         data = {
             "lcdMessage": {
-                "type": message_type,
-                "text": custom_text,
+                "type": text_type,
+                "text": text_display,
                 "resetAt": duration,
             }
         }
