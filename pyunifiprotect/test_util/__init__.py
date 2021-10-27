@@ -16,6 +16,8 @@ from pyunifiprotect.test_util.anonymize import (
     anonymize_prefixed_event_id,
 )
 from pyunifiprotect.unifi_data import (
+    EVENT_MOTION,
+    EVENT_SMART_DETECT_ZONE,
     LIVE_RING_FROM_WEBSOCKET,
     EventType,
     WSJSONPacketFrame,
@@ -146,7 +148,7 @@ class SampleDataGenerator:
         data = await self.client.get_raw_events()
         heatmap_event = None
         for event in data:
-            if event.get("heatmap") is not None and event.get("type") in EventType.motion_events():
+            if event.get("heatmap") is not None and event.get("type") in (EVENT_MOTION, EVENT_SMART_DETECT_ZONE):
                 heatmap_event = event
 
         data = self.write_json_file("sample_raw_events", data)
