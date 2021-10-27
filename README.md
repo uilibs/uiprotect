@@ -79,13 +79,13 @@ Tests can also be ran directly from within VS Code using the testing side panel.
 You can also generate and run tests against real non-anonymized data to help troubleshoot issues and see real results. You can also increase the gather time for events to give you more time to generate events for testing as well.
 
 ```
-export UFP_SAMPLE_DIR=/workspaces/test-data
+export UFP_SAMPLE_DIR=/workspaces/pyunifiprotect/test-data
 unifi-protect generate-sample-data -w 300 --actual
 ```
 
 You can then make `pytest` use this real data as well:
 
 ```
-export UFP_SAMPLE_DIR=/workspaces/test-data
+export UFP_SAMPLE_DIR=/workspaces/pyunifiprotect/test-data
 pytest
 ```
