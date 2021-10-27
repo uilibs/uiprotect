@@ -1,4 +1,4 @@
-from pyunifiprotect.types import (
+from pyunifiprotect.data.types import (
     DoorbellMessageType,
     EventType,
     FixSizeOrderedDict,
@@ -9,7 +9,7 @@ from pyunifiprotect.types import (
     SmartDetectObjectType,
     StateType,
 )
-from pyunifiprotect.websocket import (
+from pyunifiprotect.data.websocket import (
     WS_HEADER_SIZE,
     WSJSONPacketFrame,
     WSPacket,
