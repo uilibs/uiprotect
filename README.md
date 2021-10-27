@@ -12,6 +12,8 @@ The module is written for the sole purpose as being used in Home Assistant for t
 
 This project is primarily designed to developed using [VS Code](https://code.visualstudio.com/) using the [Remote Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers). This also requires [Docker](https://docs.docker.com/get-docker/).
 
+If you are using Docker Engine without Docker Desktop (i.e. on Linux) you will likely need to manually enable [Docker Buildkit](https://docs.docker.com/develop/develop-images/build_enhancements/) for the VS Code devcontainer.
+
 Once you have all three setup,
 
 1. Clone repo
