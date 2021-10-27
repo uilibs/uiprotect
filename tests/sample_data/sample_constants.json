@@ -1,23 +1,25 @@
 {
-    "server_name": "Vhw Hwb",
-    "server_id": "B5CF822617F8",
-    "server_version": "1.19.0",
-    "last_update_id": "eda336db-fe0c-4abc-973a-8eb8a26a3e28",
-    "user_id": "fc88e5f467152adbe9fab9a9",
+    "server_name": "Polj Epivng",
+    "server_id": "7A2C27B2FC2E",
+    "server_version": "1.20.0-beta.2",
+    "last_update_id": "6189fbad-41c9-4188-aa37-b7f06a8780cd",
+    "user_id": "33f52405dd7909da4a4de5b7",
     "counts": {
         "camera": 6,
         "user": 7,
         "group": 2,
-        "liveview": 2,
+        "liveview": 8,
         "viewer": 1,
         "display": 0,
         "light": 1,
-        "bridge": 0,
+        "bridge": 2,
         "sensor": 0,
-        "doorlock": 0
+        "doorlock": 0,
+        "chime": 0,
+        "schedule": 0
     },
-    "time": "2021-09-02T14:24:38.180330",
-    "event_count": 103,
-    "camera_thumbnail": "e-cc73ee8c6262168178ba5582",
+    "time": "2021-10-18T00:07:17.748398",
+    "event_count": 785,
+    "camera_thumbnail": "e-ed92bd8337974040dd4711d2",
     "camera_online": true
 }

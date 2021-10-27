@@ -10,16 +10,18 @@ from PIL import Image
 import aiohttp
 import typer
 
-from ..exceptions import NvrError
-from ..test_util.anonymize import anonymize_data, anonymize_prefixed_event_id
-from ..unifi_data import (
-    EVENT_MOTION,
-    EVENT_SMART_DETECT_ZONE,
+from pyunifiprotect.exceptions import NvrError
+from pyunifiprotect.test_util.anonymize import (
+    anonymize_data,
+    anonymize_prefixed_event_id,
+)
+from pyunifiprotect.unifi_data import (
     LIVE_RING_FROM_WEBSOCKET,
+    EventType,
     WSJSONPacketFrame,
     WSPacket,
 )
-from ..unifi_protect_server import UpvServer
+from pyunifiprotect.unifi_protect_server import UpvServer
 
 SLEEP_INTERVAL = 2
 
@@ -57,6 +59,7 @@ class SampleDataGenerator:
         loop.run_until_complete(self.async_generate())
 
     async def async_generate(self, close_session=True):
+        typer.echo(f"Output folder: {self.output_folder}")
         self.output_folder.mkdir(parents=True, exist_ok=True)
         self.client.ws_callback = self._handle_ws_message
 
@@ -81,6 +84,8 @@ class SampleDataGenerator:
             "bridge": len(data["bridges"]),
             "sensor": len(data["sensors"]),
             "doorlock": len(data["doorlocks"]),
+            "chime": len(data["chimes"]),
+            "schedule": len(data["schedules"]),
         }
 
         data = await self.client.api_request("liveviews")
@@ -141,7 +146,7 @@ class SampleDataGenerator:
         data = await self.client.get_raw_events()
         heatmap_event = None
         for event in data:
-            if event.get("heatmap") is not None and event.get("type") in (EVENT_MOTION, EVENT_SMART_DETECT_ZONE):
+            if event.get("heatmap") is not None and event.get("type") in EventType.motion_events():
                 heatmap_event = event
 
         data = self.write_json_file("sample_raw_events", data)
@@ -275,6 +280,7 @@ class SampleDataGenerator:
             if self.anonymize:
                 packet.action_frame.data = anonymize_data(packet.action_frame.data)
                 packet.data_frame.data = anonymize_data(packet.data_frame.data)
+                packet.pack_frames()
 
             self._record_ws_messages[str(time_offset)] = {
                 "raw": packet.raw_base64,

@@ -37,6 +37,8 @@ class ModelType(str, Enum):
     BRIDGE = "bridge"
     SENSOR = "sensor"
     DOORLOCK = "doorlock"
+    SCHEDULE = "schedule"
+    CHIME = "chime"
 
 
 class EventType(str, Enum):
@@ -46,6 +48,11 @@ class EventType(str, Enum):
     DISCONNECT = "disconnect"
     PROVISION = "provision"
     ACCESS = "access"
+    OFFLINE = "offline"
+    OFF = "off"
+    UPDATE = "update"
+    CAMERA_POWER_CYCLE = "cameraPowerCycling"
+    VIDEO_EXPORTED = "videoExported"
 
 
 class StateType(str, Enum):
@@ -998,3 +1005,9 @@ class WSPacket:
             self._raw_encoded = base64.b64encode(self._raw).decode("utf-8")
 
         return self._raw_encoded
+
+    def pack_frames(self) -> bytes:
+        self._raw_encoded = None
+        self._raw = self.action_frame.packed + self.data_frame.packed
+
+        return self._raw
