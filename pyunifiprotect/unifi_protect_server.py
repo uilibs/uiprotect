@@ -14,9 +14,10 @@ from aiohttp.client import _WSRequestContextManager
 import jwt
 from yarl import URL
 
-from .const import SERVER_ID, SERVER_NAME
-from .exceptions import NotAuthorized, NvrError
-from .unifi_data import (
+from pyunifiprotect.const import SERVER_ID, SERVER_NAME
+from pyunifiprotect.data import ProtectWSPayloadFormat
+from pyunifiprotect.exceptions import NotAuthorized, NvrError
+from pyunifiprotect.unifi_data import (
     DEVICE_MODEL_LIGHT,
     EVENT_MOTION,
     EVENT_RING,
@@ -28,7 +29,6 @@ from .unifi_data import (
     ZONE_NAME,
     ProtectDeviceStateMachine,
     ProtectEventStateMachine,
-    ProtectWSPayloadFormat,
     camera_event_from_ws_frames,
     camera_update_from_ws_frames,
     decode_ws_frame,
@@ -43,7 +43,7 @@ from .unifi_data import (
     sensor_event_from_ws_frames,
     sensor_update_from_ws_frames,
 )
-from .utils import get_response_reason
+from pyunifiprotect.utils import get_response_reason
 
 NEVER_RAN = -1000
 DEVICE_UPDATE_INTERVAL_SECONDS = 60
