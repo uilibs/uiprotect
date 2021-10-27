@@ -4,11 +4,13 @@ This module communicates with Unifi Protect Surveillance software installed on e
 
 The API is not documented by Ubiquiti, so there might be misses and/or frequent changes in this module, as Ubiquiti evolves the software.
 
-The module is written for the sole purpose as being used in Home Assistant for the Custom Integration called *unifiprotect* but might be used for other purposes also.
+The module is written for the sole purpose as being used in Home Assistant for the Custom Integration called `unifiprotect` but might be used for other purposes also.
 
 ## Development
 
 ### Setup
+
+Development with this project is designed to be done via VS Code + Docker. It is a pretty standard Python package, so feel free to use anything else, but all documentation assumes you are using VS Code.
 
 * [VS Code](https://code.visualstudio.com/) + [Remote Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 * [Docker](https://docs.docker.com/get-docker/)
