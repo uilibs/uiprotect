@@ -9,9 +9,9 @@ from typing import Optional
 from aiohttp import ClientSession, CookieJar
 import typer
 
-from .test_util import SampleDataGenerator
-from .unifi_data import WSPacket
-from .unifi_protect_server import _LOGGER, UpvServer
+from pyunifiprotect.data import WSPacket
+from pyunifiprotect.test_util import SampleDataGenerator
+from pyunifiprotect.unifi_protect_server import _LOGGER, UpvServer
 
 try:
     from IPython import embed  # type: ignore

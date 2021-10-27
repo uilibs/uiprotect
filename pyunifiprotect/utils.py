@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 
 from aiohttp import ClientResponse
 
-from pyunifiprotect.unifi_data import StateType
+from pyunifiprotect.data import StateType
 
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
