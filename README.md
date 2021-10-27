@@ -12,7 +12,7 @@ The module is written for the sole purpose as being used in Home Assistant for t
 
 * [VS Code](https://code.visualstudio.com/) + [Remote Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 * [Docker](https://docs.docker.com/get-docker/)
-    * If you are using Linux, you need Docker Engine 19.0 or newer and you need to [Docker Buildkit](https://docs.docker.com/develop/develop-images/build_enhancements/)
+    * If you are using Linux, you need Docker Engine 19.0 or newer and you need to enable [Docker Buildkit](https://docs.docker.com/develop/develop-images/build_enhancements/)
     * If you are using Docker Desktop on MacOS or Winows, you will need Docker Desktop 3.2.0 or newer
 
 Once you have all three setup,
