@@ -19,7 +19,6 @@ from pyunifiprotect.unifi_data import (
     EVENT_MOTION,
     EVENT_SMART_DETECT_ZONE,
     LIVE_RING_FROM_WEBSOCKET,
-    EventType,
     WSJSONPacketFrame,
     WSPacket,
 )
