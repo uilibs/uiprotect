@@ -1,198 +1,686 @@
 {
-    "2.54736": {
-        "raw": "AQEBAAAAAHJ4nB2MWwqDQAwA75LvLqTZ1ERvUPz2APvIgtBqsYpI6d279m8YmPlASOs4T9DB9sphNbjAZPvw53uuOlJgH5I6kaY4Fo2ujazOG6letSHOqUbPOdujt+McvW2pZjzrW0lKLIaksRX0KojoC8P3B8sXIqECAQEAAAAA7HichZDNTsMwEITfxeJU+eD+pAE/AGckBBfUg38mroUTV+skVYV4dxI3QkKAe7Nnv5kd7QdzFIdTYvKNVY2pm6YyQmixqcX2vhZCbKHZgTMVwhOo9Sn52GU6+BGjx1mu5F48VDttIdbNZqevxrXGnnHWjSQJysrV9Pm2mEnqMSlDwnXOz+R7cIuAHvJucf4Q54RcdrHz374ZMaoFqX+ZrLSwXi1CfmfnXG2qU0wP3h37MqLJW4cyk9CleGNVvk2RIJhI1nfu2Rxhh3BjaYBT5vLy+PrHxee5jZFCNO/lFOvTKahLCTp8fgFDZ89J",
+    "2.261726": {
+        "raw": "AQEBAAAAAHZ4nB2MQQrCMBBFr1JmbSDJJEzGG4hrDzCTzKJgW5FKEfHummw+/P94/wNS93lb4TzB69FkNzhNsNpxG+XSOsg1IaOq4xyDS8XISeR/kLXqJSubdG3Zmt2v9u5OlcWeY53HBxITqfrEUtTHIMUwBBT4/gDo+yUBAgEBAAAAACJ4nKtWKkpNzi9KycxLD07OSE0pzUktVrJSiI6tBQCGtgms",
         "action": {
             "action": "update",
-            "newUpdateId": "b2a43ac8-776f-478b-9b48-3e28818624dc",
-            "modelKey": "user",
-            "id": "fc88e5f467152adbe9fab9a9"
-        },
-        "data": {
-            "groups": [
-                "5fc7ff5c00b02703870003eb"
-            ],
-            "allPermissions": [
-                "liveview:*:145b8ac233ef916bc368cb90",
-                "nvr:read:*",
-                "liveview:create",
-                "user:read,write,delete:$",
-                "nvr:write,delete:*",
-                "group:create,read,write,delete:*",
-                "camera:create,read,write,delete,readmedia,deletemedia:*",
-                "viewer:create,read,write,delete:*",
-                "light:create,read,write,delete:*",
-                "bridge:create,read,write,delete:*",
-                "sensor:create,read,write,delete:*",
-                "user:create,read,write,delete:*",
-                "recordingSchedule:create,read,write,delete:*",
-                "legacyUFV:read,write,delete:*",
-                "doorlock:create,read,write,delete:*",
-                "display:create,read,write,delete:*"
-            ]
-        }
-    },
-    "2.552287": {
-        "raw": "AQEBAAAAAHJ4nB2MQQqDMBAA/7LnBjZrYlx/ID37gE13A0KrRS2lSP/e2NswMHOA3PZpmaGH11NlN7jAbO/xz4NWjSpEJubU2LvAWZ1E37oUYspeEofS1eixqN2v9jlHm63VTGcdi2JhithwoIxNlxAxtwTfH/HZIxMCAQEAAAAAoHicTY3NCoMwEITfJfRUckgrYslT9F48xGS0S6ORTVRK6bvXH4peFma+mZ2PaDgMfRT6IfLaFnWdW3WpqmuhsluhlMpgRSmF8f4ObilGCt2a7kbWDOP0WUgxRGxKTkwJ0sEjQZ9m5GnESJi0nXnC7FRMrsFetqYFm62+nBaOzEo8Nc+0ByO6GA6ry1sctAuBfbCvg0Ox9+b9N8rvDw5pT18=",
-        "action": {
-            "action": "update",
-            "newUpdateId": "0da22eae-de91-49bd-a516-7457b1a794f8",
-            "modelKey": "user",
-            "id": "eeb3324c9ee3b90fe575d5a5"
-        },
-        "data": {
-            "groups": [
-                "5fc7ff5c01bb2703870003ec"
-            ],
-            "allPermissions": [
-                "nvr:read:*",
-                "user:read,write,delete:$",
-                "liveview:create",
-                "bridge:read:*",
-                "camera:read,readmedia:*",
-                "light:read:*",
-                "sensor:read:*",
-                "viewer:read:*",
-                "doorlock:read:*",
-                "display:read:*"
-            ]
-        }
-    },
-    "2.55956": {
-        "raw": "AQEBAAAAAHN4nB2MWwqDMBBF9zLfBsY8zOgOSr+7gCQzAcGaYi0ipXtv4t/lcM/5Qkj7XFaY4PPisAt0sMrxuPaNK+bI2UVKKhN6ZceRFQ0RlQgbcjZl8VilZ2FZ7nK20Fu2SuZmD70OVtc/csSMhjyis87D7w8N/iN9AgEBAAAAAKB4nE2NzQqDMBCE3yX0VHJIK2LJU/RePMRktEujkU1USum71x+KXhZmvpmdj2g4DH0U+iHy2hZ1nVt1qaprobJboZTKYEUphfH+Dm4pRgrdmu5G1gzj9FlIMURsSk5MCdLBI0GfZuRpxEiYtJ15wuxUTK7BXramBZutvpwWjsxKPDXPtAcjuhgOq8tbHLQLgX2wr4NDsffm/TfK7w8OaU9f",
-        "action": {
-            "action": "update",
-            "newUpdateId": "dbdf5b8c-f807-499d-86b0-eed3854cfe70",
-            "modelKey": "user",
-            "id": "6837cf6d00a5b42c0268aa8e"
-        },
-        "data": {
-            "groups": [
-                "5fc7ff5c01bb2703870003ec"
-            ],
-            "allPermissions": [
-                "nvr:read:*",
-                "user:read,write,delete:$",
-                "liveview:create",
-                "bridge:read:*",
-                "camera:read,readmedia:*",
-                "light:read:*",
-                "sensor:read:*",
-                "viewer:read:*",
-                "doorlock:read:*",
-                "display:read:*"
-            ]
-        }
-    },
-    "2.563538": {
-        "raw": "AQEBAAAAAHJ4nB2MQQrCMBBF7zLrBn7T1Jn0BuLaAzSZCRRqK7UiIt7d1N3n8d/70Jj3aV1ooOddx92oocVe1/8+a8WMNqd06pxneBcgxUkUc4hsCdlzH0OVbqvafLH3EXrYVsl02H3RNhgK6t0ndMIAVEDfH6yXIlMCAQEAAAAA/3ichVHLSsQwFP2X4Eq6iA5DJR/gWpBxI7PI4zZzMW2Gm7bDIP67fUSSMho3gZzHvTknn8ySH86BiXe2b3TdNHvNH5R6rPnuqeac70CzKlFc8YxS7Fgx6dwLUIshoO+WQd1IgkAacT9ZhwDrrboQ9lAZcNCDuJsohyOMCBehJ76HCVGExkIya9kCydU+Hy0YlAvj0J76JAzQBZ9tncdCdjfek/P6I0MwnJ28JmDz6tunFXLMzg04T1h6jfbq1pel+0uTEkcgpY/xitPXhoqSWHdRE5stapZuigoC7clgZ1/1Cczg/lnqwEp9PTy//dL45juLU36+uCA6fn0DxVUIbg==",
-        "action": {
-            "action": "update",
-            "newUpdateId": "701cbb63-2702-408f-898e-097eb0c27594",
-            "modelKey": "user",
-            "id": "14b42fdbe40877762fc3ce7a"
-        },
-        "data": {
-            "groups": [
-                "5fc7ff5c01bb2703870003ec",
-                "5fc7ff5c00b02703870003eb"
-            ],
-            "allPermissions": [
-                "nvr:read:*",
-                "user:read,write,delete:$",
-                "liveview:create",
-                "bridge:read:*",
-                "camera:read,readmedia:*",
-                "light:read:*",
-                "sensor:read:*",
-                "viewer:read:*",
-                "doorlock:read:*",
-                "display:read:*",
-                "nvr:read:*",
-                "liveview:create",
-                "user:read,write,delete:$",
-                "nvr:write,delete:*",
-                "group:create,read,write,delete:*",
-                "camera:create,read,write,delete,readmedia,deletemedia:*",
-                "viewer:create,read,write,delete:*",
-                "light:create,read,write,delete:*",
-                "bridge:create,read,write,delete:*",
-                "sensor:create,read,write,delete:*",
-                "user:create,read,write,delete:*",
-                "recordingSchedule:create,read,write,delete:*",
-                "legacyUFV:read,write,delete:*",
-                "doorlock:create,read,write,delete:*",
-                "display:create,read,write,delete:*"
-            ]
-        }
-    },
-    "2.572827": {
-        "raw": "AQEBAAAAAHJ4nB2MQQrDIBAA/7LnCqu7Uu0PSs59gKsrBNqkNCmlhPw9mtswMLNByus4T3CD77ukVeECk/4eJ99L0zEkxz6RIe/IsAgaySEYtVyZRbOV2KLXXPQ56L+PFv00M/ba14K1HZBsdIIUrogoXmE/ANXbIzICAQEAAAAAoHicTY3NCoMwEITfJfRUckgrYslT9F48xGS0S6ORTVRK6bvXH4peFma+mZ2PaDgMfRT6IfLaFnWdW3WpqmuhsluhlMpgRSmF8f4ObilGCt2a7kbWDOP0WUgxRGxKTkwJ0sEjQZ9m5GnESJi0nXnC7FRMrsFetqYFm62+nBaOzEo8Nc+0ByO6GA6ry1sctAuBfbCvg0Ox9+b9N8rvDw5pT18=",
-        "action": {
-            "action": "update",
-            "newUpdateId": "98a245a3-3523-4bb0-bc88-e14f44bec1b9",
-            "modelKey": "user",
-            "id": "a16d5a033a56cfe8e78de0a0"
-        },
-        "data": {
-            "groups": [
-                "5fc7ff5c01bb2703870003ec"
-            ],
-            "allPermissions": [
-                "nvr:read:*",
-                "user:read,write,delete:$",
-                "liveview:create",
-                "bridge:read:*",
-                "camera:read,readmedia:*",
-                "light:read:*",
-                "sensor:read:*",
-                "viewer:read:*",
-                "doorlock:read:*",
-                "display:read:*"
-            ]
-        }
-    },
-    "2.589402": {
-        "raw": "AQEBAAAAAHF4nB2MWwrCQAwA75JvF9JNsgneQPz2APtIoaCtaIuIeHe3/g0DMx/IdZ2WGY6w3VteHQ4w++vy51PrWtjaqGRByzAEFhpD8dqC1RxFLUZT6tFtaX49+3sfPf3RzbTXCYUjpYLIXAnJFBGTCXx/vMQh+QIBAQAAAAAmeJyrVkovyi8tKFayio7VUUrMyQlILcrNLC7OzM8Di9UCAMnYDAY=",
-        "action": {
-            "action": "update",
-            "newUpdateId": "548df738-7b11-453f-becd-8ca257822873",
-            "modelKey": "user",
-            "id": "bca48fb5d05d8c067f610acb"
-        },
-        "data": {
-            "groups": [],
-            "allPermissions": []
-        }
-    },
-    "2.787367": {
-        "raw": "AQEBAAAAAHN4nB3LQQqDMBBA0bvM2sCYBjPTG0jXHiDJTDRg1UVKkdK7N3X3+fA+EFIt+wZ3eB0SqkIHm76nq0dpW1KKlrKYnCQYR8gmMpMJkSJ566xz3NBzF10fejaxlnmpbZU/H3pkyqiIuRfFG3nEwVuF7w8zASPgAgEBAAAAAEd4nKtWyiwOyCzyzS/JzM9zSS1JTS5JTVGyKikqTdVRykksLoHIKFkZmhkbmFoamZmampob6gB1+WSmZ5T450HU1gIAl0YYTA==",
-        "action": {
-            "action": "update",
-            "newUpdateId": "dccb28fd-fcda-4809-b998-ab8b87242449",
-            "modelKey": "light",
-            "id": "c32b358cac1307adcbc2a1b7"
-        },
-        "data": {
-            "isPirMotionDetected": true,
-            "lastMotion": 1630592655571,
-            "isLightOn": true
-        }
-    },
-    "3.55097": {
-        "raw": "AQEBAAAAAHF4nB3LQQrCMBBG4bvM2sA0SZnRG4hrDzCZ/IGCbUUqRcS7G909HnxvMt+mdaETPe/VNtCBFuzXf59r3wItDYOGKMghw0s4poSAcRBHUWjNHc1rxe2CVxduMx7W3/TzY3ODQTmmKMpJhZmbMn2+YHUkkwIBAQAAAAE8eJxtUEtOwzAQvYvXAfkb21mC2MGi6gncZJpaGCfYDlBVuTuTVC0UsRvN+828E8nFlUyaE0lfD8cCOApWU8u0Zroi5bJk0lJVSytqJSry6fd+0bQHFyMEhKmsyD7B+wSxPZJGKU4rEnx83Y4A3ctuRI84hVCR7PvowmZywRdkWnpZbUuC2JcDae5qM1dk50qBdFxyRkgtxOJ6uLj4/HhwqfexJ83ehQzoEgDGLb6DJNL53A54W1ugI2j24TsY1jehHVKHOmSmgpfX3FBKlVXc4A9X+Cl2CygQ4UhR2lR/tM+bVa2tVVYKZfit+gyf9dIYgebFv0FwY4b/s6/w72wpqBHmr/ZszqS0VlBpRH2r/slmQulaMmwglyGtBZ7IlLGUxkqupRKcSb2cvvamDb+vOV3WVCs5z/M3pHGnNQ==",
-        "action": {
-            "action": "update",
-            "newUpdateId": "7e8bfe18-27e4-4ecb-933e-e517ceb8e8d4",
+            "newUpdateId": "5c4393bb-9521-48e7-a297-a7edc0a5b9ea",
             "modelKey": "camera",
-            "id": "4201f72dd2820333bf325eae"
+            "id": "37977bb049a8b021a8e3113a"
         },
         "data": {
+            "recordingSchedules": []
+        }
+    },
+    "2.279518": {
+        "raw": "AQEBAAAAAHR4nB2MQQrCMBREr1L+2kBjfqLxBtK1B/jJjFCwrUhFpHh3SZfzHm82sbqOyyyXTt5P2Eo5dDLzc9vHFU0gKCpIZ0o4rUjO+khX7v05asiWTtqyaQEfA7+tqTbxZY2O+4cvMVtOxcN41BzVA1AG+f0BMjImJAIBAQAAAAAieJyrVipKTc4vSsnMSw9OzkhNKc1JLVayUoiOrQUAhrYJrA==",
+        "action": {
+            "action": "update",
+            "newUpdateId": "d34dcdee-a4ed-4cd6-a05e-bf085439a674",
+            "modelKey": "camera",
+            "id": "1b59a96b1dae249541ddd4e3"
+        },
+        "data": {
+            "recordingSchedules": []
+        }
+    },
+    "2.280282": {
+        "raw": "AQEBAAAAAHV4nB2MQQrCQBAEvxLm7EJidp2JPxDPPmB2ehYCJhGJhCD+XTbHrqL6S2rruMx0bejzgq5Op4Zm3x7HuKEKnNGydCmwcQyxpBKy9RwkIXormZVzzaYF/rz7XhvTyd9a6Xh8mBRxqGXkC8vQw5C444F+f/lPJegCAQEAAAAAjnicPcoxC8IwEIbhv1Iy6yDaVF07O2hGcQjpNTmIF00uSCn9714R3O577p1VBpfygOSNCzDUCEWdm/tj06gPjtgnInCMiQxbBnnNygUrGOXetXvpxgzvCuQmkbbTrdArTLdfftQyC3qy8VptRF6r0+GPhjOQ5yC61d3KBQcZ6pIyY2l6+4Rs1bJ8AcwANv0=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "d2d07815-7c74-4f5f-bc37-85d4e08b7a7b",
+            "modelKey": "camera",
+            "id": "c8f8edacbdb67893dcd57179"
+        },
+        "data": {
+            "recordingSchedules": [],
+            "wifiConnectionState": {
+                "channel": 153,
+                "frequency": 5765,
+                "phyRate": 86,
+                "signalQuality": 94,
+                "signalStrength": -67,
+                "ssid": "Mortis Camera"
+            }
+        }
+    },
+    "2.308446": {
+        "raw": "AQEBAAAAAHV4nB2MQQrCMBBFr1JmbaBJM0n0BuLaA0wyP1CwrUilFPHumi7/+7z3ISnruMx06ej9VFlBp45mbPdjXLUd8AkVqqY/18F455zJYmEQ4XIomtjmpk2L4nHD3pwiE17S6Hg0KsB9iiGrFKueOUQe/oS+PysDJc0CAQEAAAAAInicq1YqSk3OL0rJzEsPTs5ITSnNSS1WslKIjq0FAIa2Caw=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "e48efedd-09f3-4222-ba1e-e7e2b6cd851b",
+            "modelKey": "camera",
+            "id": "fee50876bdac1d4556753508"
+        },
+        "data": {
+            "recordingSchedules": []
+        }
+    },
+    "2.330815": {
+        "raw": "AQEBAAAAAHZ4nB2MQQrCQAxFr1KydiDTSeKMN5CuPUA6iVCwrUhFpHh3mS7/e7y/g9ZtWhe4dPB+mm4Opw4W/9yOcbUmxoRUVDFUiudAxCWU1GOQ8Y4lW0/u3LJ5NX8M/m1N1dlf2uh0fCiXWJNQzMiYTRKjJMsCvz+vsCO2AgEBAAAAACJ4nKtWKkpNzi9KycxLD07OSE0pzUktVrJSiI6tBQCGtgms",
+        "action": {
+            "action": "update",
+            "newUpdateId": "b3049aa0-c417-4459-9320-6bf098d24ee5",
+            "modelKey": "camera",
+            "id": "a591c364180508d635063d86"
+        },
+        "data": {
+            "recordingSchedules": []
+        }
+    },
+    "2.454352": {
+        "raw": "AQEBAAAAAHZ4nB2MQQqDMBBFryKzbiATJ+r0BqXrHuAnGUGoWopFpPTuJS7/e7z/JeRtWhe6NvR5FWxGl4YW2x/nuJUqfGKBsXeZRzgJGp0iqtMoQ9AxiYnWbF6LPe921CZjtjcqnc6PofeMEpH6tuvgWytBOSro9wfOOSSnAgEBAAAAACJ4nKtWKkpNzi9KycxLD07OSE0pzUktVrJSiI6tBQCGtgms",
+        "action": {
+            "action": "update",
+            "newUpdateId": "0b14ae10-c1fa-4295-9a59-954829fb4e49",
+            "modelKey": "camera",
+            "id": "8701ad5ab7366a03ed29159a"
+        },
+        "data": {
+            "recordingSchedules": []
+        }
+    },
+    "2.793899": {
+        "raw": "AQEBAAAAAHR4nB2MQQrCMBBFr1JmbcBkJpXxBuK6B5j0T6BgW5GKSPHuki7/e7y/k43btC507ej9hG1Op44W/wzHuKEJjgYx1XApQBDuEZRzCikpqleufq4tm1f44+7f1ow2+8sanY6PWLKa9iXCPIlmiQDEmX5/BgwlzgIBAQAAAAFFeJxtUstOhDAU/ZUJa2P6LrjUuNPFhKVx0YE70FgLtkUlE/7dFiYMmXHXnlfPvekpc1B1rta2KasW6sGAzx52b+93u8wHFdLllLnfxzHMhMgpRjnikQ4ryBlCkuWYFBH+0Uc9m6pWWQsmnu1gTGSODr4GsNV4gYy2H2UPUL8een+BvW6sMvtBGR2SmqMVLIMD24Q2omiK6EGFAG6cX+zBVWCDauASpf1Tq1wT54vYURkPKcoA9GUcLwmzWvuqi1WrAHWWMr91Dd0y+LqcoFyIEBaUYoIlFrIQUboKnm290IxjInNCCdnSs/9lP0uI5JIKQlBRXCWcBecMSfIkCPoTjOo9/NNBoq1g24GTXIgc3/hvOvCrhE0HhhguCjzNf6Fzy15P2eAhvUOJZAUmXFCSWrhlmwLTe4oo4iy6KSPTNP0By/O2gg==",
+        "action": {
+            "action": "update",
+            "newUpdateId": "31ad4a99-7bdd-436d-9352-229dfef3fe0f",
+            "modelKey": "camera",
+            "id": "1b59a96b1dae249541ddd4e3"
+        },
+        "data": {
+            "recordingSchedules": [],
             "stats": {
-                "rxBytes": 3160917717,
-                "txBytes": 149056493653,
+                "rxBytes": 68310805,
+                "txBytes": 5400748129,
                 "wifi": {
-                    "channel": 104,
-                    "frequency": 5520,
+                    "channel": null,
+                    "frequency": null,
+                    "linkSpeedMbps": null,
+                    "signalQuality": 50,
+                    "signalStrength": 0
+                },
+                "battery": {
+                    "percentage": null,
+                    "isCharging": false,
+                    "sleepState": "disconnected"
+                },
+                "video": {
+                    "recordingStart": 1633121716796,
+                    "recordingEnd": 1634512782322,
+                    "recordingStartLQ": 1627573622099,
+                    "recordingEndLQ": 1634512787289,
+                    "timelapseStart": 1633121716770,
+                    "timelapseEnd": 1634515286681,
+                    "timelapseStartLQ": 1627573622095,
+                    "timelapseEndLQ": 1634514041991
+                },
+                "storage": {
+                    "used": 327491256320,
+                    "rate": 613.303054404342
+                }
+            }
+        }
+    },
+    "2.79547": {
+        "raw": "AQEBAAAAAHZ4nB2MSwrDMAwFrxK0rkH+yXVvULLuARRLhkCTlJJQQundi718M8z7Apd93la4DXC8hHeFywCrfh593KWJgoklVWeE3GRCsWRyrN4EDGpdqYRiW7Zsos9Rz97wom9udO4f14SWJfKUPBGjV3HZxszw+wPnaCT0AgEBAAAAAUl4nGVSy26DMBD8lYhzVWH8APfYqrf2EHGsenDMBqy6htpL2yji32tDRNIELjAzO54d+Zh50L1vjGtr3UEzWgjZw+bt/W6TBVSYfo6Z/3084EyQvMplFZ/I44ryUgguK8FIhH/M3sxTulPOgY3fbrQ2MnsPXyM4fThD1riPegBoXndDOMPBtE7Z7aiswaTm+QrW6MG12EU0nyK6U4jgD/OJA3gNDlULZysTnjrl27hgxPbKBkhWFmCo435JmDUm6D5G1QhNljy/TQP9svnaDiqPqQBBKSFSlLJgNEpXwbNrFppxwmMh8b2k5/mX7SwpSl4ySRlj+ZXDSXDyIIInDzSfYNUQ4DYDkfxS8C8DE6Qsxc38VYZKyCuHiwysYkIWc80Be7/0eszGAOkcygWriqLiXKTr4Jc2Gc3vZSFpKSWNl4VN0/QHtYK3Mg==",
+        "action": {
+            "action": "update",
+            "newUpdateId": "c07ad7f2-d62b-4c16-95f3-404e12cf60d1",
+            "modelKey": "camera",
+            "id": "8701ad5ab7366a03ed29159a"
+        },
+        "data": {
+            "recordingSchedules": [],
+            "stats": {
+                "rxBytes": 108098888,
+                "txBytes": 5766598641,
+                "wifi": {
+                    "channel": null,
+                    "frequency": null,
+                    "linkSpeedMbps": null,
+                    "signalQuality": 50,
+                    "signalStrength": 0
+                },
+                "battery": {
+                    "percentage": null,
+                    "isCharging": false,
+                    "sleepState": "disconnected"
+                },
+                "video": {
+                    "recordingStart": 1633119679243,
+                    "recordingEnd": 1634515576767,
+                    "recordingStartLQ": 1627574934440,
+                    "recordingEndLQ": 1634515571657,
+                    "timelapseStart": 1633119679195,
+                    "timelapseEnd": 1634515461776,
+                    "timelapseStartLQ": 1627574934869,
+                    "timelapseEndLQ": 1634514846920
+                },
+                "storage": {
+                    "used": 356482285568,
+                    "rate": 430.929379930804
+                }
+            }
+        }
+    },
+    "2.798013": {
+        "raw": "AQEBAAAAAHV4nB2MQQrCMBBFr1JmbcCYTMZ4A3HtASaZHyjYVqQiIt5d0+V/n/c+pHUdl5lOAz3vpitoN9CM13UbZ+tHtJJLCdmFVouLXsSpT+ykNWSJAOqha9NiuF3w7k7VCQ/tdNwaDeD9UVIxrd4icxIOf0LfHx0zJa4CAQEAAAABQnicbVI9T8MwFPwrVWaE4s/YjCA2GKqMiMG1XxML4wTbAaoq/x0nqdJS2Oy7e+d7Jx+LALoLxvqm1i2YwUEs7jYvrzebIiaVpsuxCN/3hzQTQlKEKKoynVaw4lxKLgVHGf6yezsP6VZ5Dy6f/eBcZvYBPgbw+nCGnPVvdQ9gnnd9PMPRNl657aCcTZOalStYpwC+SW1GyzGjO5UShMP8Yg9Bg0+qgbOVjQ+tCk3eL2N75SJMVg6gr/N6k7AwNuouR9UJTDF5floD3bL4Wk5SIWUIcUIQRkxQLqZQq+DRm4WmDDFeVoTLS3qef9rOElyxsmJCVvza4SRYPSiZerbv4FQf4Z8MTF4KfmVAAhP+d/46A6ZXDhcZKJGYCDzOf6ELS6/HYogwv4PyNMaIkNMiS52IIHLLqKCUckyoGMfxB8Vntuk=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "4db9bb39-3fcb-4177-a165-7ffe974eeec2",
+            "modelKey": "camera",
+            "id": "fee50876bdac1d4556753508"
+        },
+        "data": {
+            "recordingSchedules": [],
+            "stats": {
+                "rxBytes": 89411417,
+                "txBytes": 7669969861,
+                "wifi": {
+                    "channel": null,
+                    "frequency": null,
+                    "linkSpeedMbps": null,
+                    "signalQuality": 50,
+                    "signalStrength": 0
+                },
+                "battery": {
+                    "percentage": null,
+                    "isCharging": false,
+                    "sleepState": "disconnected"
+                },
+                "video": {
+                    "recordingStart": 1633121584680,
+                    "recordingEnd": 1634515607369,
+                    "recordingStartLQ": 1627507589760,
+                    "recordingEndLQ": 1634515607343,
+                    "timelapseStart": 1633121584659,
+                    "timelapseEnd": 1634515182363,
+                    "timelapseStartLQ": 1627507589724,
+                    "timelapseEndLQ": 1634514392382
+                },
+                "storage": {
+                    "used": 1197222133760,
+                    "rate": 1313.54844462348
+                }
+            }
+        }
+    },
+    "2.800949": {
+        "raw": "AQEBAAAAAHZ4nB2M0QrCMAxFf2Xk2ULaxrXxD8RnPyBpIgzcJjIREf9dusd7Dud+Qdo2rQucBng9TDaHwwCLv6/7OFsXTk0tNQ9jvFEgMwk8ogRXLIwJqfKxZ/Nqfr/4pzdNZn9Kp9P+kQuXoorEUhVTlOo5xizw+wP+jST4AgEBAAAAAUZ4nHVSy07DMBD8lSpnhPyIH+EI4gaHKkfEwU22iYVxgu0AVZV/x05KUh69xTOzszujHDMHVedqbZuyaqEeDPjsZvP0fLXJfFAhPY6Z+7w9hIngXFAuEIp0WMC8wKwoCoFohD/0Xk9DVausBRO/7WBMZPYO3gaw1WGFjLYvZQ9QP+56v8JeN1aZ7aCMDknN0AKWwYFtQhtRNEZ0p0IAd5g29uAqsEE1sFppf9cq18R8Edsr4yFZGYC+jPGSMKu1r7p4ahWgzpLnu66hm4Mv5QTlQoQwpxSTGBfnPKVdBPe2numcIYIJncv4Of+wnSREMJETgohAvxxOgpOHZHnyCPoVjOo9/HeDOBec3YAZllxi/Gf+e8VFh/UGnFPJCyHG6V/o3NzrMRs8pD2EEUoKSiTPpxxzm0SKayokZVxSHjsax/ELyyu2kw==",
+        "action": {
+            "action": "update",
+            "newUpdateId": "e4cbd2ce-61f4-4dda-960a-eb0790204895",
+            "modelKey": "camera",
+            "id": "37977bb049a8b021a8e3113a"
+        },
+        "data": {
+            "recordingSchedules": [],
+            "stats": {
+                "rxBytes": 66736700,
+                "txBytes": 4915999703,
+                "wifi": {
+                    "channel": null,
+                    "frequency": null,
+                    "linkSpeedMbps": null,
+                    "signalQuality": 50,
+                    "signalStrength": 0
+                },
+                "battery": {
+                    "percentage": null,
+                    "isCharging": false,
+                    "sleepState": "disconnected"
+                },
+                "video": {
+                    "recordingStart": 1633121591463,
+                    "recordingEnd": 1634502123703,
+                    "recordingStartLQ": 1627574220270,
+                    "recordingEndLQ": 1634502128543,
+                    "timelapseStart": 1633121591467,
+                    "timelapseEnd": 1634515186811,
+                    "timelapseStartLQ": 1633121591467,
+                    "timelapseEndLQ": 1634514386977
+                },
+                "storage": {
+                    "used": 252329328640,
+                    "rate": 287.378356836463
+                }
+            }
+        }
+    },
+    "2.803522": {
+        "raw": "AQEBAAAAAHV4nB2MWwrCMBBFt1Lm20AabTJxB8VvFzCvQME+KC1FxL1r+nnP5ZwPkGzDPMG9gX1R2gwuDUx2PM/Raz1CvqoPPrqOC7lbYHMYS3LMLWf20dSwauOs9nrYuzpCo61U6XA2BAuakrByTPgPinapTRm+Pwy3JjkCAQEAAAABTXicdVJNT4QwFPwrhrMa+kHb51HjTQ8bjsZDF95CYy1YirrZ8N9twcV1jUdm5s17M+WQeaw6XxvXlFWL9WhxyG4unp4vL7Ih6JA+Dpn/vN2HmeAql0LyItJhBQkA5FwJKSL8YXZmHqpa7RzaxBcsEjuPbyO6ah+RQopkYY17KXvE+nHbJyM3WpsWm8Zpuxm1NSGpga9gGTy6JrQRvRJyivhWh4B+P6/s0Vfogm7wx8wMd632TQwYsZ22AyYzi9iXMV8SZrUZqi7eWgWss+T5bmrsluRrO0H7kLIIRoCyAhhAirAK7l290LwghYgtKTil5/mHzdGB5IoqUOcOR8HqQVPR5hWt7gf874ZV8OsGJqkA9mf+ewXhHIDFV2PizOH0hlxSSek0/wydX3o9ZOOA8x5CGJc5lYQrlYIsdUqZXysqC8klAwpimqYvAXC1jg==",
+        "action": {
+            "action": "update",
+            "newUpdateId": "293d0206-5bfa-42be-86f7-bb1b9b06ede8",
+            "modelKey": "camera",
+            "id": "c8f8edacbdb67893dcd57179"
+        },
+        "data": {
+            "recordingSchedules": [],
+            "stats": {
+                "rxBytes": 48076745,
+                "txBytes": 1999048676,
+                "wifi": {
+                    "channel": 153,
+                    "frequency": 5765,
+                    "linkSpeedMbps": null,
+                    "signalQuality": 94,
+                    "signalStrength": -67
+                },
+                "battery": {
+                    "percentage": null,
+                    "isCharging": false,
+                    "sleepState": "disconnected"
+                },
+                "video": {
+                    "recordingStart": 1631923593995,
+                    "recordingEnd": 1634515607689,
+                    "recordingStartLQ": 1631910828985,
+                    "recordingEndLQ": 1634515607682,
+                    "timelapseStart": 1631923593995,
+                    "timelapseEnd": 1634515372693,
+                    "timelapseStartLQ": 1614499304836,
+                    "timelapseEndLQ": 1634515072722
+                },
+                "storage": {
+                    "used": 1113470271488,
+                    "rate": 770.827574739296
+                }
+            }
+        }
+    },
+    "2.805685": {
+        "raw": "AQEBAAAAAHZ4nB2MQQrCQAxFr1KydiDjdNLUG4hrD5BJMlCwrUiLiHh3mS7/e7z/BdFtWhe4dLA/TTaHUweLv+/HuFoTFdGjcwlGWkLPzEHIJGjN6D6UYTzXls2r+ePmn9aozP6SRqfjQ/IYNVEfGTOyUcpIyZjg9wcZvyUSAgEBAAAAAUl4nHWSS0+EMBSF/8qEtTF90AcuNe50MWFpXHTKHWisBduiTib8d0txmFFj2MB3zj33EY6FB937xri21h00o4VQ3Gyenq82RYgqzh/Hwn/eHmIWuJCEpyfJcYUUI1EhXBKe8IfZm1ykO+Uc2PTuRmuTsvfwNoLThzOyxr3UA0DzuBvCGQfTOmW3o7Imzm6GVlhHD66NXaJoSnSnYgR/yB0H8BpcVC2co0y465Rv036J7ZUNMEdZgKFO683GojFB92lUHaEp5sx300C/LL4eJyofE8Kc4opQVtGqYsm6Gu5ds8glw4wjQQm9lHP9w3axoJILLBAX6FfCyXDKyC2ieQWrhgD/zbAafsyAuaDyb/13CyIYkrxEEqFfCRczlAQLyuSU/4XeL3c9FmOAuQ8rCaEVJxiTvMdyTSrENeNSkrIikmA+TdMX13K2pg==",
+        "action": {
+            "action": "update",
+            "newUpdateId": "f00e1e8b-d6cb-4888-a6da-cf50ee7b792f",
+            "modelKey": "camera",
+            "id": "a591c364180508d635063d86"
+        },
+        "data": {
+            "recordingSchedules": [],
+            "stats": {
+                "rxBytes": 67826262,
+                "txBytes": 3107901426,
+                "wifi": {
+                    "channel": null,
+                    "frequency": null,
+                    "linkSpeedMbps": null,
+                    "signalQuality": 50,
+                    "signalStrength": 0
+                },
+                "battery": {
+                    "percentage": null,
+                    "isCharging": false,
+                    "sleepState": "disconnected"
+                },
+                "video": {
+                    "recordingStart": 1631923593995,
+                    "recordingEnd": 1634515607323,
+                    "recordingStartLQ": 1630467170670,
+                    "recordingEndLQ": 1634515607395,
+                    "timelapseStart": 1631923593995,
+                    "timelapseEnd": 1634515167385,
+                    "timelapseStartLQ": 1627508640800,
+                    "timelapseEndLQ": 1634514217358
+                },
+                "storage": {
+                    "used": 542239621120,
+                    "rate": 377.568824928216
+                }
+            }
+        }
+    },
+    "9.487156": {
+        "raw": "AQEBAAAAAHR4nB2MWwrCMBBFt1Lm28A80pi4A/HbBYyZKRQ0FamKiHuX9POew7lf0LrOS4PDAM+76eqwG6D5+7yNo3UhnKesnoKzUYgqORRDDjUZWlQcL5l7dlvMryf/9Ka9Hh3N2wEmQaZKRXnPRYSJp0hjhN8fXiwi5wIBAQAAAAE9eJxlUE1PwzAM/StTzozFTvrFnQPSxIEhLohDaN01UttETTqpTP3vOAVpSCiHyO/Zz8/vKmYf7UDiYYdYlQVIKe92ojchnohGhiFXOoMsh5IfU2EJkYansXVMXkXt5+03F5rMmY7ONNsQd3KbZzDOU5LX5X2RrQwPNLhp+R0ytjeffeILrUtA5tuJUp1DUSYr0UXTp3mpAXOdFEJ0adc/CS1VBbrKFIBKBmx4oXqpezuemW1NHyhN269tX6UKVVVQFPjjdvEJFl3TCC7nQOkQxVcjFJjJcutq6GJrCsy8X8XgGkrWxOm15NzenqVE3OPjEQDFbRNznJ9CRLlpdGT62KUE4jTT+pFOioNvw7+DIINc6j8hYI6g9c0egMx0Ssmb2CUnh4uZDs7Hwzza1u795CLV8cDyYl3Xb1hNi3s=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "328f8ae6-e2d1-4a38-9d02-c6d0d4a05b82",
+            "modelKey": "nvr",
+            "id": "063021c19a272933212f4154"
+        },
+        "data": {
+            "uptime": 229871000,
+            "lastSeen": 1634515618181,
+            "systemInfo": {
+                "cpu": {
+                    "averageLoad": 16,
+                    "temperature": 48.75
+                },
+                "memory": {
+                    "available": 744812,
+                    "free": 61780,
+                    "total": 4041264
+                },
+                "storage": {
+                    "available": 4039149531136,
+                    "isRecycling": false,
+                    "size": 7937399177216,
+                    "type": "hdd",
+                    "used": 3818217250816,
+                    "devices": [
+                        {
+                            "model": "ST8000VN0022-2EL112",
+                            "size": 8001563222016,
+                            "healthy": true
+                        }
+                    ]
+                },
+                "tmpfs": {
+                    "available": 151604,
+                    "total": 262144,
+                    "used": 110540,
+                    "path": "/var/opt/unifi-protect/tmp"
+                }
+            }
+        }
+    },
+    "12.267629": {
+        "raw": "AQEBAAAAAHV4nB2MQQqDMBREryJ/3UA0iYm9QXHdA4z5ExCqlmIpRXr3EpfzHm8OQd7nbZVrI++nYqdcGln5uZ/jplVoKKkLak22xRrv3WQQCRNTSWRRZudrtmzKx8hvbTIWvlDpfH6kaFtowBRd38M6aje0YYD8/hr+JcUCAQEAAAAAInicq1YqSk3OL0rJzEsPTs5ITSnNSS1WslKIjq0FAIa2Caw=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "d5f825d0-c0f0-443b-a7ea-78f8eefdec34",
+            "modelKey": "camera",
+            "id": "8701ad5ab7366a03ed29159a"
+        },
+        "data": {
+            "recordingSchedules": []
+        }
+    },
+    "12.31253": {
+        "raw": "AQEBAAAAAHR4nB2MQQrCMBBFr1JmbaBJZtR4A+naA0zmz6JgW5EWEendJV3+93j/R2rruMx062h7QVenU0ezfx7HuKOJmsQgRYKBr4GzXYI6YhA1Yal9ttS3bFrgz8G/rTGd/K2NjsdHrFK0nGuEeuIiHAGwZ9r/+XYlhgIBAQAAAAAieJyrVipKTc4vSsnMSw9OzkhNKc1JLVayUoiOrQUAhrYJrA==",
+        "action": {
+            "action": "update",
+            "newUpdateId": "b25cd595-cd48-43c7-aed1-5ac545b03c20",
+            "modelKey": "camera",
+            "id": "1b59a96b1dae249541ddd4e3"
+        },
+        "data": {
+            "recordingSchedules": []
+        }
+    },
+    "12.335469": {
+        "raw": "AQEBAAAAAHd4nB2MQQrCMBBFr1JmbSDJTJzEG4hrDzDJTKFgW5EWEfHuki7/e7z/BWnbtC5wGWB/qmwGpwEWe9+PcdUuko5JRqpOG3pH0SdX6BxczJlKQU5M2rN5VXvc7NObJrO9pNPp+EAuzLV6KpKrj0GyYQgo8PsDukckGwIBAQAAAAAieJyrVipKTc4vSsnMSw9OzkhNKc1JLVayUoiOrQUAhrYJrA==",
+        "action": {
+            "action": "update",
+            "newUpdateId": "5df5af4b-dc30-4205-9461-28849937574d",
+            "modelKey": "camera",
+            "id": "37977bb049a8b021a8e3113a"
+        },
+        "data": {
+            "recordingSchedules": []
+        }
+    },
+    "12.364509": {
+        "raw": "AQEBAAAAAHV4nB2MQQrCMBBFr1JmbSBxkjTjDcS1Bxjzp1CwrUiLiHh3TZfvfd7/kNZ1XGY6dbQ9oKvRoaPZXtcdzmgDK8RLig6Co4vWJ/fnwaEvwjcZgBxaNi2w+8Xerak62VObHfcPTRIq5xiKT74gc/KZUTJ9f9ZCJDkCAQEAAAAAInicq1YqSk3OL0rJzEsPTs5ITSnNSS1WslKIjq0FAIa2Caw=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "3ad90954-d9d2-4e75-909f-d7893b9fdd61",
+            "modelKey": "camera",
+            "id": "a591c364180508d635063d86"
+        },
+        "data": {
+            "recordingSchedules": []
+        }
+    },
+    "12.401704": {
+        "raw": "AQEBAAAAAHd4nB3MUQrCQAwE0KuUfLuwbbcm8QbitwfIJlko2FakUop4d91+zgxvPiC6jssMlwbeT5PV4dTA7Nv9CFerQ+HcqXAKMfUxJC8YiLgLmRJaPrdRBqtsWswfN9+rUZn8JbUdjw+lQm6i+Q+QuDe1AVtk+P4A7vIlswIBAQAAAACOeJw9ykELwjAMhuG/MnpWUGR1et3Zg/YoHkqXtYGaapsiY+y/myF4y/fknVUGl/KA5I0LMNQIRZ2b+2PTqA+O2CcicIyJDFsGec3KBSsY5d63B+nGDO8K5CaR9qhboVeYbr+80zILerLxWm1EXqvT7o+GM5DnILrV3coFBxnqkjJjaXr7hGzVsnwBy1A2+g==",
+        "action": {
+            "action": "update",
+            "newUpdateId": "f9b2ca94-0430-4ef7-8892-b847db610a5d",
+            "modelKey": "camera",
+            "id": "c8f8edacbdb67893dcd57179"
+        },
+        "data": {
+            "recordingSchedules": [],
+            "wifiConnectionState": {
+                "channel": 153,
+                "frequency": 5765,
+                "phyRate": 86,
+                "signalQuality": 90,
+                "signalStrength": -68,
+                "ssid": "Mortis Camera"
+            }
+        }
+    },
+    "12.402305": {
+        "raw": "AQEBAAAAAHV4nB2MQQrCQAxFr1KydqB1Jkn1BtK1B8gkKRRsK9IiRby7ziz/+7z3AdFtWhe4NrA/TTaHUwOLv+913Kwc0fOoscfAmDmkls4hW7KA3l0oshmpFG1ezR+DH8VRmf1V6VQbozu2PVM20c4SIjHGP4HvD/3rJUUCAQEAAAAAInicq1YqSk3OL0rJzEsPTs5ITSnNSS1WslKIjq0FAIa2Caw=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "3ebfc385-75b7-4062-bd4d-5e19637dd6ca",
+            "modelKey": "camera",
+            "id": "fee50876bdac1d4556753508"
+        },
+        "data": {
+            "recordingSchedules": []
+        }
+    },
+    "12.754022": {
+        "raw": "AQEBAAAAAHN4nB2MQQrCQBAEvxLm7EJGd1fGH4hnHzC73YeASUQiIYh/D5tjV1H9E6/LME9y6+T7hi+UUycT1+cx7miCqe+1uAanWogoNdg1IWixzAyCyVo2zuDrwa011Ud+vNHh+NCSzC0XhfMcLUUFEHmR/w4StiX1AgEBAAAAAUV4nG1Su07DMBT9lSozQn47ZgSxwVBlRAxucptYGCfYDlBV+XfspGqjls0+L5975WPhoe59Y1xb1R00o4VQPGze3u82RYg65sux8L+PhzgTomScM0oTHc8gZ5gorgjiCf4xezOb6k47Bzad3WhtYvYevkZw9eECWeM+qgGged0N4QIH0zptt6O2JmY1R2ewih5cG7uEoimhOx0j+MP84gC+Bhd1C5coE5467ds0X8L22gbIURZgqNJ4WVg0JtR9qlpHaIqc+W0a6JfBz8uJ2scEYUEpJlhiIZVI0rPg2TULzTgmsiSUkDU9+1+2s4RILqkgBCl1lXASnDIkKbMgmk+wegjwTweJ1oJ1B05KIUp847/pwK8SVh0YYlgpPM1/offLXo/FGCC/Q4lkChMuKMkt/LJNgek9RRRxltyUkWma/gDfnbaL",
+        "action": {
+            "action": "update",
+            "newUpdateId": "e5001ba1-ae19-4dbc-975d-1b96e6dede59",
+            "modelKey": "camera",
+            "id": "1b59a96b1dae249541ddd4e3"
+        },
+        "data": {
+            "recordingSchedules": [],
+            "stats": {
+                "rxBytes": 68455433,
+                "txBytes": 5412959205,
+                "wifi": {
+                    "channel": null,
+                    "frequency": null,
+                    "linkSpeedMbps": null,
+                    "signalQuality": 50,
+                    "signalStrength": 0
+                },
+                "battery": {
+                    "percentage": null,
+                    "isCharging": false,
+                    "sleepState": "disconnected"
+                },
+                "video": {
+                    "recordingStart": 1633121716796,
+                    "recordingEnd": 1634512782322,
+                    "recordingStartLQ": 1627573622099,
+                    "recordingEndLQ": 1634512787289,
+                    "timelapseStart": 1633121716770,
+                    "timelapseEnd": 1634515286681,
+                    "timelapseStartLQ": 1627573622095,
+                    "timelapseEndLQ": 1634514041991
+                },
+                "storage": {
+                    "used": 327491256320,
+                    "rate": 613.303054404342
+                }
+            }
+        }
+    },
+    "12.754607": {
+        "raw": "AQEBAAAAAHZ4nB2MSw7CMAxEr1J5TaQ4HyflBqhrDuDEXlSiLUKtEEK9OyTLmXlvvsB1n7cVrgMcT+Fd4TLAqu97DzdpA/pSXAhkXHLFhJirKWLRZMWgkQshcdOWTfQx6ac5lRd99XbuHzlZZPnDyROx9SpuxDgynD/NSyS8AgEBAAAAAUd4nGVQPU/DMBT8K1VmhJz4mxHEBkOVETG4zmtiYZxgO0BV5b9jJ1VaWnmx7+6d792x8KB73xjX1rqDZrQQiofN2/vdpghRxfw4Fv738RBnokQCYyY4SnxcUcq5xBURlCX4x+zNPKU75RzYdHejtYnZe/gawenDGbLGfdQDQPO6G8IZDqZ1ym5HZU3MaopWsI4eXBu7hKIpoTsVI/jD/OMAXoOLqoWzlQlPnfJtWjBhe2UDZCsLMNRpvywsGhN0n6LqCE2RPb9NA/2y+dpOVD7mAhjGZSkZlxXBSboKnl2z0ISWlHKWziU9z79sZ0nFKScSE0LQlcNJcPIoGc0e0XyCVUOA2wylpJeCfxkIKzlnN/NXGQSTVw4XGYggTFZzzSH2fun1WIwB8j+YMiKqSlDKRN5jaZNgdC8ribmUGAlEpmn6A5TStyM=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "13bb2446-272b-458c-bd01-8e14e5ab616a",
+            "modelKey": "camera",
+            "id": "8701ad5ab7366a03ed29159a"
+        },
+        "data": {
+            "recordingSchedules": [],
+            "stats": {
+                "rxBytes": 108336870,
+                "txBytes": 5779324856,
+                "wifi": {
+                    "channel": null,
+                    "frequency": null,
+                    "linkSpeedMbps": null,
+                    "signalQuality": 50,
+                    "signalStrength": 0
+                },
+                "battery": {
+                    "percentage": null,
+                    "isCharging": false,
+                    "sleepState": "disconnected"
+                },
+                "video": {
+                    "recordingStart": 1633119679243,
+                    "recordingEnd": 1634515576767,
+                    "recordingStartLQ": 1627574934440,
+                    "recordingEndLQ": 1634515571657,
+                    "timelapseStart": 1633119679195,
+                    "timelapseEnd": 1634515461776,
+                    "timelapseStartLQ": 1627574934869,
+                    "timelapseEndLQ": 1634514846920
+                },
+                "storage": {
+                    "used": 356482285568,
+                    "rate": 430.929379930804
+                }
+            }
+        }
+    },
+    "12.75728": {
+        "raw": "AQEBAAAAAHd4nB2MSwrDMAwFrxK0rsGyVdvqDUrXPYBsKxBoPoSEUkLuXpzlm2HeAVK2YZ7g0cG+VNkUbh1M+n1f41mbyFIpWefNHR0ZwoBG2PUmMAcsJRD23LJxrvp56a81RUZdpdHh+vCRY8zZEkvK1qEk9Yhe4PwDqaAkDAIBAQAAAAFGeJx1kktPhDAUhf/KhLUxfbe41LjTxYSlcdGBO9BYC7ZFnUz47xYYYXzMjn7n3HMf4Zh5KFtfGVcXZQNVbyFkN5un56tNFqKO4+OY+c/bQ5wEIZRiSIgkxwWynDCJEM9Rwh9mb6aistHOgU3frrc2KXsPbz248rAia9xL0QFUj7surDiY2mm77bU1cXRztMAienB1bBJFQ6I7HSP4w9SxA1+Ci7qGNcqEu0b7Ou2X2F7bAGOUBeiKtN5ozCoTyjaNWkaosjHz3VTQzosvx4nax4SwoBQTzHPMBE3WxXDvqllmHBFMqEQ/5Kn+YTtZiOSSEYKIRL8SToZThuJszIjmFazuAvw3gzw3nM2AOVZCYfyn/rvFxYR1BsyoErmUw/QvtH6+6zHrA4x9CCeU5JQowaY95msSJa+pVJQLRUW60TAMX70otow=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "bad48023-5124-4161-a92f-69961cc641f9",
+            "modelKey": "camera",
+            "id": "37977bb049a8b021a8e3113a"
+        },
+        "data": {
+            "recordingSchedules": [],
+            "stats": {
+                "rxBytes": 66884066,
+                "txBytes": 4924700590,
+                "wifi": {
+                    "channel": null,
+                    "frequency": null,
+                    "linkSpeedMbps": null,
+                    "signalQuality": 50,
+                    "signalStrength": 0
+                },
+                "battery": {
+                    "percentage": null,
+                    "isCharging": false,
+                    "sleepState": "disconnected"
+                },
+                "video": {
+                    "recordingStart": 1633121591463,
+                    "recordingEnd": 1634502123703,
+                    "recordingStartLQ": 1627574220270,
+                    "recordingEndLQ": 1634502128543,
+                    "timelapseStart": 1633121591467,
+                    "timelapseEnd": 1634515186811,
+                    "timelapseStartLQ": 1633121591467,
+                    "timelapseEndLQ": 1634514386977
+                },
+                "storage": {
+                    "used": 252329328640,
+                    "rate": 287.378356836463
+                }
+            }
+        }
+    },
+    "12.761491": {
+        "raw": "AQEBAAAAAHR4nB2MQQrCQAxFr1KydiDDTNKMNxDXHiBNsijYVqQiIt5dpsv/Hu9/QW2ftxXOA7wernvAaYA13rdjXLwLMm7olpNNVVM18iREmMYyhXsTHsV7tmwe92t8emO6xFM7nY8PpZatcM2ChOJcCLm4MPz+8L8khQIBAQAAAAFJeJx1kktPhDAUhf/KhLUxfT9catzpYsLSuOjAHWisBduiTib8dws4zKhxB98599wHHIsAVRdq65uyaqEeHMTiZvP0fLUpYjJpejkW4fP2kGZBSE0VQzzLaYUUY0I0xopl/GH3di6qWuM9uPzsB+eysg/wNoCvDmfkrH8pe4D6cdfHM4628cZtB+NsmtwcrbBMAXyT2kzRmOnOpAThMHfsIVTgk2ngHGXjXWtCk/fLbG9chCnKAfRlXm8yFrWNVZdHrRLUxZT5bmvolsXX4yQTUkZYUKwJ5ZpqPR1hNdz7epEZx1xgQiW7lOf6h+1iQUxILJGQ6FfCyXDKEJMh2Vdwpo/w3wyr4ccMWEiq+J/67xZEcqQEQwqhXwkXMzCCJeVqnP+FLix3PRZDhKkPZ4RQLUj++PMeyzWplNdcKEWYJopgMY7jF9Sctp4=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "5c690dc1-cb4a-4c5d-8550-73bedd98678d",
+            "modelKey": "camera",
+            "id": "a591c364180508d635063d86"
+        },
+        "data": {
+            "recordingSchedules": [],
+            "stats": {
+                "rxBytes": 67938405,
+                "txBytes": 3112291184,
+                "wifi": {
+                    "channel": null,
+                    "frequency": null,
+                    "linkSpeedMbps": null,
+                    "signalQuality": 50,
+                    "signalStrength": 0
+                },
+                "battery": {
+                    "percentage": null,
+                    "isCharging": false,
+                    "sleepState": "disconnected"
+                },
+                "video": {
+                    "recordingStart": 1631923593995,
+                    "recordingEnd": 1634515612374,
+                    "recordingStartLQ": 1630467170670,
+                    "recordingEndLQ": 1634515612360,
+                    "timelapseStart": 1631923593995,
+                    "timelapseEnd": 1634515167385,
+                    "timelapseStartLQ": 1627508640800,
+                    "timelapseEndLQ": 1634514217358
+                },
+                "storage": {
+                    "used": 542239621120,
+                    "rate": 377.568824928216
+                }
+            }
+        }
+    },
+    "12.766968": {
+        "raw": "AQEBAAAAAHV4nB2MUQrCMBBEr1L220BjsknrDcRvD7DJTqBgW5GKiHh33f4MzBvefEjqNq0LnTp63lU20KGjBa/rXs5qAzP6In500VuEllw5xsFl9aX5hoCRTZtXxe2CtzlVZjzE6LR/NID7IaeiUr1G5pQ5/Al9f9xIJOECAQEAAAABQnicbVI9T8MwFPwrlWeE/B2HEcQGQ5URMbjxa2JhnGA7QFXlv+MkVVoKm31373zv5CMKUHfBWN9UdQtmcBDR3ebl9WaDYtJpuhxR+L4/pJlQZYGp5CLTaQULWWKJJS1whr/s3s5Ddau9B5fPfnAuM/sAHwP4+nCGnPVvVQ9gnnd9PMPRNl677aCdTZNa4BWsUgDfpDajeMzoTqcE4TC/2EOowSfdwNnKxodWhybvl7G9dhEmKwfQV3m9SYiMjXWXo9YJDJo8P62Bbll8LSfpkDJEJGOEEqG4VFOoVfDozUJzQYQkBWPikp7nn7azhBYCFyI3Ka8dToLVg9KpZ/sOTvcR/skgykvBrwxEUSbZn/nrDJRfOVxk4KykTNFx/gtdWHo9oiHC/A7J05QSxk6LLHUSRtit4IpzLinjahzHH5hHts8=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "55e0ba19-4119-43f6-b248-7d1bf1fe3e95",
+            "modelKey": "camera",
+            "id": "fee50876bdac1d4556753508"
+        },
+        "data": {
+            "recordingSchedules": [],
+            "stats": {
+                "rxBytes": 89702645,
+                "txBytes": 7690606270,
+                "wifi": {
+                    "channel": null,
+                    "frequency": null,
+                    "linkSpeedMbps": null,
+                    "signalQuality": 50,
+                    "signalStrength": 0
+                },
+                "battery": {
+                    "percentage": null,
+                    "isCharging": false,
+                    "sleepState": "disconnected"
+                },
+                "video": {
+                    "recordingStart": 1633121584680,
+                    "recordingEnd": 1634515617335,
+                    "recordingStartLQ": 1627507589760,
+                    "recordingEndLQ": 1634515617322,
+                    "timelapseStart": 1633121584659,
+                    "timelapseEnd": 1634515182363,
+                    "timelapseStartLQ": 1627507589724,
+                    "timelapseEndLQ": 1634514392382
+                },
+                "storage": {
+                    "used": 1197222133760,
+                    "rate": 1313.54844462348
+                }
+            }
+        }
+    },
+    "12.768865": {
+        "raw": "AQEBAAAAAHV4nB2MSwqDQBAFryK9dhbqjN3jDSTrHKB/A0LUIIYQQu4exuWrot4XWM9l32Bq4PU0Ph3aBjZ/368xWxWFqKQO+yBp0BCzWCBJY0B2jiIeC/Y1W3fzx80/tVFe/eBKl+tDqZAbq5iMSHkwtYQdZvj9ARXDJkkCAQEAAAABT3icdVLLTsMwEPyVKmdAfsUPjiBucKhyRBzcZJtYGCc4DhBV+XfspA2liJs9Mzu7s/Yh81C2vjKuLsoGqsFCn91unl+uNlkfdEiXQ+a/7sYwE0xipYgSkQ4rSBBiTClMVIQ/zd7MRWWjnQMbzzinkdh7eB/AlWNEcsHzCFnjXosOoHradcnIDdamxqZ22m4HbU1IaoVWsAgeXB2aiF5zOUV8p0MAP84tO/AluKBr+DEz/X2jfR0DRmyvbQ/JzAJ0RcyXhFll+rKNs5YBqix5fpgK2iX5up2gfUhZOMWK0FxRpVKEVfDgqoVmOc45FgKxc3quf9yeHDCSRCp56XASHD34smjzBlZ3Pfw3wyr4NQMVhCv6p/7YAqcXo4hJyi8czmdAgghCpvkztH7Z6yEbepj7YEyZQERgJmUKsqwzJr+RROSCCRq/Cp+m6RvfSrV8",
+        "action": {
+            "action": "update",
+            "newUpdateId": "f88f5172-b53c-49bd-8b56-7aea4bbe4f72",
+            "modelKey": "camera",
+            "id": "c8f8edacbdb67893dcd57179"
+        },
+        "data": {
+            "recordingSchedules": [],
+            "stats": {
+                "rxBytes": 48199297,
+                "txBytes": 2004499129,
+                "wifi": {
+                    "channel": 153,
+                    "frequency": 5765,
                     "linkSpeedMbps": null,
                     "signalQuality": 90,
                     "signalStrength": -68
@@ -203,379 +691,291 @@
                     "sleepState": "disconnected"
                 },
                 "video": {
-                    "recordingStart": 1628000595284,
-                    "recordingEnd": 1630592628578,
-                    "recordingStartLQ": 1627995943582,
-                    "recordingEndLQ": 1630592648834,
-                    "timelapseStart": 1628000595284,
-                    "timelapseEnd": 1630592430838,
+                    "recordingStart": 1631923593995,
+                    "recordingEnd": 1634515617704,
+                    "recordingStartLQ": 1631910828985,
+                    "recordingEndLQ": 1634515617697,
+                    "timelapseStart": 1631923593995,
+                    "timelapseEnd": 1634515372693,
                     "timelapseStartLQ": 1614499304836,
-                    "timelapseEndLQ": 1630591357641
+                    "timelapseEndLQ": 1634515072722
                 },
                 "storage": {
-                    "used": 942745321472,
-                    "rate": 782.62045320754
+                    "used": 1113470271488,
+                    "rate": 770.827574739296
                 }
             }
         }
     },
-    "3.65256": {
-        "raw": "AQEBAAAAAHJ4nB3LQQqDQAxA0btk3YFoIom9gXTdA8RJBoSqRSwipXfvtLvPh/cGy/u0LnCF19NtD7jAEsf934PX7cRjz5lT4x0lxpGTGmkS8YZVesKCFc2rx+MWZxXZ5tisvunnu5ItLBRbakWRVBCxKMLnCwG5IzACAQEAAAAAaHicNcpLCoQwEAXAu7x1BBV1xmw9geMJQmhNQ2h/LYOId1cEt0Ud+HPPzShCXnmUTp0S7AEf3G0RNksLg36heSPxO2xZ5qnBFPbfM7+VwcqDuNhuLrLeoy5e6nQhGTTAJtXnPC8NIiTn",
-        "action": {
-            "action": "update",
-            "newUpdateId": "d34b94c4-1d53-40b4-8a38-77d1487930f0",
-            "modelKey": "camera",
-            "id": "4201f72dd2820333bf325eae"
-        },
-        "data": {
-            "wifiConnectionState": {
-                "channel": 104,
-                "frequency": 5520,
-                "phyRate": 86,
-                "signalQuality": 94,
-                "signalStrength": -67
-            }
-        }
-    },
-    "8.820336": {
-        "raw": "AQEBAAAAAHF4nB3LUQrCMAyA4bvk2UIxS9J6A/HZA7RLAgPtROZEZHdf2dvPD98fyrhMc4MLfF5aFoMTNPvej75q31SLJqYhVGINQ0YPiV0CZS7suUpi7Og5qz1u9uuire8+pgP7KO5UI1I+S8QkMUa0DNsOrgYifwIBAQAAAAE0eJxdkMtqhDAUht/lrB1MTmKi7rsoDF10Sjeli1SPY8BLMHHADr57jwztoqtA8n//JXdYQ/IjQa0KlJUVQmQwuJguRBPU0ihRVGiMLMoyg7jFROPz1M1Q36EJ63G4Gy3uSufZtQzIDFgS+CqtC9tqs2cw0jgv20Ps/OC+BjqkthLIrt1CR742Qmim5+QG5oSWaDTDMc2H/z/aKFsZ1IUolGbKx1dqtmbw0xXqzg2RGPTfLLSVsqqqpLUoDdtvgS+hb1vIYI10dNbWWo1ojRFcp6WbbyhC/XGHcW6Jy8DlreSfeX8RAvGET2cpEX4D+EUWRiGiOAJ6ckPqeWxaVto/eUAaQxf/1ceiNKb8W4sG5THjUUhpy0bBpZ6j85tb8jmkfJ18509hmRM1KWdT2Pf9B79/haw=",
-        "action": {
-            "action": "update",
-            "newUpdateId": "5bad8654-b56d-493f-86f7-596a6f9b7863",
-            "modelKey": "nvr",
-            "id": "83326ffaec17a42a913196c7"
-        },
-        "data": {
-            "uptime": 352197000,
-            "lastSeen": 1630592661588,
-            "systemInfo": {
-                "cpu": {
-                    "averageLoad": 11,
-                    "temperature": 46
-                },
-                "memory": {
-                    "available": 1179028,
-                    "free": 346004,
-                    "total": 4041264
-                },
-                "storage": {
-                    "available": 6379624505344,
-                    "isRecycling": false,
-                    "size": 7937399177216,
-                    "type": "hdd",
-                    "used": 1477742276608,
-                    "devices": [
-                        {
-                            "model": "ST8000VN0022-2EL112",
-                            "size": 8001563222016,
-                            "healthy": true
-                        }
-                    ]
-                },
-                "tmpfs": {
-                    "available": 258668,
-                    "total": 262144,
-                    "used": 3476,
-                    "path": "/var/opt/unifi-protect/tmp"
-                }
-            }
-        }
-    },
-    "13.510968": {
-        "raw": "AQEBAAAAAHR4nB3LQQrCMBBA0bvM2sCkaTNTbyCuPcA0M9FAbV2kiJTe3eju8+HtIKmWdYEzbC+VanCCxd63f1+0bZ2IefSTS4ze9SmKk9B3jiTkJEMwpqGh56o2X+3TxFzuj9pW+fHoceSMhpi9GgYmxEidwfEFA54jbwIBAQAAAABFeJyrVsosDsgs8s0vyczPc0ktSU0uSU1RskpLzClO1VHKSSwugUgpWRmaGRuYWhqZmVoamhvqALW5JBZlQ1XWAgB8aRev",
-        "action": {
-            "action": "update",
-            "newUpdateId": "db78891b-c801-4c6a-a342-7a3fca53e875",
-            "modelKey": "light",
-            "id": "c32b358cac1307adcbc2a1b7"
-        },
-        "data": {
-            "isPirMotionDetected": false,
-            "lastMotion": 1630592659171,
-            "isDark": false
-        }
-    },
-    "13.539137": {
-        "raw": "AQEBAAAAAHN4nB3LTQrCQAxA4btk7UA60zaZ3kBce4BMkkLB/iAVEendO7p7PPi+ILpP6wIDvDaT3eECi7/v/75a3ZGbkrN0gYhLaFvnkJVSwNKb9k00s1LRvJo/bv6pQmX2p9Q3/Xw3qrg4Y0yRGBMTIo6McJwsDSP6AgEBAAAAAT14nG2QzU7DMBCE38XngBz/O0cQNzhUfQI32aYWxgm2A1RV3p1Nqpbfm7Wz3+x4TiQXVzJpTiR93B0L4JPXilotjVUVKZdhLSyV2lphrKzIu9/7hWkPLkYIKFNRkX2C1wlieySNlIxWJPj4vB0BuqfdiB5xCqEi2ffRhc3kgi+4acVltC0JYl8OpLlReq7IzpUC6bjcGSG1EIvr4eLi8/3Bpd7HnjR7FzKgSwAYt/gdXCKdz+2A2doCHUGzN9/BsH4T2iF1yOFmKphcMUMpVZjYYJSr/BC7ReRUWqY4N5xWv9jHzUpjKdIKLg37SZ/lMy+NEQbb9C8Q3Jjh/9tX+fttwanhf9izeS2EtZwKw9VP+ut2zaVWosYGchnSWuCJTBlLweaZFpKzWugl+tqbNuxWMbqMqZZinudP0XinRg==",
-        "action": {
-            "action": "update",
-            "newUpdateId": "281b99a5-778b-44e8-9c73-0b6dc612dddb",
-            "modelKey": "camera",
-            "id": "4201f72dd2820333bf325eae"
-        },
-        "data": {
-            "stats": {
-                "rxBytes": 3160975896,
-                "txBytes": 149057994895,
-                "wifi": {
-                    "channel": 104,
-                    "frequency": 5520,
-                    "linkSpeedMbps": null,
-                    "signalQuality": 94,
-                    "signalStrength": -67
-                },
-                "battery": {
-                    "percentage": null,
-                    "isCharging": false,
-                    "sleepState": "disconnected"
-                },
-                "video": {
-                    "recordingStart": 1628000655284,
-                    "recordingEnd": 1630592633830,
-                    "recordingStartLQ": 1627995943582,
-                    "recordingEndLQ": 1630592658848,
-                    "timelapseStart": 1628000655284,
-                    "timelapseEnd": 1630592430838,
-                    "timelapseStartLQ": 1614499304836,
-                    "timelapseEndLQ": 1630591357641
-                },
-                "storage": {
-                    "used": 942745321472,
-                    "rate": 782.62045320754
-                }
-            }
-        }
-    },
-    "18.823446": {
-        "raw": "AQEBAAAAAHJ4nB3LSwoCMRBF0b3U2MBLxfzcgTh2AelUBRo0LdKtiLh3o7PLhfOmUtd56XSg7SZlVdpR1+f530cZG0FYJCTD8Nbsq51Msiwml4yAqtFxGui6iF5O+hqiP+5jzD/sW42t+QnOZ45wKQJwmunzBZEEIh4CAQEAAAABNnicXZBBa4QwEIX/y5zdbjKJiXrvobD00C29lB5SHdeAGjFxwS7+946UpbCnhOR9772ZGyxT8gNBpXJEYYUQGfQupjPRCJU0SuQlGivzosggrjHR8DK2Aaob1NOyH+5Ks7vQKbiGAfmEeQasmvg1LTM7a7NlMNAQ5vVP73zvvnva1aawmo3bmfYKSpuC81NIrmdOaIlGMxxT2CMeaKNsaVAzo3fKxzeq17r34wWq1vWRGPQ/LLSlsqospbUoDduvEz9C1zSQwRJpr62ttRqVVNpiBg1dfU0Rqs8bDKEhLgPn94KX8/EqBOIBn09SItwD+EfmRiFvcA/oyPWp42HTvND2xQOkYWrjQ33MC6n/p0WDUut7IS0E3yeXOo4+Xt18DFM6LqNv/WGaQ6I6HdkUtm37BeHWhi0=",
-        "action": {
-            "action": "update",
-            "newUpdateId": "06d2dd68-2051-4c1b-812d-9a9060ce7328",
-            "modelKey": "nvr",
-            "id": "83326ffaec17a42a913196c7"
-        },
-        "data": {
-            "uptime": 352207000,
-            "lastSeen": 1630592671588,
-            "systemInfo": {
-                "cpu": {
-                    "averageLoad": 11.25,
-                    "temperature": 46
-                },
-                "memory": {
-                    "available": 1168748,
-                    "free": 334680,
-                    "total": 4041264
-                },
-                "storage": {
-                    "available": 6379624468480,
-                    "isRecycling": false,
-                    "size": 7937399177216,
-                    "type": "hdd",
-                    "used": 1477742313472,
-                    "devices": [
-                        {
-                            "model": "ST8000VN0022-2EL112",
-                            "size": 8001563222016,
-                            "healthy": true
-                        }
-                    ]
-                },
-                "tmpfs": {
-                    "available": 258140,
-                    "total": 262144,
-                    "used": 4004,
-                    "path": "/var/opt/unifi-protect/tmp"
-                }
-            }
-        }
-    },
-    "20.121716": {
-        "raw": "AQEBAAAAAHB4nBXLTQrCMBAG0LvM2sCkifnxBuK6B5hkvkBBUxdBEendjdsH70tSx7Z3upCo0ok63utTZeCq01gLYijN2Gq98S1FU3JVk0O1kpsDQprpsSvuN3zmwAt9TNr+PVjHCmF2srCyS5F5YX+m4weQNSJwAgEBAAAAALB4nFWOzQrCMBCE32XPPWwTk6Y568mrJ8XD0myh0D+SrSDiu7sigt6GmfmGeYDcV4YIZaIsexbu5LzMDBUUUQdi7S261njX7oJXt1uy9n1b/SInHSkQL7ByLssM17/0cONZ3rHaEwslEoL4eFbQ0cRZNbi+IyYOaKxpAtrQIGIfUH+sujPIoKtx3saxgq1w/uohKexri4kJ0ZLB9IEN7pzC05J4PPJdW/x+Ac8XCqdL9A==",
+    "16.307749": {
+        "raw": "AQEBAAAAAHR4nB3MTQoCMQxA4asMWVto+mOtNxDXHiBpEhjQjouiiHh36WwffO8L1Ma6dTgvQCJwWKDr+/YUGnqRWTWqVT5WF5qPLpWTOArZu0Kcaw3oydJkj030ftXPbl7ax4zrvrAcIsaIhZRLbciczLAE+P0BD4sjXwIBAQAAAAC3eJxVjrsOgzAMRX+lysyACQmPuZ26dmrVISRGQuKlYCohxL/X7lIx3nOvj7wr2mZU9UUtg4t0RUJPz2lElTAiRtyB1bkBY0Ebmwr3U5QbmyenuwerFuYvNWNcplG9z/3tgyP9BlIMSC44cpz3g7N3A0ZJypkKvLY5lKlJy2C1Sa0OpZWfZrZ11LG8voxr3zNaF4z/1AVRtCbToDUUDpui8tA0edtCkYlimAL2d9xkh/KSOr5lHU7W",
         "action": {
             "action": "add",
-            "newUpdateId": "0dbe76bf-1c14-4f87-b9cd-96c1a9f3ee68",
+            "newUpdateId": "e3ef9b69-2c03-478d-a250-7ab599210af4",
             "modelKey": "event",
-            "id": "15b50d513a0c9daca7f3ec37"
+            "id": "f52313317aeb79c1bb4ff172"
         },
         "data": {
             "type": "smartDetectZone",
-            "start": 1630592659486,
-            "score": 69,
+            "start": 1634515613560,
+            "score": 64,
             "smartDetectTypes": [
                 "person"
             ],
             "smartDetectEvents": [],
             "metadata": {},
-            "camera": "4201f72dd2820333bf325eae",
+            "camera": "a591c364180508d635063d86",
             "partition": null,
             "user": null,
-            "id": "15b50d513a0c9daca7f3ec37",
+            "id": "f52313317aeb79c1bb4ff172",
             "modelKey": "event"
         }
     },
-    "21.007472": {
-        "raw": "AQEBAAAAAHB4nBXLQQoCMQxA0btkbSFpOqn1BuLaA8RJhAHtuCgOIt7dzO7z4X1B57GsHU6gZnCA7tv1ZTr8bPHuUgtTnhKZeSpZNbXmc6pitclNJ7IW6LmaPy7+CeFv7yPWsnMhRnMlZI5APlbEjEXg9wdfviGyAgEBAAAAAKZ4nFWOuw6DMAxF/8Uzg0lKCJnbqWu3qkOUGAmJkCqYSgjx73VfQ7ejax/7bsDrncBByjzkCSqY2RcGVxuNTaeMwcZ2koZcZA2FksyPxBT4IuoM7nr7S08PmvgbJ2IfPXtw215B8ImKMDR98OTJotKqtahti4i9RXl/lzvDu4qblnGsYJmp/HiIIptaYyRfo9YCH1nhwYiccqTxTKts0asF7E8O9UUl",
+    "17.373128": {
+        "raw": "AQEBAAAAAHR4nB3MQQoCMQxA0asMWVuYThKbegNx7QEyTQoD2nFRFBHvLnX74f0PaOnb3uA0gZrBYYLmr+vDtPvZRi24VJSKwbzkQNlS0IU1kEXWlFk4xsHuu/nt4u9h/Omtj7j9F1QqsTgLroTJZI68Yj3O8P0BFZQjFAIBAQAAAACveJxVjj0LgzAQhv+KZO6QkI9G53bq2q10iMkJglGJZ0HE/967Di3d7nnu5eXdBW4ziKYSecJ+GsWpEguGgqSU08Yq65SpjWcfp8JRyXemzAUQIt6pYCH9eP776wtG/D4yYEgBA/F+EMeQoTCJYGsVtTPKSyt9ctpKp5N3PGWmtv6zq6nGdRhIrQuUH/WJK0zsjPVgvW6NPicvlW115yRX5CnBcIONc8CTxPEG/UpH8w==",
         "action": {
             "action": "add",
-            "newUpdateId": "f6743125-1dde-42aa-99ec-76d796ba51d9",
+            "newUpdateId": "c32f38f3-dec9-49d7-a25a-4d15a7958511",
             "modelKey": "event",
-            "id": "7e6fc079dcc8d998ea465d52"
+            "id": "4cf458e583b437d8015b3f60"
         },
         "data": {
             "type": "motion",
-            "start": 1630592660589,
+            "start": 1634515614948,
             "score": 0,
             "smartDetectTypes": [],
             "smartDetectEvents": [],
             "metadata": {},
-            "camera": "4201f72dd2820333bf325eae",
+            "camera": "a591c364180508d635063d86",
             "partition": null,
             "user": null,
-            "id": "7e6fc079dcc8d998ea465d52",
+            "id": "4cf458e583b437d8015b3f60",
             "modelKey": "event"
         }
     },
-    "21.272332": {
-        "raw": "AQEBAAAAAG94nBXLTQrCMBAG0LvM2sDkv/EG4roHmGQ+oaCpi6CI9O7G7YP3JWlj2zudSVTpRB3v9akycNFptgjcDc0UacGEiGhqysHUxZcSUq61YKbHrrhf8ZkDL/Qxafv3ZD0rxDFHy8p+ycyOQ6bjB3faIesCAQEAAAAArnicVY5NC4MwEET/y55zWGM1ac7tqdfeSg/BrEXQKMlaEPG/d/sF7W14zBtmBV4mAgepizdQkNknBlfUJVZ7XZsdGqOAYvhh1YvlZkwioqRBnAMxNXyWsQzucv2jxztF/uCB2AfPHty6KWj8QEkyVG3jyZNFXWpjsbQGEVuLcmmSnY67MYKLc98rmDOlb+7kGNRFiYG8RqwKDG9Z486IPIyB+hMt0qLnC9gekY9Ixg==",
-        "action": {
-            "action": "add",
-            "newUpdateId": "19ae2fec-9ac4-45e5-b674-b8399467bb9e",
-            "modelKey": "event",
-            "id": "cc73ee8c6262168178ba5582"
-        },
-        "data": {
-            "type": "ring",
-            "start": 1630592674077,
-            "end": 1630592675077,
-            "score": 0,
-            "smartDetectTypes": [],
-            "smartDetectEvents": [],
-            "metadata": {},
-            "camera": "4201f72dd2820333bf325eae",
-            "partition": null,
-            "user": null,
-            "id": "cc73ee8c6262168178ba5582",
-            "modelKey": "event"
-        }
-    },
-    "21.317018": {
-        "raw": "AQEBAAAAAHJ4nB3LQQrCMBBG4bvM2sB0kiYTbyCuPcAw+QsF24pURMS7G909HnxvMt/nbaUjPW7NdtCBVjwv/z61vi1LHbWV4DzUkPKgwaRqyJKQHNWie0fL1nA949WF24K79Tf//Di5waAsUYpy1MLMkzJ9vhMZI5oCAQEAAAAARnicq1bKSSwu8c0vyczPU7IyNDM2MLU0MjMzMLWw1FHKLIZIuKSWpCaXpKYoWZUUlabqgLUEZealIzSYmxiYm9cCALvXF8I=",
+    "17.800564": {
+        "raw": "AQEBAAAAAHR4nB2MQQrCQAxFr1KydmBCJ2HqDcS1B0iTLxRsK1IpIt5dpsv/Hu9/yXyb1oXOHb2fYRvo1NGC/XaMSzSRwXBxTaHGqUAiDe6cRrCYFtyZx5bNa+Bxxac1bjNe1uh0fJgM7L0WrllyDe0lax9V6fcHEqok+AIBAQAAAAC+eJx9kD8LgzAQxb9KyJwh8U9aOjt06VLH4hDMYQU1EE9BxO/e0yBoC4UQcvfevfuRmTemx4fD2nX8xpSOk1SlOtJKpYLxun9C6bytu4pU9ANszeDPAKFEsEclb43HXwFG6DBHgz31Zt7u+2aOzpqJXhG5zAjeVECVpmoFy8y0TrxiwdRVMEJSUrCLYHTLgkweSkq+u8Fvvigo/0+x0GC/gp4I5IlAfhEcE5I9ZwkE4YPy8g12aGCzF8sHwzJjFw==",
         "action": {
             "action": "update",
-            "newUpdateId": "a62958d7-c019-4618-a298-624e4ce9a3cc",
+            "newUpdateId": "0e1ec5c6-d6a1-4e5d-9cc1-be15a64ef11b",
             "modelKey": "camera",
-            "id": "4201f72dd2820333bf325eae"
+            "id": "a591c364180508d635063d86"
         },
         "data": {
-            "lastMotion": 1630592660589,
+            "lastMotion": 1634515626115,
+            "isRecording": true,
             "isMotionDetected": true,
-            "lastRing": 1630592674077
-        }
-    },
-    "21.331881": {
-        "raw": "AQEBAAAAAHJ4nB3LTQrCMBBA4bvM2sDkf+INxHUPEDsTDdTGRUSk9O6N7h4Pvg3y3Gtb4QzvF+cucIJVPtO/Lzy20ZQKISuffVCOSla3xFE5J469JcOzGejZWJarfIdY6v3Rx6o/HjQmKiiIRbOgpYgYohHYD/WnI0wCAQEAAAAAG3icq1bKLPbJTM8o8c9TskpLzClOrQUART0HEw==",
-        "action": {
-            "action": "update",
-            "newUpdateId": "2189f80d-5a56-48fa-b9d7-44e4d5382dc2",
-            "modelKey": "light",
-            "id": "c32b358cac1307adcbc2a1b7"
-        },
-        "data": {
-            "isLightOn": false
-        }
-    },
-    "21.463939": {
-        "raw": "AQEBAAAAAHF4nB2LQQrCMBAA/7JnA5tskqb+QDz7gG12hUKbeogVEf/u2tswzHyAa5+3Bmd4PoS7wgmavm4HX8S0cJoo5+C4SHSxeHKFUNw44j0krHXAZNO6iS5Xfduhu7Zuav7v2Vus7JHIAKkMiAFjhu8P28QiawIBAQAAAABGeJyrVipOzi9KVbIyNDDQUSrOTSwqcUktSU0ucS1LzSspVrKKVjIzNDZISU00MDBONDJIMTC2MDcwMDIwMVWKrQUAbKsSag==",
-        "action": {
-            "action": "update",
-            "newUpdateId": "da5b3662-a8d4-4813-830d-990f250cc705",
-            "modelKey": "event",
-            "id": "7e6fc079dcc8d998ea465d52"
-        },
-        "data": {
-            "score": 100,
-            "smartDetectEvents": [
-                "15b50d513a0c9daca7f3ec37"
-            ]
-        }
-    },
-    "21.464343": {
-        "raw": "AQEBAAAAAHF4nB3LTQrCQAxA4btk7UBMJzZ6A3HtAdL8QMG2IhUR8e5O3T0efB9QW8dlhhM8765rwA7meF3/ffa2jdwHoijCmqVW9HJEs3Lg5D1jTRqooWnxuF3ivQmd4qHtjZvnNA0NQeqoF+ykR8QUhO8PQ3MkDwIBAQAAAACVeJxVjTELwjAUhP/Lm2/I6zOJZnZwcXKUDEGDCLaBNBZKyX+3lgqV47bv7pvoFfpyTuWZOnJsROlDY6wY3oPiELtyKaH05CZqV2iiku5hJGdBYYg5PCI5zViejmGc4avRMBY7CxE0GpahlQfleJsfT+mdv5BALWE0c9UagfgK6tuQy0amNjL5c/2GGsxg5WutH6N0Pa4=",
-        "action": {
-            "action": "update",
-            "newUpdateId": "c2ddb22e-85af-440d-90cc-65f51504f2b2",
-            "modelKey": "camera",
-            "id": "4201f72dd2820333bf325eae"
-        },
-        "data": {
-            "lastMotion": 1630592673618,
+            "isSmartDetected": true,
             "eventStats": {
                 "motion": {
-                    "today": 7,
-                    "average": 51,
+                    "today": 2,
+                    "average": 6,
                     "lastDays": [
-                        65,
-                        67,
-                        47,
-                        33,
-                        25,
-                        71,
-                        50
+                        3,
+                        18,
+                        5,
+                        10,
+                        7,
+                        0,
+                        0
                     ],
                     "recentHours": [
-                        3,
-                        0,
-                        0,
-                        0,
-                        1,
                         2,
-                        1,
                         0,
                         0,
                         0,
                         0,
-                        3,
-                        3
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
                     ]
                 },
                 "smart": {
                     "today": 0,
-                    "average": 3,
+                    "average": 0,
                     "lastDays": [
                         0,
                         0,
                         0,
                         0,
-                        5,
-                        11,
-                        10
+                        4,
+                        0,
+                        0
                     ]
+                }
+            },
+            "recordingSchedules": []
+        }
+    },
+    "17.801192": {
+        "raw": "AQEBAAAAAHV4nB2MQQrCQAxFr1KydiCSTCfjDcR1D9BMUijo1MWoSPHuMl3+93h/h7m0datwGeD1tLk5nAao/pmOcbUucklOwhgyRgvMmYJikaBZlNzTaJJ69tjM7zf/9sbfXluH63HBZeEoHoWUKZngOSotI8LvD6hyJE8CAQEAAAAASHicq1YqTs4vSlWyUjA0MNBRUCrOTSwqcUktSU0ucS1LzSspBspEK6WZGhkbGhsbmiemJplbJhsmJZmkpRmaGynF1gIAl2YTqA==",
+        "action": {
+            "action": "update",
+            "newUpdateId": "9c7e3840-905d-4493-b0c8-b98b3ee76d87",
+            "modelKey": "event",
+            "id": "4cf458e583b437d8015b3f60"
+        },
+        "data": {
+            "score": 100,
+            "smartDetectEvents": [
+                "f52313317aeb79c1bb4ff172"
+            ]
+        }
+    },
+    "19.484908": {
+        "raw": "AQEBAAAAAHR4nB2MWwrCMBBFt1Lm20DmpcYdSL9dwDSTQkFTkaoUce+aft5zOPcDlpdprnDq4Hl3WwrsOqjlfdnG2ZvAMR1FIofBKQdhtzAksYBaVF3/CrFlt9nLtS9ra+rr0dC0HcQ9R8KMyehAiZmQRkEV+P4AQyMigAIBAQAAAAFBeJxlUcFugzAM/ZUq57VNTELI7jtMqnZYp12mHTIwBQkIIqESq/j32ajTDjtFfs/283u5iXlMbY/icQfgikJJKR92ovMxnREHglWeaaNMDoUqFFFxiQn756EORN5EOc7b6684+Quegq94yBwM9VLjSHCaJxbQxcGaleAe+zAt9zHfdv6rY96aQmtNfD0h13nhLPCWkHzH81IryDVviCmw2r8VWmZOaWfASs0+2viK5VJ27XAhtvZdRJ5uvzc9l9nMOWUtqJx1lpFh0VSVoHKOyFYy8g3KgtFO8TUVXtsSIzEfN9GHCvk0cX4rKLn3FykB9vB0UgrEnxJxlGAGAHJTatB3qeEE0jTj+smWUj/W8Z8hZaTcMvkNAXJQG3A/j4TU9mWjTw1fcrz66RjGdJyHtm734xQSlulI68W6rj8+LIvm",
+        "action": {
+            "action": "update",
+            "newUpdateId": "1f984403-bd2c-43da-b94a-15e55d544011",
+            "modelKey": "nvr",
+            "id": "063021c19a272933212f4154"
+        },
+        "data": {
+            "uptime": 229881000,
+            "lastSeen": 1634515628181,
+            "systemInfo": {
+                "cpu": {
+                    "averageLoad": 15.5,
+                    "temperature": 48.75
+                },
+                "memory": {
+                    "available": 758444,
+                    "free": 68972,
+                    "total": 4041264
+                },
+                "storage": {
+                    "available": 4039149527040,
+                    "isRecycling": false,
+                    "size": 7937399177216,
+                    "type": "hdd",
+                    "used": 3818217254912,
+                    "devices": [
+                        {
+                            "model": "ST8000VN0022-2EL112",
+                            "size": 8001563222016,
+                            "healthy": true
+                        }
+                    ]
+                },
+                "tmpfs": {
+                    "available": 150044,
+                    "total": 262144,
+                    "used": 112100,
+                    "path": "/var/opt/unifi-protect/tmp"
                 }
             }
         }
     },
-    "23.508865": {
-        "raw": "AQEBAAAAAHR4nB3LTQrCQAxA4btk7UAm6fzUG4hrD5BOUh2orYspIuLdHd09HnxvkNLqtsIR9odKMzjAas/Lv0/aN+nIE3txJAO7IZTihFJ2RjEEnko05o7um9pytlcXS73eWl/1x6PHMc9oiLNXQ84JMSYy+HwB8UcjMAIBAQAAAAAXeJyrVsosdkksylayKikqTa0FACrlBZU=",
+    "22.118903": {
+        "raw": "AQEBAAAAAHd4nB2MQQ6CMBBFr0JmbRNaplPqDYxrD9DODNoEgUWNIcS7m7L87+X9AxLXsi5w7eCzSaoKlw4W/T7OcZMmLAfylCYzSESDor2JwbMJTOhssk4stuy9is533Vszl+erNljOCxxzzqMG9FaVOBJPFNzQw+8PrY8kkAIBAQAAAAA8eJyrVsosDsgs8s0vyczPc0ktSU0uSU1RslIoKSpN1VFQykksLoHIAcUMzYxNTA1NzYzNDCwNagFbhRKr",
         "action": {
             "action": "update",
-            "newUpdateId": "2d93b31a-2a43-45cc-a278-e26553bc6e33",
+            "newUpdateId": "1c7656af-3d94-4de0-975c-7c6421a12d14",
             "modelKey": "light",
-            "id": "c32b358cac1307adcbc2a1b7"
+            "id": "48bbb8e7451ee6c96cf67230"
         },
         "data": {
-            "isDark": true
+            "isPirMotionDetected": true,
+            "lastMotion": 1634515636090
         }
     },
-    "23.54763": {
-        "raw": "AQEBAAAAAHN4nB3LUQqDMAyA4bvkeYWYWpvuBsNnDxDTFISpYziGiHe329vPD98Botu0LnCHzyvLZnCDxb7Dvx+57s5zGoUbN1KXXNtGcaLqnSLFQCmXJnBF85rt2dtehcpsb6lv+vlQVEyMkTxFRs8REQsjnBcYQSOTAgEBAAAAAUp4nG1Ry07DMBD8F58D8ttxjiBu9FD1C9xkm1oYJzgOUFX5dzYpLS1ws3Z2Hjs+kuCGvOqy7yKpmBZUWa6N0qosyJBdHkh1JOnz4ZABn4JpRkuqJCtIPg+ZtFQLLhXnpiAffudnTr13MUJAmMqC7BK8jRDrA6mU4rQgwceXTQ/QrLY9asQxBDT0bXRhPbrgM25aeR5tcoLY5j2p7rSZCrJ1OUM6zD49pBpidi2cVfzwuHep9bEl1c6FAVAlAPQbPAeXSOOHusNsdYaGoNi7b6BbzoS6Sw3ycDPluQ5eUko1Ji4xygV+is1VV5JSW/ziPq8XtrFWWSlUyW/ZJ/ibL6zFrrN/heD6Af73vsDX3lLQUvzhnsSZlNYKKkuhb9k/3kwooyWb5o/u0lLgkYwDloLNcyOV4EyaOfrSmyn5veZ0HlOj5DRNX/btrp0=",
+    "22.268605": {
+        "raw": "AQEBAAAAAHV4nB2MQQqDQAxFryJZO9CMmWHiDaTrHiCZZCFULUWRUnr3Mi7/e7z/Ban7vK0wdnC8THaHvoPVz8c1JmtiQExavATxrIE4atB6i4Eqmxpzyrm0bNnMn3f/tKbK4m9pdL4+UBMLZ0UTj8SJ0MzIB/j9Ae8JJW8CAQEAAAAAInicq1YqSk3OL0rJzEsPTs5ITSnNSS1WslKIjq0FAIa2Caw=",
         "action": {
             "action": "update",
-            "newUpdateId": "6389ba81-b269-447a-acc3-c027529df158",
+            "newUpdateId": "3115b8e8-ae6b-492b-bc02-4c9dbd995668",
             "modelKey": "camera",
-            "id": "4201f72dd2820333bf325eae"
+            "id": "1b59a96b1dae249541ddd4e3"
         },
         "data": {
-            "lastMotion": 1630592675658,
+            "recordingSchedules": []
+        }
+    },
+    "22.26915": {
+        "raw": "AQEBAAAAAHV4nB2MQQqDQAxFryJZd0Cnk0ntDcR1D5BMMiBULUURKb27jsv/Pu/9gNMyzBM8K1g/yovBrYLJttc1Oi0HBt94xexapORCJnUiKi6aZq5ZWiJftHFWe/e2FyfxaF8udLga2QzrB0VRTo0GxEh4Pwn8DxQ7JaMCAQEAAAAAInicq1YqSk3OL0rJzEsPTs5ITSnNSS1WslKIjq0FAIa2Caw=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "54212d5f-957c-4f7d-bbdb-6edfa0ab9772",
+            "modelKey": "camera",
+            "id": "fee50876bdac1d4556753508"
+        },
+        "data": {
+            "recordingSchedules": []
+        }
+    },
+    "22.269855": {
+        "raw": "AQEBAAAAAHZ4nB2MQQqDMBBFryKzbsBJTJP0BsV1DzAz+QuhailKKcW7l7j87/H+j8S2aV3o1tH+qrKBLh0t+DzOca9NwIcEjuYgKm5AVFcsqzOfC1cu1xitZfNa8RzxbY3JjLc0Op0fIZWUVPuhSNbes2QE5iB0/AEG5SUxAgEBAAAAACJ4nKtWKkpNzi9KycxLD07OSE0pzUktVrJSiI6tBQCGtgms",
+        "action": {
+            "action": "update",
+            "newUpdateId": "e237e15c-eaba-4e5b-9c8b-c2891d19655c",
+            "modelKey": "camera",
+            "id": "37977bb049a8b021a8e3113a"
+        },
+        "data": {
+            "recordingSchedules": []
+        }
+    },
+    "22.272363": {
+        "raw": "AQEBAAAAAHR4nCWMQQrCQBAEvxLm7B6M2Z0dfyCefcDs9AQCJhFJEBH/HrI5dhXVP1Jbhnmia0PrC7o4nRqa/POo44ZdGLsnKymgmIRO2xREISGa9p2Dc2xrNs7w592/tdHR37rT4fjIfXaoFZTEWS4wRD6z0H8DS7cm3QIBAQAAAAAieJyrVipKTc4vSsnMSw9OzkhNKc1JLVayUoiOrQUAhrYJrA==",
+        "action": {
+            "action": "update",
+            "newUpdateId": "c7ee6cb6-dbc9-4a26-9ad9-5caf4ed7852e",
+            "modelKey": "camera",
+            "id": "c8f8edacbdb67893dcd57179"
+        },
+        "data": {
+            "recordingSchedules": []
+        }
+    },
+    "22.296302": {
+        "raw": "AQEBAAAAAHV4nB2MSwqDQBBEryK9zsD8x8kNxHUOUE53QIgfRAlBcvdkXFbVe3USyj4uM90bOlbGLnRraJb34wod18Ekq71poRAA5cszqlysV0kbyy7lgTVXbVpYXr18qlMwyYbajtdH+4fBAUNyMUI7YZtNyKDvD86vJL8CAQEAAAAAInicq1YqSk3OL0rJzEsPTs5ITSnNSS1WslKIjq0FAIa2Caw=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "1720418a-a5aa-4cf6-9c24-7012d379bd0d",
+            "modelKey": "camera",
+            "id": "8701ad5ab7366a03ed29159a"
+        },
+        "data": {
+            "recordingSchedules": []
+        }
+    },
+    "22.305884": {
+        "raw": "AQEBAAAAAHd4nB2MSwrDMAwFrxK0rsGWbdnpDULXPYBsKRBoPoSEUkrvXpzlm2HeF7ge07rAvYNzEz4Ubh0s+n5eY5AmCjsUDWgS+t6EcSTDktVgYRSbYiqltmxeRV8P/bSm8qw7NzpdHxx7Vz0Fl220WchHS14ywe8PAlwkzgIBAQAAAAA+eJyrVspJLC7xzS/JzM9TslIwNDM2MTU0NTM2MDUx1FFQKkpNzi9KycxLD07OSE0pzUktBiqKjq0FANrDEVw=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "ba12de42-7239-4ff6-ad8e-2ba2d0757bbc",
+            "modelKey": "camera",
+            "id": "a591c364180508d635063d86"
+        },
+        "data": {
+            "lastMotion": 1634515630541,
+            "recordingSchedules": []
+        }
+    },
+    "22.807454": {
+        "raw": "AQEBAAAAAHV4nB2MQQrCQAxFr1KydqDp1MnEG4hrD5BMUijYVqRFRLy7zCz/e7z/BSn7vK1w6eB4muwOpw5Wf9/buFoVxTWSTxwK0zmMKBhyKimYozLzYHFKNVs288fNP62RxV9S6dw+IjGRaj+yZO0HlOwRMQr8/v4MJRUCAQEAAAABR3icdZJLT4QwFIX/yoS1MX3Ql0uNO11MWBoXHbgDjbVgW9TJhP9ugRHGx+zod8499xGOmYey9ZVxdVE2UPUWQnazeXq+2mQh6jg+jpn/vD3ESeACYaQUSnJcYK4oRVIoyRL+MHszFZWNdg5s+na9tUnZe3jrwZWHFVnjXooOoHrcdWHFwdRO222vrYmjm6EFFtGDq2OTKBoS3ekYwR+mjh34ElzUNaxRJtw12tdpv8T22gYYoyxAV6T1RmNWmVC2adQyQpWNme+mgnZefDlO1D4mhDmlmGCmcM5psi6Ge1fNcs4QwYQK9EOe6h+2k4UIJnJCEBHoV8LJcMqQLB8zonkFq7sA/80gzg1nM2CGJZcY/6n/bnExYZ0B51RyJcQw/Qutn+96zPoAYx/CCCWKEsnzaY/5mkSKayokZVxSnm40DMMXxFG2kA==",
+        "action": {
+            "action": "update",
+            "newUpdateId": "ceb37ef9-c975-41a1-86c6-de1b9992d3f6",
+            "modelKey": "camera",
+            "id": "37977bb049a8b021a8e3113a"
+        },
+        "data": {
+            "recordingSchedules": [],
             "stats": {
-                "rxBytes": 3161080541,
-                "txBytes": 149063245227,
+                "rxBytes": 67010990,
+                "txBytes": 4933087985,
                 "wifi": {
-                    "channel": 104,
-                    "frequency": 5520,
+                    "channel": null,
+                    "frequency": null,
                     "linkSpeedMbps": null,
-                    "signalQuality": 94,
-                    "signalStrength": -67
+                    "signalQuality": 50,
+                    "signalStrength": 0
                 },
                 "battery": {
                     "percentage": null,
@@ -583,44 +983,414 @@
                     "sleepState": "disconnected"
                 },
                 "video": {
-                    "recordingStart": 1628000655284,
-                    "recordingEnd": 1630592674009,
-                    "recordingStartLQ": 1627995943582,
-                    "recordingEndLQ": 1630592673998,
-                    "timelapseStart": 1628000655284,
-                    "timelapseEnd": 1630592430838,
-                    "timelapseStartLQ": 1614499304836,
-                    "timelapseEndLQ": 1630591357641
+                    "recordingStart": 1633121591463,
+                    "recordingEnd": 1634502123703,
+                    "recordingStartLQ": 1627574220270,
+                    "recordingEndLQ": 1634502128543,
+                    "timelapseStart": 1633121591467,
+                    "timelapseEnd": 1634515186811,
+                    "timelapseStartLQ": 1633121591467,
+                    "timelapseEndLQ": 1634514386977
                 },
                 "storage": {
-                    "used": 942745321472,
-                    "rate": 782.62045320754
+                    "used": 252329328640,
+                    "rate": 287.378356836463
                 }
             }
         }
     },
-    "27.632452": {
-        "raw": "AQEBAAAAAHJ4nB3LQQrCMBBG4bvM2sA0qcngDcS1B/gzM4GCbUUqIuLdTd09Hnwfgm7TutCJnnfD5nSgxV/Xf5+tb8sJDMTQhjyGUVRDHYoFrRa55uaQHc2r+e3i7y4Usz/Q37T7Y1M4XDimWISTFGZuwvT9AWq2JMsCAQEAAAAAJHicq1bKSSwu8c0vyczPU7IyNDM2MLU0MrMwszQwqAUAha0ISA==",
+    "22.811005": {
+        "raw": "AQEBAAAAAHV4nB2MQQrCQBAEvxLm7EJmM8nu+APx7AMm6RECJhGJiIh/191jV1P1IZv2eVvp2NDzDtudDg2t/rrUcUI5Jo5q2iIgDghiHEM2vYacYYmTSpfaoi0b/Hb2d3Vs8YcVOtcGj/2/MYwM8yjaCwMQ7+j7A9cGJQsCAQEAAAABRnicbVLPT8MgFP5Xlp6NgUeB1qPGmx6WHo0H1r61RKQVqLos/d+FdtmazRt8v/jeC8fMYd27Rtu2qjtsRoM+e9i8vd9tMh9USJdj5n4fD2EmRMGLUhAZ6XAGeQ6c8YJwEuEfvdezqe6UtWji2Y7GRGbv8GtEWx8ukNH2oxoQm9fd4C+w161VZjsqo0NSz8ELWAWHtg1dRMkU0Z0KAd1hfnFAV6MNqsVLlPZPnXJtnC9ie2U8piiDOFRxvCTMGu3rPlatAzZZyvzWDfbL4OflBOVChKhgjAKVVMhSROlZ8Gybhc45BVkAA1jTs/9lO0tAcskEACnLq4ST4JQhoUiCoD/RqMHjPx0kWQvWHTgUQhT0xn/TgV8lrDrkJKdlSaf5L/Ru2esxGz2mdxjIvKTABYPUwi3bFJTdM8IIz6Ob5TBN0x/tNbaR",
         "action": {
             "action": "update",
-            "newUpdateId": "d63a0aa2-f164-48cc-b17d-cbd20b6fea8e",
+            "newUpdateId": "c129a90d-d26d-4a12-8a9f-88da71794370",
             "modelKey": "camera",
-            "id": "4201f72dd2820333bf325eae"
+            "id": "1b59a96b1dae249541ddd4e3"
         },
         "data": {
-            "lastMotion": 1630592686900
+            "recordingSchedules": [],
+            "stats": {
+                "rxBytes": 68589607,
+                "txBytes": 5425358050,
+                "wifi": {
+                    "channel": null,
+                    "frequency": null,
+                    "linkSpeedMbps": null,
+                    "signalQuality": 50,
+                    "signalStrength": 0
+                },
+                "battery": {
+                    "percentage": null,
+                    "isCharging": false,
+                    "sleepState": "disconnected"
+                },
+                "video": {
+                    "recordingStart": 1633121716796,
+                    "recordingEnd": 1634512782322,
+                    "recordingStartLQ": 1627573622099,
+                    "recordingEndLQ": 1634512787289,
+                    "timelapseStart": 1633121716770,
+                    "timelapseEnd": 1634515286681,
+                    "timelapseStartLQ": 1627573622095,
+                    "timelapseEndLQ": 1634514041991
+                },
+                "storage": {
+                    "used": 327491256320,
+                    "rate": 613.303054404342
+                }
+            }
         }
     },
-    "27.665668": {
-        "raw": "AQEBAAAAAHF4nB3LQQoCMQxG4btkbSFtMu3oDcS1B/hpMjCgHRdVEfHuVnePB9+bUPu6NTrQ/WboTjtq/jz/+2hjxzglRV1CWgRBSy5hrxkBXgWuxeosA10388vJX0P4w1sfa/3xHIXNwSxIbCxzYU6sE32+CYQjVgIBAQAAAAAdeJyrVkrNS1GyMjQzNjC1NDKzMLM0MKgFAD3lBVU=",
+    "22.81605": {
+        "raw": "AQEBAAAAAHZ4nB2MQQrCMBBFr1JmbcB0MonxBtK1B5jMTKBgW5EWKeLdNV3+93nvAyzruMxw7WB7Kq8Gpw5me9+PcdN2YJaEPUaHKN6FrNUxKTsKtfhYUu65Nm1a1B6D7c0RnuzFjY5Ho5rR+ZJiURavgSgmwj+B7w/m3iUQAgEBAAAAAUF4nG1SPU/DMBT8K5VnhOLPOIxFbDBUGRGDm7wmFsYJtgNUVf47dlIlbWGz7+6d7518Qg6qztXaNmXVQj0Y8Ohh8/p2t0E+qJAuJ+R+tscwEbIoMC8ojnRYwDzHmciFKGSEv/VBT0NVq6wFE892MCYyBwefA9jquEJG2/eyB6hf9r1fYa8bq8xuUEaHpObZApbBgW1CG9FsjOhehQDuOL3Yg6vABtXAaqX9Y6tcE/eL2EEZD8nKAPRlXC8JUa191cWoVYAaJc8vXUM3L76UE5QLEcKCUkwwl0zIFGoRPNl6phnHXJCccn5JT/PPu0lCcp7lXBa5uHU4C1aPIvWsP8Co3sM/Ga4FVxmwJFTQP/O3GQi7cbjIwGhBqCTj9Bc6N/d6QoOH6R0cpwnBlJ4XmevEFNN7ziRjTBDK5DiOv8oAtu8=",
         "action": {
             "action": "update",
-            "newUpdateId": "11524acf-2f3a-4767-946a-aec3ae47dc83",
-            "modelKey": "event",
-            "id": "15b50d513a0c9daca7f3ec37"
+            "newUpdateId": "39c73236-33c1-49df-a5da-54fb16b792af",
+            "modelKey": "camera",
+            "id": "fee50876bdac1d4556753508"
         },
         "data": {
-            "end": 1630592686900
+            "recordingSchedules": [],
+            "stats": {
+                "rxBytes": 89915931,
+                "txBytes": 7710676698,
+                "wifi": {
+                    "channel": null,
+                    "frequency": null,
+                    "linkSpeedMbps": null,
+                    "signalQuality": 50,
+                    "signalStrength": 0
+                },
+                "battery": {
+                    "percentage": null,
+                    "isCharging": false,
+                    "sleepState": "disconnected"
+                },
+                "video": {
+                    "recordingStart": 1633121584680,
+                    "recordingEnd": 1634515627355,
+                    "recordingStartLQ": 1627507589760,
+                    "recordingEndLQ": 1634515627359,
+                    "timelapseStart": 1633121584659,
+                    "timelapseEnd": 1634515182363,
+                    "timelapseStartLQ": 1627507589724,
+                    "timelapseEndLQ": 1634514392382
+                },
+                "storage": {
+                    "used": 1197222133760,
+                    "rate": 1313.54844462348
+                }
+            }
+        }
+    },
+    "22.817957": {
+        "raw": "AQEBAAAAAHV4nB2MSwrCQBBErxJ67cB8kxlvIFl7gJrpDgRMIhIRCd5dOpuCqserg9D2eVvp2tH7ydiFLh2t8rmf5cYKhF0JGd6kEGFi89HkyWrA1ea5Tamqtmwsj1G+6jQs8oKu8/mRB+vACXUIfQ8bhH1xqYB+f/ifJVcCAQEAAAABSHicZVLLboMwEPyViHNVGfzCPbbqrT1EHKseHNiAVddQ27SNIv69a4hImoiLmZkd74x8zDzUvW+Ma6u6g2a0ELKHzdv73SYLUcf0c8z87+MhzkROSs6lKjnycUURyZVQgkiEf8zezFN1p50Di2c3WovM3sPXCK4+nCFr3Ec1ADSvuyGc4WBap+121NbEpOZkBavowbWxQ5RMiO50jOAP840D+Bpc1C2crUx46rRvMSBie20DJCsLMFSYLwmzxoS6x1XrCE2WPL9NA/2SfG0nah9TAYLSHMNKVTCK0lXw7JqFZjzHigR+l/Q8/7KdJYXkkinKGCNXDifBySMXPHlE8wlWDwFud8gVvxT824GJXEpxM3+1QynUlcPFDqxkQhVzzSH2fun1mI0B0j2UC1YWBT4IUaYcS5uMkntVKCqVoqQkbJqmP7VatzI=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "ed1938a2-534a-4c24-8f04-8fa1bc2dcf5b",
+            "modelKey": "camera",
+            "id": "8701ad5ab7366a03ed29159a"
+        },
+        "data": {
+            "recordingSchedules": [],
+            "stats": {
+                "rxBytes": 108557985,
+                "txBytes": 5791969607,
+                "wifi": {
+                    "channel": null,
+                    "frequency": null,
+                    "linkSpeedMbps": null,
+                    "signalQuality": 50,
+                    "signalStrength": 0
+                },
+                "battery": {
+                    "percentage": null,
+                    "isCharging": false,
+                    "sleepState": "disconnected"
+                },
+                "video": {
+                    "recordingStart": 1633119679243,
+                    "recordingEnd": 1634515576767,
+                    "recordingStartLQ": 1627574934440,
+                    "recordingEndLQ": 1634515571657,
+                    "timelapseStart": 1633119679195,
+                    "timelapseEnd": 1634515461776,
+                    "timelapseStartLQ": 1627574934869,
+                    "timelapseEndLQ": 1634514846920
+                },
+                "storage": {
+                    "used": 356482285568,
+                    "rate": 430.929379930804
+                }
+            }
+        }
+    },
+    "22.823484": {
+        "raw": "AQEBAAAAAHZ4nB2MWwrCQAxFt1Ly7cA4r0zcgfjtAjJJCgXbirSIiHuX6ec9h3O/wLJN6wKXAfan8mZwGmCx9/0YV+2CEmYco3clN3EpZnIUQ3BkyYdQxNTXns2r2uNmn94Iz/biTqfjQ+pYTVmatoKVoopmPCPB7w+ymyT5AgEBAAAAAU94nHVSy07DMBD8FZQzIHud+MERxA0OVY6Ig5tsEwvjBMcBqir/jp3QUIq42TOzsztrHzKPVedr45qyarEeLQ7ZzcXT8+VFNgQd0uWQ+c/bfZiJXDIKnEGkwwoCIUoqBVBE+MPszFxUtdo5tPFMCxaJnce3EV21j0gheNJa417KHrF+3PbJyI3WpsamcdpuRm1NSGpFVrAMHl0T2ohecTlFfKtDQL+fW/boK3RBN/hjZoa7VvsmBozYTtsBk5lF7MuYLwmz2gxVF2etAtZZ8nw3NXZL8nU7QfuQsnBGFbBCMaVShFVw7+qFzgtacBCCqlN6rn/YHB0okSCVPHc4ClaPlDyYV7S6H/C/GVbBrxmYAK7Yn/rvFjTPlWIkvic/czidgQgQANP8GTq/7PWQjQPOfShluSAgaC5lCrKsUwhyLUEUIhdMgeLTNH0BvXS1aA==",
+        "action": {
+            "action": "update",
+            "newUpdateId": "94757f30-65bc-4359-9322-9e40226ced08",
+            "modelKey": "camera",
+            "id": "c8f8edacbdb67893dcd57179"
+        },
+        "data": {
+            "recordingSchedules": [],
+            "stats": {
+                "rxBytes": 48312632,
+                "txBytes": 2009899225,
+                "wifi": {
+                    "channel": 153,
+                    "frequency": 5765,
+                    "linkSpeedMbps": null,
+                    "signalQuality": 90,
+                    "signalStrength": -68
+                },
+                "battery": {
+                    "percentage": null,
+                    "isCharging": false,
+                    "sleepState": "disconnected"
+                },
+                "video": {
+                    "recordingStart": 1631923593995,
+                    "recordingEnd": 1634515627719,
+                    "recordingStartLQ": 1631910828985,
+                    "recordingEndLQ": 1634515627710,
+                    "timelapseStart": 1631923593995,
+                    "timelapseEnd": 1634515372693,
+                    "timelapseStartLQ": 1614499304836,
+                    "timelapseEndLQ": 1634515072722
+                },
+                "storage": {
+                    "used": 1113470271488,
+                    "rate": 770.827574739296
+                }
+            }
+        }
+    },
+    "22.831556": {
+        "raw": "AQEBAAAAAHZ4nCWMQQrCMBBFr1JmbSBjJum0N5CuPcCYmUDBtlIqIsW7a+zyv897O0jexmWGvoHnQ2UzODUw2+v6Hxeth1BLyCguE6EjLt7dkIuLhOeOTKwIV21a1O6DvauTZbJVKh2PRuwwh/Tr+OhZU4g+BeUEny/GjyQUAgEBAAAAAUV4nHVSy07DMBD8lSpnhPx2whHEDQ5VjoiDG28TC+ME2wGqKv+OndCUgrjZM7OzO2sfCw9N77Vxbd10oEcLobjZPD1fbYoQVcyXY+E/bw9xJkSJKoEYTXRcQYoJoZVkJU/wh9mbuajplHNg09mN1iZm7+FtBNcczpA17qUeAPTjbghnOJjWKbsdlTUxqzlawTp6cG3sEoqmhO5UjOAPc8cBfAMuqhbOVibcdcq3KV/C9soGyFYWYKhTvCwstAlNn0ZtIugie74bDf0SfF1OVD4mCAuKK0J5Rasqp10F904vNOOYCyIpv6Dn+oftIkFMSCyRkOiXw0lw8mBZEM0rWDUE+G+GVXAxA5eSCvyn/rsFkRyVgqESoV8OP2dYPKb5L/R+2euxGAPkPpzlVxcEYzLnWLZJpbzmoiwJq0hJsJim6Qvpx7aw",
+        "action": {
+            "action": "update",
+            "newUpdateId": "a474181a-c441-48f0-b18f-541294eaefa8",
+            "modelKey": "camera",
+            "id": "a591c364180508d635063d86"
+        },
+        "data": {
+            "recordingSchedules": [],
+            "stats": {
+                "rxBytes": 68096043,
+                "txBytes": 3122397485,
+                "wifi": {
+                    "channel": null,
+                    "frequency": null,
+                    "linkSpeedMbps": null,
+                    "signalQuality": 50,
+                    "signalStrength": 0
+                },
+                "battery": {
+                    "percentage": null,
+                    "isCharging": false,
+                    "sleepState": "disconnected"
+                },
+                "video": {
+                    "recordingStart": 1631923593995,
+                    "recordingEnd": 1634515627355,
+                    "recordingStartLQ": 1630467170670,
+                    "recordingEndLQ": 1634515627340,
+                    "timelapseStart": 1631923593995,
+                    "timelapseEnd": 1634515577361,
+                    "timelapseStartLQ": 1627508640800,
+                    "timelapseEndLQ": 1634515577361
+                },
+                "storage": {
+                    "used": 542239621120,
+                    "rate": 377.568824928216
+                }
+            }
+        }
+    },
+    "22.907564": {
+        "raw": "AQEBAAAAAHN4nB3MQQrCMBBG4auUWRvomNE03kC69gCT+adQ0NRFUKR4d4nbB9/bSa2tW6XLQArQYaDq79sT2vyKXhdDyRAJzKxBikvIEhGSiIqd1XWaOnts8Pvsn2785bX1uP4XJcfIYDVEHJEKJ9hpHBf6/gA+gSRBAgEBAAAAALd4nFWOuw6DMAxFf6XKzEAIJMDcTl07teoQYiMh8VIwlRDi32t3qRjvuddH3hVtM6r6opbBR7oiYaDnNKJKGBEj7rQ1eaELm6VZngoPU5Qba5PT3YNVC/OXmjEu06je5/72wZF+AykGJA+ePOf94Bz8gFGSCmVbIvjQQGNdWRkIUDjtKvlpZltHHcvry7j2PaN1wfhPHYiiqYzRoH0AAxm4RjsIRZq2ohgmwP6Om+xQXlLHFxZBULs=",
+        "action": {
+            "action": "add",
+            "newUpdateId": "fcdb9d44-111a-4be4-943d-744a4c6aea88",
+            "modelKey": "event",
+            "id": "b9331d1acd3d2d7b17dc500f"
+        },
+        "data": {
+            "type": "smartDetectZone",
+            "start": 1634515620240,
+            "score": 66,
+            "smartDetectTypes": [
+                "person"
+            ],
+            "smartDetectEvents": [],
+            "metadata": {},
+            "camera": "c8f8edacbdb67893dcd57179",
+            "partition": null,
+            "user": null,
+            "id": "b9331d1acd3d2d7b17dc500f",
+            "modelKey": "event"
+        }
+    },
+    "25.821098": {
+        "raw": "AQEBAAAAAHZ4nB2MWwrCQAxFt1Ly7UDmlZlxB+K3CwhJBgq2FamIiHuX6ec9h3O/wLLP2wrnCV4P5d3gNMFq79sxLjpEwIhiGlzvpbtEnB2TNVdQUsAemhY/smVTu1/tMxrhxZ486Hx8cG5eIiVfMWNVihkpaiX4/QHgXCRFAgEBAAAAAGB4nKtWykksLvHNL8nMz1OyUjA0MzYxNTQ1MzE0NLHQUVDKLA7OTSwqcUktSU0uSU0BqkhLzClOBcoUpSbnF6Vk5qUHJ2ekppTmpBYDJaNjwXqCYHJAoZKi0tRaAIAMIX4=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "2030ced2-ff7f-46a5-a6e9-70c420f29d71",
+            "modelKey": "camera",
+            "id": "a591c364180508d635063d86"
+        },
+        "data": {
+            "lastMotion": 1634515641148,
+            "isSmartDetected": false,
+            "recordingSchedules": [],
+            "isRecording": true
+        }
+    },
+    "25.825609": {
+        "raw": "AQEBAAAAAHZ4nB2MSw7CMAwFr1J5TSSchHy4AWLNAeLYlipByiIFIcTdabp88zTzhVL7vDQ4T7A+uXSBwwRN3rd9XHgcFJFtCGIqkhrvVQ0lfzQ+V045JMUYhvZYWO5X+QxHXtL6gPOe0JN16BzGIhTz1qGtgtHC7w/M9yT8AgEBAAAAACp4nKtWSs1LUbJSMDQzNjE1NDUzMTQ0sdBRUCpOzi9KBYpbmNUCAJ4yCOM=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "b71d266e-c1bf-44ff-b840-49cd8968f176",
+            "modelKey": "event",
+            "id": "f52313317aeb79c1bb4ff172"
+        },
+        "data": {
+            "end": 1634515641148,
+            "score": 86
+        }
+    },
+    "26.392258": {
+        "raw": "AQEBAAAAAHR4nB2NSwrCMBQAr1Le2kDeS1MTb1Bce4C8j1CwaRdBKeLdNW4HZuYNRdqyVbgMUFThNEC1123X0mzWTidLPnMSp4HIjTEHxyLeoREGEdVI0rV1U3tc7eiOPa22Dpd/As9psugZceR859+noCQk+HwBHzwj3AIBAQAAAACveJxVjj0LgzAURf+KZO6QqPnQuZ26disdkrwnCEYlPgsi/vcmDi3d3jnvcrk7o21G1hYsTNRPI7sUbCEbKSmhqloKqcqac569n2KOnndImSsSenqkgiXp5+vf39440vcRkCxYson3I7G3AWMm5k1nEKx34JQ2TQUepBa6yVPm1Nafu9piXIchqXXB+KMecoXQRqHkTojaNZ2zAFZ4I8pcESbA4Y5bzmGexI4PoNhJ8Q==",
+        "action": {
+            "action": "add",
+            "newUpdateId": "6e809b8c-d322-4593-bcc0-1e213ccdd52c",
+            "modelKey": "event",
+            "id": "1786e50b114b9fbadda1c812"
+        },
+        "data": {
+            "type": "motion",
+            "start": 1634515624000,
+            "score": 0,
+            "smartDetectTypes": [],
+            "smartDetectEvents": [],
+            "metadata": {},
+            "camera": "c8f8edacbdb67893dcd57179",
+            "partition": null,
+            "user": null,
+            "id": "1786e50b114b9fbadda1c812",
+            "modelKey": "event"
+        }
+    },
+    "26.673018": {
+        "raw": "AQEBAAAAAHV4nB2MQQqDMBBFryKzNpCJ0U68QXHdA0ycCQg1ukhbpPTuJVn+93j/C7yW7cgwd/A6hYtC30HWz6ONu1QxKDkSdIZERuNtIsMJvQkUJE2Ds4ot2w/R56JXbfStuVS4tQu80aSjjYg+hhRZhHEldPD7A7cXJO8CAQEAAAAAO3icq1Yqzk0sKnFJLUlNLnEtS80rKVayUohWSrI0NjZMMUxMTjFOMUoxTzI0T0k2NTBIU4qtBQDFOBBn",
+        "action": {
+            "action": "update",
+            "newUpdateId": "3e828d12-8dd5-40f8-af14-989df6320e1e",
+            "modelKey": "event",
+            "id": "1786e50b114b9fbadda1c812"
+        },
+        "data": {
+            "smartDetectEvents": [
+                "b9331d1acd3d2d7b17dc500f"
+            ]
+        }
+    },
+    "26.722782": {
+        "raw": "AQEBAAAAAHV4nB2MWwrCMBBFt1Lm20BqJ53EHYjfLmBegYJtRVpExL1L+nnP4dwvsG7TusClg/1pvDmcOlj8fT/G1ZpwsiJUMNQaJeDQW2BJGBKeozCj+RhbNq/mj5t/WqM8+4sbnY4PzTW7sYrJSLkMppaopwK/PxXYJjICAQEAAAAA13icZVA9j4MwDP0rKDNDA0mgnTt06XKMJ4YIrBapJVIwSBXiv9+L2w69Spbl5H34yau6+YnPgYcwqkOmXWmstq602lV5pobpCR2JqWPqQeE4kyDN3Uf+BmihkRv2POFvVfe39ao49P6RlpgCPL9Q9BeSpRbvlOPoH0n1qyuXZ7ouUtujVSAURY3J7vLMuhb8SB0WncIcRWIAQoTQmHZSJUTStQwo025QTin4R6LyM4/5F8e8zGvxR2l4uXbbnjFC7Ifx0nRX6ucbiaKVC/28sdd1tj+KvGd8",
+        "action": {
+            "action": "update",
+            "newUpdateId": "e7d9b794-ff0b-431d-ab54-5420baa4de60",
+            "modelKey": "camera",
+            "id": "c8f8edacbdb67893dcd57179"
+        },
+        "data": {
+            "lastMotion": 1634515635167,
+            "isMotionDetected": true,
+            "isSmartDetected": true,
+            "eventStats": {
+                "motion": {
+                    "today": 142,
+                    "average": 165,
+                    "lastDays": [
+                        176,
+                        182,
+                        189,
+                        175,
+                        228,
+                        150,
+                        56
+                    ],
+                    "recentHours": [
+                        4,
+                        16,
+                        7,
+                        4,
+                        0,
+                        0,
+                        3,
+                        2,
+                        3,
+                        1,
+                        2,
+                        2,
+                        4
+                    ]
+                },
+                "smart": {
+                    "today": 3,
+                    "average": 14,
+                    "lastDays": [
+                        44,
+                        16,
+                        8,
+                        7,
+                        7,
+                        12,
+                        6
+                    ]
+                }
+            },
+            "recordingSchedules": [],
+            "isRecording": true
+        }
+    },
+    "27.230291": {
+        "raw": "AQEBAAAAAHN4nB3MQQrCMBBG4auUWRtIJ5NM4w3EtQdIOv+ioKmLYBHx7hK3D773obL2bW90nqiY0WmihuP2tNJxsVEjR17WII4j1Eny0WVUcaYKXzVJUgz22A33K97D4IXWR9z+C1jmaksImlW8eDPReTam7w/foyKHAgEBAAAAALZ4nFWOzQ6CMBCEX4X07IFSoNSznrx6Mx5KdzUkUEi7mBDCu7vVxJ/bzrczk1kFLROKfSZC5+9il4lINhADWauyklWtKpMb5ujhl9ZvGt0YUjxP98DJAxI6OnNpZHy5/vPjAz19HgOSBUuW9bqxdnbAkJRwza1BsK6FttaNUeCg0lKbNHDito660bPRz33PaI4YvqpLQwWCKVpolNJGl3mZA5RaSihSxTAC9idcXr40SWxPwFlNaA==",
+        "action": {
+            "action": "add",
+            "newUpdateId": "52528c34-25e7-4605-9eb4-d77e0b76467e",
+            "modelKey": "event",
+            "id": "ed92bd8337974040dd4711d2"
+        },
+        "data": {
+            "type": "ring",
+            "start": 1634515635909,
+            "end": 1634515636909,
+            "score": 0,
+            "smartDetectTypes": [],
+            "smartDetectEvents": [],
+            "metadata": {},
+            "camera": "c8f8edacbdb67893dcd57179",
+            "partition": null,
+            "user": null,
+            "id": "ed92bd8337974040dd4711d2",
+            "modelKey": "event"
+        }
+    },
+    "27.285939": {
+        "raw": "AQEBAAAAAHZ4nB2MQQrCMBBFr1JmbSC2SSbxBuLaA0zmT6FgW5EWEfHuki7/e7z/JdFtWhe6dLQ/IZvRqaPF3vdjXNEEPEOjZRek9y6kOrgiJq73MdXABq5jy+YV9rjZpzUqs72k0en40Dxmg2hFTZzLAEXkMxf6/QESbiY3AgEBAAAAAEh4nKtWykksLvHNL8nMz1OyUjA0MzYxNTQ1MzY1NjTXUQBLBmXmpaNIWRpYAqWKUpPzi1KAcsHJGakppTmpxUBF0bG1ANFwGDk=",
+        "action": {
+            "action": "update",
+            "newUpdateId": "d07dc5e8-4a20-46b3-9aea-2056b47ed7bf",
+            "modelKey": "camera",
+            "id": "c8f8edacbdb67893dcd57179"
+        },
+        "data": {
+            "lastMotion": 1634515635317,
+            "lastRing": 1634515635909,
+            "recordingSchedules": []
         }
     }
 }

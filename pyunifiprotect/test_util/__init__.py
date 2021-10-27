@@ -55,6 +55,7 @@ class SampleDataGenerator:
         loop.run_until_complete(self.async_generate())
 
     async def async_generate(self, close_session=True):
+        typer.echo(f"Output folder: {self.output_folder}")
         self.output_folder.mkdir(parents=True, exist_ok=True)
         self.client.ws_callback = self._handle_ws_message
 
@@ -79,6 +80,8 @@ class SampleDataGenerator:
             "bridge": len(data["bridges"]),
             "sensor": len(data["sensors"]),
             "doorlock": len(data["doorlocks"]),
+            "chime": len(data["chimes"]),
+            "schedule": len(data["schedules"]),
         }
 
         data = await self.client.api_request("liveviews")
@@ -273,6 +276,7 @@ class SampleDataGenerator:
             if self.anonymize:
                 packet.action_frame.data = anonymize_data(packet.action_frame.data)
                 packet.data_frame.data = anonymize_data(packet.data_frame.data)
+                packet.pack_frames()
 
             self._record_ws_messages[str(time_offset)] = {
                 "raw": packet.raw_base64,
