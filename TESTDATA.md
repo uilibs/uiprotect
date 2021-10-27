@@ -25,7 +25,7 @@ Use `./ufp-data` for your `-o` argument below.
 
 ## Generate Data
 
-Inside of the Python environment from above, run the following command. If you are using Home Assistant, use `-o /config/ufp-data` so it will out put data in your config folder to make it easy to get off of your HA instance.
+Inside of the Python environment from above, run the following command. If you are using Home Assistant, use `-o /config/ufp-data` so it will output data in your config folder to make it easy to get off of your HA instance.
 
 ```bash
 unifi-protect generate-sample-data -o /path/to/ufp-data --actual -w 300 -v -U your-unifi-protect-username -P your-unifi-protect-password -a ip-address-to-unifi-protect
