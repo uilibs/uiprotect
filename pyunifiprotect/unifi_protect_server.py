@@ -68,7 +68,6 @@ class BaseApiClient:
     _password: str
     _verify_ssl: bool
     _is_authenticated: bool = False
-    _is_unifi_os: Optional[bool] = None
     _websocket_failures: int = 0
     _websocket_error_start: Optional[datetime] = None
 
@@ -103,24 +102,12 @@ class BaseApiClient:
         self.req = session
 
     @property
-    def is_unifi_os(self):
-        return bool(self._is_unifi_os)
-
-    @is_unifi_os.setter
-    def is_unifi_os(self, value):
-        self._is_unifi_os = value
-
-    @property
     def api_path(self):
-        if self.is_unifi_os:
-            return "/proxy/protect/api/"
-        return "/api/"
+        return "/proxy/protect/api/"
 
     @property
     def ws_path(self):
-        if self.is_unifi_os:
-            return "/proxy/protect/ws/"
-        return "/ws/"
+        return "/proxy/protect/ws/"
 
     async def request(self, method, url, require_auth=False, auto_close=True, **kwargs):
         """Make a request to Unifi Protect"""
@@ -168,22 +155,12 @@ class BaseApiClient:
         raw=False,
         require_auth=True,
         raise_exception=True,
-        access_key=False,
         **kwargs,
     ):
         """Make a request to Unifi Protect API"""
 
         if require_auth:
             await self.ensure_authenticated()
-
-        if access_key:
-            params = kwargs.get("params", {})
-            params.update(
-                {
-                    "accessKey": await self._get_api_access_key(),
-                }
-            )
-            kwargs["params"] = params
 
         url = urljoin(self.api_path, url)
         response = await self.request(method, url, require_auth=False, auto_close=False, **kwargs)
@@ -211,22 +188,6 @@ class BaseApiClient:
             # re-raise exception
             raise
 
-    async def check_unifi_os(self):
-        """Check to see if the device is running unifi os."""
-        if self._is_unifi_os is not None:
-            return
-
-        response = await self.request("get", url="/", allow_redirects=False)
-        if response.status != 200:
-            return
-        if response.headers.get("x-csrf-token"):
-            self.is_unifi_os = True
-            self.headers = {"x-csrf-token": response.headers.get("x-csrf-token")}
-        else:
-            self.is_unifi_os = False
-
-        _LOGGER.debug("Unifi OS: %s", self.is_unifi_os)
-
     async def ensure_authenticated(self):
         """Ensure we are authenticated."""
         if self.is_authenticated() is False:
@@ -234,13 +195,9 @@ class BaseApiClient:
 
     async def authenticate(self):
         """Authenticate and get a token."""
-        await self.check_unifi_os()
 
-        if self.is_unifi_os:
-            url = "/api/auth/login"
-            self.req.cookie_jar.clear()
-        else:
-            url = "/api/auth"
+        url = "/api/auth/login"
+        self.req.cookie_jar.clear()
 
         auth = {
             "username": self._username,
@@ -249,19 +206,16 @@ class BaseApiClient:
         }
 
         response = await self.request("post", url=url, json=auth)
-        if self.is_unifi_os is True:
-            self.headers = {
-                "x-csrf-token": response.headers.get("x-csrf-token"),
-                "cookie": response.headers.get("set-cookie"),
-            }
-        else:
-            self.headers = {"Authorization": f"Bearer {response.headers.get('Authorization')}"}
+        self.headers = {
+            "x-csrf-token": response.headers.get("x-csrf-token"),
+            "cookie": response.headers.get("set-cookie"),
+        }
         self._is_authenticated = True
         _LOGGER.debug("Authenticated successfully!")
 
     def is_authenticated(self) -> bool:
         """Check to see if we are already authenticated."""
-        if self._is_authenticated is True and self.is_unifi_os is True:
+        if self._is_authenticated is True:
             # Check if token is expired.
             cookies = self.req.cookie_jar.filter_cookies(URL(self._base_url))
             token_cookie = cookies.get("TOKEN")
@@ -280,14 +234,6 @@ class BaseApiClient:
                 return False
 
         return self._is_authenticated
-
-    async def _get_api_access_key(self) -> str:
-        """get API Access Key."""
-        if self.is_unifi_os:
-            return ""
-
-        data = await self.api_request("auth/access-key", method="post", require_auth=False)
-        return data["accessKey"]
 
     async def async_connect_ws(self):
         """Connect the websocket."""
@@ -408,7 +354,7 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
             _LOGGER.debug("Skipping device update")
 
         time_since_websocket = current_time - self._last_websocket_check
-        if self.is_unifi_os and time_since_websocket > WEBSOCKET_CHECK_INTERVAL_SECONDS:
+        if time_since_websocket > WEBSOCKET_CHECK_INTERVAL_SECONDS:
             _LOGGER.debug("Checking websocket")
             self._last_websocket_check = current_time
             await self.async_connect_ws()
@@ -419,9 +365,7 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
             _LOGGER.debug("Skipping update since websocket is active")
             return self._processed_data if device_update else {}
 
-        if self.is_unifi_os:
-            self._log_websocket_failure()
-
+        self._log_websocket_failure()
         self._reset_device_events()
         updates = await self._get_events(lookback=10)
 
@@ -447,7 +391,6 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
             "server_version": nvr_data["version"],
             SERVER_ID: nvr_data["mac"],
             "server_model": nvr_data["type"],
-            "unifios": self.is_unifi_os,
         }
 
     async def _get_device_list(self, include_events) -> None:
@@ -620,7 +563,7 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
             "h": str(height),
             "w": str(width),
         }
-        return await self.api_request(f"thumbnails/{thumbnail_id}", params=params, raw=True, access_key=True)
+        return await self.api_request(f"thumbnails/{thumbnail_id}", params=params, raw=True)
 
     async def get_heatmap(self, camera_id: str) -> Optional[bytes]:
         """Returns the last recorded Heatmap, based on Camera ID."""
@@ -631,7 +574,7 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
         if heatmap_id is None:
             return None
 
-        return await self.api_request(f"heatmaps/{heatmap_id}", raw=True, access_key=True)
+        return await self.api_request(f"heatmaps/{heatmap_id}", raw=True)
 
     async def get_snapshot_image(
         self, camera_id: str, width: Optional[int] = None, height: Optional[int] = None
@@ -649,9 +592,7 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
             "force": "true",
             "w": image_width,
         }
-        return await self.api_request(
-            f"cameras/{camera_id}/snapshot", params=params, raise_exception=False, raw=True, access_key=True
-        )
+        return await self.api_request(f"cameras/{camera_id}/snapshot", params=params, raise_exception=False, raw=True)
 
     async def get_snapshot_image_direct(self, camera_id: str) -> bytes:
         """Returns a Snapshot image of a recording event.
