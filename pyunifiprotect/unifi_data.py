@@ -75,6 +75,7 @@ CAMERA_KEYS = {
     "isMotionDetected",
     "zoomPosition",
     "chimeDuration",
+    "privacyZones",
 }
 
 LIGHT_KEYS = {
