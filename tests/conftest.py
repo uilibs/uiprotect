@@ -10,7 +10,8 @@ from unittest.mock import AsyncMock, Mock
 import aiohttp
 import pytest
 
-from pyunifiprotect import UpvServer
+from pyunifiprotect import ProtectApiClient, UpvServer
+from pyunifiprotect.data import ModelType
 from tests.sample_data.constants import CONSTANTS
 
 UFP_SAMPLE_DIR = os.environ.get("UFP_SAMPLE_DIR")
@@ -88,7 +89,7 @@ MockDatetime.now.return_value = get_now()
 
 @pytest.fixture
 @pytest.mark.asyncio
-async def protect_client():
+async def old_protect_client():
     client = UpvServer(None, "127.0.0.1", 0, "username", "password")
     client.api_request = AsyncMock(side_effect=mock_api_request)
     client.ensure_authenticated = AsyncMock()
@@ -101,7 +102,9 @@ async def protect_client():
 
     await client.async_disconnect_ws()
     await client.req.close()
-    client.ws_task.cancel()
+
+    if client.ws_task is not None:
+        client.ws_task.cancel()
 
     # empty out websockets
     while client.ws_connection is not None and not client.ws_task.done():
@@ -109,35 +112,111 @@ async def protect_client():
 
 
 @pytest.fixture
-async def liveviews():
+@pytest.mark.asyncio
+async def protect_client():
+    client = ProtectApiClient("127.0.0.1", 0, "username", "password")
+    client.is_unifi_os = False
+    client.api_request = AsyncMock(side_effect=mock_api_request)
+    client.ensure_authenticated = AsyncMock()
+
+    await client.update(True)
+
+    yield client
+
+
+@pytest.fixture
+@pytest.mark.asyncio
+async def protect_client_ws():
+    client = ProtectApiClient("127.0.0.1", 0, "username", "password")
+    client.is_unifi_os = True
+    client.api_request = AsyncMock(side_effect=mock_api_request)
+    client.ensure_authenticated = AsyncMock()
+    client.ws_session = AsyncMock()
+    client.ws_session.ws_connect = AsyncMock(return_value=MockWebsocket())
+
+    await client.update(True)
+
+    yield client
+
+    await client.async_disconnect_ws()
+    await client.req.close()
+
+    if client.ws_task is not None:
+        client.ws_task.cancel()
+
+    # empty out websockets
+    while client.ws_connection is not None and not client.ws_task.done():
+        await asyncio.sleep(0.1)
+
+
+@pytest.fixture
+def liveviews():
     return read_json_file("sample_liveviews")
 
 
 @pytest.fixture
-async def viewport():
+def viewport():
     return read_json_file("sample_viewport")
 
 
 @pytest.fixture
-async def light():
+def light():
     return read_json_file("sample_light")
 
 
 @pytest.fixture
-async def camera():
+def camera():
     return read_json_file("sample_camera")
 
 
 @pytest.fixture
-async def ws_messages():
+def ws_messages():
     return read_json_file("sample_ws_messages")
 
 
 @pytest.fixture
-async def raw_events():
+def raw_events():
     return read_json_file("sample_raw_events")
+
+
+@pytest.fixture
+def bootstrap():
+    return read_json_file("sample_bootstrap")
 
 
 @pytest.fixture
 def now():
     return get_now()
+
+
+def compare_objs(obj_type, expected, actual):
+    # TODO: fields not supported yet
+    if obj_type == ModelType.CAMERA.value:
+        del expected["apMac"]
+        del expected["apRssi"]
+        del expected["elementInfo"]
+        del expected["lastPrivacyZonePositionId"]
+        del expected["recordingSchedules"]
+        del expected["smartDetectLines"]
+        del expected["lenses"]
+        del expected["featureFlags"]["mountPositions"]
+        del expected["featureFlags"]["focus"]
+        del expected["featureFlags"]["pan"]
+        del expected["featureFlags"]["tilt"]
+        del expected["featureFlags"]["zoom"]
+        del expected["ispSettings"]["mountPosition"]
+    elif obj_type == ModelType.USER.value:
+        del expected["settings"]
+        del expected["alertRules"]
+        del expected["notificationsV2"]
+        if expected["cloudAccount"] is not None:
+            del expected["cloudAccount"]["profileImg"]
+    elif obj_type == ModelType.EVENT.value:
+        del expected["metadata"]
+        del expected["partition"]
+
+    # sometimes uptime comes back as a str...
+    if "uptime" in expected:
+        expected["uptime"] = int(expected["uptime"])
+
+    assert expected == actual

@@ -1,3 +1,16 @@
+from pyunifiprotect.data.base import ProtectModel
+from pyunifiprotect.data.devices import Camera, Light, Viewer
+from pyunifiprotect.data.nvr import (
+    NVR,
+    Bootstrap,
+    CloudAccount,
+    Event,
+    Group,
+    Liveview,
+    NVRLocation,
+    User,
+    UserLocation,
+)
 from pyunifiprotect.data.types import (
     DoorbellMessageType,
     EventType,
@@ -18,15 +31,28 @@ from pyunifiprotect.data.websocket import (
 )
 
 __all__ = [
+    "Bootstrap",
+    "Camera",
+    "CloudAccount",
     "DoorbellMessageType",
+    "Event",
     "EventType",
     "FixSizeOrderedDict",
+    "Group",
+    "Light",
     "LightModeEnableType",
     "LightModeType",
+    "Liveview",
     "ModelType",
+    "NVR",
+    "NVRLocation",
+    "ProtectModel",
     "ProtectWSPayloadFormat",
     "SmartDetectObjectType",
     "StateType",
+    "User",
+    "UserLocation",
+    "Viewer",
     "WS_HEADER_SIZE",
     "WSJSONPacketFrame",
     "WSPacket",

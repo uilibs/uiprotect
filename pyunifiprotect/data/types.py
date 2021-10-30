@@ -2,6 +2,8 @@ from collections import OrderedDict
 import enum
 from typing import List, Optional
 
+from pydantic import ConstrainedDecimal, ConstrainedInt
+
 
 class FixSizeOrderedDict(OrderedDict):
     """A fixed size ordered dict."""
@@ -142,3 +144,20 @@ class RecordingMode(str, enum.Enum):
     ALWAYS = "always"
     NEVER = "never"
     DETECTIONS = "detections"
+
+
+class LEDLevel(ConstrainedInt):
+    ge = 1
+    le = 6
+
+
+class PercentInt(ConstrainedInt):
+    ge = 0
+    le = 100
+
+
+class Percent(ConstrainedDecimal):
+    ge = 0
+    le = 1
+    max_digits = 4
+    decimal_places = 3

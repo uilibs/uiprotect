@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import json as pjson
 import logging
 import time
-from typing import Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import urljoin
 from uuid import UUID
 
@@ -16,8 +16,15 @@ import jwt
 from yarl import URL
 
 from pyunifiprotect.const import SERVER_ID, SERVER_NAME
-from pyunifiprotect.data import ProtectWSPayloadFormat
-from pyunifiprotect.exceptions import NotAuthorized, NvrError
+from pyunifiprotect.data import (
+    Bootstrap,
+    Event,
+    EventType,
+    ProtectModel,
+    ProtectWSPayloadFormat,
+    WSPacket,
+)
+from pyunifiprotect.exceptions import BadRequest, NotAuthorized, NvrError
 from pyunifiprotect.unifi_data import (
     DEVICE_MODEL_LIGHT,
     EVENT_MOTION,
@@ -44,11 +51,13 @@ from pyunifiprotect.unifi_data import (
     sensor_event_from_ws_frames,
     sensor_update_from_ws_frames,
 )
-from pyunifiprotect.utils import get_response_reason
+from pyunifiprotect.utils import get_response_reason, to_js_time
 
 NEVER_RAN = -1000
 DEVICE_UPDATE_INTERVAL_SECONDS = 60
+DEVICE_UPDATE_INTERVAL = timedelta(seconds=DEVICE_UPDATE_INTERVAL_SECONDS)
 WEBSOCKET_CHECK_INTERVAL_SECONDS = 120
+WEBSOCKET_CHECK_INTERVAL = timedelta(seconds=WEBSOCKET_CHECK_INTERVAL_SECONDS)
 LIGHT_MODES = ["off", "motion", "always"]
 LIGHT_ENABLED = ["dark", "fulltime"]
 LIGHT_DURATIONS = [15000, 30000, 60000, 300000, 900000]
@@ -1057,3 +1066,143 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
     def _update_device(self, device_id, processed_update):
         """Update internal state of a device."""
         self._processed_data.setdefault(device_id, {}).update(processed_update)
+
+
+class ProtectApiClient(BaseApiClient):
+    """WIP new API Client class with real Python objects"""
+
+    _minimum_score: int
+    _bootstrap: Optional[Bootstrap] = None
+    _last_update: Optional[datetime] = None
+    _last_websocket_check: Optional[datetime] = None
+    _websocket_failures: int = 0
+
+    def __init__(self, *args, minimum_score: int = 0, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._minimum_score = minimum_score
+
+    async def update(self, force=False) -> Union[Bootstrap, List[Event]]:
+        now = datetime.now()
+
+        if force and self.ws_connection is not None:
+            self.disconnect_ws()
+            self._last_websocket_check = None
+
+        if (
+            self._bootstrap is None
+            or force
+            or self._last_update is None
+            or now - self._last_update > DEVICE_UPDATE_INTERVAL
+        ):
+            self._last_update = now
+            data = await self.api_request("bootstrap")
+            self._bootstrap = Bootstrap(**data, api=self)
+
+        if self._last_websocket_check is None or now - self._last_websocket_check > WEBSOCKET_CHECK_INTERVAL:
+            self._last_websocket_check = now
+            self.last_update_id = self._bootstrap.last_update_id
+            await self.async_connect_ws()
+
+        # If the websocket is connected/connecting
+        # we do not need to get events
+        if self.ws_connection or self._last_websocket_check == now:
+            _LOGGER.debug("Skipping update since websocket is active")
+            return self._bootstrap
+
+        self._log_websocket_failure()
+        events = await self.get_events(start=self._last_update, end=now)
+        for event in events:
+            self.bootstrap.process_event(event)
+
+        self._last_update = now
+        return events
+
+    def _process_ws_message(self, msg: aiohttp.WSMessage):
+        packet = WSPacket(msg.data)
+        self.bootstrap.process_ws_packet(packet)
+
+    @property
+    def bootstrap(self) -> Bootstrap:
+        if self._bootstrap is None:
+            raise BadRequest("Client not initalized, run `update` first")
+
+        return self._bootstrap
+
+    async def get_events_raw(
+        self,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        limit: Optional[int] = None,
+        camera_ids: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get list of events from Protect
+
+        :param start: start time for events
+        :param end: end time for events
+        :param limit: max number of events to return
+        :camera_ids: list of Cameras to get events for
+
+        If limit, start and end are not provided, it will default to all events in the last 24 hours.
+
+        If start is provided, then end or limit must be provided. If end is provided, then start or
+        limit must be provided. Otherwise, you will get a 400 error from Unifi Protect
+
+        Providing a list of Camera IDs will not prevent non-camera events from returning.
+        """
+
+        # if no parameters are passed in, default to all events from last 24 hours
+        if limit is None and start is None and end is None:
+            end = datetime.now() + timedelta(seconds=10)
+            start = end - timedelta(hours=24)
+
+        params: Dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+
+        if start is not None:
+            params["start"] = to_js_time(start)
+
+        if end is not None:
+            params["end"] = to_js_time(end)
+
+        if camera_ids is not None:
+            params["cameras"] = ",".join(camera_ids)
+
+        return await self.api_request("events", params=params)
+
+    async def get_events(
+        self,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        limit: Optional[int] = None,
+        camera_ids: Optional[List[str]] = None,
+    ) -> List[Event]:
+        """
+        Same as `get_events_raw`, except
+
+        * returns actual `Event` objects instead of raw Python dictionaries
+        * filers out non-device events
+        * filters out events with too low of a score
+        """
+
+        response = await self.get_events_raw(start=start, end=end, limit=limit, camera_ids=camera_ids)
+        events = []
+
+        for event_dict in response:
+            # ignore unknown events
+            if event_dict["type"] not in EventType.values():
+                _LOGGER.debug("Unknown event type: %s", event_dict["type"])
+                continue
+
+            event = ProtectModel.from_unifi_dict(event_dict, api=self)
+
+            # should never happen
+            if not isinstance(event, Event):
+                continue
+
+            if event.type.value in EventType.device_events() and event.score >= self._minimum_score:
+                events.append(event)
+
+        return events
