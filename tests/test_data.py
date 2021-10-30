@@ -3,10 +3,13 @@
 import base64
 from copy import deepcopy
 
+import pytest
+
 from pyunifiprotect.data import (
     Bootstrap,
     Camera,
     Event,
+    FixSizeOrderedDict,
     Light,
     ModelType,
     ProtectModel,
@@ -140,3 +143,37 @@ def test_bootstrap(bootstrap):
             compare_objs(expected["modelKey"], expected, actual)
 
     assert bootstrap == obj_dict
+
+
+def test_fix_order_size_dict_no_max():
+    d = FixSizeOrderedDict()
+    d["test"] = 1
+    d["test2"] = 2
+    d["test3"] = 3
+
+    del d["test2"]
+
+    assert d == {"test": 1, "test3": 3}
+
+
+def test_fix_order_size_dict_max():
+    d = FixSizeOrderedDict(max_size=1)
+    d["test"] = 1
+    d["test2"] = 2
+    d["test3"] = 3
+
+    with pytest.raises(KeyError):
+        del d["test2"]
+
+    assert d == {"test3": 3}
+
+
+def test_fix_order_size_dict_negative_max():
+    d = FixSizeOrderedDict(max_size=-1)
+    d["test"] = 1
+    d["test2"] = 2
+    d["test3"] = 3
+
+    del d["test2"]
+
+    assert d == {"test": 1, "test3": 3}
