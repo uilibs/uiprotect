@@ -832,6 +832,7 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
         # Update the Privacy Mode
         data = {"privacyZones": items}
         await self.api_request(f"cameras/{camera_id}", method="patch", json=data)
+        self._processed_data[camera_id]["privacy_on"] = mode
         return True
 
     async def _get_camera_detail(self, camera_id: str) -> dict:
