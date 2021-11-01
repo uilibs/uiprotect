@@ -493,7 +493,7 @@ def sensor_update_from_ws_frames(state_machine, action_json, data_json):
         return None, None
 
     _LOGGER.debug("Processing sensor: %s", sensor)
-    processed_sensor = process_light(None, sensor, True)
+    processed_sensor = process_sensor(None, sensor, True)
 
     return sensor_id, processed_sensor
 
