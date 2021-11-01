@@ -222,6 +222,11 @@ def process_sensor(server_id, sensor, include_events):
     humidity_value = stats["humidity"]["value"]
     temperature_value = stats["temperature"]["value"]
     battery_status = sensor["batteryStatus"]["percentage"]
+    bluetooth_signal = sensor["bluetoothConnectionState"]["signalStrength"]
+
+    # Get Binary Sensor Status
+    battery_low = sensor["batteryStatus"]["isLow"]
+    is_open = sensor["isOpened"]
 
     # Get Sensor Mode Settings
     alarm_enabled = sensor["alarmSettings"]["isEnabled"]
@@ -244,12 +249,15 @@ def process_sensor(server_id, sensor, include_events):
         "humidity_value": humidity_value,
         "temperature_value": temperature_value,
         "battery_status": battery_status,
+        "battery_low": battery_low,
+        "bluetooth_signal": bluetooth_signal,
         "alarm_enabled": alarm_enabled,
         "light_enabled": light_enabled,
         "motion_enabled": motion_enabled,
         "temperature_enabled": temperature_enabled,
         "humidity_enabled": humidity_enabled,
         "led_enabled": led_enabled,
+        "is_open": is_open,
     }
 
     if server_id is not None:
