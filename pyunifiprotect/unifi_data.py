@@ -630,29 +630,29 @@ def light_event_from_ws_frames(state_machine, action_json, data_json):
 def sensor_event_from_ws_frames(state_machine, action_json, data_json):
     """Create processed events from the sensor model."""
     # TODO: Add the events that can occur (Motion and Door Open/Close)
-    if "isPirMotionDetected" not in data_json and "lastMotion" not in data_json:
+    if "isMotionDetected" not in data_json and "motionDetectedAt" not in data_json:
         return None
 
-    light_id = action_json["id"]
+    sensor_id = action_json["id"]
     start_time = None
     event_length = 0
     event_on = False
-    _LOGGER.debug("Processed light event: %s", data_json)
+    _LOGGER.debug("Processed sensor event: %s", data_json)
 
-    last_motion = data_json.get("lastMotion")
-    is_motion_detected = data_json.get("isPirMotionDetected")
+    last_motion = data_json.get("motionDetectedAt")
+    is_motion_detected = data_json.get("isMotionDetected")
 
     if is_motion_detected is None:
-        start_time = state_machine.get_motion_detected_time(light_id)
+        start_time = state_machine.get_motion_detected_time(sensor_id)
         event_on = start_time is not None
     else:
         if is_motion_detected:
             event_on = True
             start_time = last_motion
-            state_machine.set_motion_detected_time(light_id, start_time)
+            state_machine.set_motion_detected_time(sensor_id, start_time)
         else:
-            start_time = state_machine.get_motion_detected_time(light_id)
-            state_machine.set_motion_detected_time(light_id, None)
+            start_time = state_machine.get_motion_detected_time(sensor_id)
+            state_machine.set_motion_detected_time(sensor_id, None)
             if last_motion is None:
                 last_motion = round(time.time() * 1000)
 
