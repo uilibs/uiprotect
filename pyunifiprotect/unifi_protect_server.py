@@ -955,7 +955,7 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
 
         model_key = action_json.get("modelKey")
 
-        if model_key not in ("event", "camera", "light"):
+        if model_key not in ("event", "camera", "light", "sensor"):
             return
 
         _LOGGER.debug("Action Frame: %s", action_json)
@@ -978,6 +978,10 @@ class UpvServer(BaseApiClient):  # pylint: disable=too-many-public-methods, too-
 
         if model_key == "light":
             self._process_light_ws_message(action_json, data_json)
+            return
+
+        if model_key == "sensor":
+            self._process_sensor_ws_message(action_json, data_json)
             return
 
         raise ValueError(f"Unexpected model key: {model_key}")
