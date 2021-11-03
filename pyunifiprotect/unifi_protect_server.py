@@ -20,9 +20,9 @@ from pyunifiprotect.data import (
     Bootstrap,
     Event,
     EventType,
-    ProtectModel,
     ProtectWSPayloadFormat,
     WSPacket,
+    create_from_unifi_dict,
 )
 from pyunifiprotect.exceptions import BadRequest, NotAuthorized, NvrError
 from pyunifiprotect.unifi_data import (
@@ -51,7 +51,7 @@ from pyunifiprotect.unifi_data import (
     sensor_event_from_ws_frames,
     sensor_update_from_ws_frames,
 )
-from pyunifiprotect.utils import get_response_reason, to_js_time
+from pyunifiprotect.utils import get_response_reason, set_debug, to_js_time
 
 NEVER_RAN = -1000
 # how many seconds before the bootstrap is refreshed from Protect
@@ -1169,12 +1169,16 @@ class ProtectApiClient(BaseApiClient):
         verify_ssl: bool = True,
         session: Optional[aiohttp.ClientSession] = None,
         minimum_score: int = 0,
+        debug: bool = False,
     ) -> None:
         super().__init__(
             host=host, port=port, username=username, password=password, verify_ssl=verify_ssl, session=session
         )
 
         self._minimum_score = minimum_score
+
+        if debug:
+            set_debug()
 
     async def update(self, force: bool = False) -> Union[Bootstrap, List[Event]]:
         """Updates the state of devices."""
@@ -1189,7 +1193,7 @@ class ProtectApiClient(BaseApiClient):
         if self._bootstrap is None or now - self._last_update > DEVICE_UPDATE_INTERVAL:
             self._last_update = now
             data = await self.api_request_obj("bootstrap")
-            self._bootstrap = Bootstrap(**data, api=self)
+            self._bootstrap = Bootstrap.from_unifi_dict(**data, api=self)
 
         active_ws = await self.check_ws()
         # If the websocket is connected/connecting
@@ -1284,7 +1288,7 @@ class ProtectApiClient(BaseApiClient):
                 _LOGGER.debug("Unknown event type: %s", event_dict["type"])
                 continue
 
-            event = ProtectModel.from_unifi_dict(event_dict, api=self)
+            event = create_from_unifi_dict(event_dict, api=self)
 
             # should never happen
             if not isinstance(event, Event):
