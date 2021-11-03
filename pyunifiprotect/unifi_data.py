@@ -43,6 +43,7 @@ PROCESSED_EVENT_EMPTY: Dict[str, Any] = {
     "event_heatmap": None,
     "event_on": False,
     "event_ring_on": False,
+    "event_open_on": False,
     "event_type": None,
     "event_length": 0,
     "event_object": [],
@@ -654,38 +655,63 @@ def sensor_event_from_ws_frames(
     state_machine: ProtectDeviceStateMachine, action_json: Dict[str, Any], data_json: Dict[str, Any]
 ) -> Optional[Dict[str, Any]]:
     """Create processed events from the sensor model."""
-    # TODO: Add the events that can occur (Motion and Door Open/Close)
-    if "isMotionDetected" not in data_json and "motionDetectedAt" not in data_json:
+
+    if ("isMotionDetected" not in data_json and "motionDetectedAt" not in data_json) and (
+        "isOpened" not in data_json and "openStatusChangedAt" not in data_json
+    ):
         return None
 
     sensor_id = action_json["id"]
     start_time = None
     event_length: float = 0
     event_on = False
+    event_open_on = False
+    is_entity_on = None
+    last_event_time = None
     _LOGGER.debug("Processed sensor event: %s", data_json)
 
-    last_motion = data_json.get("motionDetectedAt")
-    is_motion_detected = data_json.get("isMotionDetected")
+    if "isMotionDetected" in data_json and "motionDetectedAt" in data_json:
+        last_event_time = data_json.get("motionDetectedAt")
+        is_entity_on = data_json.get("isMotionDetected")
 
-    if is_motion_detected is None:
-        start_time = state_machine.get_motion_detected_time(sensor_id)
-        event_on = start_time is not None
-    else:
-        if is_motion_detected:
-            event_on = True
-            start_time = last_motion
-            state_machine.set_motion_detected_time(sensor_id, start_time)
-        else:
+        if is_entity_on is None:
             start_time = state_machine.get_motion_detected_time(sensor_id)
-            state_machine.set_motion_detected_time(sensor_id, None)
-            if last_motion is None:
-                last_motion = round(time.time() * 1000)
+            event_on = start_time is not None
+        else:
+            if is_entity_on:
+                event_on = True
+                start_time = last_event_time
+                state_machine.set_motion_detected_time(sensor_id, start_time)
+            else:
+                start_time = state_machine.get_motion_detected_time(sensor_id)
+                state_machine.set_motion_detected_time(sensor_id, None)
+                if last_event_time is None:
+                    last_event_time = round(time.time() * 1000)
 
-    if start_time is not None and last_motion is not None:
-        event_length = round((float(last_motion) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION)
+    if "isOpened" in data_json and "openStatusChangedAt" in data_json:
+        last_event_time = data_json.get("openStatusChangedAt")
+        is_entity_on = data_json.get("isOpened")
+
+        if is_entity_on is None:
+            start_time = state_machine.get_open_detected_time(sensor_id)
+            event_open_on = start_time is not None
+        else:
+            if is_entity_on:
+                event_open_on = True
+                start_time = last_event_time
+                state_machine.set_open_detected_time(sensor_id, start_time)
+            else:
+                start_time = state_machine.get_open_detected_time(sensor_id)
+                state_machine.set_open_detected_time(sensor_id, None)
+                if last_event_time is None:
+                    last_event_time = round(time.time() * 1000)
+
+    if start_time is not None and last_event_time is not None:
+        event_length = round((float(last_event_time) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION)
 
     return {
         "event_on": event_on,
+        "event_open_on": event_open_on,
         "event_type": "motion",
         "event_start": start_time,
         "event_length": event_length,
@@ -759,6 +785,7 @@ class ProtectDeviceStateMachine:
 
     _devices: Dict[str, Dict[str, Any]]
     _motion_detected_time: Dict[str, Optional[Union[str, int]]]
+    _open_detected_time: Dict[str, Optional[Union[str, int]]]
 
     def __init__(self) -> None:
         """Init the state machine."""
@@ -781,6 +808,14 @@ class ProtectDeviceStateMachine:
     def get_motion_detected_time(self, device_id: str) -> Optional[Union[str, int]]:
         """Get device motion start detected time."""
         return self._motion_detected_time.get(device_id)
+
+    def set_open_detected_time(self, device_id: str, timestamp: Optional[Union[str, int]]) -> None:
+        """Set device open start detected time."""
+        self._open_detected_time[device_id] = timestamp
+
+    def get_open_detected_time(self, device_id: str) -> Optional[Union[str, int]]:
+        """Get device open start detected time."""
+        return self._open_detected_time.get(device_id)
 
 
 class ProtectEventStateMachine:
