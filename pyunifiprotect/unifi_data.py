@@ -688,6 +688,17 @@ def sensor_event_from_ws_frames(
                 if last_event_time is None:
                     last_event_time = round(time.time() * 1000)
 
+        if start_time is not None and last_event_time is not None:
+            event_length = round((float(last_event_time) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION)
+
+        return {
+            "event_on": event_on,
+            "event_type": "motion",
+            "event_start": start_time,
+            "event_length": event_length,
+            "event_score": 0,
+        }
+
     if "isOpened" in data_json and "openStatusChangedAt" in data_json:
         last_event_time = data_json.get("openStatusChangedAt")
         is_entity_on = data_json.get("isOpened")
@@ -706,17 +717,16 @@ def sensor_event_from_ws_frames(
                 if last_event_time is None:
                     last_event_time = round(time.time() * 1000)
 
-    if start_time is not None and last_event_time is not None:
-        event_length = round((float(last_event_time) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION)
+        if start_time is not None and last_event_time is not None:
+            event_length = round((float(last_event_time) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION)
 
-    return {
-        "event_on": event_on,
-        "event_open_on": event_open_on,
-        "event_type": "motion",
-        "event_start": start_time,
-        "event_length": event_length,
-        "event_score": 0,
-    }
+        return {
+            "event_open_on": event_open_on,
+            "event_type": "open",
+            "event_start": start_time,
+            "event_length": event_length,
+            "event_score": 0,
+        }
 
 
 def process_event(event: Dict[str, Any], minimum_score: int, ring_interval: int) -> Dict[str, Any]:
