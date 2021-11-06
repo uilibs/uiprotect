@@ -23,6 +23,7 @@ from pyunifiprotect.data.types import (
     ModelType,
     SmartDetectObjectType,
 )
+from pyunifiprotect.exceptions import BadRequest
 from pyunifiprotect.utils import process_datetime
 
 MAX_SUPPORTED_CAMERAS = 256
@@ -104,6 +105,14 @@ class Event(ProtectModelWithId):
         if self.heatmap_id is None:
             return None
         return await self.api.get_event_heatmap(self.heatmap_id)
+
+    async def get_video(self, channel_index: int = 0) -> Optional[bytes]:
+        if self.camera is None:
+            raise BadRequest("Event does not have a camera")
+        if self.end is None:
+            raise BadRequest("Event is ongoing")
+
+        return await self.api.get_camera_video(self.camera.id, self.start, self.end, channel_index)
 
 
 class Group(ProtectModelWithId):

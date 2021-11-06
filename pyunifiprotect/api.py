@@ -23,6 +23,7 @@ from pyunifiprotect.data import (
     Event,
     EventType,
     Light,
+    Liveview,
     ModelType,
     ProtectModel,
     Sensor,
@@ -31,7 +32,6 @@ from pyunifiprotect.data import (
     WSSubscriptionMessage,
     create_from_unifi_dict,
 )
-from pyunifiprotect.data.nvr import Liveview
 from pyunifiprotect.exceptions import BadRequest, NotAuthorized, NvrError
 from pyunifiprotect.utils import (
     get_response_reason,
@@ -432,7 +432,7 @@ class ProtectApiClient(BaseApiClient):
 
         now = time.monotonic()
         now_dt = datetime.now()
-        if force and self.ws_connection is not None:
+        if force:
             self.disconnect_ws()
             self._last_update = NEVER_RAN
             self._last_websocket_check = NEVER_RAN
@@ -533,8 +533,8 @@ class ProtectApiClient(BaseApiClient):
 
         for event_dict in response:
             # ignore unknown events
-            if event_dict["type"] not in EventType.values():
-                _LOGGER.debug("Unknown event type: %s", event_dict["type"])
+            if "type" not in event_dict or event_dict["type"] not in EventType.values():
+                _LOGGER.debug("Unknown event type: %s", event_dict)
                 continue
 
             event = create_from_unifi_dict(event_dict, api=self)
@@ -695,17 +695,12 @@ class ProtectApiClient(BaseApiClient):
 
     async def get_camera_snapshot(
         self,
-        device_or_id: Union[Camera, str],
+        camera_id: str,
         width: Optional[int] = None,
         height: Optional[int] = None,
         dt: Optional[datetime] = None,
     ) -> Optional[bytes]:
         """Gets a snapshot from a given camera at a given time"""
-
-        if isinstance(device_or_id, Camera):
-            device_id = device_or_id.id
-        else:
-            device_id = device_or_id
 
         if dt is None:
             dt = datetime.now()
@@ -721,17 +716,33 @@ class ProtectApiClient(BaseApiClient):
         if height is not None:
             params.update({"h": height})
 
-        return await self.api_request_raw(f"cameras/{device_id}/snapshot", params=params, raise_exception=False)
+        return await self.api_request_raw(f"cameras/{camera_id}/snapshot", params=params, raise_exception=False)
+
+    async def get_camera_video(
+        self, camera_id: str, start: datetime, end: datetime, channel_index: int = 0, validate_channel_id: bool = True
+    ) -> Optional[bytes]:
+        """Exports MP4 video from a given camera at a specific time"""
+
+        if validate_channel_id and self._bootstrap is not None:
+            camera = self._bootstrap.cameras[camera_id]
+            try:
+                camera.channels[channel_index]
+            except IndexError as e:
+                raise BadRequest from e
+
+        params = {
+            "camera": camera_id,
+            "channel": channel_index,
+            "start": to_js_time(start),
+            "end": to_js_time(end),
+        }
+
+        return await self.api_request_raw("video/export", params=params, raise_exception=False)
 
     async def get_event_thumbnail(
-        self, event_or_thumbnail_id: Union[Event, str], width: Optional[int] = None, height: Optional[int] = None
+        self, thumbnail_id: str, width: Optional[int] = None, height: Optional[int] = None
     ) -> Optional[bytes]:
         """Gets given thumbanil from a given event"""
-
-        if isinstance(event_or_thumbnail_id, Event):
-            thumbnail_id = event_or_thumbnail_id.thumbnail_id
-        else:
-            thumbnail_id = event_or_thumbnail_id
 
         params: Dict[str, Any] = {}
 
@@ -743,12 +754,7 @@ class ProtectApiClient(BaseApiClient):
 
         return await self.api_request_raw(f"thumbnails/{thumbnail_id}", params=params, raise_exception=False)
 
-    async def get_event_heatmap(self, event_or_heatmap_id: Union[Event, str]) -> Optional[bytes]:
+    async def get_event_heatmap(self, heatmap_id: str) -> Optional[bytes]:
         """Gets given heatmap from a given event"""
-
-        if isinstance(event_or_heatmap_id, Event):
-            heatmap_id = event_or_heatmap_id.heatmap_id
-        else:
-            heatmap_id = event_or_heatmap_id
 
         return await self.api_request_raw(f"heatmaps/{heatmap_id}", raise_exception=False)

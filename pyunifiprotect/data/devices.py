@@ -596,6 +596,11 @@ class Camera(ProtectMotionDeviceModel):
         """Gets snapshot for camera at a given time"""
         return await self.api.get_camera_snapshot(self.id, width, height, dt)
 
+    async def get_video(self, start: datetime, end: datetime, channel_index: int = 0) -> Optional[bytes]:
+        """Gets video clip for camera at a given time"""
+
+        return await self.api.get_camera_video(self.id, start, end, channel_index)
+
 
 class Viewer(ProtectAdoptableDeviceModel):
     stream_limit: int
