@@ -102,6 +102,8 @@ SENSOR_KEYS = {
     "isOpened",
     "motionDetectedAt",
     "openStatusChangedAt",
+    "batteryStatus",
+    "stats",
 }
 
 VIEWPORT_KEYS = {"liveview", "online"}
