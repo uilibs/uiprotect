@@ -243,6 +243,120 @@ async def protect_client_ws():
 
 
 @pytest.fixture
+@pytest.mark.asyncio
+async def any_camera_obj(protect_client: ProtectApiClient):  # pylint: disable=redefined-outer-name
+    yield list(protect_client.bootstrap.cameras.values())[0]
+
+
+@pytest.fixture
+@pytest.mark.asyncio
+async def camera_with_no_chime_obj(protect_client: ProtectApiClient):  # pylint: disable=redefined-outer-name
+    for c in protect_client.bootstrap.cameras.values():
+        if not c.feature_flags.has_chime:
+            return c
+
+    return None
+
+
+@pytest.fixture
+@pytest.mark.asyncio
+async def camera_with_chime_obj(protect_client: ProtectApiClient):  # pylint: disable=redefined-outer-name
+    for c in protect_client.bootstrap.cameras.values():
+        if c.feature_flags.has_chime:
+            return c
+
+    return None
+
+
+@pytest.fixture
+@pytest.mark.asyncio
+async def camera_with_lcd_obj(protect_client: ProtectApiClient):  # pylint: disable=redefined-outer-name
+    for c in protect_client.bootstrap.cameras.values():
+        if c.feature_flags.has_lcd_screen:
+            return c
+
+    return None
+
+
+@pytest.fixture
+@pytest.mark.asyncio
+async def camera_with_no_lcd_obj(protect_client: ProtectApiClient):  # pylint: disable=redefined-outer-name
+    for c in protect_client.bootstrap.cameras.values():
+        if not c.feature_flags.has_lcd_screen:
+            return c
+
+    return None
+
+
+@pytest.fixture
+@pytest.mark.asyncio
+async def camera_with_hdr_obj(protect_client: ProtectApiClient):  # pylint: disable=redefined-outer-name
+    for c in protect_client.bootstrap.cameras.values():
+        if c.feature_flags.has_hdr:
+            return c
+
+    return None
+
+
+@pytest.fixture
+@pytest.mark.asyncio
+async def camera_with_led_ir_obj(protect_client: ProtectApiClient):  # pylint: disable=redefined-outer-name
+    for c in protect_client.bootstrap.cameras.values():
+        if c.feature_flags.has_led_ir:
+            return c
+
+    return None
+
+
+@pytest.fixture
+@pytest.mark.asyncio
+async def camera_with_mic_obj(protect_client: ProtectApiClient):  # pylint: disable=redefined-outer-name
+    for c in protect_client.bootstrap.cameras.values():
+        if c.feature_flags.has_mic:
+            return c
+
+    return None
+
+
+@pytest.fixture
+@pytest.mark.asyncio
+async def camera_with_privacy_obj(protect_client: ProtectApiClient):  # pylint: disable=redefined-outer-name
+    for c in protect_client.bootstrap.cameras.values():
+        if c.feature_flags.has_privacy_mask:
+            return c
+
+    return None
+
+
+@pytest.fixture
+@pytest.mark.asyncio
+async def camera_with_status_obj(protect_client: ProtectApiClient):  # pylint: disable=redefined-outer-name
+    for c in protect_client.bootstrap.cameras.values():
+        if c.feature_flags.has_led_status:
+            return c
+
+    return None
+
+
+@pytest.fixture
+@pytest.mark.asyncio
+async def light_obj(protect_client: ProtectApiClient):  # pylint: disable=redefined-outer-name
+    yield list(protect_client.bootstrap.lights.values())[0]
+
+
+@pytest.fixture
+@pytest.mark.asyncio
+async def viewer_obj(protect_client: ProtectApiClient):  # pylint: disable=redefined-outer-name
+    yield list(protect_client.bootstrap.viewers.values())[0]
+
+
+@pytest.fixture
+@pytest.mark.asyncio
+async def liveview_obj(protect_client: ProtectApiClient):  # pylint: disable=redefined-outer-name
+    yield list(protect_client.bootstrap.liveviews.values())[0]
+
+
+@pytest.fixture
 def liveview():
     return read_json_file("sample_liveview")
 
