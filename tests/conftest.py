@@ -1,7 +1,9 @@
+# pylint: disable=protected-access
+
 import asyncio
 import base64
 import contextlib
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -135,6 +137,7 @@ class MockWebsocket(SimpleMockWebsocket):
 
 MockDatetime = Mock()
 MockDatetime.now.return_value = get_now()
+MockDatetime.utcnow.return_value = get_now()
 
 
 @pytest.fixture(autouse=True)
@@ -146,8 +149,8 @@ async def setup_client(client: Union[ProtectApiClient, UpvServer], websocket: Si
     client.api_request = AsyncMock(side_effect=mock_api_request)  # type: ignore
     client.api_request_raw = AsyncMock(side_effect=mock_api_request_raw)  # type: ignore
     client.ensure_authenticated = AsyncMock()  # type: ignore
-    client.ws_session = AsyncMock()
-    client.ws_session.ws_connect = AsyncMock(return_value=websocket)
+    client._ws_session = AsyncMock()
+    client._ws_session.ws_connect = AsyncMock(return_value=websocket)
     await client.update(True)
 
     return client
@@ -155,14 +158,14 @@ async def setup_client(client: Union[ProtectApiClient, UpvServer], websocket: Si
 
 async def cleanup_client(client: Union[ProtectApiClient, UpvServer]):
     await client.async_disconnect_ws()
-    await client.req.close()
-
     with contextlib.suppress(asyncio.CancelledError):
-        if client.ws_task is not None:
-            client.ws_task.cancel()
+        if client._ws_task is not None:
+            client._ws_task.cancel()
 
             # empty out websockets
-            await client.ws_task
+            await client._ws_task
+
+    await client.close_session()
 
 
 @pytest.fixture
@@ -302,7 +305,7 @@ def bootstrap():
 
 @pytest.fixture
 def now():
-    return get_now()
+    return get_now().replace(tzinfo=timezone.utc)
 
 
 @pytest.fixture

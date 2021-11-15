@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from shlex import split
 from subprocess import run
+import time
 from typing import Any, Dict, List, Optional, Union, overload
 
 from PIL import Image
@@ -38,7 +39,7 @@ class SampleDataGenerator:
     """Generate sample data for debugging and testing purposes"""
 
     _record_num_ws: int = 0
-    _record_ws_start_time: datetime = datetime.now()
+    _record_ws_start_time: float = time.monotonic()
     _record_listen_for_events: bool = False
     _record_ws_messages: Dict[str, Dict[str, Any]] = {}
 
@@ -61,7 +62,7 @@ class SampleDataGenerator:
     async def async_generate(self, close_session: bool = True) -> None:
         typer.echo(f"Output folder: {self.output_folder}")
         self.output_folder.mkdir(parents=True, exist_ok=True)
-        self.client.ws_callback = self._handle_ws_message
+        self.client.subscribe_raw_websocket(self._handle_ws_message)
 
         typer.echo("Updating devices...")
         await self.client.update(True)
@@ -95,7 +96,7 @@ class SampleDataGenerator:
         await self.generate_device_data(motion_event)
 
         if close_session:
-            await self.client.req.close()
+            await self.client.close_session()
 
         self.write_json_file("sample_constants", self.constants, anonymize=False)
 
@@ -105,7 +106,7 @@ class SampleDataGenerator:
             return
 
         self._record_num_ws = 0
-        self._record_ws_start_time = datetime.now()
+        self._record_ws_start_time = time.monotonic()
         self._record_listen_for_events = True
         self._record_ws_messages = {}
 
@@ -345,9 +346,9 @@ class SampleDataGenerator:
         if not self._record_listen_for_events:
             return
 
-        now = datetime.now()
+        now = time.monotonic()
         self._record_num_ws += 1
-        time_offset = (now - self._record_ws_start_time).total_seconds()
+        time_offset = now - self._record_ws_start_time
 
         if msg.type == aiohttp.WSMsgType.BINARY:
             packet = WSPacket(msg.data)

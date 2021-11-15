@@ -38,6 +38,7 @@ from pyunifiprotect.utils import (
     ip_from_host,
     set_debug,
     to_js_time,
+    utc_now,
 )
 
 NEVER_RAN = -1000
@@ -66,14 +67,15 @@ class BaseApiClient:
     _is_authenticated: bool = False
     _last_update: float = NEVER_RAN
     _last_websocket_check: float = NEVER_RAN
+    _session: Optional[aiohttp.ClientSession] = None
+    _ws_session: Optional[aiohttp.ClientSession] = None
+    _ws_connection: Optional[aiohttp.ClientWebSocketResponse] = None
+    _ws_task: Optional[TaskClass] = None
+    _ws_raw_subscriptions: List[Callable[[aiohttp.WSMessage], None]] = []
 
-    req: aiohttp.ClientSession
     headers: Optional[Dict[str, str]] = None
     last_update_id: Optional[UUID] = None
-    ws_session: Optional[aiohttp.ClientSession] = None
-    ws_connection: Optional[aiohttp.ClientWebSocketResponse] = None
-    ws_task: Optional[TaskClass] = None
-    ws_callback: Optional[Callable[[aiohttp.WSMessage], None]] = None
+
     api_path: str = "/proxy/protect/api/"
     ws_path: str = "/proxy/protect/ws/"
 
@@ -93,10 +95,8 @@ class BaseApiClient:
         self._password = password
         self._verify_ssl = verify_ssl
 
-        if session is None:
-            session = aiohttp.ClientSession()
-
-        self.req = session
+        if session is not None:
+            self._session = session
 
     @property
     def base_url(self) -> str:
@@ -109,6 +109,27 @@ class BaseApiClient:
         if self._port != 443:
             return f"wss://{self._host}:{self._port}"
         return f"wss://{self._host}"
+
+    @property
+    def is_ws_connected(self) -> bool:
+        return self._ws_connection is not None
+
+    async def get_session(self) -> aiohttp.ClientSession:
+        """Gets or creates current client session"""
+
+        if self._session is None or self._session.closed:
+            if self._session is not None and self._session.closed:
+                _LOGGER.debug("Session was closed, creating a new one")
+            self._session = aiohttp.ClientSession()
+
+        return self._session
+
+    async def close_session(self) -> None:
+        """Closing and delets client session"""
+
+        if self._session is not None:
+            await self._session.close()
+            self._session = None
 
     async def request(
         self, method: str, url: str, require_auth: bool = False, auto_close: bool = True, **kwargs: Any
@@ -123,8 +144,9 @@ class BaseApiClient:
 
         _LOGGER.debug("Request url: %s", url)
 
+        session = await self.get_session()
         try:
-            req_context = self.req.request(method, url, ssl=self._verify_ssl, headers=headers, **kwargs)
+            req_context = session.request(method, url, ssl=self._verify_ssl, headers=headers, **kwargs)
             response = await req_context.__aenter__()
 
             try:
@@ -246,7 +268,9 @@ class BaseApiClient:
         """Authenticate and get a token."""
 
         url = "/api/auth/login"
-        self.req.cookie_jar.clear()
+
+        if self._session is not None:
+            self._session.cookie_jar.clear()
 
         auth = {
             "username": self._username,
@@ -268,9 +292,13 @@ class BaseApiClient:
 
     def is_authenticated(self) -> bool:
         """Check to see if we are already authenticated."""
+
+        if self._session is None:
+            return False
+
         if self._is_authenticated is True:
             # Check if token is expired.
-            cookies = self.req.cookie_jar.filter_cookies(URL(self.base_url))
+            cookies = self._session.cookie_jar.filter_cookies(URL(self.base_url))
             token_cookie = cookies.get("TOKEN")
             if token_cookie is None:
                 return False
@@ -288,34 +316,53 @@ class BaseApiClient:
 
         return self._is_authenticated
 
-    def disconnect_ws(self) -> None:
-        """Disconnects from the websocket if already connected."""
-        if self.ws_connection is not None:
+    def reset_ws(self) -> None:
+        """Forcibly resets Websocket"""
+
+        if not self.is_ws_connected:
             return
 
-        if self.ws_task is not None:
+        if self._ws_task is not None:
             try:
-                self.ws_task.cancel()
-                self.ws_connection = None
+                self._ws_task.cancel()
+                self._ws_connection = None
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Could not cancel ws_task")
 
     async def async_connect_ws(self) -> None:
         """Connect the websocket."""
-        if self.ws_connection is not None:
+
+        if self.is_ws_connected:
             return
 
-        self.disconnect_ws()
-        self.ws_task = asyncio.ensure_future(self._setup_websocket())
+        self.reset_ws()
+        self._ws_task = asyncio.ensure_future(self._setup_websocket())
 
     async def async_disconnect_ws(self) -> None:
         """Disconnect the websocket."""
-        if self.ws_connection is None:
+
+        if self._ws_connection is None:
             return
 
-        await self.ws_connection.close()
-        if self.ws_session is not None:
-            await self.ws_session.close()
+        await self._ws_connection.close()
+        if self._ws_session is not None:
+            await self._ws_session.close()
+            self._ws_session = None
+
+    async def _message_loop(self, msg: aiohttp.WSMessage) -> bool:
+        for sub in self._ws_raw_subscriptions:
+            sub(msg)
+
+        if msg.type == aiohttp.WSMsgType.BINARY:
+            try:
+                self._process_ws_message(msg)
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Error processing websocket message")
+        elif msg.type == aiohttp.WSMsgType.ERROR:
+            _LOGGER.exception("Error from Websocket: %s", msg.data)
+            return False
+
+        return True
 
     async def _setup_websocket(self) -> None:
         await self.ensure_authenticated()
@@ -324,28 +371,32 @@ class BaseApiClient:
         if self.last_update_id:
             url += f"?lastUpdateId={self.last_update_id}"
 
-        if not self.ws_session:
-            self.ws_session = aiohttp.ClientSession()
+        if not self._ws_session:
+            self._ws_session = aiohttp.ClientSession()
         _LOGGER.debug("WS connecting to: %s", url)
 
-        self.ws_connection = await self.ws_session.ws_connect(url, ssl=self._verify_ssl, headers=self.headers)
+        self._ws_connection = await self._ws_session.ws_connect(url, ssl=self._verify_ssl, headers=self.headers)
         try:
-            async for msg in self.ws_connection:
-                if self.ws_callback is not None:
-                    self.ws_callback(msg)  # pylint: disable=not-callable
-
-                if msg.type == aiohttp.WSMsgType.BINARY:
-                    try:
-                        self._process_ws_message(msg)
-                    except Exception:  # pylint: disable=broad-except
-                        _LOGGER.exception("Error processing websocket message")
-                        return
-                elif msg.type == aiohttp.WSMsgType.ERROR:
-                    _LOGGER.exception("Error from Websocket: %s", msg.data)
+            async for msg in self._ws_connection:
+                if not await self._message_loop(msg):
                     break
         finally:
             _LOGGER.debug("websocket disconnected")
-            self.ws_connection = None
+            self._ws_connection = None
+
+    def subscribe_raw_websocket(self, ws_callback: Callable[[aiohttp.WSMessage], None]) -> Callable[[], None]:
+        """
+        Subscribe to raw websocket messages.
+
+        Returns a callback that will unsubscribe.
+        """
+
+        def _unsub_ws_callback() -> None:
+            self._ws_raw_subscriptions.remove(ws_callback)
+
+        _LOGGER.debug("Adding subscription: %s", ws_callback)
+        self._ws_raw_subscriptions.append(ws_callback)
+        return _unsub_ws_callback
 
     async def check_ws(self) -> bool:
         now = time.monotonic()
@@ -359,14 +410,14 @@ class BaseApiClient:
             await self.async_connect_ws()
 
         # log if no active WS
-        if not self.ws_connection and not first_check:
+        if not self._ws_connection and not first_check:
             log = _LOGGER.debug
             # but only warn if a reconnect attempt was made
             if connect_ws:
                 log = _LOGGER.warning
             log("Unifi OS: Websocket connection not active, failing back to polling")
 
-        if self.ws_connection or self._last_websocket_check == now:
+        if self._ws_connection or self._last_websocket_check == now:
             return True
         return False
 
@@ -449,9 +500,9 @@ class ProtectApiClient(BaseApiClient):
         """
 
         now = time.monotonic()
-        now_dt = datetime.now()
+        now_dt = utc_now()
         if force:
-            self.disconnect_ws()
+            self.reset_ws()
             self._last_update = NEVER_RAN
             self._last_websocket_check = NEVER_RAN
 
@@ -515,7 +566,7 @@ class ProtectApiClient(BaseApiClient):
 
         # if no parameters are passed in, default to all events from last 24 hours
         if limit is None and start is None and end is None:
-            end = datetime.now() + timedelta(seconds=10)
+            end = utc_now() + timedelta(seconds=10)
             start = end - timedelta(hours=24)
 
         params: Dict[str, Any] = {}
@@ -723,7 +774,7 @@ class ProtectApiClient(BaseApiClient):
         """Gets a snapshot from a given camera at a given time"""
 
         if dt is None:
-            dt = datetime.now()
+            dt = utc_now()
 
         params = {
             "ts": to_js_time(dt),

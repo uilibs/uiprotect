@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import socket
+import time
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
 from uuid import UUID
 
@@ -59,7 +60,10 @@ def to_js_time(dt: Optional[datetime]) -> Optional[int]:
     if dt is None:
         return None
 
-    return int(dt.timestamp() * 1000)
+    if dt.tzinfo is None:
+        return int(time.mktime(dt.timetuple()) * 1000)
+
+    return int(dt.astimezone(timezone.utc).timestamp() * 1000)
 
 
 def to_ms(duration: Optional[timedelta]) -> Optional[int]:
@@ -69,6 +73,10 @@ def to_ms(duration: Optional[timedelta]) -> Optional[int]:
         return None
 
     return int(round(duration.total_seconds() * 1000))
+
+
+def utc_now() -> datetime:
+    return datetime.utcnow().replace(tzinfo=timezone.utc)
 
 
 def from_js_time(num: Union[int, float, str, datetime]) -> datetime:

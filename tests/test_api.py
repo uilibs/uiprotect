@@ -171,7 +171,7 @@ async def test_bootstrap_construct(protect_client_no_debug: ProtectApiClient):
 
 
 @pytest.mark.asyncio
-@patch("pyunifiprotect.api.datetime", MockDatetime)
+@patch("pyunifiprotect.utils.datetime", MockDatetime)
 async def test_get_events_raw_default(protect_client: ProtectApiClient, now: datetime):
     events = await protect_client.get_events_raw()
 
@@ -259,8 +259,7 @@ async def test_check_ws_initial(protect_client: ProtectApiClient, caplog: pytest
     caplog.set_level(logging.DEBUG)
 
     protect_client._last_websocket_check = NEVER_RAN
-    protect_client.disconnect_ws()
-    protect_client.ws_connection = None
+    protect_client.reset_ws()
 
     active_ws = await protect_client.check_ws()
 
@@ -273,8 +272,7 @@ async def test_check_ws_no_ws(protect_client: ProtectApiClient, caplog: pytest.L
     caplog.set_level(logging.DEBUG)
 
     protect_client._last_websocket_check = time.monotonic()
-    protect_client.disconnect_ws()
-    protect_client.ws_connection = None
+    protect_client.reset_ws()
 
     active_ws = await protect_client.check_ws()
 
@@ -290,8 +288,7 @@ async def test_check_ws_reconnect(protect_client: ProtectApiClient, caplog: pyte
     caplog.set_level(logging.DEBUG)
 
     protect_client._last_websocket_check = time.monotonic() - WEBSOCKET_CHECK_INTERVAL - 1
-    protect_client.disconnect_ws()
-    protect_client.ws_connection = None
+    protect_client.reset_ws()
 
     active_ws = await protect_client.check_ws()
 
@@ -418,7 +415,7 @@ async def test_get_liveviews(protect_client: ProtectApiClient, liveviews):
 @pytest.mark.skipif(
     not (SAMPLE_DATA_DIRECTORY / "sample_camera_snapshot.png").exists(), reason="No snapshot in testdata"
 )
-@patch("pyunifiprotect.api.datetime", MockDatetime)
+@patch("pyunifiprotect.utils.datetime", MockDatetime)
 @pytest.mark.asyncio
 async def test_get_camera_snapshot(protect_client: ProtectApiClient, now):
     data = await protect_client.get_camera_snapshot("test_id")
@@ -440,7 +437,7 @@ async def test_get_camera_snapshot(protect_client: ProtectApiClient, now):
 @pytest.mark.skipif(
     not (SAMPLE_DATA_DIRECTORY / "sample_camera_snapshot.png").exists(), reason="No snapshot in testdata"
 )
-@patch("pyunifiprotect.api.datetime", MockDatetime)
+@patch("pyunifiprotect.utils.datetime", MockDatetime)
 @pytest.mark.asyncio
 async def test_get_camera_snapshot_args(protect_client: ProtectApiClient, now):
     data = await protect_client.get_camera_snapshot("test_id", 1920, 1080)
@@ -461,7 +458,10 @@ async def test_get_camera_snapshot_args(protect_client: ProtectApiClient, now):
     assert img.format in ("PNG", "JPEG")
 
 
-@pytest.mark.skipif(not (SAMPLE_DATA_DIRECTORY / "sample_camera_video.mp4").exists(), reason="No video in testdata")
+@pytest.mark.skipif(
+    not (SAMPLE_DATA_DIRECTORY / "sample_camera_video.mp4").exists() or "camera_video_length" not in CONSTANTS,
+    reason="No video in testdata",
+)
 @patch("pyunifiprotect.api.datetime", MockDatetime)
 @pytest.mark.asyncio
 async def test_get_camera_video(protect_client: ProtectApiClient, now, tmp_binary_file):
