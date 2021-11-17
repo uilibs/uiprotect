@@ -3,6 +3,7 @@
 
 import base64
 from copy import deepcopy
+from typing import Optional, Set
 from unittest.mock import Mock, patch
 
 import pytest
@@ -11,6 +12,8 @@ from pytest_benchmark.fixture import BenchmarkFixture
 from pyunifiprotect.data import (
     Bootstrap,
     Camera,
+    Event,
+    EventType,
     FixSizeOrderedDict,
     ModelType,
     WSPacket,
@@ -266,3 +269,44 @@ async def test_play_audio_error(mock_talkback, camera_obj: Camera):
     mock_talkback.assert_called_with(camera_obj, "test", None)
     assert mock_instance.run_until_complete.called
     assert mock_instance.get_errors.called
+
+
+@pytest.mark.asyncio
+async def test_get_smart_detect_track_bad_type(smart_dectect_obj: Optional[Event]):
+    if smart_dectect_obj is None:
+        pytest.skip("No smart detection object found")
+
+    smart_dectect_obj.type = EventType.MOTION
+
+    with pytest.raises(BadRequest):
+        await smart_dectect_obj.get_smart_detect_track()
+
+
+@pytest.mark.asyncio
+async def test_get_smart_detect_track(smart_dectect_obj: Optional[Event]):
+    if smart_dectect_obj is None:
+        pytest.skip("No smart detection object found")
+
+    track = await smart_dectect_obj.get_smart_detect_track()
+    assert track.camera
+
+
+@pytest.mark.asyncio
+async def test_get_smart_detect_zones(smart_dectect_obj: Optional[Event]):
+    if smart_dectect_obj is None:
+        pytest.skip("No smart detection object found")
+
+    camera = smart_dectect_obj.camera
+    if camera is None:
+        pytest.skip("Camera not found for smart detection")
+
+    track = await smart_dectect_obj.get_smart_detect_track()
+    zone_ids: Set[int] = set()
+    for item in track.payload:
+        zone_ids = zone_ids | set(item.zone_ids)
+
+    zones = await smart_dectect_obj.get_smart_detect_zones()
+    for zone_id, zone in zones.items():
+        assert zone_id in zone_ids
+        assert zone_id == zone.id
+        assert zone in camera.smart_detect_zones
