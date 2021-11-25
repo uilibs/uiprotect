@@ -255,7 +255,7 @@ def dict_diff(orig: Dict[str, Any], new: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(value, dict):
             sub_changed = dict_diff(orig[key], value)
 
-            if sub_changed != {}:
+            if sub_changed:
                 changed[key] = sub_changed
         else:
             if value != orig[key]:
