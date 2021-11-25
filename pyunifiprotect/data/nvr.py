@@ -23,6 +23,7 @@ from pyunifiprotect.data.types import (
     ModelType,
     PercentInt,
     SmartDetectObjectType,
+    Version,
 )
 from pyunifiprotect.exceptions import BadRequest
 from pyunifiprotect.utils import process_datetime
@@ -438,7 +439,7 @@ class NVR(ProtectDeviceModel):
     can_auto_update: bool
     is_stats_gathering_enabled: bool
     timezone: tzinfo
-    version: str
+    version: Version
     ucore_version: str
     hardware_platform: str
     ports: PortConfig

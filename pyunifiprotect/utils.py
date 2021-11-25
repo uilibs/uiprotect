@@ -19,6 +19,8 @@ from aiohttp import ClientResponse
 from pydantic.fields import SHAPE_DICT, SHAPE_LIST, ModelField
 from pydantic.utils import to_camel
 
+from pyunifiprotect.data.types import Version
+
 if TYPE_CHECKING:
     from pyunifiprotect.data import CoordType
 
@@ -156,6 +158,8 @@ def convert_unifi_data(value: Any, field: ModelField) -> Any:
         value = Decimal(value)
     elif field.type_ == Path:
         value = Path(value)
+    elif field.type_ == Version:
+        value = Version(value)
     elif issubclass(field.type_, Enum):
         value = field.type_(value)
 
@@ -177,7 +181,7 @@ def serialize_unifi_obj(value: Any) -> Any:
         value = serialize_list(value)
     elif isinstance(value, Enum):
         value = value.value
-    elif isinstance(value, (IPv4Address, UUID, Path, tzinfo)):
+    elif isinstance(value, (IPv4Address, UUID, Path, tzinfo, Version)):
         value = str(value)
     elif isinstance(value, datetime):
         value = to_js_time(value)
