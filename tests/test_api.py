@@ -52,6 +52,9 @@ async def check_camera(camera: Camera):
     if camera.last_smart_detect_event is not None:
         await check_motion_event(camera.last_smart_detect_event)
 
+    for channel in camera.channels:
+        assert channel._api is not None
+
     data = await camera.get_snapshot()
     assert data is not None
     img = Image.open(BytesIO(data))

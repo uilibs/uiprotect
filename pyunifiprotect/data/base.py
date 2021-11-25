@@ -367,6 +367,22 @@ class ProtectBaseObject(BaseModel):
                 if unifi_obj is not None and isinstance(unifi_obj, ProtectBaseObject):
                     setattr(self, key, unifi_obj.update_from_dict(data.pop(key)))
 
+        for key in self._get_protect_lists().keys():
+            if key in data:
+                new_items = []
+                for item in data[key]:
+                    if isinstance(item, dict):
+                        item["api"] = self._api
+                    new_items.append(item)
+                data[key] = new_items
+
+        for key in self._get_protect_dicts().keys():
+            if key in data:
+                for item_key, item in data[key].items():
+                    if isinstance(item, dict):
+                        item["api"] = self._api
+                    data[key][item_key] = item
+
         if "api" in data:
             del data["api"]
 
