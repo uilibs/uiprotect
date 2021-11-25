@@ -498,7 +498,7 @@ class ProtectApiClient(BaseApiClient):
 
         return self._connection_host
 
-    async def update(self, force: bool = False) -> Union[Bootstrap, List[Event]]:
+    async def update(self, force: bool = False) -> Optional[Bootstrap]:
         """
         Updates the state of devices, initalizes `.bootstrap` and
         connects to UFP Websocket for real time updates
@@ -522,7 +522,7 @@ class ProtectApiClient(BaseApiClient):
         # we do not need to get events
         if active_ws:
             _LOGGER.debug("Skipping update since websocket is active")
-            return self._bootstrap
+            return None
 
         events = await self.get_events(start=self._last_update_dt, end=now_dt)
         for event in events:
@@ -530,7 +530,7 @@ class ProtectApiClient(BaseApiClient):
 
         self._last_update = now
         self._last_update_dt = now_dt
-        return events
+        return self._bootstrap
 
     def _process_ws_message(self, msg: aiohttp.WSMessage) -> None:
         packet = WSPacket(msg.data)
