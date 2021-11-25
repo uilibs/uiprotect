@@ -140,6 +140,9 @@ async def test_ws_event_ring(protect_client_no_debug: ProtectApiClient, now, cam
     assert event.heatmap_id == f"e-{expected_event_id}"
     assert event.start == camera.last_ring
 
+    for channel in camera.channels:
+        assert channel._api is not None
+
 
 @pytest.mark.asyncio
 @patch("pyunifiprotect.api.datetime", MockDatetime)
@@ -239,6 +242,9 @@ async def test_ws_event_motion_in_progress(protect_client_no_debug: ProtectApiCl
     assert event.start == (now - timedelta(seconds=30))
     assert event.end == camera_obj.last_motion
 
+    for channel in camera_obj.channels:
+        assert channel._api is not None
+
 
 @pytest.mark.asyncio
 @patch("pyunifiprotect.api.datetime", MockDatetime)
@@ -307,6 +313,9 @@ async def test_ws_event_motion(protect_client_no_debug: ProtectApiClient, now, c
     assert event.start == (now - timedelta(seconds=30))
     assert event.end == camera.last_motion
 
+    for channel in camera.channels:
+        assert channel._api is not None
+
 
 @pytest.mark.asyncio
 @patch("pyunifiprotect.api.datetime", MockDatetime)
@@ -372,6 +381,9 @@ async def test_ws_event_smart(protect_client_no_debug: ProtectApiClient, now, ca
     assert smart_event.heatmap_id == f"e-{expected_event_id}"
     assert smart_event.start == (now - timedelta(seconds=30))
     assert smart_event.end == now
+
+    for channel in camera.channels:
+        assert channel._api is not None
 
 
 @pytest.mark.asyncio
