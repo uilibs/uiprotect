@@ -141,6 +141,18 @@ class Bootstrap(ProtectBaseObject):
 
         if action["action"] == "update":
             model_type = action["modelKey"]
+            if model_type == ModelType.NVR.value:
+                data = self.nvr.unifi_dict_to_dict(data)
+                old_nvr = self.nvr.copy()
+                self.nvr = self.nvr.update_from_dict(deepcopy(data))
+
+                return WSSubscriptionMessage(
+                    action=WSAction.UPDATE,
+                    new_update_id=self.last_update_id,
+                    changed_data=data,
+                    new_obj=self.nvr,
+                    old_obj=old_nvr,
+                )
             if model_type in ModelType.bootstrap_models() or model_type == ModelType.EVENT.value:
                 key = model_type + "s"
                 devices = getattr(self, key)
