@@ -634,6 +634,15 @@ class Camera(ProtectMotionDeviceModel):
         return super().unifi_dict_to_dict(data)
 
     def unifi_dict(self, data: Optional[Dict[str, Any]] = None, exclude: Optional[Set[str]] = None) -> Dict[str, Any]:
+
+        if data is not None:
+            if "motion_zones" in data:
+                data["motion_zones"] = [MotionZone(**z).unifi_dict() for z in data["motion_zones"]]
+            if "privacy_zones" in data:
+                data["privacy_zones"] = [CameraZone(**z).unifi_dict() for z in data["privacy_zones"]]
+            if "smart_detect_zones" in data:
+                data["smart_detect_zones"] = [SmartMotionZone(**z).unifi_dict() for z in data["smart_detect_zones"]]
+
         data = super().unifi_dict(data=data, exclude=exclude)
 
         if "lastRingEventId" in data:
