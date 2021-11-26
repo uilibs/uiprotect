@@ -116,6 +116,36 @@ class Light(ProtectMotionDeviceModel):
 
         await self.save_device()
 
+    async def set_light_settings(
+        self,
+        mode: LightModeType,
+        enable_at: Optional[LightModeEnableType] = None,
+        duration: Optional[timedelta] = None,
+        sensitivity: Optional[PercentInt] = None,
+    ) -> None:
+        """Updates various Light settings.
+
+        Args:
+
+        * `mode`: Light trigger mode
+        * `enable_at`: Then the light automatically turns on by itself
+        * `duration`: How long the light should remain on after motion, must be timedelta between 15s and 900s
+        * `sensitivity`: PIR Motion sensitivity
+        """
+
+        self.light_mode_settings.mode = mode
+        if enable_at is not None:
+            self.light_mode_settings.enable_at = enable_at
+        if duration is not None:
+            if duration.total_seconds() < 15 or duration.total_seconds() > 900:
+                raise BadRequest("Duration outside of 15s to 900s range")
+
+            self.light_device_settings.pir_duration = duration
+        if sensitivity is not None:
+            self.light_device_settings.pir_sensitivity = sensitivity
+
+        await self.save_device()
+
 
 class EventStats(ProtectBaseObject):
     today: int

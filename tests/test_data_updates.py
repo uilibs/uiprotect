@@ -1,7 +1,7 @@
 # type: ignore
 # pylint: disable=protected-access
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from pydantic.error_wrappers import ValidationError
@@ -19,8 +19,9 @@ from pyunifiprotect.data import (
     Viewer,
 )
 from pyunifiprotect.data.devices import CameraZone
+from pyunifiprotect.data.types import LightModeEnableType, LightModeType
 from pyunifiprotect.exceptions import BadRequest
-from pyunifiprotect.utils import to_js_time
+from pyunifiprotect.utils import to_js_time, to_ms
 
 
 @pytest.mark.asyncio
@@ -95,6 +96,66 @@ async def test_light_set_light(light_obj: Light, status: bool, level: Optional[i
             expected = {"lightOnSettings": {"isLedForceOn": status}}
         else:
             expected = {"lightOnSettings": {"isLedForceOn": status}, "lightDeviceSettings": {"ledLevel": level}}
+
+        light_obj.api.api_request.assert_called_with(
+            f"lights/{light_obj.id}",
+            method="patch",
+            json=expected,
+        )
+
+
+@pytest.mark.parametrize("mode", [LightModeType.MANUAL, LightModeType.WHEN_DARK])
+@pytest.mark.parametrize("enable_at", [None, LightModeEnableType.ALWAYS])
+@pytest.mark.parametrize(
+    "duration",
+    [
+        None,
+        timedelta(seconds=1),
+        timedelta(seconds=15),
+        timedelta(seconds=900),
+        timedelta(seconds=1000),
+    ],
+)
+@pytest.mark.parametrize("sensitivity", [None, 1, 100, -10])
+@pytest.mark.asyncio
+async def test_light_set_light_settings(
+    light_obj: Light,
+    mode: LightModeType,
+    enable_at: Optional[LightModeEnableType],
+    duration: Optional[timedelta],
+    sensitivity: Optional[int],
+):
+    light_obj.api.api_request.reset_mock()
+
+    light_obj.light_mode_settings.mode = LightModeType.MOTION
+    light_obj.light_mode_settings.enable_at = LightModeEnableType.DARK
+    light_obj.light_device_settings.pir_duration = timedelta(seconds=30)
+    light_obj.light_device_settings.pir_sensitivity = 50
+    light_obj._initial_data = light_obj.dict()
+
+    duration_invalid = duration is not None and int(duration.total_seconds()) in (1, 1000)
+    if duration_invalid:
+        with pytest.raises(BadRequest):
+            await light_obj.set_light_settings(mode, enable_at=enable_at, duration=duration, sensitivity=sensitivity)
+
+            assert not light_obj.api.api_request.called
+    elif sensitivity == -10:
+        with pytest.raises(ValidationError):
+            await light_obj.set_light_settings(mode, enable_at=enable_at, duration=duration, sensitivity=sensitivity)
+
+            assert not light_obj.api.api_request.called
+    else:
+        await light_obj.set_light_settings(mode, enable_at=enable_at, duration=duration, sensitivity=sensitivity)
+
+        expected = {"lightModeSettings": {"mode": mode.value}}
+        if enable_at is not None:
+            expected["lightModeSettings"].update({"enableAt": enable_at.value})
+        if duration is not None:
+            expected["lightDeviceSettings"] = expected.get("lightDeviceSettings", {})
+            expected["lightDeviceSettings"].update({"pirDuration": to_ms(duration)})
+        if sensitivity is not None:
+            expected["lightDeviceSettings"] = expected.get("lightDeviceSettings", {})
+            expected["lightDeviceSettings"].update({"pirSensitivity": sensitivity})
 
         light_obj.api.api_request.assert_called_with(
             f"lights/{light_obj.id}",
