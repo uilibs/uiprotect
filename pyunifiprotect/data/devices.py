@@ -3,8 +3,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from ipaddress import IPv4Address
+import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union
 from uuid import UUID
 
 from pyunifiprotect.data.base import (
@@ -13,6 +14,8 @@ from pyunifiprotect.data.base import (
     ProtectMotionDeviceModel,
 )
 from pyunifiprotect.data.types import (
+    DEFAULT,
+    DEFAULT_TYPE,
     ChimeDuration,
     Color,
     DoorbellMessageType,
@@ -43,6 +46,8 @@ if TYPE_CHECKING:
     from pyunifiprotect.data.nvr import Event, Liveview
 
 PRIVACY_ZONE_NAME = "pyufp_privacy_zone"
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class LightDeviceSettings(ProtectBaseObject):
@@ -857,7 +862,10 @@ class Camera(ProtectMotionDeviceModel):
         await self.save_device()
 
     async def set_lcd_text(
-        self, text_type: Optional[DoorbellMessageType], text: Optional[str] = None, reset_at: Optional[datetime] = None
+        self,
+        text_type: Optional[DoorbellMessageType],
+        text: Optional[str] = None,
+        reset_at: Union[None, datetime, DEFAULT_TYPE] = None,
     ) -> None:
         """Sets doorbell LCD text. Requires camera to be doorbell"""
 
@@ -874,6 +882,9 @@ class Camera(ProtectMotionDeviceModel):
             if text is not None:
                 raise BadRequest("Can only set text if text_type is CUSTOM_MESSAGE")
             text = text_type.value.replace("_", " ")
+
+        if reset_at == DEFAULT:
+            reset_at = utc_now() + self.api.bootstrap.nvr.doorbell_settings.default_message_reset_timeout
 
         self.lcd_message = LCDMessage(api=self._api, type=text_type, text=text, reset_at=reset_at)
         await self.save_device()
@@ -938,8 +949,10 @@ class Camera(ProtectMotionDeviceModel):
 
         await stream.run_until_complete()
 
+        _LOGGER.debug("ffmpeg stdout:\n%s", "\n".join(stream.stdout))
+        _LOGGER.debug("ffmpeg stderr:\n%s", "\n".join(stream.stderr))
         if stream.is_error:
-            error = "\n".join(await stream.get_errors())
+            error = "\n".join(stream.stderr)
             raise StreamError("Error while playing audio (ffmpeg): \n" + error)
 
 
