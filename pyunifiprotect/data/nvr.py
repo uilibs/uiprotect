@@ -456,7 +456,7 @@ class NVR(ProtectDeviceModel):
     is_wireless_uplink_enabled: bool
     time_format: Literal["12h", "24h"]
     temperature_unit: Literal["C", "F"]
-    recording_retention_duration: timedelta
+    recording_retention_duration: Optional[timedelta]
     enable_crash_reporting: bool
     disable_audio: bool
     analytics_data: str
@@ -493,14 +493,12 @@ class NVR(ProtectDeviceModel):
     def unifi_dict_to_dict(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         if "lastUpdateAt" in data:
             data["lastUpdateAt"] = process_datetime(data, "lastUpdateAt")
-        if "recordingRetentionDurationMs" in data:
+        if "recordingRetentionDurationMs" in data and data["recordingRetentionDurationMs"] is not None:
             data["recordingRetentionDuration"] = timedelta(milliseconds=data.pop("recordingRetentionDurationMs"))
         if "timezone" in data and not isinstance(data["timezone"], tzinfo):
             data["timezone"] = pytz.timezone(data["timezone"])
 
-        data = super().unifi_dict_to_dict(data)
-
-        return data
+        return super().unifi_dict_to_dict(data)
 
     async def _api_update(self, data: Dict[str, Any]) -> None:
         return await self.api.update_nvr(data)
@@ -584,7 +582,8 @@ class LiveviewSlot(ProtectBaseObject):
         if self._cameras is not None:
             return self._cameras
 
-        self._cameras = [self.api.bootstrap.cameras[g] for g in self.camera_ids]
+        # user may not have permission to see the cameras in the liveview
+        self._cameras = [self.api.bootstrap.cameras[g] for g in self.camera_ids if g in self.api.bootstrap.cameras]
         return self._cameras
 
 
