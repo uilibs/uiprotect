@@ -432,6 +432,9 @@ def compare_objs(obj_type, expected, actual):
             del expected["apMac"]
         if "elementInfo" in expected:
             del expected["elementInfo"]
+        # voltage requires 1.21.1+
+        if "voltage" not in expected:
+            expected["voltage"] = None
         del expected["apRssi"]
         del expected["lastPrivacyZonePositionId"]
         del expected["recordingSchedules"]
