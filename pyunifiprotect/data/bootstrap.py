@@ -118,6 +118,9 @@ class Bootstrap(ProtectBaseObject):
     def ws_stats(self) -> List[WSStat]:
         return self._ws_stats
 
+    def clear_ws_stats(self) -> None:
+        self._ws_stats = []
+
     @property
     def auth_user(self) -> User:
         user: User = self.api.bootstrap.users[self.auth_user_id]
