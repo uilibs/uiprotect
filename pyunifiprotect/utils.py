@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 import contextlib
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone, tzinfo
@@ -12,17 +13,29 @@ from pathlib import Path
 import re
 import socket
 import time
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 from uuid import UUID
 
 from aiohttp import ClientResponse
 from pydantic.fields import SHAPE_DICT, SHAPE_LIST, ModelField
 from pydantic.utils import to_camel
+import typer
 
 from pyunifiprotect.data.types import Version
 
 if TYPE_CHECKING:
     from pyunifiprotect.data import CoordType
+    from pyunifiprotect.data.bootstrap import WSStat
 
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 DEBUG_ENV = "UFP_DEBUG"
@@ -265,3 +278,44 @@ def dict_diff(orig: Optional[Dict[str, Any]], new: Dict[str, Any]) -> Dict[str, 
                 changed[key] = deepcopy(value)
 
     return changed
+
+
+def ws_stat_summmary(stats: List[WSStat]) -> Tuple[List[WSStat], float, Counter[str], Counter[str], Counter[str]]:
+    unfiltered = [s for s in stats if not s.filtered]
+    percent = (1 - len(unfiltered) / len(stats)) * 100
+    keys = Counter(k for s in unfiltered for k in s.keys_set)
+    models = Counter(k.model for k in unfiltered)
+    actions = Counter(k.action for k in unfiltered)
+
+    return unfiltered, percent, keys, models, actions
+
+
+def print_ws_stat_summary(stats: List[WSStat], output: Optional[Callable[[Any], None]] = None) -> None:
+    if output is None:
+        output = typer.echo
+
+    unfiltered, percent, keys, models, actions = ws_stat_summmary(stats)
+
+    title = " ws stat summary "
+    side_length = int((80 - len(title)) / 2)
+
+    lines = [
+        "-" * side_length + title + "-" * side_length,
+        f"packet count: {len(stats)}",
+        f"filtered packet count: {len(unfiltered)} ({percent:.4}%)",
+        "-" * 80,
+    ]
+
+    for key, count in models.most_common():
+        lines.append(f"{key}: {count}")
+    lines.append("-" * 80)
+
+    for key, count in actions.most_common():
+        lines.append(f"{key}: {count}")
+    lines.append("-" * 80)
+
+    for key, count in keys.most_common(10):
+        lines.append(f"{key}: {count}")
+    lines.append("-" * 80)
+
+    output("\n".join(lines))
