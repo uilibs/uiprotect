@@ -93,20 +93,21 @@ class ModelType(str, ValuesEnumMixin, enum.Enum):
 
 @enum.unique
 class EventType(str, ValuesEnumMixin, enum.Enum):
-    SMART_DETECT = "smartDetectZone"
-    MOTION = "motion"
-    RING = "ring"
-    DISCONNECT = "disconnect"
-    PROVISION = "provision"
     ACCESS = "access"
-    OFFLINE = "offline"
-    OFF = "off"
-    UPDATE = "update"
-    CAMERA_POWER_CYCLE = "cameraPowerCycling"
-    VIDEO_EXPORTED = "videoExported"
     APP_UPDATE = "applicationUpdate"
+    CAMERA_POWER_CYCLE = "cameraPowerCycling"
     DEVICE_PASSWORD_UPDATE = "devicesPasswordUpdated"
+    DISCONNECT = "disconnect"
     FIRMWARE_UPDATE = "fwUpdate"
+    INSTALLED_DISK = "installed"
+    MOTION = "motion"
+    OFF = "off"
+    OFFLINE = "offline"
+    PROVISION = "provision"
+    RING = "ring"
+    SMART_DETECT = "smartDetectZone"
+    UPDATE = "update"
+    VIDEO_EXPORTED = "videoExported"
 
     @staticmethod
     def device_events() -> List[str]:
