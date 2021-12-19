@@ -108,6 +108,7 @@ class EventType(str, ValuesEnumMixin, enum.Enum):
     SMART_DETECT = "smartDetectZone"
     UPDATE = "update"
     VIDEO_EXPORTED = "videoExported"
+    DEVICE_ADOPTED = "deviceAdopted"
 
     @staticmethod
     def device_events() -> List[str]:
