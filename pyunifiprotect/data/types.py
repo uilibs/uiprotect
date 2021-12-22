@@ -169,6 +169,8 @@ class LightModeType(str, enum.Enum):
 class VideoMode(str, enum.Enum):
     DEFAULT = "default"
     HIGH_FPS = "highFps"
+    # should only be for unadopted devices
+    UNKNOWN = "unknown"
 
 
 @enum.unique
