@@ -424,6 +424,17 @@ def tmp_binary_file():
     os.remove(tmp_file.name)
 
 
+# new values added for newer versions of UFP (for backwards compat tests)
+NEW_FIELDS = {
+    # 1.20.1
+    "voltage",
+    # 1.21.0-beta1
+    "timestamp",
+    "isWirelessUplinkEnabled",
+    "marketName",
+}
+
+
 def compare_objs(obj_type, expected, actual):
     # TODO: fields not supported yet
     if obj_type == ModelType.CAMERA.value:
@@ -432,9 +443,6 @@ def compare_objs(obj_type, expected, actual):
             del expected["apMac"]
         if "elementInfo" in expected:
             del expected["elementInfo"]
-        # voltage requires 1.21.1+
-        if "voltage" not in expected:
-            expected["voltage"] = None
         del expected["apRssi"]
         del expected["lastPrivacyZonePositionId"]
         del expected["recordingSchedules"]
@@ -463,9 +471,6 @@ def compare_objs(obj_type, expected, actual):
     elif obj_type == ModelType.SENSOR.value:
         del expected["bridgeCandidates"]
         del expected["mountType"]
-    elif obj_type == ModelType.BRIDGE.value:
-        if "marketName" in actual:
-            del actual["marketName"]
 
     # sometimes uptime comes back as a str...
     if "uptime" in expected and expected["uptime"] is not None:
@@ -475,6 +480,10 @@ def compare_objs(obj_type, expected, actual):
     if "hardwareRevision" in expected and expected["hardwareRevision"] is not None:
         expected["hardwareRevision"] = str(expected["hardwareRevision"])
         actual["hardwareRevision"] = str(actual["hardwareRevision"])
+
+    for key in NEW_FIELDS.intersection(actual.keys()):
+        if key not in expected:
+            del actual[key]
 
     assert expected == actual
 
