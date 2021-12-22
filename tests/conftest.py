@@ -71,11 +71,11 @@ def validate_video_file(filepath: Path, length: int):
 
 
 async def mock_api_request_raw(url: str, *args, **kwargs):
-    if url.startswith("thumbnails/"):
+    if url.startswith("thumbnails/") or url.endswith("thumbnail"):
         return read_binary_file("sample_camera_thumbnail")
     elif url.startswith("cameras/"):
         return read_binary_file("sample_camera_snapshot")
-    elif url.startswith("heatmaps/"):
+    elif url.startswith("heatmaps/") or url.endswith("heatmap"):
         return read_binary_file("sample_camera_heatmap")
     elif url == "video/export":
         return read_binary_file("sample_camera_video", "mp4")
@@ -459,11 +459,13 @@ def compare_objs(obj_type, expected, actual):
         if "lastLoginTime" not in expected:
             actual.pop("lastLoginTime", None)
     elif obj_type == ModelType.EVENT.value:
-        del expected["metadata"]
         del expected["partition"]
     elif obj_type == ModelType.SENSOR.value:
         del expected["bridgeCandidates"]
         del expected["mountType"]
+    elif obj_type == ModelType.BRIDGE.value:
+        if "marketName" in actual:
+            del actual["marketName"]
 
     # sometimes uptime comes back as a str...
     if "uptime" in expected and expected["uptime"] is not None:

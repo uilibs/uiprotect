@@ -101,6 +101,8 @@ class EventType(str, ValuesEnumMixin, enum.Enum):
     FIRMWARE_UPDATE = "fwUpdate"
     INSTALLED_DISK = "installed"
     MOTION = "motion"
+    MOTION_LIGHT = "lightMotion"
+    MOTION_SENSOR = "sensorMotion"
     OFF = "off"
     OFFLINE = "offline"
     PROVISION = "provision"
@@ -109,6 +111,7 @@ class EventType(str, ValuesEnumMixin, enum.Enum):
     UPDATE = "update"
     VIDEO_EXPORTED = "videoExported"
     DEVICE_ADOPTED = "deviceAdopted"
+    RECORDING_MODE_CHANGED = "recordingModeChanged"
 
     @staticmethod
     def device_events() -> List[str]:
@@ -202,7 +205,7 @@ class DoorbellText(ConstrainedStr):
 
 
 class LEDLevel(ConstrainedInt):
-    ge = 1
+    ge = 0
     le = 6
 
 

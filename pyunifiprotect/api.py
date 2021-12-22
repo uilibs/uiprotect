@@ -37,6 +37,7 @@ from pyunifiprotect.data import (
     Light,
     Liveview,
     ModelType,
+    ProtectAdoptableDeviceModel,
     ProtectModel,
     Sensor,
     SmartDetectTrack,
@@ -476,6 +477,8 @@ class ProtectApiClient(BaseApiClient):
     _ws_subscriptions: List[Callable[[WSSubscriptionMessage], None]] = []
     _connection_host: Optional[IPv4Address] = None
 
+    ignore_unadopted: bool
+
     def __init__(
         self,
         host: str,
@@ -488,6 +491,7 @@ class ProtectApiClient(BaseApiClient):
         minimum_score: int = 0,
         subscribed_models: Optional[Set[ModelType]] = None,
         ignore_stats: bool = False,
+        ignore_unadopted: bool = True,
         debug: bool = False,
     ) -> None:
         super().__init__(
@@ -502,6 +506,7 @@ class ProtectApiClient(BaseApiClient):
         self._minimum_score = minimum_score
         self._subscribed_models = subscribed_models or set()
         self._ignore_stats = ignore_stats
+        self.ignore_unadopted = ignore_unadopted
 
         if override_connection_host:
             self._connection_host = ip_from_host(self._host)
@@ -713,6 +718,8 @@ class ProtectApiClient(BaseApiClient):
 
             if expected_type is not None and not isinstance(obj, expected_type):
                 raise NvrError(f"Unexpected model returned: {obj.model}")
+            if self.ignore_unadopted and isinstance(obj, ProtectAdoptableDeviceModel) and not obj.is_adopted:
+                continue
 
             objs.append(obj)
 
@@ -778,6 +785,8 @@ class ProtectApiClient(BaseApiClient):
 
         if expected_type is not None and not isinstance(obj, expected_type):
             raise NvrError(f"Unexpected model returned: {obj.model}")
+        if self.ignore_unadopted and isinstance(obj, ProtectAdoptableDeviceModel) and not obj.is_adopted:
+            raise NvrError("Device is not adopted")
 
         return obj
 
@@ -933,8 +942,10 @@ class ProtectApiClient(BaseApiClient):
         if height is not None:
             params.update({"h": height})
 
+        # old thumbnail URL use thumbnail ID, which is just `e-{event_id}`
+        thumbnail_id = thumbnail_id.replace("e-", "")
         return await self._get_image_with_retry(
-            f"thumbnails/{thumbnail_id}", params=params, retry_timeout=retry_timeout
+            f"events/{thumbnail_id}/thumbnail", params=params, retry_timeout=retry_timeout
         )
 
     async def get_event_heatmap(
@@ -949,7 +960,9 @@ class ProtectApiClient(BaseApiClient):
         your retry timeout will always return None.
         """
 
-        return await self._get_image_with_retry(f"heatmaps/{heatmap_id}", retry_timeout=retry_timeout)
+        # old heatmap URL use heatmap ID, which is just `e-{event_id}`
+        heatmap_id = heatmap_id.replace("e-", "")
+        return await self._get_image_with_retry(f"events/{heatmap_id}/heatmap", retry_timeout=retry_timeout)
 
     async def get_event_smart_detect_track_raw(self, event_id: str) -> Dict[str, Any]:
         """Gets raw Smart Detect Track for a Smart Detection"""

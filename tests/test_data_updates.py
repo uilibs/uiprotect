@@ -109,7 +109,7 @@ async def test_light_set_status_light(light_obj: Light, status: bool):
 
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize("level", [0, 1, 3, 6, 7])
+@pytest.mark.parametrize("level", [-1, 1, 3, 6, 7])
 @pytest.mark.asyncio
 async def test_light_set_led_level(light_obj: Light, level: int):
     light_obj.api.api_request.reset_mock()
@@ -117,7 +117,7 @@ async def test_light_set_led_level(light_obj: Light, level: int):
     light_obj.light_device_settings.led_level = 2
     light_obj._initial_data = light_obj.dict()
 
-    if level in (0, 7):
+    if level in (-1, 7):
         with pytest.raises(ValidationError):
             await light_obj.set_led_level(level)
 
@@ -134,7 +134,7 @@ async def test_light_set_led_level(light_obj: Light, level: int):
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("status", [True, False])
-@pytest.mark.parametrize("level", [None, 0, 1, 3, 6, 7])
+@pytest.mark.parametrize("level", [None, -1, 1, 3, 6, 7])
 @pytest.mark.asyncio
 async def test_light_set_light(light_obj: Light, status: bool, level: Optional[int]):
     light_obj.api.api_request.reset_mock()
@@ -144,7 +144,7 @@ async def test_light_set_light(light_obj: Light, status: bool, level: Optional[i
         light_obj.light_device_settings.led_level = 2
     light_obj._initial_data = light_obj.dict()
 
-    if level in (0, 7):
+    if level in (-1, 7):
         with pytest.raises(ValidationError):
             await light_obj.set_light(status, level)
 
@@ -740,6 +740,7 @@ async def test_camera_set_chime_duration_duration(camera_obj: Optional[Camera], 
     camera_obj.api.api_request.reset_mock()
 
     camera_obj.feature_flags.has_chime = True
+    camera_obj.chime_duration = 300
     camera_obj.mic_volume = 10
     camera_obj._initial_data = camera_obj.dict()
 
