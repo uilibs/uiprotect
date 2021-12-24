@@ -111,6 +111,7 @@ class EventType(str, ValuesEnumMixin, enum.Enum):
     UPDATE = "update"
     VIDEO_EXPORTED = "videoExported"
     DEVICE_ADOPTED = "deviceAdopted"
+    DEVICE_UNADOPTED = "deviceUnadopted"
     RECORDING_MODE_CHANGED = "recordingModeChanged"
 
     @staticmethod
