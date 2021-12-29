@@ -130,7 +130,7 @@ class TalkbackStream(FfmpegCommand):
             f"{input_args}-i {content_url} -vn "
             f"-acodec {camera.talkback_settings.type_fmt} -ac {camera.talkback_settings.channels} "
             f"-ar {camera.talkback_settings.sampling_rate} -b:a {bitrate} -map 0:a "
-            f'-f adts "udp://{camera.host}:{camera.talkback_settings.bind_port}?{udp_bitrate}"'
+            f'-f adts "udp://{camera.host}:{camera.talkback_settings.bind_port}?bitrate={udp_bitrate}"'
         )
 
         super().__init__(cmd, ffmpeg_path)
