@@ -1193,8 +1193,6 @@ class Sensor(ProtectAdoptableDeviceModel):
             del data["lastAlarmEventId"]
         if "extremeValueDetectedAt" in data:
             del data["extremeValueDetectedAt"]
-        if "host" in data and data["host"] is None:
-            del data["host"]
 
         return data
 
