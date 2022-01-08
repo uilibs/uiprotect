@@ -128,7 +128,7 @@ class EventType(str, ValuesEnumMixin, enum.Enum):
     SENSOR_CLOSED = "sensorClosed"
     MOTION_SENSOR = "sensorMotion"
     SENSOR_ALARM = "sensorAlarm"
-    SENSOR_EXTREME_VALUES = "sensorExtremeValues"
+    SENSOR_EXTREME_VALUE = "sensorExtremeValues"
     DOORLOCK_OPEN = "doorlockOpened"
     DOORLOCK_CLOSE = "doorlockClosed"
     MOTION_LIGHT = "lightMotion"
