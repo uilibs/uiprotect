@@ -44,12 +44,11 @@ from pyunifiprotect.utils import (
     to_js_time,
     utc_now,
 )
+from pyunifiprotect.websocket import Websocket
 
 NEVER_RAN = -1000
 # how many seconds before the bootstrap is refreshed from Protect
 DEVICE_UPDATE_INTERVAL = 900
-# how many seconds before before we check for an active WS connection
-WEBSOCKET_CHECK_INTERVAL = 30
 # retry timeout for thumbnails/heatmaps
 RETRY_TIMEOUT = 10
 
@@ -65,19 +64,14 @@ class BaseApiClient:
     _verify_ssl: bool
     _is_authenticated: bool = False
     _last_update: float = NEVER_RAN
-    _last_websocket_check: float = NEVER_RAN
-    _last_websocket_status: bool = False
+    _last_ws_status: bool = False
     _session: Optional[aiohttp.ClientSession] = None
-    _ws_session: Optional[aiohttp.ClientSession] = None
-    _ws_connection: Optional[aiohttp.ClientWebSocketResponse] = None
-    _ws_task: Optional[asyncio.Task[None]] = None
-    _ws_raw_subscriptions: List[Callable[[aiohttp.WSMessage], None]] = []
 
     headers: Optional[Dict[str, str]] = None
-    last_update_id: Optional[UUID] = None
+    _websocket: Optional[Websocket] = None
 
     api_path: str = "/proxy/protect/api/"
-    ws_path: str = "/proxy/protect/ws/"
+    ws_path: str = "/proxy/protect/ws/updates"
 
     def __init__(
         self,
@@ -105,14 +99,16 @@ class BaseApiClient:
         return f"https://{self._host}"
 
     @property
-    def base_ws_url(self) -> str:
+    def ws_url(self) -> str:
+        url = f"wss://{self._host}"
         if self._port != 443:
-            return f"wss://{self._host}:{self._port}"
-        return f"wss://{self._host}"
+            url += f":{self._port}"
 
-    @property
-    def is_ws_connected(self) -> bool:
-        return self._ws_connection is not None
+        url += self.ws_path
+        last_update_id = self._get_last_update_id()
+        if last_update_id is None:
+            return url
+        return f"{url}?lastUpdateId={last_update_id}"
 
     async def get_session(self) -> aiohttp.ClientSession:
         """Gets or creates current client session"""
@@ -124,6 +120,19 @@ class BaseApiClient:
             self._session = aiohttp.ClientSession(cookie_jar=CookieJar(unsafe=True))
 
         return self._session
+
+    async def get_websocket(self) -> Websocket:
+        """Gets or creates current Websocket."""
+
+        async def _auth() -> Optional[Dict[str, str]]:
+            await self.ensure_authenticated()
+            return self.headers
+
+        if self._websocket is None:
+            self._websocket = Websocket(self.ws_url, _auth, verify=self._verify_ssl)
+            self._websocket.subscribe(self._process_ws_message)
+
+        return self._websocket
 
     async def close_session(self) -> None:
         """Closing and delets client session"""
@@ -313,121 +322,47 @@ class BaseApiClient:
 
         return self._is_authenticated
 
-    def reset_ws(self) -> None:
-        """Forcibly resets Websocket"""
+    async def async_connect_ws(self, force: bool) -> None:
+        """Connect to Websocket."""
 
-        if not self.is_ws_connected:
-            return
+        if force and self._websocket is not None:
+            await self._websocket.disconnect()
+            self._websocket = None
 
-        _LOGGER.debug("Canceling WS task...")
-        if self._ws_task is not None:
-            try:
-                self._ws_task.cancel()
-                self._ws_connection = None
-                if self._ws_session is not None:
-                    self._ws_session.close()
-                    self._ws_session = None
-            except Exception:  # pylint: disable=broad-except
-                _LOGGER.exception("Could not cancel WS task")
+        websocket = await self.get_websocket()
+        # important to make sure WS URL is always current
+        websocket.url = self.ws_url
 
-    async def async_connect_ws(self) -> None:
-        """Connect the websocket."""
-
-        # do not try to connect if already connected or connect scheduled
-        if self.is_ws_connected or self._ws_task is not None:
-            return
-
-        self.reset_ws()
-        _LOGGER.debug("Scheduling WS connect...")
-        self._ws_task = asyncio.create_task(self._setup_websocket())
+        if not websocket.is_connected:
+            self._last_ws_status = False
+            await websocket.connect()
 
     async def async_disconnect_ws(self) -> None:
-        """Disconnect the websocket."""
+        """Disconnect from Websocket."""
 
-        if self._ws_connection is None:
+        if self._websocket is None:
             return
+        await self._websocket.disconnect()
 
-        await self._ws_connection.close()
-        if self._ws_session is not None:
-            await self._ws_session.close()
-            self._ws_session = None
+    def check_ws(self) -> bool:
+        """Checks current state of Websocket."""
 
-    async def _message_loop(self, msg: aiohttp.WSMessage) -> bool:
-        for sub in self._ws_raw_subscriptions:
-            sub(msg)
-
-        if msg.type == aiohttp.WSMsgType.BINARY:
-            try:
-                self._process_ws_message(msg)
-            except Exception:  # pylint: disable=broad-except
-                _LOGGER.exception("Error processing websocket message")
-        elif msg.type == aiohttp.WSMsgType.ERROR:
-            _LOGGER.exception("Error from Websocket: %s", msg.data)
+        if self._websocket is None:
             return False
 
-        return True
-
-    async def _setup_websocket(self) -> None:
-        _LOGGER.debug("Setting up WS")
-        await self.ensure_authenticated()
-
-        url = urljoin(f"{self.base_ws_url}{self.ws_path}", "updates")
-        if self.last_update_id:
-            url += f"?lastUpdateId={self.last_update_id}"
-
-        if not self._ws_session:
-            self._ws_session = aiohttp.ClientSession()
-        _LOGGER.debug("WS connecting to: %s", url)
-
-        self._ws_connection = await self._ws_session.ws_connect(url, ssl=self._verify_ssl, headers=self.headers)
-        try:
-            async for msg in self._ws_connection:
-                if not await self._message_loop(msg):
-                    break
-        finally:
-            _LOGGER.debug("websocket disconnected")
-            self._ws_connection = None
-            self._ws_task = None
-
-    def subscribe_raw_websocket(self, ws_callback: Callable[[aiohttp.WSMessage], None]) -> Callable[[], None]:
-        """
-        Subscribe to raw websocket messages.
-
-        Returns a callback that will unsubscribe.
-        """
-
-        def _unsub_ws_callback() -> None:
-            self._ws_raw_subscriptions.remove(ws_callback)
-
-        _LOGGER.debug("Adding subscription: %s", ws_callback)
-        self._ws_raw_subscriptions.append(ws_callback)
-        return _unsub_ws_callback
-
-    async def check_ws(self) -> bool:
-        now = time.monotonic()
-
-        first_check = self._last_websocket_check == NEVER_RAN
-        if now - self._last_websocket_check > WEBSOCKET_CHECK_INTERVAL:
-            _LOGGER.debug("Checking websocket")
-            self._last_websocket_check = now
-            await self.async_connect_ws()
-
-        # log if no active WS
-        if not self.is_ws_connected and not first_check:
+        if not self._websocket.is_connected:
             log = _LOGGER.debug
-            # but only warn if a reconnect attempt was made
-            if self._last_websocket_status:
+            if self._last_ws_status:
                 log = _LOGGER.warning
             log("Websocket connection not active, failing back to polling")
 
-        new_status = self.is_ws_connected or self._last_websocket_check == now
-        if not self._last_websocket_status and new_status:
-            _LOGGER.info("Websocket connection successfully connected")
-
-        self._last_websocket_status = new_status
-        return self._last_websocket_status
+        self._last_ws_status = self._websocket.is_connected
+        return self._last_ws_status
 
     def _process_ws_message(self, msg: aiohttp.WSMessage) -> None:
+        raise NotImplementedError()
+
+    def _get_last_update_id(self) -> Optional[UUID]:
         raise NotImplementedError()
 
 
@@ -465,9 +400,9 @@ class ProtectApiClient(BaseApiClient):
     _minimum_score: int
     _subscribed_models: Set[ModelType]
     _ignore_stats: bool
+    _ws_subscriptions: List[Callable[[WSSubscriptionMessage], None]]
     _bootstrap: Optional[Bootstrap] = None
     _last_update_dt: Optional[datetime] = None
-    _ws_subscriptions: List[Callable[[WSSubscriptionMessage], None]] = []
     _connection_host: Optional[Union[IPv4Address, str]] = None
 
     ignore_unadopted: bool
@@ -499,6 +434,7 @@ class ProtectApiClient(BaseApiClient):
         self._minimum_score = minimum_score
         self._subscribed_models = subscribed_models or set()
         self._ignore_stats = ignore_stats
+        self._ws_subscriptions = []
         self.ignore_unadopted = ignore_unadopted
 
         if override_connection_host:
@@ -552,10 +488,8 @@ class ProtectApiClient(BaseApiClient):
         now_dt = utc_now()
         max_event_dt = now_dt - timedelta(hours=24)
         if force:
-            self.reset_ws()
             self._last_update = NEVER_RAN
             self._last_update_dt = max_event_dt
-            self._last_websocket_check = NEVER_RAN
 
         bootstrap_updated = False
         if self._bootstrap is None or now - self._last_update > DEVICE_UPDATE_INTERVAL:
@@ -564,7 +498,8 @@ class ProtectApiClient(BaseApiClient):
             self._last_update_dt = now_dt
             self._bootstrap = await self.get_bootstrap()
 
-        active_ws = await self.check_ws()
+        await self.async_connect_ws(force)
+        active_ws = self.check_ws()
         if not bootstrap_updated and active_ws:
             # If the websocket is connected/connecting
             # we do not need to get events
@@ -586,11 +521,20 @@ class ProtectApiClient(BaseApiClient):
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Exception while running subscription handler")
 
+    def _get_last_update_id(self) -> Optional[UUID]:
+        if self._bootstrap is None:
+            return None
+        return self._bootstrap.last_update_id
+
     def _process_ws_message(self, msg: aiohttp.WSMessage) -> None:
+        _LOGGER.debug("Processing WS message...")
         packet = WSPacket(msg.data)
         processed_message = self.bootstrap.process_ws_packet(
             packet, models=self._subscribed_models, ignore_stats=self._ignore_stats
         )
+        # update websocket URL after every message to ensure the latest last_update_id
+        if self._websocket is not None:
+            self._websocket.url = self.ws_url
 
         if processed_message is None:
             return

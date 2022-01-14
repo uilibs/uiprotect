@@ -108,7 +108,8 @@ class SampleDataGenerator:
     async def async_generate(self, close_session: bool = True) -> None:
         self.log(f"Output folder: {self.output_folder}")
         self.output_folder.mkdir(parents=True, exist_ok=True)
-        self.client.subscribe_raw_websocket(self._handle_ws_message)
+        websocket = await self.client.get_websocket()
+        websocket.subscribe(self._handle_ws_message)
 
         self.log("Updating devices...")
         await self.client.update(True)
