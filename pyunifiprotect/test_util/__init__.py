@@ -112,7 +112,7 @@ class SampleDataGenerator:
         websocket.subscribe(self._handle_ws_message)
 
         self.log("Updating devices...")
-        await self.client.update(True)
+        await self.client.update()
 
         bootstrap: Dict[str, Any] = await self.client.api_request_obj("bootstrap")
         bootstrap = await self.write_json_file("sample_bootstrap", bootstrap)

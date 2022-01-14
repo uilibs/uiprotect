@@ -64,11 +64,11 @@ class Websocket:
 
     async def _websocket_loop(self, start_event: asyncio.Event) -> None:
         _LOGGER.debug("Connecting WS to %s", self.url)
-        start_event.set()
         self._headers = await self._auth()
 
         session = self._get_session()
         self._ws_connection = await session.ws_connect(self.url, ssl=self.verify, headers=self._headers)
+        start_event.set()
         try:
             await self._reset_timeout()
             async for msg in self._ws_connection:
@@ -121,6 +121,7 @@ class Websocket:
         try:
             await asyncio.wait_for(start_event.wait(), timeout=self.timeout_interval)
         except asyncio.TimeoutError:
+            _LOGGER.warning("Timedout while waiting for Websocket to connect")
             await self.disconnect()
 
         if self._ws_connection is None:
