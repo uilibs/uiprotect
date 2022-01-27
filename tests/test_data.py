@@ -165,6 +165,7 @@ def test_bootstrap(bootstrap):
     del bootstrap["nvr"]["wifiSettings"]
     del bootstrap["nvr"]["ssoChannel"]
     del bootstrap["nvr"]["smartDetectAgreement"]
+    del bootstrap["nvr"]["systemInfo"]["ustorage"]
 
     for model_type in ModelType.bootstrap_models():
         key = model_type + "s"

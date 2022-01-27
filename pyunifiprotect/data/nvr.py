@@ -482,6 +482,9 @@ class SystemInfo(ProtectBaseObject):
     storage: StorageInfo
     tmpfs: TMPFSInfo
 
+    # TODO:
+    # ustorage
+
 
 class DoorbellMessage(ProtectBaseObject):
     type: DoorbellMessageType
