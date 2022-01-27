@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta
 from ipaddress import IPv4Address
+import logging
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -47,6 +48,7 @@ if TYPE_CHECKING:
 ProtectObject = TypeVar("ProtectObject", bound="ProtectBaseObject")
 RECENT_EVENT_MAX = timedelta(seconds=30)
 EVENT_PING_INTERVAL = timedelta(seconds=3)
+_LOGGER = logging.getLogger(__name__)
 
 
 class ProtectBaseObject(BaseModel):
@@ -558,6 +560,9 @@ class ProtectModelWithId(ProtectModel):
     async def emit_message(self, updated: Dict[str, Any]) -> None:
         """Emites fake WS message for ProtectApiClient to process."""
 
+        if updated == {}:
+            _LOGGER.debug("Event ping callback started for %s", self.id)
+
         if self.model is None:
             raise BadRequest("Unknown model type")
 
@@ -607,6 +612,7 @@ class ProtectDeviceModel(ProtectModelWithId):
         return super().unifi_dict_to_dict(data)
 
     def _event_callback_ping(self) -> None:
+        _LOGGER.debug("Event ping timer started for %s", self.id)
         loop = asyncio.get_event_loop()
         loop.call_later(EVENT_PING_INTERVAL.total_seconds(), asyncio.create_task, self.emit_message({}))
 

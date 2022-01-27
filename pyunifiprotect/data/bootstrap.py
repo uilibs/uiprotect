@@ -275,21 +275,22 @@ class Bootstrap(ProtectBaseObject):
             if isinstance(obj, Event):
                 self.process_event(obj)
             elif isinstance(obj, Camera):
-                if "last_ring" in data and obj.last_ring and obj.last_ring + RECENT_EVENT_MAX >= now:
-                    obj.set_ring_timeout()
+                if "last_ring" in data and obj.last_ring:
+                    is_recent = obj.last_ring + RECENT_EVENT_MAX >= now
+                    _LOGGER.debug("last_ring for %s (%s)", obj.id, is_recent)
+                    if is_recent:
+                        obj.set_ring_timeout()
             elif isinstance(obj, Sensor):
-                if (
-                    "alarm_triggered_at" in data
-                    and obj.alarm_triggered_at
-                    and obj.alarm_triggered_at + RECENT_EVENT_MAX >= now
-                ):
-                    obj.set_alarm_timeout()
-                elif (
-                    "tampering_detected_at" in data
-                    and obj.tampering_detected_at
-                    and obj.tampering_detected_at + RECENT_EVENT_MAX >= now
-                ):
-                    obj.set_tampering_timeout()
+                if "alarm_triggered_at" in data and obj.alarm_triggered_at:
+                    is_recent = obj.alarm_triggered_at + RECENT_EVENT_MAX >= now
+                    _LOGGER.debug("alarm_triggered_at for %s (%s)", obj.id, is_recent)
+                    if is_recent:
+                        obj.set_alarm_timeout()
+                elif "tampering_detected_at" in data and obj.tampering_detected_at:
+                    is_recent = obj.tampering_detected_at + RECENT_EVENT_MAX >= now
+                    _LOGGER.debug("tampering_detected_at for %s (%s)", obj.id, is_recent)
+                    if is_recent:
+                        obj.set_tampering_timeout()
 
             devices[action["id"]] = obj
 
