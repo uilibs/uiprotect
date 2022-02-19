@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+from copy import deepcopy
 from datetime import datetime, timezone
 import json
 import os
@@ -467,6 +468,9 @@ NEW_FIELDS = {
 
 
 def compare_objs(obj_type, expected, actual):
+    expected = deepcopy(expected)
+    actual = deepcopy(actual)
+
     # TODO: fields not supported yet
     if obj_type == ModelType.CAMERA.value:
         # fields does not always exist (G4 Instant)
@@ -490,12 +494,9 @@ def compare_objs(obj_type, expected, actual):
         assert len(expected["privacyZones"]) == len(actual["privacyZones"])
         assert len(expected["smartDetectZones"]) == len(actual["smartDetectZones"])
 
-        del expected["motionZones"]
-        del actual["motionZones"]
-        del expected["privacyZones"]
-        del actual["privacyZones"]
-        del expected["smartDetectZones"]
-        del actual["smartDetectZones"]
+        expected["motionZones"] = actual["motionZones"] = []
+        expected["privacyZones"] = actual["privacyZones"] = []
+        expected["smartDetectZones"] = actual["smartDetectZones"] = []
     elif obj_type == ModelType.USER.value:
         if "settings" in expected:
             expected.pop("settings", None)
