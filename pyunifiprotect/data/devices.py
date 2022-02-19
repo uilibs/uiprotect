@@ -1,6 +1,7 @@
 """Unifi Protect Data."""
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 from ipaddress import IPv4Address
 import logging
@@ -523,7 +524,7 @@ class CameraZone(ProtectBaseObject):
     @classmethod
     def unifi_dict_to_dict(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         data = super().unifi_dict_to_dict(data)
-        if "points" in data and isinstance(data["points"], list):
+        if "points" in data and isinstance(data["points"], Iterable):
             data["points"] = [(round_decimal(p[0], 4), round_decimal(p[1], 4)) for p in data["points"]]
 
         return data

@@ -46,6 +46,7 @@ if TYPE_CHECKING:
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 DEBUG_ENV = "UFP_DEBUG"
 PROGRESS_CALLABLE = Callable[[int, str], Coroutine[Any, Any, None]]
+DECIMAL_EVEN = (Decimal(1), Decimal(0))
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -244,8 +245,15 @@ def serialize_list(items: Iterable[Any]) -> List[Any]:
     return new_items
 
 
-def round_decimal(num: Union[int, float], digits: int) -> Decimal:
+def round_decimal(num: Union[Decimal, int, float], digits: int) -> Decimal:
     """Rounds a decimal to a set precision"""
+
+    if isinstance(num, Decimal):
+        return num
+
+    unrounded = Decimal(num)
+    if unrounded in DECIMAL_EVEN:
+        return unrounded
     return Decimal(str(round(num, digits)))
 
 
