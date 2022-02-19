@@ -484,6 +484,18 @@ def compare_objs(obj_type, expected, actual):
         del expected["featureFlags"]["tilt"]
         del expected["featureFlags"]["zoom"]
         del expected["ispSettings"]["mountPosition"]
+
+        # do not compare detect zones because float math sucks
+        assert len(expected["motionZones"]) == len(actual["motionZones"])
+        assert len(expected["privacyZones"]) == len(actual["privacyZones"])
+        assert len(expected["smartDetectZones"]) == len(actual["smartDetectZones"])
+
+        del expected["motionZones"]
+        del actual["motionZones"]
+        del expected["privacyZones"]
+        del actual["privacyZones"]
+        del expected["smartDetectZones"]
+        del actual["smartDetectZones"]
     elif obj_type == ModelType.USER.value:
         if "settings" in expected:
             expected.pop("settings", None)
