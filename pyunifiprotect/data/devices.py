@@ -41,7 +41,6 @@ from pyunifiprotect.exceptions import BadRequest, StreamError
 from pyunifiprotect.stream import TalkbackStream
 from pyunifiprotect.utils import (
     from_js_time,
-    is_debug,
     process_datetime,
     round_decimal,
     serialize_point,
