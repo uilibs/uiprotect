@@ -524,10 +524,8 @@ class CameraZone(ProtectBaseObject):
     @classmethod
     def unifi_dict_to_dict(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         data = super().unifi_dict_to_dict(data)
-
-        if not is_debug():
-            if "points" in data and isinstance(data["points"], list):
-                data["points"] = [(round_decimal(p[0], 4), round_decimal(p[1], 4)) for p in data["points"]]
+        if "points" in data and isinstance(data["points"], list):
+            data["points"] = [(round_decimal(p[0], 4), round_decimal(p[1], 4)) for p in data["points"]]
 
         return data
 

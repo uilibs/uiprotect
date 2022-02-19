@@ -28,7 +28,7 @@
         "python.linting.banditEnabled": false,
         "python.linting.enabled": true,
         "python.linting.flake8Enabled": true,
-        "python.linting.flake8Path": "pflake8",
+        "python.linting.flake8Path": "/usr/local/bin/pflake8",
         "python.linting.mypyEnabled": true,
         "python.linting.pylintEnabled": true,
         "python.linting.pylintArgs": [
