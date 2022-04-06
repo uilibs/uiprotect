@@ -165,6 +165,7 @@ class SmartDetectObjectType(str, ValuesEnumMixin, enum.Enum):
     FACE = "face"
     ANIMAL = "animal"
     VEHICLE = "vehicle"
+    CAR = "car"
 
 
 @enum.unique
