@@ -162,9 +162,10 @@ class ProtectWSPayloadFormat(int, enum.Enum):
 @enum.unique
 class SmartDetectObjectType(str, ValuesEnumMixin, enum.Enum):
     PERSON = "person"
-    FACE = "face"
     ANIMAL = "animal"
     VEHICLE = "vehicle"
+    # old?
+    FACE = "face"
     CAR = "car"
 
 
