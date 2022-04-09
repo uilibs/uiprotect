@@ -464,6 +464,12 @@ NEW_FIELDS = {
     "marketName",
     # 1.21.0-beta3
     "isPoorNetwork",
+    # 2.0-beta2
+    "scopes",
+    "streamSharingAvailable",
+    "isDbAvailable",
+    "isRecordingDisabled",
+    "isRecordingMotionOnly",
 }
 
 
@@ -482,6 +488,8 @@ def compare_objs(obj_type, expected, actual):
         del expected["lastPrivacyZonePositionId"]
         del expected["recordingSchedules"]
         del expected["smartDetectLines"]
+        if "streamSharing" in expected:
+            del expected["streamSharing"]
         del expected["featureFlags"]["mountPositions"]
         del expected["featureFlags"]["focus"]
         del expected["featureFlags"]["pan"]
@@ -497,6 +505,11 @@ def compare_objs(obj_type, expected, actual):
         expected["motionZones"] = actual["motionZones"] = []
         expected["privacyZones"] = actual["privacyZones"] = []
         expected["smartDetectZones"] = actual["smartDetectZones"] = []
+        expected["recordingSettings"]["enableMotionDetection"] = expected["recordingSettings"].get(
+            "enableMotionDetection"
+        )
+        expected["featureFlags"]["audio"] = expected["featureFlags"].get("audio", [])
+        expected["featureFlags"]["audioCodecs"] = expected["featureFlags"].get("audioCodecs", [])
     elif obj_type == ModelType.USER.value:
         if "settings" in expected:
             expected.pop("settings", None)
@@ -521,6 +534,11 @@ def compare_objs(obj_type, expected, actual):
         del expected["bridgeCandidates"]
         actual.pop("host", None)
         expected.pop("host", None)
+
+    if "bluetoothConnectionState" in expected:
+        expected["bluetoothConnectionState"]["experienceScore"] = expected["bluetoothConnectionState"].get(
+            "experienceScore"
+        )
 
     # sometimes uptime comes back as a str...
     if "uptime" in expected and expected["uptime"] is not None:
