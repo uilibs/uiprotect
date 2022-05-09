@@ -34,7 +34,6 @@ from uuid import UUID
 from aiohttp import ClientResponse
 from pydantic.fields import SHAPE_DICT, SHAPE_LIST, ModelField
 from pydantic.utils import to_camel
-import typer
 
 from pyunifiprotect.data.types import Version
 from pyunifiprotect.exceptions import NvrError
@@ -298,8 +297,15 @@ async def write_json(output_path: Path, data: Union[List[Any], Dict[str, Any]]) 
 
 
 def print_ws_stat_summary(stats: List[WSStat], output: Optional[Callable[[Any], Any]] = None) -> None:
+    # typer<0.4.1 is incompatible with click>=8.1.0
+    # allows only the CLI interface to break if both are installed
+    import typer  # pylint: disable=import-outside-toplevel
+
     if output is None:
-        output = typer.echo
+        if typer is not None:
+            output = typer.echo
+        else:
+            output = print
 
     unfiltered, percent, keys, models, actions = ws_stat_summmary(stats)
 
