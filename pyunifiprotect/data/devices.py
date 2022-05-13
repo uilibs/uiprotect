@@ -818,6 +818,14 @@ class Camera(ProtectMotionDeviceModel):
         return SmartDetectObjectType.LICENSE_PLATE in self.smart_detect_settings.object_types
 
     @property
+    def can_detect_package(self) -> bool:
+        return SmartDetectObjectType.PACKAGE in self.feature_flags.smart_detect_types
+
+    @property
+    def is_package_detection_on(self) -> bool:
+        return SmartDetectObjectType.PACKAGE in self.smart_detect_settings.object_types
+
+    @property
     def is_ringing(self) -> bool:
         if self._last_ring_timeout is None:
             return False
@@ -1078,6 +1086,11 @@ class Camera(ProtectMotionDeviceModel):
         """Toggles license plate smart detection. Requires camera to have smart detection"""
 
         return await self._set_object_detect(SmartDetectObjectType.LICENSE_PLATE, enabled)
+
+    async def set_package_detection(self, enabled: bool) -> None:
+        """Toggles package smart detection. Requires camera to have smart detection"""
+
+        return await self._set_object_detect(SmartDetectObjectType.PACKAGE, enabled)
 
     async def set_lcd_text(
         self,
