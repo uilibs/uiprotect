@@ -13,7 +13,7 @@ WS_TIMEOUT="${WS_TIMEOUT:-40}"
 pushd "$ROOT_PATH" 2>&1 >/dev/null
 
 echo -e "\nRunning tests (no benchmarks)..."
-pytest --timeout=5 --color=yes --cov-report= --benchmark-skip --maxfail=10
+pytest --timeout=10 --color=yes --cov-report= --benchmark-skip --maxfail=10
 
 echo -e "\nRunning benchmark tests..."
 pytest --timeout=$WS_TIMEOUT --cov-report=term --color=yes --benchmark-only -n=0 -rP
