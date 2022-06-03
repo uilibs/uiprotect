@@ -55,7 +55,7 @@ class Websocket:
         """Is Websocket connected"""
         return self._ws_connection is not None
 
-    def _get_session(self) -> ClientSession:  # pylint: disable=no-self-use
+    def _get_session(self) -> ClientSession:
         # for testing, to make easier to mock
         return ClientSession()
 

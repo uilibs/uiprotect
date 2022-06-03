@@ -166,7 +166,7 @@ class BaseApiClient:
             if not self._verify_ssl:
                 kwargs["ssl"] = False
             req_context = session.request(method, url, headers=headers, **kwargs)
-            response = await req_context.__aenter__()
+            response = await req_context.__aenter__()  # pylint: disable=unnecessary-dunder-call
 
             try:
                 _LOGGER.debug("%s %s %s", response.status, response.content_type, response)
