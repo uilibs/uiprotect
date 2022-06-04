@@ -37,7 +37,7 @@ OPTION_USERNAME = typer.Option(
     ...,
     "--username",
     "-U",
-    help="Unifi Protect Username",
+    help="UniFi Protect Username",
     prompt=True,
     envvar="UFP_USERNAME",
 )
@@ -45,7 +45,7 @@ OPTION_PASSWORD = typer.Option(
     ...,
     "--password",
     "-P",
-    help="Unifi Protect password",
+    help="UniFi Protect password",
     prompt=True,
     hide_input=True,
     envvar="UFP_PASSWORD",
@@ -55,10 +55,10 @@ OPTION_ADDRESS = typer.Option(
     "--address",
     "-a",
     prompt=True,
-    help="Unifi Protect IP address or hostname",
+    help="UniFi Protect IP address or hostname",
     envvar="UFP_ADDRESS",
 )
-OPTION_PORT = typer.Option(443, "--port", "-p", help="Unifi Protect Port", envvar="UFP_PORT")
+OPTION_PORT = typer.Option(443, "--port", "-p", help="UniFi Protect Port", envvar="UFP_PORT")
 OPTION_SECONDS = typer.Option(15, "--seconds", "-s", help="Seconds to pull events")
 OPTION_VERIFY = typer.Option(True, "--no-verify", help="Verify SSL", envvar="UFP_SSL_VERIFY")
 OPTION_ANON = typer.Option(True, "--actual", help="Do not anonymize test data")

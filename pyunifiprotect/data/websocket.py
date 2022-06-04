@@ -1,4 +1,4 @@
-"""Classes for decoding/encoding data from Unifi OS Websocket"""
+"""Classes for decoding/encoding data from UniFi OS Websocket"""
 from __future__ import annotations
 
 import base64

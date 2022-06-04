@@ -1,4 +1,4 @@
-"""Python Wrapper for Unifi Protect."""
+"""Unofficial UniFi Protect Python API and Command Line Interface."""
 from pyunifiprotect.api import ProtectApiClient
 from pyunifiprotect.exceptions import Invalid, NotAuthorized, NvrError
 

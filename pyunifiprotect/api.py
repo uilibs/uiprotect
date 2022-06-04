@@ -1,4 +1,4 @@
-"""Unifi Protect Server Wrapper."""
+"""UniFi Protect Server Wrapper."""
 from __future__ import annotations
 
 import asyncio
@@ -151,7 +151,7 @@ class BaseApiClient:
     async def request(
         self, method: str, url: str, require_auth: bool = False, auto_close: bool = True, **kwargs: Any
     ) -> aiohttp.ClientResponse:
-        """Make a request to Unifi Protect"""
+        """Make a request to UniFi Protect"""
 
         if require_auth:
             await self.ensure_authenticated()
@@ -192,7 +192,7 @@ class BaseApiClient:
         raise_exception: bool = True,
         **kwargs: Any,
     ) -> Optional[bytes]:
-        """Make a request to Unifi Protect API"""
+        """Make a request to UniFi Protect API"""
 
         if require_auth:
             await self.ensure_authenticated()
@@ -379,7 +379,7 @@ class ProtectApiClient(BaseApiClient):
     """
     Main UFP API Client
 
-    Unifi Protect is a full async application. "normal" use of interacting with it is
+    UniFi Protect is a full async application. "normal" use of interacting with it is
     to call `.update()` which will initialize the `.bootstrap` and create a Websocket
     connection to UFP. This Websocket connection will emit messages that will automatically
     update the `.bootstrap` over time. Caling `.udpate` again (without `force`) will
@@ -570,7 +570,7 @@ class ProtectApiClient(BaseApiClient):
         If `limit`, `start` and `end` are not provided, it will default to all events in the last 24 hours.
 
         If `start` is provided, then `end` or `limit` must be provided. If `end` is provided, then `start` or
-        `limit` must be provided. Otherwise, you will get a 400 error from Unifi Protect
+        `limit` must be provided. Otherwise, you will get a 400 error from UniFi Protect
         """
 
         # if no parameters are passed in, default to all events from last 24 hours
@@ -617,7 +617,7 @@ class ProtectApiClient(BaseApiClient):
         If `limit`, `start` and `end` are not provided, it will default to all events in the last 24 hours.
 
         If `start` is provided, then `end` or `limit` must be provided. If `end` is provided, then `start` or
-        `limit` must be provided. Otherwise, you will get a 400 error from Unifi Protect
+        `limit` must be provided. Otherwise, you will get a 400 error from UniFi Protect
         """
 
         response = await self.get_events_raw(start=start, end=end, limit=limit, types=types)

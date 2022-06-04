@@ -1,4 +1,4 @@
-"""Unifi Protect Data."""
+"""UniFi Protect Data."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, tzinfo

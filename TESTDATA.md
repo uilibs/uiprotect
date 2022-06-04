@@ -31,8 +31,8 @@ Inside of the Python environment from above, run the following command. If you a
 unifi-protect generate-sample-data -o /path/to/ufp-data --actual -w 300 -v -U your-unifi-protect-username -P your-unifi-protect-password -a ip-address-to-unifi-protect
 ```
 
-This will generate a ton of data from your Unifi Protect instance for 5 minutes. During this time, go do stuff with your sensor to trigger events. When it is all done, you will have a bunch of json files in `/path/to/ufp-data`. Download those and zip them up and send them to us.
+This will generate a ton of data from your UniFi Protect instance for 5 minutes. During this time, go do stuff with your sensor to trigger events. When it is all done, you will have a bunch of json files in `/path/to/ufp-data`. Download those and zip them up and send them to us.
 
-It is recommended that you _do not_ post these files publically as they do have some senstive data in them related to your Unifi Network. If you would like you manually clean out the senstive data from these files, feel free.
+It is recommended that you _do not_ post these files publically as they do have some senstive data in them related to your UniFi Network. If you would like you manually clean out the senstive data from these files, feel free.
 
 The most cirtical data for you do remove are the `authUserId`, `accessKey`, and `users` keys from the `sample_bootstrap.json` file.

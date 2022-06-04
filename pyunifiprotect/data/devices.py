@@ -1,4 +1,4 @@
-"""Unifi Protect Data."""
+"""UniFi Protect Data."""
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -695,7 +695,7 @@ class Camera(ProtectMotionDeviceModel):
     # smartDetectLines
     # streamSharing
 
-    # not directly from Unifi
+    # not directly from UniFi
     last_ring_event_id: Optional[str] = None
     last_smart_detect: Optional[datetime] = None
     last_smart_detect_event_id: Optional[str] = None
@@ -1315,7 +1315,7 @@ class Sensor(ProtectAdoptableDeviceModel):
     temperature_settings: SensorThresholdSettings
     mount_type: MountType
 
-    # not directly from Unifi
+    # not directly from UniFi
     last_motion_event_id: Optional[str] = None
     last_contact_event_id: Optional[str] = None
     last_value_event_id: Optional[str] = None

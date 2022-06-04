@@ -1,15 +1,15 @@
-# Python Wrapper for Unifi Protect API
+# Unofficial UniFi Protect Python API and Command Line Interface
 
 [![Latest PyPI version](https://img.shields.io/pypi/v/pyunifiprotect)](https://pypi.org/project/pyunifiprotect/) [![Supported Python](https://img.shields.io/pypi/pyversions/pyunifiprotect)](https://pypi.org/project/pyunifiprotect/) [![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![CI](https://github.com/briis/pyunifiprotect/actions/workflows/ci.yaml/badge.svg)](https://github.com/briis/pyunifiprotect/actions/workflows/ci.yaml)
 
 
-This module communicates with Unifi Protect Surveillance software installed on a UnifiOS Console such as a Ubiquiti CloudKey+ or Unifi Dream Machine Pro
+This module communicates with UniFi Protect Surveillance software installed on a UniFi OS Console such as a Ubiquiti CloudKey+ or UniFi Dream Machine Pro.
 
 The API is not documented by Ubiquiti, so there might be misses and/or frequent changes in this module, as Ubiquiti evolves the software.
 
-The module is primarily written for the purpose of being used in Home Assistant for the Custom Integration called `unifiprotect` but might be used for other purposes also.
+The module is primarily written for the purpose of being used in Home Assistant core [integration for UniFi Protect](https://www.home-assistant.io/integrations/unifiprotect) but might be used for other purposes also.
 
-Requires Unifi Protect version 1.20 or higher and Python 3.9+.
+Requires UniFi Protect version 1.20 or higher and Python 3.9+.
 
 ## Install
 
@@ -104,7 +104,7 @@ done
 
 ## Library Usage
 
-Unifi Protect itself is 100% async, so as such this library is primarily designed to be used in an async context.
+UniFi Protect itself is 100% async, so as such this library is primarily designed to be used in an async context.
 
 The main interface for the library is the `pyunifiprotect.ProtectApiClient`:
 
@@ -166,7 +166,7 @@ UFP_SSL_VERIFY=True
 
 ### Generating Test Data
 
-All of the tests in the project are ran against that is generated from a real Unifi Protect instance and then anonymized so it is safe to commit to a Git repo. To generate new sample test data:
+All of the tests in the project are ran against that is generated from a real UniFi Protect instance and then anonymized so it is safe to commit to a Git repo. To generate new sample test data:
 
 ```
 unifi-protect generate-sample-data

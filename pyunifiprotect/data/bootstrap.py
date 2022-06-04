@@ -1,4 +1,4 @@
-"""Unifi Protect Bootstrap."""
+"""UniFi Protect Bootstrap."""
 from __future__ import annotations
 
 from copy import deepcopy
@@ -145,7 +145,7 @@ class Bootstrap(ProtectBaseObject):
     # displays
     # schedules
 
-    # not directly from Unifi
+    # not directly from UniFi
     events: Dict[str, Event] = FixSizeOrderedDict()
     capture_ws_stats: bool = False
     mac_lookup: dict[str, ProtectDeviceRef] = {}

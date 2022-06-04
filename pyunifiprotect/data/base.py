@@ -1,4 +1,4 @@
-"""Unifi Protect Data."""
+"""UniFi Protect Data."""
 from __future__ import annotations
 
 import asyncio
@@ -58,7 +58,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class ProtectBaseObject(BaseModel):
     """
-    Base class for building Python objects from Unifi Protect JSON.
+    Base class for building Python objects from UniFi Protect JSON.
 
     * Provides `.unifi_dict_to_dict` to convert UFP JSON to a more Pythonic formatted dict (camel case to snake case)
     * Add attrs with matching Pyhonic name and they will automatically be populated from the UFP JSON if passed in to the constructer
@@ -743,7 +743,7 @@ class ProtectMotionDeviceModel(ProtectAdoptableDeviceModel):
     last_motion: Optional[datetime]
     is_dark: bool
 
-    # not directly from Unifi
+    # not directly from UniFi
     last_motion_event_id: Optional[str] = None
 
     def unifi_dict(self, data: Optional[Dict[str, Any]] = None, exclude: Optional[Set[str]] = None) -> Dict[str, Any]:

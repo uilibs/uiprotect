@@ -1,5 +1,5 @@
 class UnifiProtectError(Exception):
-    """Base class for all other Unifi Protect errors"""
+    """Base class for all other UniFi Protect errors"""
 
 
 class StreamError(UnifiProtectError):
@@ -7,7 +7,7 @@ class StreamError(UnifiProtectError):
 
 
 class DataDecodeError(UnifiProtectError):
-    """Exception raised when trying to decode a Unifi Protect object"""
+    """Exception raised when trying to decode a UniFi Protect object"""
 
 
 class WSDecodeError(UnifiProtectError):
@@ -19,7 +19,7 @@ class WSEncodeError(UnifiProtectError):
 
 
 class ClientError(UnifiProtectError):
-    """Base Class for all other Unifi Protect client errors"""
+    """Base Class for all other UniFi Protect client errors"""
 
 
 class BadRequest(ClientError):

@@ -10,7 +10,7 @@ It is recommended you do this all on your personal fork. Test it and make it all
 
 You can use any method for creating a GHA runner you want. It is just required you use the labels `self-hosted,linux,ufp,YOUR_USERNAME`. To help out, 3 possible install methods are listed below.
 
-The only other additional requirement for the GHA runner is that it _must_ be able to communitcate directly to your Unifi Protect instance.
+The only other additional requirement for the GHA runner is that it _must_ be able to communitcate directly to your UniFi Protect instance.
 
 ### Getting Required variables
 

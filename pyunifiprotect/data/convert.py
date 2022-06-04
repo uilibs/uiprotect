@@ -1,4 +1,4 @@
-"""Unifi Protect Data Conversion."""
+"""UniFi Protect Data Conversion."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, Optional, Type
