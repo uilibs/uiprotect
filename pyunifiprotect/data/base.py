@@ -198,7 +198,7 @@ class ProtectBaseObject(BaseModel):
                 if issubclass(field.type_, ProtectBaseObject):
                     if field.shape == SHAPE_LIST:
                         cls._protect_lists[name] = field.type_
-                    if field.shape == SHAPE_DICT:
+                    elif field.shape == SHAPE_DICT:
                         cls._protect_dicts[name] = field.type_
                     else:
                         cls._protect_objs[name] = field.type_

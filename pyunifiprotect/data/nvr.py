@@ -529,20 +529,24 @@ class UOSDisk(ProtectBaseObject):
 
         if "state" in data and data["state"] == "nodisk":
             delete_keys = [
-                "type",
-                "model",
-                "serial",
-                "firmware",
-                "rpm",
-                "ata",
-                "sata",
                 "action",
-                "healthy",
-                "reason",
-                "tempature",
-                "poweronhrs",
-                "life_span",
+                "ata",
                 "bad_sector",
+                "estimate",
+                "firmware",
+                "healthy",
+                "life_span",
+                "model",
+                "poweronhrs",
+                "progress",
+                "reason",
+                "rpm",
+                "sata",
+                "serial",
+                "tempature",
+                "temperature",
+                "threshold",
+                "type",
             ]
             for key in delete_keys:
                 if key in data:
@@ -558,7 +562,14 @@ class UOSSpace(ProtectBaseObject):
     action: DiskAction
     progress: Optional[PercentFloat] = None
     estimate: Optional[timedelta] = None
-    healthy: Optional[DiskHealth] = None
+
+    @classmethod
+    def _get_unifi_remaps(cls) -> Dict[str, str]:
+        return {
+            **super()._get_unifi_remaps(),
+            "total_bytes": "totalBytes",
+            "used_bytes": "usedBytes",
+        }
 
     @classmethod
     def unifi_dict_to_dict(cls, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -567,10 +578,40 @@ class UOSSpace(ProtectBaseObject):
 
         return super().unifi_dict_to_dict(data)
 
+    def unifi_dict(self, data: Optional[Dict[str, Any]] = None, exclude: Optional[Set[str]] = None) -> Dict[str, Any]:
+        data = super().unifi_dict(data=data, exclude=exclude)
+
+        if "state" in data and data["state"] == "nodisk":
+            delete_keys = [
+                "action",
+                "ata",
+                "bad_sector",
+                "estimate",
+                "firmware",
+                "healthy",
+                "life_span",
+                "model",
+                "poweronhrs",
+                "progress",
+                "reason",
+                "rpm",
+                "sata",
+                "serial",
+                "tempature",
+                "temperature",
+                "threshold",
+                "type",
+            ]
+            for key in delete_keys:
+                if key in data:
+                    del data[key]
+
+        return data
+
 
 class UOSStorage(ProtectBaseObject):
-    disks: list[UOSDisk]
-    space: list[UOSSpace]
+    disks: List[UOSDisk]
+    space: List[UOSSpace]
 
 
 class SystemInfo(ProtectBaseObject):

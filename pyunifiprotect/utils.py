@@ -46,6 +46,12 @@ if TYPE_CHECKING:
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 DEBUG_ENV = "UFP_DEBUG"
 PROGRESS_CALLABLE = Callable[[int, str], Coroutine[Any, Any, None]]
+SNAKE_CASE_KEYS = [
+    "life_span",
+    "bad_sector",
+    "total_bytes",
+    "used_bytes",
+]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -213,7 +219,10 @@ def serialize_unifi_obj(value: Any) -> Any:
 def serialize_dict(data: Dict[str, Any]) -> Dict[str, Any]:
     """Serializes UFP data dict"""
     for key in list(data.keys()):
-        data[to_camel_case(key)] = serialize_unifi_obj(data.pop(key))
+        set_key = key
+        if set_key not in SNAKE_CASE_KEYS:
+            set_key = to_camel_case(set_key)
+        data[set_key] = serialize_unifi_obj(data.pop(key))
 
     return data
 

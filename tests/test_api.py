@@ -273,7 +273,8 @@ async def test_get_nvr(protect_client: ProtectApiClient, nvr):
     nvr["ports"]["piongw"] = nvr["ports"].get("piongw")
 
     nvr_obj = await protect_client.get_nvr()
-    assert nvr_obj.unifi_dict() == nvr
+    nvr_dict = nvr_obj.unifi_dict()
+    assert nvr_dict == nvr
 
 
 @pytest.mark.asyncio

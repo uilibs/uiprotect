@@ -536,8 +536,6 @@ def compare_objs(obj_type, expected, actual):
             expected.pop("settings", None)
         del expected["alertRules"]
         del expected["notificationsV2"]
-        if expected["cloudAccount"] is not None:
-            del expected["cloudAccount"]["profileImg"]
         # lastLoginIp/lastLoginTime is not always present
         if "lastLoginIp" not in expected:
             actual.pop("lastLoginIp", None)
