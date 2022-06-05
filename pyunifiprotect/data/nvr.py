@@ -578,36 +578,6 @@ class UOSSpace(ProtectBaseObject):
 
         return super().unifi_dict_to_dict(data)
 
-    def unifi_dict(self, data: Optional[Dict[str, Any]] = None, exclude: Optional[Set[str]] = None) -> Dict[str, Any]:
-        data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "state" in data and data["state"] == "nodisk":
-            delete_keys = [
-                "action",
-                "ata",
-                "bad_sector",
-                "estimate",
-                "firmware",
-                "healthy",
-                "life_span",
-                "model",
-                "poweronhrs",
-                "progress",
-                "reason",
-                "rpm",
-                "sata",
-                "serial",
-                "tempature",
-                "temperature",
-                "threshold",
-                "type",
-            ]
-            for key in delete_keys:
-                if key in data:
-                    del data[key]
-
-        return data
-
 
 class UOSStorage(ProtectBaseObject):
     disks: List[UOSDisk]
