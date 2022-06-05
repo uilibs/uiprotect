@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from shlex import split
 from typing import TYPE_CHECKING, List, Optional
+from urllib.parse import urlparse
 
 from aioshutil import which
 
@@ -111,12 +112,12 @@ class TalkbackStream(FfmpegCommand):
         if not camera.feature_flags.has_speaker:
             raise BadRequest("Camera does not have a speaker for talkback")
 
+        content_url = self.clean_url(content_url)
         input_args = self.get_args_from_url(content_url)
         if len(input_args) > 0:
             input_args += " "
 
-        # from Android app
-        bitrate = 48000
+        bitrate = camera.talkback_settings.bits_per_sample * 1000
         # 8000 seems to result in best quality without overloading the camera
         udp_bitrate = bitrate + 8000
 
@@ -127,13 +128,24 @@ class TalkbackStream(FfmpegCommand):
         # b:a = set bit rate of output audio
         cmd = (
             "-loglevel info -hide_banner "
-            f"{input_args}-i {content_url} -vn "
+            f'{input_args}-i "{content_url}" -vn '
             f"-acodec {camera.talkback_settings.type_fmt} -ac {camera.talkback_settings.channels} "
             f"-ar {camera.talkback_settings.sampling_rate} -b:a {bitrate} -map 0:a "
             f'-f adts "udp://{camera.host}:{camera.talkback_settings.bind_port}?bitrate={udp_bitrate}"'
         )
 
         super().__init__(cmd, ffmpeg_path)
+
+    @classmethod
+    def clean_url(cls, content_url: str) -> str:
+        parsed = urlparse(content_url)
+        if parsed.scheme in ["file", ""]:
+            path = Path(parsed.netloc + parsed.path)
+            if not path.exists():
+                raise BadRequest(f"File {path} does not exist")
+            content_url = str(path.absolute())
+
+        return content_url
 
     @classmethod
     def get_args_from_url(cls, content_url: str) -> str:

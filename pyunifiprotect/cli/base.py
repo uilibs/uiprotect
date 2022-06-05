@@ -4,14 +4,16 @@ import asyncio
 from dataclasses import dataclass
 from enum import Enum
 import json
-from typing import Any, Callable, Coroutine, Mapping, Sequence
+from typing import Any, Callable, Coroutine, Mapping, Sequence, TypeVar
 
 from pydantic import ValidationError
 import typer
 
 from pyunifiprotect.api import ProtectApiClient
 from pyunifiprotect.data import NVR, ProtectAdoptableDeviceModel, ProtectBaseObject
-from pyunifiprotect.exceptions import BadRequest
+from pyunifiprotect.exceptions import BadRequest, StreamError
+
+T = TypeVar("T")
 
 
 class OutputFormatEnum(str, Enum):
@@ -25,17 +27,18 @@ class CliContext:
     output_format: OutputFormatEnum
 
 
-def run(ctx: typer.Context, func: Coroutine[Any, Any, None]) -> None:
+def run(ctx: typer.Context, func: Coroutine[Any, Any, T]) -> T:
     """Helper method to call async function and clean up API client"""
 
-    async def callback() -> None:
-        await func
+    async def callback() -> T:
+        return_value = await func
         await ctx.obj.protect.close_session()
+        return return_value
 
     loop = asyncio.get_event_loop()
     try:
-        loop.run_until_complete(callback())
-    except (BadRequest, ValidationError) as err:
+        return loop.run_until_complete(callback())
+    except (BadRequest, ValidationError, StreamError) as err:
         typer.secho(str(err), fg="red")
         raise typer.Exit(1)
 
