@@ -345,8 +345,6 @@ class CloudAccount(ProtectModelWithId):
             data["cloudId"] = data["id"]
         if "location" in data and data["location"] is None:
             del data["location"]
-        if "profileImg" in data and data["profileImg"] is None:
-            del data["profileImg"]
 
         return data
 
