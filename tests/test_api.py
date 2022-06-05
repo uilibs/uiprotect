@@ -263,18 +263,10 @@ async def test_force_update(protect_client: ProtectApiClient):
 async def test_get_nvr(protect_client: ProtectApiClient, nvr):
     """Verifies the `get_nvr` method"""
 
-    # TODO:
-    del nvr["errorCode"]
-    del nvr["wifiSettings"]
-    del nvr["smartDetectAgreement"]
-    nvr["isDbAvailable"] = nvr.get("isDbAvailable")
-    nvr["marketName"] = nvr.get("marketName")
-    nvr["streamSharingAvailable"] = nvr.get("streamSharingAvailable")
-    nvr["ports"]["piongw"] = nvr["ports"].get("piongw")
-
     nvr_obj = await protect_client.get_nvr()
     nvr_dict = nvr_obj.unifi_dict()
-    assert nvr_dict == nvr
+
+    compare_objs(ModelType.NVR.value, nvr, nvr_dict)
 
 
 @pytest.mark.asyncio

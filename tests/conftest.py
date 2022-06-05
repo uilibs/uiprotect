@@ -5,6 +5,7 @@ import base64
 from copy import deepcopy
 from datetime import datetime, timezone
 import json
+import math
 import os
 from pathlib import Path
 from shlex import split
@@ -557,6 +558,33 @@ def compare_objs(obj_type, expected, actual):
         del expected["apMac"]
         del expected["apRssi"]
         del expected["elementInfo"]
+    elif obj_type == ModelType.NVR.value:
+        # TODO:
+        del expected["errorCode"]
+        del expected["wifiSettings"]
+        del expected["smartDetectAgreement"]
+        expected["isDbAvailable"] = expected.get("isDbAvailable")
+        expected["marketName"] = expected.get("marketName")
+        expected["streamSharingAvailable"] = expected.get("streamSharingAvailable")
+        expected["ports"]["piongw"] = expected["ports"].get("piongw")
+
+        # float math...
+        if expected["systemInfo"].get("ustorage") is not None:
+            for index, disk in enumerate(expected["systemInfo"]["ustorage"]["disks"]):
+                actual_disk = actual["systemInfo"]["ustorage"]["disks"][index]
+                estimate = disk.get("estimate")
+                actual_estimate = actual_disk.get("estimate")
+                if estimate is not None and actual_estimate is not None:
+                    if math.isclose(estimate, actual_estimate):
+                        actual["systemInfo"]["ustorage"]["disks"][index]["estimate"] = estimate
+
+            for index, device in enumerate(expected["systemInfo"]["ustorage"]["space"]):
+                actual_device = actual["systemInfo"]["ustorage"]["space"][index]
+                estimate = device.get("estimate")
+                actual_estimate = actual_device.get("estimate")
+                if estimate is not None and actual_estimate is not None:
+                    if math.isclose(estimate, actual_estimate):
+                        actual["systemInfo"]["ustorage"]["space"][index]["estimate"] = estimate
 
     if "bluetoothConnectionState" in expected:
         expected["bluetoothConnectionState"]["experienceScore"] = expected["bluetoothConnectionState"].get(

@@ -29,7 +29,6 @@ from pyunifiprotect.data.types import RecordingType, ResolutionStorageType
 from pyunifiprotect.exceptions import BadRequest, StreamError
 from pyunifiprotect.utils import set_debug, set_no_debug
 from tests.conftest import (
-    NEW_FIELDS,
     TEST_BRIDGE_EXISTS,
     TEST_CAMERA_EXISTS,
     TEST_DOORLOCK_EXISTS,
@@ -164,9 +163,6 @@ def test_bootstrap(bootstrap):
     del bootstrap["schedules"]
     if "deviceGroups" in bootstrap:
         del bootstrap["deviceGroups"]
-    del bootstrap["nvr"]["errorCode"]
-    del bootstrap["nvr"]["wifiSettings"]
-    del bootstrap["nvr"]["smartDetectAgreement"]
 
     for model_type in ModelType.bootstrap_models():
         key = model_type + "s"
@@ -179,10 +175,7 @@ def test_bootstrap(bootstrap):
             actual = actual_data[index]
             compare_objs(expected["modelKey"], expected, actual)
 
-    for key in NEW_FIELDS.intersection(obj_dict["nvr"].keys()):
-        if key not in bootstrap["nvr"]:
-            del obj_dict["nvr"][key]
-    bootstrap["nvr"]["ports"]["piongw"] = bootstrap["nvr"]["ports"].get("piongw")
+    compare_objs(ModelType.NVR.value, bootstrap.pop("nvr"), obj_dict.pop("nvr"))
 
     assert bootstrap == obj_dict
     assert obj == obj_construct

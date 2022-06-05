@@ -521,6 +521,10 @@ class UOSDisk(ProtectBaseObject):
     def unifi_dict(self, data: Optional[Dict[str, Any]] = None, exclude: Optional[Set[str]] = None) -> Dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
+        # esimtate is actually in seconds, not milliseconds
+        if "estimate" in data and data["estimate"] is not None:
+            data["estimate"] = data["estimate"] / 1000
+
         if "state" in data and data["state"] == "nodisk":
             delete_keys = [
                 "action",
@@ -571,6 +575,15 @@ class UOSSpace(ProtectBaseObject):
             data["estimate"] = timedelta(seconds=data.pop("estimate"))
 
         return super().unifi_dict_to_dict(data)
+
+    def unifi_dict(self, data: Optional[Dict[str, Any]] = None, exclude: Optional[Set[str]] = None) -> Dict[str, Any]:
+        data = super().unifi_dict(data=data, exclude=exclude)
+
+        # esimtate is actually in seconds, not milliseconds
+        if "estimate" in data and data["estimate"] is not None:
+            data["estimate"] = data["estimate"] / 1000
+
+        return data
 
 
 class UOSStorage(ProtectBaseObject):
