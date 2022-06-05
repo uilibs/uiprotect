@@ -342,60 +342,6 @@ class FirmwareReleaseChannel(str, ValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class DiskHealth(str, ValuesEnumMixin, enum.Enum):
-    GOOD = "good"
-    BAD = "risk"
-
-
-@enum.unique
-class DiskAction(str, ValuesEnumMixin, enum.Enum):
-    NONE = "none"
-    FAULTY = "faulty"
-    SPARE = "spare"
-    REPAIRING = "repairing"
-    INTIALIZING = "initializing"
-    EXPANDING = "expanding"
-
-
-@enum.unique
-class DiskState(str, ValuesEnumMixin, enum.Enum):
-    NO_DISK = "nodisk"
-    BROKEN = "broken"
-    BAD = "risk"
-    FAULTY = "faulty"
-    REPAIRING = "repairing"
-    INTIALIZING = "initializing"
-    EXPLANDING = "expanding"
-    FOREIGN = "foreign"
-    SPARE = "spare"
-    NOT_SUPPORTED = "not_support"
-    NORMAL = "normal"
-
-
-@enum.unique
-class DiskUnsupportedReason(str, ValuesEnumMixin, enum.Enum):
-    TYPE = "type"
-    LIMIT = "limit"
-
-
-@enum.unique
-class MountHealth(str, ValuesEnumMixin, enum.Enum):
-    HEALTHY = "health"
-    AT_RISK = "atrisk"
-    FAILED = "failed"
-
-
-@enum.unique
-class MountAction(str, ValuesEnumMixin, enum.Enum):
-    NONE = "none"
-    SYNCING = "syncing"
-    REPAIRING = "repairing"
-    EXPANDING = "expanding"
-    FORMATTING = "formatting"
-    ERASING = "erasing"
-
-
-@enum.unique
 class ChimeType(int, enum.Enum):
     NONE = 0
     MECHANICAL = 300

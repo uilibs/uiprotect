@@ -30,10 +30,6 @@ from pyunifiprotect.data.base import (
 from pyunifiprotect.data.devices import Camera, CameraZone, Light, Sensor
 from pyunifiprotect.data.types import (
     AnalyticsOption,
-    DiskAction,
-    DiskHealth,
-    DiskState,
-    DiskUnsupportedReason,
     DoorbellMessageType,
     DoorbellText,
     EventType,
@@ -488,7 +484,7 @@ class TMPFSInfo(ProtectBaseObject):
 
 class UOSDisk(ProtectBaseObject):
     slot: int
-    state: DiskState
+    state: str
 
     type: Optional[Literal["SSD", "HDD"]] = None
     model: Optional[str] = None
@@ -497,9 +493,9 @@ class UOSDisk(ProtectBaseObject):
     rpm: Optional[int] = None
     ata: Optional[str] = None
     sata: Optional[str] = None
-    action: Optional[DiskAction] = None
-    healthy: Optional[DiskHealth] = None
-    reason: Optional[DiskUnsupportedReason] = None
+    action: Optional[str] = None
+    healthy: Optional[str] = None
+    reason: Optional[Any] = None
     temperature: Optional[int] = None
     power_on_hours: Optional[int] = None
     life_span: Optional[PercentFloat] = None
@@ -559,7 +555,7 @@ class UOSSpace(ProtectBaseObject):
     device: str
     total_bytes: int
     used_bytes: int
-    action: DiskAction
+    action: str
     progress: Optional[PercentFloat] = None
     estimate: Optional[timedelta] = None
 
