@@ -165,14 +165,17 @@ The following the noticble features are that still missing from pyunifiprotect. 
 * Enforcing Read Only fields in pydantic
 * Animated thumbnails for events
 * Timelapse video exporting
+* Liveview creating/updating/deleting
 * PTZ controls
+* Backups
 * Device Groups
 * Record Scheduling
 * Battery powered cameras (G3 Battery, Aplify Vision)
 * Camera analytics and live heatmaps
 * Reconfiguring WiFi
-* Locating Lights/Sensors/Doorlocks
+* "Locate" feature for Lights/Sensors/Doorlocks
 * The `/timeline` API endpoint
+* User/Group/Permission management -- partially implemented as users and groups are modeled, just not fleshed out
 * Any strictly UniFi OS feature like managing RAID, creating users, etc. -- Out of Scope. If it ever done, it will be in a seperate library that interacts with this one
 
 ## Development
