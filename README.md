@@ -157,6 +157,24 @@ unsub()
 
 ```
 
+
+## TODO / Planned / Not Implement
+
+The following the noticble features are that still missing from pyunifiprotect. All of them are planned for "some day" / "nice to have" except where noted.
+
+* Enforcing Read Only fields in pydantic
+* Animated thumbnails for events
+* Timelapse video exporting
+* PTZ controls
+* Device Groups
+* Record Scheduling
+* Battery powered cameras (G3 Battery, Aplify Vision)
+* Camera analytics and live heatmaps
+* Reconfiguring WiFi
+* Locating Lights/Sensors/Doorlocks
+* The `/timeline` API endpoint
+* Any strictly UniFi OS feature like managing RAID, creating users, etc. -- Out of Scope. If it ever done, it will be in a seperate library that interacts with this one
+
 ## Development
 
 ### Setup
