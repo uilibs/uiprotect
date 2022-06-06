@@ -40,6 +40,7 @@ from pyunifiprotect.data.types import (
     MountType,
     Percent,
     PercentInt,
+    ProgressCallback,
     RecordingMode,
     SensorStatusType,
     SleepStateType,
@@ -915,23 +916,54 @@ class Camera(ProtectMotionDeviceModel):
         if index is not None:
             self.privacy_zones.pop(index)
 
-    async def get_snapshot(self, width: Optional[int] = None, height: Optional[int] = None) -> Optional[bytes]:
-        """Gets snapshot for camera"""
+    async def get_snapshot(
+        self, width: Optional[int] = None, height: Optional[int] = None, dt: Optional[datetime] = None
+    ) -> Optional[bytes]:
+        """
+        Gets snapshot for camera.
 
-        return await self.api.get_camera_snapshot(self.id, width, height)
+        Datetime of screenshot is approximate. It may be +/- a few seconds.
+        """
 
-    async def get_package_snapshot(self, width: Optional[int] = None, height: Optional[int] = None) -> Optional[bytes]:
-        """Gets snapshot for package camera"""
+        return await self.api.get_camera_snapshot(self.id, width, height, dt=dt)
+
+    async def get_package_snapshot(
+        self,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        dt: Optional[datetime] = None,
+    ) -> Optional[bytes]:
+        """
+        Gets snapshot from the package camera.
+
+        Datetime of screenshot is approximate. It may be +/- a few seconds.
+        """
 
         if not self.feature_flags.has_package_camera:
             raise BadRequest("Device does not have package camera")
 
-        return await self.api.get_package_camera_snapshot(self.id, width, height)
+        return await self.api.get_package_camera_snapshot(self.id, width, height, dt=dt)
 
-    async def get_video(self, start: datetime, end: datetime, channel_index: int = 0) -> Optional[bytes]:
+    async def get_video(
+        self,
+        start: datetime,
+        end: datetime,
+        channel_index: int = 0,
+        output_file: Optional[Path] = None,
+        progress_callback: Optional[ProgressCallback] = None,
+        chunk_size: int = 65536,
+    ) -> Optional[bytes]:
         """Gets video clip for camera at a given time"""
 
-        return await self.api.get_camera_video(self.id, start, end, channel_index)
+        return await self.api.get_camera_video(
+            self.id,
+            start,
+            end,
+            channel_index,
+            output_file=output_file,
+            progress_callback=progress_callback,
+            chunk_size=chunk_size,
+        )
 
     async def set_motion_detection(self, enabled: bool) -> None:
         """Sets motion detection on camera"""
@@ -1361,9 +1393,7 @@ class Sensor(ProtectAdoptableDeviceModel):
 
     @property
     def is_tampering_detected(self) -> bool:
-        if self._tamper_timeout is None:
-            return False
-        return utc_now() < self._tamper_timeout
+        return self.tampering_detected_at is not None
 
     @property
     def is_alarm_detected(self) -> bool:
@@ -1394,10 +1424,6 @@ class Sensor(ProtectAdoptableDeviceModel):
     @property
     def is_humidity_sensor_enabled(self) -> bool:
         return self.mount_type != MountType.LEAK and self.humidity_settings.is_enabled
-
-    def set_tampering_timeout(self) -> None:
-        self._tamper_timeout = utc_now() + EVENT_PING_INTERVAL
-        self._event_callback_ping()
 
     def set_alarm_timeout(self) -> None:
         self._alarm_timeout = utc_now() + EVENT_PING_INTERVAL
@@ -1550,6 +1576,11 @@ class Sensor(ProtectAdoptableDeviceModel):
         else:
             self.camera_id = camera.id
         await self.save_device()
+
+    async def clear_tamper(self) -> None:
+        """Clears tamper status for sensor"""
+
+        await self.api.clear_tamper_sensor(self.id)
 
 
 class Doorlock(ProtectAdoptableDeviceModel):

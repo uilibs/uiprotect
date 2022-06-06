@@ -1,7 +1,17 @@
 from __future__ import annotations
 
 import enum
-from typing import Any, Dict, List, Literal, Optional, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Coroutine,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    TypeVar,
+    Union,
+)
 
 from packaging.version import Version as BaseVersion
 from pydantic import ConstrainedInt
@@ -14,6 +24,8 @@ VT = TypeVar("VT")
 
 DEFAULT = "DEFAULT_VALUE"
 DEFAULT_TYPE = Literal["DEFAULT_VALUE"]
+
+ProgressCallback = Callable[[int, int, int], Coroutine[Any, Any, None]]
 
 
 class FixSizeOrderedDict(dict[KT, VT]):
@@ -94,47 +106,57 @@ class ModelType(str, ValuesEnumMixin, enum.Enum):
 
 @enum.unique
 class EventType(str, ValuesEnumMixin, enum.Enum):
-    ACCESS = "access"
     DISCONNECT = "disconnect"
     PROVISION = "provision"
-    RECORDING_OFF = "recordingOff"
-    RECORDING_DELETED = "recordingDeleted"
     UPDATE = "update"
+    CAMERA_POWER_CYCLE = "cameraPowerCycling"
     RING = "ring"
     MOTION = "motion"
+    RECORDING_DELETED = "recordingDeleted"
     SMART_DETECT = "smartDetectZone"
     SMART_DETECT_LINE = "smartDetectLine"
+    NO_SCHEDULE = "nonScheduledRecording"
+    RECORDING_MODE_CHANGED = "recordingModeChanged"
+    #
+    INSTALLED_DISK = "installed"
     OFFLINE = "offline"
     OFF = "off"
-    NO_SCHEDULE = "nonScheduledRecording"
-    CAMERA_POWER_CYCLE = "cameraPowerCycling"
     REBOOT = "reboot"
     FIRMWARE_UPDATE = "fwUpdate"
     APP_UPDATE = "applicationUpdate"
-    DEVICE_ADOPTED = "deviceAdopted"
-    VIDEO_EXPORTED = "videoExported"
-    UVF_DISCOVERED = "ufvDiscovered"
+    ACCESS = "access"
+    DRIVE_FAILED = "driveFailed"
     CAMERA_UTILIZATION_LIMIT_REACHED = "cameraUtilizationLimitReached"
     CAMERA_UTILIZATION_LIMIT_EXCEEDED = "cameraUtilizationLimitExceeded"
-    DEVICE_UNADOPTED = "deviceUnadopted"
-    MIC_DISABLED = "microphoneDisabled"
-    DEVICE_PASSWORD_UPDATE = "devicesPasswordUpdated"
-    VIDEO_DELETED = "videoDeleted"
-    SCHEDULE_CHANGED = "recordingScheduleChanged"
-    UNADOPTED_DEVICE_DISCOVERED = "unadoptedDeviceDiscovered"
-    USER_LEFT = "userLeft"
-    USER_ARRIVED = "userArrived"
-    DRIVE_FAILED = "driveFailed"
-    RECORDING_MODE_CHANGED = "recordingModeChanged"
+    #
+    MOTION_SENSOR = "sensorMotion"
     SENSOR_OPENED = "sensorOpened"
     SENSOR_CLOSED = "sensorClosed"
-    MOTION_SENSOR = "sensorMotion"
     SENSOR_ALARM = "sensorAlarm"
     SENSOR_EXTREME_VALUE = "sensorExtremeValues"
+    SENSOR_WATER_LEAK = "sensorWaterLeak"
+    SENSOR_BATTERY_LOW = "sensorBatteryLow"
+    #
+    MOTION_LIGHT = "lightMotion"
+    #
     DOORLOCK_OPEN = "doorlockOpened"
     DOORLOCK_CLOSE = "doorlockClosed"
-    MOTION_LIGHT = "lightMotion"
-    INSTALLED_DISK = "installed"
+    DOORLOCK_BATTERY_LOW = "doorlockBatteryLow"
+    #
+    UNADOPTED_DEVICE_DISCOVERED = "unadoptedDeviceDiscovered"
+    DEVICE_ADOPTED = "deviceAdopted"
+    DEVICE_UNADOPTED = "deviceUnadopted"
+    UVF_DISCOVERED = "ufvDiscovered"
+    DEVICE_PASSWORD_UPDATE = "devicesPasswordUpdated"
+    #
+    USER_LEFT = "userLeft"
+    USER_ARRIVED = "userArrived"
+    VIDEO_EXPORTED = "videoExported"
+    MIC_DISABLED = "microphoneDisabled"
+    VIDEO_DELETED = "videoDeleted"
+    SCHEDULE_CHANGED = "recordingScheduleChanged"
+    #
+    RECORDING_OFF = "recordingOff"
 
     @staticmethod
     def device_events() -> List[str]:

@@ -180,7 +180,7 @@ def reboot(ctx: typer.Context) -> None:
     """Reboots the device."""
 
     require_device_id(ctx)
-    obj: ProtectAdoptableDeviceModel = ctx.obj.device
+    obj: NVR | ProtectAdoptableDeviceModel = ctx.obj.device
 
     run(ctx, obj.reboot())
 
