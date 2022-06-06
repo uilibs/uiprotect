@@ -158,7 +158,7 @@ unsub()
 ```
 
 
-## TODO / Planned / Not Implement
+## TODO / Planned / Not Implemented
 
 The following the noticble features are that still missing from pyunifiprotect. All of them are planned for "some day" / "nice to have" except where noted.
 
