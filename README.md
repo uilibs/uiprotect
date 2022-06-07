@@ -93,7 +93,8 @@ $ unifi-protect cameras 61ddb66b018e2703e7008c19 save-video 2022-6-1T00:00:00 20
 ```
 
 Any field that takes a datetime field uses the timezone from your system locale by default. If this is not configured
-correctly, it will automatically default to UTC. If you would like to override the timezone, you can use the `TZ`.
+correctly, it will automatically default to UTC. If you would like to override the timezone, you can use the `TZ`
+environment variable.
 
 For example, use `America/New_York` or US East timezone:
 
