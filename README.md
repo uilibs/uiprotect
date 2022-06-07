@@ -53,6 +53,8 @@ unifi-protect -U YOUR_USERNAME_HERE -P YOUR_PASSWORD_HERE -a YOUR_IP_ADDRESS -p 
 The command line has a fully featured help, so the best way to discovery and learn all of the possible commands is to use `unifi-protect --help`
 
 * `nvr` - Interact with your NVR console
+* `events` - Interact various events for the NVR console (like motion/smart detection events)
+* `liveviews` - Interact with liveviews
 * `camera`, `chimes`, `doorlocks`, `lights`, `sensors`, `viewers` - Interact with specific devices on adopted by your UniFi protect instance
 * `shell` - Interactive IPyton shell (requires `pyunifiprotect[shell]` extra to be installed) with `ProtectApiClient already initalized
 * `decode-ws-msg` - Mostly for debug purposes to debug a base64 binary Websocket message from UniFi Protect
