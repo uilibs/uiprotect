@@ -105,7 +105,19 @@ $ TZ="America/New_York" unifi-protect cameras 61ddb66b018e2703e7008c19 save-vide
 #### Play Audio File to Cameras Speaker
 
 ```bash
-$ TZ="America/New_York" unifi-protect cameras 61ddb66b018e2703e7008c19 play-audio test.mp3
+$ unifi-protect cameras 61ddb66b018e2703e7008c19 play-audio test.mp3
+```
+
+#### Include Unadopted Cameras in list
+
+```bash
+$ unifi-protect -u cameras list-ids
+```
+
+#### Adopt an Unadopted Camera
+
+```bash
+$ unifi-protect -u cameras 61ddb66b018e2703e7008c19 adopt
 ```
 
 #### Enable SSH on Camera
