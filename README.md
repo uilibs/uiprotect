@@ -166,6 +166,7 @@ The following the noticble features are that still missing from pyunifiprotect. 
 * Timelapse video exporting
 * Liveview creating/updating/deleting
 * PTZ controls
+* Creating WebRTC streaming connections
 * Backups
 * Device Groups
 * Record Scheduling
