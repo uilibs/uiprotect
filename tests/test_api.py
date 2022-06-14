@@ -331,9 +331,10 @@ async def test_get_events_raw_types(protect_client: ProtectApiClient):
         params={"limit": 10, "types": ["motion", "smartDetectZone"]},
     )
 
+
 # test has a scaling "expected time to complete" based on the number of
 # events in the last 24 hours
-@pytest.mark.timeout(CONSTANTS["event_count"] * 0.1)
+@pytest.mark.timeout(CONSTANTS["event_count"] * 0.1)  # type: ignore
 @pytest.mark.asyncio
 async def test_get_events(protect_client: ProtectApiClient, raw_events):
     expected_events = []
