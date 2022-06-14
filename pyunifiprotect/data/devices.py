@@ -303,6 +303,14 @@ class ISPSettings(ProtectBaseObject):
     zoom_position: PercentInt
     mount_position: Optional[MountPosition] = None
 
+    def unifi_dict(self, data: Optional[Dict[str, Any]] = None, exclude: Optional[Set[str]] = None) -> Dict[str, Any]:
+        data = super().unifi_dict(data=data, exclude=exclude)
+
+        if "focusMode" in data and data["focusMode"] is None:
+            del data["focusMode"]
+
+        return data
+
 
 class OSDSettings(ProtectBaseObject):
     # Overlay Information

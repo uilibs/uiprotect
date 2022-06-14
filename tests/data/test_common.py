@@ -192,7 +192,8 @@ def test_bootstrap_device_not_adopted(bootstrap, protect_client: ProtectApiClien
     obj_construct: Bootstrap = Bootstrap.from_unifi_dict(**deepcopy(bootstrap), api=protect_client)
     set_debug()
 
-    assert len(obj.cameras) == len(bootstrap["cameras"]) - 1
+    expected_count = sum(1 if c["isAdopted"] else 0 for c in bootstrap["cameras"])
+    assert len(obj.cameras) == expected_count
     assert obj.cameras == obj_construct.cameras
 
 
