@@ -296,7 +296,7 @@ class ISPSettings(ProtectBaseObject):
     d_zoom_center_y: int
     d_zoom_scale: int
     d_zoom_stream_id: int
-    focus_mode: FocusMode
+    focus_mode: Optional[FocusMode] = None
     focus_position: int
     touch_focus_x: Optional[int]
     touch_focus_y: Optional[int]

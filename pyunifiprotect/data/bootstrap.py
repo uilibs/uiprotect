@@ -274,12 +274,13 @@ class Bootstrap(ProtectBaseObject):
         elif isinstance(obj, NVR):
             self.nvr = obj
         elif (
-            isinstance(obj, ProtectModelWithId)
+            isinstance(obj, ProtectAdoptableDeviceModel)
             and obj.model is not None
             and obj.model.value in ModelType.bootstrap_models()
         ):
             key = obj.model.value + "s"
-            getattr(self, key)[obj.id] = obj
+            if not self.api.ignore_unadopted or (obj.is_adopted and not obj.is_adopted_by_other):
+                getattr(self, key)[obj.id] = obj
         else:
             _LOGGER.debug("Unexpected bootstrap model type for add: %s", obj.model)
             return None
