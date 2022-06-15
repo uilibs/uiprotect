@@ -548,10 +548,12 @@ def compare_objs(obj_type, expected, actual):
         expected["featureFlags"]["audioCodecs"] = expected["featureFlags"].get("audioCodecs", [])
         expected["featureFlags"]["hasInfrared"] = expected["featureFlags"].get("hasInfrared")
 
-        if expected["eventStats"]["motion"].get("recentHours") == [None]:
-            del expected["eventStats"]["motion"]["recentHours"]
-        if expected["eventStats"]["smart"].get("recentHours") == [None]:
-            del expected["eventStats"]["smart"]["recentHours"]
+        if expected["eventStats"]["motion"].get("recentHours") in [[None], None, []]:
+            expected["eventStats"]["motion"].pop("recentHours", None)
+            actual["eventStats"]["motion"].pop("recentHours", None)
+        if expected["eventStats"]["smart"].get("recentHours") == [[None], None, []]:
+            expected["eventStats"]["smart"].pop("recentHours", None)
+            actual["eventStats"]["smart"].pop("recentHours", None)
     elif obj_type == ModelType.USER.value:
         if "settings" in expected:
             expected.pop("settings", None)
