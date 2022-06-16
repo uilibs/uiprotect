@@ -44,18 +44,18 @@
         // TODO: replace with black extension once stable
         "python.formatting.provider": "black",
         "python.formatting.blackArgs": [
-            "--config=${workspaceFolder}/pyproject.toml",
+            "--config=./pyproject.toml",
             "--line-length=120" // VS Code use to override to 88, this ensure correct default
         ],
         // "black-formatter.args": [
-        //     "--config=${workspaceFolder}/pyproject.toml",
+        //     "--config=./pyproject.toml",
         //     "--line-length=120" // VS Code use to override to 88, this ensure correct default
         // ],
         "isort.args": [
-            "--settings-path=${workspaceFolder}/pyproject.toml"
+            "--settings-path=./pyproject.toml"
         ],
         "pylint.args": [
-            "--rcfile=${workspaceFolder}/pyproject.toml"
+            "--rcfile=./pyproject.toml"
         ],
         // python tests
         "coverage-gutters.xmlname": "coverage.xml",
