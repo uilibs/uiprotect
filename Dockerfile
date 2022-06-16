@@ -32,9 +32,13 @@ COPY . /tmp/pyunifiprotect
 RUN pip install /tmp/pyunifiprotect \
     && mv /tmp/pyunifiprotect/.docker/entrypoint.sh /usr/local/bin/entrypoint \
     && chmod +x /usr/local/bin/entrypoint \
-    && rm /tmp/pyunifiprotect -rf
+    && rm /tmp/pyunifiprotect -rf \
+    && mkdir /data \
+    && chown python:python /data
 
 USER python
+VOLUME /data
+WORKDIR /data
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
 
 

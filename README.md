@@ -48,6 +48,28 @@ unifi-protect nvr
 unifi-protect -U YOUR_USERNAME_HERE -P YOUR_PASSWORD_HERE -a YOUR_IP_ADDRESS -p 443 --no-verify nvr
 ```
 
+#### Docker Container
+
+A Docker container is also provided so you do not need to install/manage Python as well. You can add the following to your `.bashrc` or similar.
+
+```bash
+function unifi-protect() {
+    docker run --rm -it \
+      -e UFP_USERNAME=YOUR_USERNAME_HERE \
+      -e UFP_PASSWORD=YOUR_PASSWORD_HERE \
+      -e UFP_ADDRESS=YOUR_IP_ADDRESS \
+      -e UFP_PORT=443 \
+      -e UFP_SSL_VERIFY=True \
+      -v $PWD:/data ghcr.io/briis/pyunifiprotect:latest "$@"
+}
+```
+
+Some notes about the Docker version since it is running inside of a container:
+
+* You can update at any time using the command `docker pull ghcr.io/briis/pyunifiprotect:latest`
+* Your local current working directory (`$PWD`) will automatically be mounted to `/data` inside of the container. For commands that output files, this is the _only_ path you can write to and have the file persist.
+* The container supports `linux/amd64` and `linux/arm64` natively. This means it will also work well on MacOS or Windows using Docker Desktop.
+
 ### Subcommands
 
 The command line has a fully featured help, so the best way to discovery and learn all of the possible commands is to use `unifi-protect --help`
@@ -89,7 +111,7 @@ $ unifi-protect cameras 61ddb66b018e2703e7008c19 save-snapshot output.jpg
 #### Export Video From Camera
 
 ```bash
-$ unifi-protect cameras 61ddb66b018e2703e7008c19 save-video 2022-6-1T00:00:00 2022-6-1T00:00:30
+$ unifi-protect cameras 61ddb66b018e2703e7008c19 save-video export.mp4 2022-6-1T00:00:00 2022-6-1T00:00:30
 ```
 
 Any field that takes a datetime field uses the timezone from your system locale by default. If this is not configured
