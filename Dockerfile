@@ -4,17 +4,18 @@ LABEL org.opencontainers.image.source https://github.com/briis/pyunifiprotect
 
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
+ARG TARGETPLATFORM
 
 RUN addgroup --system --gid 1000 python \
     && adduser --system --shell /bin/bash --uid 1000 --ingroup python python
 
-RUN --mount=type=cache,mode=0755,id=apt,target=/var/lib/apt/lists apt-get update -qq \
+RUN --mount=type=cache,mode=0755,id=apt-$TARGETPLATFORM,target=/var/lib/apt/lists apt-get update -qq \
     && apt-get install -yqq ffmpeg
 
 
 FROM base as builder
 
-RUN --mount=type=cache,mode=0755,id=apt,target=/var/lib/apt/lists apt-get update -qq \
+RUN --mount=type=cache,mode=0755,id=apt-$TARGETPLATFORM,target=/var/lib/apt/lists apt-get update -qq \
     && apt-get install -yqq build-essential git
 
 COPY requirements.txt /
@@ -48,7 +49,7 @@ FROM base as dev
 
 COPY --from=builder-dev /usr/local/bin/ /usr/local/bin/
 COPY --from=builder-dev /usr/local/lib/python3.10/ /usr/local/lib/python3.10/
-RUN --mount=type=cache,mode=0755,id=apt,target=/var/lib/apt/lists apt-get update -qq \
+RUN --mount=type=cache,mode=0755,id=apt-$TARGETPLATFORM,target=/var/lib/apt/lists apt-get update -qq \
     && apt-get install -yqq git curl vim procps curl jq sudo \
     && echo 'python ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers \
     && echo 'export PS1="\[$(tput setaf 6)\]\w \[$(tput setaf 7)\]\$ \[$(tput sgr0)\]"' >> /home/python/.bashrc \
