@@ -121,7 +121,7 @@ environment variable.
 For example, use `America/New_York` or US East timezone:
 
 ```bash
-$ TZ="America/New_York" unifi-protect cameras 61ddb66b018e2703e7008c19 save-video 2022-6-1T00:00:00 2022-6-1T00:00:30
+$ TZ="America/New_York" unifi-protect cameras 61ddb66b018e2703e7008c19 save-video  export.mp4 2022-6-1T00:00:00 2022-6-1T00:00:30
 ```
 
 #### Play Audio File to Cameras Speaker
