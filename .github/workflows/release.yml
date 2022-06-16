@@ -6,7 +6,7 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-name: Upload Python Package
+name: Release New Version
 
 on:
   release:
@@ -32,6 +32,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           target: prod
           push: true
+          cache-from: ghcr.io/briis/pyunifiprotect:buildcache
+          cache-to: type=registry,ref=ghcr.io/briis/pyunifiprotect:buildcache,mode=max
           tags: ghcr.io/briis/pyunifiprotect:latest,ghcr.io/briis/pyunifiprotect:${{ github.ref_name }}
 
   pypi:
