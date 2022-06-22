@@ -5,7 +5,6 @@ import asyncio
 from datetime import datetime, timedelta
 from http.cookies import Morsel
 from ipaddress import IPv4Address
-import json as pjson
 import logging
 from pathlib import Path
 import time
@@ -16,6 +15,7 @@ from uuid import UUID
 import aiofiles
 import aiohttp
 from aiohttp import CookieJar, client_exceptions
+import orjson
 
 from pyunifiprotect.data import (
     NVR,
@@ -296,7 +296,7 @@ class BaseApiClient:
         )
 
         if data is not None:
-            json_data: Union[List[Any], Dict[str, Any]] = pjson.loads(data)
+            json_data: Union[List[Any], Dict[str, Any]] = orjson.loads(data)
             return json_data
         return None
 
