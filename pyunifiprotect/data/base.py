@@ -806,6 +806,10 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
         return data
 
     @property
+    def display_name(self) -> str:
+        return self.name or self.market_name or self.type
+
+    @property
     def is_wired(self) -> bool:
         return self.wired_connection_state is not None
 
@@ -829,6 +833,12 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
         """UFP Web app URL for this device"""
 
         return f"{self.api.base_url}/protect/devices/{self.id}"
+
+    @property
+    def is_adopted_by_us(self) -> bool:
+        """Verifies device is adopted and controlled by this NVR."""
+
+        return self.is_adopted and not self.is_adopted_by_other
 
     def get_changed(self) -> Dict[str, Any]:
         """Gets dictionary of all changed fields"""
@@ -856,7 +866,7 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     async def unadopt(self) -> None:
         """Unadopt/Unmanage adopted device"""
 
-        if not self.is_adopted:
+        if not self.is_adopted_by_us:
             raise BadRequest("Device is not adopted")
 
         if self.model is not None:

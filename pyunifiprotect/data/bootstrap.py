@@ -151,6 +151,7 @@ class Bootstrap(ProtectBaseObject):
     events: Dict[str, Event] = FixSizeOrderedDict()
     capture_ws_stats: bool = False
     mac_lookup: dict[str, ProtectDeviceRef] = {}
+    id_lookup: dict[str, ProtectDeviceRef] = {}
     _ws_stats: List[WSStat] = PrivateAttr([])
     _has_doorbell: Optional[bool] = PrivateAttr(None)
     _has_smart: Optional[bool] = PrivateAttr(None)
@@ -161,6 +162,7 @@ class Bootstrap(ProtectBaseObject):
     def unifi_dict_to_dict(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         api = cls._get_api(data.get("api"))
         data["macLookup"] = {}
+        data["idLookup"] = {}
         for model_type in ModelType.bootstrap_models():
             key = model_type + "s"
             items: Dict[str, ProtectModel] = {}
@@ -168,10 +170,12 @@ class Bootstrap(ProtectBaseObject):
                 if api is not None and api.ignore_unadopted and not item.get("isAdopted", True):
                     continue
 
+                ref = {"model": model_type, "id": item["id"]}
                 items[item["id"]] = item
+                data["idLookup"][item["id"]] = ref
                 if "mac" in item:
                     cleaned_mac = item["mac"].lower().replace(":", "")
-                    data["macLookup"][cleaned_mac] = {"model": model_type, "id": item["id"]}
+                    data["macLookup"][cleaned_mac] = ref
             data[key] = items
 
         return super().unifi_dict_to_dict(data)
@@ -185,6 +189,8 @@ class Bootstrap(ProtectBaseObject):
             del data["captureWsStats"]
         if "macLookup" in data:
             del data["macLookup"]
+        if "idLookup" in data:
+            del data["idLookup"]
 
         for model_type in ModelType.bootstrap_models():
             attr = model_type + "s"
@@ -246,13 +252,22 @@ class Bootstrap(ProtectBaseObject):
         return self._has_media
 
     def get_device_from_mac(self, mac: str) -> ProtectAdoptableDeviceModel | None:
-        """Retrieve a device from MAC address"""
+        """Retrieve a device from MAC address."""
 
         mac = mac.lower().replace(":", "").replace("-", "").replace("_", "")
         ref = self.mac_lookup.get(mac)
         if ref is None:
             return None
 
+        devices = getattr(self, f"{ref.model}s")
+        return cast(ProtectAdoptableDeviceModel, devices.get(ref.id))
+
+    def get_device_from_id(self, device_id: str) -> ProtectAdoptableDeviceModel | None:
+        """Retrieve a device from device ID (without knowing model type)."""
+
+        ref = self.id_lookup.get(device_id)
+        if ref is None:
+            return None
         devices = getattr(self, f"{ref.model}s")
         return cast(ProtectAdoptableDeviceModel, devices.get(ref.id))
 
@@ -299,6 +314,9 @@ class Bootstrap(ProtectBaseObject):
             key = obj.model.value + "s"
             if not self.api.ignore_unadopted or (obj.is_adopted and not obj.is_adopted_by_other):
                 getattr(self, key)[obj.id] = obj
+                ref = ProtectDeviceRef(model=obj.model, id=obj.id)
+                self.id_lookup[obj.id] = ref
+                self.mac_lookup[obj.mac.lower().replace(":", "")] = ref
         else:
             _LOGGER.debug("Unexpected bootstrap model type for add: %s", obj.model)
             return None
@@ -318,9 +336,11 @@ class Bootstrap(ProtectBaseObject):
         if devices is None:
             return None
 
+        self.id_lookup.pop(device_id, None)
         device = devices.pop(device_id, None)
         if device is None:
             return None
+        self.mac_lookup.pop(device.mac.lower().replace(":", ""), None)
 
         self._create_stat(packet, [], False)
         return WSSubscriptionMessage(
