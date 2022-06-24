@@ -7,6 +7,7 @@ from http.cookies import Morsel
 from ipaddress import IPv4Address
 import logging
 from pathlib import Path
+import sys
 import time
 from typing import Any, Callable, Dict, List, Optional, Set, Type, Union, cast
 from urllib.parse import urljoin
@@ -38,6 +39,7 @@ from pyunifiprotect.data import (
     WSSubscriptionMessage,
     create_from_unifi_dict,
 )
+from pyunifiprotect.data.base import ProtectModelWithId
 from pyunifiprotect.data.devices import Chime
 from pyunifiprotect.data.types import IteratorCallback, ProgressCallback, RecordingMode
 from pyunifiprotect.exceptions import BadRequest, NotAuthorized, NvrError
@@ -56,6 +58,14 @@ NEVER_RAN = -1000
 DEVICE_UPDATE_INTERVAL = 900
 # retry timeout for thumbnails/heatmaps
 RETRY_TIMEOUT = 10
+EA_WARNING = """
+You are running version %s of UniFi Protect, which is an Early Access version. Early Access versions of UniFi Protect are not supported for Home Asssitant.
+
+If have an error, please report errors to https://github.com/briis/pyunifiprotect first. DO NOT REPORT EA ISSUES TO HOME ASSISTANT CORE.
+
+It is recommended you downgrade to a stable version. https://www.home-assistant.io/integrations/unifiprotect#downgrading-unifi-protect.
+"""
+IS_HA = "homeassistant" in sys.modules
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -550,9 +560,12 @@ class ProtectApiClient(BaseApiClient):
         bootstrap_updated = False
         if self._bootstrap is None or now - self._last_update > DEVICE_UPDATE_INTERVAL:
             bootstrap_updated = True
+            self._bootstrap = await self.get_bootstrap()
+            if self._last_update == NEVER_RAN and IS_HA and self._bootstrap.nvr.version.is_prerelease:
+                _LOGGER.warning(EA_WARNING, self._bootstrap.nvr.version)
+
             self._last_update = now
             self._last_update_dt = now_dt
-            self._bootstrap = await self.get_bootstrap()
 
         await self.async_connect_ws(force)
         active_ws = self.check_ws()
@@ -821,8 +834,8 @@ class ProtectApiClient(BaseApiClient):
         return await self.api_request_obj(f"{model_type.value}s/{device_id}")
 
     async def get_device(
-        self, model_type: ModelType, device_id: str, expected_type: Optional[Type[ProtectModel]] = None
-    ) -> ProtectModel:
+        self, model_type: ModelType, device_id: str, expected_type: Optional[Type[ProtectModelWithId]] = None
+    ) -> ProtectModelWithId:
         """Gets a device give the device model_type and id, converted into Python object"""
         obj = create_from_unifi_dict(await self.get_device_raw(model_type, device_id), api=self)
 
@@ -831,7 +844,7 @@ class ProtectApiClient(BaseApiClient):
         if self.ignore_unadopted and isinstance(obj, ProtectAdoptableDeviceModel) and not obj.is_adopted:
             raise NvrError("Device is not adopted")
 
-        return obj
+        return cast(ProtectModelWithId, obj)
 
     async def get_nvr(self) -> NVR:
         """
