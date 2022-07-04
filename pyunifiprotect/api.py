@@ -44,14 +44,16 @@ from pyunifiprotect.data.devices import Chime
 from pyunifiprotect.data.types import IteratorCallback, ProgressCallback, RecordingMode
 from pyunifiprotect.exceptions import BadRequest, NotAuthorized, NvrError
 from pyunifiprotect.utils import (
+    decode_token_cookie,
     get_response_reason,
     ip_from_host,
     set_debug,
     to_js_time,
-    token_cookie_is_valid,
     utc_now,
 )
 from pyunifiprotect.websocket import Websocket
+
+TOKEN_COOKIE_MAX_EXP_SECONDS = 60
 
 NEVER_RAN = -1000
 # how many seconds before the bootstrap is refreshed from Protect
@@ -131,10 +133,12 @@ class BaseApiClient:
     _username: str
     _password: str
     _verify_ssl: bool
+
     _is_authenticated: bool = False
     _last_update: float = NEVER_RAN
     _last_ws_status: bool = False
     _last_token_cookie: Morsel[str] | None = None
+    _last_token_cookie_decode: Optional[Dict[str, Any]] = None
     _session: Optional[aiohttp.ClientSession] = None
 
     headers: Optional[Dict[str, str]] = None
@@ -152,6 +156,7 @@ class BaseApiClient:
         verify_ssl: bool = True,
         session: Optional[aiohttp.ClientSession] = None,
     ) -> None:
+        self._auth_lock = asyncio.Lock()
         self._host = host
         self._port = port
 
@@ -226,33 +231,40 @@ class BaseApiClient:
 
         url = urljoin(self.base_url, url)
         headers = kwargs.get("headers") or self.headers
-
         _LOGGER.debug("Request url: %s", url)
-
+        if not self._verify_ssl:
+            kwargs["ssl"] = False
         session = await self.get_session()
-        try:
-            if not self._verify_ssl:
-                kwargs["ssl"] = False
-            req_context = session.request(method, url, headers=headers, **kwargs)
-            response = await req_context.__aenter__()  # pylint: disable=unnecessary-dunder-call
-            if token_cookie := response.cookies.get("TOKEN"):
-                self._last_token_cookie = token_cookie
 
+        for attempt in range(2):
             try:
-                _LOGGER.debug("%s %s %s", response.status, response.content_type, response)
+                req_context = session.request(method, url, headers=headers, **kwargs)
+                response = await req_context.__aenter__()  # pylint: disable=unnecessary-dunder-call
 
+                self._update_last_token_cookie(response)
                 if auto_close:
-                    response.release()
+                    try:
+                        _LOGGER.debug("%s %s %s", response.status, response.content_type, response)
+                        response.release()
+                    except Exception:
+                        # make sure response is released
+                        response.release()
+                        # re-raise exception
+                        raise
 
                 return response
-            except Exception:
-                # make sure response is released
-                response.release()
-                # re-raise exception
-                raise
+            except aiohttp.ServerDisconnectedError as err:
+                # If the server disconnected, try again
+                # since HTTP/1.1 allows the server to disconnect
+                # at any time
+                if attempt == 0:
+                    continue
+                raise NvrError(f"Error requesting data from {self._host}: {err}") from err
+            except client_exceptions.ClientError as err:
+                raise NvrError(f"Error requesting data from {self._host}: {err}") from err
 
-        except client_exceptions.ClientError as err:
-            raise NvrError(f"Error requesting data from {self._host}: {err}") from None
+        # should never happen
+        raise NvrError(f"Error requesting data from {self._host}")
 
     async def api_request_raw(
         self,
@@ -264,11 +276,8 @@ class BaseApiClient:
     ) -> Optional[bytes]:
         """Make a request to UniFi Protect API"""
 
-        if require_auth:
-            await self.ensure_authenticated()
-
         url = urljoin(self.api_path, url)
-        response = await self.request(method, url, require_auth=False, auto_close=False, **kwargs)
+        response = await self.request(method, url, require_auth=require_auth, auto_close=False, **kwargs)
 
         try:
             if response.status != 200:
@@ -351,30 +360,42 @@ class BaseApiClient:
 
     async def authenticate(self) -> None:
         """Authenticate and get a token."""
+        if self._auth_lock.locked():
+            # If an auth is already in progress
+            # do not start another one
+            async with self._auth_lock:
+                return
 
-        url = "/api/auth/login"
+        async with self._auth_lock:
+            url = "/api/auth/login"
 
-        if self._session is not None:
-            self._session.cookie_jar.clear()
+            if self._session is not None:
+                self._session.cookie_jar.clear()
 
-        auth = {
-            "username": self._username,
-            "password": self._password,
-            "remember": True,
-        }
+            auth = {
+                "username": self._username,
+                "password": self._password,
+                "remember": True,
+            }
 
-        response = await self.request("post", url=url, json=auth)
-        self.headers = {
-            "cookie": response.headers.get("set-cookie", ""),
-        }
+            response = await self.request("post", url=url, json=auth)
+            self.headers = {
+                "cookie": response.headers.get("set-cookie", ""),
+            }
 
-        csrf_token = response.headers.get("x-csrf-token")
-        if csrf_token is not None:
-            self.headers["x-csrf-token"] = csrf_token
+            csrf_token = response.headers.get("x-csrf-token")
+            if csrf_token is not None:
+                self.headers["x-csrf-token"] = csrf_token
 
-        self._is_authenticated = True
-        self._last_token_cookie = response.cookies.get("TOKEN")
-        _LOGGER.debug("Authenticated successfully!")
+            self._is_authenticated = True
+            self._update_last_token_cookie(response)
+            _LOGGER.debug("Authenticated successfully!")
+
+    def _update_last_token_cookie(self, response: aiohttp.ClientResponse) -> None:
+        """Update the last token cookie."""
+        if (token_cookie := response.cookies.get("TOKEN")) and token_cookie != self._last_token_cookie:
+            self._last_token_cookie = token_cookie
+            self._last_token_cookie_decode = None
 
     def is_authenticated(self) -> bool:
         """Check to see if we are already authenticated."""
@@ -384,7 +405,23 @@ class BaseApiClient:
         if self._is_authenticated is False:
             return False
 
-        return token_cookie_is_valid(self._last_token_cookie)
+        if self._last_token_cookie is None:
+            return False
+
+        # Lazy decode the token cookie
+        if self._last_token_cookie and self._last_token_cookie_decode is None:
+            self._last_token_cookie_decode = decode_token_cookie(self._last_token_cookie)
+
+        if self._last_token_cookie_decode is None or "exp" not in self._last_token_cookie_decode:
+            return False
+
+        token_expires_at = self._last_token_cookie_decode["exp"]
+        max_expire_time = time.time() + TOKEN_COOKIE_MAX_EXP_SECONDS
+
+        if token_expires_at < max_expire_time:
+            return False
+
+        return True
 
     async def async_connect_ws(self, force: bool) -> None:
         """Connect to Websocket."""
