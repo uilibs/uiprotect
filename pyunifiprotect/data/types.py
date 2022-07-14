@@ -85,6 +85,7 @@ class ModelType(str, ValuesEnumMixin, enum.Enum):
     CHIME = "chime"
     DEVICE_GROUP = "deviceGroup"
     LEGACY_UFV = "legacyUFV"
+    RECORDING_SCHEDULE = "recordingSchedule"
 
     @staticmethod
     def bootstrap_models() -> List[str]:
