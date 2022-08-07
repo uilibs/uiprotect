@@ -74,6 +74,8 @@ def anonymize_value(value: Any, name: Optional[str] = None) -> Any:
             value = random_alphanum(16)
         elif name in ("mac", "server_id"):
             value = anonymize_peristent_string(value, random_hex(12).upper())
+        elif name in ("latitude", "longitude"):
+            value = "0.0"
         elif name == "name" and value != "Default":
             value = f"{random_word()} {random_word()}".title()
         elif name in ("owner", "user", "camera", "liveview", "authUserId", "event"):
