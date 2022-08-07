@@ -357,6 +357,7 @@ class StorageType(str, ValuesEnumMixin, enum.Enum):
     DISK = "hdd"
     RAID = "raid"
     SD_CARD = "sdcard"
+    UNKNOWN = "UNKNOWN"
 
 
 @enum.unique
