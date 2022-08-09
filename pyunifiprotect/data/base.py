@@ -879,7 +879,7 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
                 raise NotAuthorized("Do not have permission to unadopt devices")
             await self.api.unadopt_device(self.model, self.id)
 
-    async def adopt(self, name: Optional[str]) -> None:
+    async def adopt(self, name: Optional[str] = None) -> None:
         """Adopts a device"""
 
         if not self.can_adopt:
