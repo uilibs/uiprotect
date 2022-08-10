@@ -505,6 +505,8 @@ NEW_FIELDS = {
     "isPrimary",
     "lastDriveSlowEvent",
     "isUCoreSetup",
+    # 2.2.1-beta2
+    "isInsightsEnabled",
 }
 
 
@@ -615,6 +617,10 @@ def compare_objs(obj_type, expected, actual):
         expected["bluetoothConnectionState"]["experienceScore"] = expected["bluetoothConnectionState"].get(
             "experienceScore"
         )
+
+    if "wifiConnectionState" in expected:
+        expected["wifiConnectionState"]["bssid"] = expected["wifiConnectionState"].get("bssid")
+        expected["wifiConnectionState"]["txRate"] = expected["wifiConnectionState"].get("txRate")
 
     # sometimes uptime comes back as a str...
     if "uptime" in expected and expected["uptime"] is not None:
