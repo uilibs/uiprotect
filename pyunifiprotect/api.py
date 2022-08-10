@@ -1070,8 +1070,8 @@ class ProtectApiClient(BaseApiClient):
         being written.
 
         Providing the `fps` parameter creates a "timelapse" export wtih the given FPS
-        value. Protect app gives the opitions for 60x (fps=40), 120x (fps=20), 300x
-        (fps=8), and 600x (fps=4).
+        value. Protect app gives the options for 60x (fps=4), 120x (fps=8), 300x
+        (fps=20), and 600x (fps=40).
         """
 
         if validate_channel_id and self._bootstrap is not None:
