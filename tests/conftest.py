@@ -527,10 +527,6 @@ def compare_objs(obj_type, expected, actual):
         del expected["smartDetectLines"]
         if "streamSharing" in expected:
             del expected["streamSharing"]
-        if "hotplug" in expected["featureFlags"]:
-            del expected["featureFlags"]["hotplug"]
-        if "lensType" in expected["featureFlags"]:
-            del expected["featureFlags"]["lensType"]
         del expected["featureFlags"]["focus"]
         del expected["featureFlags"]["pan"]
         del expected["featureFlags"]["tilt"]
@@ -557,6 +553,10 @@ def compare_objs(obj_type, expected, actual):
         if expected["eventStats"]["smart"].get("recentHours") == [[None], None, []]:
             expected["eventStats"]["smart"].pop("recentHours", None)
             actual["eventStats"]["smart"].pop("recentHours", None)
+        if "hotplug" in actual["featureFlags"] and "hotplug" not in expected["featureFlags"]:
+            del actual["featureFlags"]["hotplug"]
+        if "lensType" in actual["featureFlags"] and "lensType" not in expected["featureFlags"]:
+            del actual["featureFlags"]["lensType"]
     elif obj_type == ModelType.USER.value:
         if "settings" in expected:
             expected.pop("settings", None)
