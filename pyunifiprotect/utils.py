@@ -37,7 +37,7 @@ import jwt
 from pydantic.fields import SHAPE_DICT, SHAPE_LIST, SHAPE_SET, ModelField
 from pydantic.utils import to_camel
 
-from pyunifiprotect.data.types import SmartDetectObjectType, Version
+from pyunifiprotect.data.types import SmartDetectObjectType, Version, VideoMode
 from pyunifiprotect.exceptions import NvrError
 
 if TYPE_CHECKING:
@@ -269,6 +269,18 @@ def convert_smart_types(items: Iterable[str]) -> List[SmartDetectObjectType]:
             types.append(SmartDetectObjectType(smart_type))
         except ValueError:
             _LOGGER.warning("Unknown smart detect type: %s", smart_type)
+    return types
+
+
+def convert_video_modes(items: Iterable[str]) -> List[VideoMode]:
+    """Converts list of str into VideoMode. Any unknown values will be ignored and logged."""
+
+    types = []
+    for video_mode in items:
+        try:
+            types.append(VideoMode(video_mode))
+        except ValueError:
+            _LOGGER.warning("Unknown video mode: %s", video_mode)
     return types
 
 

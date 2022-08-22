@@ -58,6 +58,7 @@ from pyunifiprotect.exceptions import BadRequest, NotAuthorized, StreamError
 from pyunifiprotect.stream import TalkbackStream
 from pyunifiprotect.utils import (
     convert_smart_types,
+    convert_video_modes,
     from_js_time,
     process_datetime,
     serialize_point,
@@ -390,6 +391,13 @@ class RecordingSettings(ProtectBaseObject):
 class SmartDetectSettings(ProtectBaseObject):
     object_types: List[SmartDetectObjectType]
 
+    @classmethod
+    def unifi_dict_to_dict(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        if "objectTypes" in data:
+            data["objectTypes"] = convert_smart_types(data.pop("objectTypes"))
+
+        return super().unifi_dict_to_dict(data)
+
 
 class PIRSettings(ProtectBaseObject):
     pir_sensitivity: int
@@ -669,6 +677,8 @@ class FeatureFlags(ProtectBaseObject):
     def unifi_dict_to_dict(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         if "smartDetectTypes" in data:
             data["smartDetectTypes"] = convert_smart_types(data.pop("smartDetectTypes"))
+        if "videoModes" in data:
+            data["videoModes"] = convert_video_modes(data.pop("videoModes"))
 
         return super().unifi_dict_to_dict(data)
 
