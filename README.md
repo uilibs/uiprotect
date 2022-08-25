@@ -62,7 +62,7 @@ function unifi-protect() {
       -e UFP_ADDRESS=YOUR_IP_ADDRESS \
       -e UFP_PORT=443 \
       -e UFP_SSL_VERIFY=True \
-      -v $PWD:/data ghcr.io/AngellusMortis/pyunifiprotect:latest "$@"
+      -v $PWD:/data ghcr.io/angellusmortis/pyunifiprotect:latest "$@"
 }
 ```
 
@@ -299,4 +299,4 @@ pytest
 
 ## Credits
 
-* Bjarne Riis (@briis) for the orginal pyunifiprotect package
+* Bjarne Riis ([@briis](https://github.com/briis/)) for the orginal pyunifiprotect package
