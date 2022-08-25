@@ -33,6 +33,6 @@ jobs:
           platforms: linux/amd64,linux/arm64
           target: prod
           push: true
-          cache-from: ghcr.io/AngellusMortis/pyunifiprotect:buildcache
-          cache-to: type=registry,ref=ghcr.io/AngellusMortis/pyunifiprotect:buildcache,mode=max
-          tags: ghcr.io/AngellusMortis/pyunifiprotect:latest,ghcr.io/AngellusMortis/pyunifiprotect:${{ github.ref_name }}
+          cache-from: ghcr.io/angellusmortis/pyunifiprotect:buildcache
+          cache-to: type=registry,ref=ghcr.io/angellusmortis/pyunifiprotect:buildcache,mode=max
+          tags: ghcr.io/angellusmortis/pyunifiprotect:latest,ghcr.io/angellusmortis/pyunifiprotect:${{ github.ref_name }}
