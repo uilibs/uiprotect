@@ -1,6 +1,6 @@
 FROM python:3.10-slim-bullseye as base
 
-LABEL org.opencontainers.image.source https://github.com/briis/pyunifiprotect
+LABEL org.opencontainers.image.source https://github.com/AngellusMortis/pyunifiprotect
 
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1

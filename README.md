@@ -1,6 +1,6 @@
 # Unofficial UniFi Protect Python API and CLI
 
-[![Latest PyPI version](https://img.shields.io/pypi/v/pyunifiprotect)](https://pypi.org/project/pyunifiprotect/) [![Supported Python](https://img.shields.io/pypi/pyversions/pyunifiprotect)](https://pypi.org/project/pyunifiprotect/) [![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![CI](https://github.com/briis/pyunifiprotect/actions/workflows/ci.yaml/badge.svg)](https://github.com/briis/pyunifiprotect/actions/workflows/ci.yaml)
+[![Latest PyPI version](https://img.shields.io/pypi/v/pyunifiprotect)](https://pypi.org/project/pyunifiprotect/) [![Supported Python](https://img.shields.io/pypi/pyversions/pyunifiprotect)](https://pypi.org/project/pyunifiprotect/) [![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![CI](https://github.com/AngellusMortis/pyunifiprotect/actions/workflows/ci.yaml/badge.svg)](https://github.com/AngellusMortis/pyunifiprotect/actions/workflows/ci.yaml)
 
 
 This module communicates with UniFi Protect Surveillance software installed on a UniFi OS Console such as a Ubiquiti CloudKey+ or UniFi Dream Machine Pro.
@@ -62,13 +62,13 @@ function unifi-protect() {
       -e UFP_ADDRESS=YOUR_IP_ADDRESS \
       -e UFP_PORT=443 \
       -e UFP_SSL_VERIFY=True \
-      -v $PWD:/data ghcr.io/briis/pyunifiprotect:latest "$@"
+      -v $PWD:/data ghcr.io/AngellusMortis/pyunifiprotect:latest "$@"
 }
 ```
 
 Some notes about the Docker version since it is running inside of a container:
 
-* You can update at any time using the command `docker pull ghcr.io/briis/pyunifiprotect:latest`
+* You can update at any time using the command `docker pull ghcr.io/AngellusMortis/pyunifiprotect:latest`
 * Your local current working directory (`$PWD`) will automatically be mounted to `/data` inside of the container. For commands that output files, this is the _only_ path you can write to and have the file persist.
 * The container supports `linux/amd64` and `linux/arm64` natively. This means it will also work well on MacOS or Windows using Docker Desktop.
 
@@ -296,3 +296,7 @@ You can then make `pytest` use this real data as well:
 export UFP_SAMPLE_DIR=/workspaces/pyunifiprotect/test-data
 pytest
 ```
+
+## Credits
+
+* Bjarne Riis (@briis) for the orginal pyunifiprotect package
