@@ -71,6 +71,7 @@ Some notes about the Docker version since it is running inside of a container:
 * You can update at any time using the command `docker pull ghcr.io/AngellusMortis/pyunifiprotect:latest`
 * Your local current working directory (`$PWD`) will automatically be mounted to `/data` inside of the container. For commands that output files, this is the _only_ path you can write to and have the file persist.
 * The container supports `linux/amd64` and `linux/arm64` natively. This means it will also work well on MacOS or Windows using Docker Desktop.
+* For versions of `pyunifiprotect` before v4.1.5, you need to use the `ghcr.io/briis/pyunifiprotect` image instead.
 
 ### Subcommands
 
