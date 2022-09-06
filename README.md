@@ -237,6 +237,20 @@ Once you have all three setup,
 
 This should be all you need to do to get a working development environment. The docker container will automatically be build and VS Code will attach itself to it. The integrated terminal in VS Code will already be set up with the `unifi-protect` command.
 
+### Setup (without VS Code)
+
+You can still setup develop without VS Code, but it is still recommended to use the development container to ensure you have all of the required dependancies. As a result, the above requirement for Docker is still needed.
+
+Once you have Docker setup,
+
+1. Clone repo
+2. Build and open dev container
+
+   ```bash
+   docker buildx build -f Dockerfile --target=dev -t pyunifiprotect-dev .
+   docker run --rm -it -v /home/cbailey/dev/pyunifiprotect:/workspaces/pyunifiprotect pyunifiprotect-dev bash
+   ```
+
 ### Authenticating with your Local Protect Instance
 
 The project allows you to create an environment file to put your local protect instance data into so you do not need to constantly enter in or accidentally commit it to the Git repo.
