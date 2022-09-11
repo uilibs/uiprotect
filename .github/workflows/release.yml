@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Check repo
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -47,6 +49,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           target: prod
           push: true
+          build-args:
+            PYUFP_VERSION: v4.3.0
           cache-from: ghcr.io/angellusmortis/pyunifiprotect:buildcache
           cache-to: type=registry,ref=ghcr.io/angellusmortis/pyunifiprotect:buildcache,mode=max
           tags: ghcr.io/angellusmortis/pyunifiprotect:latest,ghcr.io/angellusmortis/pyunifiprotect:${{ github.ref_name }}
