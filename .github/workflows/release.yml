@@ -83,6 +83,8 @@ jobs:
     steps:
     - name: Check repo
       uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
 
     - name: Set up Python
       uses: actions/setup-python@v2
@@ -95,6 +97,11 @@ jobs:
         pip install -r requirements.txt
         pip install -r dev-requirements.txt
         pip install -e ".[dev]"
+
+    - name: Setup doc deploy
+      run: |
+        git config --global user.name Docs deploy
+        git config --global user.email docs@dummy.bot.com
 
     - name: Build and deploy docs
       run: mike deploy --push --update-aliases ${{ github.ref_name }} latest
