@@ -60,7 +60,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 'env.DEFAULT_PYTHON'
+        python-version: '${{ env.DEFAULT_PYTHON }}'
 
     - name: Install dependencies
       run: |
@@ -87,7 +87,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 'env.DEFAULT_PYTHON'
+        python-version: '${{ env.DEFAULT_PYTHON }}'
 
     - name: Install dependencies
       run: |
