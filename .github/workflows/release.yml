@@ -21,6 +21,7 @@ env:
 
 jobs:
   docker:
+    name: Build Docker Image
     runs-on: ubuntu-latest
     steps:
       - name: Check repo

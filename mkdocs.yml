@@ -67,3 +67,7 @@ theme:
         name: Switch to light mode
       primary: blue
       accent: light blue
+
+extra:
+  version:
+    provider: mike
