@@ -44,9 +44,10 @@ dependencies = [
 ]
 
 [project.urls]
-"Source Code" = "https://github.com/AngellusMortis/pyunifiprotect"
-"Bug Reports" = "https://github.com/AngellusMortis/pyunifiprotect/issues"
-"Changelog" = "https://github.com/AngellusMortis/pyunifiprotect/releases"
+"Source Code" = "https://github.com/AngellusMortis/pyunifiprotect/"
+"Documentation" = "https://angellusmortis.github.io/pyunifiprotect/latest/"
+"Bug Reports" = "https://github.com/AngellusMortis/pyunifiprotect/issues/"
+"Changelog" = "https://github.com/AngellusMortis/pyunifiprotect/releases/"
 
 [project.optional-dependencies]
 dev = [

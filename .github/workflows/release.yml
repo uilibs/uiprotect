@@ -97,4 +97,4 @@ jobs:
         pip install -e ".[dev]"
 
     - name: Build and deploy docs
-        run:  mike deploy --push --update-aliases ${{ github.ref_name }} latest
+      run: mike deploy --push --update-aliases ${{ github.ref_name }} latest
