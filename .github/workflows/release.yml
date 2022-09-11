@@ -15,6 +15,9 @@ on:
 permissions:
   packages: write
 
+env:
+  DEFAULT_PYTHON: "3.10"
+
 jobs:
   docker:
     runs-on: ubuntu-latest
@@ -57,7 +60,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: '3.9'
+        python-version: 'env.DEFAULT_PYTHON'
 
     - name: Install dependencies
       run: |
@@ -72,3 +75,26 @@ jobs:
       with:
         user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}
+
+  docs:
+    name: Publish Docs
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check repo
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 'env.DEFAULT_PYTHON'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r dev-requirements.txt
+        pip install -e ".[dev]"
+
+    - name: Build and deploy docs
+        run:  mike deploy --push --update-aliases ${{ github.ref_name }} latest

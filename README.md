@@ -1,6 +1,6 @@
 # Unofficial UniFi Protect Python API and CLI
 
-[![Latest PyPI version](https://img.shields.io/pypi/v/pyunifiprotect)](https://pypi.org/project/pyunifiprotect/) [![Supported Python](https://img.shields.io/pypi/pyversions/pyunifiprotect)](https://pypi.org/project/pyunifiprotect/) [![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![CI](https://github.com/AngellusMortis/pyunifiprotect/actions/workflows/ci.yaml/badge.svg)](https://github.com/AngellusMortis/pyunifiprotect/actions/workflows/ci.yaml)
+[![Latest PyPI version](https://img.shields.io/pypi/v/pyunifiprotect)](https://pypi.org/project/pyunifiprotect/) | [![Supported Python](https://img.shields.io/pypi/pyversions/pyunifiprotect)](https://pypi.org/project/pyunifiprotect/) [![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) | [![CI](https://github.com/AngellusMortis/pyunifiprotect/actions/workflows/ci.yaml/badge.svg)](https://github.com/AngellusMortis/pyunifiprotect/actions/workflows/ci.yaml) | [![Documentation](https://github.com/AngellusMortis/pyunifiprotect/actions/workflows/pages/pages-build-deployment/badge.svg)](https://angellusmortis.github.io/pyunifiprotect/)
 
 `pyunifiprotect` is an unofficial API for UniFi Protect. There is no affiliation with Ubiquiti.
 
@@ -11,6 +11,26 @@ The API is not documented by Ubiquiti, so there might be misses and/or frequent 
 The module is primarily written for the purpose of being used in Home Assistant core [integration for UniFi Protect](https://www.home-assistant.io/integrations/unifiprotect) but might be used for other purposes also.
 
 **Requires UniFi Protect version 1.20 or higher and Python 3.9+.**
+
+## Documentation
+
+[Full documentation for the project](https://angellusmortis.github.io/pyunifiprotect/).
+
+## Requirements
+
+If you want to install `pyunifiprotect` natively, the below are the requirements:
+
+* [UniFi Protect](https://ui.com/camera-security) version 1.20+
+    * Latest version of library is generally only tested against the two latest minor version. This is either two latest stable versions (such as 1.21.x and 2.0.x) or the latest EA version and stable version (such as 2.2.x EA and 2.1.x).
+* [Python](https://www.python.org/) 3.9+
+* POSIX compatible system
+    * Library is only test on Linux, specifically the latest Debian version available for the official Python Docker images, but there is no reason the library should not work on any Linux distro or MacOS.
+* [ffmpeg](https://ffmpeg.org/)
+    * ffmpeg is primarily only for streaming audio to Protect cameras, this can be considered a soft requirement
+
+Alternatively you can use the [provided Docker container](#using-docker-container), in which case the only requirement is [Docker](https://docs.docker.com/desktop/) or another OCI compatible orchestrator (such as Kubernetes or podman).
+
+Windows is **not supported**. If you need to use `pyunifiprotect` on Windows, use Docker Desktop and the provided docker container.
 
 ## Install
 
