@@ -49,8 +49,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           target: prod
           push: true
-          build-args:
-            - PYUFP_VERSION=${{ github.ref_name }}
+          build-args: |
+            PYUFP_VERSION=${{ github.ref_name }}
           cache-from: ghcr.io/angellusmortis/pyunifiprotect:buildcache
           cache-to: type=registry,ref=ghcr.io/angellusmortis/pyunifiprotect:buildcache,mode=max
           tags: ghcr.io/angellusmortis/pyunifiprotect:latest,ghcr.io/angellusmortis/pyunifiprotect:${{ github.ref_name }}
