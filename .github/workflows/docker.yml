@@ -14,8 +14,15 @@ on:
         - "no"
         - "yes"
 
+concurrency:
+  group: docker-${{ github.event.workflow_run.head_branch || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   packages: write
+
+env:
+  DEFAULT_PYTHON: "3.10"
 
 jobs:
   docker:

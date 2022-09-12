@@ -13,6 +13,10 @@ on:
     types: [ published ]
   workflow_dispatch:
 
+concurrency:
+  group: docs-${{ github.event.workflow_run.head_branch || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 

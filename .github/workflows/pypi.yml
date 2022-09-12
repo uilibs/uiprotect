@@ -12,6 +12,10 @@ on:
   release:
     types: [ published ]
 
+concurrency:
+  group: pypi-${{ github.event.workflow_run.head_branch || github.ref }}
+  cancel-in-progress: true
+
 env:
   DEFAULT_PYTHON: "3.10"
 
