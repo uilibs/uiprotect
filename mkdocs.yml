@@ -1,4 +1,7 @@
 site_name: Unofficial UniFi Protect Python API and CLI
+site_url: https://angellusmortis.github.io/pyunifiprotect/latest/
+site_description: Unofficial UniFi Protect Python API and CLI
+repo_name: pyunifiprotect
 repo_url: https://github.com/AngellusMortis/pyunifiprotect
 copyright: pyunifiprotect is an unofficial API for UniFi Protect. There is no affiliation with Ubiquiti.
 

@@ -1,6 +1,6 @@
 # Unofficial UniFi Protect Python API and CLI
 
-[![Latest PyPI version](https://img.shields.io/pypi/v/pyunifiprotect)](https://pypi.org/project/pyunifiprotect/) | [![Supported Python](https://img.shields.io/pypi/pyversions/pyunifiprotect)](https://pypi.org/project/pyunifiprotect/) [![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) | [![CI](https://github.com/AngellusMortis/pyunifiprotect/actions/workflows/ci.yaml/badge.svg)](https://github.com/AngellusMortis/pyunifiprotect/actions/workflows/ci.yaml) | [![Documentation](https://github.com/AngellusMortis/pyunifiprotect/actions/workflows/pages/pages-build-deployment/badge.svg)](https://angellusmortis.github.io/pyunifiprotect/)
+[![Latest PyPI version](https://img.shields.io/pypi/v/pyunifiprotect)](https://pypi.org/project/pyunifiprotect/) [![Supported Python](https://img.shields.io/pypi/pyversions/pyunifiprotect)](https://pypi.org/project/pyunifiprotect/) [![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![CI](https://github.com/AngellusMortis/pyunifiprotect/actions/workflows/ci.yaml/badge.svg)](https://github.com/AngellusMortis/pyunifiprotect/actions/workflows/ci.yaml) [![Documentation](https://github.com/AngellusMortis/pyunifiprotect/actions/workflows/pages/pages-build-deployment/badge.svg)](https://angellusmortis.github.io/pyunifiprotect/)
 
 `pyunifiprotect` is an unofficial API for UniFi Protect. There is no affiliation with Ubiquiti.
 
@@ -9,8 +9,6 @@ This module communicates with UniFi Protect surveillance software installed on a
 The API is not documented by Ubiquiti, so there might be misses and/or frequent changes in this module, as Ubiquiti evolves the software.
 
 The module is primarily written for the purpose of being used in Home Assistant core [integration for UniFi Protect](https://www.home-assistant.io/integrations/unifiprotect) but might be used for other purposes also.
-
-**Requires UniFi Protect version 1.20 or higher and Python 3.9+.**
 
 ## Documentation
 
@@ -72,7 +70,7 @@ Some notes about the Docker version since it is running inside of a container:
 * The container supports `linux/amd64` and `linux/arm64` natively. This means it will also work well on MacOS or Windows using Docker Desktop.
 * For versions of `pyunifiprotect` before v4.1.5, you need to use the `ghcr.io/briis/pyunifiprotect` image instead.
 * `TZ` should be the [Olson timezone name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for the timezone your UniFi Protect instance is in.
-* For more details on `TZ` and other environment variables, check the [command line docs](/cli/)
+* For more details on `TZ` and other environment variables, check the [command line docs](https://angellusmortis.github.io/pyunifiprotect/latest/cli/)
 
 ## Quickstart
 
