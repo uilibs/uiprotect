@@ -6,7 +6,7 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-name: Publish to PyPi
+name: CD - Publish to PyPi
 
 on:
   release:
