@@ -51,7 +51,7 @@ jobs:
         run: echo "PYUFP_VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
 
       - name: Get current version (no rebuild)
-        if: ${{ inputs.rebuild != 'no' }}
+        if: ${{ inputs.rebuild != 'yes' }}
         run: echo "PYUFP_VERSION=v$(python -c 'from importlib.metadata import version; print(version("pyunifiprotect"))')" >> $GITHUB_ENV
 
       - name: Set up QEMU
