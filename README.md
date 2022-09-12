@@ -30,7 +30,7 @@ If you want to install `pyunifiprotect` natively, the below are the requirements
 
 Alternatively you can use the [provided Docker container](#using-docker-container), in which case the only requirement is [Docker](https://docs.docker.com/desktop/) or another OCI compatible orchestrator (such as Kubernetes or podman).
 
-Windows is **not supported**. If you need to use `pyunifiprotect` on Windows, use Docker Desktop and the provided docker container.
+Windows is **not supported**. If you need to use `pyunifiprotect` on Windows, use Docker Desktop and the provided docker container or [WSL](https://docs.microsoft.com/en-us/windows/wsl/install).
 
 ## Install
 
