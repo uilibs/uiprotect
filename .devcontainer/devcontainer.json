@@ -12,7 +12,7 @@
         "bungcip.better-toml",
         "mikestead.dotenv",
         "ms-python.pylint",
-        // "ms-python.black-formatter", // still pre-release
+        "ms-python.black-formatter",
         "ms-python.isort",
         "streetsidesoftware.code-spell-checker"
     ],
@@ -25,8 +25,7 @@
         "files.trimTrailingWhitespace": true,
         // python common
         "[python]": {
-            "editor.defaultFormatter": "ms-python.python",
-            // "editor.defaultFormatter": "ms-python.black-formatter",
+            "editor.defaultFormatter": "ms-python.black-formatter",
             "editor.codeActionsOnSave": {
                 "source.organizeImports": true
             },
@@ -42,16 +41,10 @@
         "python.linting.mypyEnabled": true,
         "python.linting.pylintEnabled": false,
         "python.linting.pylamaEnabled": false,
-        // TODO: replace with black extension once stable
-        "python.formatting.provider": "black",
-        "python.formatting.blackArgs": [
+        "black-formatter.args": [
             "--config=./pyproject.toml",
             "--line-length=120" // VS Code use to override to 88, this ensure correct default
         ],
-        // "black-formatter.args": [
-        //     "--config=./pyproject.toml",
-        //     "--line-length=120" // VS Code use to override to 88, this ensure correct default
-        // ],
         "isort.args": [
             "--settings-path=./pyproject.toml"
         ],

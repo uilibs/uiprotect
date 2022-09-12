@@ -1,17 +1,51 @@
-name: Manual Docker Build
+name: Build Docker Image
 
 on:
+  release:
+    types: [ published ]
   workflow_dispatch:
+    inputs:
+      rebuild:
+        description: 'Rebuild tag?'
+        required: true
+        default: 'no'
+        type: choice
+        options:
+        - "no"
+        - "yes"
 
 permissions:
   packages: write
 
 jobs:
   docker:
+    name: Build Docker Image
     runs-on: ubuntu-latest
     steps:
       - name: Check repo
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '${{ env.DEFAULT_PYTHON }}'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r dev-requirements.txt
+          pip install -e ".[dev]"
+
+      - name: Get current version (rebuild)
+        if: ${{ inputs.inputs == "yes" }}
+        shell: echo "PYUFP_VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+
+      - name: Get current version (no rebuild)
+        if: ${{ inputs.inputs == "no" }}
+        shell: echo "PYUFP_VERSION=v$(python -c 'from importlib.metadata import version; print(version("pyunifiprotect"))')" >> $GITHUB_ENV
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -33,6 +67,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           target: prod
           push: true
+          build-args: |
+            PYUFP_VERSION=${{ env.PYUFP_VERSION }}
           cache-from: ghcr.io/angellusmortis/pyunifiprotect:buildcache
           cache-to: type=registry,ref=ghcr.io/angellusmortis/pyunifiprotect:buildcache,mode=max
-          tags: ghcr.io/angellusmortis/pyunifiprotect:latest,ghcr.io/angellusmortis/pyunifiprotect:${{ github.ref_name }}
+          tags: ghcr.io/angellusmortis/pyunifiprotect:latest,ghcr.io/angellusmortis/pyunifiprotect:${{ env.PYUFP_VERSION }}
