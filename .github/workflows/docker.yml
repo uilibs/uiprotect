@@ -52,7 +52,7 @@ jobs:
           PYUFP_VERSION=$(git describe --tags --abbrev=0)
 
           echo "PYUFP_VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
-          echo "DOCKER_TAGS=ghcr.io/angellusmortis/pyunifiprotect:latest,ghcr.io/angellusmortis/pyunifiprotect:$PYUFP_VERSION" >> $GITHUB_ENV
+          echo "DOCKER_TAGS=ghcr.io/angellusmortis/pyunifiprotect:$PYUFP_VERSION" >> $GITHUB_ENV
 
       - name: Get current version (no rebuild)
         if: ${{ inputs.rebuild != 'yes' }}
@@ -61,6 +61,10 @@ jobs:
 
           echo "PYUFP_VERSION=$PYUFP_VERSION" >> $GITHUB_ENV
           echo "DOCKER_TAGS=ghcr.io/angellusmortis/pyunifiprotect:$(echo $PYUFP_VERSION | tr "+" -)" >> $GITHUB_ENV
+
+      - name: Add Latest Docker Tag
+        if: ${{ github.event.release }}
+        run: echo "DOCKER_TAGS=ghcr.io/angellusmortis/pyunifiprotect:latest,$DOCKER_TAGS" >> $GITHUB_ENV
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
