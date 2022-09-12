@@ -51,4 +51,4 @@ jobs:
         git config --global user.email "action@github.com"
 
     - name: Build and deploy docs
-      run: mike deploy --push --update-aliases ${{ env.GITHUB_ENV }} latest
+      run: mike deploy --push --update-aliases ${{ env.PYUFP_VERSION }} latest
