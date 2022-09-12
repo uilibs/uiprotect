@@ -63,8 +63,10 @@ jobs:
           echo "DOCKER_TAGS=ghcr.io/angellusmortis/pyunifiprotect:$(echo $PYUFP_VERSION | tr "+" -)" >> $GITHUB_ENV
 
       - name: Add Latest Docker Tag
-        if: ${{ github.event.release }}
-        run: echo "DOCKER_TAGS=ghcr.io/angellusmortis/pyunifiprotect:latest,$DOCKER_TAGS" >> $GITHUB_ENV
+        run: |
+          if [[ ! "$PYUFP_VERSION" == *"dev"* ]]; then
+            echo "DOCKER_TAGS=ghcr.io/angellusmortis/pyunifiprotect:latest,$DOCKER_TAGS" >> $GITHUB_ENV
+          fi
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
