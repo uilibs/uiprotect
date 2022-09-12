@@ -85,15 +85,15 @@ class BackupContext(base.CliContext):
 
     @property
     def download_thumbnails(self) -> bool:
-        return self.thumbnail_format == ""
+        return self.thumbnail_format != ""
 
     @property
     def download_gifs(self) -> bool:
-        return self.gif_format == ""
+        return self.gif_format != ""
 
     @property
     def download_videos(self) -> bool:
-        return self.event_format == ""
+        return self.event_format != ""
 
     @property
     def db_file(self) -> Path:
