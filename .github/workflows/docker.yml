@@ -48,7 +48,11 @@ jobs:
 
       - name: Get current version (rebuild)
         if: ${{ inputs.rebuild == 'yes' }}
-        run: echo "PYUFP_VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+        run: |
+          PYUFP_VERSION=$(git describe --tags --abbrev=0)
+
+          echo "PYUFP_VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+          echo "DOCKER_TAGS=ghcr.io/angellusmortis/pyunifiprotect:latest,ghcr.io/angellusmortis/pyunifiprotect:$PYUFP_VERSION" >> $GITHUB_ENV
 
       - name: Get current version (no rebuild)
         if: ${{ inputs.rebuild != 'yes' }}
@@ -56,7 +60,7 @@ jobs:
           PYUFP_VERSION=v$(python -c 'from importlib.metadata import version; print(version("pyunifiprotect"))')
 
           echo "PYUFP_VERSION=$PYUFP_VERSION" >> $GITHUB_ENV
-          echo "PYUFP_VERSION_DOCKER=$(echo $PYUFP_VERSION | tr "+" -)" >> $GITHUB_ENV
+          echo "DOCKER_TAGS=ghcr.io/angellusmortis/pyunifiprotect:$(echo $PYUFP_VERSION | tr "+" -)" >> $GITHUB_ENV
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -82,4 +86,4 @@ jobs:
             PYUFP_VERSION=${{ env.PYUFP_VERSION }}
           cache-from: ghcr.io/angellusmortis/pyunifiprotect:buildcache
           cache-to: type=registry,ref=ghcr.io/angellusmortis/pyunifiprotect:buildcache,mode=max
-          tags: ghcr.io/angellusmortis/pyunifiprotect:latest,ghcr.io/angellusmortis/pyunifiprotect:${{ env.PYUFP_VERSION_DOCKER }}
+          tags: ${{ env.DOCKER_TAGS }}
