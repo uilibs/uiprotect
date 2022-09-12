@@ -52,7 +52,7 @@ jobs:
 
       - name: Get current version (no rebuild)
         if: ${{ inputs.rebuild != 'yes' }}
-        run: echo "PYUFP_VERSION=v$(python -c 'from importlib.metadata import version; print(version("pyunifiprotect"))')" >> $GITHUB_ENV
+        run: echo "PYUFP_VERSION=v$(python -c 'from importlib.metadata import version; print(version("pyunifiprotect"))' | tr "+" -)" >> $GITHUB_ENV
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
