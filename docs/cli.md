@@ -385,3 +385,15 @@ for id in $(unifi-protect cameras list-ids | awk '{ print $1 }'); do
     unifi-protect cameras $id reboot
 done
 ```
+
+#### Chime CLI
+
+Inherits [Multiple Item CLI Commands](#multiple-item-cli-commands) and [Adoptable Devices CLI Commands](#adoptable-devices-cli-commands).
+
+##### Examples
+
+###### Set Paired Cameras
+
+```bash
+$ unifi-protect chimes 6275b22e00e3c403e702a019 cameras 61ddb66b018e2703e7008c19,61f9824e004adc03e700132c
+```
