@@ -395,5 +395,5 @@ Inherits [Multiple Item CLI Commands](#multiple-item-cli-commands) and [Adoptabl
 ###### Set Paired Cameras
 
 ```bash
-$ unifi-protect chimes 6275b22e00e3c403e702a019 cameras 61ddb66b018e2703e7008c19,61f9824e004adc03e700132c
+$ unifi-protect chimes 6275b22e00e3c403e702a019 cameras 61ddb66b018e2703e7008c19 61f9824e004adc03e700132c
 ```
