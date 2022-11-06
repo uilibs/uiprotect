@@ -1098,7 +1098,7 @@ class ProtectApiClient(BaseApiClient):
         if iterator_callback is None and progress_callback is None and output_file is None:
             return await self.api_request_raw(path, params=params, raise_exception=False)
 
-        r = await self.request("get", urljoin(self.api_path, path), auto_close=False, params=params)
+        r = await self.request("get", urljoin(self.api_path, path), auto_close=False, timeout=0, params=params)
         if output_file is not None:
             async with aiofiles.open(output_file, "wb") as output:
 
