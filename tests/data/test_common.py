@@ -42,6 +42,7 @@ from tests.conftest import (
     MockTalkback,
     compare_objs,
 )
+from tests.sample_data.constants import CONSTANTS
 
 PACKET_B64 = "AQEBAAAAAHR4nB2MQQrCMBBFr1JmbSDNpJnRG4hrDzBNZqCgqUiriHh3SZb/Pd7/guRtWSucBtgfRTaFwwBV39c+zqUJskQW1DufUVwkJsfFxDGLyRFj0dSz+1r0dtFPa+rr2dDSD8YsyceUpskQxzjjHIIQMvz+hMoj/AIBAQAAAAA1eJyrViotKMnMTVWyUjA0MjawMLQ0MDDQUVDKSSwuCU5NzQOJmxkbACUszE0sLQ1rAVU/DPU="
 PACKET_ACTION = {
@@ -145,6 +146,7 @@ def test_bridge(bridge):
     compare_devices(bridge)
 
 
+@pytest.mark.timeout(CONSTANTS["event_count"] * 0.1)
 def test_events(raw_events):
     for event in raw_events:
         compare_devices(event)
