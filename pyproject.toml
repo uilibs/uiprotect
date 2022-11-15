@@ -38,7 +38,7 @@ dependencies = [
     "orjson",
     "packaging",
     "pillow",
-    "pydantic!=1.9.1", # unexpected breaking change
+    "pydantic!=1.9.1,<2",
     "pyjwt",
     "typer[all]>0.6",
 ]
