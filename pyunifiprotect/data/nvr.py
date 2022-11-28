@@ -120,6 +120,11 @@ class SmartDetectTrack(ProtectBaseObject):
         return self.api.bootstrap.events.get(self.event_id)
 
 
+class LicensePlateMetadata(ProtectBaseObject):
+    name: str
+    confidence_level: int
+
+
 class EventMetadata(ProtectBaseObject):
     client_platform: Optional[str]
     reason: Optional[str]
@@ -139,6 +144,8 @@ class EventMetadata(ProtectBaseObject):
     alarm_type: Optional[str]
     device_id: Optional[str]
     mac: Optional[str]
+    # require 2.7.5+
+    license_plate: Optional[LicensePlateMetadata] = None
 
     _collapse_keys: ClassVar[SetStr] = {
         "lightId",
@@ -201,6 +208,9 @@ class Event(ProtectModelWithId):
     user_id: Optional[str]
     timestamp: Optional[datetime]
     metadata: Optional[EventMetadata]
+    # requires 2.7.5+
+    deleted_at: Optional[datetime] = None
+    deletion_type: Optional[Literal["manual", "automatic"]] = None
 
     # TODO:
     # partition
@@ -222,10 +232,18 @@ class Event(ProtectModelWithId):
 
     @classmethod
     def unifi_dict_to_dict(cls, data: Dict[str, Any]) -> Dict[str, Any]:
-        for key in {"start", "end", "timestamp"}.intersection(data.keys()):
+        for key in {"start", "end", "timestamp", "deletedAt"}.intersection(data.keys()):
             data[key] = process_datetime(data, key)
 
         return super().unifi_dict_to_dict(data)
+
+    def unifi_dict(self, data: Optional[Dict[str, Any]] = None, exclude: Optional[Set[str]] = None) -> Dict[str, Any]:
+        data = super().unifi_dict(data=data, exclude=exclude)
+
+        if "deletedAt" in data and data["deletedAt"] is None:
+            del data["deletedAt"]
+
+        return data
 
     @property
     def camera(self) -> Optional[Camera]:
