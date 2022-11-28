@@ -589,6 +589,9 @@ def compare_objs(obj_type, expected, actual):
         expected.pop("partition", None)
         expected.pop("deletionType", None)
 
+        # there is a mismatch between licenseplate in SmartDetectTypes and in the event (event has capital P)
+        expected["smartDetectTypes"] = [t.lower() if t == "licensePlate" else t for t in expected["smartDetectTypes"]]
+
         expected_keys = (expected.get("metadata") or {}).keys()
         actual_keys = (actual.get("metadata") or {}).keys()
         # delete all extra metadata keys, many of which are not modeled
