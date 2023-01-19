@@ -1104,11 +1104,11 @@ class Camera(ProtectMotionDeviceModel):
 
     @property
     def has_removable_lens(self) -> bool:
-        return self.feature_flags.lens_type is not None
+        return self.feature_flags.hotplug is not None and self.feature_flags.hotplug.video is not None
 
     @property
     def has_removable_speaker(self) -> bool:
-        return self.feature_flags.hotplug is not None
+        return self.feature_flags.hotplug is not None and self.feature_flags.hotplug.audio is not None
 
     @property
     def has_mic(self) -> bool:
