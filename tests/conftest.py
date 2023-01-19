@@ -585,6 +585,11 @@ def compare_objs(obj_type, expected, actual):
         for flag in NEW_CAMERA_FEATURE_FLAGS:
             if flag not in expected["featureFlags"]:
                 del actual["featureFlags"][flag]
+
+        # ignore changes to motion for live tests
+        assert type(actual["isMotionDetected"]) == bool
+        expected["isMotionDetected"] = actual["isMotionDetected"]
+
     elif obj_type == ModelType.USER.value:
         if "settings" in expected:
             expected.pop("settings", None)
