@@ -7,6 +7,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone, tzinfo
 from decimal import Decimal
 from enum import Enum
+from functools import lru_cache
 from hashlib import sha224
 from http.cookies import Morsel
 from inspect import isclass
@@ -62,6 +63,10 @@ SNAKE_CASE_KEYS = [
     "used_bytes",
 ]
 TIMEZONE_GLOBAL: tzinfo | None = None
+
+SNAKE_CASE_MATCH_1 = re.compile("(.)([A-Z0-9][a-z]+)")
+SNAKE_CASE_MATCH_2 = re.compile("__([A-Z0-9])")
+SNAKE_CASE_MATCH_3 = re.compile("([a-z0-9])([A-Z])")
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -151,11 +156,12 @@ def is_doorbell(data: Dict[str, Any]) -> bool:
     return "doorbell" in str(data["type"]).lower()
 
 
+@lru_cache(maxsize=1024)
 def to_snake_case(name: str) -> str:
     """Converts string to snake_case"""
-    name = re.sub("(.)([A-Z0-9][a-z]+)", r"\1_\2", name)
-    name = re.sub("__([A-Z0-9])", r"_\1", name)
-    name = re.sub("([a-z0-9])([A-Z])", r"\1_\2", name)
+    name = SNAKE_CASE_MATCH_1.sub(r"\1_\2", name)
+    name = SNAKE_CASE_MATCH_2.sub(r"_\1", name)
+    name = SNAKE_CASE_MATCH_3.sub(r"\1_\2", name)
     return name.lower()
 
 
