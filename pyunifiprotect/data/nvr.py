@@ -477,7 +477,7 @@ class UOSDisk(ProtectBaseObject):
     sata: Optional[str] = None
     action: Optional[str] = None
     healthy: Optional[str] = None
-    reason: Optional[Any] = None
+    reason: Optional[str] = None
     temperature: Optional[int] = None
     power_on_hours: Optional[int] = None
     life_span: Optional[PercentFloat] = None
@@ -505,7 +505,7 @@ class UOSDisk(ProtectBaseObject):
     def unifi_dict(self, data: Optional[Dict[str, Any]] = None, exclude: Optional[Set[str]] = None) -> Dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
-        # esimtate is actually in seconds, not milliseconds
+        # estimate is actually in seconds, not milliseconds
         if "estimate" in data and data["estimate"] is not None:
             data["estimate"] = data["estimate"] / 1000
 
