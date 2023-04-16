@@ -1086,19 +1086,19 @@ class Camera(ProtectMotionDeviceModel):
 
     @property
     def high_camera_channel(self) -> Optional[CameraChannel]:
-        if len(self.channels) == 3:
+        if len(self.channels) >= 3:
             return self.channels[0]
         return None
 
     @property
     def medium_camera_channel(self) -> Optional[CameraChannel]:
-        if len(self.channels) == 3:
+        if len(self.channels) >= 3:
             return self.channels[1]
         return None
 
     @property
     def low_camera_channel(self) -> Optional[CameraChannel]:
-        if len(self.channels) == 3:
+        if len(self.channels) >= 3:
             return self.channels[2]
         return None
 
@@ -1172,6 +1172,9 @@ class Camera(ProtectMotionDeviceModel):
         if not self.api.bootstrap.auth_user.can(ModelType.CAMERA, PermissionNode.READ_MEDIA, self):
             raise NotAuthorized(f"Do not have permission to read media for camera: {self.id}")
 
+        if height is None and width is None and self.high_camera_channel is not None:
+            height = self.high_camera_channel.height
+
         return await self.api.get_camera_snapshot(self.id, width, height, dt=dt)
 
     async def get_package_snapshot(
@@ -1191,6 +1194,9 @@ class Camera(ProtectMotionDeviceModel):
 
         if not self.api.bootstrap.auth_user.can(ModelType.CAMERA, PermissionNode.READ_MEDIA, self):
             raise NotAuthorized(f"Do not have permission to read media for camera: {self.id}")
+
+        if height is None and width is None and self.package_camera_channel is not None:
+            height = self.package_camera_channel.height
 
         return await self.api.get_package_camera_snapshot(self.id, width, height, dt=dt)
 
