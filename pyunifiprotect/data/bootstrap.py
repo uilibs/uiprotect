@@ -166,6 +166,7 @@ class Bootstrap(ProtectBaseObject):
     _has_smart: Optional[bool] = PrivateAttr(None)
     _has_media: Optional[bool] = PrivateAttr(None)
     _recording_start: Optional[datetime] = PrivateAttr(None)
+    _refresh_tasks: Set[asyncio.Task[None]] = PrivateAttr(set())
 
     @classmethod
     def unifi_dict_to_dict(cls, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -488,7 +489,9 @@ class Bootstrap(ProtectBaseObject):
             try:
                 model_type = ModelType(action["modelKey"])
                 device_id = action["id"]
-                asyncio.create_task(self.refresh_device(model_type, device_id))
+                task = asyncio.create_task(self.refresh_device(model_type, device_id))
+                self._refresh_tasks.add(task)
+                task.add_done_callback(self._refresh_tasks.discard)
             except (ValueError, IndexError):
                 msg = f"{action['action']} packet caused invalid state. Unable to refresh device."
             else:

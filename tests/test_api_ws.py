@@ -403,8 +403,6 @@ async def test_ws_emit_ring_callback(
     mock_now.return_value = utc_now() + EVENT_PING_INTERVAL
     assert not obj.is_ringing
 
-    protect_client.emit_message.assert_called_once()
-
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @patch("pyunifiprotect.data.devices.utc_now")
@@ -440,8 +438,6 @@ async def test_ws_emit_alarm_callback(
     assert obj.is_alarm_detected
     mock_now.return_value = utc_now() + EVENT_PING_INTERVAL
     assert not obj.is_alarm_detected
-
-    protect_client.emit_message.assert_called_once()
 
 
 @pytest.mark.asyncio

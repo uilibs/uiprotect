@@ -28,6 +28,7 @@ class Websocket:
     _connect_lock: asyncio.Lock
 
     _headers: Optional[Dict[str, str]] = None
+    _websocket_loop_task: Optional[asyncio.Task[None]] = None
     _timer_task: Optional[asyncio.Task[None]] = None
     _ws_connection: Optional[ClientWebSocketResponse] = None
     _last_connect: float = -1000
@@ -159,7 +160,7 @@ class Websocket:
 
         start_event = asyncio.Event()
         _LOGGER.debug("Scheduling WS connect...")
-        asyncio.create_task(self._websocket_loop(start_event))
+        self._websocket_loop_task = asyncio.create_task(self._websocket_loop(start_event))
 
         try:
             await asyncio.wait_for(start_event.wait(), timeout=self.timeout_interval)

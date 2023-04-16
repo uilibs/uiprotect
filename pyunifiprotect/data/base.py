@@ -46,6 +46,7 @@ from pyunifiprotect.utils import (
 )
 
 if TYPE_CHECKING:
+    from asyncio.events import TimerHandle
     from typing import Self  # requires Python 3.11+
 
     from pydantic.typing import DictStrAny, SetStr
@@ -725,6 +726,8 @@ class ProtectDeviceModel(ProtectModelWithId):
     is_updating: bool
     is_ssh_enabled: bool
 
+    _callback_ping: Optional[TimerHandle] = None
+
     @classmethod
     def _get_read_only_fields(cls) -> Set[str]:
         return super()._get_read_only_fields() | {
@@ -756,7 +759,9 @@ class ProtectDeviceModel(ProtectModelWithId):
     def _event_callback_ping(self) -> None:
         _LOGGER.debug("Event ping timer started for %s", self.id)
         loop = asyncio.get_event_loop()
-        loop.call_later(EVENT_PING_INTERVAL.total_seconds(), asyncio.create_task, self.emit_message({}))
+        self._callback_ping = loop.call_later(
+            EVENT_PING_INTERVAL.total_seconds(), asyncio.create_task, self.emit_message({})
+        )
 
     async def set_name(self, name: str | None) -> None:
         """Sets name for the device"""
