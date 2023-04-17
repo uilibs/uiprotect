@@ -726,7 +726,7 @@ class ProtectDeviceModel(ProtectModelWithId):
     is_updating: bool
     is_ssh_enabled: bool
 
-    _callback_ping: Optional[TimerHandle] = None
+    _callback_ping: Optional[TimerHandle] = PrivateAttr(None)
 
     @classmethod
     def _get_read_only_fields(cls) -> Set[str]:
