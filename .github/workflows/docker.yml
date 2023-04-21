@@ -28,6 +28,9 @@ jobs:
   docker:
     name: Build Docker Image
     runs-on: ubuntu-latest
+    environment:
+      name: release
+
     steps:
       - name: Check repo
         uses: actions/checkout@v3
