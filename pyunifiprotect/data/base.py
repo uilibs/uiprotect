@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timedelta
+from functools import cache
 from ipaddress import IPv4Address
 import logging
 from typing import (
@@ -96,7 +97,8 @@ class ProtectBaseObject(BaseModel):
         """
         super().__init__(**data)
 
-        self._initial_data = self.dict(exclude=self._get_excluded_changed_fields())
+        excludes = self.__class__._get_excluded_changed_fields()  # pylint: disable=protected-access
+        self._initial_data = self.dict(exclude=excludes)
         self._api = api
 
     @classmethod
@@ -153,6 +155,7 @@ class ProtectBaseObject(BaseModel):
         return obj
 
     @classmethod
+    @cache
     def _get_excluded_changed_fields(cls) -> Set[str]:
         """
         Helper method for override in child classes for fields that excluded from calculating "changed" state for a
@@ -161,6 +164,7 @@ class ProtectBaseObject(BaseModel):
         return set()
 
     @classmethod
+    @cache
     def _get_unifi_remaps(cls) -> Dict[str, str]:
         """
         Helper method for overriding in child classes for remapping UFP JSON keys to Python ones that do not fit the
@@ -497,12 +501,8 @@ class ProtectBaseObject(BaseModel):
         for key in data:
             setattr(self, key, convert_unifi_data(data[key], self.__fields__[key]))
 
-        # Calling dict with no params has a fast path which is MUCH faster
-        # so we pull out the excluded keys after
-        as_dict = self.dict()
-        for key in self._get_excluded_changed_fields().intersection(as_dict):
-            del as_dict[key]
-        self._initial_data = as_dict
+        excludes = self.__class__._get_excluded_changed_fields()  # pylint: disable=protected-access
+        self._initial_data = {k: v for k, v in self.__dict__.items() if k not in excludes}
         return self
 
     def get_changed(self) -> Dict[str, Any]:
@@ -529,6 +529,7 @@ class ProtectModel(ProtectBaseObject):
     model: Optional[ModelType]
 
     @classmethod
+    @cache
     def _get_unifi_remaps(cls) -> Dict[str, str]:
         return {**super()._get_unifi_remaps(), "modelKey": "model"}
 
@@ -661,14 +662,17 @@ class ProtectModelWithId(ProtectModel):
                     self.revert_changes()
                 raise NotAuthorized(f"Do not have write permission for obj: {self.id}")
 
-            new_data = self.dict(exclude=self._get_excluded_changed_fields())
+            excludes = self.__class__._get_excluded_changed_fields()  # pylint: disable=protected-access
+            new_data = self.dict(exclude=excludes)
             updated = self.unifi_dict(data=self.get_changed())
 
             # do not patch when there are no updates
             if updated == {}:
                 return
 
-            read_only_keys = self._get_read_only_fields().intersection(updated.keys())
+            read_only_keys = self.__class__._get_read_only_fields().intersection(  # pylint: disable=protected-access
+                updated.keys()
+            )
             if len(read_only_keys) > 0:
                 self.revert_changes()
                 raise BadRequest(f"The following key(s) are read only: {read_only_keys}")
@@ -729,6 +733,7 @@ class ProtectDeviceModel(ProtectModelWithId):
     _callback_ping: Optional[TimerHandle] = PrivateAttr(None)
 
     @classmethod
+    @cache
     def _get_read_only_fields(cls) -> Set[str]:
         return super()._get_read_only_fields() | {
             "mac",
@@ -830,6 +835,7 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     # bridgeCandidates
 
     @classmethod
+    @cache
     def _get_read_only_fields(cls) -> Set[str]:
         return super()._get_read_only_fields() | {
             "connectionHost",
@@ -847,6 +853,7 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
         }
 
     @classmethod
+    @cache
     def _get_unifi_remaps(cls) -> Dict[str, str]:
         return {**super()._get_unifi_remaps(), "bridge": "bridgeId", "isDownloadingFW": "isDownloadingFirmware"}
 
@@ -906,7 +913,8 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     def get_changed(self) -> Dict[str, Any]:
         """Gets dictionary of all changed fields"""
 
-        new_data = self.dict(exclude=self._get_excluded_changed_fields())
+        excludes = self.__class__._get_excluded_changed_fields()  # pylint: disable=protected-access
+        new_data = self.dict(exclude=excludes)
         updated = dict_diff(self._initial_data, new_data)
 
         return updated
@@ -961,6 +969,7 @@ class ProtectMotionDeviceModel(ProtectAdoptableDeviceModel):
     last_motion_event_id: Optional[str] = None
 
     @classmethod
+    @cache
     def _get_read_only_fields(cls) -> Set[str]:
         return super()._get_read_only_fields() | {"lastMotion", "isDark"}
 
