@@ -1,6 +1,7 @@
 """UniFi Protect Data."""
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Iterable
 from datetime import datetime, timedelta
 from functools import cache
@@ -137,11 +138,13 @@ class Light(ProtectMotionDeviceModel):
         """Sets the camera paired with the light"""
 
         async with self._update_lock:
+            await asyncio.sleep(0)  # yield to the event loop once we have the lock to process any pending updates
+            data_before_changes = self.dict_with_excludes()
             if camera is None:
                 self.camera_id = None
             else:
                 self.camera_id = camera.id
-            await self.save_device(force_emit=True)
+            await self.save_device(data_before_changes, force_emit=True)
 
     async def set_status_light(self, enabled: bool) -> None:
         """Sets the status indicator light for the light"""
@@ -897,8 +900,8 @@ class Camera(ProtectMotionDeviceModel):
 
         return data
 
-    def get_changed(self) -> Dict[str, Any]:
-        updated = super().get_changed()
+    def get_changed(self, data_before_changes: Dict[str, Any]) -> Dict[str, Any]:
+        updated = super().get_changed(data_before_changes)
 
         if "lcd_message" in updated:
             lcd_message = updated["lcd_message"]
@@ -1531,9 +1534,11 @@ class Camera(ProtectMotionDeviceModel):
 
         if text_type is None:
             async with self._update_lock:
+                await asyncio.sleep(0)  # yield to the event loop once we have the lock to process any pending updates
+                data_before_changes = self.dict_with_excludes()
                 self.lcd_message = None
                 # UniFi Protect bug: clearing LCD text message does _not_ emit a WS message
-                await self.save_device(force_emit=True)
+                await self.save_device(data_before_changes, force_emit=True)
                 return
 
         if text_type != DoorbellMessageType.CUSTOM_MESSAGE:
@@ -1681,9 +1686,11 @@ class Viewer(ProtectAdoptableDeviceModel):
                 raise BadRequest("Unknown liveview")
 
         async with self._update_lock:
+            await asyncio.sleep(0)  # yield to the event loop once we have the lock to process any pending updates
+            data_before_changes = self.dict_with_excludes()
             self.liveview_id = liveview.id
             # UniFi Protect bug: changing the liveview does _not_ emit a WS message
-            await self.save_device(force_emit=True)
+            await self.save_device(data_before_changes, force_emit=True)
 
 
 class Bridge(ProtectAdoptableDeviceModel):

@@ -74,7 +74,6 @@ class ProtectBaseObject(BaseModel):
     """
 
     _api: Optional[ProtectApiClient] = PrivateAttr(None)
-    _initial_data: Dict[str, Any] = PrivateAttr()
 
     _protect_objs: ClassVar[Optional[Dict[str, Type[ProtectBaseObject]]]] = None
     _protect_objs_set: ClassVar[Optional[SetStr]] = None
@@ -96,9 +95,6 @@ class ProtectBaseObject(BaseModel):
         Use the static method `.from_unifi_dict()` to create objects from UFP JSON data from then the main class constructor.
         """
         super().__init__(**data)
-
-        excludes = self.__class__._get_excluded_changed_fields()  # pylint: disable=protected-access
-        self._initial_data = self.dict(exclude=excludes)
         self._api = api
 
     @classmethod
@@ -149,7 +145,6 @@ class ProtectBaseObject(BaseModel):
                 }
 
         obj = super().construct(_fields_set=_fields_set, **values)
-        obj._initial_data = obj.dict(exclude=cls._get_excluded_changed_fields())  # pylint: disable=protected-access
         obj._api = api  # pylint: disable=protected-access
 
         return obj
@@ -159,7 +154,7 @@ class ProtectBaseObject(BaseModel):
     def _get_excluded_changed_fields(cls) -> Set[str]:
         """
         Helper method for override in child classes for fields that excluded from calculating "changed" state for a
-        model (`.initial_data` and `.get_changed()`)
+        model (`.get_changed()`)
         """
         return set()
 
@@ -501,13 +496,15 @@ class ProtectBaseObject(BaseModel):
         for key in data:
             setattr(self, key, convert_unifi_data(data[key], self.__fields__[key]))
 
-        exclude_fields = self.__exclude_fields__ or {}
-        excludes = self.__class__._get_excluded_changed_fields()  # pylint: disable=protected-access
-        self._initial_data = {k: v for k, v in self.__dict__.items() if k not in excludes and k not in exclude_fields}
         return self
 
-    def get_changed(self) -> Dict[str, Any]:
-        return dict_diff(self._initial_data, self.dict())
+    def dict_with_excludes(self) -> Dict[str, Any]:
+        """Returns a dict of the current object without any UFP objects converted to dicts."""
+        excludes = self.__class__._get_excluded_changed_fields()  # pylint: disable=protected-access
+        return self.dict(exclude=excludes)
+
+    def get_changed(self, data_before_changes: Dict[str, Any]) -> Dict[str, Any]:
+        return dict_diff(data_before_changes, self.dict())
 
     @property
     def api(self) -> ProtectApiClient:
@@ -578,12 +575,11 @@ class ProtectModelWithId(ProtectModel):
     async def _api_update(self, data: Dict[str, Any]) -> None:
         raise NotImplementedError()
 
-    def revert_changes(self) -> None:
+    def revert_changes(self, data_before_changes: Dict[str, Any]) -> None:
         """Reverts current changes to device and resets it back to initial state"""
-
-        changed = self.get_changed()
+        changed = self.get_changed(data_before_changes)
         for key in changed.keys():
-            setattr(self, key, self._initial_data[key])
+            setattr(self, key, data_before_changes[key])
 
     def can_create(self, user: User) -> bool:
         if self.model is None:
@@ -630,12 +626,23 @@ class ProtectModelWithId(ProtectModel):
             return
         except asyncio.TimeoutError:
             async with self._update_lock:
+                # Important! Now that we have the lock, we yield to the event loop so any
+                # updates from the websocket are processed before we generate the diff
+                await asyncio.sleep(0)
+                # Save the initial data before we generate the diff
+                data_before_changes = self.dict_with_excludes()
                 while not self._update_queue.empty():
                     callback = self._update_queue.get_nowait()
                     callback()
-                await self.save_device()
+                # Important, do not yield to the event loop before generating the diff
+                # otherwise we may miss updates from the websocket
+                await self._save_device_changes(
+                    data_before_changes, self.unifi_dict(data=self.get_changed(data_before_changes))
+                )
 
-    async def save_device(self, force_emit: bool = False, revert_on_fail: bool = True) -> None:
+    async def save_device(
+        self, data_before_changes: Dict[str, Any], force_emit: bool = False, revert_on_fail: bool = True
+    ) -> None:
         """
         Generates a diff for unsaved changed on the device and sends them back to UFP
 
@@ -647,7 +654,6 @@ class ProtectModelWithId(ProtectModel):
         Args:
             force_emit: Emit a fake UFP WS message. Should only be use for when UFP does not properly emit a WS message
         """
-
         # do not allow multiple save_device calls at once
         release_lock = False
         if not self._update_lock.locked():
@@ -655,42 +661,53 @@ class ProtectModelWithId(ProtectModel):
             release_lock = True
 
         try:
-            if self.model is None:
-                raise BadRequest("Unknown model type")
-
-            if not self.api.bootstrap.auth_user.can(self.model, PermissionNode.WRITE, self):
-                if revert_on_fail:
-                    self.revert_changes()
-                raise NotAuthorized(f"Do not have write permission for obj: {self.id}")
-
-            excludes = self.__class__._get_excluded_changed_fields()  # pylint: disable=protected-access
-            new_data = self.dict(exclude=excludes)
-            updated = self.unifi_dict(data=self.get_changed())
-
-            # do not patch when there are no updates
-            if updated == {}:
-                return
-
-            read_only_keys = self.__class__._get_read_only_fields().intersection(  # pylint: disable=protected-access
-                updated.keys()
+            await self._save_device_changes(
+                data_before_changes,
+                self.unifi_dict(data=self.get_changed(data_before_changes)),
+                force_emit=force_emit,
+                revert_on_fail=revert_on_fail,
             )
-            if len(read_only_keys) > 0:
-                self.revert_changes()
-                raise BadRequest(f"The following key(s) are read only: {read_only_keys}")
-
-            try:
-                await self._api_update(updated)
-            except ClientError:
-                if revert_on_fail:
-                    self.revert_changes()
-                raise
-            self._initial_data = new_data
-
-            if force_emit:
-                await self.emit_message(updated)
         finally:
             if release_lock:
                 self._update_lock.release()
+
+    async def _save_device_changes(
+        self,
+        data_before_changes: Dict[str, Any],
+        updated: Dict[str, Any],
+        force_emit: bool = False,
+        revert_on_fail: bool = True,
+    ) -> None:
+        """Saves the current device changes to UFP."""
+        assert self._update_lock.locked(), "save_device_changes should only be called when the update lock is held"
+        read_only_fields = self.__class__._get_read_only_fields()  # pylint: disable=protected-access
+
+        if self.model is None:
+            raise BadRequest("Unknown model type")
+
+        if not self.api.bootstrap.auth_user.can(self.model, PermissionNode.WRITE, self):
+            if revert_on_fail:
+                self.revert_changes(data_before_changes)
+            raise NotAuthorized(f"Do not have write permission for obj: {self.id}")
+
+        # do not patch when there are no updates
+        if updated == {}:
+            return
+
+        read_only_keys = read_only_fields.intersection(updated.keys())
+        if len(read_only_keys) > 0:
+            self.revert_changes(data_before_changes)
+            raise BadRequest(f"{type(self)} The following key(s) are read only: {read_only_keys}, updated: {updated}")
+
+        try:
+            await self._api_update(updated)
+        except ClientError:
+            if revert_on_fail:
+                self.revert_changes(data_before_changes)
+            raise
+
+        if force_emit:
+            await self.emit_message(updated)
 
     async def emit_message(self, updated: Dict[str, Any]) -> None:
         """Emites fake WS message for ProtectApiClient to process."""
@@ -911,14 +928,9 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
 
         return self.is_adopted and not self.is_adopted_by_other
 
-    def get_changed(self) -> Dict[str, Any]:
+    def get_changed(self, data_before_changes: Dict[str, Any]) -> Dict[str, Any]:
         """Gets dictionary of all changed fields"""
-
-        excludes = self.__class__._get_excluded_changed_fields()  # pylint: disable=protected-access
-        new_data = self.dict(exclude=excludes)
-        updated = dict_diff(self._initial_data, new_data)
-
-        return updated
+        return dict_diff(data_before_changes, self.dict_with_excludes())
 
     async def set_ssh(self, enabled: bool) -> None:
         """Sets ssh status for protect device"""
