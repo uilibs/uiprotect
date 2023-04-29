@@ -796,7 +796,7 @@ class ProtectDeviceModel(ProtectModelWithId):
 
 
 class WiredConnectionState(ProtectBaseObject):
-    phy_rate: Optional[int]
+    phy_rate: Optional[float]
 
 
 class WirelessConnectionState(ProtectBaseObject):
@@ -809,12 +809,12 @@ class BluetoothConnectionState(WirelessConnectionState):
 
 
 class WifiConnectionState(WirelessConnectionState):
-    phy_rate: Optional[int]
+    phy_rate: Optional[float]
     channel: Optional[int]
     frequency: Optional[int]
     ssid: Optional[str]
     bssid: Optional[str] = None
-    tx_rate: Optional[int] = None
+    tx_rate: Optional[float] = None
     # requires 2.7.5+
     ap_name: Optional[str] = None
     experience: Optional[str] = None
