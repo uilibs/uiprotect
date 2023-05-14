@@ -191,7 +191,7 @@ class EventMetadata(ProtectBaseObject):
 
         for key in self._collapse_keys.intersection(data.keys()):
             # AI Theta/Hotplug exception
-            if key != "type" or data[key] not in ("audio", "video"):
+            if key != "type" or data[key] not in ("audio", "video", "extender"):
                 data[key] = {"text": data[key]}
 
         return data
