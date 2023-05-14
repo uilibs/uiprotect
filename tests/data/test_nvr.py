@@ -2,6 +2,7 @@
 # pylint: disable=protected-access
 
 from datetime import timedelta
+from ipaddress import IPv4Address, IPv6Address
 
 from pydantic.error_wrappers import ValidationError
 import pytest
@@ -149,3 +150,20 @@ async def test_nvr_remove_custom_doorbell_message(nvr_obj: NVR, message: str):
                 text=DoorbellMessageType.DO_NOT_DISTURB.value.replace("_", " "),
             ),
         ]
+
+
+@pytest.mark.parametrize(
+    "ip,expected",
+    [
+        ("192.168.1.1", IPv4Address("192.168.1.1")),
+        ("fe80::1ff:fe23:4567:890a", IPv6Address("fe80::1ff:fe23:4567:890a")),
+    ],
+)
+@pytest.mark.asyncio
+async def test_nvr_wan_ip(nvr_obj: NVR, ip: str, expected: IPv4Address | IPv6Address):
+    nvr_dict = nvr_obj.unifi_dict()
+    nvr_dict["wanIp"] = ip
+
+    nvr = NVR.from_unifi_dict(**nvr_dict)
+    assert nvr.wan_ip == expected
+    assert nvr.unifi_dict()["wanIp"] == ip

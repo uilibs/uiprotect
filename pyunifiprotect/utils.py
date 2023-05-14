@@ -11,7 +11,7 @@ from functools import lru_cache
 from hashlib import sha224
 from http.cookies import Morsel
 from inspect import isclass
-from ipaddress import AddressValueError, IPv4Address
+from ipaddress import AddressValueError, IPv4Address, IPv6Address
 import json
 import logging
 import math
@@ -205,6 +205,11 @@ def convert_unifi_data(value: Any, field: ModelField) -> Any:
             value = IPv4Address(value)
         except AddressValueError:
             pass
+    elif field.type_ in (Union[IPv6Address, str, None], Union[IPv6Address, str]) and value is not None:
+        try:
+            value = IPv6Address(value)
+        except AddressValueError:
+            pass
     elif (
         value is None
         or not isclass(field.type_)
@@ -212,7 +217,9 @@ def convert_unifi_data(value: Any, field: ModelField) -> Any:
         or isinstance(value, field.type_)
     ):
         return value
-    elif field.type_ in (IPv4Address, UUID, Color, Decimal, Path, Version) or issubclass(field.type_, Enum):
+    elif field.type_ in (IPv6Address, IPv4Address, UUID, Color, Decimal, Path, Version) or issubclass(
+        field.type_, Enum
+    ):
         value = field.type_(value)
     elif field.type_ == datetime:
         value = from_js_time(value)
@@ -235,7 +242,7 @@ def serialize_unifi_obj(value: Any) -> Any:
         value = serialize_list(value)
     elif isinstance(value, Enum):
         value = value.value
-    elif isinstance(value, (IPv4Address, UUID, Path, tzinfo, Version)):
+    elif isinstance(value, (IPv4Address, IPv6Address, UUID, Path, tzinfo, Version)):
         value = str(value)
     elif isinstance(value, datetime):
         value = to_js_time(value)
