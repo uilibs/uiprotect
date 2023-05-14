@@ -21,7 +21,6 @@ from typing import (
 )
 from uuid import UUID
 
-from async_timeout import timeout
 from pydantic import BaseModel
 from pydantic.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
 
@@ -39,6 +38,7 @@ from pyunifiprotect.data.websocket import (
 )
 from pyunifiprotect.exceptions import BadRequest, ClientError, NotAuthorized
 from pyunifiprotect.utils import (
+    asyncio_timeout,
     convert_unifi_data,
     dict_diff,
     is_debug,
@@ -621,7 +621,7 @@ class ProtectModelWithId(ProtectModel):
         self._update_event.clear()
 
         try:
-            async with timeout(0.05):
+            async with asyncio_timeout(0.05):
                 await self._update_event.wait()
             self._update_event.clear()
             return

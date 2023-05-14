@@ -19,6 +19,7 @@ import os
 from pathlib import Path
 import re
 import socket
+import sys
 import time
 from typing import (
     TYPE_CHECKING,
@@ -72,6 +73,15 @@ SNAKE_CASE_MATCH_3 = re.compile("([a-z0-9])([A-Z])")
 _LOGGER = logging.getLogger(__name__)
 
 RELEASE_CACHE = Path(__file__).parent / "release_cache.json"
+
+if sys.version_info[:2] < (3, 11):
+    from async_timeout import (  # pylint: disable=unused-import # noqa: F401
+        timeout as asyncio_timeout,
+    )
+else:
+    from asyncio import (  # pylint: disable=unused-import # noqa: F401
+        timeout as asyncio_timeout,
+    )
 
 
 def set_debug() -> None:
