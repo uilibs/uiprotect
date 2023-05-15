@@ -11,7 +11,7 @@ from functools import lru_cache
 from hashlib import sha224
 from http.cookies import Morsel
 from inspect import isclass
-from ipaddress import AddressValueError, IPv4Address, IPv6Address
+from ipaddress import AddressValueError, IPv4Address, IPv6Address, ip_address
 import json
 import logging
 import math
@@ -73,6 +73,17 @@ SNAKE_CASE_MATCH_3 = re.compile("([a-z0-9])([A-Z])")
 _LOGGER = logging.getLogger(__name__)
 
 RELEASE_CACHE = Path(__file__).parent / "release_cache.json"
+
+IP_TYPES = (
+    Union[IPv4Address, str, None],
+    Union[IPv4Address, str],
+    Union[IPv6Address, str, None],
+    Union[IPv6Address, str],
+    Union[IPv6Address, IPv4Address, str, None],
+    Union[IPv6Address, IPv4Address, str],
+    Union[IPv6Address, IPv4Address],
+    Union[IPv6Address, IPv4Address, None],
+)
 
 if sys.version_info[:2] < (3, 11):
     from async_timeout import (  # pylint: disable=unused-import # noqa: F401
@@ -200,14 +211,9 @@ def convert_unifi_data(value: Any, field: ModelField) -> Any:
         value = {convert_unifi_data(v, field) for v in value}
     elif field.shape == SHAPE_DICT and isinstance(value, dict):
         value = {k: convert_unifi_data(v, field) for k, v in value.items()}
-    elif field.type_ in (Union[IPv4Address, str, None], Union[IPv4Address, str]) and value is not None:
+    elif field.type_ in IP_TYPES and value is not None:
         try:
-            value = IPv4Address(value)
-        except AddressValueError:
-            pass
-    elif field.type_ in (Union[IPv6Address, str, None], Union[IPv6Address, str]) and value is not None:
-        try:
-            value = IPv6Address(value)
+            value = ip_address(value)
         except AddressValueError:
             pass
     elif (
