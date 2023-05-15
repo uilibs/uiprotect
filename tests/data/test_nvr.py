@@ -1,6 +1,8 @@
 # type: ignore
 # pylint: disable=protected-access
 
+from __future__ import annotations
+
 from datetime import timedelta
 from ipaddress import IPv4Address, IPv6Address
 
