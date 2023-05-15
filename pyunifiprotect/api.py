@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta
 from http.cookies import Morsel
-from ipaddress import IPv4Address
+from ipaddress import IPv4Address, IPv6Address
 import logging
 from pathlib import Path
 from tempfile import gettempdir
@@ -503,7 +503,7 @@ class ProtectApiClient(BaseApiClient):
     _ws_subscriptions: List[Callable[[WSSubscriptionMessage], None]]
     _bootstrap: Optional[Bootstrap] = None
     _last_update_dt: Optional[datetime] = None
-    _connection_host: Optional[Union[IPv4Address, str]] = None
+    _connection_host: Optional[Union[IPv4Address, IPv6Address, str]] = None
 
     cache_dir: Path
     ignore_unadopted: bool
@@ -558,7 +558,7 @@ class ProtectApiClient(BaseApiClient):
         return self._bootstrap
 
     @property
-    def connection_host(self) -> Union[IPv4Address, str]:
+    def connection_host(self) -> Union[IPv4Address, IPv6Address, str]:
         """Connection host to use for generating RTSP URLs"""
 
         if self._connection_host is None:

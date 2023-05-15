@@ -747,7 +747,7 @@ class NVR(ProtectDeviceModel):
     enable_automatic_backups: bool
     enable_stats_reporting: bool
     release_channel: FirmwareReleaseChannel
-    hosts: List[Union[IPv4Address, str]]
+    hosts: List[Union[IPv4Address, IPv6Address, str]]
     enable_bridge_auto_adoption: bool
     hardware_id: UUID
     host_type: int
