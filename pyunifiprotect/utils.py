@@ -11,7 +11,7 @@ from functools import lru_cache
 from hashlib import sha224
 from http.cookies import Morsel
 from inspect import isclass
-from ipaddress import AddressValueError, IPv4Address, IPv6Address, ip_address
+from ipaddress import IPv4Address, IPv6Address, ip_address
 import json
 import logging
 import math
@@ -214,7 +214,7 @@ def convert_unifi_data(value: Any, field: ModelField) -> Any:
     elif field.type_ in IP_TYPES and value is not None:
         try:
             value = ip_address(value)
-        except AddressValueError:
+        except ValueError:
             pass
     elif (
         value is None
@@ -336,13 +336,13 @@ def convert_video_modes(items: Iterable[str]) -> List[VideoMode]:
     return types
 
 
-def ip_from_host(host: str) -> IPv4Address:
+def ip_from_host(host: str) -> IPv4Address | IPv6Address:
     try:
-        return IPv4Address(host)
-    except AddressValueError:
+        return ip_address(host)
+    except ValueError:
         pass
 
-    return IPv4Address(socket.gethostbyname(host))
+    return ip_address(socket.gethostbyname(host))
 
 
 def dict_diff(orig: Optional[Dict[str, Any]], new: Dict[str, Any]) -> Dict[str, Any]:
