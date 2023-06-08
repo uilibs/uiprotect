@@ -32,6 +32,45 @@
             "type": "shell",
             "command": "mkdocs build",
             "problemMatcher": []
-        }
+        },
+        {
+            "label": "Generate Sample Data",
+            "type": "shell",
+            "command": "unifi-protect generate-sample-data -w ${input:sampleTime} ${input:sampleAnonymize}",
+            "problemMatcher": [],
+            "options": {
+                "env": {
+                    "UFP_SAMPLE_DIR": "${workspaceFolder}/${input:sampleLocation}"
+                }
+            }
+        },
+    ],
+    "inputs": [
+        {
+            "id": "sampleLocation",
+            "description": "Location to generate sample data in",
+            "default": "test-data",
+            "type": "pickString",
+            "options": [
+                "test-data",
+                "tests/sample_data",
+              ],
+        },
+        {
+            "id": "sampleTime",
+            "description": "Length of time to generate sample data",
+            "default": "30",
+            "type": "promptString",
+        },
+        {
+            "id": "sampleAnonymize",
+            "description": "Anonymize parameter for generate sample data",
+            "default": "",
+            "type": "pickString",
+            "options": [
+                "",
+                "--actual",
+              ],
+        },
     ]
 }
