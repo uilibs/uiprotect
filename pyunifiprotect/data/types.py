@@ -312,6 +312,7 @@ class SensorType(str, ValuesEnumMixin, enum.Enum):
 
 @enum.unique
 class SensorStatusType(str, ValuesEnumMixin, enum.Enum):
+    OFFLINE = "offline"
     UNKNOWN = "unknown"
     SAFE = "safe"
     NEUTRAL = "neutral"
