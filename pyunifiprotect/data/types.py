@@ -442,6 +442,7 @@ class LensType(str, enum.Enum):
     FULL_360 = "360"
     WIDE = "wide"
     TELESCOPIC = "tele"
+    DLSR_17 = "m43"
 
 
 class DoorbellText(ConstrainedStr):
