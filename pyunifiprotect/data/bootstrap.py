@@ -61,6 +61,7 @@ STATS_KEYS = {
     "recordingSchedules",
     "eventStats",
 }
+IGNORE_DEVICE_KEYS = {"nvrMac", "guid"}
 
 CAMERA_EVENT_ATTR_MAP: Dict[EventType, Tuple[str, str]] = {
     EventType.MOTION: ("last_motion", "last_motion_event_id"),
@@ -71,11 +72,9 @@ CAMERA_EVENT_ATTR_MAP: Dict[EventType, Tuple[str, str]] = {
 }
 
 
-def _remove_stats_keys(data: Dict[str, Any], ignore_stats: bool) -> Dict[str, Any]:
-    if ignore_stats:
-        for key in STATS_KEYS.intersection(data.keys()):
-            del data[key]
-    return data
+def _remove_stats_keys(data: Dict[str, Any]) -> None:
+    for key in STATS_KEYS.intersection(data):
+        del data[key]
 
 
 def _process_light_event(event: Event) -> None:
@@ -309,7 +308,7 @@ class Bootstrap(ProtectBaseObject):
                 WSStat(
                     model=packet.action_frame.data["modelKey"],
                     action=packet.action_frame.data["action"],
-                    keys=list(packet.data_frame.data.keys()),
+                    keys=list(packet.data_frame.data),
                     keys_set=keys_set,
                     size=len(packet.raw),
                     filtered=filtered,
@@ -344,7 +343,7 @@ class Bootstrap(ProtectBaseObject):
             return None
 
         updated = obj.dict()
-        self._create_stat(packet, list(updated.keys()), False)
+        self._create_stat(packet, list(updated), False)
         return WSSubscriptionMessage(
             action=WSAction.ADD, new_update_id=self.last_update_id, changed_data=updated, new_obj=obj
         )
@@ -373,17 +372,23 @@ class Bootstrap(ProtectBaseObject):
     def _process_nvr_update(
         self, packet: WSPacket, data: Dict[str, Any], ignore_stats: bool
     ) -> Optional[WSSubscriptionMessage]:
-        data = _remove_stats_keys(data, ignore_stats)
+        if ignore_stats:
+            _remove_stats_keys(data)
         # nothing left to process
-        if len(data) == 0:
+        if not data:
             self._create_stat(packet, [], True)
             return None
 
         data = self.nvr.unifi_dict_to_dict(data)
+        # nothing left to process
+        if not data:
+            self._create_stat(packet, [], True)
+            return None
+
         old_nvr = self.nvr.copy()
         self.nvr = self.nvr.update_from_dict(deepcopy(data))
 
-        self._create_stat(packet, list(data.keys()), False)
+        self._create_stat(packet, list(data), False)
         return WSSubscriptionMessage(
             action=WSAction.UPDATE,
             new_update_id=self.last_update_id,
@@ -396,14 +401,16 @@ class Bootstrap(ProtectBaseObject):
         self, packet: WSPacket, action: Dict[str, Any], data: Dict[str, Any], ignore_stats: bool
     ) -> Optional[WSSubscriptionMessage]:
         model_type = action["modelKey"]
-
-        data = _remove_stats_keys(data, ignore_stats)
+        if ignore_stats:
+            _remove_stats_keys(data)
+        for key in IGNORE_DEVICE_KEYS.intersection(data):
+            del data[key]
         # `last_motion` from cameras update every 100 milliseconds when a motion event is active
         # this overrides the behavior to only update `last_motion` when a new event starts
         if model_type == "camera" and "lastMotion" in data:
             del data["lastMotion"]
         # nothing left to process
-        if len(data) == 0:
+        if not data:
             self._create_stat(packet, [], True)
             return None
 
@@ -435,7 +442,7 @@ class Bootstrap(ProtectBaseObject):
 
             devices[action["id"]] = obj
 
-            self._create_stat(packet, list(data.keys()), False)
+            self._create_stat(packet, list(data), False)
             return WSSubscriptionMessage(
                 action=WSAction.UPDATE,
                 new_update_id=self.last_update_id,
