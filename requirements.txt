@@ -32,9 +32,9 @@ av==10.0.0
     # via pyunifiprotect (pyproject.toml)
 backcall==0.2.0
     # via ipython
-charset-normalizer==3.1.0
+charset-normalizer==3.2.0
     # via aiohttp
-click==8.1.3
+click==8.1.6
     # via typer
 colorama==0.4.6
     # via typer
@@ -44,7 +44,7 @@ decorator==5.1.1
     # via ipython
 executing==1.2.0
     # via stack-data
-frozenlist==1.3.3
+frozenlist==1.4.0
     # via
     #   aiohttp
     #   aiosignal
@@ -56,7 +56,7 @@ idna==3.4
     # via yarl
 ipython==8.14.0
     # via pyunifiprotect (pyproject.toml)
-jedi==0.18.2
+jedi==0.19.0
     # via ipython
 markdown-it-py==3.0.0
     # via rich
@@ -68,7 +68,7 @@ multidict==6.0.4
     # via
     #   aiohttp
     #   yarl
-orjson==3.9.1
+orjson==3.9.2
     # via pyunifiprotect (pyproject.toml)
 packaging==23.1
     # via pyunifiprotect (pyproject.toml)
@@ -78,23 +78,23 @@ pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
-pillow==9.5.0
+pillow==10.0.0
     # via pyunifiprotect (pyproject.toml)
-prompt-toolkit==3.0.38
+prompt-toolkit==3.0.39
     # via ipython
 ptyprocess==0.7.0
     # via pexpect
 pure-eval==0.2.2
     # via stack-data
-pydantic==2.0
+pydantic==2.1.1
     # via pyunifiprotect (pyproject.toml)
-pydantic-core==2.0.1
+pydantic-core==2.4.0
     # via pydantic
 pygments==2.15.1
     # via
     #   ipython
     #   rich
-pyjwt==2.7.0
+pyjwt==2.8.0
     # via pyunifiprotect (pyproject.toml)
 python-dateutil==2.8.2
     # via dateparser
@@ -104,7 +104,7 @@ pytz==2023.3
     # via dateparser
 regex==2023.6.3
     # via dateparser
-rich==13.4.2
+rich==13.5.1
     # via typer
 shellingham==1.5.0.post1
     # via typer
@@ -112,7 +112,7 @@ six==1.16.0
     # via
     #   asttokens
     #   python-dateutil
-sqlalchemy[asyncio]==2.0.17
+sqlalchemy[asyncio]==2.0.19
     # via pyunifiprotect (pyproject.toml)
 stack-data==0.6.2
     # via ipython
@@ -124,7 +124,7 @@ traitlets==5.9.0
     #   matplotlib-inline
 typer[all]==0.9.0
     # via pyunifiprotect (pyproject.toml)
-typing-extensions==4.7.0
+typing-extensions==4.7.1
     # via
     #   pydantic
     #   pydantic-core

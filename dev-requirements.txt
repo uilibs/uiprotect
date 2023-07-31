@@ -18,7 +18,7 @@ annotated-types==0.5.0
     # via
     #   pydantic
     #   xtyping
-astroid==2.15.5
+astroid==2.15.6
     # via pylint
 asttokens==2.2.1
     # via stack-data
@@ -38,7 +38,7 @@ backcall==0.2.0
     # via ipython
 base36==0.1.1
     # via pyunifiprotect (pyproject.toml)
-black==23.3.0
+black==23.7.0
     # via pyunifiprotect (pyproject.toml)
 build==0.10.0
     # via
@@ -46,11 +46,11 @@ build==0.10.0
     #   pyunifiprotect (pyproject.toml)
 certifi==2023.7.22
     # via requests
-charset-normalizer==3.1.0
+charset-normalizer==3.2.0
     # via
     #   aiohttp
     #   requests
-click==8.1.3
+click==8.1.6
     # via
     #   black
     #   mkdocs
@@ -69,9 +69,9 @@ dateparser==1.1.8
     # via pyunifiprotect (pyproject.toml)
 decorator==5.1.1
     # via ipython
-dill==0.3.6
+dill==0.3.7
     # via pylint
-execnet==1.9.0
+execnet==2.0.2
     # via pytest-xdist
 executing==1.2.0
     # via stack-data
@@ -82,7 +82,7 @@ flake8==6.0.0
     #   pyunifiprotect (pyproject.toml)
 flake8-docstrings==1.7.0
     # via pyunifiprotect (pyproject.toml)
-frozenlist==1.3.3
+frozenlist==1.4.0
     # via
     #   aiohttp
     #   aiosignal
@@ -92,11 +92,11 @@ ghp-import==2.1.0
     # via mkdocs
 gitdb==4.0.10
     # via gitpython
-gitpython==3.1.31
+gitpython==3.1.32
     # via mkdocs-git-revision-date-localized-plugin
 greenlet==2.0.2
     # via sqlalchemy
-griffe==0.29.1
+griffe==0.32.3
     # via mkdocstrings-python
 idna==3.4
     # via
@@ -108,7 +108,7 @@ ipython==8.14.0
     # via pyunifiprotect (pyproject.toml)
 isort==5.12.0
     # via pylint
-jedi==0.18.2
+jedi==0.19.0
     # via ipython
 jinja2==3.1.2
     # via
@@ -118,7 +118,7 @@ jinja2==3.1.2
     #   mkdocstrings
 lazy-object-proxy==1.9.0
     # via astroid
-markdown==3.3.7
+markdown==3.4.4
     # via
     #   mkdocs
     #   mkdocs-autorefs
@@ -130,6 +130,7 @@ markdown-it-py==3.0.0
 markupsafe==2.1.3
     # via
     #   jinja2
+    #   mkdocs
     #   mkdocstrings
 matplotlib-inline==0.1.6
     # via ipython
@@ -143,7 +144,7 @@ mergedeep==1.3.4
     # via mkdocs
 mike==1.1.2
     # via pyunifiprotect (pyproject.toml)
-mkdocs==1.4.3
+mkdocs==1.5.1
     # via
     #   mike
     #   mkdocs-autorefs
@@ -156,7 +157,7 @@ mkdocs-git-revision-date-localized-plugin==1.2.0
     # via pyunifiprotect (pyproject.toml)
 mkdocs-include-markdown-plugin==4.0.4
     # via pyunifiprotect (pyproject.toml)
-mkdocs-material==9.1.17
+mkdocs-material==9.1.21
     # via pyunifiprotect (pyproject.toml)
 mkdocs-material-extensions==1.1.1
     # via mkdocs-material
@@ -164,7 +165,7 @@ mkdocstrings[python]==0.22.0
     # via
     #   mkdocstrings-python
     #   pyunifiprotect (pyproject.toml)
-mkdocstrings-python==1.1.2
+mkdocstrings-python==1.2.1
     # via mkdocstrings
 multidict==6.0.4
     # via
@@ -178,7 +179,7 @@ mypy-extensions==1.0.0
     # via
     #   black
     #   mypy
-orjson==3.9.1
+orjson==3.9.2
     # via pyunifiprotect (pyproject.toml)
 packaging==23.1
     # via
@@ -190,23 +191,26 @@ packaging==23.1
     #   pyunifiprotect (pyproject.toml)
 parso==0.8.3
     # via jedi
-pathspec==0.11.1
-    # via black
+pathspec==0.11.2
+    # via
+    #   black
+    #   mkdocs
 pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
-pillow==9.5.0
+pillow==10.0.0
     # via pyunifiprotect (pyproject.toml)
-pip-tools==6.13.0
+pip-tools==7.1.0
     # via pyunifiprotect (pyproject.toml)
-platformdirs==3.8.0
+platformdirs==3.10.0
     # via
     #   black
+    #   mkdocs
     #   pylint
 pluggy==1.2.0
     # via pytest
-prompt-toolkit==3.0.38
+prompt-toolkit==3.0.39
     # via ipython
 ptyprocess==0.7.0
     # via pexpect
@@ -216,9 +220,9 @@ py-cpuinfo==9.0.0
     # via pytest-benchmark
 pycodestyle==2.10.0
     # via flake8
-pydantic==2.0
+pydantic==2.1.1
     # via pyunifiprotect (pyproject.toml)
-pydantic-core==2.0.1
+pydantic-core==2.4.0
     # via pydantic
 pydocstyle==6.3.0
     # via
@@ -231,15 +235,15 @@ pygments==2.15.1
     #   ipython
     #   mkdocs-material
     #   rich
-pyjwt==2.7.0
+pyjwt==2.8.0
     # via pyunifiprotect (pyproject.toml)
-pylint==2.17.4
+pylint==2.17.5
     # via
     #   pylint-strict-informational
     #   pyunifiprotect (pyproject.toml)
 pylint-strict-informational==0.1
     # via pyunifiprotect (pyproject.toml)
-pymdown-extensions==10.0.1
+pymdown-extensions==10.1
     # via
     #   mkdocs-material
     #   mkdocstrings
@@ -256,7 +260,7 @@ pytest==7.4.0
     #   pytest-timeout
     #   pytest-xdist
     #   pyunifiprotect (pyproject.toml)
-pytest-asyncio==0.21.0
+pytest-asyncio==0.21.1
     # via pyunifiprotect (pyproject.toml)
 pytest-benchmark==4.0.0
     # via pyunifiprotect (pyproject.toml)
@@ -278,7 +282,7 @@ pytz==2023.3
     # via
     #   dateparser
     #   mkdocs-git-revision-date-localized-plugin
-pyyaml==6.0
+pyyaml==6.0.1
     # via
     #   mike
     #   mkdocs
@@ -292,7 +296,7 @@ regex==2023.6.3
     #   mkdocs-material
 requests==2.31.0
     # via mkdocs-material
-rich==13.4.2
+rich==13.5.1
     # via typer
 shellingham==1.5.0.post1
     # via typer
@@ -304,7 +308,7 @@ smmap==5.0.0
     # via gitdb
 snowballstemmer==2.2.0
     # via pydocstyle
-sqlalchemy[asyncio,mypy]==2.0.17
+sqlalchemy[asyncio,mypy]==2.0.19
     # via pyunifiprotect (pyproject.toml)
 stack-data==0.6.2
     # via ipython
@@ -312,7 +316,7 @@ termcolor==2.3.0
     # via
     #   pytest-sugar
     #   pyunifiprotect (pyproject.toml)
-tomlkit==0.11.8
+tomlkit==0.12.1
     # via pylint
 traitlets==5.9.0
     # via
@@ -320,19 +324,19 @@ traitlets==5.9.0
     #   matplotlib-inline
 typer[all]==0.9.0
     # via pyunifiprotect (pyproject.toml)
-types-aiofiles==23.1.0.4
+types-aiofiles==23.1.0.5
     # via pyunifiprotect (pyproject.toml)
 types-cryptography==3.3.23.2
     # via types-pyjwt
-types-dateparser==1.1.4.9
+types-dateparser==1.1.4.10
     # via pyunifiprotect (pyproject.toml)
-types-pillow==9.5.0.5
+types-pillow==10.0.0.2
     # via pyunifiprotect (pyproject.toml)
 types-pyjwt==1.7.1
     # via pyunifiprotect (pyproject.toml)
 types-termcolor==1.1.6.2
     # via pyunifiprotect (pyproject.toml)
-typing-extensions==4.7.0
+typing-extensions==4.7.1
     # via
     #   mypy
     #   pydantic
@@ -344,7 +348,7 @@ tzdata==2023.3
     # via pyunifiprotect (pyproject.toml)
 tzlocal==5.0.1
     # via dateparser
-urllib3==2.0.3
+urllib3==2.0.4
     # via requests
 verspec==0.1.0
     # via mike
@@ -352,7 +356,7 @@ watchdog==3.0.0
     # via mkdocs
 wcwidth==0.2.6
     # via prompt-toolkit
-wheel==0.40.0
+wheel==0.41.0
     # via pip-tools
 wrapt==1.15.0
     # via astroid
