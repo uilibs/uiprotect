@@ -1,21 +1,21 @@
-# type: ignore
-# pylint: disable=protected-access
+# mypy: disable-error-code="attr-defined, dict-item, assignment, union-attr"
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import pytest
 
-from pyunifiprotect.data import Camera
-from pyunifiprotect.data.devices import Chime
 from pyunifiprotect.exceptions import BadRequest
 from tests.conftest import TEST_CAMERA_EXISTS, TEST_CHIME_EXISTS
 
 try:
     from pydantic.v1 import ValidationError
 except ImportError:
-    from pydantic import ValidationError  # type: ignore
+    from pydantic import ValidationError
+
+if TYPE_CHECKING:
+    from pyunifiprotect.data import Camera, Chime
 
 
 @pytest.mark.skipif(not TEST_CHIME_EXISTS, reason="Missing testdata")
@@ -28,7 +28,7 @@ async def test_chime_set_volume(chime_obj: Optional[Chime], level: int):
     chime_obj.api.api_request.reset_mock()
     chime_obj.volume = 20
 
-    if level in (-1, 200):
+    if level in {-1, 200}:
         with pytest.raises(ValidationError):
             await chime_obj.set_volume(level)
 

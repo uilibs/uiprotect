@@ -1,5 +1,4 @@
-# type: ignore
-# pylint: disable=protected-access
+# mypy: disable-error-code="attr-defined, dict-item, assignment, union-attr, arg-type, list-item"
 
 from __future__ import annotations
 
@@ -20,7 +19,7 @@ from pyunifiprotect.utils import to_ms
 try:
     from pydantic.v1 import ValidationError
 except ImportError:
-    from pydantic import ValidationError  # type: ignore
+    from pydantic import ValidationError
 
 
 @pytest.mark.parametrize("status", [True, False])
@@ -166,7 +165,7 @@ async def test_nvr_remove_custom_doorbell_message(nvr_obj: NVR, message: str):
 
 
 @pytest.mark.parametrize(
-    "ip,expected",
+    ("ip", "expected"),
     [
         ("192.168.1.1", IPv4Address("192.168.1.1")),
         ("fe80::1ff:fe23:4567:890a", IPv6Address("fe80::1ff:fe23:4567:890a")),

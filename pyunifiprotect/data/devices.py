@@ -676,7 +676,7 @@ class CameraZone(ProtectBaseObject):
             id=zone_id,
             name=PRIVACY_ZONE_NAME,
             color=Color("#85BCEC"),
-            points=[[0, 0], [1, 0], [1, 1], [0, 1]],  # type: ignore
+            points=[[0, 0], [1, 0], [1, 1], [0, 1]],  # type: ignore[list-item]
         )
 
 
@@ -1844,7 +1844,12 @@ class Camera(ProtectMotionDeviceModel):
             )
 
         def callback() -> None:
-            self.lcd_message = LCDMessage(api=self._api, type=text_type, text=text, reset_at=reset_at)  # type: ignore
+            self.lcd_message = LCDMessage(  # type: ignore[call-arg]
+                api=self._api,
+                type=text_type,
+                text=text,  # type: ignore[arg-type]
+                reset_at=reset_at,  # type: ignore[arg-type]
+            )
 
         await self.queue_update(callback)
 

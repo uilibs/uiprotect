@@ -1,18 +1,19 @@
-# type: ignore
-# pylint: disable=protected-access
+# mypy: disable-error-code="attr-defined, dict-item, assignment, union-attr"
 
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import TYPE_CHECKING
 
 import pytest
 
-from pyunifiprotect.data import Camera, Light
-from pyunifiprotect.data.devices import Doorlock
 from pyunifiprotect.data.types import LockStatusType
 from pyunifiprotect.exceptions import BadRequest
 from pyunifiprotect.utils import to_ms
 from tests.conftest import TEST_CAMERA_EXISTS, TEST_DOORLOCK_EXISTS
+
+if TYPE_CHECKING:
+    from pyunifiprotect.data import Camera, Doorlock, Light
 
 
 @pytest.mark.skipif(not TEST_DOORLOCK_EXISTS, reason="Missing testdata")
@@ -90,8 +91,7 @@ async def test_doorlock_set_auto_close_time(
     if duration_invalid:
         with pytest.raises(BadRequest):
             await doorlock_obj.set_auto_close_time(duration)
-
-            assert not doorlock_obj.api.api_request.called
+        assert not doorlock_obj.api.api_request.called
     else:
         await doorlock_obj.set_auto_close_time(duration)
 

@@ -1,22 +1,18 @@
 """Tests for pyunifiprotect.unifi_protect_server."""
-# pylint: disable=protected-access
 
 
 from __future__ import annotations
 
 import asyncio
 import base64
-from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime, timedelta
 import logging
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from pytest_benchmark.fixture import BenchmarkFixture
 
-from pyunifiprotect import ProtectApiClient
 from pyunifiprotect.data import EventType, WSPacket
 from pyunifiprotect.data.base import ProtectModel
 from pyunifiprotect.data.devices import EVENT_PING_INTERVAL, Camera
@@ -33,6 +29,13 @@ from tests.conftest import (
     MockDatetime,
     MockWebsocket,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from pytest_benchmark.fixture import BenchmarkFixture
+
+    from pyunifiprotect import ProtectApiClient
 
 PACKET_RAW = "AQEBAAAAAHR4nCXMQQrCMBBA0auUWRvIpJOm8Qbi2gNMZiZQ0NRFqIh4dwluP7z/AZa+7Q3OE7AqnCZo9ro9lbtddFRPhCayuOorOyqYXfEJXcprEqQZ55UHe+xq96u9h7HDWh9x+y+UqeZAsUrQrCFajFQWgu8PBLYjMAIBAQAAAAC2eJxVjr0KwzAMhF8leO6QOLZDOrdT126lg2PLxRA7wVYKIeTdK1PoD2jQfTodtzFcZ2DHiiUfH+xQsYw6IYFGtbyplaKRnDhE+0u7N81mSuW9LnugzxMgGLxSaCZ8u//z8xMifg4BUFuNmvS2kzY6QCqKdaaXsrNOcSN1ywfbgXGtg1JwpjSPfopkjMs4EloypK/ypSirrRau50I6w21vuQQpxaBEiQiThfECa/FBqcT2F6ZyTac="
 
@@ -58,7 +61,7 @@ class SubscriptionTest:
             assert msg.old_obj.update_from_dict(msg.changed_data) == msg.new_obj
 
         if self.callback_count == 2:
-            raise Exception
+            raise Exception  # noqa: TRY002
 
         if self.callback_count >= 3 and self.unsub is not None:
             self.unsub()
@@ -94,7 +97,7 @@ async def test_ws_all(
 
     websocket = await protect_client.get_websocket()
 
-    ws_connect: Optional[MockWebsocket] = websocket._ws_connection  # type: ignore
+    ws_connect: MockWebsocket | None = websocket._ws_connection  # type: ignore[assignment]
     assert ws_connect is not None
 
     while websocket.is_connected:
@@ -144,7 +147,7 @@ async def test_ws_filtered(
 
     websocket = await protect_client.get_websocket()
 
-    ws_connect: Optional[MockWebsocket] = websocket._ws_connection  # type: ignore
+    ws_connect: MockWebsocket | None = websocket._ws_connection  # type: ignore[assignment]
     assert ws_connect is not None
 
     while websocket.is_connected:
@@ -171,10 +174,10 @@ async def test_ws_event_ring(
     expected_updated_id = "0441ecc6-f0fa-4b19-b071-7987c143138a"
     expected_event_id = "bf9a241afe74821ceffffd05"
 
-    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
     action_frame.data["newUpdateId"] = expected_updated_id
 
-    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
     data_frame.data = {
         "id": expected_event_id,
         "type": "ring",
@@ -235,10 +238,10 @@ async def test_ws_event_motion(
     expected_updated_id = "0441ecc6-f0fa-4b19-b071-7987c143138a"
     expected_event_id = "bf9a241afe74821ceffffd05"
 
-    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
     action_frame.data["newUpdateId"] = expected_updated_id
 
-    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
     data_frame.data = {
         "id": expected_event_id,
         "type": "motion",
@@ -301,10 +304,10 @@ async def test_ws_event_smart(
     expected_updated_id = "0441ecc6-f0fa-4b19-b071-7987c143138a"
     expected_event_id = "bf9a241afe74821ceffffd05"
 
-    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
     action_frame.data["newUpdateId"] = expected_updated_id
 
-    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
     data_frame.data = {
         "id": expected_event_id,
         "type": "smartDetectZone",
@@ -377,7 +380,7 @@ async def test_ws_event_update(
 
     expected_updated_id = "0441ecc6-f0fa-4b19-b071-7987c143138a"
 
-    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
     action_frame.data = {
         "action": "update",
         "newUpdateId": expected_updated_id,
@@ -385,7 +388,7 @@ async def test_ws_event_update(
         "id": camera["id"],
     }
 
-    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
     data_frame.data = new_stats_unifi
 
     msg = MagicMock()
@@ -418,13 +421,13 @@ async def test_ws_emit_ring_callback(
 ):
     mock_now.return_value = now
     protect_client = protect_client_no_debug
-    protect_client.emit_message = Mock()  # type: ignore
+    protect_client.emit_message = Mock()  # type: ignore[method-assign]
 
     obj = protect_client.bootstrap.cameras[camera["id"]]
 
     expected_updated_id = "0441ecc6-f0fa-4b19-b071-7987c143138a"
 
-    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
     action_frame.data = {
         "action": "update",
         "newUpdateId": expected_updated_id,
@@ -432,7 +435,7 @@ async def test_ws_emit_ring_callback(
         "id": camera["id"],
     }
 
-    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
     data_frame.data = {"lastRing": to_js_time(now)}
 
     msg = MagicMock()
@@ -458,13 +461,13 @@ async def test_ws_emit_alarm_callback(
 ):
     mock_now.return_value = now
     protect_client = protect_client_no_debug
-    protect_client.emit_message = Mock()  # type: ignore
+    protect_client.emit_message = Mock()  # type: ignore[method-assign]
 
     obj = protect_client.bootstrap.sensors[sensor["id"]]
 
     expected_updated_id = "0441ecc6-f0fa-4b19-b071-7987c143138a"
 
-    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
     action_frame.data = {
         "action": "update",
         "newUpdateId": expected_updated_id,
@@ -472,7 +475,7 @@ async def test_ws_emit_alarm_callback(
         "id": sensor["id"],
     }
 
-    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
     data_frame.data = {"alarmTriggeredAt": to_js_time(now)}
 
     msg = MagicMock()
@@ -565,7 +568,7 @@ async def test_ws_ignores_nvr_mac_and_guid(
 
     unsub = protect_client.subscribe_websocket(capture_ws)
 
-    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
     action_frame.data = {
         "action": "update",
         "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
@@ -573,7 +576,7 @@ async def test_ws_ignores_nvr_mac_and_guid(
         "id": camera["id"],
     }
 
-    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
     data_frame.data = {"nvrMac": "any", "guid": "any", "isMotionDetected": True}
 
     msg = MagicMock()
@@ -586,7 +589,7 @@ async def test_ws_ignores_nvr_mac_and_guid(
 
     assert len(messages) == 1
 
-    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore
+    action_frame: WSJSONPacketFrame = packet.action_frame
     action_frame.data = {
         "action": "update",
         "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138b",
@@ -594,7 +597,7 @@ async def test_ws_ignores_nvr_mac_and_guid(
         "id": camera["id"],
     }
 
-    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore
+    data_frame: WSJSONPacketFrame = packet.data_frame
     data_frame.data = {"nvrMac": "any", "guid": "any"}
 
     msg = MagicMock()

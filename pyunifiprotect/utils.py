@@ -42,18 +42,24 @@ try:
     from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, SHAPE_SET, ModelField
     from pydantic.v1.utils import to_camel
 except ImportError:
-    from pydantic.fields import (  # type: ignore
+    from pydantic.fields import (  # type: ignore[attr-defined]
         SHAPE_DICT,
         SHAPE_LIST,
         SHAPE_SET,
         ModelField,
     )
-    from pydantic.utils import to_camel  # type: ignore
+    from pydantic.utils import to_camel
 
 if TYPE_CHECKING:
     from pyunifiprotect.api import ProtectApiClient
     from pyunifiprotect.data import CoordType
     from pyunifiprotect.data.bootstrap import WSStat
+
+if sys.version_info[:2] < (3, 11):
+    from async_timeout import timeout as asyncio_timeout
+
+else:
+    from asyncio import timeout as asyncio_timeout  # noqa: F401
 
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 DEBUG_ENV = "UFP_DEBUG"
@@ -89,13 +95,9 @@ IP_TYPES = {
 }
 
 if sys.version_info[:2] < (3, 11):
-    from async_timeout import (
-        timeout as asyncio_timeout,  # pylint: disable=unused-import
-    )
+    pass
 else:
-    from asyncio import (  # pylint: disable=unused-import # noqa: F401
-        timeout as asyncio_timeout,
-    )
+    pass
 
 
 def set_debug() -> None:
@@ -119,7 +121,7 @@ async def get_response_reason(response: ClientResponse) -> str:
     try:
         data = await response.json()
         reason = data.get("error", str(data))
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         with contextlib.suppress(Exception):
             reason = await response.text()
 
@@ -270,7 +272,7 @@ def serialize_dict(data: dict[str, Any]) -> dict[str, Any]:
 
 def serialize_coord(coord: CoordType) -> Union[int, float]:
     """Serializes UFP zone coordinate"""
-    from pyunifiprotect.data import Percent  # pylint: disable=import-outside-toplevel
+    from pyunifiprotect.data import Percent
 
     if not isinstance(coord, Percent):
         return coord
@@ -396,7 +398,7 @@ def print_ws_stat_summary(
 ) -> None:
     # typer<0.4.1 is incompatible with click>=8.1.0
     # allows only the CLI interface to break if both are installed
-    import typer  # pylint: disable=import-outside-toplevel
+    import typer
 
     if output is None:
         if typer is not None:
@@ -472,7 +474,7 @@ def decode_token_cookie(token_cookie: Morsel[str]) -> dict[str, Any] | None:
     except jwt.ExpiredSignatureError:
         _LOGGER.debug("Authentication token has expired.")
         return None
-    except Exception as broad_ex:  # pylint: disable=broad-except
+    except Exception as broad_ex:
         _LOGGER.debug("Authentication token decode error: %s", broad_ex)
         return None
 
@@ -497,7 +499,7 @@ def format_duration(duration: timedelta) -> str:
 
 
 def _set_timezone(tz: tzinfo | str) -> tzinfo:
-    global TIMEZONE_GLOBAL  # pylint: disable=global-statement
+    global TIMEZONE_GLOBAL
 
     if isinstance(tz, str):
         tz = zoneinfo.ZoneInfo(tz)

@@ -55,7 +55,7 @@ if TYPE_CHECKING:
     try:
         from pydantic.v1.typing import SetStr
     except ImportError:
-        from pydantic.typing import SetStr  # type: ignore
+        from pydantic.typing import SetStr
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -969,11 +969,11 @@ class NVR(ProtectDeviceModel):
         self.doorbell_settings.all_messages = [
             DoorbellMessage(
                 type=DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR,
-                text=DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR.value.replace("_", " "),  # type: ignore
+                text=DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR.value.replace("_", " "),  # type: ignore[arg-type]
             ),
             DoorbellMessage(
                 type=DoorbellMessageType.DO_NOT_DISTURB,
-                text=DoorbellMessageType.DO_NOT_DISTURB.value.replace("_", " "),  # type: ignore
+                text=DoorbellMessageType.DO_NOT_DISTURB.value.replace("_", " "),  # type: ignore[arg-type]
             ),
             *(
                 DoorbellMessage(
@@ -1072,7 +1072,7 @@ class NVR(ProtectDeviceModel):
                     versions = set(
                         Version(v) for v in orjson.loads(await cache_file.read())
                     )
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 _LOGGER.warning("Failed to parse cache file: %s", file_path)
 
         return versions
@@ -1098,7 +1098,7 @@ class NVR(ProtectDeviceModel):
                 async with aiofiles.open(tmp, "wb") as cache_file:
                     await cache_file.write(orjson.dumps([str(v) for v in versions]))
                 await aos.rename(tmp, cache_file_path)
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 _LOGGER.warning("Failed write cache file.")
 
         return self.version not in versions

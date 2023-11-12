@@ -1,11 +1,11 @@
-# type: ignore
-# pylint: disable=protected-access
+# mypy: disable-error-code="attr-defined, dict-item, assignment, union-attr"
+
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import pytest
 
-from pyunifiprotect.data import Camera, Light
-from pyunifiprotect.data.devices import Sensor
 from pyunifiprotect.data.types import MountType
 from pyunifiprotect.exceptions import BadRequest
 from tests.conftest import TEST_CAMERA_EXISTS, TEST_SENSOR_EXISTS
@@ -13,7 +13,10 @@ from tests.conftest import TEST_CAMERA_EXISTS, TEST_SENSOR_EXISTS
 try:
     from pydantic.v1 import ValidationError
 except ImportError:
-    from pydantic import ValidationError  # type: ignore
+    from pydantic import ValidationError
+
+if TYPE_CHECKING:
+    from pyunifiprotect.data import Camera, Light, Sensor
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
@@ -150,7 +153,7 @@ async def test_sensor_set_motion_sensitivity(
         with pytest.raises(ValidationError):
             await sensor_obj.set_motion_sensitivity(sensitivity)
 
-            assert not sensor_obj.api.api_request.called
+        assert not sensor_obj.api.api_request.called
     else:
         await sensor_obj.set_motion_sensitivity(sensitivity)
 
@@ -179,7 +182,7 @@ async def test_sensor_set_temperature_safe_range(
         with pytest.raises(BadRequest):
             await sensor_obj.set_temperature_safe_range(low, high)
 
-            assert not sensor_obj.api.api_request.called
+        assert not sensor_obj.api.api_request.called
     else:
         await sensor_obj.set_temperature_safe_range(low, high)
 
@@ -208,7 +211,7 @@ async def test_sensor_set_humidity_safe_range(
         with pytest.raises(BadRequest):
             await sensor_obj.set_humidity_safe_range(low, high)
 
-            assert not sensor_obj.api.api_request.called
+        assert not sensor_obj.api.api_request.called
     else:
         await sensor_obj.set_humidity_safe_range(low, high)
 
@@ -233,7 +236,7 @@ async def test_sensor_set_light_safe_range(sensor_obj: Sensor, low: float, high:
         with pytest.raises(BadRequest):
             await sensor_obj.set_light_safe_range(low, high)
 
-            assert not sensor_obj.api.api_request.called
+        assert not sensor_obj.api.api_request.called
     else:
         await sensor_obj.set_light_safe_range(low, high)
 

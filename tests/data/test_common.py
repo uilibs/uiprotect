@@ -1,5 +1,4 @@
 """Tests for pyunifiprotect.data"""
-# pylint: disable=protected-access
 
 from __future__ import annotations
 
@@ -8,13 +7,11 @@ import base64
 from copy import deepcopy
 from datetime import timedelta
 from ipaddress import IPv4Address
-from typing import Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
 from unittest.mock import Mock, patch
 
 import pytest
-from pytest_benchmark.fixture import BenchmarkFixture
 
-from pyunifiprotect import ProtectApiClient
 from pyunifiprotect.data import (
     Bootstrap,
     Camera,
@@ -47,6 +44,12 @@ from tests.conftest import (
     compare_objs,
 )
 from tests.sample_data.constants import CONSTANTS
+
+if TYPE_CHECKING:
+    from pytest_benchmark.fixture import BenchmarkFixture
+
+    from pyunifiprotect import ProtectApiClient
+
 
 PACKET_B64 = "AQEBAAAAAHR4nB2MQQrCMBBFr1JmbSDNpJnRG4hrDzBNZqCgqUiriHh3SZb/Pd7/guRtWSucBtgfRTaFwwBV39c+zqUJskQW1DufUVwkJsfFxDGLyRFj0dSz+1r0dtFPa+rr2dDSD8YsyceUpskQxzjjHIIQMvz+hMoj/AIBAQAAAAA1eJyrViotKMnMTVWyUjA0MjawMLQ0MDDQUVDKSSwuCU5NzQOJmxkbACUszE0sLQ1rAVU/DPU="
 PACKET_ACTION = {
@@ -175,7 +178,7 @@ def test_camera_smart_events(camera_obj: Camera):
     camera_obj.last_smart_detect_event_ids = {}
     camera_obj.last_smart_detects = {}
     events = [
-        Event(  # type: ignore
+        Event(  # type: ignore[call-arg]
             api=camera_obj.api,
             id="test_event_1",
             camera_id=camera_obj.id,
@@ -185,7 +188,7 @@ def test_camera_smart_events(camera_obj: Camera):
             smart_detect_types=[SmartDetectObjectType.PERSON],
             smart_detect_event_ids=[],
         ),
-        Event(  # type: ignore
+        Event(  # type: ignore[call-arg]
             api=camera_obj.api,
             id="test_event_2",
             camera_id=camera_obj.id,
@@ -196,7 +199,7 @@ def test_camera_smart_events(camera_obj: Camera):
             smart_detect_types=[SmartDetectObjectType.PACKAGE],
             smart_detect_event_ids=[],
         ),
-        Event(  # type: ignore
+        Event(  # type: ignore[call-arg]
             api=camera_obj.api,
             id="test_event_1",
             camera_id=camera_obj.id,
@@ -210,7 +213,7 @@ def test_camera_smart_events(camera_obj: Camera):
             ],
             smart_detect_event_ids=[],
         ),
-        Event(  # type: ignore
+        Event(  # type: ignore[call-arg]
             api=camera_obj.api,
             id="test_event_3",
             camera_id=camera_obj.id,
@@ -252,7 +255,7 @@ def test_camera_smart_audio_events(camera_obj: Camera):
     camera_obj.last_smart_audio_detect_event_ids = {}
     camera_obj.last_smart_audio_detects = {}
     events = [
-        Event(  # type: ignore
+        Event(  # type: ignore[call-arg]
             api=camera_obj.api,
             id="test_event_1",
             camera_id=camera_obj.id,
@@ -262,7 +265,7 @@ def test_camera_smart_audio_events(camera_obj: Camera):
             smart_detect_types=[SmartDetectObjectType.SMOKE],
             smart_detect_event_ids=[],
         ),
-        Event(  # type: ignore
+        Event(  # type: ignore[call-arg]
             api=camera_obj.api,
             id="test_event_2",
             camera_id=camera_obj.id,
@@ -298,7 +301,7 @@ def test_bootstrap(bootstrap: dict[str, Any]):
 
     obj_dict = obj.unifi_dict()
 
-    # TODO:
+    # TODO: fields that still need implemented
     if "deviceGroups" in bootstrap:  # added in 2.0-beta
         del bootstrap["deviceGroups"]
     del bootstrap["legacyUFVs"]
@@ -442,7 +445,7 @@ async def test_play_audio_no_speaker(camera_obj: Camera):
 
 
 @pytest.mark.asyncio()
-@pytest.mark.usefixtures("disable_camera_validation")
+@pytest.mark.usefixtures("_disable_camera_validation")
 async def test_play_audio_already_playing(camera_obj: Camera):
     camera_obj.feature_flags.has_speaker = True
 
@@ -454,7 +457,7 @@ async def test_play_audio_already_playing(camera_obj: Camera):
 
 
 @pytest.mark.asyncio()
-@pytest.mark.usefixtures("disable_camera_validation")
+@pytest.mark.usefixtures("_disable_camera_validation")
 @patch("pyunifiprotect.data.devices.TalkbackStream")
 async def test_play_audio(mock_talkback, camera_obj: Camera):
     camera_obj.feature_flags.has_speaker = True
@@ -470,7 +473,7 @@ async def test_play_audio(mock_talkback, camera_obj: Camera):
 
 
 @pytest.mark.asyncio()
-@pytest.mark.usefixtures("disable_camera_validation")
+@pytest.mark.usefixtures("_disable_camera_validation")
 @patch("pyunifiprotect.data.devices.TalkbackStream")
 async def test_play_audio_no_blocking(mock_talkback, camera_obj: Camera):
     camera_obj.feature_flags.has_speaker = True
@@ -489,7 +492,7 @@ async def test_play_audio_no_blocking(mock_talkback, camera_obj: Camera):
 
 
 @pytest.mark.asyncio()
-@pytest.mark.usefixtures("disable_camera_validation")
+@pytest.mark.usefixtures("_disable_camera_validation")
 @patch("pyunifiprotect.data.devices.TalkbackStream")
 async def test_play_audio_stop(mock_talkback, camera_obj: Camera):
     camera_obj.feature_flags.has_speaker = True
@@ -508,7 +511,7 @@ async def test_play_audio_stop(mock_talkback, camera_obj: Camera):
 
 
 @pytest.mark.asyncio()
-@pytest.mark.usefixtures("disable_camera_validation")
+@pytest.mark.usefixtures("_disable_camera_validation")
 @patch("pyunifiprotect.data.devices.TalkbackStream")
 async def test_play_audio_error(mock_talkback, camera_obj: Camera):
     camera_obj.feature_flags.has_speaker = True
@@ -607,23 +610,23 @@ def test_bootstrap_dns_host(bootstrap):
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
 async def test_save_device_no_changes(camera_obj: Camera):
-    camera_obj.api.api_request.reset_mock()  # type: ignore
+    camera_obj.api.api_request.reset_mock()  # type: ignore[attr-defined]
 
     data_before_changes = camera_obj.dict_with_excludes()
 
     await camera_obj.save_device(data_before_changes)
 
-    assert not camera_obj.api.api_request.called  # type: ignore
+    assert not camera_obj.api.api_request.called  # type: ignore[attr-defined]
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
 async def test_device_reboot(camera_obj: Camera):
-    camera_obj.api.api_request.reset_mock()  # type: ignore
+    camera_obj.api.api_request.reset_mock()  # type: ignore[attr-defined]
 
     await camera_obj.reboot()
 
-    camera_obj.api.api_request.assert_called_with(  # type: ignore
+    camera_obj.api.api_request.assert_called_with(  # type: ignore[attr-defined]
         f"cameras/{camera_obj.id}/reboot",
         method="post",
     )
@@ -631,7 +634,15 @@ async def test_device_reboot(camera_obj: Camera):
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize(
-    "permissions,can_create,can_read,can_write,can_delete,can_read_media,can_delete_media",
+    (
+        "permissions",
+        "can_create",
+        "can_read",
+        "can_write",
+        "can_delete",
+        "can_read_media",
+        "can_delete_media",
+    ),
     [
         (["camera:*:*"], True, True, True, True, True, True),
         (
@@ -740,7 +751,7 @@ async def test_permissions(
 
 
 @pytest.mark.parametrize(
-    "permissions,can_create,can_read,can_write,can_delete",
+    ("permissions", "can_create", "can_read", "can_write", "can_delete"),
     [
         (["user:*:*"], True, True, True, True),
         (["user:create,read,write,delete:*"], True, True, True, True),
@@ -791,7 +802,7 @@ async def test_permissions_user(
 
 
 @pytest.mark.parametrize(
-    "permissions,can_create,can_read,can_write,can_delete",
+    ("permissions", "can_create", "can_read", "can_write", "can_delete"),
     [
         (["user:*:*"], True, True, True, True),
         (["user:create,read,write,delete:*"], True, True, True, True),
@@ -888,7 +899,7 @@ async def test_multiple_updates(user_obj: User, camera_obj: Camera):
         camera_obj.set_vehicle_detection(True),
     )
 
-    camera_obj.api.api_request.assert_called_with(  # type: ignore
+    camera_obj.api.api_request.assert_called_with(  # type: ignore[attr-defined]
         f"cameras/{camera_obj.id}",
         method="patch",
         json={
@@ -916,7 +927,7 @@ def test_unknown_smart(
         **deepcopy(bootstrap),
         api=protect_client,
     )
-    camera_obj = list(obj.cameras.values())[0]
+    camera_obj = next(iter(obj.cameras.values()))
     assert camera_obj.feature_flags.smart_detect_types == []
     assert camera_obj.smart_detect_zones[0].object_types == []
     assert camera_obj.smart_detect_settings.object_types == []
@@ -926,7 +937,7 @@ def test_unknown_smart(
         **deepcopy(bootstrap),
         api=protect_client,
     )
-    camera_obj = list(obj.cameras.values())[0]
+    camera_obj = next(iter(obj.cameras.values()))
     assert camera_obj.feature_flags.smart_detect_types == []
     assert camera_obj.smart_detect_zones[0].object_types == []
     assert camera_obj.smart_detect_settings.object_types == []
@@ -949,7 +960,7 @@ def test_unknown_video(
         **deepcopy(bootstrap),
         api=protect_client,
     )
-    camera_obj = list(obj.cameras.values())[0]
+    camera_obj = next(iter(obj.cameras.values()))
     assert camera_obj.feature_flags.video_modes == []
 
     set_no_debug()
@@ -957,7 +968,7 @@ def test_unknown_video(
         **deepcopy(bootstrap),
         api=protect_client,
     )
-    camera_obj = list(obj.cameras.values())[0]
+    camera_obj = next(iter(obj.cameras.values()))
     assert camera_obj.feature_flags.video_modes == []
     set_debug()
 

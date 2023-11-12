@@ -26,7 +26,7 @@ class ConstantData:
 
     def data(self):
         if self._data is None:
-            with open(DATA_FILE) as f:
+            with DATA_FILE.open(encoding="utf-8") as f:
                 self._data = json.load(f)
         return self._data
 

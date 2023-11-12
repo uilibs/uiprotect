@@ -53,7 +53,7 @@ Base = declarative_base()
 _LOGGER = logging.getLogger(__name__)
 
 
-def _on_db_connect(dbapi_con, connection_record) -> None:  # type: ignore
+def _on_db_connect(dbapi_con, connection_record) -> None:  # type: ignore[no-untyped-def]
     cursor = dbapi_con.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
@@ -148,7 +148,7 @@ class Event(Base):
     @property
     def start(self) -> datetime:
         if self._start is None:
-            self._start = self.start_naive.replace(tzinfo=timezone.utc)  # type: ignore
+            self._start = self.start_naive.replace(tzinfo=timezone.utc)  # type: ignore[union-attr]
         return self._start
 
     @property
@@ -161,12 +161,12 @@ class Event(Base):
     @property
     def smart_types(self) -> set[str]:
         if self._smart_types is None:
-            self._smart_types = {s.smart_type for s in self.smart_detect_types}  # type: ignore
+            self._smart_types = {s.smart_type for s in self.smart_detect_types}  # type: ignore[misc]
         return self._smart_types
 
     def get_file_context(self, ctx: BackupContext) -> dict[str, str]:
         if self._context is None:
-            camera = ctx.protect.bootstrap.get_device_from_mac(self.camera_mac)  # type: ignore
+            camera = ctx.protect.bootstrap.get_device_from_mac(self.camera_mac)  # type: ignore[arg-type]
             camera_slug = ""
             display_name = ""
             length = timedelta(seconds=0)
@@ -560,7 +560,11 @@ async def _update_event(ctx: BackupContext, event: d.Event) -> None:
 async def _update_ongoing_events(ctx: BackupContext) -> int:
     db = ctx.create_db_session()
     async with db:
-        result = await db.execute(select(Event).where(Event.event_type != "ring").where(Event.end_naive is None))  # type: ignore
+        result = await db.execute(
+            select(Event)
+            .where(Event.event_type != "ring")
+            .where(Event.end_naive is None),  # type: ignore[arg-type]
+        )
 
         events = list(result.unique().scalars())
 
@@ -648,7 +652,7 @@ async def _download_watcher(
                 await task
             except asyncio.CancelledError:
                 return downloaded
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 pass
 
             event: Event = download.args[1]
@@ -692,7 +696,7 @@ def _verify_thumbnail(path: Path) -> bool:
         image = Image.open(path)
         image.verify()
     # no docs on what exception could be
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return False
     return True
 
@@ -784,7 +788,7 @@ def _verify_video_file(
             return valid, metadata_valid
 
     # no docs on what exception could be
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return False, False
 
 
@@ -820,7 +824,7 @@ def _add_metadata(path: Path, creation: datetime, title: str) -> bool:
                     except ValueError:
                         continue
     # no docs on what exception could be
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         success = False
     finally:
         if success:
@@ -904,7 +908,7 @@ async def _download_event(
     pb: Progress,
 ) -> bool:
     downloaded = False
-    camera = ctx.protect.bootstrap.get_device_from_mac(event.camera_mac)  # type: ignore
+    camera = ctx.protect.bootstrap.get_device_from_mac(event.camera_mac)  # type: ignore[arg-type]
     if camera is not None:
         camera = cast(d.Camera, camera)
         downloads = []
@@ -934,10 +938,10 @@ async def _download_events(
     db = ctx.create_db_session()
     async with db:
         count_query = (
-            select(func.count(Event.id))  # pylint: disable=not-callable
+            select(func.count(Event.id))
             .where(Event.event_type.in_([e.value for e in event_types]))
             .where(Event.start_naive >= start)
-            .where(or_(Event.end_naive <= end, Event.end_naive is None))  # type: ignore
+            .where(or_(Event.end_naive <= end, Event.end_naive is None))  # type: ignore[arg-type]
         )
         count = cast(int, (await db.execute(count_query)).scalar())
         _LOGGER.info("Downloading %s events", count)
@@ -956,7 +960,7 @@ async def _download_events(
                 select(Event)
                 .where(Event.event_type.in_([e.value for e in event_types]))
                 .where(Event.start_naive >= start)
-                .where(or_(Event.end_naive <= end, Event.end_naive is None))  # type: ignore
+                .where(or_(Event.end_naive <= end, Event.end_naive is None))  # type: ignore[arg-type]
                 .limit(ctx.page_size)
             )
             smart_types_set = {s.value for s in smart_types}
@@ -1086,7 +1090,7 @@ def events_cmd(
     """Backup thumbnails and video clips for camera events."""
 
     # surpress av logging messages
-    av.logging.set_level(av.logging.PANIC)  # pylint: disable=c-extension-no-member
+    av.logging.set_level(av.logging.PANIC)
     ufp_events = [d.EventType(e.value) for e in event_types]
     if prune and force:
         _wipe_files(ctx.obj, no_input)

@@ -243,9 +243,7 @@ class BaseApiClient:
         for attempt in range(2):
             try:
                 req_context = session.request(method, url, headers=headers, **kwargs)
-                response = (
-                    await req_context.__aenter__()
-                )  # pylint: disable=unnecessary-dunder-call
+                response = await req_context.__aenter__()
 
                 self._update_last_token_cookie(response)
                 if auto_close:
@@ -665,7 +663,7 @@ class ProtectApiClient(BaseApiClient):
         for sub in self._ws_subscriptions:
             try:
                 sub(msg)
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 _LOGGER.exception("Exception while running subscription handler")
 
     def _get_last_update_id(self) -> Optional[UUID]:

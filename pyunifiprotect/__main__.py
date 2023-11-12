@@ -5,7 +5,7 @@ import os
 try:
     from dotenv import load_dotenv
 except ImportError:
-    load_dotenv = None  # type: ignore
+    load_dotenv = None  # type: ignore[assignment]
 
 from pyunifiprotect.cli import app
 

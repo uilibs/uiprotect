@@ -41,7 +41,7 @@ class Permission(ProtectBaseObject):
 
         return super().unifi_dict_to_dict(data)
 
-    def unifi_dict(  # type: ignore
+    def unifi_dict(  # type: ignore[override]
         self,
         data: Optional[dict[str, Any]] = None,
         exclude: Optional[set[str]] = None,

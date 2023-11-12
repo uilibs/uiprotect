@@ -11,9 +11,9 @@ try:
     from pydantic.v1.color import Color as BaseColor
     from pydantic.v1.types import ConstrainedFloat, ConstrainedStr
 except ImportError:
-    from pydantic import ConstrainedInt  # type: ignore
-    from pydantic.color import Color as BaseColor  # type: ignore
-    from pydantic.types import ConstrainedFloat, ConstrainedStr  # type: ignore
+    from pydantic import ConstrainedInt
+    from pydantic.color import Color as BaseColor  # type: ignore[assignment]
+    from pydantic.types import ConstrainedFloat, ConstrainedStr
 
 KT = TypeVar("KT")
 VT = TypeVar("VT")
@@ -48,13 +48,13 @@ class ValuesEnumMixin:
     @classmethod
     def values(cls) -> list[str]:
         if cls._values is None:
-            cls._values = [e.value for e in cls]  # type: ignore
+            cls._values = [e.value for e in cls]  # type: ignore[attr-defined]
         return cls._values
 
     @classmethod
     def _missing_(cls, value: Any) -> Optional[Any]:
         if cls._values_normalized is None:
-            cls._values_normalized = {e.value.lower(): e for e in cls}  # type: ignore
+            cls._values_normalized = {e.value.lower(): e for e in cls}  # type: ignore[attr-defined]
 
         value_normal = value
         if isinstance(value, str):

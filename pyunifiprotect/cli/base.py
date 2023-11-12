@@ -16,7 +16,7 @@ from pyunifiprotect.exceptions import BadRequest, NvrError, StreamError
 try:
     from pydantic.v1 import ValidationError
 except ImportError:
-    from pydantic import ValidationError  # type: ignore
+    from pydantic import ValidationError  # type: ignore[assignment]
 
 T = TypeVar("T")
 

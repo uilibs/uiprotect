@@ -72,7 +72,7 @@ class Websocket:
         for sub in self._ws_subscriptions:
             try:
                 sub(msg)
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 _LOGGER.exception("Error processing websocket message")
 
         return True

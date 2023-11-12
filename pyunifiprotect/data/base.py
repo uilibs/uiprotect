@@ -37,8 +37,12 @@ try:
     from pydantic.v1 import BaseModel
     from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
 except ImportError:
-    from pydantic import BaseModel  # type: ignore
-    from pydantic.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr  # type: ignore
+    from pydantic import BaseModel  # type: ignore[assignment]
+    from pydantic.fields import (  # type: ignore[attr-defined]
+        SHAPE_DICT,
+        SHAPE_LIST,
+        PrivateAttr,
+    )
 
 if TYPE_CHECKING:
     from asyncio.events import TimerHandle
@@ -48,7 +52,7 @@ if TYPE_CHECKING:
     try:
         from pydantic.v1.typing import DictStrAny, SetStr
     except ImportError:
-        from pydantic.typing import DictStrAny, SetStr  # type: ignore
+        from pydantic.typing import DictStrAny, SetStr
 
     from pyunifiprotect.api import ProtectApiClient
     from pyunifiprotect.data.devices import Bridge
@@ -149,7 +153,7 @@ class ProtectBaseObject(BaseModel):
                 }
 
         obj = super().construct(_fields_set=_fields_set, **values)
-        obj._api = api  # pylint: disable=protected-access
+        obj._api = api
 
         return obj
 
@@ -221,7 +225,7 @@ class ProtectBaseObject(BaseModel):
             return cls._protect_objs
 
         cls._set_protect_subtypes()
-        return cls._protect_objs  # type: ignore
+        return cls._protect_objs  # type: ignore[return-value]
 
     @classmethod
     def _get_protect_objs_set(cls) -> set[str]:
@@ -238,7 +242,7 @@ class ProtectBaseObject(BaseModel):
             return cls._protect_lists
 
         cls._set_protect_subtypes()
-        return cls._protect_lists  # type: ignore
+        return cls._protect_lists  # type: ignore[return-value]
 
     @classmethod
     def _get_protect_lists_set(cls) -> set[str]:
@@ -255,7 +259,7 @@ class ProtectBaseObject(BaseModel):
             return cls._protect_dicts
 
         cls._set_protect_subtypes()
-        return cls._protect_dicts  # type: ignore
+        return cls._protect_dicts  # type: ignore[return-value]
 
     @classmethod
     def _get_protect_dicts_set(cls) -> set[str]:
@@ -385,7 +389,7 @@ class ProtectBaseObject(BaseModel):
         if isinstance(value, ProtectBaseObject):
             value = value.unifi_dict()
         elif isinstance(value, dict):
-            value = klass.construct({}).unifi_dict(data=value)  # type: ignore
+            value = klass.construct({}).unifi_dict(data=value)  # type: ignore[arg-type]
 
         return value
 
@@ -546,9 +550,7 @@ class ProtectBaseObject(BaseModel):
 
     def dict_with_excludes(self) -> dict[str, Any]:
         """Returns a dict of the current object without any UFP objects converted to dicts."""
-        excludes = (
-            self.__class__._get_excluded_changed_fields()
-        )  # pylint: disable=protected-access
+        excludes = self.__class__._get_excluded_changed_fields()
         return self.dict(exclude=excludes)
 
     def get_changed(self, data_before_changes: dict[str, Any]) -> dict[str, Any]:
@@ -612,15 +614,9 @@ class ProtectModelWithId(ProtectModel):
         update_queue = values.pop("update_queue", None)
         update_event = values.pop("update_event", None)
         obj = super().construct(_fields_set=_fields_set, **values)
-        obj._update_lock = (
-            update_lock or asyncio.Lock()
-        )  # pylint: disable=protected-access
-        obj._update_queue = (
-            update_queue or asyncio.Queue()
-        )  # pylint: disable=protected-access
-        obj._update_event = (
-            update_event or asyncio.Event()
-        )  # pylint: disable=protected-access
+        obj._update_lock = update_lock or asyncio.Lock()
+        obj._update_queue = update_queue or asyncio.Queue()
+        obj._update_event = update_event or asyncio.Event()
 
         return obj
 
@@ -743,9 +739,7 @@ class ProtectModelWithId(ProtectModel):
         assert (
             self._update_lock.locked()
         ), "save_device_changes should only be called when the update lock is held"
-        read_only_fields = (
-            self.__class__._get_read_only_fields()
-        )  # pylint: disable=protected-access
+        read_only_fields = self.__class__._get_read_only_fields()
 
         if self.model is None:
             raise BadRequest("Unknown model type")

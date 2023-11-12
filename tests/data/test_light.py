@@ -1,14 +1,12 @@
-# type: ignore
-# pylint: disable=protected-access
+# mypy: disable-error-code="attr-defined, dict-item, assignment, union-attr"
 
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import pytest
 
-from pyunifiprotect.data import Camera, Light
 from pyunifiprotect.data.types import LightModeEnableType, LightModeType
 from pyunifiprotect.exceptions import BadRequest
 from pyunifiprotect.utils import to_ms
@@ -17,7 +15,10 @@ from tests.conftest import TEST_CAMERA_EXISTS, TEST_LIGHT_EXISTS
 try:
     from pydantic.v1 import ValidationError
 except ImportError:
-    from pydantic import ValidationError  # type: ignore
+    from pydantic import ValidationError
+
+if TYPE_CHECKING:
+    from pyunifiprotect.data import Camera, Light
 
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
@@ -80,11 +81,10 @@ async def test_light_set_led_level(light_obj: Light, level: int):
 
     light_obj.light_device_settings.led_level = 2
 
-    if level in (-1, 7):
+    if level in {-1, 7}:
         with pytest.raises(ValidationError):
             await light_obj.set_led_level(level)
-
-            assert not light_obj.api.api_request.called
+        assert not light_obj.api.api_request.called
     else:
         await light_obj.set_led_level(level)
 
@@ -106,11 +106,10 @@ async def test_light_set_light(light_obj: Light, status: bool, level: Optional[i
     if level is not None:
         light_obj.light_device_settings.led_level = 2
 
-    if level in (-1, 7):
+    if level in {-1, 7}:
         with pytest.raises(ValidationError):
             await light_obj.set_light(status, level)
-
-            assert not light_obj.api.api_request.called
+        assert not light_obj.api.api_request.called
     else:
         await light_obj.set_light(status, level)
 
@@ -143,8 +142,7 @@ async def test_light_set_sensitivity(
     if sensitivity == -10:
         with pytest.raises(ValidationError):
             await light_obj.set_sensitivity(sensitivity)
-
-            assert not light_obj.api.api_request.called
+        assert not light_obj.api.api_request.called
     else:
         await light_obj.set_sensitivity(sensitivity)
 
@@ -176,15 +174,15 @@ async def test_light_set_duration(
 
     light_obj.light_device_settings.pir_duration = timedelta(seconds=30)
 
-    duration_invalid = duration is not None and int(duration.total_seconds()) in (
+    duration_invalid = duration is not None and int(duration.total_seconds()) in {
         1,
         1000,
-    )
+    }
     if duration_invalid:
         with pytest.raises(BadRequest):
             await light_obj.set_duration(duration)
 
-            assert not light_obj.api.api_request.called
+        assert not light_obj.api.api_request.called
     else:
         await light_obj.set_duration(duration)
 
@@ -226,10 +224,10 @@ async def test_light_set_light_settings(
     light_obj.light_device_settings.pir_duration = timedelta(seconds=30)
     light_obj.light_device_settings.pir_sensitivity = 50
 
-    duration_invalid = duration is not None and int(duration.total_seconds()) in (
+    duration_invalid = duration is not None and int(duration.total_seconds()) in {
         1,
         1000,
-    )
+    }
     if duration_invalid:
         with pytest.raises(BadRequest):
             await light_obj.set_light_settings(
@@ -239,7 +237,7 @@ async def test_light_set_light_settings(
                 sensitivity=sensitivity,
             )
 
-            assert not light_obj.api.api_request.called
+        assert not light_obj.api.api_request.called
     elif sensitivity == -10:
         with pytest.raises(ValidationError):
             await light_obj.set_light_settings(
@@ -249,7 +247,7 @@ async def test_light_set_light_settings(
                 sensitivity=sensitivity,
             )
 
-            assert not light_obj.api.api_request.called
+        assert not light_obj.api.api_request.called
     else:
         await light_obj.set_light_settings(
             mode,

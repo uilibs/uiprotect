@@ -140,7 +140,9 @@ ignore = ["AIR", "ANN", "ARG", "C901", "CPY", "D106", "D202", "D203", "D213", "D
 max-complexity = 10
 
 [tool.ruff.per-file-ignores]
-"**/test_*.py" = ["FBT"]
+"**/*.py" = ["UP007"]  # TODO: upgrade to pydantic v2
+"**/test_*.py" = ["FBT", "D", "SLF001", "PLR2004"]
+"tests/**/*.py" = ["FBT", "D", "SLF001", "PLR2004"]
 
 [tool.isort]
 profile = "black"

@@ -1,18 +1,20 @@
 """Tests for pyunifiprotect.unifi_protect_server."""
-# pylint: disable=protected-access
 
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
 
-from pyunifiprotect import ProtectApiClient
 from pyunifiprotect.api import NEVER_RAN
 from pyunifiprotect.data import Camera, EventType
 from pyunifiprotect.utils import to_js_time
 from tests.conftest import MockDatetime
+
+if TYPE_CHECKING:
+    from pyunifiprotect import ProtectApiClient
 
 
 @pytest.mark.asyncio()

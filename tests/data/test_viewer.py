@@ -1,16 +1,18 @@
-# type: ignore
-# pylint: disable=protected-access
+# mypy: disable-error-code="attr-defined, dict-item, assignment, union-attr"
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
 import pytest
 
-from pyunifiprotect.data import Liveview, Viewer
 from pyunifiprotect.data.websocket import WSAction, WSSubscriptionMessage
 from pyunifiprotect.exceptions import BadRequest
 from tests.conftest import TEST_VIEWPORT_EXISTS
+
+if TYPE_CHECKING:
+    from pyunifiprotect.data import Liveview, Viewer
 
 
 @pytest.mark.skipif(not TEST_VIEWPORT_EXISTS, reason="Missing testdata")

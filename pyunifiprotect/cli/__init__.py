@@ -35,7 +35,7 @@ try:
     from termcolor import colored
     from traitlets.config import get_config
 except ImportError:
-    embed = termcolor = get_config = None  # type: ignore
+    embed = termcolor = get_config = None  # type: ignore[assignment]
 
 OPTION_USERNAME = typer.Option(
     ...,
@@ -152,9 +152,7 @@ def main(
     )
 
     async def update() -> None:
-        protect._bootstrap = (
-            await protect.get_bootstrap()
-        )  # pylint: disable=protected-access
+        protect._bootstrap = await protect.get_bootstrap()
         await protect.close_session()
 
     loop = asyncio.get_event_loop()
@@ -192,12 +190,16 @@ def shell(ctx: typer.Context) -> None:
     protect = cast(
         ProtectApiClient,
         ctx.obj.protect,
-    )  # pylint: disable=unused-variable
+    )
     _setup_logger(show_level=True)
 
     c = get_config()
     c.InteractiveShellEmbed.colors = "Linux"
-    embed(header=colored("protect = ProtectApiClient(*args)", "green"), config=c, using="asyncio")  # type: ignore
+    embed(  # type: ignore[no-untyped-call]
+        header=colored("protect = ProtectApiClient(*args)", "green"),
+        config=c,
+        using="asyncio",
+    )
 
 
 @app.command()

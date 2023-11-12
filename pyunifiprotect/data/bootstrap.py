@@ -14,7 +14,7 @@ from aiohttp.client_exceptions import ServerDisconnectedError
 try:
     from pydantic.v1 import PrivateAttr, ValidationError
 except ImportError:
-    from pydantic import PrivateAttr, ValidationError  # type: ignore
+    from pydantic import PrivateAttr, ValidationError  # type: ignore[assignment]
 
 from pyunifiprotect.data.base import (
     RECENT_EVENT_MAX,

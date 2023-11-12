@@ -1,9 +1,8 @@
-# pylint: disable=protected-access
-
 from __future__ import annotations
 
 import asyncio
 import base64
+from contextlib import suppress
 from copy import deepcopy
 from datetime import datetime, timezone
 import json
@@ -56,12 +55,12 @@ TEST_CHIME_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_chime.json").exists()
 
 
 def read_binary_file(name: str, ext: str = "png"):
-    with open(SAMPLE_DATA_DIRECTORY / f"{name}.{ext}", "rb") as f:
+    with (SAMPLE_DATA_DIRECTORY / f"{name}.{ext}").open("rb") as f:
         return f.read()
 
 
 def read_json_file(name: str):
-    with open(SAMPLE_DATA_DIRECTORY / f"{name}.json", encoding="utf8") as f:
+    with (SAMPLE_DATA_DIRECTORY / f"{name}.json").open(encoding="utf8") as f:
         return json.load(f)
 
 
@@ -89,55 +88,55 @@ def validate_video_file(filepath: Path, length: int):
 async def mock_api_request_raw(url: str, *args, **kwargs):
     if url.startswith("thumbnails/") or url.endswith("thumbnail"):
         return read_binary_file("sample_camera_thumbnail")
-    elif url.startswith("cameras/"):
+    if url.startswith("cameras/"):
         return read_binary_file("sample_camera_snapshot")
-    elif url.startswith("heatmaps/") or url.endswith("heatmap"):
+    if url.startswith("heatmaps/") or url.endswith("heatmap"):
         return read_binary_file("sample_camera_heatmap")
-    elif url == "video/export":
+    if url == "video/export":
         return read_binary_file("sample_camera_video", "mp4")
     return b""
 
 
-async def mock_api_request(url: str, *args, **kwargs):
+async def mock_api_request(url: str, *args, **kwargs):  # noqa: PLR0911,PLR0912
     if url == "bootstrap":
         return read_json_file("sample_bootstrap")
-    elif url == "nvr":
+    if url == "nvr":
         return read_json_file("sample_bootstrap")["nvr"]
-    elif url == "events":
+    if url == "events":
         return read_json_file("sample_raw_events")
-    elif url == "cameras":
+    if url == "cameras":
         return [read_json_file("sample_camera")]
-    elif url == "lights":
+    if url == "lights":
         return [read_json_file("sample_light")]
-    elif url == "sensors":
+    if url == "sensors":
         return [read_json_file("sample_sensor")]
-    elif url == "viewers":
+    if url == "viewers":
         return [read_json_file("sample_viewport")]
-    elif url == "bridges":
+    if url == "bridges":
         return [read_json_file("sample_bridge")]
-    elif url == "liveviews":
+    if url == "liveviews":
         return [read_json_file("sample_liveview")]
-    elif url == "doorlocks":
+    if url == "doorlocks":
         return [read_json_file("sample_doorlock")]
-    elif url == "chimes":
+    if url == "chimes":
         return [read_json_file("sample_chime")]
-    elif url.startswith("cameras/"):
+    if url.startswith("cameras/"):
         return read_json_file("sample_camera")
-    elif url.startswith("lights/"):
+    if url.startswith("lights/"):
         return read_json_file("sample_light")
-    elif url.startswith("sensors/"):
+    if url.startswith("sensors/"):
         return read_json_file("sample_sensor")
-    elif url.startswith("viewers/"):
+    if url.startswith("viewers/"):
         return read_json_file("sample_viewport")
-    elif url.startswith("bridges/"):
+    if url.startswith("bridges/"):
         return read_json_file("sample_bridge")
-    elif url.startswith("liveviews/"):
+    if url.startswith("liveviews/"):
         return read_json_file("sample_liveview")
-    elif url.startswith("doorlocks"):
+    if url.startswith("doorlocks"):
         return read_json_file("sample_doorlock")
-    elif url.startswith("chimes"):
+    if url.startswith("chimes"):
         return read_json_file("sample_chime")
-    elif "smartDetectTrack" in url:
+    if "smartDetectTrack" in url:
         return read_json_file("sample_event_smart_track")
 
     return {}
@@ -166,7 +165,7 @@ class SimpleMockWebsocket:
         if len(self.events) == 0 or self.is_closed:
             raise StopAsyncIteration
 
-        key = list(self.events.keys())[0]
+        key = next(iter(self.events.keys()))
         next_time = float(key)
         await asyncio.sleep(next_time - self.now)
         self.now = next_time
@@ -193,7 +192,7 @@ MockDatetime.utcnow.return_value = get_now()
 
 
 @pytest.fixture(autouse=True)
-def ensure_debug():
+def _ensure_debug():
     set_debug()
 
 
@@ -209,10 +208,10 @@ async def setup_client(
 
     ws = await client.get_websocket()
     ws.timeout_interval = timeout
-    ws._get_session = mock_cs  # type: ignore
-    client.api_request = AsyncMock(side_effect=mock_api_request)  # type: ignore
-    client.api_request_raw = AsyncMock(side_effect=mock_api_request_raw)  # type: ignore
-    client.ensure_authenticated = AsyncMock()  # type: ignore
+    ws._get_session = mock_cs  # type: ignore[method-assign]
+    client.api_request = AsyncMock(side_effect=mock_api_request)  # type: ignore[method-assign]
+    client.api_request_raw = AsyncMock(side_effect=mock_api_request_raw)  # type: ignore[method-assign]
+    client.ensure_authenticated = AsyncMock()  # type: ignore[method-assign]
     await client.update()
 
     return client
@@ -272,7 +271,7 @@ async def camera_obj(protect_client: ProtectApiClient):
     if not TEST_CAMERA_EXISTS:
         return None
 
-    return list(protect_client.bootstrap.cameras.values())[0]
+    return next(iter(protect_client.bootstrap.cameras.values()))
 
 
 @pytest_asyncio.fixture
@@ -280,7 +279,7 @@ async def light_obj(protect_client: ProtectApiClient):
     if not TEST_LIGHT_EXISTS:
         return None
 
-    return list(protect_client.bootstrap.lights.values())[0]
+    return next(iter(protect_client.bootstrap.lights.values()))
 
 
 @pytest_asyncio.fixture
@@ -288,7 +287,7 @@ async def viewer_obj(protect_client: ProtectApiClient):
     if not TEST_VIEWPORT_EXISTS:
         return None
 
-    return list(protect_client.bootstrap.viewers.values())[0]
+    return next(iter(protect_client.bootstrap.viewers.values()))
 
 
 @pytest_asyncio.fixture
@@ -296,7 +295,7 @@ async def sensor_obj(protect_client: ProtectApiClient):
     if not TEST_SENSOR_EXISTS:
         return None
 
-    return list(protect_client.bootstrap.sensors.values())[0]
+    return next(iter(protect_client.bootstrap.sensors.values()))
 
 
 @pytest_asyncio.fixture(name="doorlock_obj")
@@ -304,7 +303,7 @@ async def doorlock_obj_fixture(protect_client: ProtectApiClient):
     if not TEST_DOORLOCK_EXISTS:
         return None
 
-    return list(protect_client.bootstrap.doorlocks.values())[0]
+    return next(iter(protect_client.bootstrap.doorlocks.values()))
 
 
 @pytest_asyncio.fixture(name="chime_obj")
@@ -312,7 +311,7 @@ async def chime_obj_fixture(protect_client: ProtectApiClient):
     if not TEST_CHIME_EXISTS:
         return None
 
-    return list(protect_client.bootstrap.chimes.values())[0]
+    return next(iter(protect_client.bootstrap.chimes.values()))
 
 
 @pytest_asyncio.fixture
@@ -320,7 +319,7 @@ async def liveview_obj(protect_client: ProtectApiClient):
     if not TEST_LIVEVIEW_EXISTS:
         return None
 
-    return list(protect_client.bootstrap.liveviews.values())[0]
+    return next(iter(protect_client.bootstrap.liveviews.values()))
 
 
 @pytest_asyncio.fixture
@@ -495,12 +494,10 @@ def tmp_binary_file():
 
     yield tmp_file
 
-    try:
+    with suppress(Exception):
         tmp_file.close()
-    except Exception:  # pylint: disable=broad-except
-        pass
 
-    os.remove(tmp_file.name)
+    os.remove(tmp_file.name)  # noqa: PTH107
 
 
 # new values added for newer versions of UFP (for backwards compat tests)
@@ -595,7 +592,7 @@ OLD_FIELDS = {
 }
 
 
-def compare_objs(obj_type, expected, actual):
+def compare_objs(obj_type, expected, actual):  # noqa: PLR0912,PLR0915
     expected = deepcopy(expected)
     actual = deepcopy(actual)
 
@@ -634,10 +631,10 @@ def compare_objs(obj_type, expected, actual):
         if "isColorNightVisionEnabled" not in expected["ispSettings"]:
             actual["ispSettings"].pop("isColorNightVisionEnabled", None)
 
-        if expected["eventStats"]["motion"].get("recentHours") in [[None], None, []]:
+        if expected["eventStats"]["motion"].get("recentHours") in {[None], None, []}:
             expected["eventStats"]["motion"].pop("recentHours", None)
             actual["eventStats"]["motion"].pop("recentHours", None)
-        if expected["eventStats"]["smart"].get("recentHours") == [[None], None, []]:
+        if expected["eventStats"]["smart"].get("recentHours") == {[None], None, []}:
             expected["eventStats"]["smart"].pop("recentHours", None)
             actual["eventStats"]["smart"].pop("recentHours", None)
         if (
@@ -690,7 +687,7 @@ def compare_objs(obj_type, expected, actual):
         # delete all extra metadata keys, many of which are not modeled
         for key in set(expected_keys).difference(actual_keys):
             del expected["metadata"][key]
-    elif obj_type in (ModelType.SENSOR.value, ModelType.DOORLOCK.value):
+    elif obj_type in {ModelType.SENSOR.value, ModelType.DOORLOCK.value}:
         del expected["bridgeCandidates"]
         actual.pop("host", None)
         expected.pop("host", None)
@@ -699,7 +696,7 @@ def compare_objs(obj_type, expected, actual):
         del expected["apRssi"]
         del expected["elementInfo"]
     elif obj_type == ModelType.NVR.value:
-        # TODO:
+        # TODO: fields that still need implemented
         del expected["errorCode"]
         del expected["wifiSettings"]
         del expected["smartDetectAgreement"]
@@ -747,7 +744,7 @@ def compare_objs(obj_type, expected, actual):
                 actual_disk = actual["systemInfo"]["ustorage"]["disks"][index]
                 estimate = disk.get("estimate")
                 actual_estimate = actual_disk.get("estimate")
-                if estimate is not None and actual_estimate is not None:
+                if estimate is not None and actual_estimate is not None:  # noqa: SIM102
                     if math.isclose(estimate, actual_estimate, rel_tol=0.01):
                         actual["systemInfo"]["ustorage"]["disks"][index][
                             "estimate"
@@ -757,7 +754,7 @@ def compare_objs(obj_type, expected, actual):
                 actual_device = actual["systemInfo"]["ustorage"]["space"][index]
                 estimate = device.get("estimate")
                 actual_estimate = actual_device.get("estimate")
-                if estimate is not None and actual_estimate is not None:
+                if estimate is not None and actual_estimate is not None:  # noqa: SIM102
                     if math.isclose(estimate, actual_estimate, rel_tol=0.01):
                         actual["systemInfo"]["ustorage"]["space"][index][
                             "estimate"
@@ -813,7 +810,7 @@ def compare_objs(obj_type, expected, actual):
 
 
 @pytest.fixture()
-def disable_camera_validation():
+def _disable_camera_validation():
     Camera.__config__.validate_assignment = False
 
     yield
