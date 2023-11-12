@@ -133,7 +133,7 @@ exclude = "(/(\\.*|_build|buck-out|build|dist|migrations)/)"
 select = ["ALL"]
 exclude = ["*migrations*", ".*", "/usr/local/lib", "dist", "venv"]
 line-length = 88
-target-version = "py312"
+target-version = "py39"
 ignore = ["AIR", "ANN", "ARG", "C901", "CPY", "D106", "D202", "D203", "D213", "D417", "DJ", "E501", "FBT003", "FIX", "I", "NPY", "PD", "PERF203", "PLR0904", "PLR0913", "PLR1711", "PLR6301", "RUF012", "S", "TD002", "TD003", "W505"]
 
 [tool.ruff.mccabe]
@@ -171,7 +171,7 @@ warn_return_any = true
 no_implicit_reexport = true
 strict_equality = true
 implicit_reexport = true
-plugins = "pydantic.mypy"
+plugins = "pydantic.mypy,sqlalchemy.ext.mypy.plugin"
 
 [[tool.mypy.overrides]]
 module = "tests.*"

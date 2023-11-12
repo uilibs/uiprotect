@@ -42,7 +42,8 @@ except ImportError:
 
 if TYPE_CHECKING:
     from asyncio.events import TimerHandle
-    from typing import Self  # requires Python 3.11+
+
+    from typing_extensions import Self  # requires Python 3.11+
 
     try:
         from pydantic.v1.typing import DictStrAny, SetStr

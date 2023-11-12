@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from unittest.mock import Mock, patch
 
@@ -642,7 +642,7 @@ async def test_camera_set_lcd_text_custom(camera_obj: Optional[Camera]):
         reset_at=None,
     )
 
-    now = datetime.now(tz=UTC)
+    now = datetime.now(tz=timezone.utc)
     await camera_obj.set_lcd_text(DoorbellMessageType.CUSTOM_MESSAGE, "Test", now)
 
     camera_obj.api.api_request.assert_called_with(
@@ -670,7 +670,7 @@ async def test_camera_set_lcd_text_custom_to_custom(camera_obj: Optional[Camera]
         reset_at=None,
     )
 
-    now = datetime.now(tz=UTC)
+    now = datetime.now(tz=timezone.utc)
     await camera_obj.set_lcd_text(DoorbellMessageType.CUSTOM_MESSAGE, "Test", now)
 
     camera_obj.api.api_request.assert_called_with(

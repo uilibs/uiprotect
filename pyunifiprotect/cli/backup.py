@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 import logging
 import math
@@ -148,14 +148,14 @@ class Event(Base):
     @property
     def start(self) -> datetime:
         if self._start is None:
-            self._start = self.start_naive.replace(tzinfo=UTC)  # type: ignore
+            self._start = self.start_naive.replace(tzinfo=timezone.utc)  # type: ignore
         return self._start
 
     @property
     def end(self) -> datetime | None:
         if self._end is None:
             if self.end_naive is not None:
-                self._end = self.end_naive.replace(tzinfo=UTC)
+                self._end = self.end_naive.replace(tzinfo=timezone.utc)
         return self._end
 
     @property

@@ -26,7 +26,7 @@ async def test_process_events_none(protect_client: ProtectApiClient, camera):
     async def get_events(*args, **kwargs):
         return []
 
-    protect_client.get_events_raw = get_events
+    protect_client.get_events_raw = get_events  # type: ignore[method-assign]
 
     await protect_client.update()
 
@@ -75,7 +75,7 @@ async def test_process_events_ring(protect_client: ProtectApiClient, now, camera
             },
         ]
 
-    protect_client.get_events_raw = get_events
+    protect_client.get_events_raw = get_events  # type: ignore[method-assign]
 
     protect_client._last_update = NEVER_RAN
     await protect_client.update()
@@ -123,7 +123,7 @@ async def test_process_events_motion(protect_client: ProtectApiClient, now, came
             },
         ]
 
-    protect_client.get_events_raw = get_events
+    protect_client.get_events_raw = get_events  # type: ignore[method-assign]
 
     protect_client._last_update = NEVER_RAN
     await protect_client.update()
@@ -173,7 +173,7 @@ async def test_process_events_smart(protect_client: ProtectApiClient, now, camer
             },
         ]
 
-    protect_client.get_events_raw = get_events
+    protect_client.get_events_raw = get_events  # type: ignore[method-assign]
 
     protect_client._last_update = NEVER_RAN
     await protect_client.update()

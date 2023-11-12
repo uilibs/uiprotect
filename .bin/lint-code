@@ -23,11 +23,11 @@ echo
 # exit_code=$?
 # echo
 
-# echo "Running mypy..."
-# mypy .
-# test $? -eq 0 -a $exit_code -eq 0
-# exit_code=$?
-# echo
+echo "Running mypy..."
+mypy .
+test $? -eq 0 -a $exit_code -eq 0
+exit_code=$?
+echo
 
 popd 2>&1 >/dev/null
 

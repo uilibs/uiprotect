@@ -195,7 +195,7 @@ def shell(ctx: typer.Context) -> None:
     )  # pylint: disable=unused-variable
     _setup_logger(show_level=True)
 
-    c = get_config()  # type: ignore
+    c = get_config()
     c.InteractiveShellEmbed.colors = "Linux"
     embed(header=colored("protect = ProtectApiClient(*args)", "green"), config=c, using="asyncio")  # type: ignore
 

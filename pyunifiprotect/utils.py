@@ -5,7 +5,7 @@ from collections import Counter
 from collections.abc import Callable, Coroutine, Iterable
 import contextlib
 from copy import deepcopy
-from datetime import UTC, datetime, timedelta, tzinfo
+from datetime import datetime, timedelta, timezone, tzinfo
 from decimal import Decimal
 from enum import Enum
 from functools import lru_cache
@@ -138,7 +138,7 @@ def to_js_time(dt: datetime | int | None) -> Optional[int]:
     if dt.tzinfo is None:
         return int(time.mktime(dt.timetuple()) * 1000)
 
-    return int(dt.astimezone(UTC).timestamp() * 1000)
+    return int(dt.astimezone(timezone.utc).timestamp() * 1000)
 
 
 def to_ms(duration: Optional[timedelta]) -> Optional[int]:
@@ -151,7 +151,7 @@ def to_ms(duration: Optional[timedelta]) -> Optional[int]:
 
 
 def utc_now() -> datetime:
-    return datetime.now(tz=UTC)
+    return datetime.now(tz=timezone.utc)
 
 
 def from_js_time(num: Union[int, float, str, datetime]) -> datetime:
@@ -160,7 +160,7 @@ def from_js_time(num: Union[int, float, str, datetime]) -> datetime:
     if isinstance(num, datetime):
         return num
 
-    return datetime.fromtimestamp(int(num) / 1000, tz=UTC)
+    return datetime.fromtimestamp(int(num) / 1000, tz=timezone.utc)
 
 
 def process_datetime(data: dict[str, Any], key: str) -> Optional[datetime]:
@@ -514,9 +514,7 @@ def get_local_timezone() -> tzinfo:
         return TIMEZONE_GLOBAL
 
     try:
-        from homeassistant.util import (
-            dt as dt_util,  # type: ignore  # pylint: disable=import-outside-toplevel
-        )
+        from homeassistant.util import dt as dt_util  # type: ignore[import-not-found]
 
         return _set_timezone(dt_util.DEFAULT_TIME_ZONE)
     except ImportError:
@@ -547,7 +545,7 @@ def local_datetime(dt: datetime | None = None) -> datetime:
     """Returns datetime in local timezone"""
 
     if dt is None:
-        dt = datetime.now(tz=UTC)
+        dt = datetime.now(tz=timezone.utc)
 
     local_tz = get_local_timezone()
     if dt.tzinfo is None:
