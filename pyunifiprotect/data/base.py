@@ -677,7 +677,7 @@ class ProtectModelWithId(ProtectModel):
                 await self._update_event.wait()
             self._update_event.clear()
             return
-        except TimeoutError:
+        except (TimeoutError, asyncio.TimeoutError, asyncio.CancelledError):
             async with self._update_lock:
                 # Important! Now that we have the lock, we yield to the event loop so any
                 # updates from the websocket are processed before we generate the diff

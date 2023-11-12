@@ -481,7 +481,7 @@ class BaseApiClient:
             self._last_ws_status = False
             try:
                 await websocket.connect()
-            except (asyncio.TimeoutError, asyncio.CancelledError):
+            except (TimeoutError, asyncio.TimeoutError, asyncio.CancelledError):
                 pass
 
     async def async_disconnect_ws(self) -> None:
