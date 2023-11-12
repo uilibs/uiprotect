@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 class UnifiProtectError(Exception):
     """Base class for all other UniFi Protect errors"""
 

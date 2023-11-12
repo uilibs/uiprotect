@@ -1,6 +1,8 @@
 """Tests for pyunifiprotect.unifi_protect_server."""
 # pylint: disable=protected-access
 
+from __future__ import annotations
+
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -13,7 +15,7 @@ from pyunifiprotect.utils import to_js_time
 from tests.conftest import MockDatetime
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_process_events_none(protect_client: ProtectApiClient, camera):
     def get_camera():
         return protect_client.bootstrap.cameras[camera["id"]]
@@ -24,7 +26,7 @@ async def test_process_events_none(protect_client: ProtectApiClient, camera):
     async def get_events(*args, **kwargs):
         return []
 
-    setattr(protect_client, "get_events_raw", get_events)
+    protect_client.get_events_raw = get_events
 
     await protect_client.update()
 
@@ -43,7 +45,7 @@ def _reset_events(camera: Camera) -> None:
     camera.last_smart_detect_event_ids = {}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("pyunifiprotect.api.datetime", MockDatetime)
 async def test_process_events_ring(protect_client: ProtectApiClient, now, camera):
     def get_camera():
@@ -73,7 +75,7 @@ async def test_process_events_ring(protect_client: ProtectApiClient, now, camera
             },
         ]
 
-    setattr(protect_client, "get_events_raw", get_events)
+    protect_client.get_events_raw = get_events
 
     protect_client._last_update = NEVER_RAN
     await protect_client.update()
@@ -91,7 +93,7 @@ async def test_process_events_ring(protect_client: ProtectApiClient, now, camera
     assert event.heatmap_id == f"e-{expected_event_id}"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("pyunifiprotect.api.datetime", MockDatetime)
 async def test_process_events_motion(protect_client: ProtectApiClient, now, camera):
     def get_camera():
@@ -121,7 +123,7 @@ async def test_process_events_motion(protect_client: ProtectApiClient, now, came
             },
         ]
 
-    setattr(protect_client, "get_events_raw", get_events)
+    protect_client.get_events_raw = get_events
 
     protect_client._last_update = NEVER_RAN
     await protect_client.update()
@@ -141,7 +143,7 @@ async def test_process_events_motion(protect_client: ProtectApiClient, now, came
     assert event.start == (now - timedelta(seconds=30))
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("pyunifiprotect.api.datetime", MockDatetime)
 async def test_process_events_smart(protect_client: ProtectApiClient, now, camera):
     def get_camera():
@@ -171,7 +173,7 @@ async def test_process_events_smart(protect_client: ProtectApiClient, now, camer
             },
         ]
 
-    setattr(protect_client, "get_events_raw", get_events)
+    protect_client.get_events_raw = get_events
 
     protect_client._last_update = NEVER_RAN
     await protect_client.update()

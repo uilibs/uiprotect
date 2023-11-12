@@ -1,6 +1,8 @@
 # type: ignore
 # pylint: disable=protected-access
 
+from __future__ import annotations
+
 from datetime import timedelta
 
 import pytest
@@ -14,7 +16,7 @@ from tests.conftest import TEST_CAMERA_EXISTS, TEST_DOORLOCK_EXISTS
 
 
 @pytest.mark.skipif(not TEST_DOORLOCK_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_doorlock_set_paired_camera_none(doorlock_obj: Doorlock):
     doorlock_obj.api.api_request.reset_mock()
 
@@ -29,8 +31,11 @@ async def test_doorlock_set_paired_camera_none(doorlock_obj: Doorlock):
     )
 
 
-@pytest.mark.skipif(not TEST_DOORLOCK_EXISTS or not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.skipif(
+    not TEST_DOORLOCK_EXISTS or not TEST_CAMERA_EXISTS,
+    reason="Missing testdata",
+)
+@pytest.mark.asyncio()
 async def test_doorlock_set_paired_camera(doorlock_obj: Light, camera_obj: Camera):
     doorlock_obj.api.api_request.reset_mock()
 
@@ -47,7 +52,7 @@ async def test_doorlock_set_paired_camera(doorlock_obj: Light, camera_obj: Camer
 
 @pytest.mark.skipif(not TEST_DOORLOCK_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_doorlock_set_status_light(doorlock_obj: Doorlock, status: bool):
     doorlock_obj.api.api_request.reset_mock()
 
@@ -72,7 +77,7 @@ async def test_doorlock_set_status_light(doorlock_obj: Doorlock, status: bool):
         timedelta(seconds=3601),
     ],
 )
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_doorlock_set_auto_close_time(
     doorlock_obj: Doorlock,
     duration: timedelta,
@@ -100,7 +105,7 @@ async def test_doorlock_set_auto_close_time(
 
 
 @pytest.mark.skipif(not TEST_DOORLOCK_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_doorlock_close(doorlock_obj: Doorlock):
     doorlock_obj.api.api_request.reset_mock()
 
@@ -115,7 +120,7 @@ async def test_doorlock_close(doorlock_obj: Doorlock):
 
 
 @pytest.mark.skipif(not TEST_DOORLOCK_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_doorlock_close_invalid(doorlock_obj: Doorlock):
     doorlock_obj.api.api_request.reset_mock()
 
@@ -128,7 +133,7 @@ async def test_doorlock_close_invalid(doorlock_obj: Doorlock):
 
 
 @pytest.mark.skipif(not TEST_DOORLOCK_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_doorlock_open(doorlock_obj: Doorlock):
     doorlock_obj.api.api_request.reset_mock()
 
@@ -143,7 +148,7 @@ async def test_doorlock_open(doorlock_obj: Doorlock):
 
 
 @pytest.mark.skipif(not TEST_DOORLOCK_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_doorlock_open_invalid(doorlock_obj: Doorlock):
     doorlock_obj.api.api_request.reset_mock()
 

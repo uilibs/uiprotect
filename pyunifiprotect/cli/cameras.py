@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Optional, cast
 
@@ -28,15 +28,17 @@ ALL_COMMANDS, DEVICE_COMMANDS = base.init_common_commands(app)
 
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context, device_id: Optional[str] = ARG_DEVICE_ID) -> None:
-    """
-    Camera device CLI.
+    """Camera device CLI.
 
     Returns full list of Cameras without any arguments passed.
     """
 
     protect: ProtectApiClient = ctx.obj.protect
     context = CameraContext(
-        protect=ctx.obj.protect, device=None, devices=protect.bootstrap.cameras, output_format=ctx.obj.output_format
+        protect=ctx.obj.protect,
+        device=None,
+        devices=protect.bootstrap.cameras,
+        output_format=ctx.obj.output_format,
     )
     ctx.obj = context
 
@@ -71,7 +73,10 @@ def timelapse_url(ctx: typer.Context) -> None:
 
 
 @app.command()
-def privacy_mode(ctx: typer.Context, enabled: Optional[bool] = typer.Argument(None)) -> None:
+def privacy_mode(
+    ctx: typer.Context,
+    enabled: Optional[bool] = typer.Argument(None),
+) -> None:
     """Returns/sets library managed privacy mode.
 
     Does not change the microphone sensitivity or recording mode.
@@ -136,8 +141,7 @@ def save_snapshot(
     dt: Optional[datetime] = typer.Option(None, "-t", "--timestamp"),
     package: bool = typer.Option(False, "-p", "--package", help="Get package camera"),
 ) -> None:
-    """
-    Takes snapshot of camera.
+    """Takes snapshot of camera.
 
     If you specify a timestamp, they are approximate. It will not export with down to the second
     accuracy so it may be +/- a few seconds.
@@ -151,7 +155,7 @@ def save_snapshot(
     obj: d.Camera = ctx.obj.device
 
     if dt is not None:
-        local_tz = datetime.now(timezone.utc).astimezone().tzinfo
+        local_tz = datetime.now(UTC).astimezone().tzinfo
         dt = dt.replace(tzinfo=local_tz)
 
     if package:
@@ -176,9 +180,20 @@ def save_video(
     output_path: Path = typer.Argument(..., help="MP4 format"),
     start: datetime = typer.Argument(...),
     end: datetime = typer.Argument(...),
-    channel: int = typer.Option(0, "-c", "--channel", min=0, max=3, help="0 = High, 1 = Medium, 2 = Low, 3 = Package"),
+    channel: int = typer.Option(
+        0,
+        "-c",
+        "--channel",
+        min=0,
+        max=3,
+        help="0 = High, 1 = Medium, 2 = Low, 3 = Package",
+    ),
     fps: Optional[int] = typer.Option(
-        None, "--fps", min=1, max=40, help="Export as timelapse. 4 = 60x, 8 = 120x, 20 = 300x, 40 = 600x"
+        None,
+        "--fps",
+        min=1,
+        max=40,
+        help="Export as timelapse. 4 = 60x, 8 = 120x, 20 = 300x, 40 = 600x",
     ),
 ) -> None:
     """Exports video of camera.
@@ -194,7 +209,7 @@ def save_video(
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
 
-    local_tz = datetime.now(timezone.utc).astimezone().tzinfo
+    local_tz = datetime.now(UTC).astimezone().tzinfo
     start = start.replace(tzinfo=local_tz)
     end = end.replace(tzinfo=local_tz)
 
@@ -206,11 +221,23 @@ def save_video(
         task_id = pb.add_task("(1/2) Exporting", total=100)
 
         async def callback(step: int, current: int, total: int) -> None:
-            pb.update(task_id, total=total, completed=current, description="(2/2) Downloading")
+            pb.update(
+                task_id,
+                total=total,
+                completed=current,
+                description="(2/2) Downloading",
+            )
 
         base.run(
             ctx,
-            obj.get_video(start, end, channel, output_file=output_path, progress_callback=callback, fps=fps),
+            obj.get_video(
+                start,
+                end,
+                channel,
+                output_file=output_path,
+                progress_callback=callback,
+                fps=fps,
+            ),
         )
 
 
@@ -219,7 +246,10 @@ def play_audio(
     ctx: typer.Context,
     url: str = typer.Argument(..., help="ffmpeg playable URL"),
     ffmpeg_path: Optional[Path] = typer.Option(
-        None, "--ffmpeg-path", help="Path to ffmpeg executable", envvar="FFMPEG_PATH"
+        None,
+        "--ffmpeg-path",
+        help="Path to ffmpeg executable",
+        envvar="FFMPEG_PATH",
     ),
 ) -> None:
     """Plays audio file on camera speaker."""
@@ -232,9 +262,17 @@ def play_audio(
 @app.command()
 def smart_detects(
     ctx: typer.Context,
-    values: list[d.SmartDetectObjectType] = typer.Argument(None, help="Set to [] to empty list of detect types."),
+    values: list[d.SmartDetectObjectType] = typer.Argument(
+        None,
+        help="Set to [] to empty list of detect types.",
+    ),
     add: bool = typer.Option(False, "-a", "--add", help="Add values instead of set"),
-    remove: bool = typer.Option(False, "-r", "--remove", help="Remove values instead of set"),
+    remove: bool = typer.Option(
+        False,
+        "-r",
+        "--remove",
+        help="Remove values instead of set",
+    ),
 ) -> None:
     """Returns/set smart detect types for camera."""
 
@@ -278,9 +316,17 @@ def smart_detects(
 @app.command()
 def smart_audio_detects(
     ctx: typer.Context,
-    values: list[d.SmartDetectAudioType] = typer.Argument(None, help="Set to [] to empty list of detect types."),
+    values: list[d.SmartDetectAudioType] = typer.Argument(
+        None,
+        help="Set to [] to empty list of detect types.",
+    ),
     add: bool = typer.Option(False, "-a", "--add", help="Add values instead of set"),
-    remove: bool = typer.Option(False, "-r", "--remove", help="Remove values instead of set"),
+    remove: bool = typer.Option(
+        False,
+        "-r",
+        "--remove",
+        help="Remove values instead of set",
+    ),
 ) -> None:
     """Returns/set smart detect types for camera."""
 
@@ -388,7 +434,10 @@ def set_video_mode(ctx: typer.Context, mode: d.VideoMode) -> None:
 
 
 @app.command()
-def set_camera_zoom(ctx: typer.Context, level: int = typer.Argument(..., min=0, max=100)) -> None:
+def set_camera_zoom(
+    ctx: typer.Context,
+    level: int = typer.Argument(..., min=0, max=100),
+) -> None:
     """Sets zoom level for camera"""
 
     base.require_device_id(ctx)
@@ -398,7 +447,10 @@ def set_camera_zoom(ctx: typer.Context, level: int = typer.Argument(..., min=0, 
 
 
 @app.command()
-def set_wdr_level(ctx: typer.Context, level: int = typer.Argument(..., min=0, max=3)) -> None:
+def set_wdr_level(
+    ctx: typer.Context,
+    level: int = typer.Argument(..., min=0, max=3),
+) -> None:
     """Sets WDR (Wide Dynamic Range) on camera"""
 
     base.require_device_id(ctx)
@@ -408,7 +460,10 @@ def set_wdr_level(ctx: typer.Context, level: int = typer.Argument(..., min=0, ma
 
 
 @app.command()
-def set_mic_volume(ctx: typer.Context, level: int = typer.Argument(..., min=0, max=100)) -> None:
+def set_mic_volume(
+    ctx: typer.Context,
+    level: int = typer.Argument(..., min=0, max=100),
+) -> None:
     """Sets the mic sensitivity level on camera"""
 
     base.require_device_id(ctx)
@@ -418,7 +473,10 @@ def set_mic_volume(ctx: typer.Context, level: int = typer.Argument(..., min=0, m
 
 
 @app.command()
-def set_speaker_volume(ctx: typer.Context, level: int = typer.Argument(..., min=0, max=100)) -> None:
+def set_speaker_volume(
+    ctx: typer.Context,
+    level: int = typer.Argument(..., min=0, max=100),
+) -> None:
     """Sets the speaker sensitivity level on camera"""
 
     base.require_device_id(ctx)
@@ -481,10 +539,19 @@ def set_osd_bitrate(ctx: typer.Context, enabled: bool) -> None:
 def set_lcd_text(
     ctx: typer.Context,
     text_type: Optional[d.DoorbellMessageType] = typer.Argument(
-        None, help="No value sets it back to the global default doorbell message."
+        None,
+        help="No value sets it back to the global default doorbell message.",
     ),
-    text: Optional[str] = typer.Argument(None, help="Only for CUSTOM_MESSAGE text type"),
-    reset_at: Optional[datetime] = typer.Option(None, "-r", "--reset-time", help="Does not apply to default message"),
+    text: Optional[str] = typer.Argument(
+        None,
+        help="Only for CUSTOM_MESSAGE text type",
+    ),
+    reset_at: Optional[datetime] = typer.Option(
+        None,
+        "-r",
+        "--reset-time",
+        help="Does not apply to default message",
+    ),
 ) -> None:
     """Sets doorbell LCD text.
 
@@ -494,7 +561,7 @@ def set_lcd_text(
     """
 
     if reset_at is not None:
-        local_tz = datetime.now(timezone.utc).astimezone().tzinfo
+        local_tz = datetime.now(UTC).astimezone().tzinfo
         reset_at = reset_at.replace(tzinfo=local_tz)
 
     base.require_device_id(ctx)

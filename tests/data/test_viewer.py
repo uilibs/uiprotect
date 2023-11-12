@@ -1,6 +1,8 @@
 # type: ignore
 # pylint: disable=protected-access
 
+from __future__ import annotations
+
 from unittest.mock import Mock
 
 import pytest
@@ -12,7 +14,7 @@ from tests.conftest import TEST_VIEWPORT_EXISTS
 
 
 @pytest.mark.skipif(not TEST_VIEWPORT_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_viewer_set_liveview_invalid(viewer_obj: Viewer, liveview_obj: Liveview):
     viewer_obj.api.api_request.reset_mock()
 
@@ -25,7 +27,7 @@ async def test_viewer_set_liveview_invalid(viewer_obj: Viewer, liveview_obj: Liv
 
 
 @pytest.mark.skipif(not TEST_VIEWPORT_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_viewer_set_liveview_valid(viewer_obj: Viewer, liveview_obj: Liveview):
     viewer_obj.api.api_request.reset_mock()
     viewer_obj.api.emit_message = Mock()
@@ -48,5 +50,5 @@ async def test_viewer_set_liveview_valid(viewer_obj: Viewer, liveview_obj: Livev
             changed_data={"liveview_id": liveview_obj.id},
             old_obj=viewer_obj,
             new_obj=viewer_obj,
-        )
+        ),
     )

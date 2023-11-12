@@ -25,15 +25,17 @@ ALL_COMMANDS, DEVICE_COMMANDS = base.init_common_commands(app)
 
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context, device_id: Optional[str] = ARG_DEVICE_ID) -> None:
-    """
-    Viewers device CLI.
+    """Viewers device CLI.
 
     Returns full list of Viewers without any arguments passed.
     """
 
     protect: ProtectApiClient = ctx.obj.protect
     context = ViewerContext(
-        protect=ctx.obj.protect, device=None, devices=protect.bootstrap.viewers, output_format=ctx.obj.output_format
+        protect=ctx.obj.protect,
+        device=None,
+        devices=protect.bootstrap.viewers,
+        output_format=ctx.obj.output_format,
     )
     ctx.obj = context
 
@@ -56,7 +58,10 @@ def main(ctx: typer.Context, device_id: Optional[str] = ARG_DEVICE_ID) -> None:
 
 
 @app.command()
-def liveview(ctx: typer.Context, liveview_id: Optional[str] = typer.Argument(None)) -> None:
+def liveview(
+    ctx: typer.Context,
+    liveview_id: Optional[str] = typer.Argument(None),
+) -> None:
     """Returns or sets the current liveview."""
 
     base.require_device_id(ctx)

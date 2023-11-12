@@ -1,6 +1,8 @@
 # type: ignore
 # pylint: disable=protected-access
 
+from __future__ import annotations
+
 from datetime import timedelta
 from typing import Optional
 
@@ -19,7 +21,7 @@ except ImportError:
 
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_light_set_paired_camera_none(light_obj: Light):
     light_obj.api.api_request.reset_mock()
 
@@ -34,8 +36,11 @@ async def test_light_set_paired_camera_none(light_obj: Light):
     )
 
 
-@pytest.mark.skipif(not TEST_LIGHT_EXISTS or not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.skipif(
+    not TEST_LIGHT_EXISTS or not TEST_CAMERA_EXISTS,
+    reason="Missing testdata",
+)
+@pytest.mark.asyncio()
 async def test_light_set_paired_camera(light_obj: Light, camera_obj: Camera):
     light_obj.api.api_request.reset_mock()
 
@@ -52,7 +57,7 @@ async def test_light_set_paired_camera(light_obj: Light, camera_obj: Camera):
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_light_set_status_light(light_obj: Light, status: bool):
     light_obj.api.api_request.reset_mock()
 
@@ -69,7 +74,7 @@ async def test_light_set_status_light(light_obj: Light, status: bool):
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("level", [-1, 1, 3, 6, 7])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_light_set_led_level(light_obj: Light, level: int):
     light_obj.api.api_request.reset_mock()
 
@@ -93,7 +98,7 @@ async def test_light_set_led_level(light_obj: Light, level: int):
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("status", [True, False])
 @pytest.mark.parametrize("level", [None, -1, 1, 3, 6, 7])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_light_set_light(light_obj: Light, status: bool, level: Optional[int]):
     light_obj.api.api_request.reset_mock()
 
@@ -112,7 +117,10 @@ async def test_light_set_light(light_obj: Light, status: bool, level: Optional[i
         if level is None:
             expected = {"lightOnSettings": {"isLedForceOn": status}}
         else:
-            expected = {"lightOnSettings": {"isLedForceOn": status}, "lightDeviceSettings": {"ledLevel": level}}
+            expected = {
+                "lightOnSettings": {"isLedForceOn": status},
+                "lightDeviceSettings": {"ledLevel": level},
+            }
 
         light_obj.api.api_request.assert_called_with(
             f"lights/{light_obj.id}",
@@ -123,7 +131,7 @@ async def test_light_set_light(light_obj: Light, status: bool, level: Optional[i
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("sensitivity", [1, 100, -10])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_light_set_sensitivity(
     light_obj: Light,
     sensitivity: int,
@@ -159,7 +167,7 @@ async def test_light_set_sensitivity(
         timedelta(seconds=1000),
     ],
 )
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_light_set_duration(
     light_obj: Light,
     duration: timedelta,
@@ -168,7 +176,10 @@ async def test_light_set_duration(
 
     light_obj.light_device_settings.pir_duration = timedelta(seconds=30)
 
-    duration_invalid = duration is not None and int(duration.total_seconds()) in (1, 1000)
+    duration_invalid = duration is not None and int(duration.total_seconds()) in (
+        1,
+        1000,
+    )
     if duration_invalid:
         with pytest.raises(BadRequest):
             await light_obj.set_duration(duration)
@@ -200,7 +211,7 @@ async def test_light_set_duration(
     ],
 )
 @pytest.mark.parametrize("sensitivity", [None, 1, 100, -10])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_light_set_light_settings(
     light_obj: Light,
     mode: LightModeType,
@@ -215,19 +226,37 @@ async def test_light_set_light_settings(
     light_obj.light_device_settings.pir_duration = timedelta(seconds=30)
     light_obj.light_device_settings.pir_sensitivity = 50
 
-    duration_invalid = duration is not None and int(duration.total_seconds()) in (1, 1000)
+    duration_invalid = duration is not None and int(duration.total_seconds()) in (
+        1,
+        1000,
+    )
     if duration_invalid:
         with pytest.raises(BadRequest):
-            await light_obj.set_light_settings(mode, enable_at=enable_at, duration=duration, sensitivity=sensitivity)
+            await light_obj.set_light_settings(
+                mode,
+                enable_at=enable_at,
+                duration=duration,
+                sensitivity=sensitivity,
+            )
 
             assert not light_obj.api.api_request.called
     elif sensitivity == -10:
         with pytest.raises(ValidationError):
-            await light_obj.set_light_settings(mode, enable_at=enable_at, duration=duration, sensitivity=sensitivity)
+            await light_obj.set_light_settings(
+                mode,
+                enable_at=enable_at,
+                duration=duration,
+                sensitivity=sensitivity,
+            )
 
             assert not light_obj.api.api_request.called
     else:
-        await light_obj.set_light_settings(mode, enable_at=enable_at, duration=duration, sensitivity=sensitivity)
+        await light_obj.set_light_settings(
+            mode,
+            enable_at=enable_at,
+            duration=duration,
+            sensitivity=sensitivity,
+        )
 
         expected = {"lightModeSettings": {"mode": mode.value}}
         if enable_at is not None:

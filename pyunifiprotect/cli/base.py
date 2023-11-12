@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable, Coroutine, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Coroutine, Mapping, Optional, Sequence, TypeVar
+from typing import Any, Optional, TypeVar
 
 import orjson
 import typer
@@ -53,7 +54,10 @@ def json_output(obj: Any) -> None:
     typer.echo(orjson.dumps(obj, option=orjson.OPT_INDENT_2).decode("utf-8"))
 
 
-def print_unifi_obj(obj: ProtectBaseObject | None, output_format: OutputFormatEnum) -> None:
+def print_unifi_obj(
+    obj: ProtectBaseObject | None,
+    output_format: OutputFormatEnum,
+) -> None:
     """Helper method to print a single protect object"""
 
     if obj is not None:
@@ -166,8 +170,7 @@ def bridge(ctx: typer.Context) -> None:
 
 
 def set_ssh(ctx: typer.Context, enabled: bool) -> None:
-    """
-    Sets the isSshEnabled value for device.
+    """Sets the isSshEnabled value for device.
 
     May not have an effect on many device types. Only seems to work for
     Linux and BusyBox based devices (camera, light and viewport).
@@ -187,8 +190,7 @@ def set_name(ctx: typer.Context, name: Optional[str] = typer.Argument(None)) -> 
 
 
 def update(ctx: typer.Context, data: str) -> None:
-    """
-    Updates the device.
+    """Updates the device.
 
     Makes a raw PATCH request to update a device. Advanced usage and usually recommended not to use.
     """
@@ -221,8 +223,7 @@ def unadopt(ctx: typer.Context, force: bool = OPTION_FORCE) -> None:
 
 
 def adopt(ctx: typer.Context, name: Optional[str] = typer.Argument(None)) -> None:
-    """
-    Adopts a device.
+    """Adopts a device.
 
     By default, unadopted devices do not show up in the bootstrap. Use
     `unifi-protect -u` to show unadopted devices.
@@ -234,7 +235,9 @@ def adopt(ctx: typer.Context, name: Optional[str] = typer.Argument(None)) -> Non
     run(ctx, obj.adopt(name))
 
 
-def init_common_commands(app: typer.Typer) -> tuple[dict[str, Callable[..., Any]], dict[str, Callable[..., Any]]]:
+def init_common_commands(
+    app: typer.Typer,
+) -> tuple[dict[str, Callable[..., Any]], dict[str, Callable[..., Any]]]:
     deviceless_commands: dict[str, Callable[..., Any]] = {}
     device_commands: dict[str, Callable[..., Any]] = {}
 

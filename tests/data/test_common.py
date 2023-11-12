@@ -1,12 +1,14 @@
 """Tests for pyunifiprotect.data"""
 # pylint: disable=protected-access
 
+from __future__ import annotations
+
 import asyncio
 import base64
 from copy import deepcopy
 from datetime import timedelta
 from ipaddress import IPv4Address
-from typing import Any, Dict, Optional, Set, cast
+from typing import Any, Optional, cast
 from unittest.mock import Mock, patch
 
 import pytest
@@ -66,8 +68,18 @@ PACKET2_DATA = {
     "stats": {
         "rxBytes": 53945386,
         "txBytes": 2356366294,
-        "wifi": {"channel": None, "frequency": None, "linkSpeedMbps": None, "signalQuality": 50, "signalStrength": 0},
-        "battery": {"percentage": None, "isCharging": False, "sleepState": "disconnected"},
+        "wifi": {
+            "channel": None,
+            "frequency": None,
+            "linkSpeedMbps": None,
+            "signalQuality": 50,
+            "signalStrength": 0,
+        },
+        "battery": {
+            "percentage": None,
+            "isCharging": False,
+            "sleepState": "disconnected",
+        },
         "video": {
             "recordingStart": 1629514560194,
             "recordingEnd": 1632106567254,
@@ -79,7 +91,7 @@ PACKET2_DATA = {
             "timelapseEndLQ": 1632103485646,
         },
         "storage": {"used": 285615325184, "rate": 307.297280557734},
-    }
+    },
 }
 
 
@@ -192,7 +204,10 @@ def test_camera_smart_events(camera_obj: Camera):
             end=now - timedelta(seconds=7),
             type=EventType.SMART_DETECT_LINE,
             score=100,
-            smart_detect_types=[SmartDetectObjectType.PERSON, SmartDetectObjectType.VEHICLE],
+            smart_detect_types=[
+                SmartDetectObjectType.PERSON,
+                SmartDetectObjectType.VEHICLE,
+            ],
             smart_detect_event_ids=[],
         ),
         Event(  # type: ignore
@@ -337,7 +352,10 @@ def test_bootstrap_device_not_adopted_no_api(bootstrap):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_bootstrap_device_not_adopted_enabled(bootstrap: dict[str, Any], protect_client: ProtectApiClient):
+def test_bootstrap_device_not_adopted_enabled(
+    bootstrap: dict[str, Any],
+    protect_client: ProtectApiClient,
+):
     bootstrap["cameras"][0]["isAdopted"] = False
     protect_client.ignore_unadopted = False
     obj = Bootstrap.from_unifi_dict(**deepcopy(bootstrap), api=protect_client)
@@ -361,7 +379,10 @@ def test_bootstrap_benchmark(bootstrap: dict[str, Any], benchmark: BenchmarkFixt
 
 @pytest.mark.benchmark(group="construct")
 @pytest.mark.timeout(0)
-def test_bootstrap_benchmark_construct(bootstrap: dict[str, Any], benchmark: BenchmarkFixture):
+def test_bootstrap_benchmark_construct(
+    bootstrap: dict[str, Any],
+    benchmark: BenchmarkFixture,
+):
     set_no_debug()
 
     def create():
@@ -412,7 +433,7 @@ def test_case_str_enum():
     assert RecordingType("roTating") == RecordingType.CONTINUOUS
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_play_audio_no_speaker(camera_obj: Camera):
     camera_obj.feature_flags.has_speaker = False
 
@@ -420,7 +441,7 @@ async def test_play_audio_no_speaker(camera_obj: Camera):
         await camera_obj.play_audio("test")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @pytest.mark.usefixtures("disable_camera_validation")
 async def test_play_audio_already_playing(camera_obj: Camera):
     camera_obj.feature_flags.has_speaker = True
@@ -432,7 +453,7 @@ async def test_play_audio_already_playing(camera_obj: Camera):
         await camera_obj.play_audio("test")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @pytest.mark.usefixtures("disable_camera_validation")
 @patch("pyunifiprotect.data.devices.TalkbackStream")
 async def test_play_audio(mock_talkback, camera_obj: Camera):
@@ -448,7 +469,7 @@ async def test_play_audio(mock_talkback, camera_obj: Camera):
     assert mock_instance.run_until_complete.called
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @pytest.mark.usefixtures("disable_camera_validation")
 @patch("pyunifiprotect.data.devices.TalkbackStream")
 async def test_play_audio_no_blocking(mock_talkback, camera_obj: Camera):
@@ -467,7 +488,7 @@ async def test_play_audio_no_blocking(mock_talkback, camera_obj: Camera):
     assert mock_instance.run_until_complete.called
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @pytest.mark.usefixtures("disable_camera_validation")
 @patch("pyunifiprotect.data.devices.TalkbackStream")
 async def test_play_audio_stop(mock_talkback, camera_obj: Camera):
@@ -486,7 +507,7 @@ async def test_play_audio_stop(mock_talkback, camera_obj: Camera):
     assert mock_instance.stop.called
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @pytest.mark.usefixtures("disable_camera_validation")
 @patch("pyunifiprotect.data.devices.TalkbackStream")
 async def test_play_audio_error(mock_talkback, camera_obj: Camera):
@@ -503,7 +524,7 @@ async def test_play_audio_error(mock_talkback, camera_obj: Camera):
     assert mock_instance.run_until_complete.called
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_smart_detect_track_bad_type(smart_dectect_obj: Optional[Event]):
     if smart_dectect_obj is None:
         pytest.skip("No smart detection object found")
@@ -514,7 +535,7 @@ async def test_get_smart_detect_track_bad_type(smart_dectect_obj: Optional[Event
         await smart_dectect_obj.get_smart_detect_track()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_smart_detect_track(smart_dectect_obj: Optional[Event]):
     if smart_dectect_obj is None:
         pytest.skip("No smart detection object found")
@@ -523,7 +544,7 @@ async def test_get_smart_detect_track(smart_dectect_obj: Optional[Event]):
     assert track.camera
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_smart_detect_zones(smart_dectect_obj: Optional[Event]):
     if smart_dectect_obj is None:
         pytest.skip("No smart detection object found")
@@ -533,7 +554,7 @@ async def test_get_smart_detect_zones(smart_dectect_obj: Optional[Event]):
         pytest.skip("Camera not found for smart detection")
 
     track = await smart_dectect_obj.get_smart_detect_track()
-    zone_ids: Set[int] = set()
+    zone_ids: set[int] = set()
     for item in track.payload:
         zone_ids = zone_ids | set(item.zone_ids)
 
@@ -584,7 +605,7 @@ def test_bootstrap_dns_host(bootstrap):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_save_device_no_changes(camera_obj: Camera):
     camera_obj.api.api_request.reset_mock()  # type: ignore
 
@@ -596,7 +617,7 @@ async def test_save_device_no_changes(camera_obj: Camera):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_device_reboot(camera_obj: Camera):
     camera_obj.api.api_request.reset_mock()  # type: ignore
 
@@ -613,18 +634,82 @@ async def test_device_reboot(camera_obj: Camera):
     "permissions,can_create,can_read,can_write,can_delete,can_read_media,can_delete_media",
     [
         (["camera:*:*"], True, True, True, True, True, True),
-        (["camera:create,read,write,delete,readmedia,deletemedia:*"], True, True, True, True, True, True),
-        (["camera:create,read,write,readmedia:*"], True, True, True, False, True, False),
+        (
+            ["camera:create,read,write,delete,readmedia,deletemedia:*"],
+            True,
+            True,
+            True,
+            True,
+            True,
+            True,
+        ),
+        (
+            ["camera:create,read,write,readmedia:*"],
+            True,
+            True,
+            True,
+            False,
+            True,
+            False,
+        ),
         (["camera:read,readmedia:*"], False, True, False, False, True, False),
-        (["camera:read,readmedia:test_id_1,test_id_2"], False, True, False, False, True, False),
-        (["camera:read,readmedia:test_id_2,test_id_1"], False, True, False, False, True, False),
-        (["camera:delete:test_id_1", "camera:read,readmedia:*"], False, True, False, True, True, False),
-        (["camera:delete:test_id_2", "camera:read,readmedia:*"], False, True, False, False, True, False),
-        (["camera:read,readmedia:*", "camera:delete:test_id_1"], False, True, False, True, True, False),
-        (["camera:read,readmedia:*", "camera:delete:test_id_2"], False, True, False, False, True, False),
+        (
+            ["camera:read,readmedia:test_id_1,test_id_2"],
+            False,
+            True,
+            False,
+            False,
+            True,
+            False,
+        ),
+        (
+            ["camera:read,readmedia:test_id_2,test_id_1"],
+            False,
+            True,
+            False,
+            False,
+            True,
+            False,
+        ),
+        (
+            ["camera:delete:test_id_1", "camera:read,readmedia:*"],
+            False,
+            True,
+            False,
+            True,
+            True,
+            False,
+        ),
+        (
+            ["camera:delete:test_id_2", "camera:read,readmedia:*"],
+            False,
+            True,
+            False,
+            False,
+            True,
+            False,
+        ),
+        (
+            ["camera:read,readmedia:*", "camera:delete:test_id_1"],
+            False,
+            True,
+            False,
+            True,
+            True,
+            False,
+        ),
+        (
+            ["camera:read,readmedia:*", "camera:delete:test_id_2"],
+            False,
+            True,
+            False,
+            False,
+            True,
+            False,
+        ),
     ],
 )
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_permissions(
     user_obj: User,
     camera_obj: Camera,
@@ -640,7 +725,9 @@ async def test_permissions(
         pytest.skip("No camera_obj obj found")
 
     api = user_obj.api
-    user_obj.all_permissions = [Permission.from_unifi_dict(rawPermission=p, api=api) for p in permissions]
+    user_obj.all_permissions = [
+        Permission.from_unifi_dict(rawPermission=p, api=api) for p in permissions
+    ]
     camera_obj.id = "test_id_1"
     api.bootstrap.cameras[camera_obj.id] = camera_obj
 
@@ -658,14 +745,26 @@ async def test_permissions(
         (["user:*:*"], True, True, True, True),
         (["user:create,read,write,delete:*"], True, True, True, True),
         (["user:create,read,write,delete:$"], True, True, True, True),
-        (["user:read,write:$", "user:create,read,write,delete:*"], True, True, True, True),
+        (
+            ["user:read,write:$", "user:create,read,write,delete:*"],
+            True,
+            True,
+            True,
+            True,
+        ),
         (["user:read,write:*"], False, True, True, False),
         (["user:read,write:$"], False, True, True, False),
-        (["user:read,write:$", "user:create,read,write,delete:test_id_2"], False, True, True, False),
+        (
+            ["user:read,write:$", "user:create,read,write,delete:test_id_2"],
+            False,
+            True,
+            True,
+            False,
+        ),
         (["user:create,delete:$", "user:read,write:*"], True, True, True, True),
     ],
 )
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_permissions_user(
     user_obj: User,
     permissions: list[str],
@@ -678,7 +777,9 @@ async def test_permissions_user(
 
     user1 = user_obj.copy()
     user1.id = "test_id_1"
-    user1.all_permissions = [Permission.from_unifi_dict(rawPermission=p, api=api) for p in permissions]
+    user1.all_permissions = [
+        Permission.from_unifi_dict(rawPermission=p, api=api) for p in permissions
+    ]
 
     api.bootstrap.auth_user_id = user1.id
     api.bootstrap.users = {user1.id: user1}
@@ -695,14 +796,26 @@ async def test_permissions_user(
         (["user:*:*"], True, True, True, True),
         (["user:create,read,write,delete:*"], True, True, True, True),
         (["user:create,read,write,delete:$"], False, False, False, False),
-        (["user:read,write:$", "user:create,read,write,delete:*"], True, True, True, True),
+        (
+            ["user:read,write:$", "user:create,read,write,delete:*"],
+            True,
+            True,
+            True,
+            True,
+        ),
         (["user:read,write:*"], False, True, True, False),
         (["user:read,write:$"], False, False, False, False),
-        (["user:read,write:$", "user:create,read,write,delete:test_id_2"], True, True, True, True),
+        (
+            ["user:read,write:$", "user:create,read,write,delete:test_id_2"],
+            True,
+            True,
+            True,
+            True,
+        ),
         (["user:create,delete:$", "user:read,write:*"], False, True, True, False),
     ],
 )
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_permissions_self_with_other(
     user_obj: User,
     permissions: list[str],
@@ -715,7 +828,9 @@ async def test_permissions_self_with_other(
 
     user1 = user_obj.copy()
     user1.id = "test_id_1"
-    user1.all_permissions = [Permission.from_unifi_dict(rawPermission=p, api=api) for p in permissions]
+    user1.all_permissions = [
+        Permission.from_unifi_dict(rawPermission=p, api=api) for p in permissions
+    ]
 
     user2 = user_obj.copy()
     user2.id = "test_id_2"
@@ -730,7 +845,7 @@ async def test_permissions_self_with_other(
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_revert(user_obj: User, camera_obj: Camera):
     if camera_obj is None:
         pytest.skip("No camera_obj obj found")
@@ -741,7 +856,9 @@ async def test_revert(user_obj: User, camera_obj: Camera):
     camera_obj.recording_settings.mode = RecordingMode.NEVER
     api.bootstrap.cameras[camera_obj.id] = camera_obj
 
-    user_obj.all_permissions = [Permission.from_unifi_dict(rawPermission="camera:read:*", api=api)]
+    user_obj.all_permissions = [
+        Permission.from_unifi_dict(rawPermission="camera:read:*", api=api),
+    ]
 
     camera_before = camera_obj.dict()
 
@@ -754,7 +871,7 @@ async def test_revert(user_obj: User, camera_obj: Camera):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_multiple_updates(user_obj: User, camera_obj: Camera):
     if camera_obj is None:
         pytest.skip("No camera_obj obj found")
@@ -782,7 +899,11 @@ async def test_multiple_updates(user_obj: User, camera_obj: Camera):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_unknown_smart(camera: Optional[Dict[str, Any]], bootstrap: Dict[str, Any], protect_client: ProtectApiClient):
+def test_unknown_smart(
+    camera: Optional[dict[str, Any]],
+    bootstrap: dict[str, Any],
+    protect_client: ProtectApiClient,
+):
     if camera is None:
         pytest.skip("No camera obj found")
 
@@ -791,14 +912,20 @@ def test_unknown_smart(camera: Optional[Dict[str, Any]], bootstrap: Dict[str, An
     camera["smartDetectSettings"]["objectTypes"] = ["alrmSmoke3"]
     bootstrap["cameras"] = [camera]
 
-    obj: Bootstrap = Bootstrap.from_unifi_dict(**deepcopy(bootstrap), api=protect_client)
+    obj: Bootstrap = Bootstrap.from_unifi_dict(
+        **deepcopy(bootstrap),
+        api=protect_client,
+    )
     camera_obj = list(obj.cameras.values())[0]
     assert camera_obj.feature_flags.smart_detect_types == []
     assert camera_obj.smart_detect_zones[0].object_types == []
     assert camera_obj.smart_detect_settings.object_types == []
 
     set_no_debug()
-    obj: Bootstrap = Bootstrap.from_unifi_dict(**deepcopy(bootstrap), api=protect_client)
+    obj: Bootstrap = Bootstrap.from_unifi_dict(
+        **deepcopy(bootstrap),
+        api=protect_client,
+    )
     camera_obj = list(obj.cameras.values())[0]
     assert camera_obj.feature_flags.smart_detect_types == []
     assert camera_obj.smart_detect_zones[0].object_types == []
@@ -807,31 +934,50 @@ def test_unknown_smart(camera: Optional[Dict[str, Any]], bootstrap: Dict[str, An
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_unknown_video(camera: Optional[Dict[str, Any]], bootstrap: Dict[str, Any], protect_client: ProtectApiClient):
+def test_unknown_video(
+    camera: Optional[dict[str, Any]],
+    bootstrap: dict[str, Any],
+    protect_client: ProtectApiClient,
+):
     if camera is None:
         pytest.skip("No camera obj found")
 
     camera["featureFlags"]["videoModes"] = ["stuff"]
     bootstrap["cameras"] = [camera]
 
-    obj: Bootstrap = Bootstrap.from_unifi_dict(**deepcopy(bootstrap), api=protect_client)
+    obj: Bootstrap = Bootstrap.from_unifi_dict(
+        **deepcopy(bootstrap),
+        api=protect_client,
+    )
     camera_obj = list(obj.cameras.values())[0]
     assert camera_obj.feature_flags.video_modes == []
 
     set_no_debug()
-    obj: Bootstrap = Bootstrap.from_unifi_dict(**deepcopy(bootstrap), api=protect_client)
+    obj: Bootstrap = Bootstrap.from_unifi_dict(
+        **deepcopy(bootstrap),
+        api=protect_client,
+    )
     camera_obj = list(obj.cameras.values())[0]
     assert camera_obj.feature_flags.video_modes == []
     set_debug()
 
 
-def test_unknown_storage_type(bootstrap: Dict[str, Any], protect_client: ProtectApiClient):
+def test_unknown_storage_type(
+    bootstrap: dict[str, Any],
+    protect_client: ProtectApiClient,
+):
     bootstrap["nvr"]["systemInfo"]["storage"]["type"] = "test"
 
-    obj: Bootstrap = Bootstrap.from_unifi_dict(**deepcopy(bootstrap), api=protect_client)
+    obj: Bootstrap = Bootstrap.from_unifi_dict(
+        **deepcopy(bootstrap),
+        api=protect_client,
+    )
     assert obj.nvr.system_info.storage.type == StorageType.UNKNOWN
 
     set_no_debug()
-    obj: Bootstrap = Bootstrap.from_unifi_dict(**deepcopy(bootstrap), api=protect_client)
+    obj: Bootstrap = Bootstrap.from_unifi_dict(
+        **deepcopy(bootstrap),
+        api=protect_client,
+    )
     assert obj.nvr.system_info.storage.type == StorageType.UNKNOWN
     set_debug()

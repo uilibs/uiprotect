@@ -6,7 +6,7 @@ from asyncio.subprocess import PIPE, Process, create_subprocess_exec
 import logging
 from pathlib import Path
 from shlex import split
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 from urllib.parse import urlparse
 
 from aioshutil import which
@@ -21,11 +21,11 @@ _LOGGER = logging.getLogger(__name__)
 
 class FfmpegCommand:
     ffmpeg_path: Optional[Path]
-    args: List[str]
+    args: list[str]
     process: Optional[Process] = None
 
-    stdout: List[str] = []
-    stderr: List[str] = []
+    stdout: list[str] = []
+    stderr: list[str] = []
 
     def __init__(self, cmd: str, ffmpeg_path: Optional[Path] = None) -> None:
         self.args = split(cmd)
@@ -71,7 +71,12 @@ class FfmpegCommand:
             raise StreamError("Could not find ffmpeg")
 
         _LOGGER.debug("ffmpeg: %s %s", self.ffmpeg_path, " ".join(self.args))
-        self.process = await create_subprocess_exec(self.ffmpeg_path, *self.args, stdout=PIPE, stderr=PIPE)
+        self.process = await create_subprocess_exec(
+            self.ffmpeg_path,
+            *self.args,
+            stdout=PIPE,
+            stderr=PIPE,
+        )
 
     async def stop(self) -> None:
         if self.process is None:
@@ -102,7 +107,7 @@ class FfmpegCommand:
             [
                 asyncio.create_task(self._read_stream(self.process.stdout, "stdout")),
                 asyncio.create_task(self._read_stream(self.process.stderr, "stderr")),
-            ]
+            ],
         )
         await self.process.wait()
 
@@ -111,7 +116,12 @@ class TalkbackStream(FfmpegCommand):
     camera: Camera
     content_url: str
 
-    def __init__(self, camera: Camera, content_url: str, ffmpeg_path: Optional[Path] = None):
+    def __init__(
+        self,
+        camera: Camera,
+        content_url: str,
+        ffmpeg_path: Optional[Path] = None,
+    ):
         if not camera.feature_flags.has_speaker:
             raise BadRequest("Camera does not have a speaker for talkback")
 

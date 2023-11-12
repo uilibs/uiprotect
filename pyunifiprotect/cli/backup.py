@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 import logging
 import math
@@ -27,17 +27,9 @@ from rich.progress import (
     TimeRemainingColumn,
     track,
 )
-from sqlalchemy import (
-    Column,
-    DateTime,
-    ForeignKey,
-    Integer,
-    String,
-    event as saevent,
-    func,
-    or_,
-    select,
-)
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import event as saevent
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import Mapped, declarative_base, relationship
 import typer
@@ -141,7 +133,11 @@ class Event(Base):
     camera_mac = Column(String(12), index=True)
     event_type = Column(String(32), index=True)
 
-    smart_detect_types: Mapped[list[EventSmartType]] = relationship("EventSmartType", lazy="joined", uselist=True)
+    smart_detect_types: Mapped[list[EventSmartType]] = relationship(
+        "EventSmartType",
+        lazy="joined",
+        uselist=True,
+    )
 
     _start: datetime | None = None
     _end: datetime | None = None
@@ -152,14 +148,14 @@ class Event(Base):
     @property
     def start(self) -> datetime:
         if self._start is None:
-            self._start = self.start_naive.replace(tzinfo=timezone.utc)  # type: ignore
+            self._start = self.start_naive.replace(tzinfo=UTC)  # type: ignore
         return self._start
 
     @property
     def end(self) -> datetime | None:
         if self._end is None:
             if self.end_naive is not None:
-                self._end = self.end_naive.replace(tzinfo=timezone.utc)
+                self._end = self.end_naive.replace(tzinfo=UTC)
         return self._end
 
     @property
@@ -175,14 +171,20 @@ class Event(Base):
             display_name = ""
             length = timedelta(seconds=0)
             if camera is not None:
-                camera_slug = camera.display_name.lower().replace(" ", ctx.seperator) + ctx.seperator
+                camera_slug = (
+                    camera.display_name.lower().replace(" ", ctx.seperator)
+                    + ctx.seperator
+                )
                 display_name = camera.display_name
             if self.end is not None:
                 length = self.end - self.start
 
             event_type = str(self.event_type)
             event_type_pretty = f"{event_type.title()} Event"
-            if event_type in (d.EventType.SMART_DETECT.value, d.EventType.SMART_DETECT_LINE.value):
+            if event_type in (
+                d.EventType.SMART_DETECT.value,
+                d.EventType.SMART_DETECT_LINE.value,
+            ):
                 smart_types = list(self.smart_types)
                 smart_types.sort()
                 event_type = f"{event_type}[{','.join(smart_types)}]"
@@ -196,7 +198,10 @@ class Event(Base):
                 "day": str(self.start.day),
                 "hour": str(self.start.hour),
                 "minute": str(self.start.minute),
-                "datetime": self.start.strftime("%Y-%m-%dT%H-%M-%S%z").replace("-", ctx.seperator),
+                "datetime": self.start.strftime("%Y-%m-%dT%H-%M-%S%z").replace(
+                    "-",
+                    ctx.seperator,
+                ),
                 "date": self.start.strftime("%Y-%m-%d").replace("-", ctx.seperator),
                 "time": self.start.strftime("%H-%M-%S%z").replace("-", ctx.seperator),
                 "time_sort_pretty": self.start.strftime("%H:%M:%S (%Z)"),
@@ -206,9 +211,18 @@ class Event(Base):
                 "day_local": str(start_local.day),
                 "hour_local": str(start_local.hour),
                 "minute_local": str(start_local.minute),
-                "datetime_local": start_local.strftime("%Y-%m-%dT%H-%M-%S%z").replace("-", ctx.seperator),
-                "date_local": start_local.strftime("%Y-%m-%d").replace("-", ctx.seperator),
-                "time_local": start_local.strftime("%H-%M-%S%z").replace("-", ctx.seperator),
+                "datetime_local": start_local.strftime("%Y-%m-%dT%H-%M-%S%z").replace(
+                    "-",
+                    ctx.seperator,
+                ),
+                "date_local": start_local.strftime("%Y-%m-%d").replace(
+                    "-",
+                    ctx.seperator,
+                ),
+                "time_local": start_local.strftime("%H-%M-%S%z").replace(
+                    "-",
+                    ctx.seperator,
+                ),
                 "time_sort_pretty_local": start_local.strftime("%H:%M:%S (%Z)"),
                 "time_pretty_local": start_local.strftime("%I:%M:%S %p (%Z)"),
                 "mac": str(self.camera_mac),
@@ -283,12 +297,20 @@ def relative_datetime(ctx: typer.Context, value: str, param: Parameter) -> datet
     if dt := dateparser.parse(value):
         return dt
 
-    raise typer.BadParameter("Must be a ISO 8601 format or human readable relative format", ctx, param)
+    raise typer.BadParameter(
+        "Must be a ISO 8601 format or human readable relative format",
+        ctx,
+        param,
+    )
 
 
 _DownloadEventQueue = asyncio.Queue[QueuedDownload]
 
-OPTION_OUTPUT = typer.Option(None, help="Base dir for creating files. Defaults to $PWD.", envvar="UFP_BACKUP_OUTPUT")
+OPTION_OUTPUT = typer.Option(
+    None,
+    help="Base dir for creating files. Defaults to $PWD.",
+    envvar="UFP_BACKUP_OUTPUT",
+)
 OPTION_START = typer.Option(
     None,
     "-s",
@@ -297,7 +319,9 @@ OPTION_START = typer.Option(
     envvar="UFP_BACKUP_START",
 )
 OPTION_PAGE_SIZE = typer.Option(
-    1000, "--page-size", help="Number of events fetched at once from local database. Increases memory usage."
+    1000,
+    "--page-size",
+    help="Number of events fetched at once from local database. Increases memory usage.",
 )
 OPTION_LENGTH_CUTOFF = typer.Option(
     timedelta(hours=1).total_seconds(),
@@ -305,10 +329,17 @@ OPTION_LENGTH_CUTOFF = typer.Option(
     help="Event size cutoff for detecting abnormal events (in seconds).",
 )
 OPTION_END = typer.Option(
-    None, "-e", "--end", help="Cutoff for end of backup. Defaults to now.", envvar="UFP_BACKUP_END"
+    None,
+    "-e",
+    "--end",
+    help="Cutoff for end of backup. Defaults to now.",
+    envvar="UFP_BACKUP_END",
 )
 OPTION_EVENT_TYPES = typer.Option(
-    list(EventTypeChoice), "-t", "--event-type", help="Events to export. Can be used multiple time."
+    list(EventTypeChoice),
+    "-t",
+    "--event-type",
+    help="Events to export. Can be used multiple time.",
 )
 OPTION_SMART_TYPES = typer.Option(
     list(d.SmartDetectObjectType),
@@ -339,7 +370,10 @@ OPTION_TITLE_FORMAT = typer.Option(
 )
 OPTION_VERBOSE = typer.Option(False, "-v", "--verbose", help="Debug logging.")
 OPTION_MAX_DOWNLOAD = typer.Option(
-    5, "-d", "--max-download", help="Max number of concurrent downloads. Adds additional loads to NVR."
+    5,
+    "-d",
+    "--max-download",
+    help="Max number of concurrent downloads. Adds additional loads to NVR.",
 )
 
 
@@ -349,7 +383,7 @@ def _setup_logger(verbose: bool) -> None:
     if verbose:
         console_handler.setLevel(logging.DEBUG)
     elif sys.stdout.isatty():
-        console_handler.setLevel(logging.WARN)
+        console_handler.setLevel(logging.WARNING)
         log_format = "%(message)s"
     else:
         console_handler.setLevel(logging.INFO)
@@ -378,8 +412,7 @@ def main(
     length_cutoff: int = OPTION_LENGTH_CUTOFF,
     seperator: str = OPTION_SPERATOR,
 ) -> None:
-    """
-    Backup CLI.
+    """Backup CLI.
 
     The backup CLI is still very WIP in progress and consider experimental and potentially unstable (interface may change in the future).
     """
@@ -425,7 +458,9 @@ def main(
 
 def _wipe_files(ctx: BackupContext, no_input: bool) -> None:
     if not no_input:
-        if not typer.confirm("Are you sure you want to delete all existing thumbnails and video clips?"):
+        if not typer.confirm(
+            "Are you sure you want to delete all existing thumbnails and video clips?",
+        ):
             raise typer.Exit(1)
 
     if ctx.db_file.exists():
@@ -451,7 +486,9 @@ async def _prune_events(ctx: BackupContext) -> int:
     deleted = 0
     db = ctx.create_db_session()
     async with db:
-        result = await db.execute(select(Event).join(EventSmartType).where(Event.start_naive < ctx.start))
+        result = await db.execute(
+            select(Event).join(EventSmartType).where(Event.start_naive < ctx.start),
+        )
         for event in track(result.unique().scalars(), description="Pruning Events"):
             thumb_path = event.get_thumbnail_path(ctx)
             if thumb_path.exists():
@@ -463,7 +500,10 @@ async def _prune_events(ctx: BackupContext) -> int:
                 _LOGGER.debug("Delete file %s", event_path)
                 await aos.remove(event_path)
 
-            if event.event_type in (d.EventType.SMART_DETECT.value, d.EventType.SMART_DETECT_LINE.value):
+            if event.event_type in (
+                d.EventType.SMART_DETECT.value,
+                d.EventType.SMART_DETECT_LINE.value,
+            ):
                 for smart_type in event.smart_detect_types:
                     await db.delete(smart_type)
             await db.delete(event)
@@ -491,10 +531,15 @@ async def _update_event(ctx: BackupContext, event: d.Event) -> None:
         db_event.camera_mac = event.camera.mac
         db_event.event_type = event.type.value
 
-        if event.type in (d.EventType.SMART_DETECT.value, d.EventType.SMART_DETECT_LINE.value):
+        if event.type in (
+            d.EventType.SMART_DETECT.value,
+            d.EventType.SMART_DETECT_LINE.value,
+        ):
             types = {e.value for e in event.smart_detect_types}
 
-            result = await db.execute(select(EventSmartType).where(EventSmartType.event_id == event.id))
+            result = await db.execute(
+                select(EventSmartType).where(EventSmartType.event_id == event.id),
+            )
             for event_smart_type in result.unique().scalars():
                 event_type = cast(EventSmartType, event_smart_type)
                 if event_type.smart_type not in types:
@@ -545,13 +590,25 @@ async def _update_events(ctx: BackupContext) -> int:
         while not pb.finished:
             progress = int((start - prev_start).total_seconds())
             pb.update(task_id, advance=progress)
-            _LOGGER.debug("progress: +%s: %s/%s: %s %s", progress, task.completed, task.total, start, end)
+            _LOGGER.debug(
+                "progress: +%s: %s/%s: %s %s",
+                progress,
+                task.completed,
+                task.total,
+                start,
+                end,
+            )
 
             events = await ctx.protect.get_events(
                 start,
                 end,
                 limit=100,
-                types=[d.EventType.MOTION, d.EventType.RING, d.EventType.SMART_DETECT, d.EventType.SMART_DETECT_LINE],
+                types=[
+                    d.EventType.MOTION,
+                    d.EventType.RING,
+                    d.EventType.SMART_DETECT,
+                    d.EventType.SMART_DETECT_LINE,
+                ],
             )
 
             prev_start = start
@@ -569,7 +626,11 @@ async def _update_events(ctx: BackupContext) -> int:
     return updated_ongoing + len(processed)
 
 
-async def _download_watcher(count: int, tasks: _DownloadEventQueue, no_error_flag: asyncio.Event) -> int:
+async def _download_watcher(
+    count: int,
+    tasks: _DownloadEventQueue,
+    no_error_flag: asyncio.Event,
+) -> int:
     processed = 0
     loop = asyncio.get_running_loop()
     downloaded = 0
@@ -596,7 +657,10 @@ async def _download_watcher(count: int, tasks: _DownloadEventQueue, no_error_fla
                 if retries < 5:
                     wait = math.pow(2, retries)
                     _LOGGER.warning(
-                        "Exception while downloading event (%s): %s. Retring in %s second(s)", event.id, exception, wait
+                        "Exception while downloading event (%s): %s. Retring in %s second(s)",
+                        event.id,
+                        exception,
+                        wait,
                     )
                     await asyncio.sleep(wait)
                     retries += 1
@@ -609,7 +673,12 @@ async def _download_watcher(count: int, tasks: _DownloadEventQueue, no_error_fla
                 processed += 1
                 now = time.monotonic()
                 if now - last_print > 60:
-                    _LOGGER.info("Processed %s/%s (%.2f%%) events", processed, count, processed / count)
+                    _LOGGER.info(
+                        "Processed %s/%s (%.2f%%) events",
+                        processed,
+                        count,
+                        processed / count,
+                    )
                     last_print = now
                 if exception is None and task.result():
                     downloaded += 1
@@ -629,7 +698,11 @@ def _verify_thumbnail(path: Path) -> bool:
 
 
 async def _download_event_thumb(
-    ctx: BackupContext, event: Event, verify: bool, force: bool, animated: bool = False
+    ctx: BackupContext,
+    event: Event,
+    verify: bool,
+    force: bool,
+    animated: bool = False,
 ) -> bool:
     if animated:
         thumb_type = "gif"
@@ -658,12 +731,21 @@ async def _download_event_thumb(
         await aos.rename(existing_thumb_path, thumb_path)
 
     if verify and thumb_path.exists() and not await _verify_thumbnail(thumb_path):
-        _LOGGER.warning("Corrupted event %s file for event (%s), redownloading", thumb_type, event.id)
+        _LOGGER.warning(
+            "Corrupted event %s file for event (%s), redownloading",
+            thumb_type,
+            event.id,
+        )
         await aos.remove(thumb_path)
 
     if not thumb_path.exists():
         _LOGGER.debug(
-            "Download event %s %s: %s %s: %s", thumb_type, event.id, event.start, event.event_type, thumb_path
+            "Download event %s %s: %s %s: %s",
+            thumb_type,
+            event.id,
+            event.start,
+            event.event_type,
+            thumb_path,
         )
         event_id = str(event.id)
         if animated:
@@ -679,10 +761,18 @@ async def _download_event_thumb(
 
 
 @asyncify
-def _verify_video_file(path: Path, length: float, width: int, height: int, title: str) -> tuple[bool, bool]:
+def _verify_video_file(
+    path: Path,
+    length: float,
+    width: int,
+    height: int,
+    title: str,
+) -> tuple[bool, bool]:
     try:
         with av.open(str(path)) as video:
-            slength = float(video.streams.video[0].duration * video.streams.video[0].time_base)
+            slength = float(
+                video.streams.video[0].duration * video.streams.video[0].time_base,
+            )
             valid = (
                 (slength / length) > 0.80  # export is fuzzy
                 and video.streams.video[0].codec_context.width == width
@@ -741,7 +831,13 @@ def _add_metadata(path: Path, creation: datetime, title: str) -> bool:
     return success
 
 
-async def _download_event_video(ctx: BackupContext, camera: d.Camera, event: Event, verify: bool, force: bool) -> bool:
+async def _download_event_video(
+    ctx: BackupContext,
+    camera: d.Camera,
+    event: Event,
+    verify: bool,
+    force: bool,
+) -> bool:
     event_path = event.get_event_path(ctx)
     existing_event_path = event.get_existing_event_path(ctx)
     if force and existing_event_path:
@@ -750,7 +846,12 @@ async def _download_event_video(ctx: BackupContext, camera: d.Camera, event: Eve
 
     if existing_event_path and str(existing_event_path) != str(event_path):
         _LOGGER.debug(
-            "Rename event file %s: %s %s %s: %s", event.id, event.start, event.end, event.event_type, event_path
+            "Rename event file %s: %s %s %s: %s",
+            event.id,
+            event.start,
+            event.end,
+            event.event_type,
+            event_path,
         )
         await aos.makedirs(event_path.parent, exist_ok=True)
         await aos.rename(existing_event_path, event_path)
@@ -768,12 +869,22 @@ async def _download_event_video(ctx: BackupContext, camera: d.Camera, event: Eve
             )
 
         if not valid:
-            _LOGGER.warning("Corrupted video file for event (%s), redownloading", event.id)
+            _LOGGER.warning(
+                "Corrupted video file for event (%s), redownloading",
+                event.id,
+            )
             await aos.remove(event_path)
 
     downloaded = False
     if not event_path.exists() and event.end is not None:
-        _LOGGER.debug("Download event %s: %s %s %s: %s", event.id, event.start, event.end, event.event_type, event_path)
+        _LOGGER.debug(
+            "Download event %s: %s %s %s: %s",
+            event.id,
+            event.start,
+            event.end,
+            event.event_type,
+            event_path,
+        )
         await aos.makedirs(event_path.parent, exist_ok=True)
         await camera.get_video(event.start, event.end, output_file=event_path)
         downloaded = True
@@ -785,7 +896,13 @@ async def _download_event_video(ctx: BackupContext, camera: d.Camera, event: Eve
     return downloaded
 
 
-async def _download_event(ctx: BackupContext, event: Event, verify: bool, force: bool, pb: Progress) -> bool:
+async def _download_event(
+    ctx: BackupContext,
+    event: Event,
+    verify: bool,
+    force: bool,
+    pb: Progress,
+) -> bool:
     downloaded = False
     camera = ctx.protect.bootstrap.get_device_from_mac(event.camera_mac)  # type: ignore
     if camera is not None:
@@ -794,7 +911,9 @@ async def _download_event(ctx: BackupContext, event: Event, verify: bool, force:
         if ctx.download_thumbnails:
             downloads.append(_download_event_thumb(ctx, event, verify, force))
         if ctx.download_gifs:
-            downloads.append(_download_event_thumb(ctx, event, verify, force, animated=True))
+            downloads.append(
+                _download_event_thumb(ctx, event, verify, force, animated=True),
+            )
         if ctx.download_thumbnails:
             downloads.append(_download_event_video(ctx, camera, event, verify, force))
 
@@ -845,7 +964,9 @@ async def _download_events(
             tasks: _DownloadEventQueue = asyncio.Queue(maxsize=ctx.max_download - 1)
             no_error_flag = asyncio.Event()
             no_error_flag.set()
-            watcher_task = loop.create_task(_download_watcher(count, tasks, no_error_flag))
+            watcher_task = loop.create_task(
+                _download_watcher(count, tasks, no_error_flag),
+            )
 
             offset = 0
             page = query
@@ -857,19 +978,30 @@ async def _download_events(
 
                     length = event.end - event.start
                     if length > ctx.length_cutoff:
-                        _LOGGER.warning("Skipping event %s because it is too long (%s)", event.id, length)
+                        _LOGGER.warning(
+                            "Skipping event %s because it is too long (%s)",
+                            event.id,
+                            length,
+                        )
                         await tasks.put(QueuedDownload(task=None, args=[]))
                         continue
                     # ensure no tasks are currently in a retry state
                     await no_error_flag.wait()
 
-                    if event.event_type in (d.EventType.SMART_DETECT.value, d.EventType.SMART_DETECT_LINE.value):
+                    if event.event_type in (
+                        d.EventType.SMART_DETECT.value,
+                        d.EventType.SMART_DETECT_LINE.value,
+                    ):
                         if not event.smart_types.intersection(smart_types_set):
                             continue
 
-                    task = loop.create_task(_download_event(ctx, event, verify, force, pb))
+                    task = loop.create_task(
+                        _download_event(ctx, event, verify, force, pb),
+                    )
                     # waits for a free processing slot
-                    await tasks.put(QueuedDownload(task=task, args=[ctx, event, verify, force, pb]))
+                    await tasks.put(
+                        QueuedDownload(task=task, args=[ctx, event, verify, force, pb]),
+                    )
 
                 offset += ctx.page_size
                 page = query.offset(offset)
@@ -906,10 +1038,19 @@ async def _events(
 
         _LOGGER.warning("Updated %s event(s)", await _update_events(ctx))
         ctx.start = original_start
-        count, downloaded = await _download_events(ctx, event_types, smart_types, verify, force)
+        count, downloaded = await _download_events(
+            ctx,
+            event_types,
+            smart_types,
+            verify,
+            force,
+        )
         verified = count - downloaded
         _LOGGER.warning(
-            "Total events: %s. Verified %s existing event(s). Downloaded %s new event(s)", count, verified, downloaded
+            "Total events: %s. Verified %s existing event(s). Downloaded %s new event(s)",
+            count,
+            verified,
+            downloaded,
         )
     finally:
         _LOGGER.debug("Cleaning up Protect connection/database...")
@@ -922,9 +1063,24 @@ def events_cmd(
     ctx: typer.Context,
     event_types: list[EventTypeChoice] = OPTION_EVENT_TYPES,
     smart_types: list[d.SmartDetectObjectType] = OPTION_SMART_TYPES,
-    prune: bool = typer.Option(False, "-p", "--prune", help="Prune events older then start."),
-    force: bool = typer.Option(False, "-f", "--force", help="Force update all events and redownload all clips."),
-    verify: bool = typer.Option(False, "-v", "--verify", help="Verifies files on disk."),
+    prune: bool = typer.Option(
+        False,
+        "-p",
+        "--prune",
+        help="Prune events older then start.",
+    ),
+    force: bool = typer.Option(
+        False,
+        "-f",
+        "--force",
+        help="Force update all events and redownload all clips.",
+    ),
+    verify: bool = typer.Option(
+        False,
+        "-v",
+        "--verify",
+        help="Verifies files on disk.",
+    ),
     no_input: bool = typer.Option(False, "--no-input"),
 ) -> None:
     """Backup thumbnails and video clips for camera events."""
@@ -934,4 +1090,6 @@ def events_cmd(
     ufp_events = [d.EventType(e.value) for e in event_types]
     if prune and force:
         _wipe_files(ctx.obj, no_input)
-    asyncio.run(_events(ctx.obj, ufp_events, smart_types, prune, force, verify, no_input))
+    asyncio.run(
+        _events(ctx.obj, ufp_events, smart_types, prune, force, verify, no_input),
+    )

@@ -8,9 +8,21 @@ BASE_DIR=$( realpath $( dirname "${BASH_SOURCE[0]}" )/../ )
 source "$BASE_DIR/.bin/lib/common.sh"
 setRoot
 
+which pip-compile 2>&1 >> /dev/null && rc=$? || rc=$?
+if [[ rc -eq 1 ]]; then
+    echo -e '\e[1;31mThe python pacakge `pip-tools` is required to update requirements.'
+    exit 1
+fi
+
+IN_DEVCONTAINER=$([[ -f /.dockerenv && -d /workspaces/pyunifiprotect ]] && echo "true" || echo "false")
+
+if [[ $IN_DEVCONTAINER == "true" ]]; then
+    echo "Inside of devcontainer"
+fi
+
 pushd "$ROOT_PATH" 2>&1 >/dev/null
 
-if [[ -d /workspaces/pyunifiprotect ]]; then
+if [[ $IN_DEVCONTAINER == "true" ]]; then
     sudo rm -rf /workspaces/pyunifiprotect/pyunifiprotect.egg-info
 fi
 
@@ -19,7 +31,7 @@ pip-compile -v --resolver=backtracking --pip-args='--root-user-action=ignore' --
 echo "Updating dev-requirements.txt..."
 pip-compile -v --resolver=backtracking --pip-args='--root-user-action=ignore -c requirements.txt' --upgrade --extra=full --extra=dev --output-file=dev-requirements.txt pyproject.toml
 
-if [[ -d /workspaces/pyunifiprotect ]]; then
+if [[ $IN_DEVCONTAINER == "true" ]]; then
     echo "Upgrading dev container environment..."
     sudo pip install -r requirements.txt -r dev-requirements.txt
 fi

@@ -2,6 +2,8 @@
 # pylint: disable=pointless-statement
 # pylint: disable=protected-access
 
+from __future__ import annotations
+
 from copy import deepcopy
 from datetime import datetime, timedelta
 from io import BytesIO
@@ -77,8 +79,14 @@ async def check_camera(camera: Camera):
 
     for channel in camera.channels:
         if channel.is_rtsp_enabled:
-            assert channel.rtsp_url == f"rtsp://{camera.api.connection_host}:7447/{channel.rtsp_alias}"
-            assert channel.rtsps_url == f"rtsps://{camera.api.connection_host}:7441/{channel.rtsp_alias}?enableSrtp"
+            assert (
+                channel.rtsp_url
+                == f"rtsp://{camera.api.connection_host}:7447/{channel.rtsp_alias}"
+            )
+            assert (
+                channel.rtsps_url
+                == f"rtsps://{camera.api.connection_host}:7441/{channel.rtsp_alias}?enableSrtp"
+            )
 
     if VideoMode.HIGH_FPS in camera.feature_flags.video_modes:
         assert camera.feature_flags.has_highfps
@@ -97,7 +105,10 @@ def check_device(device: ProtectAdoptableDeviceModel):
 
 async def check_bootstrap(bootstrap: Bootstrap):
     assert bootstrap.auth_user
-    assert bootstrap.nvr.protect_url == f"https://127.0.0.1:0/protect/devices/{bootstrap.nvr.id}"
+    assert (
+        bootstrap.nvr.protect_url
+        == f"https://127.0.0.1:0/protect/devices/{bootstrap.nvr.id}"
+    )
 
     for light in bootstrap.lights.values():
         if light.camera is not None:
@@ -117,10 +128,15 @@ async def check_bootstrap(bootstrap: Bootstrap):
 
     for liveview in bootstrap.liveviews.values():
         liveview.owner
-        assert liveview.protect_url == f"https://127.0.0.1:0/protect/liveview/{liveview.id}"
+        assert (
+            liveview.protect_url
+            == f"https://127.0.0.1:0/protect/liveview/{liveview.id}"
+        )
 
         for slot in liveview.slots:
-            expected_ids = set(slot.camera_ids).intersection(set(bootstrap.cameras.keys()))
+            expected_ids = set(slot.camera_ids).intersection(
+                set(bootstrap.cameras.keys()),
+            )
             assert len(expected_ids) == len(slot.cameras)
 
     for user in bootstrap.users.values():
@@ -162,7 +178,7 @@ def test_early_bootstrap():
         client.bootstrap
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 async def test_bootstrap_fix_record_mode(bootstrap):
     expected_updates = 1
@@ -182,7 +198,7 @@ async def test_bootstrap_fix_record_mode(bootstrap):
     assert client.update_device.call_count == expected_updates
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 async def test_bootstrap_get_device_from_mac(bootstrap):
     orig_bootstrap = deepcopy(bootstrap)
@@ -199,7 +215,7 @@ async def test_bootstrap_get_device_from_mac(bootstrap):
     assert camera.mac == mac
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 async def test_bootstrap_get_device_from_mac_bad_mac(bootstrap):
     orig_bootstrap = deepcopy(bootstrap)
@@ -244,13 +260,19 @@ def test_connection_host(protect_client: ProtectApiClient):
 
 
 def test_connection_host_override():
-    protect = ProtectApiClient("127.0.0.1", 443, "test", "test", override_connection_host=True)
+    protect = ProtectApiClient(
+        "127.0.0.1",
+        443,
+        "test",
+        "test",
+        override_connection_host=True,
+    )
 
     expected = IPv4Address("127.0.0.1")
     assert protect._connection_host == expected
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_force_update(protect_client: ProtectApiClient):
     protect_client._bootstrap = None
 
@@ -259,7 +281,7 @@ async def test_force_update(protect_client: ProtectApiClient):
     assert protect_client.bootstrap
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_nvr(protect_client: ProtectApiClient, nvr):
     """Verifies the `get_nvr` method"""
 
@@ -269,21 +291,21 @@ async def test_get_nvr(protect_client: ProtectApiClient, nvr):
     compare_objs(ModelType.NVR.value, nvr, nvr_dict)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_bootstrap(protect_client: ProtectApiClient):
     """Verifies lookup of all object via ID"""
 
     await check_bootstrap(protect_client.bootstrap)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_bootstrap_construct(protect_client_no_debug: ProtectApiClient):
     """Verifies lookup of all object via ID"""
 
     await check_bootstrap(protect_client_no_debug.bootstrap)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("pyunifiprotect.utils.datetime", MockDatetime)
 async def test_get_events_raw_default(protect_client: ProtectApiClient, now: datetime):
     events = await protect_client.get_events_raw()
@@ -306,7 +328,7 @@ async def test_get_events_raw_default(protect_client: ProtectApiClient, now: dat
         assert event["modelKey"] in ModelType.values()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_events_raw_limit(protect_client: ProtectApiClient):
     await protect_client.get_events_raw(limit=10)
 
@@ -319,9 +341,12 @@ async def test_get_events_raw_limit(protect_client: ProtectApiClient):
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_events_raw_types(protect_client: ProtectApiClient):
-    await protect_client.get_events_raw(limit=10, types=[EventType.MOTION, EventType.SMART_DETECT])
+    await protect_client.get_events_raw(
+        limit=10,
+        types=[EventType.MOTION, EventType.SMART_DETECT],
+    )
 
     protect_client.api_request.assert_called_with(  # type: ignore
         url="events",
@@ -335,7 +360,7 @@ async def test_get_events_raw_types(protect_client: ProtectApiClient):
 # test has a scaling "expected time to complete" based on the number of
 # events in the last 24 hours
 @pytest.mark.timeout(CONSTANTS["event_count"] * 0.1)  # type: ignore
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_events(protect_client: ProtectApiClient, raw_events):
     expected_events = []
     for event in raw_events:
@@ -354,14 +379,14 @@ async def test_get_events(protect_client: ProtectApiClient, raw_events):
             await check_motion_event(event)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_events_not_event(protect_client: ProtectApiClient, camera):
     protect_client.get_events_raw = AsyncMock(return_value=[camera])  # type: ignore
 
     assert await protect_client.get_events() == []
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_events_not_event_with_type(protect_client: ProtectApiClient, camera):
     camera["type"] = EventType.MOTION.value
 
@@ -371,7 +396,7 @@ async def test_get_events_not_event_with_type(protect_client: ProtectApiClient, 
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_device_mismatch(protect_client: ProtectApiClient, camera):
     protect_client.api_request_obj = AsyncMock(return_value=camera)  # type: ignore
 
@@ -380,7 +405,7 @@ async def test_get_device_mismatch(protect_client: ProtectApiClient, camera):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_device_not_adopted(protect_client: ProtectApiClient, camera):
     camera["isAdopted"] = False
     protect_client.api_request_obj = AsyncMock(return_value=camera)  # type: ignore
@@ -390,7 +415,7 @@ async def test_get_device_not_adopted(protect_client: ProtectApiClient, camera):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_device_not_adopted_enabled(protect_client: ProtectApiClient, camera):
     camera["isAdopted"] = False
     protect_client.ignore_unadopted = False
@@ -401,7 +426,7 @@ async def test_get_device_not_adopted_enabled(protect_client: ProtectApiClient, 
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_camera(protect_client: ProtectApiClient, camera):
     obj = create_from_unifi_dict(camera)
 
@@ -409,7 +434,7 @@ async def test_get_camera(protect_client: ProtectApiClient, camera):
 
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_light(protect_client: ProtectApiClient, light):
     obj = create_from_unifi_dict(light)
 
@@ -417,7 +442,7 @@ async def test_get_light(protect_client: ProtectApiClient, light):
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_sensor(protect_client: ProtectApiClient, sensor):
     obj = create_from_unifi_dict(sensor)
 
@@ -425,7 +450,7 @@ async def test_get_sensor(protect_client: ProtectApiClient, sensor):
 
 
 @pytest.mark.skipif(not TEST_VIEWPORT_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_viewer(protect_client: ProtectApiClient, viewport):
     obj = create_from_unifi_dict(viewport)
 
@@ -433,7 +458,7 @@ async def test_get_viewer(protect_client: ProtectApiClient, viewport):
 
 
 @pytest.mark.skipif(not TEST_BRIDGE_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_bridge(protect_client: ProtectApiClient, bridge):
     obj = create_from_unifi_dict(bridge)
 
@@ -441,7 +466,7 @@ async def test_get_bridge(protect_client: ProtectApiClient, bridge):
 
 
 @pytest.mark.skipif(not TEST_LIVEVIEW_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_liveview(protect_client: ProtectApiClient, liveview):
     obj = create_from_unifi_dict(liveview)
 
@@ -449,7 +474,7 @@ async def test_get_liveview(protect_client: ProtectApiClient, liveview):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_devices_mismatch(protect_client: ProtectApiClient, cameras):
     protect_client.api_request_list = AsyncMock(return_value=cameras)  # type: ignore
 
@@ -458,7 +483,7 @@ async def test_get_devices_mismatch(protect_client: ProtectApiClient, cameras):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_devices_not_adopted(protect_client: ProtectApiClient, cameras):
     cameras[0]["isAdopted"] = False
     protect_client.api_request_list = AsyncMock(return_value=cameras)  # type: ignore
@@ -467,8 +492,11 @@ async def test_get_devices_not_adopted(protect_client: ProtectApiClient, cameras
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
-async def test_get_devices_not_adopted_enabled(protect_client: ProtectApiClient, cameras):
+@pytest.mark.asyncio()
+async def test_get_devices_not_adopted_enabled(
+    protect_client: ProtectApiClient,
+    cameras,
+):
     cameras[0]["isAdopted"] = False
     protect_client.ignore_unadopted = False
     protect_client.api_request_list = AsyncMock(return_value=cameras)  # type: ignore
@@ -477,7 +505,7 @@ async def test_get_devices_not_adopted_enabled(protect_client: ProtectApiClient,
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_cameras(protect_client: ProtectApiClient, cameras):
     objs = [create_from_unifi_dict(d) for d in cameras]
 
@@ -485,7 +513,7 @@ async def test_get_cameras(protect_client: ProtectApiClient, cameras):
 
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_lights(protect_client: ProtectApiClient, lights):
     objs = [create_from_unifi_dict(d) for d in lights]
 
@@ -493,7 +521,7 @@ async def test_get_lights(protect_client: ProtectApiClient, lights):
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_sensors(protect_client: ProtectApiClient, sensors):
     objs = [create_from_unifi_dict(d) for d in sensors]
 
@@ -501,7 +529,7 @@ async def test_get_sensors(protect_client: ProtectApiClient, sensors):
 
 
 @pytest.mark.skipif(not TEST_VIEWPORT_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_viewers(protect_client: ProtectApiClient, viewports):
     objs = [create_from_unifi_dict(d) for d in viewports]
 
@@ -509,7 +537,7 @@ async def test_get_viewers(protect_client: ProtectApiClient, viewports):
 
 
 @pytest.mark.skipif(not TEST_BRIDGE_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_bridges(protect_client: ProtectApiClient, bridges):
     objs = [create_from_unifi_dict(d) for d in bridges]
 
@@ -517,7 +545,7 @@ async def test_get_bridges(protect_client: ProtectApiClient, bridges):
 
 
 @pytest.mark.skipif(not TEST_LIVEVIEW_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_liveviews(protect_client: ProtectApiClient, liveviews):
     objs = [create_from_unifi_dict(d) for d in liveviews]
 
@@ -526,7 +554,7 @@ async def test_get_liveviews(protect_client: ProtectApiClient, liveviews):
 
 @pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
 @patch("pyunifiprotect.utils.datetime", MockDatetime)
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_camera_snapshot(protect_client: ProtectApiClient, now):
     data = await protect_client.get_camera_snapshot("test_id")
     assert data is not None
@@ -546,7 +574,7 @@ async def test_get_camera_snapshot(protect_client: ProtectApiClient, now):
 
 @pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
 @patch("pyunifiprotect.utils.datetime", MockDatetime)
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_pacakge_camera_snapshot(protect_client: ProtectApiClient, now):
     data = await protect_client.get_package_camera_snapshot("test_id")
     assert data is not None
@@ -566,7 +594,7 @@ async def test_get_pacakge_camera_snapshot(protect_client: ProtectApiClient, now
 
 @pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
 @patch("pyunifiprotect.utils.datetime", MockDatetime)
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_camera_snapshot_args(protect_client: ProtectApiClient, now):
     data = await protect_client.get_camera_snapshot("test_id", 1920, 1080)
     assert data is not None
@@ -588,7 +616,7 @@ async def test_get_camera_snapshot_args(protect_client: ProtectApiClient, now):
 
 @pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
 @patch("pyunifiprotect.utils.datetime", MockDatetime)
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_package_camera_snapshot_args(protect_client: ProtectApiClient, now):
     data = await protect_client.get_package_camera_snapshot("test_id", 1920, 1080)
     assert data is not None
@@ -610,7 +638,7 @@ async def test_get_package_camera_snapshot_args(protect_client: ProtectApiClient
 
 @pytest.mark.skipif(not TEST_VIDEO_EXISTS, reason="Missing testdata")
 @patch("pyunifiprotect.api.datetime", MockDatetime)
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_camera_video(protect_client: ProtectApiClient, now, tmp_binary_file):
     camera = list(protect_client.bootstrap.cameras.values())[0]
     start = now - timedelta(seconds=CONSTANTS["camera_video_length"])
@@ -636,7 +664,7 @@ async def test_get_camera_video(protect_client: ProtectApiClient, now, tmp_binar
 
 
 @pytest.mark.skipif(not TEST_THUMBNAIL_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_event_thumbnail(protect_client: ProtectApiClient):
     data = await protect_client.get_event_thumbnail("e-test_id")
     assert data is not None
@@ -652,7 +680,7 @@ async def test_get_event_thumbnail(protect_client: ProtectApiClient):
 
 
 @pytest.mark.skipif(not TEST_THUMBNAIL_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_event_thumbnail_args(protect_client: ProtectApiClient):
     data = await protect_client.get_event_thumbnail("test_id", 1920, 1080)
     assert data is not None
@@ -671,7 +699,7 @@ async def test_get_event_thumbnail_args(protect_client: ProtectApiClient):
 
 
 @pytest.mark.skipif(not TEST_HEATMAP_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_event_heatmap(protect_client: ProtectApiClient):
     data = await protect_client.get_event_heatmap("e-test_id")
     assert data is not None
@@ -686,11 +714,14 @@ async def test_get_event_heatmap(protect_client: ProtectApiClient):
 
 
 @pytest.mark.skipif(not TEST_SMART_TRACK_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_event_smart_detect_track(protect_client: ProtectApiClient):
     data = await protect_client.get_event_smart_detect_track("test_id")
     assert data.camera
 
     protect_client.api_request.assert_called_with(  # type: ignore
-        url="events/test_id/smartDetectTrack", method="get", require_auth=True, raise_exception=True
+        url="events/test_id/smartDetectTrack",
+        method="get",
+        require_auth=True,
+        raise_exception=True,
     )

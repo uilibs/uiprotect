@@ -5,7 +5,7 @@ import base64
 from dataclasses import dataclass
 import enum
 import struct
-from typing import TYPE_CHECKING, Any, Dict, Optional, Type
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
 import zlib
 
@@ -40,7 +40,7 @@ class WSAction(str, enum.Enum):
 class WSSubscriptionMessage:
     action: WSAction
     new_update_id: UUID
-    changed_data: Dict[str, Any]
+    changed_data: dict[str, Any]
     new_obj: Optional[ProtectModelWithId] = None
     old_obj: Optional[ProtectModelWithId] = None
 
@@ -59,10 +59,10 @@ class BaseWSPacketFrame:
             self.data = zlib.decompress(self.data)
 
     def get_binary_from_data(self) -> bytes:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @staticmethod
-    def klass_from_format(format_raw: int) -> Type[BaseWSPacketFrame]:
+    def klass_from_format(format_raw: int) -> type[BaseWSPacketFrame]:
         payload_format = ProtectWSPayloadFormat(format_raw)
 
         if payload_format == ProtectWSPayloadFormat.JSON:
@@ -72,7 +72,9 @@ class BaseWSPacketFrame:
 
     @staticmethod
     def from_binary(
-        data: bytes, position: int = 0, klass: Optional[Type[WSRawPacketFrame]] = None
+        data: bytes,
+        position: int = 0,
+        klass: Optional[type[WSRawPacketFrame]] = None,
     ) -> BaseWSPacketFrame:
         """Decode a unifi updates websocket frame."""
         # The format of the frame is
@@ -85,8 +87,15 @@ class BaseWSPacketFrame:
         header_end = position + WS_HEADER_SIZE
 
         try:
-            packet_type, payload_format, deflated, unknown, payload_size = struct.unpack(
-                "!bbbbi", data[position:header_end]
+            (
+                packet_type,
+                payload_format,
+                deflated,
+                unknown,
+                payload_size,
+            ) = struct.unpack(
+                "!bbbbi",
+                data[position:header_end],
             )
         except struct.error as e:
             raise WSDecodeError from e
@@ -141,7 +150,7 @@ class WSRawPacketFrame(BaseWSPacketFrame):
 
 
 class WSJSONPacketFrame(BaseWSPacketFrame):
-    data: Dict[str, Any] = {}
+    data: dict[str, Any] = {}
     payload_format: ProtectWSPayloadFormat = ProtectWSPayloadFormat.NodeBuffer
 
     def set_data_from_binary(self, data: bytes) -> None:
@@ -174,7 +183,10 @@ class WSPacket:
 
     def decode(self) -> None:
         self._action_frame = WSRawPacketFrame.from_binary(self._raw)
-        self._data_frame = WSRawPacketFrame.from_binary(self._raw, self._action_frame.length)
+        self._data_frame = WSRawPacketFrame.from_binary(
+            self._raw,
+            self._action_frame.length,
+        )
 
     @property
     def action_frame(self) -> BaseWSPacketFrame:

@@ -25,15 +25,17 @@ class LiveviewContext(base.CliContext):
 
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context, device_id: Optional[str] = ARG_DEVICE_ID) -> None:
-    """
-    Liveviews CLI.
+    """Liveviews CLI.
 
     Returns full list of Liveviews without any arguments passed.
     """
 
     protect: ProtectApiClient = ctx.obj.protect
     context = LiveviewContext(
-        protect=ctx.obj.protect, device=None, devices=protect.bootstrap.liveviews, output_format=ctx.obj.output_format
+        protect=ctx.obj.protect,
+        device=None,
+        devices=protect.bootstrap.liveviews,
+        output_format=ctx.obj.output_format,
     )
     ctx.obj = context
 

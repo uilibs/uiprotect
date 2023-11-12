@@ -1,25 +1,18 @@
 # pylint: disable=protected-access
 
+from __future__ import annotations
+
 import asyncio
+from collections.abc import Callable, Coroutine
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import logging
 from pathlib import Path
 from shlex import split
 import shutil
 from subprocess import run
 import time
-from typing import (
-    Any,
-    Callable,
-    Coroutine,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    Union,
-    overload,
-)
+from typing import Any, Optional, Union, overload
 
 from PIL import Image
 import aiohttp
@@ -35,7 +28,11 @@ from pyunifiprotect.utils import from_js_time, is_online, write_json
 BLANK_VIDEO_CMD = "ffmpeg -y -hide_banner -loglevel error -f lavfi -i color=size=1280x720:rate=25:color=black -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -t {length} {filename}"
 
 
-def placeholder_image(output_path: Path, width: int, height: Optional[int] = None) -> None:
+def placeholder_image(
+    output_path: Path,
+    width: int,
+    height: Optional[int] = None,
+) -> None:
     if height is None:
         height = width
 
@@ -54,12 +51,12 @@ class SampleDataGenerator:
     _record_num_ws: int = 0
     _record_ws_start_time: float = time.monotonic()
     _record_listen_for_events: bool = False
-    _record_ws_messages: Dict[str, Dict[str, Any]] = {}
+    _record_ws_messages: dict[str, dict[str, Any]] = {}
     _log: Optional[LOG_CALLABLE] = None
     _log_warning: Optional[LOG_CALLABLE] = None
     _ws_progress: Optional[PROGRESS_CALLABLE] = None
 
-    constants: Dict[str, Any] = {}
+    constants: dict[str, Any] = {}
     client: ProtectApiClient
     output_folder: Path
     do_zip: bool
@@ -114,7 +111,7 @@ class SampleDataGenerator:
         self.log("Updating devices...")
         await self.client.update()
 
-        bootstrap: Dict[str, Any] = await self.client.api_request_obj("bootstrap")
+        bootstrap: dict[str, Any] = await self.client.api_request_obj("bootstrap")
         bootstrap = await self.write_json_file("sample_bootstrap", bootstrap)
         self.constants["server_name"] = bootstrap["nvr"]["name"]
         self.constants["server_id"] = bootstrap["nvr"]["mac"]
@@ -174,21 +171,36 @@ class SampleDataGenerator:
 
         self._record_listen_for_events = False
         await self.client.async_disconnect_ws()
-        await self.write_json_file("sample_ws_messages", self._record_ws_messages, anonymize=False)
+        await self.write_json_file(
+            "sample_ws_messages",
+            self._record_ws_messages,
+            anonymize=False,
+        )
 
     @overload
-    async def write_json_file(self, name: str, data: List[Any], anonymize: Optional[bool] = None) -> List[Any]:
+    async def write_json_file(
+        self,
+        name: str,
+        data: list[Any],
+        anonymize: Optional[bool] = None,
+    ) -> list[Any]:
         ...
 
     @overload
     async def write_json_file(
-        self, name: str, data: Dict[str, Any], anonymize: Optional[bool] = None
-    ) -> Dict[str, Any]:
+        self,
+        name: str,
+        data: dict[str, Any],
+        anonymize: Optional[bool] = None,
+    ) -> dict[str, Any]:
         ...
 
     async def write_json_file(
-        self, name: str, data: Union[List[Any], Dict[str, Any]], anonymize: Optional[bool] = None
-    ) -> Union[List[Any], Dict[str, Any]]:
+        self,
+        name: str,
+        data: Union[list[Any], dict[str, Any]],
+        anonymize: Optional[bool] = None,
+    ) -> Union[list[Any], dict[str, Any]]:
         if anonymize is None:
             anonymize = self.anonymize
 
@@ -200,7 +212,12 @@ class SampleDataGenerator:
 
         return data
 
-    async def write_binary_file(self, name: str, ext: str, raw: Optional[bytes]) -> None:
+    async def write_binary_file(
+        self,
+        name: str,
+        ext: str,
+        raw: Optional[bytes],
+    ) -> None:
         def write() -> None:
             if raw is None:
                 self.log(f"No image data, skipping {name}...")
@@ -216,14 +233,16 @@ class SampleDataGenerator:
     async def write_image_file(self, name: str, raw: Optional[bytes]) -> None:
         await self.write_binary_file(name, "png", raw)
 
-    async def generate_event_data(self) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    async def generate_event_data(
+        self,
+    ) -> tuple[Optional[dict[str, Any]], Optional[dict[str, Any]]]:
         data = await self.client.get_events_raw()
 
-        self.constants["time"] = datetime.now(tz=timezone.utc).isoformat()
+        self.constants["time"] = datetime.now(tz=UTC).isoformat()
         self.constants["event_count"] = len(data)
 
-        motion_event: Optional[Dict[str, Any]] = None
-        smart_detection: Optional[Dict[str, Any]] = None
+        motion_event: Optional[dict[str, Any]] = None
+        smart_detection: Optional[dict[str, Any]] = None
         for event_dict in reversed(data):
             if (
                 motion_event is None
@@ -253,7 +272,9 @@ class SampleDataGenerator:
         return motion_event, smart_detection
 
     async def generate_device_data(
-        self, motion_event: Optional[Dict[str, Any]], smart_detection: Optional[Dict[str, Any]]
+        self,
+        motion_event: Optional[dict[str, Any]],
+        smart_detection: Optional[dict[str, Any]],
     ) -> None:
         await asyncio.gather(
             self.generate_camera_data(),
@@ -288,7 +309,9 @@ class SampleDataGenerator:
         self.constants["camera_online"] = camera_is_online
 
         if not camera_is_online:
-            self.log("Camera is not online, skipping snapshot, thumbnail and heatmap generation")
+            self.log(
+                "Camera is not online, skipping snapshot, thumbnail and heatmap generation",
+            )
 
         # snapshot
         width = obj["channels"][0]["width"]
@@ -301,7 +324,10 @@ class SampleDataGenerator:
             snapshot = await self.client.get_camera_snapshot(obj["id"], width, height)
             await self.write_image_file(filename, snapshot)
 
-    async def generate_motion_data(self, motion_event: Optional[Dict[str, Any]]) -> None:
+    async def generate_motion_data(
+        self,
+        motion_event: Optional[dict[str, Any]],
+    ) -> None:
         if motion_event is None:
             self.log("No motion event, skipping thumbnail and heatmap generation...")
             return
@@ -335,17 +361,28 @@ class SampleDataGenerator:
         length = int((motion_event["end"] - motion_event["start"]) / 1000)
         if self.anonymize:
             run(
-                split(BLANK_VIDEO_CMD.format(length=length, filename=self.output_folder / f"{filename}.mp4")),
+                split(
+                    BLANK_VIDEO_CMD.format(
+                        length=length,
+                        filename=self.output_folder / f"{filename}.mp4",
+                    ),
+                ),
                 check=True,
             )
         else:
             video = await self.client.get_camera_video(
-                motion_event["camera"], from_js_time(motion_event["start"]), from_js_time(motion_event["end"]), 2
+                motion_event["camera"],
+                from_js_time(motion_event["start"]),
+                from_js_time(motion_event["end"]),
+                2,
             )
             await self.write_binary_file(filename, "mp4", video)
         self.constants["camera_video_length"] = length
 
-    async def generate_smart_detection_data(self, smart_detection: Optional[Dict[str, Any]]) -> None:
+    async def generate_smart_detection_data(
+        self,
+        smart_detection: Optional[dict[str, Any]],
+    ) -> None:
         if smart_detection is None:
             self.log("No smart detection event, skipping smart detection data...")
             return
@@ -469,11 +506,15 @@ class SampleDataGenerator:
             packet = WSPacket(msg.data)
 
             if not isinstance(packet.action_frame, WSJSONPacketFrame):
-                self.log_warning(f"Got non-JSON action frame: {packet.action_frame.payload_format}")
+                self.log_warning(
+                    f"Got non-JSON action frame: {packet.action_frame.payload_format}",
+                )
                 return
 
             if not isinstance(packet.data_frame, WSJSONPacketFrame):
-                self.log_warning(f"Got non-JSON data frame: {packet.data_frame.payload_format}")
+                self.log_warning(
+                    f"Got non-JSON data frame: {packet.data_frame.payload_format}",
+                )
                 return
 
             if self.anonymize:

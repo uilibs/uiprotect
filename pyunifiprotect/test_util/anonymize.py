@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import secrets
 import string
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from urllib.parse import urlparse
 import uuid
 
@@ -8,7 +10,7 @@ import typer
 
 from pyunifiprotect.data import ModelType
 
-object_id_mapping: Dict[str, str] = {}
+object_id_mapping: dict[str, str] = {}
 
 
 def anonymize_data(value: Any, name: Optional[str] = None) -> Any:
@@ -22,7 +24,7 @@ def anonymize_data(value: Any, name: Optional[str] = None) -> Any:
     return value
 
 
-def anonymize_user(user_dict: Dict[str, Any]) -> Dict[str, Any]:
+def anonymize_user(user_dict: dict[str, Any]) -> dict[str, Any]:
     for index, group_id in enumerate(user_dict.get("groups", [])):
         user_dict["groups"][index] = anonymize_object_id(group_id)
 
@@ -40,9 +42,15 @@ def anonymize_user(user_dict: Dict[str, Any]) -> Dict[str, Any]:
         user_dict["cloudAccount"]["lastName"] = user_dict["lastName"]
         user_dict["cloudAccount"]["name"] = user_dict["name"]
         user_dict["cloudAccount"]["email"] = user_dict["email"]
-        user_dict["cloudAccount"]["user"] = anonymize_object_id(user_dict["cloudAccount"]["user"])
-        user_dict["cloudAccount"]["id"] = anonymize_uuid(user_dict["cloudAccount"]["id"])
-        user_dict["cloudAccount"]["cloudId"] = anonymize_uuid(user_dict["cloudAccount"]["cloudId"])
+        user_dict["cloudAccount"]["user"] = anonymize_object_id(
+            user_dict["cloudAccount"]["user"],
+        )
+        user_dict["cloudAccount"]["id"] = anonymize_uuid(
+            user_dict["cloudAccount"]["id"],
+        )
+        user_dict["cloudAccount"]["cloudId"] = anonymize_uuid(
+            user_dict["cloudAccount"]["cloudId"],
+        )
 
     camera_order = (user_dict.get("settings") or {}).get("cameraOrder")
     if camera_order is not None:
@@ -51,9 +59,15 @@ def anonymize_user(user_dict: Dict[str, Any]) -> Dict[str, Any]:
         user_dict["settings"]["cameraOrder"] = camera_order
 
     if "allPermissions" in user_dict:
-        user_dict["allPermissions"] = anonymize_list(user_dict["allPermissions"], "allPermissions")
+        user_dict["allPermissions"] = anonymize_list(
+            user_dict["allPermissions"],
+            "allPermissions",
+        )
     if "permissions" in user_dict:
-        user_dict["permissions"] = anonymize_list(user_dict["permissions"], "permissions")
+        user_dict["permissions"] = anonymize_list(
+            user_dict["permissions"],
+            "permissions",
+        )
 
     return user_dict
 
@@ -91,7 +105,7 @@ def anonymize_value(value: Any, name: Optional[str] = None) -> Any:
     return value
 
 
-def anonymize_dict(obj: Dict[str, Any], name: Optional[str] = None) -> Dict[str, Any]:
+def anonymize_dict(obj: dict[str, Any], name: Optional[str] = None) -> dict[str, Any]:
     obj_type = None
     if "modelKey" in obj:
         if obj["modelKey"] in [m.value for m in ModelType]:
@@ -114,9 +128,13 @@ def anonymize_dict(obj: Dict[str, Any], name: Optional[str] = None) -> Dict[str,
                     handled = True
                 elif key == "metadata":
                     if "sensorId" in obj[key]:
-                        obj[key]["sensorId"]["text"] = anonymize_object_id(obj[key]["sensorId"]["text"])
+                        obj[key]["sensorId"]["text"] = anonymize_object_id(
+                            obj[key]["sensorId"]["text"],
+                        )
                     if "sensorName" in obj[key]:
-                        obj[key]["sensorName"]["text"] = f"{random_word()} {random_word()}".title()
+                        obj[key]["sensorName"][
+                            "text"
+                        ] = f"{random_word()} {random_word()}".title()
 
         if not handled:
             obj[key] = anonymize_data(value, name=key)
@@ -124,11 +142,16 @@ def anonymize_dict(obj: Dict[str, Any], name: Optional[str] = None) -> Dict[str,
     return obj
 
 
-def anonymize_list(items: List[Any], name: Optional[str] = None) -> List[Any]:
+def anonymize_list(items: list[Any], name: Optional[str] = None) -> list[Any]:
     for index, value in enumerate(items):
         handled = False
 
-        if isinstance(value, str) and name in ("hosts", "smartDetectEvents", "camera", "cameras"):
+        if isinstance(value, str) and name in (
+            "hosts",
+            "smartDetectEvents",
+            "camera",
+            "cameras",
+        ):
             handled = True
             if name == "hosts":
                 items[index] = anonymize_ip(items[index])

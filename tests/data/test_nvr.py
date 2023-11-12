@@ -24,7 +24,7 @@ except ImportError:
 
 
 @pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_nvr_set_insights(nvr_obj: NVR, status: bool):
     nvr_obj.api.api_request.reset_mock()
 
@@ -39,7 +39,7 @@ async def test_nvr_set_insights(nvr_obj: NVR, status: bool):
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_nvr_set_anonymous_analytics(nvr_obj: NVR):
     nvr_obj.api.api_request.reset_mock()
 
@@ -54,7 +54,7 @@ async def test_nvr_set_anonymous_analytics(nvr_obj: NVR):
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_nvr_set_default_reset_timeout(nvr_obj: NVR):
     nvr_obj.api.api_request.reset_mock()
 
@@ -69,7 +69,7 @@ async def test_nvr_set_default_reset_timeout(nvr_obj: NVR):
 
 
 @pytest.mark.parametrize("message", ["Test", "fqthpqBgVMKXp9jXX2VeuGeXYfx2mMjB"])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_nvr_set_default_doorbell_message(nvr_obj: NVR, message: str):
     nvr_obj.api.api_request.reset_mock()
 
@@ -88,8 +88,11 @@ async def test_nvr_set_default_doorbell_message(nvr_obj: NVR, message: str):
         )
 
 
-@pytest.mark.parametrize("message", ["Welcome", "Test", "fqthpqBgVMKXp9jXX2VeuGeXYfx2mMjB"])
-@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "message",
+    ["Welcome", "Test", "fqthpqBgVMKXp9jXX2VeuGeXYfx2mMjB"],
+)
+@pytest.mark.asyncio()
 async def test_nvr_add_custom_doorbell_message(nvr_obj: NVR, message: str):
     nvr_obj.api.api_request.reset_mock()
 
@@ -104,7 +107,9 @@ async def test_nvr_add_custom_doorbell_message(nvr_obj: NVR, message: str):
         await nvr_obj.add_custom_doorbell_message(message)
 
         nvr_obj.api.api_request.assert_called_with(
-            "nvr", method="patch", json={"doorbellSettings": {"customMessages": ["Welcome", "Test"]}}
+            "nvr",
+            method="patch",
+            json={"doorbellSettings": {"customMessages": ["Welcome", "Test"]}},
         )
 
         assert nvr_obj.doorbell_settings.all_messages == [
@@ -128,7 +133,7 @@ async def test_nvr_add_custom_doorbell_message(nvr_obj: NVR, message: str):
 
 
 @pytest.mark.parametrize("message", ["Welcome", "Test"])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_nvr_remove_custom_doorbell_message(nvr_obj: NVR, message: str):
     nvr_obj.api.api_request.reset_mock()
 
@@ -143,7 +148,9 @@ async def test_nvr_remove_custom_doorbell_message(nvr_obj: NVR, message: str):
         await nvr_obj.remove_custom_doorbell_message(message)
 
         nvr_obj.api.api_request.assert_called_with(
-            "nvr", method="patch", json={"doorbellSettings": {"customMessages": []}}
+            "nvr",
+            method="patch",
+            json={"doorbellSettings": {"customMessages": []}},
         )
 
         assert nvr_obj.doorbell_settings.all_messages == [
@@ -165,7 +172,7 @@ async def test_nvr_remove_custom_doorbell_message(nvr_obj: NVR, message: str):
         ("fe80::1ff:fe23:4567:890a", IPv6Address("fe80::1ff:fe23:4567:890a")),
     ],
 )
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_nvr_wan_ip(nvr_obj: NVR, ip: str, expected: IPv4Address | IPv6Address):
     nvr_dict = nvr_obj.unifi_dict()
     nvr_dict["wanIp"] = ip

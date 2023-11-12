@@ -22,14 +22,15 @@ class NVRContext(base.CliContext):
 
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context) -> None:
-    """
-    NVR device CLI.
+    """NVR device CLI.
 
     Return NVR object without any arguments passed.
     """
 
     context = NVRContext(
-        protect=ctx.obj.protect, device=ctx.obj.protect.bootstrap.nvr, output_format=ctx.obj.output_format
+        protect=ctx.obj.protect,
+        device=ctx.obj.protect.bootstrap.nvr,
+        output_format=ctx.obj.output_format,
     )
     ctx.obj = context
 
@@ -52,8 +53,7 @@ def set_analytics(ctx: typer.Context, value: AnalyticsOption) -> None:
 
 @app.command()
 def set_default_reset_timeout(ctx: typer.Context, timeout: int = ARG_TIMEOUT) -> None:
-    """
-    Sets default message reset timeout.
+    """Sets default message reset timeout.
 
     This is how long until a custom message is reset back to the default message if no
     timeout is passed in when the custom message is set.
@@ -65,9 +65,11 @@ def set_default_reset_timeout(ctx: typer.Context, timeout: int = ARG_TIMEOUT) ->
 
 
 @app.command()
-def set_default_doorbell_message(ctx: typer.Context, msg: str = ARG_DOORBELL_MESSAGE) -> None:
-    """
-    Sets default message for doorbell.
+def set_default_doorbell_message(
+    ctx: typer.Context,
+    msg: str = ARG_DOORBELL_MESSAGE,
+) -> None:
+    """Sets default message for doorbell.
 
     This is the message that is set when a custom doorbell message times out or an empty
     one is set.
@@ -79,7 +81,10 @@ def set_default_doorbell_message(ctx: typer.Context, msg: str = ARG_DOORBELL_MES
 
 
 @app.command()
-def add_custom_doorbell_message(ctx: typer.Context, msg: str = ARG_DOORBELL_MESSAGE) -> None:
+def add_custom_doorbell_message(
+    ctx: typer.Context,
+    msg: str = ARG_DOORBELL_MESSAGE,
+) -> None:
     """Adds a custom doorbell message."""
 
     nvr: NVR = ctx.obj.device
@@ -88,7 +93,10 @@ def add_custom_doorbell_message(ctx: typer.Context, msg: str = ARG_DOORBELL_MESS
 
 
 @app.command()
-def remove_custom_doorbell_message(ctx: typer.Context, msg: str = ARG_DOORBELL_MESSAGE) -> None:
+def remove_custom_doorbell_message(
+    ctx: typer.Context,
+    msg: str = ARG_DOORBELL_MESSAGE,
+) -> None:
     """Removes a custom doorbell message."""
 
     nvr: NVR = ctx.obj.device

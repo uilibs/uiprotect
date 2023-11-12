@@ -25,15 +25,17 @@ ALL_COMMANDS, DEVICE_COMMANDS = base.init_common_commands(app)
 
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context, device_id: Optional[str] = ARG_DEVICE_ID) -> None:
-    """
-    Chime device CLI.
+    """Chime device CLI.
 
     Returns full list of Chimes without any arguments passed.
     """
 
     protect: ProtectApiClient = ctx.obj.protect
     context = ChimeContext(
-        protect=ctx.obj.protect, device=None, devices=protect.bootstrap.chimes, output_format=ctx.obj.output_format
+        protect=ctx.obj.protect,
+        device=None,
+        devices=protect.bootstrap.chimes,
+        output_format=ctx.obj.output_format,
     )
     ctx.obj = context
 
@@ -58,9 +60,17 @@ def main(ctx: typer.Context, device_id: Optional[str] = ARG_DEVICE_ID) -> None:
 @app.command()
 def cameras(
     ctx: typer.Context,
-    camera_ids: list[str] = typer.Argument(None, help="Set to [] to empty list of cameras"),
+    camera_ids: list[str] = typer.Argument(
+        None,
+        help="Set to [] to empty list of cameras",
+    ),
     add: bool = typer.Option(False, "-a", "--add", help="Add cameras instead of set"),
-    remove: bool = typer.Option(False, "-r", "--remove", help="Remove cameras instead of set"),
+    remove: bool = typer.Option(
+        False,
+        "-r",
+        "--remove",
+        help="Remove cameras instead of set",
+    ),
 ) -> None:
     """Returns or sets paired doorbells for the chime."""
 

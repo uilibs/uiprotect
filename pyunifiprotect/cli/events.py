@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import Optional
 
 from rich.progress import Progress
 import typer
@@ -22,7 +23,10 @@ OPTION_END = typer.Option(None, "-e", "--end")
 OPTION_LIMIT = typer.Option(None, "-l", "--limit")
 OPTION_TYPES = typer.Option(None, "-t", "--type")
 OPTION_SMART_TYPES = typer.Option(
-    None, "-d", "--smart-detect", help="If provided, will only return smartDetectZone events"
+    None,
+    "-d",
+    "--smart-detect",
+    help="If provided, will only return smartDetectZone events",
 )
 
 
@@ -42,17 +46,21 @@ def main(
     start: Optional[datetime] = OPTION_START,
     end: Optional[datetime] = OPTION_END,
     limit: Optional[int] = OPTION_LIMIT,
-    types: Optional[List[d.EventType]] = OPTION_TYPES,
-    smart_types: Optional[List[d.SmartDetectObjectType]] = OPTION_SMART_TYPES,
+    types: Optional[list[d.EventType]] = OPTION_TYPES,
+    smart_types: Optional[list[d.SmartDetectObjectType]] = OPTION_SMART_TYPES,
 ) -> None:
-    """
-    Events CLI.
+    """Events CLI.
 
     Returns list of events from the last 24 hours without any arguments passed.
     """
 
     protect: ProtectApiClient = ctx.obj.protect
-    context = EventContext(protect=ctx.obj.protect, event=None, events=None, output_format=ctx.obj.output_format)
+    context = EventContext(
+        protect=ctx.obj.protect,
+        event=None,
+        events=None,
+        output_format=ctx.obj.output_format,
+    )
     ctx.obj = context
 
     if event_id is not None and event_id not in ALL_COMMANDS:
@@ -72,7 +80,14 @@ def main(
         if smart_types is not None and len(smart_types) == 0:
             smart_types = None
         events = base.run(
-            ctx, protect.get_events(start=start, end=end, limit=limit, types=types, smart_detect_types=smart_types)
+            ctx,
+            protect.get_events(
+                start=start,
+                end=end,
+                limit=limit,
+                types=types,
+                smart_detect_types=smart_types,
+            ),
         )
         ctx.obj.events = {}
         for event in events:
@@ -103,8 +118,7 @@ def require_no_event_id(ctx: typer.Context) -> None:
 
 @app.command()
 def list_ids(ctx: typer.Context) -> None:
-    """
-    Prints list of "id type timestamp" for each event.
+    """Prints list of "id type timestamp" for each event.
 
     Timestamps dispalyed in your locale timezone. If it is not configured
     correctly, it will default to UTC. You can override your timezone with
@@ -117,7 +131,10 @@ def list_ids(ctx: typer.Context) -> None:
     longest_event = 0
     for obj in objs.values():
         event_type = obj.type.value
-        if event_type in (d.EventType.SMART_DETECT.value, d.EventType.SMART_DETECT_LINE.value):
+        if event_type in (
+            d.EventType.SMART_DETECT.value,
+            d.EventType.SMART_DETECT_LINE.value,
+        ):
             event_type = f"{event_type}[{','.join(obj.smart_detect_types)}]"
         if len(event_type) > longest_event:
             longest_event = len(event_type)
@@ -185,8 +202,7 @@ def save_heatmap(
     ctx: typer.Context,
     output_path: Path = typer.Argument(..., help="PNG format"),
 ) -> None:
-    """
-    Saves heatmap for event.
+    """Saves heatmap for event.
 
     Only motion events have heatmaps.
     """
@@ -207,7 +223,14 @@ def save_heatmap(
 def save_video(
     ctx: typer.Context,
     output_path: Path = typer.Argument(..., help="MP4 format"),
-    channel: int = typer.Option(0, "-c", "--channel", min=0, max=3, help="0 = High, 1 = Medium, 2 = Low, 3 = Package"),
+    channel: int = typer.Option(
+        0,
+        "-c",
+        "--channel",
+        min=0,
+        max=3,
+        help="0 = High, 1 = Medium, 2 = Low, 3 = Package",
+    ),
 ) -> None:
     """Exports video for event.
 
@@ -221,9 +244,18 @@ def save_video(
         task_id = pb.add_task("(1/2) Exporting", total=100)
 
         async def callback(step: int, current: int, total: int) -> None:
-            pb.update(task_id, total=total, completed=current, description="(2/2) Downloading")
+            pb.update(
+                task_id,
+                total=total,
+                completed=current,
+                description="(2/2) Downloading",
+            )
 
         base.run(
             ctx,
-            event.get_video(channel, output_file=output_path, progress_callback=callback),
+            event.get_video(
+                channel,
+                output_file=output_path,
+                progress_callback=callback,
+            ),
         )

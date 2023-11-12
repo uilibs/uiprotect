@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import asyncio
 from collections import Counter
+from collections.abc import Callable, Coroutine, Iterable
 import contextlib
 from copy import deepcopy
-from datetime import datetime, timedelta, timezone, tzinfo
+from datetime import UTC, datetime, timedelta, tzinfo
 from decimal import Decimal
 from enum import Enum
 from functools import lru_cache
@@ -21,18 +22,7 @@ import re
 import socket
 import sys
 import time
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Coroutine,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Optional, Union
 from uuid import UUID
 import zoneinfo
 
@@ -99,8 +89,8 @@ IP_TYPES = {
 }
 
 if sys.version_info[:2] < (3, 11):
-    from async_timeout import (  # pylint: disable=unused-import # noqa: F401
-        timeout as asyncio_timeout,
+    from async_timeout import (
+        timeout as asyncio_timeout,  # pylint: disable=unused-import
     )
 else:
     from asyncio import (  # pylint: disable=unused-import # noqa: F401
@@ -148,7 +138,7 @@ def to_js_time(dt: datetime | int | None) -> Optional[int]:
     if dt.tzinfo is None:
         return int(time.mktime(dt.timetuple()) * 1000)
 
-    return int(dt.astimezone(timezone.utc).timestamp() * 1000)
+    return int(dt.astimezone(UTC).timestamp() * 1000)
 
 
 def to_ms(duration: Optional[timedelta]) -> Optional[int]:
@@ -161,7 +151,7 @@ def to_ms(duration: Optional[timedelta]) -> Optional[int]:
 
 
 def utc_now() -> datetime:
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(tz=UTC)
 
 
 def from_js_time(num: Union[int, float, str, datetime]) -> datetime:
@@ -170,26 +160,29 @@ def from_js_time(num: Union[int, float, str, datetime]) -> datetime:
     if isinstance(num, datetime):
         return num
 
-    return datetime.fromtimestamp(int(num) / 1000, tz=timezone.utc)
+    return datetime.fromtimestamp(int(num) / 1000, tz=UTC)
 
 
-def process_datetime(data: Dict[str, Any], key: str) -> Optional[datetime]:
+def process_datetime(data: dict[str, Any], key: str) -> Optional[datetime]:
     """Extracts datetime object from Protect dictionary"""
 
     return None if data.get(key) is None else from_js_time(data[key])
 
 
-def format_datetime(dt: Optional[datetime], default: Optional[str] = None) -> Optional[str]:
+def format_datetime(
+    dt: Optional[datetime],
+    default: Optional[str] = None,
+) -> Optional[str]:
     """Formats a datetime object in a consisent format"""
 
     return default if dt is None else dt.strftime(DATETIME_FORMAT)
 
 
-def is_online(data: Dict[str, Any]) -> bool:
+def is_online(data: dict[str, Any]) -> bool:
     return bool(data["state"] == "CONNECTED")
 
 
-def is_doorbell(data: Dict[str, Any]) -> bool:
+def is_doorbell(data: dict[str, Any]) -> bool:
     return "doorbell" in str(data["type"]).lower()
 
 
@@ -264,7 +257,7 @@ def serialize_unifi_obj(value: Any) -> Any:
     return value
 
 
-def serialize_dict(data: Dict[str, Any]) -> Dict[str, Any]:
+def serialize_dict(data: dict[str, Any]) -> dict[str, Any]:
     """Serializes UFP data dict"""
     for key in list(data.keys()):
         set_key = key
@@ -287,7 +280,7 @@ def serialize_coord(coord: CoordType) -> Union[int, float]:
     return coord
 
 
-def serialize_point(point: Tuple[CoordType, CoordType]) -> List[Union[int, float]]:
+def serialize_point(point: tuple[CoordType, CoordType]) -> list[Union[int, float]]:
     """Serializes UFP zone coordinate point"""
     return [
         serialize_coord(point[0]),
@@ -295,16 +288,16 @@ def serialize_point(point: Tuple[CoordType, CoordType]) -> List[Union[int, float
     ]
 
 
-def serialize_list(items: Iterable[Any]) -> List[Any]:
+def serialize_list(items: Iterable[Any]) -> list[Any]:
     """Serializes UFP data list"""
-    new_items: List[Any] = []
+    new_items: list[Any] = []
     for item in items:
         new_items.append(serialize_unifi_obj(item))
 
     return new_items
 
 
-def convert_smart_types(items: Iterable[str]) -> List[SmartDetectObjectType]:
+def convert_smart_types(items: Iterable[str]) -> list[SmartDetectObjectType]:
     """Converts list of str into SmartDetectObjectType. Any unknown values will be ignored and logged."""
 
     types = []
@@ -316,7 +309,7 @@ def convert_smart_types(items: Iterable[str]) -> List[SmartDetectObjectType]:
     return types
 
 
-def convert_smart_audio_types(items: Iterable[str]) -> List[SmartDetectAudioType]:
+def convert_smart_audio_types(items: Iterable[str]) -> list[SmartDetectAudioType]:
     """Converts list of str into SmartDetectAudioType. Any unknown values will be ignored and logged."""
 
     types = []
@@ -328,7 +321,7 @@ def convert_smart_audio_types(items: Iterable[str]) -> List[SmartDetectAudioType
     return types
 
 
-def convert_video_modes(items: Iterable[str]) -> List[VideoMode]:
+def convert_video_modes(items: Iterable[str]) -> list[VideoMode]:
     """Converts list of str into VideoMode. Any unknown values will be ignored and logged."""
 
     types = []
@@ -349,8 +342,8 @@ def ip_from_host(host: str) -> IPv4Address | IPv6Address:
     return ip_address(socket.gethostbyname(host))
 
 
-def dict_diff(orig: Optional[Dict[str, Any]], new: Dict[str, Any]) -> Dict[str, Any]:
-    changed: Dict[str, Any] = {}
+def dict_diff(orig: Optional[dict[str, Any]], new: dict[str, Any]) -> dict[str, Any]:
+    changed: dict[str, Any] = {}
 
     if orig is None:
         return new
@@ -372,7 +365,9 @@ def dict_diff(orig: Optional[Dict[str, Any]], new: Dict[str, Any]) -> Dict[str, 
     return changed
 
 
-def ws_stat_summmary(stats: List[WSStat]) -> Tuple[List[WSStat], float, Counter[str], Counter[str], Counter[str]]:
+def ws_stat_summmary(
+    stats: list[WSStat],
+) -> tuple[list[WSStat], float, Counter[str], Counter[str], Counter[str]]:
     if len(stats) == 0:
         raise ValueError("No stats to summarize")
 
@@ -385,7 +380,7 @@ def ws_stat_summmary(stats: List[WSStat]) -> Tuple[List[WSStat], float, Counter[
     return unfiltered, percent, keys, models, actions
 
 
-async def write_json(output_path: Path, data: Union[List[Any], Dict[str, Any]]) -> None:
+async def write_json(output_path: Path, data: Union[list[Any], dict[str, Any]]) -> None:
     def write() -> None:
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
@@ -395,7 +390,10 @@ async def write_json(output_path: Path, data: Union[List[Any], Dict[str, Any]]) 
     await loop.run_in_executor(None, write)
 
 
-def print_ws_stat_summary(stats: List[WSStat], output: Optional[Callable[[Any], Any]] = None) -> None:
+def print_ws_stat_summary(
+    stats: list[WSStat],
+    output: Optional[Callable[[Any], Any]] = None,
+) -> None:
     # typer<0.4.1 is incompatible with click>=8.1.0
     # allows only the CLI interface to break if both are installed
     import typer  # pylint: disable=import-outside-toplevel
@@ -464,7 +462,7 @@ async def profile_ws(
         print_ws_stat_summary(protect.bootstrap.ws_stats, output=print_output)
 
 
-def decode_token_cookie(token_cookie: Morsel[str]) -> Dict[str, Any] | None:
+def decode_token_cookie(token_cookie: Morsel[str]) -> dict[str, Any] | None:
     """Decode a token cookie if it is still valid."""
     try:
         return jwt.decode(
@@ -516,8 +514,8 @@ def get_local_timezone() -> tzinfo:
         return TIMEZONE_GLOBAL
 
     try:
-        from homeassistant.util import (  # type: ignore  # pylint: disable=import-outside-toplevel
-            dt as dt_util,
+        from homeassistant.util import (
+            dt as dt_util,  # type: ignore  # pylint: disable=import-outside-toplevel
         )
 
         return _set_timezone(dt_util.DEFAULT_TIME_ZONE)
@@ -549,7 +547,7 @@ def local_datetime(dt: datetime | None = None) -> datetime:
     """Returns datetime in local timezone"""
 
     if dt is None:
-        dt = datetime.now(tz=timezone.utc)
+        dt = datetime.now(tz=UTC)
 
     local_tz = get_local_timezone()
     if dt.tzinfo is None:

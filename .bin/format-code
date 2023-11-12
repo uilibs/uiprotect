@@ -18,4 +18,8 @@ echo "Running black..."
 black .
 echo
 
+echo "Running ruff..."
+ruff check --preview --fix-only  .
+echo
+
 popd 2>&1 >/dev/null

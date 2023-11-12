@@ -25,15 +25,17 @@ ALL_COMMANDS, DEVICE_COMMANDS = base.init_common_commands(app)
 
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context, device_id: Optional[str] = ARG_DEVICE_ID) -> None:
-    """
-    Sensors device CLI.
+    """Sensors device CLI.
 
     Returns full list of Sensors without any arguments passed.
     """
 
     protect: ProtectApiClient = ctx.obj.protect
     context = SensorContext(
-        protect=ctx.obj.protect, device=None, devices=protect.bootstrap.sensors, output_format=ctx.obj.output_format
+        protect=ctx.obj.protect,
+        device=None,
+        devices=protect.bootstrap.sensors,
+        output_format=ctx.obj.output_format,
     )
     ctx.obj = context
 
@@ -215,7 +217,10 @@ def set_alarm(ctx: typer.Context, enabled: bool) -> None:
 
 
 @app.command()
-def set_motion_sensitivity(ctx: typer.Context, sensitivity: int = typer.Argument(..., min=0, max=100)) -> None:
+def set_motion_sensitivity(
+    ctx: typer.Context,
+    sensitivity: int = typer.Argument(..., min=0, max=100),
+) -> None:
     """Sets motion sensitivity for the sensor."""
 
     base.require_device_id(ctx)

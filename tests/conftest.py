@@ -1,9 +1,11 @@
 # pylint: disable=protected-access
 
+from __future__ import annotations
+
 import asyncio
 import base64
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 import math
 import os
@@ -11,7 +13,7 @@ from pathlib import Path
 from shlex import split
 from subprocess import run
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, List
+from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import aiohttp
@@ -41,7 +43,9 @@ TEST_VIDEO_EXISTS = (
 ).exists() or "camera_video_length" not in CONSTANTS
 TEST_THUMBNAIL_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_camera_thumbnail.png").exists()
 TEST_HEATMAP_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_camera_heatmap.png").exists()
-TEST_SMART_TRACK_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_event_smart_track.json").exists()
+TEST_SMART_TRACK_EXISTS = (
+    SAMPLE_DATA_DIRECTORY / "sample_event_smart_track.json"
+).exists()
 TEST_LIGHT_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_light.json").exists()
 TEST_SENSOR_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_sensor.json").exists()
 TEST_VIEWPORT_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_viewport.json").exists()
@@ -66,10 +70,18 @@ def get_now():
 
 
 def validate_video_file(filepath: Path, length: int):
-    output = run(split(CHECK_CMD.format(filename=filepath)), check=True, capture_output=True)
+    output = run(
+        split(CHECK_CMD.format(filename=filepath)),
+        check=True,
+        capture_output=True,
+    )
     assert output.stdout.decode("utf8").strip() == "video"
 
-    output = run(split(LENGTH_CMD.format(filename=filepath)), check=True, capture_output=True)
+    output = run(
+        split(LENGTH_CMD.format(filename=filepath)),
+        check=True,
+        capture_output=True,
+    )
     # it looks like UFP does not always generate a video of exact length
     assert length - 10 < int(float(output.stdout.decode("utf8").strip())) < length + 10
 
@@ -134,7 +146,7 @@ async def mock_api_request(url: str, *args, **kwargs):
 class SimpleMockWebsocket:
     is_closed: bool = False
     now: float = 0
-    events: Dict[str, Any]
+    events: dict[str, Any]
     count = 0
 
     def __init__(self):
@@ -161,7 +173,11 @@ class SimpleMockWebsocket:
 
         data = self.events.pop(key)
         self.count += 1
-        return aiohttp.WSMessage(aiohttp.WSMsgType.BINARY, base64.b64decode(data["raw"]), None)
+        return aiohttp.WSMessage(
+            aiohttp.WSMsgType.BINARY,
+            base64.b64decode(data["raw"]),
+            None,
+        )
 
 
 class MockWebsocket(SimpleMockWebsocket):
@@ -181,7 +197,11 @@ def ensure_debug():
     set_debug()
 
 
-async def setup_client(client: ProtectApiClient, websocket: SimpleMockWebsocket, timeout: int = 0):
+async def setup_client(
+    client: ProtectApiClient,
+    websocket: SimpleMockWebsocket,
+    timeout: int = 0,
+):
     mock_cs = Mock()
     mock_session = AsyncMock()
     mock_session.ws_connect = AsyncMock(return_value=websocket)
@@ -308,7 +328,7 @@ async def user_obj(protect_client: ProtectApiClient):
     return protect_client.bootstrap.auth_user
 
 
-@pytest.fixture
+@pytest.fixture()
 def liveview():
     if not TEST_LIVEVIEW_EXISTS:
         return None
@@ -316,7 +336,7 @@ def liveview():
     return read_json_file("sample_liveview")
 
 
-@pytest.fixture
+@pytest.fixture()
 def viewport():
     if not TEST_VIEWPORT_EXISTS:
         return None
@@ -324,7 +344,7 @@ def viewport():
     return read_json_file("sample_viewport")
 
 
-@pytest.fixture
+@pytest.fixture()
 def light():
     if not TEST_LIGHT_EXISTS:
         return None
@@ -332,7 +352,7 @@ def light():
     return read_json_file("sample_light")
 
 
-@pytest.fixture
+@pytest.fixture()
 def camera():
     if not TEST_CAMERA_EXISTS:
         return None
@@ -340,7 +360,7 @@ def camera():
     return read_json_file("sample_camera")
 
 
-@pytest.fixture
+@pytest.fixture()
 def sensor():
     if not TEST_SENSOR_EXISTS:
         return None
@@ -348,7 +368,7 @@ def sensor():
     return read_json_file("sample_sensor")
 
 
-@pytest.fixture
+@pytest.fixture()
 def doorlock():
     if not TEST_DOORLOCK_EXISTS:
         return None
@@ -356,7 +376,7 @@ def doorlock():
     return read_json_file("sample_doorlock")
 
 
-@pytest.fixture
+@pytest.fixture()
 def chime():
     if not TEST_CHIME_EXISTS:
         return None
@@ -364,7 +384,7 @@ def chime():
     return read_json_file("sample_chime")
 
 
-@pytest.fixture
+@pytest.fixture()
 def bridge():
     if not TEST_BRIDGE_EXISTS:
         return None
@@ -372,7 +392,7 @@ def bridge():
     return read_json_file("sample_bridge")
 
 
-@pytest.fixture
+@pytest.fixture()
 def liveviews():
     if not TEST_LIVEVIEW_EXISTS:
         return []
@@ -380,7 +400,7 @@ def liveviews():
     return [read_json_file("sample_liveview")]
 
 
-@pytest.fixture
+@pytest.fixture()
 def viewports():
     if not TEST_VIEWPORT_EXISTS:
         return []
@@ -388,7 +408,7 @@ def viewports():
     return [read_json_file("sample_viewport")]
 
 
-@pytest.fixture
+@pytest.fixture()
 def lights():
     if not TEST_LIGHT_EXISTS:
         return []
@@ -396,7 +416,7 @@ def lights():
     return [read_json_file("sample_light")]
 
 
-@pytest.fixture
+@pytest.fixture()
 def cameras():
     if not TEST_CAMERA_EXISTS:
         return []
@@ -404,7 +424,7 @@ def cameras():
     return [read_json_file("sample_camera")]
 
 
-@pytest.fixture
+@pytest.fixture()
 def sensors():
     if not TEST_SENSOR_EXISTS:
         return []
@@ -412,7 +432,7 @@ def sensors():
     return [read_json_file("sample_sensor")]
 
 
-@pytest.fixture
+@pytest.fixture()
 def doorlocks():
     if not TEST_DOORLOCK_EXISTS:
         return []
@@ -420,7 +440,7 @@ def doorlocks():
     return [read_json_file("sample_doorlock")]
 
 
-@pytest.fixture
+@pytest.fixture()
 def chimes():
     if not TEST_CHIME_EXISTS:
         return []
@@ -428,7 +448,7 @@ def chimes():
     return [read_json_file("sample_chime")]
 
 
-@pytest.fixture
+@pytest.fixture()
 def bridges():
     if not TEST_BRIDGE_EXISTS:
         return []
@@ -436,7 +456,7 @@ def bridges():
     return [read_json_file("sample_bridge")]
 
 
-@pytest.fixture
+@pytest.fixture()
 def ws_messages():
     return read_json_file("sample_ws_messages")
 
@@ -446,17 +466,17 @@ def raw_events_fixture():
     return read_json_file("sample_raw_events")
 
 
-@pytest.fixture
+@pytest.fixture()
 def bootstrap():
     return read_json_file("sample_bootstrap")
 
 
-@pytest.fixture
+@pytest.fixture()
 def nvr():
     return read_json_file("sample_bootstrap")["nvr"]
 
 
-@pytest.fixture
+@pytest.fixture()
 def smart_track():
     if not TEST_SMART_TRACK_EXISTS:
         return None
@@ -464,12 +484,12 @@ def smart_track():
     return read_json_file("sample_event_smart_track")
 
 
-@pytest.fixture
+@pytest.fixture()
 def now():
-    return get_now().replace(tzinfo=timezone.utc)
+    return get_now().replace(tzinfo=UTC)
 
 
-@pytest.fixture
+@pytest.fixture()
 def tmp_binary_file():
     tmp_file = NamedTemporaryFile(mode="wb", delete=False)
 
@@ -606,8 +626,10 @@ def compare_objs(obj_type, expected, actual):
         expected["motionZones"] = actual["motionZones"] = []
         expected["privacyZones"] = actual["privacyZones"] = []
         expected["smartDetectZones"] = actual["smartDetectZones"] = []
-        expected["recordingSettings"]["enableMotionDetection"] = expected["recordingSettings"].get(
-            "enableMotionDetection"
+        expected["recordingSettings"]["enableMotionDetection"] = expected[
+            "recordingSettings"
+        ].get(
+            "enableMotionDetection",
         )
         if "isColorNightVisionEnabled" not in expected["ispSettings"]:
             actual["ispSettings"].pop("isColorNightVisionEnabled", None)
@@ -618,16 +640,25 @@ def compare_objs(obj_type, expected, actual):
         if expected["eventStats"]["smart"].get("recentHours") == [[None], None, []]:
             expected["eventStats"]["smart"].pop("recentHours", None)
             actual["eventStats"]["smart"].pop("recentHours", None)
-        if "audioTypes" in actual["smartDetectSettings"] and "audioTypes" not in expected["smartDetectSettings"]:
+        if (
+            "audioTypes" in actual["smartDetectSettings"]
+            and "audioTypes" not in expected["smartDetectSettings"]
+        ):
             del actual["smartDetectSettings"]["audioTypes"]
         if (
             "autoTrackingObjectTypes" in actual["smartDetectSettings"]
             and "autoTrackingObjectTypes" not in expected["smartDetectSettings"]
         ):
             del actual["smartDetectSettings"]["autoTrackingObjectTypes"]
-        if "inScheduleMode" in actual["recordingSettings"] and "inScheduleMode" not in expected["recordingSettings"]:
+        if (
+            "inScheduleMode" in actual["recordingSettings"]
+            and "inScheduleMode" not in expected["recordingSettings"]
+        ):
             del actual["recordingSettings"]["inScheduleMode"]
-        if "outScheduleMode" in actual["recordingSettings"] and "outScheduleMode" not in expected["recordingSettings"]:
+        if (
+            "outScheduleMode" in actual["recordingSettings"]
+            and "outScheduleMode" not in expected["recordingSettings"]
+        ):
             del actual["recordingSettings"]["outScheduleMode"]
 
         for flag in NEW_CAMERA_FEATURE_FLAGS:
@@ -682,9 +713,15 @@ def compare_objs(obj_type, expected, actual):
         expected["ports"]["stacking"] = expected["ports"].get("stacking")
         expected["ports"]["emsJsonCLI"] = expected["ports"].get("emsJsonCLI")
 
-        if "homekitPaired" in actual["featureFlags"] and "homekitPaired" not in expected["featureFlags"]:
+        if (
+            "homekitPaired" in actual["featureFlags"]
+            and "homekitPaired" not in expected["featureFlags"]
+        ):
             del actual["featureFlags"]["homekitPaired"]
-        if "detectionLabels" in actual["featureFlags"] and "detectionLabels" not in expected["featureFlags"]:
+        if (
+            "detectionLabels" in actual["featureFlags"]
+            and "detectionLabels" not in expected["featureFlags"]
+        ):
             del actual["featureFlags"]["detectionLabels"]
         if (
             "hasTwoWayAudioMediaStreams" in actual["featureFlags"]
@@ -698,7 +735,11 @@ def compare_objs(obj_type, expected, actual):
         # float math...
         cpu_fields = ["averageLoad", "temperature"]
         for key in cpu_fields:
-            if math.isclose(expected["systemInfo"]["cpu"][key], actual["systemInfo"]["cpu"][key], rel_tol=0.01):
+            if math.isclose(
+                expected["systemInfo"]["cpu"][key],
+                actual["systemInfo"]["cpu"][key],
+                rel_tol=0.01,
+            ):
                 expected["systemInfo"]["cpu"][key] = actual["systemInfo"]["cpu"][key]
 
         if expected["systemInfo"].get("ustorage") is not None:
@@ -708,7 +749,9 @@ def compare_objs(obj_type, expected, actual):
                 actual_estimate = actual_disk.get("estimate")
                 if estimate is not None and actual_estimate is not None:
                     if math.isclose(estimate, actual_estimate, rel_tol=0.01):
-                        actual["systemInfo"]["ustorage"]["disks"][index]["estimate"] = estimate
+                        actual["systemInfo"]["ustorage"]["disks"][index][
+                            "estimate"
+                        ] = estimate
 
             for index, device in enumerate(expected["systemInfo"]["ustorage"]["space"]):
                 actual_device = actual["systemInfo"]["ustorage"]["space"][index]
@@ -716,7 +759,9 @@ def compare_objs(obj_type, expected, actual):
                 actual_estimate = actual_device.get("estimate")
                 if estimate is not None and actual_estimate is not None:
                     if math.isclose(estimate, actual_estimate, rel_tol=0.01):
-                        actual["systemInfo"]["ustorage"]["space"][index]["estimate"] = estimate
+                        actual["systemInfo"]["ustorage"]["space"][index][
+                            "estimate"
+                        ] = estimate
                 if "space_type" not in device:
                     del actual_device["space_type"]
 
@@ -725,16 +770,28 @@ def compare_objs(obj_type, expected, actual):
                 del actual["featureFlags"][flag]
 
     if "bluetoothConnectionState" in expected:
-        expected["bluetoothConnectionState"]["experienceScore"] = expected["bluetoothConnectionState"].get(
-            "experienceScore"
+        expected["bluetoothConnectionState"]["experienceScore"] = expected[
+            "bluetoothConnectionState"
+        ].get(
+            "experienceScore",
         )
 
     if "wifiConnectionState" in expected:
-        expected["wifiConnectionState"]["bssid"] = expected["wifiConnectionState"].get("bssid")
-        expected["wifiConnectionState"]["txRate"] = expected["wifiConnectionState"].get("txRate")
-        expected["wifiConnectionState"]["experience"] = expected["wifiConnectionState"].get("experience")
-        expected["wifiConnectionState"]["apName"] = expected["wifiConnectionState"].get("apName")
-        expected["wifiConnectionState"]["connectivity"] = expected["wifiConnectionState"].get("connectivity")
+        expected["wifiConnectionState"]["bssid"] = expected["wifiConnectionState"].get(
+            "bssid",
+        )
+        expected["wifiConnectionState"]["txRate"] = expected["wifiConnectionState"].get(
+            "txRate",
+        )
+        expected["wifiConnectionState"]["experience"] = expected[
+            "wifiConnectionState"
+        ].get("experience")
+        expected["wifiConnectionState"]["apName"] = expected["wifiConnectionState"].get(
+            "apName",
+        )
+        expected["wifiConnectionState"]["connectivity"] = expected[
+            "wifiConnectionState"
+        ].get("connectivity")
 
     # sometimes uptime comes back as a str...
     if "uptime" in expected and expected["uptime"] is not None:
@@ -755,7 +812,7 @@ def compare_objs(obj_type, expected, actual):
     assert expected == actual
 
 
-@pytest.fixture
+@pytest.fixture()
 def disable_camera_validation():
     Camera.__config__.validate_assignment = False
 
@@ -766,8 +823,8 @@ def disable_camera_validation():
 
 class MockTalkback:
     is_error: bool = False
-    stdout: List[str] = []
-    stderr: List[str] = []
+    stdout: list[str] = []
+    stderr: list[str] = []
 
     def __init__(self) -> None:
         self.start = AsyncMock()

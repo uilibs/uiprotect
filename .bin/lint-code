@@ -17,23 +17,17 @@ test $? -eq 0 -a $exit_code -eq 0
 exit_code=$?
 echo
 
-echo "Running flake8..."
-pflake8 .
-test $? -eq 0 -a $exit_code -eq 0
-exit_code=$?
-echo
+# echo "Running ruff..."
+# ruff check --preview .
+# test $? -eq 0 -a $exit_code -eq 0
+# exit_code=$?
+# echo
 
-echo "Running mypy..."
-mypy .
-test $? -eq 0 -a $exit_code -eq 0
-exit_code=$?
-echo
-
-echo "Running pylint..."
-pylint tests pyunifiprotect
-test $? -eq 0 -a $exit_code -eq 0
-exit_code=$?
-echo
+# echo "Running mypy..."
+# mypy .
+# test $? -eq 0 -a $exit_code -eq 0
+# exit_code=$?
+# echo
 
 popd 2>&1 >/dev/null
 

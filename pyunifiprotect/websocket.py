@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 import logging
 import time
-from typing import Any, Coroutine, Dict, List, Optional
+from typing import Any, Optional
 
 from aiohttp import (
     ClientError,
@@ -15,7 +17,7 @@ from aiohttp import (
 from .utils import asyncio_timeout
 
 _LOGGER = logging.getLogger(__name__)
-CALLBACK_TYPE = Callable[..., Coroutine[Any, Any, Optional[Dict[str, str]]]]
+CALLBACK_TYPE = Callable[..., Coroutine[Any, Any, Optional[dict[str, str]]]]
 RECENT_FAILURE_CUT_OFF = 30
 
 
@@ -26,10 +28,10 @@ class Websocket:
     backoff: int
     _auth: CALLBACK_TYPE
     _timeout: float
-    _ws_subscriptions: List[Callable[[WSMessage], None]]
+    _ws_subscriptions: list[Callable[[WSMessage], None]]
     _connect_lock: asyncio.Lock
 
-    _headers: Optional[Dict[str, str]] = None
+    _headers: Optional[dict[str, str]] = None
     _websocket_loop_task: Optional[asyncio.Task[None]] = None
     _timer_task: Optional[asyncio.Task[None]] = None
     _ws_connection: Optional[ClientWebSocketResponse] = None
@@ -82,7 +84,11 @@ class Websocket:
         session = self._get_session()
         # catch any and all errors for Websocket so we can clean up correctly
         try:
-            self._ws_connection = await session.ws_connect(self.url, ssl=self.verify, headers=self._headers)
+            self._ws_connection = await session.ws_connect(
+                self.url,
+                ssl=self.verify,
+                headers=self._headers,
+            )
             start_event.set()
 
             self._reset_timeout()
@@ -158,17 +164,19 @@ class Websocket:
         try:
             async with asyncio_timeout(0.1):
                 await self._connect_lock.acquire()
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.debug("Failed to get connection lock")
 
         start_event = asyncio.Event()
         _LOGGER.debug("Scheduling WS connect...")
-        self._websocket_loop_task = asyncio.create_task(self._websocket_loop(start_event))
+        self._websocket_loop_task = asyncio.create_task(
+            self._websocket_loop(start_event),
+        )
 
         try:
             async with asyncio_timeout(self.timeout_interval):
                 await start_event.wait()
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.warning("Timed out while waiting for Websocket to connect")
             await self.disconnect()
 
@@ -198,8 +206,7 @@ class Websocket:
         return await self.connect()
 
     def subscribe(self, ws_callback: Callable[[WSMessage], None]) -> Callable[[], None]:
-        """
-        Subscribe to raw websocket messages.
+        """Subscribe to raw websocket messages.
 
         Returns a callback that will unsubscribe.
         """

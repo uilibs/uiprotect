@@ -18,7 +18,7 @@
         {
             "label": "Update requirements",
             "type": "shell",
-            "command": "${workspaceFolder}/.bin/update-requirements && ${workspaceFolder}/.bin/install-requirements",
+            "command": "${workspaceFolder}/.bin/update-requirements",
             "problemMatcher": []
         },
         {
@@ -54,7 +54,7 @@
             "options": [
                 "test-data",
                 "tests/sample_data",
-              ],
+            ],
         },
         {
             "id": "sampleTime",
@@ -70,7 +70,7 @@
             "options": [
                 "",
                 "--actual",
-              ],
+            ],
         },
     ]
 }

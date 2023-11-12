@@ -1,70 +1,150 @@
 {
+    // docs: https://containers.dev/implementors/json_reference/
+    "name": "pyunifiprotect",
+    // cannot mount secrets for devcontainer build
+    // use `mm s build` to create image
     "build": {
         "dockerfile": "../Dockerfile",
         "context": "..",
         "target": "dev"
     },
-    "extensions": [
-        "ms-python.python",
-        "ms-python.vscode-pylance",
-        "eamodio.gitlens",
-        "ryanluker.vscode-coverage-gutters",
-        "bungcip.better-toml",
-        "mikestead.dotenv",
-        "ms-python.pylint",
-        "ms-python.black-formatter",
-        "ms-python.isort",
-        "streetsidesoftware.code-spell-checker"
-    ],
-    "settings": {
-        // common
-        "editor.formatOnSave": true,
-        "editor.formatOnSaveTimeout": 3000,
-        "editor.insertSpaces": true,
-        "files.insertFinalNewline": true,
-        "files.trimTrailingWhitespace": true,
-        // python common
-        "[python]": {
-            "editor.defaultFormatter": "ms-python.black-formatter",
-            "editor.codeActionsOnSave": {
-                "source.organizeImports": true
-            },
-        },
-        "python.envFile": "${workspaceFolder}/.env",
-        "python.defaultInterpreterPath": "/usr/local/bin/python",
-        "python.pythonPath": "/usr/local/bin/python",
-        // python linting
-        "python.linting.banditEnabled": false,
-        "python.linting.enabled": true,
-        "python.linting.flake8Enabled": true,
-        "python.linting.flake8Path": "/usr/local/bin/pflake8",
-        "python.linting.mypyEnabled": true,
-        "python.linting.pylintEnabled": false,
-        "python.linting.pylamaEnabled": false,
-        "black-formatter.args": [
-            "--config=./pyproject.toml",
-            "--line-length=120" // VS Code use to override to 88, this ensure correct default
-        ],
-        "isort.args": [
-            "--settings-path=./pyproject.toml"
-        ],
-        "pylint.args": [
-            "--rcfile=./pyproject.toml"
-        ],
-        // python tests
-        "coverage-gutters.xmlname": "coverage.xml",
-        "coverage-gutters.customizable.status-bar-toggler-watchCoverageAndVisibleEditors-enabled": true,
-        "coverage-gutters.showLineCoverage": true,
-        "python.testing.promptToConfigure": false,
-        "python.testing.pytestEnabled": true,
-        "python.testing.unittestEnabled": false,
-        "python.testing.nosetestsEnabled": false,
-        "python.testing.pytestArgs": [
-            "--cov-report=xml",
-            "--color=no"
-        ]
-    },
     "updateRemoteUserUID": true,
-    "containerUser": "python",
-    "postCreateCommand": "/workspaces/pyunifiprotect/.bin/install-requirements && source /home/python/.bashrc"
+    "containerUser": "app",
+    // use both envs for HOME and USERPROFILE so it works on Linux, MacOS and Windows all at once. Missing envs will just be empty strings
+    "mounts": [
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.cache,target=/home/app/.cache,type=bind,consistency=cached"
+    ],
+    "initializeCommand": {
+        "mkdir-posix": "mkdir -p $HOME/.cache $HOME/.cache $HOME/.cache || true"
+    },
+    "onCreateCommand": [
+        "/bin/bash",
+        "-c",
+        "sudo -E HOME=/root pip install --root-user-action=ignore -e '.[dev]' && /usr/local/bin/unifi-protect --install-completion bash && docker-fix"
+    ],
+    "updateContentCommand": [
+        "/bin/bash",
+        "-c",
+        "sudo -E HOME=/root pip install --root-user-action=ignore -r dev-requirements.txt"
+    ],
+    "postAttachCommand": [
+        "/bin/bash",
+        "-c",
+        "test -f /.codespaces && echo -e '\\e[1;31mYou will not be able to connect to a UniFi Protect instance inside of Codespaces.' || true"
+    ],
+    "features": {
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+    },
+    // codespaces specific configurations
+    "hostRequirements": {
+        "cpus": 2,
+        "memory": "8gb",
+        "storage": "32gb"
+    },
+    // IDE specific configurations
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                // common
+                "eamodio.gitlens",
+                "github.codespaces",
+                "github.vscode-github-actions",
+                "gitHub.vscode-pull-request-github",
+                "jasonnutter.vscode-codeowners",
+                "mikestead.dotenv",
+                "ms-azuretools.vscode-docker",
+                "ms-vsliveshare.vsliveshare",
+                "streetsidesoftware.code-spell-checker",
+                "tamasfe.even-better-toml",
+                // common lint/test
+                "ryanluker.vscode-coverage-gutters",
+                // python
+                "charliermarsh.ruff",
+                "ms-python.black-formatter",
+                "ms-python.isort",
+                "ms-python.mypy-type-checker",
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "njpwerner.autodocstring",
+                "samuelcolvin.jinjahtml"
+            ],
+            "settings": {
+                // common
+                "editor.formatOnSave": true,
+                "editor.formatOnSaveTimeout": 3000,
+                "editor.insertSpaces": true,
+                "files.insertFinalNewline": true,
+                "files.trimTrailingWhitespace": true,
+                "[toml]": {
+                    "editor.formatOnSave": false
+                },
+                // python common
+                "[python]": {
+                    "editor.defaultFormatter": "ms-python.black-formatter",
+                    "editor.codeActionsOnSave": {
+                        "source.organizeImports": true,
+                        "source.fixAll": true
+                    }
+                },
+                "python.envFile": "${workspaceFolder}/.env",
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.pythonPath": "/usr/local/bin/python",
+                "python.formatting.provider": "none",
+                "python.linting.enabled": true,
+                // python linting
+                "black.args": [
+                    "--config=/opt/app/pyproject.toml"
+                ],
+                "isort.args": [
+                    "--settings-path=/opt/app/pyproject.toml"
+                ],
+                // "mypy-type-checker.importStrategy": "fromEnvironment",
+                "mypy-type-checker.interpreter": [
+                    "/usr/local/bin/python"
+                ],
+                "mypy-type-checker.args": [
+                    "--config-file=/opt/app/pyproject.toml"
+                ],
+                "mypy-type-checker.severity": {
+                    "error": "Error",
+                    "note": "Warning"
+                },
+                "ruff.lint.args": [
+                    "--preview --config=/opt/app/pyproject.toml"
+                ],
+                "ruff.fixAll": true,
+                "ruff.organizeImports": false,
+                // python tests
+                "coverage-gutters.xmlname": "coverage.xml",
+                "coverage-gutters.customizable.status-bar-toggler-watchCoverageAndVisibleEditors-enabled": true,
+                "coverage-gutters.showLineCoverage": true,
+                "python.testing.promptToConfigure": false,
+                "python.testing.pytestEnabled": true,
+                "python.testing.unittestEnabled": false,
+                "python.testing.nosetestsEnabled": false,
+                "python.testing.pytestArgs": [
+                    "--cov-report=xml",
+                    "--color=no"
+                ],
+                // spelling rules
+                "cSpell.allowCompoundWords": true,
+                "cSpell.dictionaries": [
+                    "en_US",
+                    "en-gb",
+                    "companies",
+                    "softwareTerms",
+                    "misc",
+                    "python",
+                    "typescript",
+                    "node",
+                    "go",
+                    "html",
+                    "bash",
+                    "fonts",
+                    "filetypes",
+                    "npm"
+                ]
+            }
+        }
+    }
 }

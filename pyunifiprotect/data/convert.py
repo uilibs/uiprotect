@@ -1,7 +1,7 @@
 """UniFi Protect Data Conversion."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional, Type
+from typing import TYPE_CHECKING, Any, Optional
 
 from pyunifiprotect.data.devices import Bridge, Camera, Doorlock, Light, Sensor, Viewer
 from pyunifiprotect.data.nvr import NVR, Event, Liveview
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from pyunifiprotect.data.base import ProtectModel
 
 
-MODEL_TO_CLASS: Dict[str, Type[ProtectModel]] = {
+MODEL_TO_CLASS: dict[str, type[ProtectModel]] = {
     ModelType.EVENT: Event,
     ModelType.GROUP: Group,
     ModelType.USER_LOCATION: UserLocation,
@@ -31,9 +31,8 @@ MODEL_TO_CLASS: Dict[str, Type[ProtectModel]] = {
 }
 
 
-def get_klass_from_dict(data: Dict[str, Any]) -> Type[ProtectModel]:
-    """
-    Helper method to read the `modelKey` from a UFP JSON dict and get the correct Python class for conversion.
+def get_klass_from_dict(data: dict[str, Any]) -> type[ProtectModel]:
+    """Helper method to read the `modelKey` from a UFP JSON dict and get the correct Python class for conversion.
     Will raise `DataDecodeError` if the `modelKey` is for an unknown object.
     """
     if "modelKey" not in data:
@@ -50,10 +49,11 @@ def get_klass_from_dict(data: Dict[str, Any]) -> Type[ProtectModel]:
 
 
 def create_from_unifi_dict(
-    data: Dict[str, Any], api: Optional[ProtectApiClient] = None, klass: Optional[Type[ProtectModel]] = None
+    data: dict[str, Any],
+    api: Optional[ProtectApiClient] = None,
+    klass: Optional[type[ProtectModel]] = None,
 ) -> ProtectModel:
-    """
-    Helper method to read the `modelKey` from a UFP JSON dict and convert to currect Python class.
+    """Helper method to read the `modelKey` from a UFP JSON dict and convert to currect Python class.
     Will raise `DataDecodeError` if the `modelKey` is for an unknown object.
     """
 

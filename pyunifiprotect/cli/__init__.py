@@ -25,11 +25,8 @@ from pyunifiprotect.cli.sensors import app as sensor_app
 from pyunifiprotect.cli.viewers import app as viewer_app
 from pyunifiprotect.data import Version, WSPacket
 from pyunifiprotect.test_util import SampleDataGenerator
-from pyunifiprotect.utils import (
-    RELEASE_CACHE,
-    get_local_timezone,
-    profile_ws as profile_ws_job,
-)
+from pyunifiprotect.utils import RELEASE_CACHE, get_local_timezone
+from pyunifiprotect.utils import profile_ws as profile_ws_job
 
 _LOGGER = logging.getLogger("pyunifiprotect")
 
@@ -65,12 +62,28 @@ OPTION_ADDRESS = typer.Option(
     help="UniFi Protect IP address or hostname",
     envvar="UFP_ADDRESS",
 )
-OPTION_PORT = typer.Option(443, "--port", "-p", help="UniFi Protect Port", envvar="UFP_PORT")
+OPTION_PORT = typer.Option(
+    443,
+    "--port",
+    "-p",
+    help="UniFi Protect Port",
+    envvar="UFP_PORT",
+)
 OPTION_SECONDS = typer.Option(15, "--seconds", "-s", help="Seconds to pull events")
-OPTION_VERIFY = typer.Option(True, "--no-verify", help="Verify SSL", envvar="UFP_SSL_VERIFY")
+OPTION_VERIFY = typer.Option(
+    True,
+    "--no-verify",
+    help="Verify SSL",
+    envvar="UFP_SSL_VERIFY",
+)
 OPTION_ANON = typer.Option(True, "--actual", help="Do not anonymize test data")
 OPTION_ZIP = typer.Option(False, "--zip", help="Zip up data after generate")
-OPTION_WAIT = typer.Option(30, "--wait", "-w", help="Time to wait for Websocket messages")
+OPTION_WAIT = typer.Option(
+    30,
+    "--wait",
+    "-w",
+    help="Time to wait for Websocket messages",
+)
 OPTION_OUTPUT = typer.Option(
     None,
     "--output",
@@ -83,8 +96,18 @@ OPTION_OUT_FORMAT = typer.Option(
     "--output-format",
     help="Preferred output format. Not all commands support both JSON and plain and may still output in one or the other.",
 )
-OPTION_WS_FILE = typer.Option(None, "--file", "-f", help="Path or raw binary Websocket message")
-OPTION_UNADOPTED = typer.Option(False, "-u", "--include-unadopted", help="Include devices not adopted by this NVR.")
+OPTION_WS_FILE = typer.Option(
+    None,
+    "--file",
+    "-f",
+    help="Path or raw binary Websocket message",
+)
+OPTION_UNADOPTED = typer.Option(
+    False,
+    "-u",
+    "--include-unadopted",
+    help="Include devices not adopted by this NVR.",
+)
 ARG_WS_DATA = typer.Argument(None, help="base64 encoded Websocket message")
 
 SLEEP_INTERVAL = 2
@@ -120,11 +143,18 @@ def main(
     get_local_timezone()
 
     protect = ProtectApiClient(
-        address, port, username, password, verify_ssl=verify, ignore_unadopted=not include_unadopted
+        address,
+        port,
+        username,
+        password,
+        verify_ssl=verify,
+        ignore_unadopted=not include_unadopted,
     )
 
     async def update() -> None:
-        protect._bootstrap = await protect.get_bootstrap()  # pylint: disable=protected-access
+        protect._bootstrap = (
+            await protect.get_bootstrap()
+        )  # pylint: disable=protected-access
         await protect.close_session()
 
     loop = asyncio.get_event_loop()
@@ -150,8 +180,7 @@ async def _progress_bar(wait_time: int, label: str) -> None:
 
 @app.command()
 def shell(ctx: typer.Context) -> None:
-    """
-    Opens iPython shell with Protect client initialized.
+    """Opens iPython shell with Protect client initialized.
 
     Requires the `shell` extra to also be installed.
     """
@@ -160,7 +189,10 @@ def shell(ctx: typer.Context) -> None:
         typer.echo("ipython and termcolor required for shell subcommand")
         sys.exit(1)
 
-    protect = cast(ProtectApiClient, ctx.obj.protect)  # pylint: disable=unused-variable # noqa
+    protect = cast(
+        ProtectApiClient,
+        ctx.obj.protect,
+    )  # pylint: disable=unused-variable
     _setup_logger(show_level=True)
 
     c = get_config()  # type: ignore
@@ -218,7 +250,12 @@ def profile_ws(
 
     async def callback() -> None:
         await protect.update()
-        await profile_ws_job(protect, wait_time, output_path=output_path, ws_progress=_progress_bar)
+        await profile_ws_job(
+            protect,
+            wait_time,
+            output_path=output_path,
+            ws_progress=_progress_bar,
+        )
 
     _setup_logger()
 
@@ -227,7 +264,10 @@ def profile_ws(
 
 
 @app.command()
-def decode_ws_msg(ws_file: typer.FileBinaryRead = OPTION_WS_FILE, ws_data: Optional[str] = ARG_WS_DATA) -> None:
+def decode_ws_msg(
+    ws_file: typer.FileBinaryRead = OPTION_WS_FILE,
+    ws_data: Optional[str] = ARG_WS_DATA,
+) -> None:
     """Decodes a base64 encoded UniFi Protect Websocket binary message."""
 
     if ws_file is None and ws_data is None:

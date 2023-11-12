@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pyunifiprotect.data.base import (
     ProtectAdoptableDeviceModel,
     ProtectBaseObject,

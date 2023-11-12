@@ -1,5 +1,7 @@
 # type: ignore
 # pylint: disable=protected-access
+from __future__ import annotations
+
 import pytest
 
 from pyunifiprotect.data import Camera, Light
@@ -16,7 +18,7 @@ except ImportError:
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_sensor_set_status_light(sensor_obj: Sensor, status: bool):
     sensor_obj.api.api_request.reset_mock()
 
@@ -33,7 +35,7 @@ async def test_sensor_set_status_light(sensor_obj: Sensor, status: bool):
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("mount_type", [MountType.DOOR, MountType.NONE])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_sensor_set_mount_type(sensor_obj: Sensor, mount_type: MountType):
     sensor_obj.api.api_request.reset_mock()
 
@@ -50,7 +52,7 @@ async def test_sensor_set_mount_type(sensor_obj: Sensor, mount_type: MountType):
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_sensor_set_motion_status(sensor_obj: Sensor, status: bool):
     sensor_obj.api.api_request.reset_mock()
 
@@ -67,7 +69,7 @@ async def test_sensor_set_motion_status(sensor_obj: Sensor, status: bool):
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_sensor_set_temperature_status(sensor_obj: Sensor, status: bool):
     sensor_obj.api.api_request.reset_mock()
 
@@ -84,7 +86,7 @@ async def test_sensor_set_temperature_status(sensor_obj: Sensor, status: bool):
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_sensor_set_humidity_status(sensor_obj: Sensor, status: bool):
     sensor_obj.api.api_request.reset_mock()
 
@@ -101,7 +103,7 @@ async def test_sensor_set_humidity_status(sensor_obj: Sensor, status: bool):
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_sensor_set_light_status(sensor_obj: Sensor, status: bool):
     sensor_obj.api.api_request.reset_mock()
 
@@ -118,7 +120,7 @@ async def test_sensor_set_light_status(sensor_obj: Sensor, status: bool):
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_sensor_set_alarm_status(sensor_obj: Sensor, status: bool):
     sensor_obj.api.api_request.reset_mock()
 
@@ -135,7 +137,7 @@ async def test_sensor_set_alarm_status(sensor_obj: Sensor, status: bool):
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("sensitivity", [1, 100, -10])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_sensor_set_motion_sensitivity(
     sensor_obj: Sensor,
     sensitivity: int,
@@ -162,8 +164,12 @@ async def test_sensor_set_motion_sensitivity(
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("low", [-1.0, 0.0, 25.0])
 @pytest.mark.parametrize("high", [20.0, 45.0, 50.0])
-@pytest.mark.asyncio
-async def test_sensor_set_temperature_safe_range(sensor_obj: Sensor, low: float, high: float):
+@pytest.mark.asyncio()
+async def test_sensor_set_temperature_safe_range(
+    sensor_obj: Sensor,
+    low: float,
+    high: float,
+):
     sensor_obj.api.api_request.reset_mock()
 
     sensor_obj.temperature_settings.low_threshold = None
@@ -187,8 +193,12 @@ async def test_sensor_set_temperature_safe_range(sensor_obj: Sensor, low: float,
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("low", [0.0, 1.0, 50.0])
 @pytest.mark.parametrize("high", [45.0, 99.0, 100.0])
-@pytest.mark.asyncio
-async def test_sensor_set_humidity_safe_range(sensor_obj: Sensor, low: float, high: float):
+@pytest.mark.asyncio()
+async def test_sensor_set_humidity_safe_range(
+    sensor_obj: Sensor,
+    low: float,
+    high: float,
+):
     sensor_obj.api.api_request.reset_mock()
 
     sensor_obj.humidity_settings.low_threshold = None
@@ -212,7 +222,7 @@ async def test_sensor_set_humidity_safe_range(sensor_obj: Sensor, low: float, hi
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("low", [0.0, 1.0, 500.0])
 @pytest.mark.parametrize("high", [400.0, 1000.0, 1001.0])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_sensor_set_light_safe_range(sensor_obj: Sensor, low: float, high: float):
     sensor_obj.api.api_request.reset_mock()
 
@@ -235,7 +245,7 @@ async def test_sensor_set_light_safe_range(sensor_obj: Sensor, low: float, high:
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_sensor_remove_temperature_safe_range(sensor_obj: Sensor):
     sensor_obj.api.api_request.reset_mock()
 
@@ -252,7 +262,7 @@ async def test_sensor_remove_temperature_safe_range(sensor_obj: Sensor):
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_sensor_remove_humidity_safe_range(sensor_obj: Sensor):
     sensor_obj.api.api_request.reset_mock()
 
@@ -269,7 +279,7 @@ async def test_sensor_remove_humidity_safe_range(sensor_obj: Sensor):
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_sensor_remove_light_safe_range(sensor_obj: Sensor):
     sensor_obj.api.api_request.reset_mock()
 
@@ -286,7 +296,7 @@ async def test_sensor_remove_light_safe_range(sensor_obj: Sensor):
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_sensor_set_paired_camera_none(sensor_obj: Sensor):
     sensor_obj.api.api_request.reset_mock()
 
@@ -301,8 +311,11 @@ async def test_sensor_set_paired_camera_none(sensor_obj: Sensor):
     )
 
 
-@pytest.mark.skipif(not TEST_SENSOR_EXISTS or not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio
+@pytest.mark.skipif(
+    not TEST_SENSOR_EXISTS or not TEST_CAMERA_EXISTS,
+    reason="Missing testdata",
+)
+@pytest.mark.asyncio()
 async def test_sensor_set_paired_camera(sensor_obj: Light, camera_obj: Camera):
     sensor_obj.api.api_request.reset_mock()
 

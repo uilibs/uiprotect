@@ -1,17 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine
 import enum
-from typing import (
-    Any,
-    Callable,
-    Coroutine,
-    Dict,
-    List,
-    Literal,
-    Optional,
-    TypeVar,
-    Union,
-)
+from typing import Any, Literal, Optional, TypeVar, Union
 
 from packaging.version import Version as BaseVersion
 
@@ -51,11 +42,11 @@ class FixSizeOrderedDict(dict[KT, VT]):
 
 
 class ValuesEnumMixin:
-    _values: Optional[List[str]] = None
-    _values_normalized: Optional[Dict[str, str]] = None
+    _values: Optional[list[str]] = None
+    _values_normalized: Optional[dict[str, str]] = None
 
     @classmethod
-    def values(cls) -> List[str]:
+    def values(cls) -> list[str]:
         if cls._values is None:
             cls._values = [e.value for e in cls]  # type: ignore
         return cls._values
@@ -94,7 +85,7 @@ class ModelType(str, ValuesEnumMixin, enum.Enum):
     RECORDING_SCHEDULE = "recordingSchedule"
 
     @staticmethod
-    def bootstrap_models() -> List[str]:
+    def bootstrap_models() -> list[str]:
         # TODO:
         # legacyUFV
         # display
@@ -183,11 +174,15 @@ class EventType(str, ValuesEnumMixin, enum.Enum):
     RECORDING_OFF = "recordingOff"
 
     @staticmethod
-    def device_events() -> List[str]:
-        return [EventType.MOTION.value, EventType.RING.value, EventType.SMART_DETECT.value]
+    def device_events() -> list[str]:
+        return [
+            EventType.MOTION.value,
+            EventType.RING.value,
+            EventType.SMART_DETECT.value,
+        ]
 
     @staticmethod
-    def motion_events() -> List[str]:
+    def motion_events() -> list[str]:
         return [EventType.MOTION.value, EventType.SMART_DETECT.value]
 
 
@@ -497,7 +492,7 @@ CoordType = Union[Percent, int, float]
 
 
 class Color(BaseColor):
-    def __eq__(self, o: Any) -> bool:
+    def __eq__(self, o: object) -> bool:
         if isinstance(o, Color):
             return self.as_hex() == o.as_hex()
 

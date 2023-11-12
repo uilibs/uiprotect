@@ -1,11 +1,12 @@
 [build-system]
 requires = [
-  "setuptools>=61.0.0",
-  "setuptools_scm[toml]>=6.2",
+  "hatchling",
+  "hatch-vcs",
   "wheel",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
 
+## core metadata
 [project]
 name = "pyunifiprotect"
 description = "Unofficial UniFi Protect Python API and CLI"
@@ -57,9 +58,8 @@ dev = [
     "black",
     "build",
     "coverage[toml]",
-    "flake8-docstrings",
-    "flake8",
     "ipython",
+    "isort",
     "mike",
     "mkdocs-git-revision-date-localized-plugin",
     "mkdocs-include-markdown-plugin",
@@ -68,16 +68,14 @@ dev = [
     "mypy",
     "pip-tools",
     "pydocstyle",
-    "pylint_strict_informational",
-    "pylint",
-    "pyproject-flake8",
     "pytest-asyncio",
     "pytest-benchmark",
     "pytest-cov",
     "pytest-sugar",
     "pytest-timeout>=1.2.1",
-    "pytest-xdist",
+    "pytest-xdist[psutil]",
     "pytest",
+    "ruff",
     "sqlalchemy[asyncio,mypy]",
     "termcolor",
     "types-aiofiles",
@@ -109,187 +107,56 @@ backup = [
     "sqlalchemy[asyncio]",
 ]
 
-
 [project.scripts]
 unifi-protect = "pyunifiprotect.__main__:start"
 
-[tool.setuptools]
-include-package-data = true
+## build backend metadata
+[tool.hatch]
+[tool.hatch.version]
+source = "vcs"
 
-[tool.setuptools.packages.find]
-include = ["pyunifiprotect", "pyunifiprotect.*"]
-exclude = ["tests", "tests.*"]
+[tool.hatch.build]
+include = ["pyunifiprotect"]
+exclude = ["tests"]
 
-[tool.setuptools.package-data]
-pyunifiprotect = ["py.typed"]
+[tool.hatch.metadata]
+allow-direct-references = true
 
-[tool.setuptools_scm]
-
+## linting metadata
 [tool.black]
-line-length = 120
-target-version = ["py39", "py310", "py311"]
-exclude = '''
-(
-  /(
-      \.eggs         # exclude a few common directories in the
-    | \.git          # root of the project
-    | \.hg
-    | \.mypy_cache
-    | \.tox
-    | \.venv
-    | _build
-    | buck-out
-    | build
-    | dist
-    | generated
-  )/
-)
-'''
+line-length = 88
+target-version = ["py39", "py310", "py311", "py312"]
+include = "\\.pyi?$"
+exclude = "(/(\\.*|_build|buck-out|build|dist|migrations)/)"
 
-[tool.coverage.run]
-omit = [
-    ".tox/*",
-    "tests/*",
-    "pyunifiprotect/unifi_data.py",
-    "pyunifiprotect/unifi_protect_server.py",
-]
+[tool.ruff]
+select = ["ALL"]
+exclude = ["*migrations*", ".*", "/usr/local/lib", "dist", "venv"]
+line-length = 88
+target-version = "py312"
+ignore = ["AIR", "ANN", "ARG", "C901", "CPY", "D106", "D202", "D203", "D213", "D417", "DJ", "E501", "FBT003", "FIX", "I", "NPY", "PD", "PERF203", "PLR0904", "PLR0913", "PLR1711", "PLR6301", "RUF012", "S", "TD002", "TD003", "W505"]
+
+[tool.ruff.mccabe]
+max-complexity = 10
+
+[tool.ruff.per-file-ignores]
+"**/test_*.py" = ["FBT"]
 
 [tool.isort]
-# https://github.com/PyCQA/isort/wiki/isort-Settings
 profile = "black"
-# will group `import x` and `from x import` of the same module.
+line_length = 88
+atomic = true
+skip_glob = ["**/migrations/*"]
+add_imports = ["from __future__ import annotations"]
+group_by_package = true
 force_sort_within_sections = true
-known_first_party = [
-    "pyunifiprotect",
-]
-combine_as_imports = true
-
-[tool.pylint.MASTER]
-ignore = [
-    "tests",
-]
-# Use a conservative default here; 2 should speed up most setups and not hurt
-# any too bad. Override on command line as appropriate.
-# Disabled for now: https://github.com/PyCQA/pylint/issues/3584
-#jobs = 2
-load-plugins = [
-    "pylint_strict_informational",
-]
-persistent = false
-extension-pkg-whitelist = [
-    "ciso8601",
-    "cv2",
-]
-
-[tool.pylint.BASIC]
-good-names = [
-    "_",
-    "ev",
-    "ex",
-    "fp",
-    "i",
-    "id",
-    "j",
-    "k",
-    "Run",
-    "T",
-]
-
-[tool.pylint."MESSAGES CONTROL"]
-# Reasons disabled:
-# format - handled by black
-# locally-disabled - it spams too much
-# duplicate-code - unavoidable
-# cyclic-import - doesn't test if both import on load
-# unused-argument - generic callbacks and setup methods create a lot of warnings
-# too-many-* - are not enforced for the sake of readability
-# too-few-* - same as too-many-*
-# abstract-method - with intro of async there are always methods missing
-# inconsistent-return-statements - doesn't handle raise
-# too-many-ancestors - it's too strict.
-# wrong-import-order - isort guards this
-
-# handled by mypy:
-# no-member, unsupported-membership-test, unsupported-assignment-operation,
-# unsubscriptable-object, used-before-assignment, bad-reversed-sequence
-disable = [
-    "format",
-    "abstract-method",
-    "cyclic-import",
-    "duplicate-code",
-    "inconsistent-return-statements",
-    "locally-disabled",
-    "not-context-manager",
-    "too-few-public-methods",
-    "too-many-ancestors",
-    "too-many-arguments",
-    "too-many-branches",
-    "too-many-instance-attributes",
-    "too-many-lines",
-    "too-many-locals",
-    "too-many-public-methods",
-    "too-many-return-statements",
-    "too-many-statements",
-    "too-many-boolean-expressions",
-    "unused-argument",
-    "wrong-import-order",
-    "missing-docstring",
-    "empty-docstring",
-    "invalid-name",
-    "fixme",
-    "no-member",
-    "unsupported-membership-test",
-    "unsubscriptable-object",
-    "unsupported-assignment-operation",
-    "used-before-assignment",
-    "bad-reversed-sequence",
-]
-enable = [
-    #"useless-suppression",  # temporarily every now and then to clean them up
-    "use-symbolic-message-instead",
-]
-extension-pkg-whitelist = "pydantic"
-
-[tool.pylint.REPORTS]
-score = false
-
-[tool.pylint.TYPECHECK]
-ignored-classes = [
-    "_CountingAttr",  # for attrs
-]
-
-[tool.pylint.FORMAT]
-expected-line-ending-format = "LF"
-
-[tool.pylint.EXCEPTIONS]
-overgeneral-exceptions = [
-    "builtins.BaseException",
-    "builtins.Exception",
-]
-
-[tool.pytest.ini_options]
-asyncio_mode = "strict"
-testpaths = [
-    "tests",
-]
-norecursedirs = [
-    ".git",
-    "testing_config",
-    ".tox",
-]
-addopts = "--cov=pyunifiprotect --cov-append -n=auto -Wd"
-
-[tool.flake8]
-exclude = ".eggs, .git, .tox, dist"
-ignore = "D10, D202, D210, D205, D4, E501, E126, E128, W504, W503, E203"
-max-line-length = 120
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.10"
 warn_unused_configs = true
-plugins = "pydantic.mypy,sqlalchemy.ext.mypy.plugin"
 disable_error_code = "no-redef"
-exclude = "dist"
+exclude = ["dist", "/usr/local/lib", "codeql"]
 disallow_any_generics = true
 disallow_subclassing_any = true
 disallow_untyped_calls = true
@@ -304,6 +171,7 @@ warn_return_any = true
 no_implicit_reexport = true
 strict_equality = true
 implicit_reexport = true
+plugins = "pydantic.mypy"
 
 [[tool.mypy.overrides]]
 module = "tests.*"
@@ -319,3 +187,28 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "av.*"
 ignore_missing_imports = true
+
+## test metadata
+[tool.coverage.run]
+branch = true
+omit = []
+disable_warnings = ["no-data-collected", "couldnt-parse"]
+plugins = []
+relative_files = true
+dynamic_context = "test_function"
+
+[tool.coverage.report]
+skip_covered = false
+skip_empty = true
+exclude_also = ["if TYPE_CHECKING:"]
+
+[tool.coverage.html]
+skip_covered = false
+show_contexts = true
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers -ra -Wd --ignore=.* --no-cov-on-fail --cov=pyunifiprotect --cov-append --timeout=3 --maxfail=10 -n=auto"
+filterwarnings = []
+asyncio_mode = "strict"
+testpaths = ["tests"]
+timeout_func_only = false

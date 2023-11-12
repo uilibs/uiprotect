@@ -26,15 +26,17 @@ ALL_COMMANDS, DEVICE_COMMANDS = base.init_common_commands(app)
 
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context, device_id: Optional[str] = ARG_DEVICE_ID) -> None:
-    """
-    Lights device CLI.
+    """Lights device CLI.
 
     Returns full list of Viewers without any arguments passed.
     """
 
     protect: ProtectApiClient = ctx.obj.protect
     context = LightContext(
-        protect=ctx.obj.protect, device=None, devices=protect.bootstrap.lights, output_format=ctx.obj.output_format
+        protect=ctx.obj.protect,
+        device=None,
+        devices=protect.bootstrap.lights,
+        output_format=ctx.obj.output_format,
     )
     ctx.obj = context
 
@@ -84,7 +86,10 @@ def set_status_light(ctx: typer.Context, enabled: bool) -> None:
 
 
 @app.command()
-def set_led_level(ctx: typer.Context, led_level: int = typer.Argument(..., min=1, max=6)) -> None:
+def set_led_level(
+    ctx: typer.Context,
+    led_level: int = typer.Argument(..., min=1, max=6),
+) -> None:
     """Sets brightness of LED on light."""
 
     base.require_device_id(ctx)
@@ -94,7 +99,10 @@ def set_led_level(ctx: typer.Context, led_level: int = typer.Argument(..., min=1
 
 
 @app.command()
-def set_sensitivity(ctx: typer.Context, sensitivity: int = typer.Argument(..., min=0, max=100)) -> None:
+def set_sensitivity(
+    ctx: typer.Context,
+    sensitivity: int = typer.Argument(..., min=0, max=100),
+) -> None:
     """Sets motion sensitivity for the light."""
 
     base.require_device_id(ctx)
@@ -104,7 +112,10 @@ def set_sensitivity(ctx: typer.Context, sensitivity: int = typer.Argument(..., m
 
 
 @app.command()
-def set_duration(ctx: typer.Context, duration: int = typer.Argument(..., min=15, max=900)) -> None:
+def set_duration(
+    ctx: typer.Context,
+    duration: int = typer.Argument(..., min=15, max=900),
+) -> None:
     """Sets timeout duration (in seconds) for light."""
 
     base.require_device_id(ctx)

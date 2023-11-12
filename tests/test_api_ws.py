@@ -2,12 +2,15 @@
 # pylint: disable=protected-access
 
 
+from __future__ import annotations
+
 import asyncio
 import base64
+from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime, timedelta
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -55,16 +58,18 @@ class SubscriptionTest:
             assert msg.old_obj.update_from_dict(msg.changed_data) == msg.new_obj
 
         if self.callback_count == 2:
-            raise Exception()
+            raise Exception
 
         if self.callback_count >= 3 and self.unsub is not None:
             self.unsub()
 
 
 @pytest.mark.benchmark(group="websockets")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ws_all(
-    protect_client_ws: ProtectApiClient, ws_messages: Dict[str, Dict[str, Any]], benchmark: BenchmarkFixture
+    protect_client_ws: ProtectApiClient,
+    ws_messages: dict[str, dict[str, Any]],
+    benchmark: BenchmarkFixture,
 ):
     protect_client = protect_client_ws
     sub = SubscriptionTest()
@@ -81,7 +86,11 @@ async def test_ws_all(
         return result
 
     # bypass pydantic checks
-    object.__setattr__(protect_client.bootstrap, "process_ws_packet", benchmark_process_ws_packet)
+    object.__setattr__(
+        protect_client.bootstrap,
+        "process_ws_packet",
+        benchmark_process_ws_packet,
+    )
 
     websocket = await protect_client.get_websocket()
 
@@ -97,8 +106,11 @@ async def test_ws_all(
 
 
 @pytest.mark.benchmark(group="websockets")
-@pytest.mark.asyncio
-async def test_ws_filtered(protect_client_ws: ProtectApiClient, benchmark: BenchmarkFixture):
+@pytest.mark.asyncio()
+async def test_ws_filtered(
+    protect_client_ws: ProtectApiClient,
+    benchmark: BenchmarkFixture,
+):
     protect_client = protect_client_ws
     protect_client.bootstrap.capture_ws_stats = True
     protect_client._ignore_stats = True
@@ -124,7 +136,11 @@ async def test_ws_filtered(protect_client_ws: ProtectApiClient, benchmark: Bench
         return result
 
     # bypass pydantic checks
-    object.__setattr__(protect_client.bootstrap, "process_ws_packet", benchmark_process_ws_packet)
+    object.__setattr__(
+        protect_client.bootstrap,
+        "process_ws_packet",
+        benchmark_process_ws_packet,
+    )
 
     websocket = await protect_client.get_websocket()
 
@@ -137,9 +153,14 @@ async def test_ws_filtered(protect_client_ws: ProtectApiClient, benchmark: Bench
     print_ws_stat_summary(protect_client.bootstrap.ws_stats)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("pyunifiprotect.api.datetime", MockDatetime)
-async def test_ws_event_ring(protect_client_no_debug: ProtectApiClient, now, camera, packet: WSPacket):
+async def test_ws_event_ring(
+    protect_client_no_debug: ProtectApiClient,
+    now,
+    camera,
+    packet: WSPacket,
+):
     protect_client = protect_client_no_debug
 
     def get_camera():
@@ -196,9 +217,14 @@ async def test_ws_event_ring(protect_client_no_debug: ProtectApiClient, now, cam
         assert channel._api is not None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("pyunifiprotect.api.datetime", MockDatetime)
-async def test_ws_event_motion(protect_client_no_debug: ProtectApiClient, now, camera, packet: WSPacket):
+async def test_ws_event_motion(
+    protect_client_no_debug: ProtectApiClient,
+    now,
+    camera,
+    packet: WSPacket,
+):
     protect_client = protect_client_no_debug
 
     def get_camera():
@@ -256,9 +282,14 @@ async def test_ws_event_motion(protect_client_no_debug: ProtectApiClient, now, c
         assert channel._api is not None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("pyunifiprotect.api.datetime", MockDatetime)
-async def test_ws_event_smart(protect_client_no_debug: ProtectApiClient, now, camera, packet: WSPacket):
+async def test_ws_event_smart(
+    protect_client_no_debug: ProtectApiClient,
+    now,
+    camera,
+    packet: WSPacket,
+):
     protect_client = protect_client_no_debug
 
     def get_camera():
@@ -319,9 +350,14 @@ async def test_ws_event_smart(protect_client_no_debug: ProtectApiClient, now, ca
         assert channel._api is not None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("pyunifiprotect.api.datetime", MockDatetime)
-async def test_ws_event_update(protect_client_no_debug: ProtectApiClient, now, camera, packet: WSPacket):
+async def test_ws_event_update(
+    protect_client_no_debug: ProtectApiClient,
+    now,
+    camera,
+    packet: WSPacket,
+):
     protect_client = protect_client_no_debug
 
     def get_camera() -> Camera:
@@ -372,9 +408,13 @@ async def test_ws_event_update(protect_client_no_debug: ProtectApiClient, now, c
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @patch("pyunifiprotect.data.devices.utc_now")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ws_emit_ring_callback(
-    mock_now, protect_client_no_debug: ProtectApiClient, now: datetime, camera, packet: WSPacket
+    mock_now,
+    protect_client_no_debug: ProtectApiClient,
+    now: datetime,
+    camera,
+    packet: WSPacket,
 ):
     mock_now.return_value = now
     protect_client = protect_client_no_debug
@@ -408,9 +448,13 @@ async def test_ws_emit_ring_callback(
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @patch("pyunifiprotect.data.devices.utc_now")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ws_emit_alarm_callback(
-    mock_now, protect_client_no_debug: ProtectApiClient, now: datetime, sensor, packet: WSPacket
+    mock_now,
+    protect_client_no_debug: ProtectApiClient,
+    now: datetime,
+    sensor,
+    packet: WSPacket,
 ):
     mock_now.return_value = now
     protect_client = protect_client_no_debug
@@ -442,20 +486,26 @@ async def test_ws_emit_alarm_callback(
     assert not obj.is_alarm_detected
 
 
-@pytest.mark.asyncio
-async def test_check_ws_connected(protect_client_ws: ProtectApiClient, caplog: pytest.LogCaptureFixture):
+@pytest.mark.asyncio()
+async def test_check_ws_connected(
+    protect_client_ws: ProtectApiClient,
+    caplog: pytest.LogCaptureFixture,
+):
     caplog.set_level(logging.DEBUG)
 
     active_ws = protect_client_ws.check_ws()
 
     assert active_ws is True
 
-    expected_logs: List[str] = []
+    expected_logs: list[str] = []
     assert expected_logs == [rec.message for rec in caplog.records]
 
 
-@pytest.mark.asyncio
-async def test_check_ws_no_ws_initial(protect_client: ProtectApiClient, caplog: pytest.LogCaptureFixture):
+@pytest.mark.asyncio()
+async def test_check_ws_no_ws_initial(
+    protect_client: ProtectApiClient,
+    caplog: pytest.LogCaptureFixture,
+):
     caplog.set_level(logging.DEBUG)
 
     await protect_client.async_disconnect_ws()
@@ -465,13 +515,19 @@ async def test_check_ws_no_ws_initial(protect_client: ProtectApiClient, caplog: 
 
     assert active_ws is False
 
-    expected_logs = ["Disconnecting websocket...", "Websocket connection not active, failing back to polling"]
+    expected_logs = [
+        "Disconnecting websocket...",
+        "Websocket connection not active, failing back to polling",
+    ]
     assert expected_logs == [rec.message for rec in caplog.records]
     assert caplog.records[1].levelname == "WARNING"
 
 
-@pytest.mark.asyncio
-async def test_check_ws_no_ws(protect_client: ProtectApiClient, caplog: pytest.LogCaptureFixture):
+@pytest.mark.asyncio()
+async def test_check_ws_no_ws(
+    protect_client: ProtectApiClient,
+    caplog: pytest.LogCaptureFixture,
+):
     caplog.set_level(logging.DEBUG)
 
     await protect_client.async_disconnect_ws()
@@ -481,16 +537,23 @@ async def test_check_ws_no_ws(protect_client: ProtectApiClient, caplog: pytest.L
 
     assert active_ws is False
 
-    expected_logs = ["Disconnecting websocket...", "Websocket connection not active, failing back to polling"]
+    expected_logs = [
+        "Disconnecting websocket...",
+        "Websocket connection not active, failing back to polling",
+    ]
     assert expected_logs == [rec.message for rec in caplog.records]
     assert caplog.records[1].levelname == "DEBUG"
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @patch("pyunifiprotect.data.devices.utc_now")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ws_ignores_nvr_mac_and_guid(
-    mock_now, protect_client_no_debug: ProtectApiClient, now: datetime, camera, packet: WSPacket
+    mock_now,
+    protect_client_no_debug: ProtectApiClient,
+    now: datetime,
+    camera,
+    packet: WSPacket,
 ):
     mock_now.return_value = now
     protect_client = protect_client_no_debug

@@ -26,15 +26,17 @@ ALL_COMMANDS, DEVICE_COMMANDS = base.init_common_commands(app)
 
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context, device_id: Optional[str] = ARG_DEVICE_ID) -> None:
-    """
-    Doorlock device CLI.
+    """Doorlock device CLI.
 
     Returns full list of Doorlocks without any arguments passed.
     """
 
     protect: ProtectApiClient = ctx.obj.protect
     context = DoorlockContext(
-        protect=ctx.obj.protect, device=None, devices=protect.bootstrap.doorlocks, output_format=ctx.obj.output_format
+        protect=ctx.obj.protect,
+        device=None,
+        devices=protect.bootstrap.doorlocks,
+        output_format=ctx.obj.output_format,
     )
     ctx.obj = context
 
@@ -84,7 +86,10 @@ def set_status_light(ctx: typer.Context, enabled: bool) -> None:
 
 
 @app.command()
-def set_auto_close_time(ctx: typer.Context, duration: int = typer.Argument(..., min=0, max=3600)) -> None:
+def set_auto_close_time(
+    ctx: typer.Context,
+    duration: int = typer.Argument(..., min=0, max=3600),
+) -> None:
     """Sets auto-close time for the lock (in seconds). 0 = disabled."""
 
     base.require_device_id(ctx)
@@ -113,8 +118,7 @@ def lock(ctx: typer.Context) -> None:
 
 @app.command()
 def calibrate(ctx: typer.Context, force: bool = base.OPTION_FORCE) -> None:
-    """
-    Calibrate the doorlock.
+    """Calibrate the doorlock.
 
     Door must be open and lock unlocked.
     """
