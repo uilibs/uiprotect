@@ -226,7 +226,7 @@ async def cleanup_client(client: ProtectApiClient):
 
 @pytest_asyncio.fixture(name="protect_client")
 async def protect_client_fixture():
-    client = ProtectApiClient("127.0.0.1", 0, "username", "password")
+    client = ProtectApiClient("127.0.0.1", 0, "username", "password", ws_timeout=0.1)
     yield await setup_client(client, SimpleMockWebsocket())
     await cleanup_client(client)
 
@@ -235,7 +235,7 @@ async def protect_client_fixture():
 async def protect_client_no_debug():
     set_no_debug()
 
-    client = ProtectApiClient("127.0.0.1", 0, "username", "password")
+    client = ProtectApiClient("127.0.0.1", 0, "username", "password", ws_timeout=0.1)
     yield await setup_client(client, SimpleMockWebsocket())
     await cleanup_client(client)
 
@@ -244,7 +244,7 @@ async def protect_client_no_debug():
 async def protect_client_ws():
     set_no_debug()
 
-    client = ProtectApiClient("127.0.0.1", 0, "username", "password")
+    client = ProtectApiClient("127.0.0.1", 0, "username", "password", ws_timeout=0.1)
     yield await setup_client(client, MockWebsocket(), timeout=30)
     await cleanup_client(client)
 
