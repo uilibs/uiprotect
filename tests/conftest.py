@@ -53,6 +53,8 @@ TEST_LIVEVIEW_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_liveview.json").exists()
 TEST_DOORLOCK_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_doorlock.json").exists()
 TEST_CHIME_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_chime.json").exists()
 
+ANY_NONE = [[None], None, []]
+
 
 def read_binary_file(name: str, ext: str = "png"):
     with (SAMPLE_DATA_DIRECTORY / f"{name}.{ext}").open("rb") as f:
@@ -631,10 +633,10 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0912,PLR0915
         if "isColorNightVisionEnabled" not in expected["ispSettings"]:
             actual["ispSettings"].pop("isColorNightVisionEnabled", None)
 
-        if expected["eventStats"]["motion"].get("recentHours") in {[None], None, []}:
+        if expected["eventStats"]["motion"].get("recentHours") in ANY_NONE:
             expected["eventStats"]["motion"].pop("recentHours", None)
             actual["eventStats"]["motion"].pop("recentHours", None)
-        if expected["eventStats"]["smart"].get("recentHours") == {[None], None, []}:
+        if expected["eventStats"]["smart"].get("recentHours") == ANY_NONE:
             expected["eventStats"]["smart"].pop("recentHours", None)
             actual["eventStats"]["smart"].pop("recentHours", None)
         if (
