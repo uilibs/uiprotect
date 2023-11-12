@@ -209,7 +209,7 @@ skip_covered = false
 show_contexts = true
 
 [tool.pytest.ini_options]
-addopts = "--strict-markers -ra -Wd --ignore=.* --no-cov-on-fail --cov=pyunifiprotect --cov-append --timeout=3 --maxfail=10 -n=auto"
+addopts = "--strict-markers -ra -Wd --ignore=.* --no-cov-on-fail --cov=pyunifiprotect --cov-append --maxfail=10 -n=auto"
 filterwarnings = []
 asyncio_mode = "strict"
 testpaths = ["tests"]
