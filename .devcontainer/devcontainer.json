@@ -135,14 +135,10 @@
                     "softwareTerms",
                     "misc",
                     "python",
-                    "typescript",
-                    "node",
-                    "go",
                     "html",
                     "bash",
                     "fonts",
-                    "filetypes",
-                    "npm"
+                    "filetypes"
                 ]
             }
         }

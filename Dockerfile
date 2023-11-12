@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED 1
 ARG TARGETPLATFORM
 
 RUN addgroup --system --gid 1000 app \
-    && adduser --system --shell /bin/bash --uid 1000 --ingroup app app
+    && adduser --system --shell /bin/bash --uid 1000 --home /home/app --ingroup app app
 
 RUN --mount=type=cache,mode=0755,id=apt-$TARGETPLATFORM,target=/var/lib/apt/lists \
     apt-get update -qq \
@@ -71,8 +71,7 @@ RUN --mount=type=cache,mode=0755,id=apt-$TARGETPLATFORM,target=/var/lib/apt/list
     apt-get update -qq \
     && apt-get install -yqq git curl vim procps curl jq sudo \
     && echo 'app ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers \
-    && mkdir /nonexistent /vscode \
-    && chown app:app /home/app/.bashrc /nonexistent /vscode \
+    && chown app:app /home/app/.bashrc \
     && chmod +x /usr/local/bin/docker-fix
 
 ENV PYTHONPATH /workspaces/pyunifiprotect/
