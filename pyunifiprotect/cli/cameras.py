@@ -424,6 +424,16 @@ def set_hdr(ctx: typer.Context, enabled: bool) -> None:
 
 
 @app.command()
+def set_color_night_vision(ctx: typer.Context, enabled: bool) -> None:
+    """Sets Color Night Vision on camera"""
+
+    base.require_device_id(ctx)
+    obj: d.Camera = ctx.obj.device
+
+    base.run(ctx, obj.set_color_night_vision(enabled=enabled))
+
+
+@app.command()
 def set_video_mode(ctx: typer.Context, mode: d.VideoMode) -> None:
     """Sets video mode on camera"""
 

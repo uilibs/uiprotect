@@ -16,7 +16,7 @@ from pyunifiprotect.data import (
     RecordingMode,
     VideoMode,
 )
-from pyunifiprotect.data.devices import CameraZone
+from pyunifiprotect.data.devices import CameraZone, Hotplug, HotplugExtender
 from pyunifiprotect.data.types import DEFAULT, SmartDetectObjectType
 from pyunifiprotect.data.websocket import WSAction, WSSubscriptionMessage
 from pyunifiprotect.exceptions import BadRequest
@@ -182,6 +182,49 @@ async def test_camera_set_hdr(camera_obj: Optional[Camera], status: bool):
         method="patch",
         json={"hdrMode": status},
     )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("status", [True, False])
+@pytest.mark.asyncio()
+async def test_camera_set_color_night_vision(
+    camera_obj: Optional[Camera],
+    status: bool,
+):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.api.api_request.reset_mock()
+
+    camera_obj.feature_flags.hotplug = Hotplug()
+    camera_obj.feature_flags.hotplug.extender = HotplugExtender()
+    camera_obj.feature_flags.hotplug.extender.is_attached = True
+
+    camera_obj.isp_settings.is_color_night_vision_enabled = not status
+
+    await camera_obj.set_color_night_vision(status)
+
+    camera_obj.api.api_request.assert_called_with(
+        f"cameras/{camera_obj.id}",
+        method="patch",
+        json={"ispSettings": {"isColorNightVisionEnabled": status}},
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_set_color_night_vision_no_color_night_vision(
+    camera_obj: Optional[Camera],
+):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.api.api_request.reset_mock()
+
+    with pytest.raises(BadRequest):
+        await camera_obj.set_color_night_vision(True)
+
+    assert not camera_obj.api.api_request.called
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
