@@ -80,21 +80,21 @@ def anonymize_value(value: Any, name: Optional[str] = None) -> Any:
             value = f"{random_hex(64)}"
         elif name == "privateToken":
             value = f"{random_alphanum(192)}"
-        elif name in ("host", "connectionHost", "bindAddr"):
+        elif name in {"host", "connectionHost", "bindAddr"}:
             value = anonymize_ip(value)
-        elif name in ("anonymousDeviceId", "hardwareId"):
+        elif name in {"anonymousDeviceId", "hardwareId"}:
             value = random_identifier()
-        elif name in ("rtspAlias", "ssid"):
+        elif name in {"rtspAlias", "ssid"}:
             value = random_alphanum(16)
-        elif name in ("mac", "server_id"):
+        elif name in {"mac", "server_id"}:
             value = anonymize_peristent_string(value, random_hex(12).upper())
         elif name == "bssid":
             value = anonymize_peristent_string(value, random_seperated_mac())
-        elif name in ("latitude", "longitude"):
+        elif name in {"latitude", "longitude"}:
             value = "0.0"
         elif name == "name" and value != "Default":
             value = f"{random_word()} {random_word()}".title()
-        elif name in ("owner", "user", "camera", "liveview", "authUserId", "event"):
+        elif name in {"owner", "user", "camera", "liveview", "authUserId", "event"}:
             value = anonymize_object_id(value)
         elif name == "rtsp":
             value = anonymize_rstp_url(value)
@@ -123,7 +123,7 @@ def anonymize_dict(obj: dict[str, Any], name: Optional[str] = None) -> dict[str,
                 obj[key] = anonymize_object_id(value)
                 handled = True
             elif obj_type == ModelType.EVENT:
-                if key in ("thumbnail", "heatmap"):
+                if key in {"thumbnail", "heatmap"}:
                     obj[key] = anonymize_prefixed_event_id(value)
                     handled = True
                 elif key == "metadata":
@@ -146,18 +146,16 @@ def anonymize_list(items: list[Any], name: Optional[str] = None) -> list[Any]:
     for index, value in enumerate(items):
         handled = False
 
-        if isinstance(value, str) and name in (
+        if isinstance(value, str) and name in {
             "hosts",
             "smartDetectEvents",
             "camera",
             "cameras",
-        ):
+        }:
             handled = True
             if name == "hosts":
                 items[index] = anonymize_ip(items[index])
-            elif name == "smartDetectEvents":
-                items[index] = anonymize_object_id(value)
-            elif name in ("camera", "cameras"):
+            elif name in {"smartDetectEvents", "camera", "cameras"}:
                 items[index] = anonymize_object_id(value)
 
         if not handled:
@@ -176,7 +174,7 @@ def anonymize_ip(ip: Any) -> Any:
     if not isinstance(ip, str):
         return ip
 
-    if ip in ("0.0.0.0", "127.0.0.1", "255.255.255.255"):
+    if ip in {"0.0.0.0", "127.0.0.1", "255.255.255.255"}:
         return ip
 
     return anonymize_peristent_string(ip, random_ip(ip))
@@ -250,7 +248,7 @@ def random_ip(input_ip: str) -> str:
         elif octals[0] == 192 and octals[1] == 168:
             ip = f"192.168.{secrets.randbelow(256)}.{secrets.randbelow(256)}"
 
-    if ip == "":
+    if not ip:
         ip = f"{secrets.randbelow(255) + 1}.{secrets.randbelow(256)}.{secrets.randbelow(256)}.{secrets.randbelow(256)}"
     return ip
 

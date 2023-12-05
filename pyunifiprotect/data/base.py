@@ -123,8 +123,7 @@ class ProtectBaseObject(BaseModel):
             data.pop("api", None)
             return cls(api=api, **data)
 
-        obj = cls.construct(**data)
-        return obj
+        return cls.construct(**data)
 
     @classmethod
     def construct(cls, _fields_set: Optional[set[str]] = None, **values: Any) -> Self:
@@ -338,7 +337,7 @@ class ProtectBaseObject(BaseModel):
         for key in list(data.keys()):
             new_key = to_snake_case(key)
             data[new_key] = data.pop(key)
-            key = new_key
+            key = new_key  # noqa: PLW2901
 
             if key == "api":
                 continue
@@ -409,7 +408,7 @@ class ProtectBaseObject(BaseModel):
         items: list[Any] = []
         for item in value:
             if isinstance(item, ProtectBaseObject):
-                item = item.unifi_dict()
+                item = item.unifi_dict()  # noqa: PLW2901
             items.append(item)
 
         return items
@@ -430,7 +429,7 @@ class ProtectBaseObject(BaseModel):
         items: dict[Any, Any] = {}
         for obj_key, obj in value.items():
             if isinstance(obj, ProtectBaseObject):
-                obj = obj.unifi_dict()
+                obj = obj.unifi_dict()  # noqa: PLW2901
             items[obj_key] = obj
 
         return items
@@ -468,11 +467,11 @@ class ProtectBaseObject(BaseModel):
             if use_obj or key in data:
                 data[key] = self._unifi_dict_protect_obj(data, key, use_obj, klass)
 
-        for key in self._get_protect_lists().keys():
+        for key in self._get_protect_lists():
             if use_obj or key in data:
                 data[key] = self._unifi_dict_protect_obj_list(data, key, use_obj)
 
-        for key in self._get_protect_dicts().keys():
+        for key in self._get_protect_dicts():
             if use_obj or key in data:
                 data[key] = self._unifi_dict_protect_obj_dict(data, key, use_obj)
 
@@ -630,7 +629,7 @@ class ProtectModelWithId(ProtectModel):
     def revert_changes(self, data_before_changes: dict[str, Any]) -> None:
         """Reverts current changes to device and resets it back to initial state"""
         changed = self.get_changed(data_before_changes)
-        for key in changed.keys():
+        for key in changed:
             setattr(self, key, data_before_changes[key])
 
     def can_create(self, user: User) -> bool:
@@ -967,6 +966,7 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     async def _api_update(self, data: dict[str, Any]) -> None:
         if self.model is not None:
             return await self.api.update_device(self.model, self.id, data)
+        return None
 
     def unifi_dict(
         self,

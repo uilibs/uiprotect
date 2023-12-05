@@ -38,7 +38,7 @@ class FixSizeOrderedDict(dict[KT, VT]):
         """Set an update up to the max size."""
         dict.__setitem__(self, key, value)
         if self._max_size > 0 and len(self) > 0 and len(self) > self._max_size:
-            del self[list(self.keys())[0]]
+            del self[next(iter(self.keys()))]
 
 
 class ValuesEnumMixin:
@@ -491,7 +491,8 @@ class Percent(ConstrainedFloat):
 CoordType = Union[Percent, int, float]
 
 
-class Color(BaseColor):
+# TODO: fix when upgrading to pydantic v2
+class Color(BaseColor):  # noqa: PLW1641
     def __eq__(self, o: object) -> bool:
         if isinstance(o, Color):
             return self.as_hex() == o.as_hex()

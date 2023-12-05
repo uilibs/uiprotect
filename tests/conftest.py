@@ -99,7 +99,7 @@ async def mock_api_request_raw(url: str, *args, **kwargs):
     return b""
 
 
-async def mock_api_request(url: str, *args, **kwargs):  # noqa: PLR0911,PLR0912
+async def mock_api_request(url: str, *args, **kwargs):
     if url == "bootstrap":
         return read_json_file("sample_bootstrap")
     if url == "nvr":
@@ -499,7 +499,7 @@ def tmp_binary_file():
     with suppress(Exception):
         tmp_file.close()
 
-    os.remove(tmp_file.name)  # noqa: PTH107
+    os.remove(tmp_file.name)
 
 
 # new values added for newer versions of UFP (for backwards compat tests)
@@ -594,7 +594,7 @@ OLD_FIELDS = {
 }
 
 
-def compare_objs(obj_type, expected, actual):  # noqa: PLR0912,PLR0915
+def compare_objs(obj_type, expected, actual):  # noqa: PLR0915
     expected = deepcopy(expected)
     actual = deepcopy(actual)
 

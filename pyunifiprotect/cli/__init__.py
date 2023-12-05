@@ -187,7 +187,8 @@ def shell(ctx: typer.Context) -> None:
         typer.echo("ipython and termcolor required for shell subcommand")
         sys.exit(1)
 
-    protect = cast(
+    # locals passed to shell
+    protect = cast(  # noqa: F841
         ProtectApiClient,
         ctx.obj.protect,
     )

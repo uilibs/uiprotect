@@ -891,7 +891,7 @@ async def test_camera_set_privacy_no_privacy(camera_obj: Optional[Camera]):
 @pytest.mark.parametrize("level", [None, -1, 0, 100, 200])
 @pytest.mark.parametrize("mode", [None, RecordingMode.ALWAYS])
 @pytest.mark.asyncio()
-async def test_camera_set_privacy(  # noqa: PLR0912
+async def test_camera_set_privacy(
     camera_obj: Optional[Camera],
     actual_enabled: bool,
     enabled: bool,

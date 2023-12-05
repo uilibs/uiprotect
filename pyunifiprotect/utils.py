@@ -155,7 +155,7 @@ def utc_now() -> datetime:
     return datetime.now(tz=timezone.utc)
 
 
-def from_js_time(num: Union[int, float, str, datetime]) -> datetime:
+def from_js_time(num: Union[float, str, datetime]) -> datetime:
     """Converts Javascript timestamp to Python datetime"""
 
     if isinstance(num, datetime):
@@ -291,11 +291,8 @@ def serialize_point(point: tuple[CoordType, CoordType]) -> list[Union[int, float
 
 def serialize_list(items: Iterable[Any]) -> list[Any]:
     """Serializes UFP data list"""
-    new_items: list[Any] = []
-    for item in items:
-        new_items.append(serialize_unifi_obj(item))
 
-    return new_items
+    return [serialize_unifi_obj(i) for i in items]
 
 
 def convert_smart_types(items: Iterable[str]) -> list[SmartDetectObjectType]:
@@ -359,9 +356,8 @@ def dict_diff(orig: Optional[dict[str, Any]], new: dict[str, Any]) -> dict[str, 
 
             if sub_changed:
                 changed[key] = sub_changed
-        else:
-            if value != orig[key]:
-                changed[key] = deepcopy(value)
+        elif value != orig[key]:
+            changed[key] = deepcopy(value)
 
     return changed
 
@@ -400,10 +396,7 @@ def print_ws_stat_summary(
     import typer
 
     if output is None:
-        if typer is not None:
-            output = typer.echo
-        else:
-            output = print
+        output = typer.echo if typer is not None else print
 
     unfiltered, percent, keys, models, actions = ws_stat_summmary(stats)
 
@@ -492,13 +485,11 @@ def format_duration(duration: timedelta) -> str:
         output = f"{hours}h"
     if minutes > 0:
         output = f"{output}{minutes}m"
-    output = f"{output}{seconds}s"
-
-    return output
+    return f"{output}{seconds}s"
 
 
 def _set_timezone(tz: tzinfo | str) -> tzinfo:
-    global TIMEZONE_GLOBAL
+    global TIMEZONE_GLOBAL  # noqa: PLW0603
 
     if isinstance(tz, str):
         tz = zoneinfo.ZoneInfo(tz)
@@ -528,16 +519,14 @@ def get_local_timezone() -> tzinfo:
     timezone_name = "UTC"
     timezone_locale = Path("/etc/localtime")
     if timezone_locale.exists():
-        with open(timezone_locale, "rb") as tzfile:
-            tzfile_digest = sha224(tzfile.read()).hexdigest()
+        tzfile_digest = sha224(Path(timezone_locale).read_bytes()).hexdigest()
 
         for root, _, filenames in os.walk(Path("/usr/share/zoneinfo/")):
             for filename in filenames:
                 fullname = os.path.join(root, filename)
-                with open(fullname, "rb") as f:
-                    digest = sha224(f.read()).hexdigest()
-                    if digest == tzfile_digest:
-                        timezone_name = "/".join((fullname.split("/"))[-2:])
+                digest = sha224(Path(fullname).read_bytes()).hexdigest()
+                if digest == tzfile_digest:
+                    timezone_name = "/".join((fullname.split("/"))[-2:])
 
     return _set_timezone(timezone_name)
 

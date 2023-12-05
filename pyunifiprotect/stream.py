@@ -152,7 +152,7 @@ class TalkbackStream(FfmpegCommand):
     @classmethod
     def clean_url(cls, content_url: str) -> str:
         parsed = urlparse(content_url)
-        if parsed.scheme in ["file", ""]:
+        if parsed.scheme in {"file", ""}:
             path = Path(parsed.netloc + parsed.path)
             if not path.exists():
                 raise BadRequest(f"File {path} does not exist")

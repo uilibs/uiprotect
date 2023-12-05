@@ -243,7 +243,7 @@ class SampleDataGenerator:
         smart_detection: Optional[dict[str, Any]] = None
         for event_dict in reversed(data):
             if (
-                motion_event is None
+                motion_event is None  # noqa: PLR0916
                 and event_dict["type"] == EventType.MOTION.value
                 and event_dict["camera"] is not None
                 and event_dict["thumbnail"] is not None
@@ -358,7 +358,7 @@ class SampleDataGenerator:
         filename = "sample_camera_video"
         length = int((motion_event["end"] - motion_event["start"]) / 1000)
         if self.anonymize:
-            run(
+            run(  # noqa: ASYNC101
                 split(
                     BLANK_VIDEO_CMD.format(
                         length=length,

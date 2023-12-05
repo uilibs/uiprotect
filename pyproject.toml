@@ -140,7 +140,27 @@ ignore = ["AIR", "ANN", "ARG", "C901", "CPY", "D106", "D202", "D203", "D213", "D
 max-complexity = 10
 
 [tool.ruff.per-file-ignores]
-"**/*.py" = ["UP007"]  # TODO: upgrade to pydantic v2
+"**/*.py" = [
+    "UP007",  # TODO: upgrade to pydantic v2
+    # TODO
+    "A003",
+    "B008",
+    "BLE001",
+    "D",
+    "EM",
+    "FBT",
+    "FBT001",
+    "PLC0415",
+    "PLR0911",
+    "PLR0912",
+    "PLR2004",
+    "PTH",
+    "SLF001",
+    "TCH",
+    "TD",
+    "TRY",
+]
+"pyunifiprotect/api.py" = ["ERA001"]
 "**/test_*.py" = ["FBT", "D", "SLF001", "PLR2004"]
 "tests/**/*.py" = ["FBT", "D", "SLF001", "PLR2004"]
 

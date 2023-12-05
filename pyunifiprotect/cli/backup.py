@@ -77,15 +77,15 @@ class BackupContext(base.CliContext):
 
     @property
     def download_thumbnails(self) -> bool:
-        return self.thumbnail_format != ""
+        return self.thumbnail_format != ""  # noqa: PLC1901
 
     @property
     def download_gifs(self) -> bool:
-        return self.gif_format != ""
+        return self.gif_format != ""  # noqa: PLC1901
 
     @property
     def download_videos(self) -> bool:
-        return self.event_format != ""
+        return self.event_format != ""  # noqa: PLC1901
 
     @property
     def db_file(self) -> Path:
@@ -153,9 +153,8 @@ class Event(Base):
 
     @property
     def end(self) -> datetime | None:
-        if self._end is None:
-            if self.end_naive is not None:
-                self._end = self.end_naive.replace(tzinfo=timezone.utc)
+        if self._end is None and self.end_naive is not None:
+            self._end = self.end_naive.replace(tzinfo=timezone.utc)
         return self._end
 
     @property
@@ -181,10 +180,10 @@ class Event(Base):
 
             event_type = str(self.event_type)
             event_type_pretty = f"{event_type.title()} Event"
-            if event_type in (
+            if event_type in {
                 d.EventType.SMART_DETECT.value,
                 d.EventType.SMART_DETECT_LINE.value,
-            ):
+            }:
                 smart_types = list(self.smart_types)
                 smart_types.sort()
                 event_type = f"{event_type}[{','.join(smart_types)}]"
@@ -457,11 +456,10 @@ def main(
 
 
 def _wipe_files(ctx: BackupContext, no_input: bool) -> None:
-    if not no_input:
-        if not typer.confirm(
-            "Are you sure you want to delete all existing thumbnails and video clips?",
-        ):
-            raise typer.Exit(1)
+    if not no_input and not typer.confirm(
+        "Are you sure you want to delete all existing thumbnails and video clips?",
+    ):
+        raise typer.Exit(1)
 
     if ctx.db_file.exists():
         os.remove(ctx.db_file)
@@ -500,10 +498,10 @@ async def _prune_events(ctx: BackupContext) -> int:
                 _LOGGER.debug("Delete file %s", event_path)
                 await aos.remove(event_path)
 
-            if event.event_type in (
+            if event.event_type in {
                 d.EventType.SMART_DETECT.value,
                 d.EventType.SMART_DETECT_LINE.value,
-            ):
+            }:
                 for smart_type in event.smart_detect_types:
                     await db.delete(smart_type)
             await db.delete(event)
@@ -531,10 +529,10 @@ async def _update_event(ctx: BackupContext, event: d.Event) -> None:
         db_event.camera_mac = event.camera.mac
         db_event.event_type = event.type.value
 
-        if event.type in (
+        if event.type in {
             d.EventType.SMART_DETECT.value,
             d.EventType.SMART_DETECT_LINE.value,
-        ):
+        }:
             types = {e.value for e in event.smart_detect_types}
 
             result = await db.execute(
@@ -799,30 +797,32 @@ def _add_metadata(path: Path, creation: datetime, title: str) -> bool:
 
     success = True
     try:
-        with av.open(str(path)) as input_file:
-            with av.open(str(output_path), "w") as output_file:
-                for key, value in input_file.metadata.items():
-                    output_file.metadata[key] = value
-                output_file.metadata["creation_time"] = creation.isoformat()
-                output_file.metadata["title"] = title
-                output_file.metadata["year"] = creation.date().isoformat()
-                output_file.metadata["release"] = creation.date().isoformat()
+        with (
+            av.open(str(path)) as input_file,
+            av.open(str(output_path), "w") as output_file,
+        ):
+            for key, value in input_file.metadata.items():
+                output_file.metadata[key] = value
+            output_file.metadata["creation_time"] = creation.isoformat()
+            output_file.metadata["title"] = title
+            output_file.metadata["year"] = creation.date().isoformat()
+            output_file.metadata["release"] = creation.date().isoformat()
 
-                in_to_out: dict[str, Any] = {}
-                for stream in input_file.streams:
-                    in_to_out[stream] = output_file.add_stream(template=stream)
-                    in_to_out[stream].metadata["creation_time"] = creation.isoformat()
+            in_to_out: dict[str, Any] = {}
+            for stream in input_file.streams:
+                in_to_out[stream] = output_file.add_stream(template=stream)
+                in_to_out[stream].metadata["creation_time"] = creation.isoformat()
 
-                for packet in input_file.demux(list(in_to_out.keys())):
-                    if packet.dts is None:
-                        continue
+            for packet in input_file.demux(list(in_to_out.keys())):
+                if packet.dts is None:
+                    continue
 
-                    packet.stream = in_to_out[packet.stream]
-                    try:
-                        output_file.mux(packet)
-                    # some frames may be corrupted on disk from NVR
-                    except ValueError:
-                        continue
+                packet.stream = in_to_out[packet.stream]
+                try:
+                    output_file.mux(packet)
+                # some frames may be corrupted on disk from NVR
+                except ValueError:
+                    continue
     # no docs on what exception could be
     except Exception:
         success = False
@@ -992,12 +992,11 @@ async def _download_events(
                     # ensure no tasks are currently in a retry state
                     await no_error_flag.wait()
 
-                    if event.event_type in (
+                    if event.event_type in {
                         d.EventType.SMART_DETECT.value,
                         d.EventType.SMART_DETECT_LINE.value,
-                    ):
-                        if not event.smart_types.intersection(smart_types_set):
-                            continue
+                    } and not event.smart_types.intersection(smart_types_set):
+                        continue
 
                     task = loop.create_task(
                         _download_event(ctx, event, verify, force, pb),

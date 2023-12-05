@@ -1,8 +1,10 @@
 """UniFi Protect Server Wrapper."""
+
 from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+import contextlib
 from datetime import datetime, timedelta
 from http.cookies import Morsel
 from ipaddress import IPv4Address, IPv6Address
@@ -70,7 +72,7 @@ PROTECT_APT_URLS = [
 
 _LOGGER = logging.getLogger(__name__)
 
-# TODO:
+# TODO: Urls to still support
 # Backups
 # * GET /backups - list backends
 # * POST /backups/import - import backup
@@ -212,7 +214,10 @@ class BaseApiClient:
 
         if self._websocket is None:
             self._websocket = Websocket(
-                self.ws_url, _auth, verify=self._verify_ssl, timeout=self._ws_timeout
+                self.ws_url,
+                _auth,
+                verify=self._verify_ssl,
+                timeout=self._ws_timeout,
             )
             self._websocket.subscribe(self._process_ws_message)
 
@@ -308,7 +313,7 @@ class BaseApiClient:
                 reason = await get_response_reason(response)
                 msg = "Request failed: %s - Status: %s - Reason: %s"
                 if raise_exception:
-                    if response.status in (401, 403):
+                    if response.status in {401, 403}:
                         raise NotAuthorized(msg % (url, response.status, reason))
                     if response.status >= 400 and response.status < 500:
                         raise BadRequest(msg % (url, response.status, reason))
@@ -479,10 +484,12 @@ class BaseApiClient:
 
         if not websocket.is_connected:
             self._last_ws_status = False
-            try:
+            with contextlib.suppress(
+                TimeoutError,
+                asyncio.TimeoutError,
+                asyncio.CancelledError,
+            ):
                 await websocket.connect()
-            except (TimeoutError, asyncio.TimeoutError, asyncio.CancelledError):
-                pass
 
     async def async_disconnect_ws(self) -> None:
         """Disconnect from Websocket."""
@@ -620,10 +627,8 @@ class ProtectApiClient(BaseApiClient):
             except ValueError:
                 # check if IP of user supplied host is avaiable
                 host = ip_from_host(self._host)
-                try:
+                with contextlib.suppress(ValueError):
                     index = self.bootstrap.nvr.hosts.index(host)
-                except ValueError:
-                    pass
 
             self._connection_host = self.bootstrap.nvr.hosts[index]
 
@@ -827,10 +832,10 @@ class ProtectApiClient(BaseApiClient):
         # "motion" and "smartDetect" recording modes was combined into "detections" in Protect 1.20.0
         call_again = False
         for camera_dict in data["cameras"]:
-            if camera_dict.get("recordingSettings", {}).get("mode", "detections") in (
+            if camera_dict.get("recordingSettings", {}).get("mode", "detections") in {
                 "motion",
                 "smartDetect",
-            ):
+            }:
                 await self.update_device(
                     ModelType.CAMERA,
                     camera_dict["id"],

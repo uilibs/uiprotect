@@ -101,7 +101,7 @@ def _process_sensor_event(event: Event) -> None:
             or (event.end is not None and event.end >= dt)
         ):
             event.sensor.last_motion_event_id = event.id
-    elif event.type in (EventType.SENSOR_CLOSED, EventType.SENSOR_OPENED):
+    elif event.type in {EventType.SENSOR_CLOSED, EventType.SENSOR_OPENED}:
         dt = event.sensor.open_status_changed_at
         if (
             dt is None
@@ -137,7 +137,7 @@ def _process_camera_event(event: Event) -> None:
     if dt is None or event.start >= dt or (event.end is not None and event.end >= dt):
         setattr(event.camera, event_attr, event.id)
         setattr(event.camera, dt_attr, event.start)
-        if event.type in (EventType.SMART_DETECT, EventType.SMART_DETECT_LINE):
+        if event.type in {EventType.SMART_DETECT, EventType.SMART_DETECT_LINE}:
             for smart_type in event.smart_detect_types:
                 event.camera.last_smart_detect_event_ids[smart_type] = event.id
                 event.camera.last_smart_detects[smart_type] = event.start
@@ -497,12 +497,15 @@ class Bootstrap(ProtectBaseObject):
                     _LOGGER.debug("last_ring for %s (%s)", obj.id, is_recent)
                     if is_recent:
                         obj.set_ring_timeout()
-            elif isinstance(obj, Sensor):
-                if "alarm_triggered_at" in data and obj.alarm_triggered_at:
-                    is_recent = obj.alarm_triggered_at + RECENT_EVENT_MAX >= now
-                    _LOGGER.debug("alarm_triggered_at for %s (%s)", obj.id, is_recent)
-                    if is_recent:
-                        obj.set_alarm_timeout()
+            elif (
+                isinstance(obj, Sensor)
+                and "alarm_triggered_at" in data
+                and obj.alarm_triggered_at
+            ):
+                is_recent = obj.alarm_triggered_at + RECENT_EVENT_MAX >= now
+                _LOGGER.debug("alarm_triggered_at for %s (%s)", obj.id, is_recent)
+                if is_recent:
+                    obj.set_alarm_timeout()
 
             devices[action["id"]] = obj
 

@@ -47,7 +47,7 @@ def run(ctx: typer.Context, func: Coroutine[Any, Any, T]) -> T:
         return loop.run_until_complete(callback())
     except (BadRequest, ValidationError, StreamError, NvrError) as err:
         typer.secho(str(err), fg="red")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from err
 
 
 def json_output(obj: Any) -> None:

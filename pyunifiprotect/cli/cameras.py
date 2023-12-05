@@ -122,8 +122,12 @@ def stream_urls(ctx: typer.Context) -> None:
         if channel.is_rtsp_enabled:
             rtsp_url = cast(str, channel.rtsp_url)
             rtsps_url = cast(str, channel.rtsps_url)
-            data.append((f"{channel.name} RTSP", rtsp_url))
-            data.append((f"{channel.name} RTSPS", rtsps_url))
+            data.extend(
+                (
+                    (f"{channel.name} RTSP", rtsp_url),
+                    (f"{channel.name} RTSPS", rtsps_url),
+                ),
+            )
 
     if ctx.obj.output_format == base.OutputFormatEnum.JSON:
         base.json_output(data)

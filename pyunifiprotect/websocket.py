@@ -1,3 +1,5 @@
+"""UniFi Protect Websockets."""
+
 from __future__ import annotations
 
 import asyncio
@@ -19,9 +21,12 @@ from .utils import asyncio_timeout
 _LOGGER = logging.getLogger(__name__)
 CALLBACK_TYPE = Callable[..., Coroutine[Any, Any, Optional[dict[str, str]]]]
 RECENT_FAILURE_CUT_OFF = 30
+RECENT_FAILURE_THRESHOLD = 2
 
 
 class Websocket:
+    """UniFi Protect Websocket manager."""
+
     url: str
     verify: bool
     timeout_interval: int
@@ -42,10 +47,13 @@ class Websocket:
         self,
         url: str,
         auth_callback: CALLBACK_TYPE,
+        *,
         timeout: int = 30,
         backoff: int = 10,
         verify: bool = True,
     ) -> None:
+        """Init Websocket."""
+
         self.url = url
         self.timeout_interval = timeout
         self.backoff = backoff
@@ -57,7 +65,7 @@ class Websocket:
 
     @property
     def is_connected(self) -> bool:
-        """Is Websocket connected"""
+        """Check if Websocket connected."""
         return self._ws_connection is not None
 
     def _get_session(self) -> ClientSession:
@@ -96,8 +104,8 @@ class Websocket:
                 if not self._process_message(msg):
                     break
                 self._reset_timeout()
-        except ClientError as e:
-            _LOGGER.exception("Websocket disconnect error: %s", e)
+        except ClientError:
+            _LOGGER.exception("Websocket disconnect error: %s")
         finally:
             _LOGGER.debug("Websocket disconnected")
             self._increase_failure()
@@ -112,12 +120,14 @@ class Websocket:
 
     @property
     def has_recent_connect(self) -> bool:
+        """Check if Websocket has recent connection."""
+
         return time.monotonic() - RECENT_FAILURE_CUT_OFF <= self._last_connect
 
     @property
     def _should_reset_auth(self) -> bool:
         if self.has_recent_connect:
-            if self._recent_failures > 2:
+            if self._recent_failures > RECENT_FAILURE_THRESHOLD:
                 return True
         else:
             self._recent_failures = 0

@@ -192,7 +192,7 @@ class EventMetadata(ProtectBaseObject):
 
         for key in self._collapse_keys.intersection(data.keys()):
             # AI Theta/Hotplug exception
-            if key != "type" or data[key] not in ("audio", "video", "extender"):
+            if key != "type" or data[key] not in {"audio", "video", "extender"}:
                 data[key] = {"text": data[key]}
 
         return data
@@ -401,7 +401,7 @@ class Event(ProtectModelWithId):
         If event is not a smart detect event, it will raise a `BadRequest`
         """
 
-        if self.type not in (EventType.SMART_DETECT, EventType.SMART_DETECT_LINE):
+        if self.type not in {EventType.SMART_DETECT, EventType.SMART_DETECT_LINE}:
             raise BadRequest("Not a smart detect event")
 
         if self._smart_detect_track is None:
@@ -602,12 +602,12 @@ class UOSDisk(ProtectBaseObject):
 
     @property
     def is_healthy(self) -> bool:
-        return self.state in [
+        return self.state in {
             "initializing",
             "expanding",
             "spare",
             "normal",
-        ]
+        }
 
 
 class UOSSpace(ProtectBaseObject):
@@ -833,7 +833,7 @@ class NVR(ProtectDeviceModel):
     host_type: int
     host_shortname: str
     is_hardware: bool
-    is_wireless_uplink_enabled: bool
+    is_wireless_uplink_enabled: Optional[bool]
     time_format: Literal["12h", "24h"]
     temperature_unit: Literal["C", "F"]
     recording_retention_duration: Optional[timedelta]
@@ -854,7 +854,6 @@ class NVR(ProtectDeviceModel):
     is_setup: bool
     network: str
     max_camera_capacity: dict[Literal["4K", "2K", "HD"], int]
-    is_wireless_uplink_enabled: Optional[bool]
     market_name: Optional[str] = None
     stream_sharing_available: Optional[bool] = None
     is_db_available: Optional[bool] = None
@@ -1069,9 +1068,9 @@ class NVR(ProtectDeviceModel):
             try:
                 _LOGGER.debug("Reading release cache file: %s", file_path)
                 async with aiofiles.open(file_path, "rb") as cache_file:
-                    versions = set(
+                    versions = {
                         Version(v) for v in orjson.loads(await cache_file.read())
-                    )
+                    }
             except Exception:
                 _LOGGER.warning("Failed to parse cache file: %s", file_path)
 

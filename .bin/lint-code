@@ -18,7 +18,7 @@ exit_code=$?
 echo
 
 echo "Running ruff..."
-ruff check --preview tests
+ruff check --preview pyunifiprotect tests
 test $? -eq 0 -a $exit_code -eq 0
 exit_code=$?
 echo

@@ -76,13 +76,15 @@ class BaseWSPacketFrame:
         position: int = 0,
         klass: Optional[type[WSRawPacketFrame]] = None,
     ) -> BaseWSPacketFrame:
-        """Decode a unifi updates websocket frame."""
-        # The format of the frame is
-        # b: packet_type
-        # b: payload_format
-        # b: deflated
-        # b: unknown
-        # i: payload_size
+        """Decode a unifi updates websocket frame.
+
+        The format of the frame is
+        b: packet_type
+        b: payload_format
+        b: deflated
+        b: unknown
+        i: payload_size
+        """
 
         header_end = position + WS_HEADER_SIZE
 

@@ -25,15 +25,15 @@ class ClientError(UnifiProtectError):
     """Base Class for all other UniFi Protect client errors"""
 
 
-class BadRequest(ClientError):
+class BadRequest(ClientError):  # noqa: N818
     """Invalid request from API Client"""
 
 
-class Invalid(ClientError):
+class Invalid(ClientError):  # noqa: N818
     """Invalid return from Authorization Request."""
 
 
-class NotAuthorized(PermissionError, BadRequest):
+class NotAuthorized(PermissionError, BadRequest):  # noqa: N818
     """Wrong username, password or permission error."""
 
 

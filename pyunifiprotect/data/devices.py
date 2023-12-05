@@ -1659,7 +1659,7 @@ class Camera(ProtectMotionDeviceModel):
 
         await self.set_chime_duration(timedelta(milliseconds=chime_type.value))
 
-    async def set_chime_duration(self, duration: timedelta | float | int) -> None:
+    async def set_chime_duration(self, duration: timedelta | float) -> None:
         """Sets chime duration for doorbell. Requires camera to be a doorbell"""
 
         if not self.feature_flags.has_chime:
@@ -1761,11 +1761,10 @@ class Camera(ProtectMotionDeviceModel):
             objects = self.smart_detect_settings.object_types
             if enabled:
                 if obj_to_mod not in objects:
-                    objects = objects + [obj_to_mod]
+                    objects = [*objects, obj_to_mod]
                     objects.sort()
-            else:
-                if obj_to_mod in objects:
-                    objects.remove(obj_to_mod)
+            elif obj_to_mod in objects:
+                objects.remove(obj_to_mod)
             self.smart_detect_settings.object_types = objects
 
         await self.queue_update(callback)
@@ -1785,11 +1784,10 @@ class Camera(ProtectMotionDeviceModel):
             objects = self.smart_detect_settings.audio_types or []
             if enabled:
                 if obj_to_mod not in objects:
-                    objects = objects + [obj_to_mod]
+                    objects = [*objects, obj_to_mod]
                     objects.sort()
-            else:
-                if obj_to_mod in objects:
-                    objects.remove(obj_to_mod)
+            elif obj_to_mod in objects:
+                objects.remove(obj_to_mod)
             self.smart_detect_settings.audio_types = objects
 
         await self.queue_update(callback)
@@ -2013,9 +2011,8 @@ class Viewer(ProtectAdoptableDeviceModel):
             liveview: The liveview you want to set
         """
 
-        if self._api is not None:
-            if liveview.id not in self._api.bootstrap.liveviews:
-                raise BadRequest("Unknown liveview")
+        if self._api is not None and liveview.id not in self._api.bootstrap.liveviews:
+            raise BadRequest("Unknown liveview")
 
         async with self._update_lock:
             await asyncio.sleep(
@@ -2152,7 +2149,7 @@ class Sensor(ProtectAdoptableDeviceModel):
 
     @property
     def is_contact_sensor_enabled(self) -> bool:
-        return self.mount_type in [MountType.DOOR, MountType.WINDOW, MountType.GARAGE]
+        return self.mount_type in {MountType.DOOR, MountType.WINDOW, MountType.GARAGE}
 
     @property
     def is_motion_sensor_enabled(self) -> bool:

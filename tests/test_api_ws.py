@@ -61,7 +61,7 @@ class SubscriptionTest:
             assert msg.old_obj.update_from_dict(msg.changed_data) == msg.new_obj
 
         if self.callback_count == 2:
-            raise Exception  # noqa: TRY002
+            raise Exception
 
         if self.callback_count >= 3 and self.unsub is not None:
             self.unsub()
