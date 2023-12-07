@@ -64,4 +64,5 @@ jobs:
     - name: Run Tests
       env:
         WS_TIMEOUT: 330
+        PYTEST_EXTRA_ARGS: "--no-cov"
       run: .bin/test-code
