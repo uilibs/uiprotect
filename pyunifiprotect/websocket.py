@@ -174,7 +174,7 @@ class Websocket:
         try:
             async with asyncio_timeout(0.1):
                 await self._connect_lock.acquire()
-        except TimeoutError:
+        except (TimeoutError, asyncio.TimeoutError, asyncio.CancelledError):
             _LOGGER.debug("Failed to get connection lock")
 
         start_event = asyncio.Event()
@@ -186,7 +186,7 @@ class Websocket:
         try:
             async with asyncio_timeout(self.timeout_interval):
                 await start_event.wait()
-        except TimeoutError:
+        except (TimeoutError, asyncio.TimeoutError, asyncio.CancelledError):
             _LOGGER.warning("Timed out while waiting for Websocket to connect")
             await self.disconnect()
 

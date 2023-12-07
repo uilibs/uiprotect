@@ -1463,6 +1463,8 @@ class ProtectApiClient(BaseApiClient):
                         versions.add(Version(line.split(": ")[-1]))
         except (
             TimeoutError,
+            asyncio.TimeoutError,
+            asyncio.CancelledError,
             aiohttp.ServerDisconnectedError,
             client_exceptions.ClientError,
         ) as err:
