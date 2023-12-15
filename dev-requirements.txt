@@ -6,8 +6,10 @@
 #
 aiofiles==23.2.1
     # via pyunifiprotect (pyproject.toml)
-aiohttp==3.9.1
-    # via pyunifiprotect (pyproject.toml)
+aiohttp==3.8.6
+    # via
+    #   black
+    #   pyunifiprotect (pyproject.toml)
 aioshutil==1.3
     # via pyunifiprotect (pyproject.toml)
 aiosignal==1.3.1
@@ -26,13 +28,13 @@ attrs==23.1.0
     # via aiohttp
 av==11.0.0
     # via pyunifiprotect (pyproject.toml)
-babel==2.13.1
+babel==2.14.0
     # via
     #   mkdocs-git-revision-date-localized-plugin
     #   mkdocs-material
 base36==0.1.1
     # via pyunifiprotect (pyproject.toml)
-black==23.11.0
+black==23.12.0
     # via pyunifiprotect (pyproject.toml)
 bracex==2.4
     # via wcmatch
@@ -56,11 +58,11 @@ colorama==0.4.6
     #   griffe
     #   mkdocs-material
     #   typer
-coverage[toml]==7.3.2
+coverage[toml]==7.3.3
     # via
     #   pytest-cov
     #   pyunifiprotect (pyproject.toml)
-dateparser==1.2.0
+dateparser==1.1.8
     # via pyunifiprotect (pyproject.toml)
 decorator==5.1.1
     # via ipython
@@ -82,9 +84,9 @@ gitpython==3.1.40
     # via mkdocs-git-revision-date-localized-plugin
 greenlet==3.0.1
     # via sqlalchemy
-griffe==0.38.0
+griffe==0.38.1
     # via mkdocstrings-python
-idna==3.6
+idna==3.4
     # via
     #   requests
     #   yarl
@@ -94,9 +96,9 @@ importlib-resources==6.1.1
     # via mike
 iniconfig==2.0.0
     # via pytest
-ipython==8.18.1
+ipython==8.17.2
     # via pyunifiprotect (pyproject.toml)
-isort==5.12.0
+isort==5.13.2
     # via pyunifiprotect (pyproject.toml)
 jedi==0.19.1
     # via ipython
@@ -142,7 +144,7 @@ mkdocs-git-revision-date-localized-plugin==1.2.1
     # via pyunifiprotect (pyproject.toml)
 mkdocs-include-markdown-plugin==6.0.4
     # via pyunifiprotect (pyproject.toml)
-mkdocs-material==9.4.14
+mkdocs-material==9.5.2
     # via pyunifiprotect (pyproject.toml)
 mkdocs-material-extensions==1.3.1
     # via mkdocs-material
@@ -178,11 +180,11 @@ paginate==0.5.6
     # via mkdocs-material
 parso==0.8.3
     # via jedi
-pathspec==0.11.2
+pathspec==0.12.1
     # via
     #   black
     #   mkdocs
-pexpect==4.9.0
+pexpect==4.8.0
     # via ipython
 pillow==10.1.0
     # via pyunifiprotect (pyproject.toml)
@@ -195,7 +197,7 @@ platformdirs==4.1.0
     #   mkdocstrings
 pluggy==1.3.0
     # via pytest
-prompt-toolkit==3.0.41
+prompt-toolkit==3.0.40
     # via ipython
 psutil==5.9.6
     # via pytest-xdist
@@ -205,13 +207,13 @@ pure-eval==0.2.2
     # via stack-data
 py-cpuinfo==9.0.0
     # via pytest-benchmark
-pydantic==2.5.2
+pydantic==2.4.2
     # via pyunifiprotect (pyproject.toml)
-pydantic-core==2.14.5
+pydantic-core==2.10.1
     # via pydantic
 pydocstyle==6.3.0
     # via pyunifiprotect (pyproject.toml)
-pygments==2.17.2
+pygments==2.16.1
     # via
     #   ipython
     #   mkdocs-material
@@ -235,7 +237,7 @@ pytest==7.4.3
     #   pytest-timeout
     #   pytest-xdist
     #   pyunifiprotect (pyproject.toml)
-pytest-asyncio==0.21.1
+pytest-asyncio==0.23.2
     # via pyunifiprotect (pyproject.toml)
 pytest-benchmark==4.0.0
     # via pyunifiprotect (pyproject.toml)
@@ -245,7 +247,7 @@ pytest-sugar==0.9.7
     # via pyunifiprotect (pyproject.toml)
 pytest-timeout==2.2.0
     # via pyunifiprotect (pyproject.toml)
-pytest-xdist[psutil]==3.4.0
+pytest-xdist[psutil]==3.5.0
     # via pyunifiprotect (pyproject.toml)
 python-dateutil==2.8.2
     # via
@@ -271,9 +273,9 @@ regex==2023.10.3
     #   mkdocs-material
 requests==2.31.0
     # via mkdocs-material
-rich==13.7.0
+rich==13.6.0
     # via typer
-ruff==0.1.7
+ruff==0.1.8
     # via pyunifiprotect (pyproject.toml)
 shellingham==1.5.4
     # via typer
@@ -289,11 +291,11 @@ sqlalchemy[asyncio,mypy]==2.0.23
     # via pyunifiprotect (pyproject.toml)
 stack-data==0.6.3
     # via ipython
-termcolor==2.4.0
+termcolor==2.3.0
     # via
     #   pytest-sugar
     #   pyunifiprotect (pyproject.toml)
-traitlets==5.14.0
+traitlets==5.13.0
     # via
     #   ipython
     #   matplotlib-inline
@@ -333,13 +335,13 @@ watchdog==3.0.0
     # via mkdocs
 wcmatch==8.5
     # via mkdocs-include-markdown-plugin
-wcwidth==0.2.12
+wcwidth==0.2.9
     # via prompt-toolkit
 wheel==0.42.0
     # via pip-tools
 xtyping==0.7.0
     # via asyncify
-yarl==1.9.3
+yarl==1.9.2
     # via aiohttp
 zipp==3.17.0
     # via importlib-metadata
