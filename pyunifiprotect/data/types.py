@@ -62,6 +62,13 @@ class ValuesEnumMixin:
         return cls._values_normalized.get(value_normal)
 
 
+class UnknownValuesEnumMixin(ValuesEnumMixin):
+    @classmethod
+    def _missing_(cls, value: Any) -> Optional[Any]:
+        # value always set in superclass _missing
+        return super()._missing_(value) or cls._values_normalized.get("unknown")  # type: ignore[union-attr]
+
+
 @enum.unique
 class ModelType(str, ValuesEnumMixin, enum.Enum):
     CAMERA = "camera"
@@ -324,7 +331,7 @@ class SensorType(str, ValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class SensorStatusType(str, ValuesEnumMixin, enum.Enum):
+class SensorStatusType(str, UnknownValuesEnumMixin, enum.Enum):
     OFFLINE = "offline"
     UNKNOWN = "unknown"
     SAFE = "safe"
@@ -393,7 +400,7 @@ class LowMedHigh(str, ValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class StorageType(str, ValuesEnumMixin, enum.Enum):
+class StorageType(str, UnknownValuesEnumMixin, enum.Enum):
     DISK = "hdd"
     RAID = "raid"
     SD_CARD = "sdcard"
