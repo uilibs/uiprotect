@@ -33,6 +33,6 @@ pip-compile -v --resolver=backtracking --pip-args='--root-user-action=ignore -c 
 
 if [[ $IN_DEVCONTAINER == "true" ]]; then
     echo "Upgrading dev container environment..."
-    sudo pip install -r requirements.txt -r dev-requirements.txt
+    sudo pip install --root-user-action=ignore -r requirements.txt -r dev-requirements.txt
 fi
 popd 2>&1 >/dev/null
