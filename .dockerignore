@@ -8,6 +8,7 @@ ufp-data
 Dockerfile
 LICENSE
 *.md
+!README.md
 tests/**
 *.egg-info
 *.js
