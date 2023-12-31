@@ -233,43 +233,6 @@ class Light(ProtectMotionDeviceModel):
         await self.queue_update(callback)
 
 
-class EventStats(ProtectBaseObject):
-    today: int
-    average: int
-    last_days: list[int]
-    recent_hours: list[int] = []
-
-    @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        data = super().unifi_dict_to_dict(data)
-
-        if "recent_hours" not in data:
-            data["recent_hours"] = []
-        else:
-            recent = data["recent_hours"]
-            if len(recent) == 1 and recent[0] is None:
-                data["recent_hours"] = []
-
-        return data
-
-    def unifi_dict(
-        self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
-    ) -> dict[str, Any]:
-        data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "recentHours" in data and len(data["recentHours"]) == 0:
-            del data["recentHours"]
-
-        return data
-
-
-class CameraEventStats(ProtectBaseObject):
-    motion: EventStats
-    smart: EventStats
-
-
 class CameraChannel(ProtectBaseObject):
     id: int  # read only
     video_id: str  # read only
@@ -944,7 +907,6 @@ class Camera(ProtectMotionDeviceModel):
             "isProbingForWifi",
             "lastRing",
             "isLiveHeatmapEnabled",
-            "eventStats",
             "videoReconfigurationInProgress",
             "lenses",
             "isPoorNetwork",

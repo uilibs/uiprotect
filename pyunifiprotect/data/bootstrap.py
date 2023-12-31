@@ -59,7 +59,6 @@ STATS_KEYS = {
     "uptime",
     "lastSeen",
     "recordingSchedules",
-    "eventStats",
 }
 IGNORE_DEVICE_KEYS = {"nvrMac", "guid"}
 

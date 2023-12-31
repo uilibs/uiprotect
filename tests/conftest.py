@@ -640,12 +640,6 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0915
         if "isColorNightVisionEnabled" not in expected["ispSettings"]:
             actual["ispSettings"].pop("isColorNightVisionEnabled", None)
 
-        if expected["eventStats"]["motion"].get("recentHours") in ANY_NONE:
-            expected["eventStats"]["motion"].pop("recentHours", None)
-            actual["eventStats"]["motion"].pop("recentHours", None)
-        if expected["eventStats"]["smart"].get("recentHours") == ANY_NONE:
-            expected["eventStats"]["smart"].pop("recentHours", None)
-            actual["eventStats"]["smart"].pop("recentHours", None)
         if (
             "audioTypes" in actual["smartDetectSettings"]
             and "audioTypes" not in expected["smartDetectSettings"]
