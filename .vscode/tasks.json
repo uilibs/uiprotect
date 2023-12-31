@@ -45,7 +45,7 @@
             }
         },
         {
-            "label": "Regenerate Release Versions File",
+            "label": "Regenerate Release Cache",
             "type": "shell",
             "command": "unifi-protect release-versions",
             "problemMatcher": [],
