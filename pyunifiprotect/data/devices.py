@@ -839,7 +839,6 @@ class Camera(ProtectMotionDeviceModel):
     chime_duration: timedelta
     last_ring: Optional[datetime]
     is_live_heatmap_enabled: bool
-    event_stats: CameraEventStats
     video_reconfiguration_in_progress: bool
     channels: list[CameraChannel]
     isp_settings: ISPSettings

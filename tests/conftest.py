@@ -596,6 +596,8 @@ NEW_NVR_FEATURE_FLAGS = {
 OLD_FIELDS = {
     # remove in 2.7.12
     "avgMotions",
+    # removed in 2.10.11
+    "eventStats",
 }
 
 
