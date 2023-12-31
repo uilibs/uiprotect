@@ -44,6 +44,12 @@
                 }
             }
         },
+        {
+            "label": "Regenerate Release Versions File",
+            "type": "shell",
+            "command": "unifi-protect release-versions",
+            "problemMatcher": [],
+        },
     ],
     "inputs": [
         {
