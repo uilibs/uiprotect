@@ -2514,6 +2514,7 @@ class Sensor(ProtectAdoptableDeviceModel):
 
         return self.api.bootstrap.events.get(self.last_alarm_event_id)
 
+    @property
     def is_leak_detected(self) -> bool:
         return self.leak_detected_at is not None
 
