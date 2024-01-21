@@ -438,6 +438,20 @@ def set_color_night_vision(ctx: typer.Context, enabled: bool) -> None:
 
 
 @app.command()
+def set_person_track(ctx: typer.Context, enabled: bool) -> None:
+    """Sets person tracking on camera"""
+
+    base.require_device_id(ctx)
+    obj: d.Camera = ctx.obj.device
+
+    if not obj.feature_flags.is_ptz:
+        typer.secho("Camera does not support person tracking", fg="red")
+        raise typer.Exit(1)
+
+    base.run(ctx, (obj.set_person_track(enabled=enabled)))
+
+
+@app.command()
 def set_video_mode(ctx: typer.Context, mode: d.VideoMode) -> None:
     """Sets video mode on camera"""
 

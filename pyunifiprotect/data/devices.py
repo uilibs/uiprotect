@@ -452,6 +452,10 @@ class SmartDetectSettings(ProtectBaseObject):
             data["objectTypes"] = convert_smart_types(data.pop("objectTypes"))
         if "audioTypes" in data:
             data["audioTypes"] = convert_smart_audio_types(data.pop("audioTypes"))
+        if "autoTrackingObjectTypes" in data:
+            data["autoTrackingObjectTypes"] = convert_smart_types(
+                data.pop("autoTrackingObjectTypes"),
+            )
 
         return super().unifi_dict_to_dict(data)
 
@@ -1207,6 +1211,16 @@ class Camera(ProtectMotionDeviceModel):
         """Toggles person smart detection. Requires camera to have smart detection"""
 
         return await self._set_object_detect(SmartDetectObjectType.PERSON, enabled)
+
+    @property
+    def is_person_tracking_enabled(self) -> bool:
+        """Is person tracking enabled"""
+        return (
+            self.is_recording_enabled
+            and self.smart_detect_settings.auto_tracking_object_types is not None
+            and SmartDetectObjectType.PERSON
+            in self.smart_detect_settings.auto_tracking_object_types
+        )
 
     # vehicle
 
@@ -2230,6 +2244,19 @@ class Camera(ProtectMotionDeviceModel):
 
             if recording_mode is not None:
                 self.recording_settings.mode = recording_mode
+
+        await self.queue_update(callback)
+
+    async def set_person_track(self, enabled: bool) -> None:
+        """Sets person tracking on camera"""
+
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support person tracking")
+
+        def callback() -> None:
+            self.smart_detect_settings.auto_tracking_object_types = (
+                [SmartDetectObjectType.PERSON] if enabled else []
+            )
 
         await self.queue_update(callback)
 

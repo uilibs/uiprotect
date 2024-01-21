@@ -952,3 +952,43 @@ async def test_camera_set_privacy(
             assert camera_obj.is_privacy_on
         else:
             assert not camera_obj.is_privacy_on
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_set_person_track_no_ptz(camera_obj: Optional[Camera]):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.api.api_request.reset_mock()
+
+    camera_obj.feature_flags.is_ptz = False
+
+    with pytest.raises(BadRequest):
+        await camera_obj.set_person_track(True)
+
+    assert not camera_obj.api.api_request.called
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("status", [True, False])
+@pytest.mark.asyncio()
+async def test_camera_set_person_track(camera_obj: Optional[Camera], status: bool):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.api.api_request.reset_mock()
+
+    camera_obj.feature_flags.is_ptz = True
+
+    await camera_obj.set_person_track(status)
+
+    assert camera_obj.is_person_tracking_enabled is status
+
+    camera_obj.api.api_request.assert_called_with(
+        f"cameras/{camera_obj.id}",
+        method="patch",
+        json={"smartDetectSettings": {"autoTrackingObjectTypes": ["person"]}}
+        if status
+        else {"smartDetectSettings": {"autoTrackingObjectTypes": []}},
+    )

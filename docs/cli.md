@@ -118,6 +118,7 @@ unifi-protect cameras DEVICE_ID COMMAND
 | Command    | Description          |
 | ---------- | -------------------- |
 | `list-ids` | Requires no device ID. Prints list of "id name" for each device. |
+| `set-person-track` | Requires device ID. Sets person auto tracking on or off for PTZ cameras. |
 
 ##### Examples
 
