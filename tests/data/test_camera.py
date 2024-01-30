@@ -977,9 +977,17 @@ async def test_camera_set_person_track(camera_obj: Optional[Camera], status: boo
     if camera_obj is None:
         pytest.skip("No camera_obj obj found")
 
-    camera_obj.api.api_request.reset_mock()
-
     camera_obj.feature_flags.is_ptz = True
+    camera_obj.recording_settings.mode = RecordingMode.ALWAYS
+
+    if status:
+        camera_obj.smart_detect_settings.auto_tracking_object_types = []
+    else:
+        camera_obj.smart_detect_settings.auto_tracking_object_types = [
+            SmartDetectObjectType.PERSON
+        ]
+
+    camera_obj.api.api_request.reset_mock()
 
     await camera_obj.set_person_track(status)
 

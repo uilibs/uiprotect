@@ -154,6 +154,7 @@ class EventDetectedThumbnail(ProtectBaseObject):
     type: str
     cropped_id: str
     attributes: Optional[EventThumbnailAttributes] = None
+    name: Optional[str]
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -161,6 +162,18 @@ class EventDetectedThumbnail(ProtectBaseObject):
             data["clockBestWall"] = process_datetime(data, "clockBestWall")
 
         return super().unifi_dict_to_dict(data)
+
+    def unifi_dict(
+        self,
+        data: Optional[dict[str, Any]] = None,
+        exclude: Optional[set[str]] = None,
+    ) -> dict[str, Any]:
+        data = super().unifi_dict(data=data, exclude=exclude)
+
+        if "name" in data and data["name"] is None:
+            del data["name"]
+
+        return data
 
 
 class EventMetadata(ProtectBaseObject):
