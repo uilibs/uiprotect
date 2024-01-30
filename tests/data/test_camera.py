@@ -984,7 +984,7 @@ async def test_camera_set_person_track(camera_obj: Optional[Camera], status: boo
         camera_obj.smart_detect_settings.auto_tracking_object_types = []
     else:
         camera_obj.smart_detect_settings.auto_tracking_object_types = [
-            SmartDetectObjectType.PERSON
+            SmartDetectObjectType.PERSON,
         ]
 
     camera_obj.api.api_request.reset_mock()
