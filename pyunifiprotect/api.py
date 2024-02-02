@@ -21,6 +21,7 @@ import aiofiles
 import aiohttp
 from aiohttp import CookieJar, client_exceptions
 import orjson
+from yarl import URL
 
 from pyunifiprotect.data import (
     NVR,
@@ -176,11 +177,16 @@ class BaseApiClient:
         if session is not None:
             self._session = session
 
-    @property
-    def base_url(self) -> str:
+        self._update_url()
+
+    def _update_url(self) -> None:
+        """Updates the url after changing _host or _port."""
         if self._port != 443:
-            return f"https://{self._host}:{self._port}"
-        return f"https://{self._host}"
+            self._url = URL(f"https://{self._host}:{self._port}")
+        else:
+            self._url = URL(f"https://{self._host}")
+
+        self.base_url = str(self._url)
 
     @property
     def ws_url(self) -> str:
@@ -248,16 +254,21 @@ class BaseApiClient:
         if require_auth:
             await self.ensure_authenticated()
 
-        url = urljoin(self.base_url, url)
+        request_url = self._url.joinpath(url[1:])
         headers = kwargs.get("headers") or self.headers
-        _LOGGER.debug("Request url: %s", url)
+        _LOGGER.debug("Request url: %s", request_url)
         if not self._verify_ssl:
             kwargs["ssl"] = False
         session = await self.get_session()
 
         for attempt in range(2):
             try:
-                req_context = session.request(method, url, headers=headers, **kwargs)
+                req_context = session.request(
+                    method,
+                    request_url,
+                    headers=headers,
+                    **kwargs,
+                )
                 response = await req_context.__aenter__()
 
                 self._update_last_token_cookie(response)
