@@ -1338,6 +1338,43 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._set_object_detect(SmartDetectObjectType.PACKAGE, enabled)
 
+    # animal
+
+    @property
+    def can_detect_animal(self) -> bool:
+        return SmartDetectObjectType.ANIMAL in self.feature_flags.smart_detect_types
+
+    @property
+    def is_animal_detection_on(self) -> bool:
+        """Is Animal Detection available and enabled (camera will produce package smart
+        detection events)?
+        """
+
+        return self._is_smart_enabled(SmartDetectObjectType.ANIMAL)
+
+    @property
+    def last_animal_detect_event(self) -> Optional[Event]:
+        """Get the last animal smart detection event."""
+
+        return self.get_last_smart_detect_event(SmartDetectObjectType.ANIMAL)
+
+    @property
+    def last_animal_detect(self) -> Optional[datetime]:
+        """Get the last animal smart detection event."""
+
+        return self.last_smart_detects.get(SmartDetectObjectType.ANIMAL)
+
+    @property
+    def is_animal_currently_detected(self) -> bool:
+        """Is animal currently being detected"""
+
+        return self._is_smart_detected(SmartDetectObjectType.ANIMAL)
+
+    async def set_animal_detection(self, enabled: bool) -> None:
+        """Toggles animal smart detection. Requires camera to have smart detection"""
+
+        return await self._set_object_detect(SmartDetectObjectType.ANIMAL, enabled)
+
     # audio smart detections
 
     def _can_detect_audio(self, smart_type: SmartDetectObjectType) -> bool:
