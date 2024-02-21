@@ -36,6 +36,7 @@ dynamic = ["version"]
 dependencies = [
     "aiofiles",
     "aiohttp",
+    "yarl>=1.9",
     "aioshutil",
     'async-timeout; python_version < "3.11"',
     "dateparser",
