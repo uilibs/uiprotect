@@ -1216,8 +1216,7 @@ class Camera(ProtectMotionDeviceModel):
     def is_person_tracking_enabled(self) -> bool:
         """Is person tracking enabled"""
         return (
-            self.is_recording_enabled
-            and self.smart_detect_settings.auto_tracking_object_types is not None
+            self.smart_detect_settings.auto_tracking_object_types is not None
             and SmartDetectObjectType.PERSON
             in self.smart_detect_settings.auto_tracking_object_types
         )
