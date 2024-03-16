@@ -1,4 +1,5 @@
 """UniFi Protect Data."""
+
 from __future__ import annotations
 
 import asyncio
@@ -8,7 +9,8 @@ from functools import cache
 from ipaddress import IPv4Address
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
+import warnings
 
 try:
     from pydantic.v1.fields import PrivateAttr
@@ -32,6 +34,9 @@ from pyunifiprotect.data.types import (
     DoorbellMessageType,
     FocusMode,
     GeofencingSetting,
+    HDRMode,
+    ICRCustomValue,
+    ICRLuxValue,
     ICRSensitivity,
     IRLEDMode,
     IteratorCallback,
@@ -51,7 +56,6 @@ from pyunifiprotect.data.types import (
     ProgressCallback,
     RecordingMode,
     SensorStatusType,
-    SleepStateType,
     SmartDetectAudioType,
     SmartDetectObjectType,
     TwoByteInt,
@@ -76,6 +80,18 @@ if TYPE_CHECKING:
     from pyunifiprotect.data.nvr import Event, Liveview
 
 PRIVACY_ZONE_NAME = "pyufp_privacy_zone"
+LUX_MAPPING_VALUES = [
+    30,
+    25,
+    20,
+    15,
+    12,
+    10,
+    7,
+    5,
+    3,
+    1,
+]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -251,6 +267,10 @@ class CameraChannel(ProtectBaseObject):
     min_motion_adaptive_bit_rate: Optional[int]  # read only
     fps_values: list[int]  # read only
     idr_interval: int
+    # 3.0.22+
+    auto_bitrate: Optional[bool] = None
+    auto_fps: Optional[bool] = None
+
     _rtsp_url: Optional[str] = PrivateAttr(None)
     _rtsps_url: Optional[str] = PrivateAttr(None)
 
@@ -311,6 +331,11 @@ class ISPSettings(ProtectBaseObject):
     mount_position: Optional[MountPosition] = None
     # requires 2.8.14+
     is_color_night_vision_enabled: Optional[bool] = None
+    # 3.0.22+
+    hdr_mode: Optional[HDRMode] = None
+    icr_custom_value: Optional[ICRCustomValue] = None
+    icr_switch_mode: Optional[str] = None
+    spotlight_duration: Optional[int] = None
 
     def unifi_dict(
         self,
@@ -360,7 +385,6 @@ class RecordingSettings(ProtectBaseObject):
     geofencing: GeofencingSetting
     motion_algorithm: MotionAlgorithm
     enable_motion_detection: Optional[bool] = None
-    enable_pir_timelapse: bool
     use_new_motion_algorithm: bool
     # requires 2.9.20+
     in_schedule_mode: Optional[str] = None
@@ -460,13 +484,6 @@ class SmartDetectSettings(ProtectBaseObject):
         return super().unifi_dict_to_dict(data)
 
 
-class PIRSettings(ProtectBaseObject):
-    pir_sensitivity: int
-    pir_motion_clip_length: int
-    timelapse_frame_interval: int
-    timelapse_transfer_interval: int
-
-
 class LCDMessage(ProtectBaseObject):
     type: DoorbellMessageType
     text: str
@@ -534,12 +551,6 @@ class WifiStats(ProtectBaseObject):
     link_speed_mbps: Optional[str]
     signal_quality: PercentInt
     signal_strength: int
-
-
-class BatteryStats(ProtectBaseObject):
-    percentage: Optional[PercentInt]
-    is_charging: bool
-    sleep_state: SleepStateType
 
 
 class VideoStats(ProtectBaseObject):
@@ -620,7 +631,6 @@ class CameraStats(ProtectBaseObject):
     rx_bytes: int
     tx_bytes: int
     wifi: WifiStats
-    battery: BatteryStats
     video: VideoStats
     storage: Optional[StorageStats]
     wifi_quality: PercentInt
@@ -707,6 +717,8 @@ class HotplugExtender(ProtectBaseObject):
     has_ir: Optional[bool] = None
     has_radar: Optional[bool] = None
     is_attached: Optional[bool] = None
+    # 3.0.22+
+    flash_range: Optional[Any] = None
 
     @classmethod
     @cache
@@ -729,7 +741,6 @@ class CameraFeatureFlags(ProtectBaseObject):
     can_touch_focus: bool
     has_accelerometer: bool
     has_aec: bool
-    has_battery: bool
     has_bluetooth: bool
     has_chime: bool
     has_external_ir: bool
@@ -778,6 +789,8 @@ class CameraFeatureFlags(ProtectBaseObject):
     # 2.11.13+
     audio_style: Optional[list[AudioStyle]] = None
     has_vertical_flip: Optional[bool] = None
+    # 3.0.22+
+    flash_range: Optional[Any] = None
 
     # TODO:
     # focus
@@ -862,7 +875,6 @@ class Camera(ProtectMotionDeviceModel):
     smart_detect_zones: list[SmartMotionZone]
     stats: CameraStats
     feature_flags: CameraFeatureFlags
-    pir_settings: PIRSettings
     lcd_message: Optional[LCDMessage]
     lenses: list[CameraLenses]
     platform: str
@@ -1064,6 +1076,16 @@ class Camera(ProtectMotionDeviceModel):
             return None
 
         return self.api.bootstrap.events.get(self.last_smart_detect_event_id)
+
+    @property
+    def hdr_mode_display(self) -> Literal["auto", "off", "always"]:
+        """Get HDR mode similar to how Protect interface works."""
+
+        if not self.hdr_mode:
+            return "off"
+        if self.isp_settings.hdr_mode == HDRMode.NORMAL:
+            return "auto"
+        return "always"
 
     def get_last_smart_detect_event(
         self,
@@ -1988,6 +2010,32 @@ class Camera(ProtectMotionDeviceModel):
 
         await self.queue_update(callback)
 
+    async def set_icr_custom_lux(self, value: ICRLuxValue) -> None:
+        """Set ICRCustomValue from lux value."""
+
+        if not self.feature_flags.has_led_ir:
+            raise BadRequest("Camera does not have an LED IR")
+
+        icr_value = 0
+        for index, threshold in enumerate(LUX_MAPPING_VALUES):
+            if value >= threshold:
+                icr_value = 10 - index
+                break
+
+        def callback() -> None:
+            self.isp_settings.icr_custom_value = cast(ICRCustomValue, icr_value)
+
+        await self.queue_update(callback)
+
+    @property
+    def is_ir_led_slider_enabled(self) -> bool:
+        """Return if IR LED custom slider is enabled."""
+
+        return (
+            self.feature_flags.has_led_ir
+            and self.isp_settings.ir_led_mode == IRLEDMode.CUSTOM
+        )
+
     async def set_status_light(self, enabled: bool) -> None:
         """Sets status indicicator light on camera"""
 
@@ -2003,11 +2051,37 @@ class Camera(ProtectMotionDeviceModel):
     async def set_hdr(self, enabled: bool) -> None:
         """Sets HDR (High Dynamic Range) on camera"""
 
+        warnings.warn(
+            "set_hdr is deprecated and replaced with set_hdr_mode for versions of UniFi Protect v3.0+",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         if not self.feature_flags.has_hdr:
             raise BadRequest("Camera does not have HDR")
 
         def callback() -> None:
             self.hdr_mode = enabled
+
+        await self.queue_update(callback)
+
+    async def set_hdr_mode(self, mode: Literal["auto", "off", "always"]) -> None:
+        """Sets HDR mode similar to how Protect interface works."""
+
+        if not self.feature_flags.has_hdr:
+            raise BadRequest("Camera does not have HDR")
+
+        def callback() -> None:
+            if mode == "off":
+                self.hdr_mode = False
+                if self.isp_settings.hdr_mode is not None:
+                    self.isp_settings.hdr_mode = HDRMode.NORMAL
+            else:
+                self.hdr_mode = True
+                if self.isp_settings.hdr_mode is not None:
+                    self.isp_settings.hdr_mode = (
+                        HDRMode.NORMAL if mode == "auto" else HDRMode.ALWAYS_ON
+                    )
 
         await self.queue_update(callback)
 
@@ -2889,6 +2963,41 @@ class ChimeFeatureFlags(ProtectBaseObject):
         return {**super()._get_unifi_remaps(), "hasHttpsClientOTA": "hasHttpsClientOta"}
 
 
+class RingSetting(ProtectBaseObject):
+    camera_id: str
+    repeat_times: int
+    track_no: int
+    volume: int
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {**super()._get_unifi_remaps(), "camera": "cameraId"}
+
+    @property
+    def camera(self) -> Optional[Camera]:
+        """Paired Camera will always be none if no camera is paired"""
+
+        if self.camera_id is None:
+            return None
+
+        return self.api.bootstrap.cameras[self.camera_id]
+
+
+class ChimeTrack(ProtectBaseObject):
+    md5: str
+    name: str
+    state: str
+    track_no: int
+    volume: int
+    size: int
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {**super()._get_unifi_remaps(), "track_no": "trackNo"}
+
+
 class Chime(ProtectAdoptableDeviceModel):
     volume: PercentInt
     is_probing_for_wifi: bool
@@ -2901,11 +3010,23 @@ class Chime(ProtectAdoptableDeviceModel):
     feature_flags: Optional[ChimeFeatureFlags] = None
     # requires 2.8.22+
     user_configured_ap: Optional[bool] = None
+    # requires 3.0.22+
+    has_https_client_ota: Optional[bool] = None
+    platform: Optional[str] = None
+    repeat_times: Optional[int] = None
+    track_no: Optional[int] = None
+    ring_settings: list[RingSetting] = []
+    speaker_track_list: list[ChimeTrack] = []
 
     # TODO: used for adoption
     # apMac  read only
     # apRssi  read only
     # elementInfo  read only
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {**super()._get_unifi_remaps(), "hasHttpsClientOTA": "hasHttpsClientOta"}
 
     @classmethod
     @cache
