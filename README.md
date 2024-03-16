@@ -121,21 +121,10 @@ unsub()
 
 ## TODO / Planned / Not Implemented
 
-The following the noticeable features are that still missing from pyunifiprotect. All of them are planned for "some day" / "nice to have" except where noted.
+Generally any feature missing from the library is planned to be done eventually / nice to have with the following exceptions
 
-* Liveview creating/updating/deleting
-* PTZ controls
-* Creating WebRTC streaming connections
-* Backups
-* Device Groups
-* Record Scheduling
-* Battery powered cameras (G3 Battery, Aplify Vision)
-* Camera analytics and live heatmaps
-* Reconfiguring WiFi
-* "Locate" feature for Lights/Sensors/Doorlocks
-* The `/timeline` API endpoint
-* User/Group/Permission management -- partially implemented as users and groups are modeled, just not fleshed out
-* Any strictly UniFi OS feature like managing RAID, creating users, etc. -- Out of Scope. If it ever done, it will be in a separate library that interacts with this one
+* Anything that is strictly a UniFi OS feature like managing RAID, creating users, etc. are considered out of scope. If it ever done, it will be in a separate library that interacts with this one.
+* Anything that requires a Ubiquiti Account or "Remote Access" to be enabled is never going to be implemented by me (@AngellusMortis) as I support UniFi Protect as a 100% local only product.
 
 ## Credits
 
