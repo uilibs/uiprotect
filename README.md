@@ -123,11 +123,14 @@ unsub()
 
 Generally any feature missing from the library is planned to be done eventually / nice to have with the following exceptions
 
+### UniFi OS Features
+
 Anything that is strictly a UniFi OS feature. If it ever done, it will be in a separate library that interacts with this one. Examples include:
 
 * Managing RAID and disks
 * Creating and managing users
 
+### Remote Access / Ubiquiti Cloud Features
 
 Anything that requires a Ubiquiti Account or "Remote Access" to be enabled is never going to be implemented by me
 (@AngellusMortis) as I support UniFi Protect as a 100% local only product. PRs are welcome to implement any related
