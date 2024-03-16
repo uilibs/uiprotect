@@ -123,8 +123,20 @@ unsub()
 
 Generally any feature missing from the library is planned to be done eventually / nice to have with the following exceptions
 
-* Anything that is strictly a UniFi OS feature like managing RAID, creating users, etc. are considered out of scope. If it ever done, it will be in a separate library that interacts with this one.
-* Anything that requires a Ubiquiti Account or "Remote Access" to be enabled is never going to be implemented by me (@AngellusMortis) as I support UniFi Protect as a 100% local only product.
+Anything that is strictly a UniFi OS feature. If it ever done, it will be in a separate library that interacts with this one. Examples include:
+
+* Managing RAID and disks
+* Creating and managing users
+
+
+Anything that requires a Ubiquiti Account or "Remote Access" to be enabled is never going to be implemented by me
+(@AngellusMortis) as I support UniFi Protect as a 100% local only product. PRs are welcome to implement any related
+features though.
+
+Examples include:
+
+* Stream sharing
+* Facial recognition (recognition is not done on console and requires Ubiquiti's cloud to function)
 
 ## Credits
 
