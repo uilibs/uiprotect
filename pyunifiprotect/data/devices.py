@@ -1088,8 +1088,11 @@ class Camera(ProtectMotionDeviceModel):
         return "always"
 
     @property
-    def icr_lux_display(self) -> int:
+    def icr_lux_display(self) -> int | None:
         """Get ICR Custom Lux value similar to how the Protect interface works."""
+
+        if self.isp_settings.icr_custom_value is None:
+            return None
 
         return LUX_MAPPING_VALUES[10 - self.isp_settings.icr_custom_value]
 
