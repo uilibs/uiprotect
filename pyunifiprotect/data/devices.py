@@ -1087,6 +1087,12 @@ class Camera(ProtectMotionDeviceModel):
             return "auto"
         return "always"
 
+    @property
+    def icr_lux_display(self) -> int:
+        """Get ICR Custom Lux value similar to how the Protect interface works."""
+
+        return LUX_MAPPING_VALUES[10 - self.isp_settings.icr_custom_value]
+
     def get_last_smart_detect_event(
         self,
         smart_type: SmartDetectObjectType,
