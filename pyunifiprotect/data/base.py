@@ -67,6 +67,12 @@ EVENT_PING_INTERVAL = timedelta(seconds=3)
 _LOGGER = logging.getLogger(__name__)
 
 
+@cache
+def _is_protect_base_object(cls: type) -> bool:
+    """A cached version of `issubclass(cls, ProtectBaseObject)` to speed up the check."""
+    return issubclass(cls, ProtectBaseObject)
+
+
 class ProtectBaseObject(BaseModel):
     """Base class for building Python objects from UniFi Protect JSON.
 
@@ -208,7 +214,7 @@ class ProtectBaseObject(BaseModel):
 
         for name, field in cls.__fields__.items():
             try:
-                if issubclass(field.type_, ProtectBaseObject):
+                if _is_protect_base_object(field.type_):
                     if field.shape == SHAPE_LIST:
                         cls._protect_lists[name] = field.type_
                     elif field.shape == SHAPE_DICT:
