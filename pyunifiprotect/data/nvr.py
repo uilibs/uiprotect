@@ -151,7 +151,7 @@ class EventThumbnailAttributes(ProtectBaseObject):
 
 
 class EventDetectedThumbnail(ProtectBaseObject):
-    clock_best_wall: datetime
+    clock_best_wall: Optional[datetime] = None
     type: str
     cropped_id: str
     attributes: Optional[EventThumbnailAttributes] = None
