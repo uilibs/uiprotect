@@ -736,6 +736,8 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0915
         for index, exp_thumb in enumerate(exp_thumbnails):
             if "attributes" not in exp_thumb:
                 del act_thumbnails[index]["attributes"]
+            if "clockBestWall" not in exp_thumb:
+                del act_thumbnails[index]["clockBestWall"]
         assert exp_thumbnails == act_thumbnails
 
         expected_keys = (expected.get("metadata") or {}).keys()
