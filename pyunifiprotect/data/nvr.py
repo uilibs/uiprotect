@@ -160,7 +160,10 @@ class EventDetectedThumbnail(ProtectBaseObject):
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         if "clockBestWall" in data:
-            data["clockBestWall"] = process_datetime(data, "clockBestWall")
+            if data["clockBestWall"]:
+                data["clockBestWall"] = process_datetime(data, "clockBestWall")
+            else:
+                del data["clockBestWall"]
 
         return super().unifi_dict_to_dict(data)
 
