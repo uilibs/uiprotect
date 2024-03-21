@@ -749,8 +749,6 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0915
         del expected["bridgeCandidates"]
         actual.pop("host", None)
         expected.pop("host", None)
-        if "bridge" not in expected and actual["bridge"] is None:
-            actual.pop("bridge", None)
     elif obj_type == ModelType.CHIME.value:
         del expected["apMac"]
         del expected["apRssi"]
@@ -836,6 +834,9 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0915
         for flag in NEW_NVR_FEATURE_FLAGS:
             if flag not in expected["featureFlags"]:
                 del actual["featureFlags"][flag]
+
+    if "bridge" not in expected and "bridge" in actual and actual["bridge"] is None:
+        actual.pop("bridge", None)
 
     if "bluetoothConnectionState" in expected:
         expected["bluetoothConnectionState"]["experienceScore"] = expected[
