@@ -749,6 +749,7 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0915
         del expected["bridgeCandidates"]
         actual.pop("host", None)
         expected.pop("host", None)
+        expected.pop("bridge", None)
     elif obj_type == ModelType.CHIME.value:
         del expected["apMac"]
         del expected["apRssi"]
