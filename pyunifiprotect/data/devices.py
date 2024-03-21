@@ -2568,9 +2568,6 @@ class Sensor(ProtectAdoptableDeviceModel):
     _tamper_timeout: Optional[datetime] = PrivateAttr(None)
     _alarm_timeout: Optional[datetime] = PrivateAttr(None)
 
-    # TODO:
-    # bridge
-
     @classmethod
     @cache
     def _get_unifi_remaps(cls) -> dict[str, str]:
