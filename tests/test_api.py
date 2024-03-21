@@ -169,12 +169,26 @@ def test_base_url(protect_client: ProtectApiClient):
 def test_api_client_creation():
     """Test we can create the object."""
 
-    client = ProtectApiClient("127.0.0.1", 0, "username", "password", debug=True)
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "username",
+        "password",
+        debug=True,
+        store_sessions=False,
+    )
     assert client
 
 
 def test_early_bootstrap():
-    client = ProtectApiClient("127.0.0.1", 0, "username", "password", debug=True)
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "username",
+        "password",
+        debug=True,
+        store_sessions=False,
+    )
 
     with pytest.raises(BadRequest):
         client.bootstrap  # noqa: B018
@@ -190,7 +204,14 @@ async def test_bootstrap_fix_record_mode(bootstrap):
         expected_updates = 2
         bootstrap["cameras"][1]["recordingSettings"]["mode"] = "smartDetect"
 
-    client = ProtectApiClient("127.0.0.1", 0, "username", "password", debug=True)
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "username",
+        "password",
+        debug=True,
+        store_sessions=False,
+    )
     client.api_request_obj = AsyncMock(side_effect=[bootstrap, orig_bootstrap])
     client.update_device = AsyncMock()
 
@@ -206,7 +227,14 @@ async def test_bootstrap_get_device_from_mac(bootstrap):
     orig_bootstrap = deepcopy(bootstrap)
     mac = bootstrap["cameras"][0]["mac"]
 
-    client = ProtectApiClient("127.0.0.1", 0, "username", "password", debug=True)
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "username",
+        "password",
+        debug=True,
+        store_sessions=False,
+    )
     client.api_request_obj = AsyncMock(side_effect=[bootstrap, orig_bootstrap])
     client.update_device = AsyncMock()
 
@@ -222,7 +250,14 @@ async def test_bootstrap_get_device_from_mac(bootstrap):
 async def test_bootstrap_get_device_from_mac_bad_mac(bootstrap):
     orig_bootstrap = deepcopy(bootstrap)
 
-    client = ProtectApiClient("127.0.0.1", 0, "username", "password", debug=True)
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "username",
+        "password",
+        debug=True,
+        store_sessions=False,
+    )
     client.api_request_obj = AsyncMock(side_effect=[bootstrap, orig_bootstrap])
     client.update_device = AsyncMock()
 
@@ -268,6 +303,7 @@ def test_connection_host_override():
         "test",
         "test",
         override_connection_host=True,
+        store_sessions=False,
     )
 
     expected = IPv4Address("127.0.0.1")
