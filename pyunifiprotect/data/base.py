@@ -995,9 +995,6 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
             and data["bluetoothConnectionState"] is None
         ):
             del data["bluetoothConnectionState"]
-        if "bridge" in data and data["bridge"] is None:
-            del data["bridge"]
-
         return data
 
     @classmethod
