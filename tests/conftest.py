@@ -744,6 +744,8 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0915
             actual.pop("lastLoginIp", None)
         if "lastLoginTime" not in expected:
             actual.pop("lastLoginTime", None)
+        if "email" not in expected and "email" in actual and actual["email"] is None:
+            actual.pop("email", None)
     elif obj_type == ModelType.EVENT.value:
         expected.pop("partition", None)
         expected.pop("deletionType", None)
