@@ -52,7 +52,7 @@ except ImportError:
 
 if TYPE_CHECKING:
     from pyunifiprotect.api import ProtectApiClient
-    from pyunifiprotect.data import CoordType, Event, EventType
+    from pyunifiprotect.data import CoordType, Event
     from pyunifiprotect.data.bootstrap import WSStat
 
 if sys.version_info[:2] < (3, 11):
@@ -560,6 +560,8 @@ def local_datetime(dt: datetime | None = None) -> datetime:
 
 
 def log_event(event: Event) -> None:
+    from pyunifiprotect.data import EventType
+
     _LOGGER.debug("event WS msg: %s", event.dict())
     if "smart" not in event.type.value:
         return
