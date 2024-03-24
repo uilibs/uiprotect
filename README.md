@@ -10,6 +10,14 @@ The API is not documented by Ubiquiti, so there might be misses and/or frequent 
 
 The module is primarily written for the purpose of being used in Home Assistant core [integration for UniFi Protect](https://www.home-assistant.io/integrations/unifiprotect) but might be used for other purposes also.
 
+## Smart Detections now Require Remote Access to enable
+
+Smart Detections (person, vehicle, animal, face), a feature that previously could be used with local only console, [now requires you to enable remote access to enable](https://community.ui.com/questions/Cannot-enable-Smart-Detections/e3d50641-5c00-4607-9723-453cda557e35#answer/1d146426-89aa-4022-a0ae-fd5000846028).
+
+Enabling Remote Access may grant other users access to your console [due to the fact Ubiquiti can reconfigure access controls at any time](https://community.ui.com/questions/Bug-Fix-Cloud-Access-Misconfiguration/fe8d4479-e187-4471-bf95-b2799183ceb7).
+
+If you are not okay with the feature being locked behind Remote Access access, [let Ubiquiti know](https://community.ui.com/questions/Cannot-enable-Smart-Detections/e3d50641-5c00-4607-9723-453cda557e35).
+
 ## Documentation
 
 [Full documentation for the project](https://angellusmortis.github.io/pyunifiprotect/).
