@@ -9,6 +9,7 @@ from pathlib import Path
 from shlex import split
 import shutil
 from subprocess import run
+import sys
 import time
 from typing import Any, Optional, Union, overload
 
@@ -98,8 +99,11 @@ class SampleDataGenerator:
             _LOGGER.warning(msg)
 
     def generate(self) -> None:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.async_generate())
+        if sys.version_info >= (3, 11):
+            asyncio.run(self.async_generate())
+        else:
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(self.async_generate())
 
     async def async_generate(self, close_session: bool = True) -> None:
         self.log(f"Output folder: {self.output_folder}")
