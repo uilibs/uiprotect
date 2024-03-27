@@ -9,7 +9,6 @@ from pathlib import Path
 from shlex import split
 import shutil
 from subprocess import run
-import sys
 import time
 from typing import Any, Optional, Union, overload
 
@@ -23,7 +22,7 @@ from pyunifiprotect.test_util.anonymize import (
     anonymize_data,
     anonymize_prefixed_event_id,
 )
-from pyunifiprotect.utils import from_js_time, is_online, write_json, run_async
+from pyunifiprotect.utils import from_js_time, is_online, run_async, write_json
 
 BLANK_VIDEO_CMD = "ffmpeg -y -hide_banner -loglevel error -f lavfi -i color=size=1280x720:rate=25:color=black -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -t {length} {filename}"
 

@@ -25,7 +25,8 @@ from pyunifiprotect.cli.viewers import app as viewer_app
 from pyunifiprotect.data import Version, WSPacket
 from pyunifiprotect.test_util import SampleDataGenerator
 from pyunifiprotect.utils import RELEASE_CACHE, get_local_timezone
-from pyunifiprotect.utils import profile_ws as profile_ws_job, run_async
+from pyunifiprotect.utils import profile_ws as profile_ws_job
+from pyunifiprotect.utils import run_async
 
 try:
     from pyunifiprotect.cli.backup import app as backup_app

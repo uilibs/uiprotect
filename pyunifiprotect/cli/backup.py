@@ -763,7 +763,7 @@ async def _download_event_thumb(
 
 
 @asyncify
-def _verify_video_file(
+def _verify_video_file(  # type: ignore[return]
     path: Path,
     length: float,
     width: int,
@@ -773,7 +773,7 @@ def _verify_video_file(
     try:
         with av.open(str(path)) as video:
             slength = float(
-                video.streams.video[0].duration * video.streams.video[0].time_base,
+                video.streams.video[0].duration * video.streams.video[0].time_base,  # type: ignore[operator]
             )
             valid = (
                 (slength / length) > 0.80  # export is fuzzy
@@ -810,16 +810,16 @@ def _add_metadata(path: Path, creation: datetime, title: str) -> bool:
 
             in_to_out: dict[str, Any] = {}
             for stream in input_file.streams:
-                in_to_out[stream] = output_file.add_stream(template=stream)
-                in_to_out[stream].metadata["creation_time"] = creation.isoformat()
+                in_to_out[stream] = output_file.add_stream(template=stream)  # type: ignore[index]
+                in_to_out[stream].metadata["creation_time"] = creation.isoformat()  # type: ignore[index]
 
             for packet in input_file.demux(list(in_to_out.keys())):
                 if packet.dts is None:
                     continue
 
-                packet.stream = in_to_out[packet.stream]
+                packet.stream = in_to_out[packet.stream]  # type: ignore[index]
                 try:
-                    output_file.mux(packet)
+                    output_file.mux(packet)  # type: ignore[arg-type]
                 # some frames may be corrupted on disk from NVR
                 except ValueError:
                     continue

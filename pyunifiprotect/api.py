@@ -598,13 +598,10 @@ class BaseApiClient:
         ):
             return False
 
-        token_expires_at = self._last_token_cookie_decode["exp"]
+        token_expires_at = cast(int, self._last_token_cookie_decode["exp"])
         max_expire_time = time.time() + TOKEN_COOKIE_MAX_EXP_SECONDS
 
-        if token_expires_at < max_expire_time:
-            return False
-
-        return True
+        return token_expires_at >= max_expire_time
 
     async def async_connect_ws(self, force: bool) -> None:
         """Connect to Websocket."""

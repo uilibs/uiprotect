@@ -22,7 +22,7 @@ import re
 import socket
 import sys
 import time
-from typing import TYPE_CHECKING, Any, Optional, Union, overload, TypeVar
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, overload
 from uuid import UUID
 import zoneinfo
 
@@ -624,6 +624,5 @@ def run_async(callback: Coroutine[Any, Any, T]) -> T:
 
     if sys.version_info >= (3, 11):
         return asyncio.run(callback)
-    else:
-        asyncio.get_event_loop()
-        return loop.run_until_complete(callback)
+    loop = asyncio.get_event_loop()
+    return loop.run_until_complete(callback)
