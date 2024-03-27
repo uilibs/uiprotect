@@ -13,6 +13,7 @@ import typer
 from pyunifiprotect.api import ProtectApiClient
 from pyunifiprotect.data import NVR, ProtectAdoptableDeviceModel, ProtectBaseObject
 from pyunifiprotect.exceptions import BadRequest, NvrError, StreamError
+from pyunifiprotect.utils import run_async
 
 try:
     from pydantic.v1 import ValidationError
@@ -43,13 +44,8 @@ def run(ctx: typer.Context, func: Coroutine[Any, Any, T]) -> T:
         await ctx.obj.protect.close_session()
         return return_value
 
-    runner = asyncio.run
-    if sys.version_info < (3, 11):
-        loop = asyncio.get_event_loop()
-        runner = loop.run_until_complete  # type: ignore[assignment]
-
     try:
-        return runner(callback())
+        return run_async(callback())
     except (BadRequest, ValidationError, StreamError, NvrError) as err:
         typer.secho(str(err), fg="red")
         raise typer.Exit(1) from err

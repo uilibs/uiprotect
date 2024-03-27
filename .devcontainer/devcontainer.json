@@ -20,12 +20,12 @@
     "onCreateCommand": [
         "/bin/bash",
         "-c",
-        "sudo -E HOME=/root pip install --root-user-action=ignore -e '.[dev]' && /usr/local/bin/unifi-protect --install-completion bash && docker-fix"
+        "sudo -E HOME=/root uv pip install -e '.[dev]' && /usr/local/bin/unifi-protect --install-completion bash && docker-fix"
     ],
     "updateContentCommand": [
         "/bin/bash",
         "-c",
-        "sudo -E HOME=/root pip install --root-user-action=ignore -r dev-requirements.txt"
+        "sudo -E HOME=/root uv pip sync requirements.txt dev-requirements.txt"
     ],
     "postAttachCommand": [
         "/bin/bash",

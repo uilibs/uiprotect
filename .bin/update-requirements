@@ -27,12 +27,12 @@ if [[ $IN_DEVCONTAINER == "true" ]]; then
 fi
 
 echo "Updating requirements.txt..."
-pip-compile -v --resolver=backtracking --pip-args='--root-user-action=ignore' --upgrade --extra=full --output-file=requirements.txt pyproject.toml
+uv pip compile -v --upgrade --extra=full --output-file=requirements.txt pyproject.toml
 echo "Updating dev-requirements.txt..."
-pip-compile -v --resolver=backtracking --pip-args='--root-user-action=ignore -c requirements.txt' --upgrade --extra=full --extra=dev --output-file=dev-requirements.txt pyproject.toml
+uv pip compile -v -c requirements.txt --upgrade --extra=full --extra=dev --output-file=dev-requirements.txt pyproject.toml
 
 if [[ $IN_DEVCONTAINER == "true" ]]; then
     echo "Upgrading dev container environment..."
-    sudo pip install --root-user-action=ignore -r requirements.txt -r dev-requirements.txt
+    sudo -E uv pip sync requirements.txt dev-requirements.txt
 fi
 popd 2>&1 >/dev/null

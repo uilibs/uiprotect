@@ -25,7 +25,7 @@ from pyunifiprotect.cli.viewers import app as viewer_app
 from pyunifiprotect.data import Version, WSPacket
 from pyunifiprotect.test_util import SampleDataGenerator
 from pyunifiprotect.utils import RELEASE_CACHE, get_local_timezone
-from pyunifiprotect.utils import profile_ws as profile_ws_job
+from pyunifiprotect.utils import profile_ws as profile_ws_job, run_async
 
 try:
     from pyunifiprotect.cli.backup import app as backup_app
@@ -161,11 +161,7 @@ def main(
         protect._bootstrap = await protect.get_bootstrap()
         await protect.close_session()
 
-    if sys.version_info >= (3, 11):
-        asyncio.run(update())
-    else:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(update())
+    run_async(update())
     ctx.obj = CliContext(protect=protect, output_format=output_format)
 
 
@@ -277,8 +273,7 @@ def profile_ws(
 
     _setup_logger()
 
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(callback())
+    run_async(callback())
 
 
 @app.command()
@@ -317,8 +312,7 @@ def release_versions(ctx: typer.Context) -> None:
 
     _setup_logger()
 
-    loop = asyncio.get_event_loop()
-    versions = loop.run_until_complete(callback())
+    versions = run_async(callback())
     output = orjson.dumps(sorted([str(v) for v in versions]))
 
     with open(RELEASE_CACHE, "wb") as cache_file:

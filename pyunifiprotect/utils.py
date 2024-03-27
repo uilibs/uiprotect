@@ -22,7 +22,7 @@ import re
 import socket
 import sys
 import time
-from typing import TYPE_CHECKING, Any, Optional, Union, overload
+from typing import TYPE_CHECKING, Any, Optional, Union, overload, TypeVar
 from uuid import UUID
 import zoneinfo
 
@@ -59,6 +59,8 @@ if sys.version_info[:2] < (3, 11):
     from async_timeout import timeout as asyncio_timeout
 else:
     from asyncio import timeout as asyncio_timeout  # noqa: F401
+
+T = TypeVar("T")
 
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 DEBUG_ENV = "UFP_DEBUG"
@@ -615,3 +617,13 @@ def log_event(event: Event) -> None:
             is_enabled,
             last_event,
         )
+
+
+def run_async(callback: Coroutine[Any, Any, T]) -> T:
+    """Run async coroutine."""
+
+    if sys.version_info >= (3, 11):
+        return asyncio.run(callback)
+    else:
+        asyncio.get_event_loop()
+        return loop.run_until_complete(callback)

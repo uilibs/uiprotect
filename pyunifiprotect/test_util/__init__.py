@@ -23,7 +23,7 @@ from pyunifiprotect.test_util.anonymize import (
     anonymize_data,
     anonymize_prefixed_event_id,
 )
-from pyunifiprotect.utils import from_js_time, is_online, write_json
+from pyunifiprotect.utils import from_js_time, is_online, write_json, run_async
 
 BLANK_VIDEO_CMD = "ffmpeg -y -hide_banner -loglevel error -f lavfi -i color=size=1280x720:rate=25:color=black -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -t {length} {filename}"
 
@@ -99,11 +99,7 @@ class SampleDataGenerator:
             _LOGGER.warning(msg)
 
     def generate(self) -> None:
-        if sys.version_info >= (3, 11):
-            asyncio.run(self.async_generate())
-        else:
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(self.async_generate())
+        run_async(self.async_generate())
 
     async def async_generate(self, close_session: bool = True) -> None:
         self.log(f"Output folder: {self.output_folder}")

@@ -3,6 +3,7 @@ FROM python:3.12-slim-bookworm as base
 LABEL org.opencontainers.image.source https://github.com/AngellusMortis/pyunifiprotect
 
 ENV PYTHONUNBUFFERED 1
+ENV UV_SYSTEM_PYTHON true
 ARG TARGETPLATFORM
 
 RUN addgroup --system --gid 1000 app \
@@ -21,8 +22,8 @@ RUN --mount=type=cache,mode=0755,id=apt-$TARGETPLATFORM,target=/var/lib/apt/list
 
 COPY requirements.txt /
 RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
-    pip install --root-user-action=ignore -U pip \
-    && pip install --root-user-action=ignore -r /requirements.txt \
+    pip install --root-user-action=ignore -U pip uv \
+    && uv pip install -r /requirements.txt \
     && rm /requirements.txt
 
 
@@ -34,7 +35,7 @@ COPY --from=builder /usr/local/bin/ /usr/local/bin/
 COPY --from=builder /usr/local/lib/python3.12/ /usr/local/lib/python3.12/
 RUN --mount=source=.,target=/tmp/pyunifiprotect,type=bind,readwrite \
     --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
-    SETUPTOOLS_SCM_PRETEND_VERSION=${PYUFP_VERSION} pip install --root-user-action=ignore -U "/tmp/pyunifiprotect[tz]" \
+    SETUPTOOLS_SCM_PRETEND_VERSION=${PYUFP_VERSION} uv pip install -U "/tmp/pyunifiprotect[tz]" \
     && cp /tmp/pyunifiprotect/.docker/entrypoint.sh /usr/local/bin/entrypoint \
     && chmod +x /usr/local/bin/entrypoint \
     && mkdir /data \
@@ -50,7 +51,7 @@ FROM builder as builder-dev
 
 COPY dev-requirements.txt /
 RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
-    pip install --root-user-action=ignore -r /dev-requirements.txt \
+    uv pip install -r /dev-requirements.txt \
     && rm /dev-requirements.txt
 
 
