@@ -566,7 +566,7 @@ class BaseApiClient:
         for key, value in session.get("metadata", {}).items():
             cookie["TOKEN"][key] = value
 
-        cookie_value = _COOKIE_RE.sub(str(cookie["TOKEN"]), "")
+        cookie_value = _COOKIE_RE.sub("", str(cookie["TOKEN"]))
         self._last_token_cookie = cookie["TOKEN"]
         self._last_token_cookie_decode = None
         self._is_authenticated = True

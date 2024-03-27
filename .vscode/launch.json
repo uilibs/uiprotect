@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Run Subcommand: shell",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "pyunifiprotect",
             "args": [
@@ -15,8 +15,23 @@
             ]
         },
         {
+            "name": "Run Subcommand: generate-sample-data",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pyunifiprotect",
+            "args": [
+                "generate-sample-data",
+                "-w",
+                "30",
+                "--actual",
+            ],
+            "env": {
+                "UFP_SAMPLE_DIR": "${workspaceFolder}/test-data"
+            }
+        },
+        {
             "name": "Python: Debug Tests",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "purpose": [
