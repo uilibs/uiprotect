@@ -474,7 +474,7 @@ class BaseApiClient:
             auth = {
                 "username": self._username,
                 "password": self._password,
-                "remember": True,
+                "rememberMe": self.store_sessions,
             }
 
             response = await self.request("post", url=url, json=auth)
