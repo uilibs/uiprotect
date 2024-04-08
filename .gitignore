@@ -5,6 +5,8 @@ ufp-data
 *.mp3
 *.mp4
 *.js
+*.json
+*.csv
 backup
 .benchmarks
 .ruff_cache

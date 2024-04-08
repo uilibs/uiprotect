@@ -21,6 +21,7 @@ ARG_EVENT_ID = typer.Argument(None, help="ID of camera to select for subcommands
 OPTION_START = typer.Option(None, "-s", "--start")
 OPTION_END = typer.Option(None, "-e", "--end")
 OPTION_LIMIT = typer.Option(None, "-l", "--limit")
+OPTION_OFFSET = typer.Option(None, "-o", "--offet")
 OPTION_TYPES = typer.Option(None, "-t", "--type")
 OPTION_SMART_TYPES = typer.Option(
     None,
@@ -46,6 +47,7 @@ def main(
     start: Optional[datetime] = OPTION_START,
     end: Optional[datetime] = OPTION_END,
     limit: Optional[int] = OPTION_LIMIT,
+    offset: Optional[int] = OPTION_OFFSET,
     types: Optional[list[d.EventType]] = OPTION_TYPES,
     smart_types: Optional[list[d.SmartDetectObjectType]] = OPTION_SMART_TYPES,
 ) -> None:
@@ -85,6 +87,7 @@ def main(
                 start=start,
                 end=end,
                 limit=limit,
+                offset=offset,
                 types=types,
                 smart_detect_types=smart_types,
             ),
