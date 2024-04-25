@@ -1144,7 +1144,7 @@ class Camera(ProtectMotionDeviceModel):
         motion/smart detection events.
         """
 
-        return self.recording_settings.mode != RecordingMode.NEVER
+        return self.recording_settings.mode is not RecordingMode.NEVER
 
     @property
     def is_motion_detection_on(self) -> bool:

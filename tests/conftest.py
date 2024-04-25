@@ -782,7 +782,6 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0915
         del expected["wifiSettings"]
         del expected["smartDetectAgreement"]
         expected.pop("dbRecoveryOptions", None)
-        expected.pop("globalCameraSettings", None)
         expected.pop("portStatus", None)
         expected.pop("cameraCapacity", None)
         expected.pop("deviceFirmwareSettings", None)
@@ -795,6 +794,7 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0915
         expected["ports"]["aiFeatureConsole"] = expected["ports"].get(
             "aiFeatureConsole",
         )
+        expected["globalCameraSettings"] = expected.get("globalCameraSettings")
 
         if (
             "homekitPaired" in actual["featureFlags"]
