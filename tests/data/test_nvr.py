@@ -14,6 +14,7 @@ from pyunifiprotect.data import (
     DoorbellMessage,
     DoorbellMessageType,
 )
+from pyunifiprotect.data.nvr import NVRSmartDetection
 from pyunifiprotect.exceptions import BadRequest
 from pyunifiprotect.utils import to_ms
 
@@ -175,3 +176,87 @@ async def test_nvr_wan_ip(nvr_obj: NVR, ip: str, expected: IPv4Address | IPv6Add
     nvr = NVR.from_unifi_dict(**nvr_dict)
     assert nvr.wan_ip == expected
     assert nvr.unifi_dict()["wanIp"] == ip
+
+
+@pytest.mark.asyncio()
+async def test_nvr_set_smart_detections(nvr_obj: NVR):
+    nvr_obj.smart_detection = NVRSmartDetection(
+        enable=False,
+        face_recognition=False,
+        license_plate_recognition=False,
+    )
+    nvr_obj.api.api_request.reset_mock()
+
+    await nvr_obj.set_smart_detections(True)
+
+    nvr_obj.api.api_request.assert_called_with(
+        "nvr",
+        method="patch",
+        json={"smartDetection": {"enable": True}},
+    )
+
+
+@pytest.mark.asyncio()
+async def test_nvr_set_face_recognition(nvr_obj: NVR):
+    nvr_obj.smart_detection = NVRSmartDetection(
+        enable=True,
+        face_recognition=False,
+        license_plate_recognition=False,
+    )
+    nvr_obj.api.api_request.reset_mock()
+
+    await nvr_obj.set_face_recognition(True)
+
+    nvr_obj.api.api_request.assert_called_with(
+        "nvr",
+        method="patch",
+        json={"smartDetection": {"faceRecognition": True}},
+    )
+
+
+@pytest.mark.asyncio()
+async def test_nvr_set_face_recognition_no_smart(nvr_obj: NVR):
+    nvr_obj.smart_detection = NVRSmartDetection(
+        enable=False,
+        face_recognition=False,
+        license_plate_recognition=False,
+    )
+    nvr_obj.api.api_request.reset_mock()
+
+    with pytest.raises(BadRequest):
+        await nvr_obj.set_face_recognition(True)
+
+    assert not nvr_obj.api.api_request.called
+
+
+@pytest.mark.asyncio()
+async def test_nvr_set_license_plate_recognition(nvr_obj: NVR):
+    nvr_obj.smart_detection = NVRSmartDetection(
+        enable=True,
+        face_recognition=False,
+        license_plate_recognition=False,
+    )
+    nvr_obj.api.api_request.reset_mock()
+
+    await nvr_obj.set_license_plate_recognition(True)
+
+    nvr_obj.api.api_request.assert_called_with(
+        "nvr",
+        method="patch",
+        json={"smartDetection": {"licensePlateRecognition": True}},
+    )
+
+
+@pytest.mark.asyncio()
+async def test_nvr_set_license_plate_recognition_no_smart(nvr_obj: NVR):
+    nvr_obj.smart_detection = NVRSmartDetection(
+        enable=False,
+        face_recognition=False,
+        license_plate_recognition=False,
+    )
+    nvr_obj.api.api_request.reset_mock()
+
+    with pytest.raises(BadRequest):
+        await nvr_obj.set_license_plate_recognition(True)
+
+    assert not nvr_obj.api.api_request.called

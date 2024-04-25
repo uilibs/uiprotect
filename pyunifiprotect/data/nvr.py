@@ -1185,6 +1185,39 @@ class NVR(ProtectDeviceModel):
 
         return self.version not in versions
 
+    async def set_smart_detections(self, value: bool) -> None:
+        """Set if smart detections are enabled."""
+
+        def callback() -> None:
+            if self.smart_detection is not None:
+                self.smart_detection.enable = value
+
+        await self.queue_update(callback)
+
+    async def set_face_recognition(self, value: bool) -> None:
+        """Set if face detections are enabled. Requires smart detections to be enabled."""
+
+        if self.smart_detection is None or not self.smart_detection.enable:
+            raise BadRequest("Smart detections are not enabled.")
+
+        def callback() -> None:
+            if self.smart_detection is not None:
+                self.smart_detection.face_recognition = value
+
+        await self.queue_update(callback)
+
+    async def set_license_plate_recognition(self, value: bool) -> None:
+        """Set if license plate detections are enabled. Requires smart detections to be enabled."""
+
+        if self.smart_detection is None or not self.smart_detection.enable:
+            raise BadRequest("Smart detections are not enabled.")
+
+        def callback() -> None:
+            if self.smart_detection is not None:
+                self.smart_detection.license_plate_recognition = value
+
+        await self.queue_update(callback)
+
 
 class LiveviewSlot(ProtectBaseObject):
     camera_ids: list[str]

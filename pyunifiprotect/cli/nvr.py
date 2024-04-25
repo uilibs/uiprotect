@@ -13,6 +13,11 @@ app = typer.Typer(rich_markup_mode="rich")
 
 ARG_TIMEOUT = typer.Argument(..., help="Timeout (in seconds)")
 ARG_DOORBELL_MESSAGE = typer.Argument(..., help="ASCII only. Max length 30")
+OPTION_ENABLE_SMART = typer.Option(
+    False,
+    "--enable-smart",
+    help="Automatically enable smart detections",
+)
 
 
 @dataclass
@@ -110,3 +115,47 @@ def update(ctx: typer.Context, data: str) -> None:
 
     nvr: NVR = ctx.obj.device
     base.run(ctx, nvr.api.update_nvr(orjson.loads(data)))
+
+
+@app.command()
+def set_smart_detections(ctx: typer.Context, value: bool) -> None:
+    """Set if smart detections are globally enabled or not."""
+
+    nvr: NVR = ctx.obj.device
+    base.run(ctx, nvr.set_smart_detections(value))
+
+
+@app.command()
+def set_face_recognition(
+    ctx: typer.Context,
+    value: bool,
+    enable_smart: bool = OPTION_ENABLE_SMART,
+) -> None:
+    """Set if face detections is enabled. Requires smart detections to be enabled."""
+
+    nvr: NVR = ctx.obj.device
+
+    async def callback() -> None:
+        if enable_smart:
+            await nvr.set_smart_detections(True)
+        await nvr.set_face_recognition(value)
+
+    base.run(ctx, callback())
+
+
+@app.command()
+def set_license_plate_recognition(
+    ctx: typer.Context,
+    value: bool,
+    enable_smart: bool = OPTION_ENABLE_SMART,
+) -> None:
+    """Set if license plate detections is enabled. Requires smart detections to be enabled."""
+
+    nvr: NVR = ctx.obj.device
+
+    async def callback() -> None:
+        if enable_smart:
+            await nvr.set_smart_detections(True)
+        await nvr.set_license_plate_recognition(value)
+
+    base.run(ctx, callback())
