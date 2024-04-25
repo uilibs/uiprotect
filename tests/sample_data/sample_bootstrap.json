@@ -46,6 +46,7 @@
             "lastPrivacyZonePositionId": null,
             "lastRing": null,
             "isLiveHeatmapEnabled": false,
+            "useGlobal": false,
             "anonymousDeviceId": "355958af-1a08-4fb4-8619-d81fb88b5488",
             "eventStats": {
                 "motion": {
@@ -532,6 +533,7 @@
             "lastPrivacyZonePositionId": null,
             "lastRing": 1642022756933,
             "isLiveHeatmapEnabled": false,
+            "useGlobal": false,
             "anonymousDeviceId": "97323b0e-c723-4688-b382-177c83ab6d82",
             "eventStats": {
                 "motion": {
@@ -1083,6 +1085,7 @@
             "lastPrivacyZonePositionId": null,
             "lastRing": null,
             "isLiveHeatmapEnabled": false,
+            "useGlobal": false,
             "anonymousDeviceId": "e12a9b6d-8a3b-411a-8ab8-34931517ed9d",
             "eventStats": {
                 "motion": {
@@ -1569,6 +1572,7 @@
             "lastPrivacyZonePositionId": null,
             "lastRing": 1643055447318,
             "isLiveHeatmapEnabled": false,
+            "useGlobal": false,
             "anonymousDeviceId": "0cc40649-3501-4755-a144-14cfd449efe5",
             "eventStats": {
                 "motion": {
@@ -2146,6 +2150,7 @@
             "lastPrivacyZonePositionId": null,
             "lastRing": null,
             "isLiveHeatmapEnabled": false,
+            "useGlobal": false,
             "anonymousDeviceId": "dbb18c8b-a7f1-4759-905f-e5b52e9a614d",
             "eventStats": {
                 "motion": {
@@ -2642,6 +2647,7 @@
             "lastPrivacyZonePositionId": null,
             "lastRing": 1641571914529,
             "isLiveHeatmapEnabled": false,
+            "useGlobal": false,
             "anonymousDeviceId": "3e29e07a-13c2-4514-b610-8376df41c2ad",
             "eventStats": {
                 "motion": {
@@ -3150,6 +3156,7 @@
             "lastPrivacyZonePositionId": null,
             "lastRing": null,
             "isLiveHeatmapEnabled": false,
+            "useGlobal": false,
             "anonymousDeviceId": "7b4e5226-215f-44d1-bbf4-cdfe64599cdb",
             "eventStats": {
                 "motion": {
@@ -3648,6 +3655,7 @@
             "lastPrivacyZonePositionId": null,
             "lastRing": null,
             "isLiveHeatmapEnabled": false,
+            "useGlobal": false,
             "anonymousDeviceId": "36ad9efc-8b8b-4f47-815e-14f65a46a6e3",
             "eventStats": {
                 "motion": {
@@ -4146,6 +4154,7 @@
             "lastPrivacyZonePositionId": null,
             "lastRing": null,
             "isLiveHeatmapEnabled": false,
+            "useGlobal": false,
             "anonymousDeviceId": "c370d035-8003-4b70-85e9-ba5f460cac09",
             "eventStats": {
                 "motion": {
@@ -4652,6 +4661,7 @@
             "lastPrivacyZonePositionId": null,
             "lastRing": null,
             "isLiveHeatmapEnabled": false,
+            "useGlobal": false,
             "anonymousDeviceId": "242b87f0-f0e1-402e-a48a-2a0b5a16d850",
             "eventStats": {
                 "motion": {
@@ -5154,6 +5164,7 @@
             "lastPrivacyZonePositionId": null,
             "lastRing": null,
             "isLiveHeatmapEnabled": false,
+            "useGlobal": false,
             "anonymousDeviceId": "857fa0fd-4a74-4212-8b75-f9ce40589250",
             "eventStats": {
                 "motion": {

@@ -42,6 +42,7 @@
     "lastPrivacyZonePositionId": null,
     "lastRing": 1643055803577,
     "isLiveHeatmapEnabled": false,
+    "useGlobal": false,
     "anonymousDeviceId": "783670a8-fd5d-45f7-9e4a-5af42ba89c25",
     "lastDisconnect": 1669917368811,
     "eventStats": {

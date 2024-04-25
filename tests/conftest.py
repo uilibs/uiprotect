@@ -66,6 +66,28 @@ def read_json_file(name: str):
         return json.load(f)
 
 
+def read_bootstrap_json_file():
+    # tests expect global recording settings to be off
+    bootstrap = read_json_file("sample_bootstrap")
+    cameras = []
+    for camera in bootstrap["cameras"]:
+        if camera.get("useGlobal"):
+            camera["useGlobal"] = False
+        cameras.append(camera)
+
+    bootstrap["cameras"] = cameras
+    return bootstrap
+
+
+def read_camera_json_file():
+    # tests expect global recording settings to be off
+    camera = read_json_file("sample_camera")
+    if camera.get("useGlobal"):
+        camera["useGlobal"] = False
+
+    return camera
+
+
 def get_now():
     return datetime.fromisoformat(CONSTANTS["time"]).replace(microsecond=0)
 
@@ -101,13 +123,13 @@ async def mock_api_request_raw(url: str, *args, **kwargs):
 
 async def mock_api_request(url: str, *args, **kwargs):
     if url == "bootstrap":
-        return read_json_file("sample_bootstrap")
+        return read_bootstrap_json_file()
     if url == "nvr":
-        return read_json_file("sample_bootstrap")["nvr"]
+        return read_bootstrap_json_file()["nvr"]
     if url == "events":
         return read_json_file("sample_raw_events")
     if url == "cameras":
-        return [read_json_file("sample_camera")]
+        return [read_camera_json_file()]
     if url == "lights":
         return [read_json_file("sample_light")]
     if url == "sensors":
@@ -123,7 +145,7 @@ async def mock_api_request(url: str, *args, **kwargs):
     if url == "chimes":
         return [read_json_file("sample_chime")]
     if url.startswith("cameras/"):
-        return read_json_file("sample_camera")
+        return read_camera_json_file()
     if url.startswith("lights/"):
         return read_json_file("sample_light")
     if url.startswith("sensors/"):
@@ -215,6 +237,10 @@ async def setup_client(
     client.api_request_raw = AsyncMock(side_effect=mock_api_request_raw)  # type: ignore[method-assign]
     client.ensure_authenticated = AsyncMock()  # type: ignore[method-assign]
     await client.update()
+
+    # make sure global recording settings are disabled for all cameras (test expect it)
+    for camera in client.bootstrap.cameras.values():
+        camera.use_global = False
 
     return client
 
@@ -379,7 +405,7 @@ def camera():
     if not TEST_CAMERA_EXISTS:
         return None
 
-    return read_json_file("sample_camera")
+    return read_camera_json_file()
 
 
 @pytest.fixture()
@@ -443,7 +469,7 @@ def cameras():
     if not TEST_CAMERA_EXISTS:
         return []
 
-    return [read_json_file("sample_camera")]
+    return [read_camera_json_file()]
 
 
 @pytest.fixture()
@@ -490,12 +516,12 @@ def raw_events_fixture():
 
 @pytest.fixture()
 def bootstrap():
-    return read_json_file("sample_bootstrap")
+    return read_bootstrap_json_file()
 
 
 @pytest.fixture()
 def nvr():
-    return read_json_file("sample_bootstrap")["nvr"]
+    return read_bootstrap_json_file()["nvr"]
 
 
 @pytest.fixture()
@@ -649,7 +675,7 @@ OLD_FIELDS = {
 }
 
 
-def compare_objs(obj_type, expected, actual):  # noqa: PLR0915
+def compare_objs(obj_type, expected, actual):  # noqa: PLR0915,PLR0914
     expected = deepcopy(expected)
     actual = deepcopy(actual)
 
@@ -795,6 +821,14 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0915
             "aiFeatureConsole",
         )
         expected["globalCameraSettings"] = expected.get("globalCameraSettings")
+        if expected["globalCameraSettings"]:
+            settings = expected["globalCameraSettings"]["recordingSettings"]
+            settings["retentionDurationMs"] = settings.get(
+                "retentionDurationMs",
+            )
+
+            # TODO:
+            expected["globalCameraSettings"].pop("recordingSchedulesV2", None)
 
         if (
             "homekitPaired" in actual["featureFlags"]
