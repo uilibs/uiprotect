@@ -5,17 +5,13 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import TYPE_CHECKING, Optional
 
+from pydantic.v1 import ValidationError
 import pytest
 
 from pyunifiprotect.data.types import LightModeEnableType, LightModeType
 from pyunifiprotect.exceptions import BadRequest
 from pyunifiprotect.utils import to_ms
 from tests.conftest import TEST_CAMERA_EXISTS, TEST_LIGHT_EXISTS
-
-try:
-    from pydantic.v1 import ValidationError
-except ImportError:
-    from pydantic import ValidationError
 
 if TYPE_CHECKING:
     from pyunifiprotect.data import Camera, Light

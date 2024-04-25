@@ -219,8 +219,7 @@ class SampleDataGenerator:
                 return
 
             self.log(f"Writing {name}...")
-            with open(self.output_folder / f"{name}.{ext}", "wb") as f:
-                f.write(raw)
+            Path(self.output_folder / f"{name}.{ext}").write_bytes(raw)
 
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, write)

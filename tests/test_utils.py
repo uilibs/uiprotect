@@ -3,16 +3,11 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+from pydantic.v1.config import BaseConfig
+from pydantic.v1.fields import ModelField
 import pytest
 
 from pyunifiprotect.utils import convert_unifi_data, dict_diff, to_snake_case
-
-try:
-    from pydantic.v1.config import BaseConfig
-    from pydantic.v1.fields import ModelField
-except ImportError:
-    from pydantic.config import BaseConfig
-    from pydantic.fields import ModelField  # type: ignore[attr-defined]
 
 
 def test_dict_diff_equal():

@@ -6,10 +6,7 @@ from datetime import datetime
 from functools import cache
 from typing import Any, Optional
 
-try:
-    from pydantic.v1.fields import PrivateAttr
-except ImportError:
-    from pydantic.fields import PrivateAttr
+from pydantic.v1.fields import PrivateAttr
 
 from pyunifiprotect.data.base import ProtectBaseObject, ProtectModel, ProtectModelWithId
 from pyunifiprotect.data.types import ModelType, PermissionNode

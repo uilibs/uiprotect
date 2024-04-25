@@ -174,8 +174,7 @@ def save_snapshot(
         typer.secho("Could not get snapshot", fg="red")
         raise typer.Exit(1)
 
-    with open(output_path, "wb") as f:
-        f.write(snapshot)
+    Path(output_path).write_bytes(snapshot)
 
 
 @app.command()
@@ -224,7 +223,7 @@ def save_video(
     with Progress() as pb:
         task_id = pb.add_task("(1/2) Exporting", total=100)
 
-        async def callback(step: int, current: int, total: int) -> None:
+        async def callback(step: int, current: int, total: int) -> None:  # noqa: RUF029
             pb.update(
                 task_id,
                 total=total,

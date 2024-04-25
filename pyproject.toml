@@ -43,7 +43,7 @@ dependencies = [
     "packaging",
     "pillow",
     "platformdirs",
-    "pydantic!=1.9.1",
+    "pydantic>=1.10.15",
     "pyjwt",
     "typer[all]>0.6",
     "yarl>=1.9",
@@ -167,8 +167,8 @@ max-complexity = 10
     "TRY",
 ]
 "pyunifiprotect/api.py" = ["ERA001"]
-"**/test_*.py" = ["FBT", "D", "SLF001", "PLR2004"]
-"tests/**/*.py" = ["FBT", "D", "SLF001", "PLR2004"]
+"**/test_*.py" = ["FBT", "D", "SLF001", "PLR2004", "RUF029"]
+"tests/**/*.py" = ["FBT", "D", "SLF001", "PLR2004", "RUF029"]
 
 [tool.isort]
 profile = "black"

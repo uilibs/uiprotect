@@ -558,7 +558,7 @@ async def test_get_smart_detect_zones(smart_dectect_obj: Optional[Event]):
     track = await smart_dectect_obj.get_smart_detect_track()
     zone_ids: set[int] = set()
     for item in track.payload:
-        zone_ids = zone_ids | set(item.zone_ids)
+        zone_ids |= set(item.zone_ids)
 
     zones = await smart_dectect_obj.get_smart_detect_zones()
     for zone_id, zone in zones.items():

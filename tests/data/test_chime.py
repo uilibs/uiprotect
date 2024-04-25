@@ -4,16 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
+from pydantic.v1 import ValidationError
 import pytest
 
 from pyunifiprotect.data import RingSetting
 from pyunifiprotect.exceptions import BadRequest
 from tests.conftest import TEST_CAMERA_EXISTS, TEST_CHIME_EXISTS
-
-try:
-    from pydantic.v1 import ValidationError
-except ImportError:
-    from pydantic import ValidationError
 
 if TYPE_CHECKING:
     from pyunifiprotect.data import Camera, Chime

@@ -11,6 +11,9 @@ import logging
 from typing import TYPE_CHECKING, Any, ClassVar, Optional, TypeVar, Union
 from uuid import UUID
 
+from pydantic.v1 import BaseModel
+from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
+
 from pyunifiprotect.data.types import (
     ModelType,
     PercentFloat,
@@ -34,26 +37,11 @@ from pyunifiprotect.utils import (
     to_snake_case,
 )
 
-try:
-    from pydantic.v1 import BaseModel
-    from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
-except ImportError:
-    from pydantic import BaseModel  # type: ignore[assignment]
-    from pydantic.fields import (  # type: ignore[attr-defined]
-        SHAPE_DICT,
-        SHAPE_LIST,
-        PrivateAttr,
-    )
-
 if TYPE_CHECKING:
     from asyncio.events import TimerHandle
 
+    from pydantic.v1.typing import DictStrAny, SetStr
     from typing_extensions import Self  # requires Python 3.11+
-
-    try:
-        from pydantic.v1.typing import DictStrAny, SetStr
-    except ImportError:
-        from pydantic.typing import DictStrAny, SetStr
 
     from pyunifiprotect.api import ProtectApiClient
     from pyunifiprotect.data.devices import Bridge
@@ -469,7 +457,7 @@ class ProtectBaseObject(BaseModel):
                 self._get_protect_objs_set() | self._get_protect_lists_set()
             )
             if exclude is not None:
-                excluded_fields = excluded_fields | exclude
+                excluded_fields |= exclude
             data = self.dict(exclude=excluded_fields)
             use_obj = True
 

@@ -12,10 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
 import warnings
 
-try:
-    from pydantic.v1.fields import PrivateAttr
-except ImportError:
-    from pydantic.fields import PrivateAttr
+from pydantic.v1.fields import PrivateAttr
 
 from pyunifiprotect.data.base import (
     EVENT_PING_INTERVAL,

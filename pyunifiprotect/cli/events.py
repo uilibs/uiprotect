@@ -139,8 +139,7 @@ def list_ids(ctx: typer.Context) -> None:
             d.EventType.SMART_DETECT_LINE.value,
         }:
             event_type = f"{event_type}[{','.join(obj.smart_detect_types)}]"
-        if len(event_type) > longest_event:
-            longest_event = len(event_type)
+        longest_event = max(len(event_type), longest_event)
         dt = obj.timestamp or obj.start
         dt = local_datetime(dt)
 
@@ -174,8 +173,7 @@ def save_thumbnail(
         typer.secho("Could not get thumbnail", fg="red")
         raise typer.Exit(1)
 
-    with open(output_path, "wb") as f:
-        f.write(thumbnail)
+    Path(output_path).write_bytes(thumbnail)
 
 
 @app.command()
@@ -196,8 +194,7 @@ def save_animated_thumbnail(
         typer.secho("Could not get thumbnail", fg="red")
         raise typer.Exit(1)
 
-    with open(output_path, "wb") as f:
-        f.write(thumbnail)
+    Path(output_path).write_bytes(thumbnail)
 
 
 @app.command()
@@ -218,8 +215,7 @@ def save_heatmap(
         typer.secho("Could not get heatmap", fg="red")
         raise typer.Exit(1)
 
-    with open(output_path, "wb") as f:
-        f.write(heatmap)
+    Path(output_path).write_bytes(heatmap)
 
 
 @app.command()
@@ -246,7 +242,7 @@ def save_video(
     with Progress() as pb:
         task_id = pb.add_task("(1/2) Exporting", total=100)
 
-        async def callback(step: int, current: int, total: int) -> None:
+        async def callback(step: int, current: int, total: int) -> None:  # noqa: RUF029
             pb.update(
                 task_id,
                 total=total,

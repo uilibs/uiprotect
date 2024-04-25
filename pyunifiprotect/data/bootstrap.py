@@ -11,11 +11,7 @@ from typing import Any, Optional, cast
 from uuid import UUID
 
 from aiohttp.client_exceptions import ServerDisconnectedError
-
-try:
-    from pydantic.v1 import PrivateAttr, ValidationError
-except ImportError:
-    from pydantic import PrivateAttr, ValidationError  # type: ignore[assignment]
+from pydantic.v1 import PrivateAttr, ValidationError
 
 from pyunifiprotect.data.base import (
     RECENT_EVENT_MAX,

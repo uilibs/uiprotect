@@ -5,15 +5,9 @@ import enum
 from typing import Any, Literal, Optional, TypeVar, Union
 
 from packaging.version import Version as BaseVersion
-
-try:
-    from pydantic.v1 import ConstrainedInt
-    from pydantic.v1.color import Color as BaseColor
-    from pydantic.v1.types import ConstrainedFloat, ConstrainedStr
-except ImportError:
-    from pydantic import ConstrainedInt
-    from pydantic.color import Color as BaseColor  # type: ignore[assignment]
-    from pydantic.types import ConstrainedFloat, ConstrainedStr
+from pydantic.v1 import ConstrainedInt
+from pydantic.v1.color import Color as BaseColor
+from pydantic.v1.types import ConstrainedFloat, ConstrainedStr
 
 KT = TypeVar("KT")
 VT = TypeVar("VT")

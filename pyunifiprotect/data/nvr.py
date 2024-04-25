@@ -15,6 +15,7 @@ import zoneinfo
 import aiofiles
 from aiofiles import os as aos
 import orjson
+from pydantic.v1.fields import PrivateAttr
 
 from pyunifiprotect.data.base import (
     ProtectBaseObject,
@@ -48,16 +49,8 @@ from pyunifiprotect.data.user import User, UserLocation
 from pyunifiprotect.exceptions import BadRequest, NotAuthorized
 from pyunifiprotect.utils import RELEASE_CACHE, process_datetime
 
-try:
-    from pydantic.v1.fields import PrivateAttr
-except ImportError:
-    from pydantic.fields import PrivateAttr
-
 if TYPE_CHECKING:
-    try:
-        from pydantic.v1.typing import SetStr
-    except ImportError:
-        from pydantic.typing import SetStr
+    from pydantic.v1.typing import SetStr
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -485,7 +478,7 @@ class Event(ProtectModelWithId):
 
             ids: set[int] = set()
             for item in smart_track.payload:
-                ids = ids | set(item.zone_ids)
+                ids |= set(item.zone_ids)
 
             self._smart_detect_zones = {
                 z.id: z for z in self.camera.smart_detect_zones if z.id in ids
@@ -633,7 +626,7 @@ class UOSDisk(ProtectBaseObject):
 
         # estimate is actually in seconds, not milliseconds
         if "estimate" in data and data["estimate"] is not None:
-            data["estimate"] = data["estimate"] / 1000
+            data["estimate"] /= 1000
 
         if "state" in data and data["state"] == "nodisk":
             delete_keys = [
@@ -717,7 +710,7 @@ class UOSSpace(ProtectBaseObject):
 
         # estimate is actually in seconds, not milliseconds
         if "estimate" in data and data["estimate"] is not None:
-            data["estimate"] = data["estimate"] / 1000
+            data["estimate"] /= 1000
 
         return data
 

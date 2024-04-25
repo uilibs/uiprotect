@@ -6,17 +6,13 @@ from enum import Enum
 from typing import Any, Optional, TypeVar
 
 import orjson
+from pydantic.v1 import ValidationError
 import typer
 
 from pyunifiprotect.api import ProtectApiClient
 from pyunifiprotect.data import NVR, ProtectAdoptableDeviceModel, ProtectBaseObject
 from pyunifiprotect.exceptions import BadRequest, NvrError, StreamError
 from pyunifiprotect.utils import run_async
-
-try:
-    from pydantic.v1 import ValidationError
-except ImportError:
-    from pydantic import ValidationError  # type: ignore[assignment]
 
 T = TypeVar("T")
 
