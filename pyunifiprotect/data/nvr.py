@@ -1076,6 +1076,32 @@ class NVR(ProtectDeviceModel):
             is not RecordingMode.NEVER
         )
 
+    @property
+    def is_smart_detections_enabled(self) -> bool:
+        """If smart detected enabled globally."""
+
+        return self.smart_detection is not None and self.smart_detection.enable
+
+    @property
+    def is_license_plate_detections_enabled(self) -> bool:
+        """If smart detected enabled globally."""
+
+        return (
+            self.smart_detection is not None
+            and self.smart_detection.enable
+            and self.smart_detection.license_plate_recognition
+        )
+
+    @property
+    def is_face_detections_enabled(self) -> bool:
+        """If smart detected enabled globally."""
+
+        return (
+            self.smart_detection is not None
+            and self.smart_detection.enable
+            and self.smart_detection.face_recognition
+        )
+
     def update_all_messages(self) -> None:
         """Updates doorbell_settings.all_messages after adding/removing custom message"""
 

@@ -1150,6 +1150,33 @@ class Camera(ProtectMotionDeviceModel):
         return self.recording_settings.mode is not RecordingMode.NEVER
 
     @property
+    def is_smart_detections_allowed(self) -> bool:
+        """Is smart detections allowed for this camera?"""
+
+        return (
+            self.is_recording_enabled
+            and self.api.bootstrap.nvr.is_smart_detections_enabled
+        )
+
+    @property
+    def is_license_plate_detections_allowed(self) -> bool:
+        """Is license plate detections allowed for this camera?"""
+
+        return (
+            self.is_recording_enabled
+            and self.api.bootstrap.nvr.is_license_plate_detections_enabled
+        )
+
+    @property
+    def is_face_detections_allowed(self) -> bool:
+        """Is face detections allowed for this camera?"""
+
+        return (
+            self.is_recording_enabled
+            and self.api.bootstrap.nvr.is_face_detections_enabled
+        )
+
+    @property
     def active_recording_settings(self) -> RecordingSettings:
         """Get active recording settings."""
 
