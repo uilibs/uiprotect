@@ -1211,6 +1211,12 @@ class Camera(ProtectMotionDeviceModel):
         return self.recording_settings.mode is not RecordingMode.NEVER
 
     @property
+    def can_manage_recording_setting(self) -> bool:
+        """Can this camera manage its own recording settings?"""
+
+        return not self.use_global
+
+    @property
     def is_smart_detections_allowed(self) -> bool:
         """Is smart detections allowed for this camera?"""
 
@@ -1218,6 +1224,12 @@ class Camera(ProtectMotionDeviceModel):
             self.is_recording_enabled
             and self.api.bootstrap.nvr.is_smart_detections_enabled
         )
+
+    @property
+    def can_manage_smart_detections(self) -> bool:
+        """Can this camera manage its own recording settings?"""
+
+        return (not self.use_global) and self.is_smart_detections_allowed
 
     @property
     def is_license_plate_detections_allowed(self) -> bool:
@@ -1229,6 +1241,12 @@ class Camera(ProtectMotionDeviceModel):
         )
 
     @property
+    def can_manage_license_plate_detections(self) -> bool:
+        """Can this camera manage its own license plate settings?"""
+
+        return (not self.use_global) and self.is_license_plate_detections_allowed
+
+    @property
     def is_face_detections_allowed(self) -> bool:
         """Is face detections allowed for this camera?"""
 
@@ -1236,6 +1254,12 @@ class Camera(ProtectMotionDeviceModel):
             self.is_recording_enabled
             and self.api.bootstrap.nvr.is_face_detections_enabled
         )
+
+    @property
+    def can_manage_face_detections(self) -> bool:
+        """Can this camera manage its own face detection settings?"""
+
+        return (not self.use_global) and self.is_face_detections_allowed
 
     @property
     def active_recording_settings(self) -> RecordingSettings:
@@ -1284,6 +1308,7 @@ class Camera(ProtectMotionDeviceModel):
         return (
             self.is_recording_enabled
             and self.active_recording_settings.enable_motion_detection is not False
+            and self.can_manage_recording_setting
         )
 
     @property
@@ -1320,7 +1345,9 @@ class Camera(ProtectMotionDeviceModel):
 
     def _is_smart_enabled(self, smart_type: SmartDetectObjectType) -> bool:
         return (
-            self.is_recording_enabled and smart_type in self.active_smart_detect_types
+            self.is_recording_enabled
+            and smart_type in self.active_smart_detect_types
+            and self.can_manage_smart_detections
         )
 
     def _is_smart_detected(self, smart_type: SmartDetectObjectType) -> bool:
@@ -1444,7 +1471,10 @@ class Camera(ProtectMotionDeviceModel):
         plate detection events)?
         """
 
-        return self._is_smart_enabled(SmartDetectObjectType.LICENSE_PLATE)
+        return (
+            self._is_smart_enabled(SmartDetectObjectType.LICENSE_PLATE)
+            and self.is_license_plate_detections_allowed
+        )
 
     @property
     def last_license_plate_detect_event(self) -> Optional[Event]:
@@ -1566,6 +1596,7 @@ class Camera(ProtectMotionDeviceModel):
             audio_type is not None
             and self.is_recording_enabled
             and audio_type in self.active_audio_detect_types
+            and self.can_manage_smart_detections
         )
 
     def _is_audio_detected(self, smart_type: SmartDetectObjectType) -> bool:
