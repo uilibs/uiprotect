@@ -5,7 +5,7 @@ import enum
 from typing import Any, Literal, Optional, TypeVar, Union
 
 from packaging.version import Version as BaseVersion
-from pydantic.v1 import ConstrainedInt
+from pydantic.v1 import BaseModel, ConstrainedInt
 from pydantic.v1.color import Color as BaseColor
 from pydantic.v1.types import ConstrainedFloat, ConstrainedStr
 
@@ -577,6 +577,37 @@ class Percent(ConstrainedFloat):
 class RepeatTimes(ConstrainedInt):
     ge = 1
     le = 6
+
+
+class PTZPositionDegree(BaseModel):
+    pan: float
+    tilt: float
+    zoom: int
+
+
+class PTZPositionSteps(BaseModel):
+    focus: int
+    pan: int
+    tilt: int
+    zoom: int
+
+
+class PTZPosition(BaseModel):
+    degree: PTZPositionDegree
+    steps: PTZPositionSteps
+
+
+class PTZPresetPosition(BaseModel):
+    pan: int
+    tilt: int
+    zoom: int
+
+
+class PTZPreset(BaseModel):
+    id: str
+    name: str
+    slot: int
+    ptz: PTZPresetPosition
 
 
 CoordType = Union[Percent, int, float]

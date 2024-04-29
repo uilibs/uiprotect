@@ -51,6 +51,8 @@ from pyunifiprotect.data.types import (
     PercentInt,
     PermissionNode,
     ProgressCallback,
+    PTZPosition,
+    PTZPreset,
     RecordingMode,
     RepeatTimes,
     SensorStatusType,
@@ -64,6 +66,7 @@ from pyunifiprotect.data.user import User
 from pyunifiprotect.exceptions import BadRequest, NotAuthorized, StreamError
 from pyunifiprotect.stream import TalkbackStream
 from pyunifiprotect.utils import (
+    clamp_value,
     convert_smart_audio_types,
     convert_smart_types,
     convert_video_modes,
@@ -732,6 +735,65 @@ class Hotplug(ProtectBaseObject):
     standalone_adoption: Optional[bool] = None
 
 
+class PTZRangeSingle(ProtectBaseObject):
+    max: Optional[float]
+    min: Optional[float]
+    step: Optional[float]
+
+
+class PTZRange(ProtectBaseObject):
+    steps: PTZRangeSingle
+    degrees: PTZRangeSingle
+
+    def to_native_value(self, degree_value: float, is_relative: bool = False) -> float:
+        """Convert degree values to step values."""
+
+        if (
+            self.degrees.max is None  # noqa: PLR0916
+            or self.degrees.min is None
+            or self.degrees.step is None
+            or self.steps.max is None
+            or self.steps.min is None
+            or self.steps.step is None
+        ):
+            raise BadRequest("degree to step conversion not supported.")
+
+        if not is_relative:
+            degree_value -= self.degrees.min
+
+        step_range = self.steps.max - self.steps.min
+        degree_range = self.degrees.max - self.degrees.min
+        ratio = step_range / degree_range
+
+        step_value = clamp_value(degree_value * ratio, self.steps.step)
+        if not is_relative:
+            step_value = self.steps.min + step_value
+
+        return step_value
+
+
+class PTZZoomRange(PTZRange):
+    ratio: float
+
+    def to_native_value(self, zoom_value: float, is_relative: bool = False) -> float:
+        """Convert zoom values to step values."""
+
+        if self.steps.max is None or self.steps.min is None or self.steps.step is None:
+            raise BadRequest("step conversion not supported.")
+
+        step_range = self.steps.max - self.steps.min
+        # zoom levels start at 1
+        ratio = step_range / (self.ratio - 1)
+        if not is_relative:
+            zoom_value -= 1
+
+        step_value = clamp_value(zoom_value * ratio, self.steps.step)
+        if not is_relative:
+            step_value = self.steps.min + step_value
+
+        return step_value
+
+
 class CameraFeatureFlags(ProtectBaseObject):
     can_adjust_ir_led_level: bool
     can_magic_zoom: bool
@@ -790,11 +852,10 @@ class CameraFeatureFlags(ProtectBaseObject):
     # 3.0.22+
     flash_range: Optional[Any] = None
 
-    # TODO:
-    # focus
-    # pan
-    # tilt
-    # zoom
+    focus: PTZRange
+    pan: PTZRange
+    tilt: PTZRange
+    zoom: PTZZoomRange
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -1255,7 +1316,7 @@ class Camera(ProtectMotionDeviceModel):
 
         await self.queue_update(callback)
 
-    # object smart detections
+    # region Object Smart Detections
 
     def _is_smart_enabled(self, smart_type: SmartDetectObjectType) -> bool:
         return (
@@ -1284,7 +1345,7 @@ class Camera(ProtectMotionDeviceModel):
             and self.last_smart_detect_event.end is None
         )
 
-    # person
+    # region Person
 
     @property
     def can_detect_person(self) -> bool:
@@ -1330,7 +1391,8 @@ class Camera(ProtectMotionDeviceModel):
             in self.active_smart_detect_settings.auto_tracking_object_types
         )
 
-    # vehicle
+    # endregion
+    # region Vehicle
 
     @property
     def can_detect_vehicle(self) -> bool:
@@ -1367,7 +1429,8 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._set_object_detect(SmartDetectObjectType.VEHICLE, enabled)
 
-    # license plate
+    # endregion
+    # region License Plate
 
     @property
     def can_detect_license_plate(self) -> bool:
@@ -1409,7 +1472,8 @@ class Camera(ProtectMotionDeviceModel):
             enabled,
         )
 
-    # package
+    # endregion
+    # region Package
 
     @property
     def can_detect_package(self) -> bool:
@@ -1446,7 +1510,8 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._set_object_detect(SmartDetectObjectType.PACKAGE, enabled)
 
-    # animal
+    # endregion
+    # region Animal
 
     @property
     def can_detect_animal(self) -> bool:
@@ -1483,7 +1548,9 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._set_object_detect(SmartDetectObjectType.ANIMAL, enabled)
 
-    # audio smart detections
+    # endregion
+    # endregion
+    # region Audio Smart Detections
 
     def _can_detect_audio(self, smart_type: SmartDetectObjectType) -> bool:
         audio_type = smart_type.audio_type
@@ -1525,7 +1592,7 @@ class Camera(ProtectMotionDeviceModel):
             and self.last_smart_audio_detect_event.end is None
         )
 
-    # smoke alarm
+    # region Smoke Alarm
 
     @property
     def can_detect_smoke(self) -> bool:
@@ -1562,7 +1629,8 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._set_audio_detect(SmartDetectAudioType.SMOKE, enabled)
 
-    # co alarm
+    # endregion
+    # region CO Alarm
 
     @property
     def can_detect_co(self) -> bool:
@@ -1599,7 +1667,8 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._set_audio_detect(SmartDetectAudioType.CMONX, enabled)
 
-    # siren
+    # endregion
+    # region Siren
 
     @property
     def can_detect_siren(self) -> bool:
@@ -1636,7 +1705,8 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._set_audio_detect(SmartDetectAudioType.SIREN, enabled)
 
-    # baby cry
+    # endregion
+    # region Baby Cry
 
     @property
     def can_detect_baby_cry(self) -> bool:
@@ -1673,7 +1743,8 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._set_audio_detect(SmartDetectAudioType.BABY_CRY, enabled)
 
-    # speaking
+    # endregion
+    # region Speaking
 
     @property
     def can_detect_speaking(self) -> bool:
@@ -1710,7 +1781,8 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._set_audio_detect(SmartDetectAudioType.SPEAK, enabled)
 
-    # bark
+    # endregion
+    # region Bark
 
     @property
     def can_detect_bark(self) -> bool:
@@ -1747,7 +1819,9 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._set_audio_detect(SmartDetectAudioType.BARK, enabled)
 
-    # car alarm (burglar in code, car alarm in Protect UI)
+    # endregion
+    # region Car Alarm
+    # (burglar in code, car alarm in Protect UI)
 
     @property
     def can_detect_car_alarm(self) -> bool:
@@ -1784,7 +1858,8 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._set_audio_detect(SmartDetectAudioType.BURGLAR, enabled)
 
-    # car horn
+    # endregion
+    # region Car Horn
 
     @property
     def can_detect_car_horn(self) -> bool:
@@ -1821,7 +1896,8 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._set_audio_detect(SmartDetectAudioType.CAR_HORN, enabled)
 
-    # glass break
+    # endregion
+    # region Glass Break
 
     @property
     def can_detect_glass_break(self) -> bool:
@@ -1857,6 +1933,9 @@ class Camera(ProtectMotionDeviceModel):
         """Toggles glass_break smart detection. Requires camera to have smart detection"""
 
         return await self._set_audio_detect(SmartDetectAudioType.GLASS_BREAK, enabled)
+
+    # endregion
+    # endregion
 
     @property
     def is_ringing(self) -> bool:
@@ -2571,6 +2650,145 @@ class Camera(ProtectMotionDeviceModel):
             return True
 
         return user.can(self.model, PermissionNode.DELETE_MEDIA, self)
+
+    # region PTZ
+
+    async def ptz_relative_move(
+        self,
+        *,
+        pan: float,
+        tilt: float,
+        pan_speed: int = 10,
+        tilt_speed: int = 10,
+        scale: int = 0,
+        use_native: bool = False,
+    ) -> None:
+        """Move PTZ relative to current position.
+
+        Pan/tilt values vary from camera to camera, but for G4 PTZ:
+            * Pan values range from 0° and go to 360°/0°
+            * Tilt values range from -20° and go to 90°
+
+        Relative positions cannot move more then 4095 steps at a time in any direction.
+
+        For the G4 PTZ, 4095 steps is ~41° for pan and ~45° for tilt.
+
+        `use_native` lets you use the native step values instead of degrees.
+        """
+
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support PTZ features.")
+
+        if not use_native:
+            pan = self.feature_flags.pan.to_native_value(pan, is_relative=True)
+            tilt = self.feature_flags.tilt.to_native_value(tilt, is_relative=True)
+
+        await self.api.relative_move_ptz_camera(
+            self.id,
+            pan=pan,
+            tilt=tilt,
+            pan_speed=pan_speed,
+            tilt_speed=tilt_speed,
+            scale=scale,
+        )
+
+    async def ptz_center(self, *, x: int, y: int, z: int) -> None:
+        """Center PTZ Camera on point in viewport.
+
+        x, y, z values range from 0 to 1000.
+
+        x, y are relative coords for the current viewport:
+            * (0, 0) is top left
+            * (500, 500) is the center
+            * (1000, 1000) is the bottom right
+
+        z value is zoom, but since it is capped at 1000, probably better to use `ptz_zoom`.
+        """
+
+        await self.api.center_ptz_camera(self.id, x=x, y=y, z=z)
+
+    async def ptz_zoom(
+        self,
+        *,
+        zoom: float,
+        speed: int = 100,
+        use_native: bool = False,
+    ) -> None:
+        """Zoom PTZ Camera.
+
+        Zoom levels vary from camera to camera, but for G4 PTZ it goes from 1x to 22x.
+
+        Zoom speed seems to range from 0 to 100. Any value over 100 results in a speed of 0.
+        """
+
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support PTZ features.")
+
+        if not use_native:
+            zoom = self.feature_flags.zoom.to_native_value(zoom)
+
+        await self.api.zoom_ptz_camera(self.id, zoom=zoom, speed=speed)
+
+    async def get_ptz_position(self) -> PTZPosition:
+        """Get current PTZ Position."""
+
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support PTZ features.")
+
+        return await self.api.get_position_ptz_camera(self.id)
+
+    async def goto_ptz_slot(self, *, slot: int) -> None:
+        """Goto PTZ slot position.
+
+        -1 is Home slot.
+        """
+
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support PTZ features.")
+
+        await self.api.goto_ptz_camera(self.id, slot=slot)
+
+    async def create_ptz_preset(self, *, name: str) -> PTZPreset:
+        """Create PTZ Preset for camera based on current camera settings."""
+
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support PTZ features.")
+
+        return await self.api.create_preset_ptz_camera(self.id, name=name)
+
+    async def get_ptz_presets(self) -> list[PTZPreset]:
+        """Get PTZ Presets for camera."""
+
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support PTZ features.")
+
+        return await self.api.get_presets_ptz_camera(self.id)
+
+    async def delete_ptz_preset(self, *, slot: int) -> None:
+        """Delete PTZ preset for camera."""
+
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support PTZ features.")
+
+        await self.api.delete_preset_ptz_camera(self.id, slot=slot)
+
+    async def get_ptz_home(self) -> PTZPreset:
+        """Get PTZ home preset (-1)."""
+
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support PTZ features.")
+
+        return await self.api.get_home_ptz_camera(self.id)
+
+    async def set_ptz_home(self) -> PTZPreset:
+        """Get PTZ home preset (-1) to current position."""
+
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support PTZ features.")
+
+        return await self.api.set_home_ptz_camera(self.id)
+
+    # endregion
 
 
 class Viewer(ProtectAdoptableDeviceModel):

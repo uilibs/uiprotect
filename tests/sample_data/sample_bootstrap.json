@@ -449,6 +449,7 @@
                     }
                 },
                 "zoom": {
+                    "ratio": 3,
                     "steps": {
                         "max": null,
                         "min": null,
@@ -997,6 +998,7 @@
                     }
                 },
                 "zoom": {
+                    "ratio": 3,
                     "steps": {
                         "max": null,
                         "min": null,
@@ -1488,6 +1490,7 @@
                     }
                 },
                 "zoom": {
+                    "ratio": 3,
                     "steps": {
                         "max": null,
                         "min": null,
@@ -2048,6 +2051,7 @@
                     }
                 },
                 "zoom": {
+                    "ratio": 3,
                     "steps": {
                         "max": null,
                         "min": null,
@@ -2563,6 +2567,7 @@
                     }
                 },
                 "zoom": {
+                    "ratio": 3,
                     "steps": {
                         "max": null,
                         "min": null,
@@ -3068,6 +3073,7 @@
                     }
                 },
                 "zoom": {
+                    "ratio": 3,
                     "steps": {
                         "max": null,
                         "min": null,
@@ -3571,6 +3577,7 @@
                     }
                 },
                 "zoom": {
+                    "ratio": 3,
                     "steps": {
                         "max": null,
                         "min": null,
@@ -4070,6 +4077,7 @@
                     }
                 },
                 "zoom": {
+                    "ratio": 3,
                     "steps": {
                         "max": null,
                         "min": null,
@@ -4577,6 +4585,7 @@
                     }
                 },
                 "zoom": {
+                    "ratio": 3,
                     "steps": {
                         "max": null,
                         "min": null,
@@ -5080,6 +5089,7 @@
                     }
                 },
                 "zoom": {
+                    "ratio": 3,
                     "steps": {
                         "max": null,
                         "min": null,
@@ -5564,6 +5574,7 @@
                     }
                 },
                 "zoom": {
+                    "ratio": 3,
                     "steps": {
                         "max": null,
                         "min": null,

@@ -40,6 +40,8 @@ from pyunifiprotect.data import (
     ModelType,
     ProtectAdoptableDeviceModel,
     ProtectModel,
+    PTZPosition,
+    PTZPreset,
     Sensor,
     SmartDetectObjectType,
     SmartDetectTrack,
@@ -1789,3 +1791,155 @@ class ProtectApiClient(BaseApiClient):
                 _LOGGER.warning("Failed to retrieve release versions from online.")
 
         return versions
+
+    async def relative_move_ptz_camera(
+        self,
+        device_id: str,
+        *,
+        pan: float,
+        tilt: float,
+        pan_speed: int = 10,
+        tilt_speed: int = 10,
+        scale: int = 0,
+    ) -> None:
+        """Move PTZ Camera relatively.
+
+        Pan/tilt values vary from camera to camera, but for G4 PTZ:
+            * Pan values range from 1 (0°) to 35200 (360°/0°).
+            * Tilt values range from 1 (-20°) to 9777 (90°).
+
+        Relative positions cannot move more then 4095 units in either direction at a time.
+
+        Camera objects have ptz values in feature flags and the methods on them provide better
+        control.
+        """
+
+        data = {
+            "type": "relative",
+            "payload": {
+                "panPos": pan,
+                "tiltPos": tilt,
+                "panSpeed": pan_speed,
+                "tiltSpeed": tilt_speed,
+                "scale": scale,
+            },
+        }
+
+        await self.api_request(f"cameras/{device_id}/move", method="post", json=data)
+
+    async def center_ptz_camera(
+        self,
+        device_id: str,
+        *,
+        x: int,
+        y: int,
+        z: int,
+    ) -> None:
+        """Center PTZ Camera on point in viewport.
+
+        x, y, z values range from 0 to 1000.
+
+        x, y are relative coords for the current viewport:
+            * (0, 0) is top left
+            * (500, 500) is the center
+            * (1000, 1000) is the bottom right
+
+        z value is zoom, but since it is capped at 1000, probably better to use `ptz_zoom_camera`.
+        """
+
+        data = {
+            "type": "center",
+            "payload": {
+                "x": x,
+                "y": y,
+                "z": z,
+            },
+        }
+
+        await self.api_request(f"cameras/{device_id}/move", method="post", json=data)
+
+    async def zoom_ptz_camera(
+        self,
+        device_id: str,
+        *,
+        zoom: float,
+        speed: int = 10,
+    ) -> None:
+        """Zoom PTZ Camera.
+
+        Zoom levels vary from camera to camera, but for G4 PTZ it goes from 0 (1x) to 2010 (22x).
+
+        Zoom speed does not seem to do much, if anything.
+
+        Camera objects have ptz values in feature flags and the methods on them provide better
+        control.
+        """
+
+        data = {
+            "type": "zoom",
+            "payload": {
+                "zoomPos": zoom,
+                "zoomSpeed": speed,
+            },
+        }
+
+        await self.api_request(f"cameras/{device_id}/move", method="post", json=data)
+
+    async def get_position_ptz_camera(self, device_id: str) -> PTZPosition:
+        """Get current PTZ camera position."""
+
+        pos = await self.api_request_obj(f"cameras/{device_id}/ptz/position")
+        return PTZPosition(**pos)
+
+    async def goto_ptz_camera(self, device_id: str, *, slot: int = -1) -> None:
+        """Goto PTZ slot position.
+
+        -1 is Home slot.
+        """
+
+        await self.api_request(f"cameras/{device_id}/ptz/goto/{slot}", method="post")
+
+    async def create_preset_ptz_camera(self, device_id: str, *, name: str) -> PTZPreset:
+        """Create PTZ Preset for camera based on current camera settings."""
+
+        preset = await self.api_request_obj(
+            f"cameras/{device_id}/ptz/preset",
+            method="post",
+            json={"name": name},
+        )
+
+        return PTZPreset(**preset)
+
+    async def get_presets_ptz_camera(self, device_id: str) -> list[PTZPreset]:
+        """Get PTZ Presets for camera."""
+
+        presets = await self.api_request(f"cameras/{device_id}/ptz/preset")
+
+        if not presets:
+            return []
+
+        presets = cast(list[dict[str, Any]], presets)
+        return [PTZPreset(**p) for p in presets]
+
+    async def delete_preset_ptz_camera(self, device_id: str, *, slot: int) -> None:
+        """Delete PTZ preset for camera."""
+
+        await self.api_request(
+            f"cameras/{device_id}/ptz/preset/{slot}",
+            method="delete",
+        )
+
+    async def get_home_ptz_camera(self, device_id: str) -> PTZPreset:
+        """Get PTZ home preset (-1)."""
+
+        preset = await self.api_request_obj(f"cameras/{device_id}/ptz/home")
+        return PTZPreset(**preset)
+
+    async def set_home_ptz_camera(self, device_id: str) -> PTZPreset:
+        """Set PTZ home preset (-1) to current position."""
+
+        preset = await self.api_request_obj(
+            f"cameras/{device_id}/ptz/home",
+            method="post",
+        )
+        return PTZPreset(**preset)

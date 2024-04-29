@@ -15,6 +15,7 @@ from pyunifiprotect.data import (
     HDRMode,
     IRLEDMode,
     LCDMessage,
+    PTZPreset,
     RecordingMode,
     VideoMode,
 )
@@ -1056,4 +1057,207 @@ async def test_camera_set_icr_custom_lux(
         f"cameras/{camera_obj.id}",
         method="patch",
         json=({"ispSettings": {"icrCustomValue": value}}),
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    ("pan", "tilt", "pan_native", "tilt_native"),
+    [
+        (0, 0, 0, 0),
+        (1, 1, 97, 88),
+        (5, 5, 488, 444),
+        (20, 20, 1955, 1777),
+        (40, 40, 3911, 3554),
+        (-1, -1, -97, -88),
+        (-5, -5, -488, -444),
+        (-20, -20, -1955, -1777),
+        (-40, -40, -3911, -3554),
+    ],
+)
+@pytest.mark.asyncio()
+async def test_camera_ptz_relative_move(
+    ptz_camera: Optional[Camera],
+    pan: float,
+    tilt: float,
+    pan_native: float,
+    tilt_native: float,
+):
+    if ptz_camera is None:
+        pytest.skip("No camera_obj obj found")
+
+    ptz_camera.api.api_request.reset_mock()
+
+    await ptz_camera.ptz_relative_move(pan=pan, tilt=tilt)
+
+    ptz_camera.api.api_request.assert_called_with(
+        f"cameras/{ptz_camera.id}/move",
+        method="post",
+        json=(
+            {
+                "type": "relative",
+                "payload": {
+                    "panPos": pan_native,
+                    "tiltPos": tilt_native,
+                    "panSpeed": 10,
+                    "tiltSpeed": 10,
+                    "scale": 0,
+                },
+            }
+        ),
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_ptz_center(ptz_camera: Optional[Camera]):
+    if ptz_camera is None:
+        pytest.skip("No camera_obj obj found")
+
+    ptz_camera.api.api_request.reset_mock()
+
+    await ptz_camera.ptz_center(x=500, y=500, z=0)
+
+    ptz_camera.api.api_request.assert_called_with(
+        f"cameras/{ptz_camera.id}/move",
+        method="post",
+        json=(
+            {
+                "type": "center",
+                "payload": {
+                    "x": 500,
+                    "y": 500,
+                    "z": 0,
+                },
+            }
+        ),
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    ("zoom", "zoom_native"),
+    [
+        (1, 0),
+        (5, 382),
+        (20, 1818),
+        (22, 2009),
+    ],
+)
+@pytest.mark.asyncio()
+async def test_camera_ptz_zoom(
+    ptz_camera: Optional[Camera],
+    zoom: float,
+    zoom_native: float,
+):
+    if ptz_camera is None:
+        pytest.skip("No camera_obj obj found")
+
+    ptz_camera.api.api_request.reset_mock()
+
+    await ptz_camera.ptz_zoom(zoom=zoom)
+
+    ptz_camera.api.api_request.assert_called_with(
+        f"cameras/{ptz_camera.id}/move",
+        method="post",
+        json=(
+            {
+                "type": "zoom",
+                "payload": {
+                    "zoomPos": zoom_native,
+                    "zoomSpeed": 100,
+                },
+            }
+        ),
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_goto_ptz_slot(ptz_camera: Optional[Camera]):
+    if ptz_camera is None:
+        pytest.skip("No camera_obj obj found")
+
+    ptz_camera.api.api_request.reset_mock()
+
+    await ptz_camera.goto_ptz_slot(slot=-1)
+
+    ptz_camera.api.api_request.assert_called_with(
+        f"cameras/{ptz_camera.id}/ptz/goto/-1",
+        method="post",
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_create_ptz_preset(ptz_camera: Optional[Camera]):
+    if ptz_camera is None:
+        pytest.skip("No camera_obj obj found")
+
+    ptz_camera.api.api_request.reset_mock()
+
+    preset = await ptz_camera.create_ptz_preset(name="Test")
+
+    assert preset == PTZPreset(
+        id="test-id",
+        name="Test",
+        slot=0,
+        ptz={
+            "pan": 100,
+            "tilt": 100,
+            "zoom": 0,
+        },
+    )
+
+    ptz_camera.api.api_request.assert_called_with(
+        url=f"cameras/{ptz_camera.id}/ptz/preset",
+        method="post",
+        require_auth=True,
+        raise_exception=True,
+        json={"name": "Test"},
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_delete_ptz_preset(ptz_camera: Optional[Camera]):
+    if ptz_camera is None:
+        pytest.skip("No camera_obj obj found")
+
+    ptz_camera.api.api_request.reset_mock()
+
+    await ptz_camera.delete_ptz_preset(slot=0)
+
+    ptz_camera.api.api_request.assert_called_with(
+        f"cameras/{ptz_camera.id}/ptz/preset/0",
+        method="delete",
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_set_ptz_home(ptz_camera: Optional[Camera]):
+    if ptz_camera is None:
+        pytest.skip("No camera_obj obj found")
+
+    ptz_camera.api.api_request.reset_mock()
+
+    preset = await ptz_camera.set_ptz_home()
+
+    assert preset == PTZPreset(
+        id="test-id",
+        name="Home",
+        slot=-1,
+        ptz={
+            "pan": 100,
+            "tilt": 100,
+            "zoom": 0,
+        },
+    )
+
+    ptz_camera.api.api_request.assert_called_with(
+        url=f"cameras/{ptz_camera.id}/ptz/home",
+        method="post",
+        require_auth=True,
+        raise_exception=True,
     )

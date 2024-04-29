@@ -616,3 +616,10 @@ def run_async(callback: Coroutine[Any, Any, T]) -> T:
         return asyncio.run(callback)
     loop = asyncio.get_event_loop()
     return loop.run_until_complete(callback)
+
+
+def clamp_value(value: float, step_size: float) -> float:
+    """Clamps value to multiples of step size."""
+
+    ratio = 1 / step_size
+    return int(value * ratio) / ratio

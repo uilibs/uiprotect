@@ -21,6 +21,7 @@ import pytest_asyncio
 
 from pyunifiprotect import ProtectApiClient
 from pyunifiprotect.data import Camera, ModelType
+from pyunifiprotect.data.devices import PTZRange, PTZZoomRange
 from pyunifiprotect.data.nvr import Event
 from pyunifiprotect.data.types import EventType
 from pyunifiprotect.utils import _BAD_UUID, set_debug, set_no_debug  # noqa: PLC2701
@@ -144,6 +145,28 @@ async def mock_api_request(url: str, *args, **kwargs):
         return [read_json_file("sample_doorlock")]
     if url == "chimes":
         return [read_json_file("sample_chime")]
+    if url.endswith("ptz/preset"):
+        return {
+            "id": "test-id",
+            "name": "Test",
+            "slot": 0,
+            "ptz": {
+                "pan": 100,
+                "tilt": 100,
+                "zoom": 0,
+            },
+        }
+    if url.endswith("ptz/home"):
+        return {
+            "id": "test-id",
+            "name": "Home",
+            "slot": -1,
+            "ptz": {
+                "pan": 100,
+                "tilt": 100,
+                "zoom": 0,
+            },
+        }
     if url.startswith("cameras/"):
         return read_camera_json_file()
     if url.startswith("lights/"):
@@ -321,6 +344,69 @@ async def camera_obj(protect_client: ProtectApiClient):
         return None
 
     return next(iter(protect_client.bootstrap.cameras.values()))
+
+
+@pytest_asyncio.fixture
+async def ptz_camera(protect_client: ProtectApiClient):
+    if not TEST_CAMERA_EXISTS:
+        return None
+
+    camera = next(iter(protect_client.bootstrap.cameras.values()))
+    # G4 PTZ
+    camera.is_ptz = True
+    camera.feature_flags.is_ptz = True
+    camera.feature_flags.focus = PTZRange(
+        steps={  # type: ignore[arg-type]
+            "max": 1560,
+            "min": 0,
+            "step": 1,
+        },
+        degrees={  # type: ignore[arg-type]
+            "max": None,
+            "min": None,
+            "step": None,
+        },
+    )
+    camera.feature_flags.pan = PTZRange(
+        steps={  # type: ignore[arg-type]
+            "max": 35200,
+            "min": 0,
+            "step": 1,
+        },
+        degrees={  # type: ignore[arg-type]
+            "max": 360,
+            "min": 0,
+            "step": 0.1,
+        },
+    )
+    camera.feature_flags.tilt = PTZRange(
+        steps={  # type: ignore[arg-type]
+            "max": 9777,
+            "min": 1,
+            "step": 1,
+        },
+        degrees={  # type: ignore[arg-type]
+            "max": 90,
+            "min": -20,
+            "step": 0.1,
+        },
+    )
+    camera.feature_flags.zoom = PTZZoomRange(
+        ratio=22,
+        steps={  # type: ignore[arg-type]
+            "max": 2010,
+            "min": 0,
+            "step": 1,
+        },
+        degrees={  # type: ignore[arg-type]
+            "max": None,
+            "min": None,
+            "step": None,
+        },
+    )
+
+    protect_client.bootstrap.cameras[camera.id] = camera
+    return camera
 
 
 @pytest_asyncio.fixture
@@ -690,10 +776,6 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0915,PLR0914
         expected.pop("recordingSchedules", None)
         del expected["smartDetectLines"]
         expected.pop("streamSharing", None)
-        del expected["featureFlags"]["focus"]
-        del expected["featureFlags"]["pan"]
-        del expected["featureFlags"]["tilt"]
-        del expected["featureFlags"]["zoom"]
         expected.pop("stopStreamLevel", None)
         expected.pop("uplinkDevice", None)
         expected.pop("recordingSchedulesV2", None)
