@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.7 (2024-06-09)
+
+### Fix
+
+
+- Revert pydantic changes for ha compat (#7) ([`c7770c1`](https://github.com/uilibs/uiprotect/commit/c7770c135deaa52da078794c67d5e3f5dbe3455d))
+
+
 ## v0.3.6 (2024-06-09)
 
 ### Fix
