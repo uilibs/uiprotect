@@ -44,6 +44,7 @@ platformdirs = ">=4"
 pydantic = "!=1.9.1,>=1.10.13"
 pyjwt = ">=2.6"
 yarl = ">=1.9"
+typer = ">=0.12.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
