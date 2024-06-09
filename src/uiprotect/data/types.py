@@ -5,9 +5,18 @@ from collections.abc import Callable, Coroutine
 from typing import Any, Literal, Optional, TypeVar, Union
 
 from packaging.version import Version as BaseVersion
-from pydantic.v1 import BaseModel, ConstrainedInt
-from pydantic.v1.color import Color as BaseColor
-from pydantic.v1.types import ConstrainedFloat, ConstrainedStr
+
+try:
+    from pydantic.v1 import BaseModel, ConstrainedInt
+    from pydantic.v1.color import Color as BaseColor
+    from pydantic.v1.types import ConstrainedFloat, ConstrainedStr
+except ImportError:
+    from pydantic import BaseModel, ConstrainedInt  # type: ignore[assignment, no-redef]
+    from pydantic.color import Color as BaseColor  # type: ignore[assignment, no-redef]
+    from pydantic.types import (  # type: ignore[assignment, no-redef]
+        ConstrainedFloat,
+        ConstrainedStr,
+    )
 
 KT = TypeVar("KT")
 VT = TypeVar("VT")

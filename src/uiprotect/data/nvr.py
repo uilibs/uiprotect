@@ -15,7 +15,6 @@ from uuid import UUID
 import aiofiles
 import orjson
 from aiofiles import os as aos
-from pydantic.v1.fields import PrivateAttr
 
 from uiprotect.data.base import (
     ProtectBaseObject,
@@ -58,8 +57,16 @@ from uiprotect.data.user import User, UserLocation
 from uiprotect.exceptions import BadRequest, NotAuthorized
 from uiprotect.utils import RELEASE_CACHE, process_datetime
 
+try:
+    from pydantic.v1.fields import PrivateAttr
+except ImportError:
+    from pydantic.fields import PrivateAttr
+
 if TYPE_CHECKING:
-    from pydantic.v1.typing import SetStr
+    try:
+        from pydantic.v1.typing import SetStr
+    except ImportError:
+        from pydantic.typing import SetStr  # type: ignore[assignment, no-redef]
 
 
 _LOGGER = logging.getLogger(__name__)
