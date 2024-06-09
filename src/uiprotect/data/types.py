@@ -45,8 +45,8 @@ class FixSizeOrderedDict(dict[KT, VT]):
 
 
 class ValuesEnumMixin:
-    _values: Optional[list[str]] = None
-    _values_normalized: Optional[dict[str, str]] = None
+    _values: list[str] | None = None
+    _values_normalized: dict[str, str] | None = None
 
     @classmethod
     def values(cls) -> list[str]:
@@ -55,7 +55,7 @@ class ValuesEnumMixin:
         return cls._values
 
     @classmethod
-    def _missing_(cls, value: Any) -> Optional[Any]:
+    def _missing_(cls, value: Any) -> Any | None:
         if cls._values_normalized is None:
             cls._values_normalized = {e.value.lower(): e for e in cls}  # type: ignore[attr-defined]
 
@@ -67,7 +67,7 @@ class ValuesEnumMixin:
 
 class UnknownValuesEnumMixin(ValuesEnumMixin):
     @classmethod
-    def _missing_(cls, value: Any) -> Optional[Any]:
+    def _missing_(cls, value: Any) -> Any | None:
         # value always set in superclass _missing
         return super()._missing_(value) or cls._values_normalized.get("unknown")  # type: ignore[union-attr]
 
@@ -245,7 +245,7 @@ class SmartDetectObjectType(str, ValuesEnumMixin, enum.Enum):
     PET = "pet"
 
     @property
-    def audio_type(self) -> Optional[SmartDetectAudioType]:
+    def audio_type(self) -> SmartDetectAudioType | None:
         return OBJECT_TO_AUDIO_MAP.get(self)
 
 

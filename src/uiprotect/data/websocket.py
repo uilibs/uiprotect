@@ -7,7 +7,7 @@ import enum
 import struct
 import zlib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import orjson
@@ -42,14 +42,14 @@ class WSSubscriptionMessage:
     action: WSAction
     new_update_id: UUID
     changed_data: dict[str, Any]
-    new_obj: Optional[ProtectModelWithId] = None
-    old_obj: Optional[ProtectModelWithId] = None
+    new_obj: ProtectModelWithId | None = None
+    old_obj: ProtectModelWithId | None = None
 
 
 class BaseWSPacketFrame:
     data: Any
     position: int = 0
-    header: Optional[WSPacketFrameHeader] = None
+    header: WSPacketFrameHeader | None = None
     payload_format: ProtectWSPayloadFormat = ProtectWSPayloadFormat.NodeBuffer
     is_deflated: bool = False
     length: int = 0
@@ -75,7 +75,7 @@ class BaseWSPacketFrame:
     def from_binary(
         data: bytes,
         position: int = 0,
-        klass: Optional[type[WSRawPacketFrame]] = None,
+        klass: type[WSRawPacketFrame] | None = None,
     ) -> BaseWSPacketFrame:
         """
         Decode a unifi updates websocket frame.
@@ -176,10 +176,10 @@ class WSJSONPacketFrame(BaseWSPacketFrame):
 
 class WSPacket:
     _raw: bytes
-    _raw_encoded: Optional[str] = None
+    _raw_encoded: str | None = None
 
-    _action_frame: Optional[BaseWSPacketFrame] = None
-    _data_frame: Optional[BaseWSPacketFrame] = None
+    _action_frame: BaseWSPacketFrame | None = None
+    _data_frame: BaseWSPacketFrame | None = None
 
     def __init__(self, data: bytes):
         self._raw = data

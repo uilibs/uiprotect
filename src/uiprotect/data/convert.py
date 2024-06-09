@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from uiprotect.data.devices import (
     Bridge,
@@ -61,8 +61,8 @@ def get_klass_from_dict(data: dict[str, Any]) -> type[ProtectModel]:
 
 def create_from_unifi_dict(
     data: dict[str, Any],
-    api: Optional[ProtectApiClient] = None,
-    klass: Optional[type[ProtectModel]] = None,
+    api: ProtectApiClient | None = None,
+    klass: type[ProtectModel] | None = None,
 ) -> ProtectModel:
     """
     Helper method to read the `modelKey` from a UFP JSON dict and convert to currect Python class.

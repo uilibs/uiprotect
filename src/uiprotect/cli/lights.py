@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Optional
 
 import typer
 
@@ -25,7 +24,7 @@ ALL_COMMANDS, DEVICE_COMMANDS = base.init_common_commands(app)
 
 
 @app.callback(invoke_without_command=True)
-def main(ctx: typer.Context, device_id: Optional[str] = ARG_DEVICE_ID) -> None:
+def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
     """
     Lights device CLI.
 
@@ -59,7 +58,7 @@ def main(ctx: typer.Context, device_id: Optional[str] = ARG_DEVICE_ID) -> None:
 
 
 @app.command()
-def camera(ctx: typer.Context, camera_id: Optional[str] = typer.Argument(None)) -> None:
+def camera(ctx: typer.Context, camera_id: str | None = typer.Argument(None)) -> None:
     """Returns or sets tha paired camera for a light."""
     base.require_device_id(ctx)
     obj: Light = ctx.obj.device

@@ -36,10 +36,10 @@ class Websocket:
     _ws_subscriptions: list[Callable[[WSMessage], None]]
     _connect_lock: asyncio.Lock
 
-    _headers: Optional[dict[str, str]] = None
-    _websocket_loop_task: Optional[asyncio.Task[None]] = None
-    _timer_task: Optional[asyncio.Task[None]] = None
-    _ws_connection: Optional[ClientWebSocketResponse] = None
+    _headers: dict[str, str] | None = None
+    _websocket_loop_task: asyncio.Task[None] | None = None
+    _timer_task: asyncio.Task[None] | None = None
+    _ws_connection: ClientWebSocketResponse | None = None
     _last_connect: float = -1000
     _recent_failures: int = 0
 

@@ -22,7 +22,7 @@ from http.cookies import Morsel
 from inspect import isclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, overload
+from typing import TYPE_CHECKING, Any, TypeVar, Union, overload
 from uuid import UUID
 
 import jwt
@@ -128,7 +128,7 @@ def to_js_time(dt: datetime | int) -> int: ...
 def to_js_time(dt: None) -> None: ...
 
 
-def to_js_time(dt: datetime | int | None) -> Optional[int]:
+def to_js_time(dt: datetime | int | None) -> int | None:
     """Converts Python datetime to Javascript timestamp"""
     if dt is None:
         return None
@@ -142,7 +142,7 @@ def to_js_time(dt: datetime | int | None) -> Optional[int]:
     return int(dt.astimezone(timezone.utc).timestamp() * 1000)
 
 
-def to_ms(duration: Optional[timedelta]) -> Optional[int]:
+def to_ms(duration: timedelta | None) -> int | None:
     """Converts python timedelta to Milliseconds"""
     if duration is None:
         return None
@@ -154,7 +154,7 @@ def utc_now() -> datetime:
     return datetime.now(tz=timezone.utc)
 
 
-def from_js_time(num: Union[float, str, datetime]) -> datetime:
+def from_js_time(num: float | str | datetime) -> datetime:
     """Converts Javascript timestamp to Python datetime"""
     if isinstance(num, datetime):
         return num
@@ -162,15 +162,15 @@ def from_js_time(num: Union[float, str, datetime]) -> datetime:
     return datetime.fromtimestamp(int(num) / 1000, tz=timezone.utc)
 
 
-def process_datetime(data: dict[str, Any], key: str) -> Optional[datetime]:
+def process_datetime(data: dict[str, Any], key: str) -> datetime | None:
     """Extracts datetime object from Protect dictionary"""
     return None if data.get(key) is None else from_js_time(data[key])
 
 
 def format_datetime(
-    dt: Optional[datetime],
-    default: Optional[str] = None,
-) -> Optional[str]:
+    dt: datetime | None,
+    default: str | None = None,
+) -> str | None:
     """Formats a datetime object in a consisent format"""
     return default if dt is None else dt.strftime(DATETIME_FORMAT)
 
@@ -271,7 +271,7 @@ def serialize_dict(data: dict[str, Any], levels: int = -1) -> dict[str, Any]:
     return data
 
 
-def serialize_coord(coord: CoordType) -> Union[int, float]:
+def serialize_coord(coord: CoordType) -> int | float:
     """Serializes UFP zone coordinate"""
     from uiprotect.data import Percent
 
@@ -283,7 +283,7 @@ def serialize_coord(coord: CoordType) -> Union[int, float]:
     return coord
 
 
-def serialize_point(point: tuple[CoordType, CoordType]) -> list[Union[int, float]]:
+def serialize_point(point: tuple[CoordType, CoordType]) -> list[int | float]:
     """Serializes UFP zone coordinate point"""
     return [
         serialize_coord(point[0]),
@@ -338,7 +338,7 @@ def ip_from_host(host: str) -> IPv4Address | IPv6Address:
     return ip_address(socket.gethostbyname(host))
 
 
-def dict_diff(orig: Optional[dict[str, Any]], new: dict[str, Any]) -> dict[str, Any]:
+def dict_diff(orig: dict[str, Any] | None, new: dict[str, Any]) -> dict[str, Any]:
     changed: dict[str, Any] = {}
 
     if orig is None:
@@ -375,7 +375,7 @@ def ws_stat_summmary(
     return unfiltered, percent, keys, models, actions
 
 
-async def write_json(output_path: Path, data: Union[list[Any], dict[str, Any]]) -> None:
+async def write_json(output_path: Path, data: list[Any] | dict[str, Any]) -> None:
     def write() -> None:
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
@@ -387,7 +387,7 @@ async def write_json(output_path: Path, data: Union[list[Any], dict[str, Any]]) 
 
 def print_ws_stat_summary(
     stats: list[WSStat],
-    output: Optional[Callable[[Any], Any]] = None,
+    output: Callable[[Any], Any] | None = None,
 ) -> None:
     # typer<0.4.1 is incompatible with click>=8.1.0
     # allows only the CLI interface to break if both are installed
@@ -426,10 +426,10 @@ def print_ws_stat_summary(
 async def profile_ws(
     protect: ProtectApiClient,
     duration: int,
-    output_path: Optional[Path] = None,
-    ws_progress: Optional[PROGRESS_CALLABLE] = None,
+    output_path: Path | None = None,
+    ws_progress: PROGRESS_CALLABLE | None = None,
     do_print: bool = True,
-    print_output: Optional[Callable[[Any], Any]] = None,
+    print_output: Callable[[Any], Any] | None = None,
 ) -> None:
     if protect.bootstrap.capture_ws_stats:
         raise NvrError("Profile already in progress")

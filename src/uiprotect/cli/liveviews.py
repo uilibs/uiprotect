@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import typer
 
@@ -24,7 +23,7 @@ class LiveviewContext(base.CliContext):
 
 
 @app.callback(invoke_without_command=True)
-def main(ctx: typer.Context, device_id: Optional[str] = ARG_DEVICE_ID) -> None:
+def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
     """
     Liveviews CLI.
 
