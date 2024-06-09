@@ -5,7 +5,7 @@ import base64
 import logging
 import sys
 from pathlib import Path
-from typing import Optional, cast
+from typing import cast
 
 import orjson
 import typer

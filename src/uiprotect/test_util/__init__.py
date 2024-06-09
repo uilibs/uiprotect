@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from shlex import split
 from subprocess import run
-from typing import Any, Optional, Union, overload
+from typing import Any, overload
 
 import aiohttp
 from PIL import Image
