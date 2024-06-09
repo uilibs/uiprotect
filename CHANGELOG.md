@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.4 (2024-06-09)
+
+### Fix
+
+
+- Small fixes for readme.md (#6) ([`7a0acf4`](https://github.com/uilibs/uiprotect/commit/7a0acf4da9cfcc1cbf6111cc9d2083be68aa9d93))
+
+
 ## v0.3.3 (2024-06-09)
 
 ### Fix
