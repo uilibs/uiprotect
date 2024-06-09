@@ -20,6 +20,8 @@ RUN --mount=type=cache,mode=0755,id=apt-$TARGETPLATFORM,target=/var/lib/apt/list
     apt-get update -qq \
     && apt-get install -yqq build-essential git
 
+RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
+    pip install --upgrade '.[tz]'
 
 FROM base as prod
 
@@ -43,11 +45,9 @@ ENTRYPOINT ["/usr/local/bin/entrypoint"]
 
 FROM builder as builder-dev
 
-RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
-    uv pip install poetry
 
 RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
-    uv pip install poetry install
+    poetry install
 
 FROM base as dev
 
