@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.9 (2024-06-09)
+
+### Fix
+
+
+- Revert global flags check (#9) ([`8dc437f`](https://github.com/uilibs/uiprotect/commit/8dc437f38dc4f6f6081d9a8a80f9f295b31bf579))
+
+
 ## v0.3.8 (2024-06-09)
 
 ### Fix
