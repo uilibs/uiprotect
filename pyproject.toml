@@ -90,7 +90,7 @@ match = "(?!main$)"
 prerelease = true
 
 [tool.pytest.ini_options]
-addopts = "-v -Wdefault --cov=uiprotect --cov-report=term-missing:skip-covered"
+addopts = "-v -Wdefault --cov=uiprotect --cov-report=term-missing:skip-covered -n=auto"
 pythonpath = ["src"]
 
 [tool.coverage.run]
