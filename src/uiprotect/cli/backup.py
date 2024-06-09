@@ -17,7 +17,6 @@ import aiofiles.os as aos
 import av
 import dateparser
 import typer
-from asyncify import asyncify
 from PIL import Image
 from rich.progress import (
     BarColumn,
@@ -687,7 +686,6 @@ async def _download_watcher(
     return downloaded
 
 
-@asyncify
 def _verify_thumbnail(path: Path) -> bool:
     try:
         image = Image.open(path)
@@ -731,7 +729,13 @@ async def _download_event_thumb(
         await aos.makedirs(thumb_path.parent, exist_ok=True)
         await aos.rename(existing_thumb_path, thumb_path)
 
-    if verify and thumb_path.exists() and not await _verify_thumbnail(thumb_path):
+    if (
+        verify
+        and thumb_path.exists()
+        and not await asyncio.get_running_loop().run_in_executor(
+            None, _verify_thumbnail, thumb_path
+        )
+    ):
         _LOGGER.warning(
             "Corrupted event %s file for event (%s), redownloading",
             thumb_type,
@@ -761,7 +765,6 @@ async def _download_event_thumb(
     return False
 
 
-@asyncify
 def _verify_video_file(  # type: ignore[return]
     path: Path,
     length: float,
@@ -789,7 +792,6 @@ def _verify_video_file(  # type: ignore[return]
         return False, False
 
 
-@asyncify
 def _add_metadata(path: Path, creation: datetime, title: str) -> bool:
     creation = local_datetime(creation)
     output_path = path.parent / path.name.replace(".mp4", ".metadata.mp4")
@@ -863,7 +865,9 @@ async def _download_event_video(
     if verify and event_path.exists():
         valid = False
         if event.end is not None:
-            valid, metadata_valid = await _verify_video_file(
+            valid, metadata_valid = await asyncio.get_running_loop().run_in_executor(
+                None,
+                _verify_video_file,
                 event_path,
                 (event.end - event.start).total_seconds(),
                 camera.channels[0].width,
@@ -894,7 +898,9 @@ async def _download_event_video(
 
     if (downloaded or not metadata_valid) and event.end is not None:
         file_context = event.get_file_context(ctx)
-        if not await _add_metadata(event_path, event.start, file_context["title"]):
+        if not await asyncio.get_running_loop().run_in_executor(
+            None, _add_metadata, event_path, event.start, file_context["title"]
+        ):
             _LOGGER.warning("Failed to write metadata for event (%s)", event.id)
     return downloaded
 
