@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 import typer
 
@@ -25,7 +26,7 @@ ALL_COMMANDS, DEVICE_COMMANDS = base.init_common_commands(app)
 
 
 @app.callback(invoke_without_command=True)
-def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
+def main(ctx: typer.Context, device_id: Optional[str] = ARG_DEVICE_ID) -> None:
     """
     Chime device CLI.
 
@@ -113,7 +114,7 @@ def cameras(
 def set_volume(
     ctx: typer.Context,
     value: int = ARG_VOLUME,
-    camera_id: str | None = typer.Option(
+    camera_id: Optional[str] = typer.Option(
         None,
         "-c",
         "--camera",
@@ -137,8 +138,8 @@ def set_volume(
 @app.command()
 def play(
     ctx: typer.Context,
-    volume: int | None = typer.Option(None, "-v", "--volume", min=1, max=100),
-    repeat_times: int | None = typer.Option(None, "-r", "--repeat", min=1, max=6),
+    volume: Optional[int] = typer.Option(None, "-v", "--volume", min=1, max=100),
+    repeat_times: Optional[int] = typer.Option(None, "-r", "--repeat", min=1, max=6),
 ) -> None:
     """Plays chime tone."""
     base.require_device_id(ctx)
@@ -158,7 +159,7 @@ def play_buzzer(ctx: typer.Context) -> None:
 def set_repeat_times(
     ctx: typer.Context,
     value: int = ARG_REPEAT,
-    camera_id: str | None = typer.Option(
+    camera_id: Optional[str] = typer.Option(
         None,
         "-c",
         "--camera",

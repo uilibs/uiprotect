@@ -3,7 +3,7 @@ from __future__ import annotations
 import secrets
 import string
 import uuid
-from typing import Any
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 import typer
@@ -13,7 +13,7 @@ from uiprotect.data import ModelType
 object_id_mapping: dict[str, str] = {}
 
 
-def anonymize_data(value: Any, name: str | None = None) -> Any:
+def anonymize_data(value: Any, name: Optional[str] = None) -> Any:
     if isinstance(value, list):
         value = anonymize_list(value, name=name)
     elif isinstance(value, dict):
@@ -72,7 +72,7 @@ def anonymize_user(user_dict: dict[str, Any]) -> dict[str, Any]:
     return user_dict
 
 
-def anonymize_value(value: Any, name: str | None = None) -> Any:
+def anonymize_value(value: Any, name: Optional[str] = None) -> Any:
     if isinstance(value, str):
         if name == "accessKey":
             value = f"{random_number(13)}:{random_hex(24)}:{random_hex(128)}"
@@ -105,7 +105,7 @@ def anonymize_value(value: Any, name: str | None = None) -> Any:
     return value
 
 
-def anonymize_dict(obj: dict[str, Any], name: str | None = None) -> dict[str, Any]:
+def anonymize_dict(obj: dict[str, Any], name: Optional[str] = None) -> dict[str, Any]:
     obj_type = None
     if "modelKey" in obj:
         if obj["modelKey"] in [m.value for m in ModelType]:
@@ -142,7 +142,7 @@ def anonymize_dict(obj: dict[str, Any], name: str | None = None) -> dict[str, An
     return obj
 
 
-def anonymize_list(items: list[Any], name: str | None = None) -> list[Any]:
+def anonymize_list(items: list[Any], name: Optional[str] = None) -> list[Any]:
     for index, value in enumerate(items):
         handled = False
 

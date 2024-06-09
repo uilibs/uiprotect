@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 import typer
 
@@ -23,7 +24,7 @@ ALL_COMMANDS, DEVICE_COMMANDS = base.init_common_commands(app)
 
 
 @app.callback(invoke_without_command=True)
-def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
+def main(ctx: typer.Context, device_id: Optional[str] = ARG_DEVICE_ID) -> None:
     """
     Viewers device CLI.
 
@@ -59,7 +60,7 @@ def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
 @app.command()
 def liveview(
     ctx: typer.Context,
-    liveview_id: str | None = typer.Argument(None),
+    liveview_id: Optional[str] = typer.Argument(None),
 ) -> None:
     """Returns or sets the current liveview."""
     base.require_device_id(ctx)

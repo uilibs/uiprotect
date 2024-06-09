@@ -7,7 +7,7 @@ import logging
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, cast
+from typing import Any, Optional, cast
 from uuid import UUID
 
 from aiohttp.client_exceptions import ServerDisconnectedError
@@ -187,10 +187,10 @@ class Bootstrap(ProtectBaseObject):
     mac_lookup: dict[str, ProtectDeviceRef] = {}
     id_lookup: dict[str, ProtectDeviceRef] = {}
     _ws_stats: list[WSStat] = PrivateAttr([])
-    _has_doorbell: bool | None = PrivateAttr(None)
-    _has_smart: bool | None = PrivateAttr(None)
-    _has_media: bool | None = PrivateAttr(None)
-    _recording_start: datetime | None = PrivateAttr(None)
+    _has_doorbell: Optional[bool] = PrivateAttr(None)
+    _has_smart: Optional[bool] = PrivateAttr(None)
+    _has_media: Optional[bool] = PrivateAttr(None)
+    _recording_start: Optional[datetime] = PrivateAttr(None)
     _refresh_tasks: set[asyncio.Task[None]] = PrivateAttr(set())
 
     @classmethod
@@ -221,8 +221,8 @@ class Bootstrap(ProtectBaseObject):
 
     def unifi_dict(
         self,
-        data: dict[str, Any] | None = None,
-        exclude: set[str] | None = None,
+        data: Optional[dict[str, Any]] = None,
+        exclude: Optional[set[str]] = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -346,7 +346,7 @@ class Bootstrap(ProtectBaseObject):
     def _get_frame_data(
         self,
         packet: WSPacket,
-    ) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    ) -> tuple[dict[str, Any], Optional[dict[str, Any]]]:
         if self.capture_ws_stats:
             return deepcopy(packet.action_frame.data), deepcopy(packet.data_frame.data)
         return packet.action_frame.data, packet.data_frame.data
@@ -355,7 +355,7 @@ class Bootstrap(ProtectBaseObject):
         self,
         packet: WSPacket,
         data: dict[str, Any],
-    ) -> WSSubscriptionMessage | None:
+    ) -> Optional[WSSubscriptionMessage]:
         obj = create_from_unifi_dict(data, api=self._api)
 
         if isinstance(obj, Event):
@@ -391,8 +391,8 @@ class Bootstrap(ProtectBaseObject):
     def _process_remove_packet(
         self,
         packet: WSPacket,
-        data: dict[str, Any] | None,
-    ) -> WSSubscriptionMessage | None:
+        data: Optional[dict[str, Any]],
+    ) -> Optional[WSSubscriptionMessage]:
         model = packet.action_frame.data.get("modelKey")
         device_id = packet.action_frame.data.get("id")
         devices = getattr(self, f"{model}s", None)
@@ -419,7 +419,7 @@ class Bootstrap(ProtectBaseObject):
         packet: WSPacket,
         data: dict[str, Any],
         ignore_stats: bool,
-    ) -> WSSubscriptionMessage | None:
+    ) -> Optional[WSSubscriptionMessage]:
         if ignore_stats:
             _remove_stats_keys(data)
         # nothing left to process
@@ -457,7 +457,7 @@ class Bootstrap(ProtectBaseObject):
         action: dict[str, Any],
         data: dict[str, Any],
         ignore_stats: bool,
-    ) -> WSSubscriptionMessage | None:
+    ) -> Optional[WSSubscriptionMessage]:
         model_type = action["modelKey"]
         if ignore_stats:
             _remove_stats_keys(data)
@@ -522,9 +522,9 @@ class Bootstrap(ProtectBaseObject):
     def process_ws_packet(
         self,
         packet: WSPacket,
-        models: set[ModelType] | None = None,
+        models: Optional[set[ModelType]] = None,
         ignore_stats: bool = False,
-    ) -> WSSubscriptionMessage | None:
+    ) -> Optional[WSSubscriptionMessage]:
         if models is None:
             models = set()
 

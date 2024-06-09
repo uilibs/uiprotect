@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, TypeVar
+from typing import Any, Optional, TypeVar
 
 import orjson
 import typer
@@ -165,7 +165,7 @@ def set_ssh(ctx: typer.Context, enabled: bool) -> None:
     run(ctx, obj.set_ssh(enabled))
 
 
-def set_name(ctx: typer.Context, name: str | None = typer.Argument(None)) -> None:
+def set_name(ctx: typer.Context, name: Optional[str] = typer.Argument(None)) -> None:
     """Sets name for the device"""
     require_device_id(ctx)
     obj: NVR | ProtectAdoptableDeviceModel = ctx.obj.device
@@ -203,7 +203,7 @@ def unadopt(ctx: typer.Context, force: bool = OPTION_FORCE) -> None:
         run(ctx, obj.unadopt())
 
 
-def adopt(ctx: typer.Context, name: str | None = typer.Argument(None)) -> None:
+def adopt(ctx: typer.Context, name: Optional[str] = typer.Argument(None)) -> None:
     """
     Adopts a device.
 

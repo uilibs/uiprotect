@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal, Optional, Union, cast
 from urllib.parse import urljoin
 from uuid import UUID
 
@@ -159,12 +159,12 @@ class BaseApiClient:
     _last_update: float = NEVER_RAN
     _last_ws_status: bool = False
     _last_token_cookie: Morsel[str] | None = None
-    _last_token_cookie_decode: dict[str, Any] | None = None
-    _session: aiohttp.ClientSession | None = None
+    _last_token_cookie_decode: Optional[dict[str, Any]] = None
+    _session: Optional[aiohttp.ClientSession] = None
     _loaded_session: bool = False
 
-    headers: dict[str, str] | None = None
-    _websocket: Websocket | None = None
+    headers: Optional[dict[str, str]] = None
+    _websocket: Optional[Websocket] = None
 
     api_path: str = "/proxy/protect/api/"
     ws_path: str = "/proxy/protect/ws/updates"
@@ -180,10 +180,10 @@ class BaseApiClient:
         username: str,
         password: str,
         verify_ssl: bool = True,
-        session: aiohttp.ClientSession | None = None,
+        session: Optional[aiohttp.ClientSession] = None,
         ws_timeout: int = 30,
-        cache_dir: Path | None = None,
-        config_dir: Path | None = None,
+        cache_dir: Optional[Path] = None,
+        config_dir: Optional[Path] = None,
         store_sessions: bool = True,
     ) -> None:
         self._auth_lock = asyncio.Lock()
@@ -243,7 +243,7 @@ class BaseApiClient:
     async def get_websocket(self) -> Websocket:
         """Gets or creates current Websocket."""
 
-        async def _auth(force: bool) -> dict[str, str] | None:
+        async def _auth(force: bool) -> Optional[dict[str, str]]:
             if force:
                 if self._session is not None:
                     self._session.cookie_jar.clear()
@@ -349,7 +349,7 @@ class BaseApiClient:
         require_auth: bool = True,
         raise_exception: bool = True,
         **kwargs: Any,
-    ) -> bytes | None:
+    ) -> Optional[bytes]:
         """Make a request to UniFi Protect API"""
         url = urljoin(self.api_path, url)
         response = await self.request(
@@ -373,7 +373,7 @@ class BaseApiClient:
                 _LOGGER.debug(msg, url, response.status, reason)
                 return None
 
-            data: bytes | None = await response.read()
+            data: Optional[bytes] = await response.read()
             response.release()
 
             return data
@@ -390,7 +390,7 @@ class BaseApiClient:
         require_auth: bool = True,
         raise_exception: bool = True,
         **kwargs: Any,
-    ) -> list[Any] | dict[str, Any] | None:
+    ) -> Optional[Union[list[Any], dict[str, Any]]]:
         data = await self.api_request_raw(
             url=url,
             method=method,
@@ -400,7 +400,7 @@ class BaseApiClient:
         )
 
         if data is not None:
-            json_data: list[Any] | dict[str, Any] = orjson.loads(data)
+            json_data: Union[list[Any], dict[str, Any]] = orjson.loads(data)
             return json_data
         return None
 
@@ -647,7 +647,7 @@ class BaseApiClient:
     def _process_ws_message(self, msg: aiohttp.WSMessage) -> None:
         raise NotImplementedError
 
-    def _get_last_update_id(self) -> UUID | None:
+    def _get_last_update_id(self) -> Optional[UUID]:
         raise NotImplementedError
 
 
@@ -687,9 +687,9 @@ class ProtectApiClient(BaseApiClient):
     _subscribed_models: set[ModelType]
     _ignore_stats: bool
     _ws_subscriptions: list[Callable[[WSSubscriptionMessage], None]]
-    _bootstrap: Bootstrap | None = None
-    _last_update_dt: datetime | None = None
-    _connection_host: IPv4Address | IPv6Address | str | None = None
+    _bootstrap: Optional[Bootstrap] = None
+    _last_update_dt: Optional[datetime] = None
+    _connection_host: Optional[Union[IPv4Address, IPv6Address, str]] = None
 
     ignore_unadopted: bool
 
@@ -700,14 +700,14 @@ class ProtectApiClient(BaseApiClient):
         username: str,
         password: str,
         verify_ssl: bool = True,
-        session: aiohttp.ClientSession | None = None,
+        session: Optional[aiohttp.ClientSession] = None,
         ws_timeout: int = 30,
-        cache_dir: Path | None = None,
-        config_dir: Path | None = None,
+        cache_dir: Optional[Path] = None,
+        config_dir: Optional[Path] = None,
         store_sessions: bool = True,
         override_connection_host: bool = False,
         minimum_score: int = 0,
-        subscribed_models: set[ModelType] | None = None,
+        subscribed_models: Optional[set[ModelType]] = None,
         ignore_stats: bool = False,
         ignore_unadopted: bool = True,
         debug: bool = False,
@@ -749,7 +749,7 @@ class ProtectApiClient(BaseApiClient):
         return self._bootstrap
 
     @property
-    def connection_host(self) -> IPv4Address | IPv6Address | str:
+    def connection_host(self) -> Union[IPv4Address, IPv6Address, str]:
         """Connection host to use for generating RTSP URLs"""
         if self._connection_host is None:
             # fallback if cannot find user supplied host
@@ -767,7 +767,7 @@ class ProtectApiClient(BaseApiClient):
 
         return self._connection_host
 
-    async def update(self, force: bool = False) -> Bootstrap | None:
+    async def update(self, force: bool = False) -> Optional[Bootstrap]:
         """
         Updates the state of devices, initalizes `.bootstrap` and
         connects to UFP Websocket for real time updates
@@ -833,7 +833,7 @@ class ProtectApiClient(BaseApiClient):
             except Exception:
                 _LOGGER.exception("Exception while running subscription handler")
 
-    def _get_last_update_id(self) -> UUID | None:
+    def _get_last_update_id(self) -> Optional[UUID]:
         if self._bootstrap is None:
             return None
         return self._bootstrap.last_update_id
@@ -859,7 +859,7 @@ class ProtectApiClient(BaseApiClient):
         params: dict[str, Any],
         *,
         start: datetime,
-        end: datetime | None,
+        end: Optional[datetime],
     ) -> list[dict[str, Any]]:
         start_int = to_js_time(start)
         end_int = to_js_time(end) if end else None
@@ -915,15 +915,15 @@ class ProtectApiClient(BaseApiClient):
     async def get_events_raw(
         self,
         *,
-        start: datetime | None = None,
-        end: datetime | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        types: list[EventType] | None = None,
-        smart_detect_types: list[SmartDetectObjectType] | None = None,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        types: Optional[list[EventType]] = None,
+        smart_detect_types: Optional[list[SmartDetectObjectType]] = None,
         sorting: Literal["asc", "desc"] = "asc",
         descriptions: bool = True,
-        all_cameras: bool | None = None,
+        all_cameras: Optional[bool] = None,
         category: EventCategories | None = None,
         # used for testing
         _allow_manual_paginate: bool = True,
@@ -1010,12 +1010,12 @@ class ProtectApiClient(BaseApiClient):
 
     async def get_events(
         self,
-        start: datetime | None = None,
-        end: datetime | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        types: list[EventType] | None = None,
-        smart_detect_types: list[SmartDetectObjectType] | None = None,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        types: Optional[list[EventType]] = None,
+        smart_detect_types: Optional[list[SmartDetectObjectType]] = None,
         sorting: Literal["asc", "desc"] = "asc",
         descriptions: bool = True,
         category: EventCategories | None = None,
@@ -1132,7 +1132,7 @@ class ProtectApiClient(BaseApiClient):
     async def get_devices(
         self,
         model_type: ModelType,
-        expected_type: type[ProtectModel] | None = None,
+        expected_type: Optional[type[ProtectModel]] = None,
     ) -> list[ProtectModel]:
         """Gets a device list given a model_type, converted into Python objects"""
         objs: list[ProtectModel] = []
@@ -1235,7 +1235,7 @@ class ProtectApiClient(BaseApiClient):
         self,
         model_type: ModelType,
         device_id: str,
-        expected_type: type[ProtectModelWithId] | None = None,
+        expected_type: Optional[type[ProtectModelWithId]] = None,
     ) -> ProtectModelWithId:
         """Gets a device give the device model_type and id, converted into Python object"""
         obj = create_from_unifi_dict(
@@ -1347,10 +1347,10 @@ class ProtectApiClient(BaseApiClient):
     async def get_camera_snapshot(
         self,
         camera_id: str,
-        width: int | None = None,
-        height: int | None = None,
-        dt: datetime | None = None,
-    ) -> bytes | None:
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        dt: Optional[datetime] = None,
+    ) -> Optional[bytes]:
         """
         Gets snapshot for a camera.
 
@@ -1381,10 +1381,10 @@ class ProtectApiClient(BaseApiClient):
     async def get_package_camera_snapshot(
         self,
         camera_id: str,
-        width: int | None = None,
-        height: int | None = None,
-        dt: datetime | None = None,
-    ) -> bytes | None:
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        dt: Optional[datetime] = None,
+    ) -> Optional[bytes]:
         """
         Gets snapshot from the package camera.
 
@@ -1417,8 +1417,8 @@ class ProtectApiClient(BaseApiClient):
         self,
         response: aiohttp.ClientResponse,
         chunk_size: int,
-        iterator_callback: IteratorCallback | None = None,
-        progress_callback: ProgressCallback | None = None,
+        iterator_callback: Optional[IteratorCallback] = None,
+        progress_callback: Optional[ProgressCallback] = None,
     ) -> None:
         total = response.content_length or 0
         current = 0
@@ -1439,12 +1439,12 @@ class ProtectApiClient(BaseApiClient):
         end: datetime,
         channel_index: int = 0,
         validate_channel_id: bool = True,
-        output_file: Path | None = None,
-        iterator_callback: IteratorCallback | None = None,
-        progress_callback: ProgressCallback | None = None,
+        output_file: Optional[Path] = None,
+        iterator_callback: Optional[IteratorCallback] = None,
+        progress_callback: Optional[ProgressCallback] = None,
         chunk_size: int = 65536,
-        fps: int | None = None,
-    ) -> bytes | None:
+        fps: Optional[int] = None,
+    ) -> Optional[bytes]:
         """
         Exports MP4 video from a given camera at a specific time.
 
@@ -1524,7 +1524,7 @@ class ProtectApiClient(BaseApiClient):
         path: str,
         retry_timeout: int = RETRY_TIMEOUT,
         **kwargs: Any,
-    ) -> bytes | None:
+    ) -> Optional[bytes]:
         """
         Retries image request until it returns or timesout. Used for event images like thumbnails and heatmaps.
 
@@ -1533,7 +1533,7 @@ class ProtectApiClient(BaseApiClient):
         """
         now = time.monotonic()
         timeout = now + retry_timeout
-        data: bytes | None = None
+        data: Optional[bytes] = None
         while data is None and now < timeout:
             data = await self.api_request_raw(path, raise_exception=False, **kwargs)
             if data is None:
@@ -1545,10 +1545,10 @@ class ProtectApiClient(BaseApiClient):
     async def get_event_thumbnail(
         self,
         thumbnail_id: str,
-        width: int | None = None,
-        height: int | None = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
         retry_timeout: int = RETRY_TIMEOUT,
-    ) -> bytes | None:
+    ) -> Optional[bytes]:
         """
         Gets given thumbanail from a given event.
 
@@ -1576,12 +1576,12 @@ class ProtectApiClient(BaseApiClient):
     async def get_event_animated_thumbnail(
         self,
         thumbnail_id: str,
-        width: int | None = None,
-        height: int | None = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
         *,
         speedup: int = 10,
         retry_timeout: int = RETRY_TIMEOUT,
-    ) -> bytes | None:
+    ) -> Optional[bytes]:
         """
         Gets given animated thumbanil from a given event.
 
@@ -1613,7 +1613,7 @@ class ProtectApiClient(BaseApiClient):
         self,
         heatmap_id: str,
         retry_timeout: int = RETRY_TIMEOUT,
-    ) -> bytes | None:
+    ) -> Optional[bytes]:
         """
         Gets given heatmap from a given event.
 
