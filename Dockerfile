@@ -20,6 +20,9 @@ RUN --mount=type=cache,mode=0755,id=apt-$TARGETPLATFORM,target=/var/lib/apt/list
     apt-get update -qq \
     && apt-get install -yqq build-essential git
 
+RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
+    pip install --root-user-action=ignore -U pip uv
+
 FROM base as prod
 
 ARG UIPROTECT_VERSION
