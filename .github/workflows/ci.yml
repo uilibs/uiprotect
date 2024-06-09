@@ -15,12 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install poetry
+        run: pipx install poetry
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
           cache: "poetry"
-      - name: Install poetry
-        run: pipx install poetry
       - name: Install Dependencies
         run: |
           poetry install
