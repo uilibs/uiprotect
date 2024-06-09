@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.0 (2024-06-09)
+
+### Feature
+
+
+- Migrate docs (#4) ([`1e62ec2`](https://github.com/uilibs/uiprotect/commit/1e62ec204c6d1b26f95486a8c27a61bb40a8219b))
+
+
 ## v0.2.2 (2024-06-09)
 
 ### Fix
