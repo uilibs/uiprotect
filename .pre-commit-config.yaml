@@ -6,6 +6,7 @@ default_stages: [commit]
 ci:
   autofix_commit_msg: "chore(pre-commit.ci): auto fixes"
   autoupdate_commit_msg: "chore(pre-commit.ci): pre-commit autoupdate"
+  skip: [mypy]
 
 repos:
   - repo: https://github.com/commitizen-tools/commitizen
