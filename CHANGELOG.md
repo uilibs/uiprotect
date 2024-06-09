@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.3.2 (2024-06-09)
+
+### Fix
+
+
+- Docker file ([`8474862`](https://github.com/uilibs/uiprotect/commit/84748626bbe29492997801759164a6242ebf7b72))
+
+
+- Update typer ([`54f26b1`](https://github.com/uilibs/uiprotect/commit/54f26b16223d0ed83c2e249df458ec5ccc407fb6))
+
+
+- Make package installable ([`169e790`](https://github.com/uilibs/uiprotect/commit/169e7903bc72ad513f475c5477c0b6f4cd5c7653))
+
+
 ## v0.3.1 (2024-06-09)
 
 ### Fix
