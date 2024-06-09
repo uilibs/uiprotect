@@ -162,7 +162,7 @@ select = [
 known-first-party = ["uiprotect", "tests"]
 
 [tool.mypy]
-disable_error_code = "import-untyped"
+disable_error_code = "import-untyped,unused-ignore"
 check_untyped_defs = true
 ignore_missing_imports = true
 disallow_any_generics = true
