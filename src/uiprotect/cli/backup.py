@@ -114,7 +114,7 @@ class EventTypeChoice(str, Enum):
     SMART_DETECT_LINE = d.EventType.SMART_DETECT_LINE.value
 
 
-class EventSmartType(Base):
+class EventSmartType(Base):  # type: ignore[valid-type,misc]
     __tablename__ = "event_smart_type"
 
     id = Column(Integer, primary_key=True)
@@ -122,7 +122,7 @@ class EventSmartType(Base):
     smart_type = Column(String(32), index=True)
 
 
-class Event(Base):
+class Event(Base):  # type: ignore[valid-type,misc]
     __tablename__ = "event"
     __allow_unmapped__ = True
 

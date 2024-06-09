@@ -269,8 +269,8 @@ class ProtectBaseObject(BaseModel):
     @classmethod
     def _get_api(cls, api: ProtectApiClient | None) -> ProtectApiClient | None:
         """Helper method to try to find and the current ProjtectAPIClient instance from given data"""
-        if api is None and isinstance(cls, ProtectBaseObject) and hasattr(cls, "_api"):
-            api = cls._api
+        if api is None and isinstance(cls, ProtectBaseObject) and hasattr(cls, "_api"):  # type: ignore[unreachable]
+            api = cls._api  # type: ignore[unreachable]
 
         return api
 
@@ -479,15 +479,15 @@ class ProtectBaseObject(BaseModel):
                 data[key] = self._unifi_dict_protect_obj_dict(data, key, use_obj)
 
         # all child objects have been serialized correctly do not do it twice
-        data: dict[str, Any] = serialize_unifi_obj(data, levels=2)
+        new_data: dict[str, Any] = serialize_unifi_obj(data, levels=2)
         remaps = self._get_to_unifi_remaps()
-        for to_key in set(data).intersection(remaps):
-            data[remaps[to_key]] = data.pop(to_key)
+        for to_key in set(new_data).intersection(remaps):
+            new_data[remaps[to_key]] = new_data.pop(to_key)
 
-        if "api" in data:
-            del data["api"]
+        if "api" in new_data:
+            del new_data["api"]
 
-        return data
+        return new_data
 
     def _inject_api(
         self,

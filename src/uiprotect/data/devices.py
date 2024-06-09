@@ -3225,7 +3225,7 @@ class RingSetting(ProtectBaseObject):
     def camera(self) -> Camera | None:
         """Paired Camera will always be none if no camera is paired"""
         if self.camera_id is None:
-            return None
+            return None  # type: ignore[unreachable]
 
         return self.api.bootstrap.cameras[self.camera_id]
 

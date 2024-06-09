@@ -279,14 +279,14 @@ def decode_ws_msg(
     ws_data: str | None = ARG_WS_DATA,
 ) -> None:
     """Decodes a base64 encoded UniFi Protect Websocket binary message."""
-    if ws_file is None and ws_data is None:
-        typer.secho("Websocket data required", fg="red")
+    if ws_file is None and ws_data is None:  # type: ignore[unreachable]
+        typer.secho("Websocket data required", fg="red")  # type: ignore[unreachable]
         sys.exit(1)
 
     ws_data_raw = b""
     if ws_file is not None:
         ws_data_raw = ws_file.read()
-    elif ws_data is not None:
+    elif ws_data is not None:  # type: ignore[unreachable]
         ws_data_raw = base64.b64decode(ws_data.encode("utf8"))
 
     packet = WSPacket(ws_data_raw)

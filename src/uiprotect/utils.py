@@ -600,7 +600,7 @@ def run_async(callback: Coroutine[Any, Any, T]) -> T:
     """Run async coroutine."""
     if sys.version_info >= (3, 11):
         return asyncio.run(callback)
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_event_loop()  # type: ignore[unreachable]
     return loop.run_until_complete(callback)
 
 
