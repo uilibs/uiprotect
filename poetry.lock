@@ -1982,6 +1982,17 @@ files = [
 ]
 
 [[package]]
+name = "types-dateparser"
+version = "1.2.0.20240420"
+description = "Typing stubs for dateparser"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "types-dateparser-1.2.0.20240420.tar.gz", hash = "sha256:8f813ddf5ef41b32cabe6167138ae833ada10c22811e42220a1e38a0be7adbdc"},
+    {file = "types_dateparser-1.2.0.20240420-py3-none-any.whl", hash = "sha256:bf3695ddfbadfdfc875064895a51d926fd80b04da1a44364c6c1a9703db7b194"},
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.12.2"
 description = "Backported and Experimental Type Hints for Python 3.8+"
@@ -2345,4 +2356,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "1a778a32a47a017ad41c6388b862d50ea06a703d8576bb735d7637010a67a5ad"
+content-hash = "12d7c9fcbeccd8dba05aa8d6ad64f7f60617587b93e7f1bac9537df19483e057"

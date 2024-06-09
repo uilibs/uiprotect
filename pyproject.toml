@@ -54,6 +54,7 @@ pytest-sugar = "^1.0.0"
 pytest-timeout = "^2.3.1"
 pytest-xdist = "^3.6.1"
 types-aiofiles = "^23.2.0.20240403"
+types-dateparser = "^1.2.0.20240420"
 
 [tool.poetry.group.docs]
 optional = true
