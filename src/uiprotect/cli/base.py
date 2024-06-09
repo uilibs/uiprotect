@@ -208,7 +208,7 @@ def adopt(ctx: typer.Context, name: Optional[str] = typer.Argument(None)) -> Non
     Adopts a device.
 
     By default, unadopted devices do not show up in the bootstrap. Use
-    `unifi-protect -u` to show unadopted devices.
+    `uiprotect -u` to show unadopted devices.
     """
     require_device_id(ctx)
     obj: ProtectAdoptableDeviceModel = ctx.obj.device

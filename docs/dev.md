@@ -22,7 +22,7 @@ Once you have all three setup,
 2. Open the main folder
 3. You should be prompted to "Reopen folder to develop in a container". If you are not, you can open the [Command Palette](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette) run the "Remote-Containers: Reopen in Container" command.
 
-This should be all you need to do to get a working development environment. The docker container will automatically be build and VS Code will attach itself to it. The integrated terminal in VS Code will already be set up with the `unifi-protect` command.
+This should be all you need to do to get a working development environment. The docker container will automatically be build and VS Code will attach itself to it. The integrated terminal in VS Code will already be set up with the `uiprotect` command.
 
 ### Docker (without VS Code)
 
@@ -75,7 +75,7 @@ There is also a [VS Code task](https://code.visualstudio.com/Docs/editor/tasks) 
 All of the tests in the project are ran against that is generated from a real UniFi Protect instance and then anonymized so it is safe to commit to a Git repo. To generate new sample test data:
 
 ```
-unifi-protect generate-sample-data
+uiprotect generate-sample-data
 ```
 
 This will gather test data for 30 seconds and write it all into the `tests/sample_data` directory. During this time, it is a good idea to generate some good events that can tested. An example would be to generate a motion event for a FloodLight, Camera and/or Doorbell and then also ring a Doorbell.
@@ -87,7 +87,7 @@ This will gather test data for 30 seconds and write it all into the `tests/sampl
 
 ```bash
 export UFP_SAMPLE_DIR=/workspaces/uiprotect/test-data
-unifi-protect generate-sample-data
+uiprotect generate-sample-data
 ```
 
 ### Real Data in Tests

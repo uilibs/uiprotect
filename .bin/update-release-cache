@@ -4,4 +4,5 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-unifi-protect release-versions
+poetry install
+poetry run uiprotect release-versions
