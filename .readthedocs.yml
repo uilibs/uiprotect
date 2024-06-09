@@ -17,6 +17,6 @@ build:
       # Install dependencies, reusing RTD virtualenv
       - VIRTUAL_ENV=$READTHEDOCS_VIRTUALENV_PATH poetry install --with docs
 
-# Build documentation in the docs directory with Sphinx
-sphinx:
-  configuration: docs/conf.py
+# Build documentation in the docs directory with mkdocs
+mkdocs:
+  configuration: mkdocs.yml
