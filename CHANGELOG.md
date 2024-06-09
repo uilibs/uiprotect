@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.5 (2024-06-09)
+
+### Fix
+
+
+- Add missing docs deps ([`399de45`](https://github.com/uilibs/uiprotect/commit/399de45721cb72c1cd6c945ad9aa0d73d82dea8f))
+
+
 ## v0.3.4 (2024-06-09)
 
 ### Fix
