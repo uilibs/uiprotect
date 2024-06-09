@@ -131,6 +131,7 @@ ignore = [
     "B008", # Do not perform function call
     "S110", # `try`-`except`-`pass` detected, consider logging the exception
     "D106", # Missing docstring in public nested class
+    "UP007", # typer needs Optional syntax
 ]
 select = [
     "B",   # flake8-bugbear

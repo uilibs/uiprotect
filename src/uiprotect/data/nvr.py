@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, tzinfo
 from functools import cache
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 from uuid import UUID
 
 import aiofiles
@@ -72,7 +72,7 @@ DELETE_KEYS_EVENT = {"deletedAt", "category", "subCategory"}
 class NVRLocation(UserLocation):
     is_geofencing_enabled: bool
     radius: int
-    model: Optional[ModelType] = None
+    model: ModelType | None = None
 
 
 class SmartDetectItem(ProtectBaseObject):
@@ -120,7 +120,7 @@ class SmartDetectTrack(ProtectBaseObject):
         return self.api.bootstrap.cameras[self.camera_id]
 
     @property
-    def event(self) -> Optional[Event]:
+    def event(self) -> Event | None:
         return self.api.bootstrap.events.get(self.event_id)
 
 
@@ -135,13 +135,13 @@ class EventThumbnailAttribute(ProtectBaseObject):
 
 
 class EventThumbnailAttributes(ProtectBaseObject):
-    color: Optional[EventThumbnailAttribute] = None
-    vehicle_type: Optional[EventThumbnailAttribute] = None
+    color: EventThumbnailAttribute | None = None
+    vehicle_type: EventThumbnailAttribute | None = None
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -153,11 +153,11 @@ class EventThumbnailAttributes(ProtectBaseObject):
 
 
 class EventDetectedThumbnail(ProtectBaseObject):
-    clock_best_wall: Optional[datetime] = None
+    clock_best_wall: datetime | None = None
     type: str
     cropped_id: str
-    attributes: Optional[EventThumbnailAttributes] = None
-    name: Optional[str]
+    attributes: EventThumbnailAttributes | None = None
+    name: str | None
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -171,8 +171,8 @@ class EventDetectedThumbnail(ProtectBaseObject):
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -183,28 +183,28 @@ class EventDetectedThumbnail(ProtectBaseObject):
 
 
 class EventMetadata(ProtectBaseObject):
-    client_platform: Optional[str]
-    reason: Optional[str]
-    app_update: Optional[str]
-    light_id: Optional[str]
-    light_name: Optional[str]
-    type: Optional[str]
-    sensor_id: Optional[str]
-    sensor_name: Optional[str]
-    sensor_type: Optional[SensorType]
-    doorlock_id: Optional[str]
-    doorlock_name: Optional[str]
-    from_value: Optional[str]
-    to_value: Optional[str]
-    mount_type: Optional[MountType]
-    status: Optional[SensorStatusType]
-    alarm_type: Optional[str]
-    device_id: Optional[str]
-    mac: Optional[str]
+    client_platform: str | None
+    reason: str | None
+    app_update: str | None
+    light_id: str | None
+    light_name: str | None
+    type: str | None
+    sensor_id: str | None
+    sensor_name: str | None
+    sensor_type: SensorType | None
+    doorlock_id: str | None
+    doorlock_name: str | None
+    from_value: str | None
+    to_value: str | None
+    mount_type: MountType | None
+    status: SensorStatusType | None
+    alarm_type: str | None
+    device_id: str | None
+    mac: str | None
     # require 2.7.5+
-    license_plate: Optional[LicensePlateMetadata] = None
+    license_plate: LicensePlateMetadata | None = None
     # requires 2.11.13+
-    detected_thumbnails: Optional[list[EventDetectedThumbnail]] = None
+    detected_thumbnails: list[EventDetectedThumbnail] | None = None
 
     _collapse_keys: ClassVar[SetStr] = {
         "lightId",
@@ -241,8 +241,8 @@ class EventMetadata(ProtectBaseObject):
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -262,30 +262,30 @@ class EventMetadata(ProtectBaseObject):
 class Event(ProtectModelWithId):
     type: EventType
     start: datetime
-    end: Optional[datetime]
+    end: datetime | None
     score: int
-    heatmap_id: Optional[str]
-    camera_id: Optional[str]
+    heatmap_id: str | None
+    camera_id: str | None
     smart_detect_types: list[SmartDetectObjectType]
     smart_detect_event_ids: list[str]
-    thumbnail_id: Optional[str]
-    user_id: Optional[str]
-    timestamp: Optional[datetime]
-    metadata: Optional[EventMetadata]
+    thumbnail_id: str | None
+    user_id: str | None
+    timestamp: datetime | None
+    metadata: EventMetadata | None
     # requires 2.7.5+
-    deleted_at: Optional[datetime] = None
-    deletion_type: Optional[Literal["manual", "automatic"]] = None
+    deleted_at: datetime | None = None
+    deletion_type: Literal["manual", "automatic"] | None = None
     # only appears if `get_events` is called with category
-    category: Optional[EventCategories] = None
-    sub_category: Optional[str] = None
+    category: EventCategories | None = None
+    sub_category: str | None = None
 
     # TODO:
     # partition
     # description
 
-    _smart_detect_events: Optional[list[Event]] = PrivateAttr(None)
-    _smart_detect_track: Optional[SmartDetectTrack] = PrivateAttr(None)
-    _smart_detect_zones: Optional[dict[int, CameraZone]] = PrivateAttr(None)
+    _smart_detect_events: list[Event] | None = PrivateAttr(None)
+    _smart_detect_track: SmartDetectTrack | None = PrivateAttr(None)
+    _smart_detect_zones: dict[int, CameraZone] | None = PrivateAttr(None)
 
     @classmethod
     @cache
@@ -308,8 +308,8 @@ class Event(ProtectModelWithId):
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -320,28 +320,28 @@ class Event(ProtectModelWithId):
         return data
 
     @property
-    def camera(self) -> Optional[Camera]:
+    def camera(self) -> Camera | None:
         if self.camera_id is None:
             return None
 
         return self.api.bootstrap.cameras.get(self.camera_id)
 
     @property
-    def light(self) -> Optional[Light]:
+    def light(self) -> Light | None:
         if self.metadata is None or self.metadata.light_id is None:
             return None
 
         return self.api.bootstrap.lights.get(self.metadata.light_id)
 
     @property
-    def sensor(self) -> Optional[Sensor]:
+    def sensor(self) -> Sensor | None:
         if self.metadata is None or self.metadata.sensor_id is None:
             return None
 
         return self.api.bootstrap.sensors.get(self.metadata.sensor_id)
 
     @property
-    def user(self) -> Optional[User]:
+    def user(self) -> User | None:
         if self.user_id is None:
             return None
 
@@ -361,9 +361,9 @@ class Event(ProtectModelWithId):
 
     async def get_thumbnail(
         self,
-        width: Optional[int] = None,
-        height: Optional[int] = None,
-    ) -> Optional[bytes]:
+        width: int | None = None,
+        height: int | None = None,
+    ) -> bytes | None:
         """Gets thumbnail for event"""
         if self.thumbnail_id is None:
             return None
@@ -379,11 +379,11 @@ class Event(ProtectModelWithId):
 
     async def get_animated_thumbnail(
         self,
-        width: Optional[int] = None,
-        height: Optional[int] = None,
+        width: int | None = None,
+        height: int | None = None,
         *,
         speedup: int = 10,
-    ) -> Optional[bytes]:
+    ) -> bytes | None:
         """Gets animated thumbnail for event"""
         if self.thumbnail_id is None:
             return None
@@ -402,7 +402,7 @@ class Event(ProtectModelWithId):
             speedup=speedup,
         )
 
-    async def get_heatmap(self) -> Optional[bytes]:
+    async def get_heatmap(self) -> bytes | None:
         """Gets heatmap for event"""
         if self.heatmap_id is None:
             return None
@@ -419,11 +419,11 @@ class Event(ProtectModelWithId):
     async def get_video(
         self,
         channel_index: int = 0,
-        output_file: Optional[Path] = None,
-        iterator_callback: Optional[IteratorCallback] = None,
-        progress_callback: Optional[ProgressCallback] = None,
+        output_file: Path | None = None,
+        iterator_callback: IteratorCallback | None = None,
+        progress_callback: ProgressCallback | None = None,
         chunk_size: int = 65536,
-    ) -> Optional[bytes]:
+    ) -> bytes | None:
         """
         Get the MP4 video clip for this given event
 
@@ -512,11 +512,11 @@ class PortConfig(ProtectBaseObject):
     tcp_bridge: int
     ucore: int
     discovery_client: int
-    piongw: Optional[int] = None
-    ems_json_cli: Optional[int] = None
-    stacking: Optional[int] = None
+    piongw: int | None = None
+    ems_json_cli: int | None = None
+    stacking: int | None = None
     # 3.0.22+
-    ai_feature_console: Optional[int] = None
+    ai_feature_console: int | None = None
 
     @classmethod
     @cache
@@ -535,15 +535,15 @@ class CPUInfo(ProtectBaseObject):
 
 
 class MemoryInfo(ProtectBaseObject):
-    available: Optional[int]
-    free: Optional[int]
-    total: Optional[int]
+    available: int | None
+    free: int | None
+    total: int | None
 
 
 class StorageDevice(ProtectBaseObject):
     model: str
     size: int
-    healthy: Union[bool, str]
+    healthy: bool | str
 
 
 class StorageInfo(ProtectBaseObject):
@@ -554,7 +554,7 @@ class StorageInfo(ProtectBaseObject):
     used: int
     devices: list[StorageDevice]
     # requires 2.8.14+
-    capability: Optional[str] = None
+    capability: str | None = None
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -586,25 +586,25 @@ class UOSDisk(ProtectBaseObject):
     slot: int
     state: str
 
-    type: Optional[Literal["SSD", "HDD"]] = None
-    model: Optional[str] = None
-    serial: Optional[str] = None
-    firmware: Optional[str] = None
-    rpm: Optional[int] = None
-    ata: Optional[str] = None
-    sata: Optional[str] = None
-    action: Optional[str] = None
-    healthy: Optional[str] = None
-    reason: Optional[list[Any]] = None
-    temperature: Optional[int] = None
-    power_on_hours: Optional[int] = None
-    life_span: Optional[PercentFloat] = None
-    bad_sector: Optional[int] = None
-    threshold: Optional[int] = None
-    progress: Optional[PercentFloat] = None
-    estimate: Optional[timedelta] = None
+    type: Literal["SSD", "HDD"] | None = None
+    model: str | None = None
+    serial: str | None = None
+    firmware: str | None = None
+    rpm: int | None = None
+    ata: str | None = None
+    sata: str | None = None
+    action: str | None = None
+    healthy: str | None = None
+    reason: list[Any] | None = None
+    temperature: int | None = None
+    power_on_hours: int | None = None
+    life_span: PercentFloat | None = None
+    bad_sector: int | None = None
+    threshold: int | None = None
+    progress: PercentFloat | None = None
+    estimate: timedelta | None = None
     # 2.10.10+
-    size: Optional[int] = None
+    size: int | None = None
 
     @classmethod
     @cache
@@ -625,8 +625,8 @@ class UOSDisk(ProtectBaseObject):
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -680,12 +680,12 @@ class UOSSpace(ProtectBaseObject):
     total_bytes: int
     used_bytes: int
     action: str
-    progress: Optional[PercentFloat] = None
-    estimate: Optional[timedelta] = None
+    progress: PercentFloat | None = None
+    estimate: timedelta | None = None
     # requires 2.8.14+
-    health: Optional[str] = None
+    health: str | None = None
     # requires 2.8.22+
-    space_type: Optional[str] = None
+    space_type: str | None = None
 
     # TODO:
     # reasons
@@ -709,8 +709,8 @@ class UOSSpace(ProtectBaseObject):
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -734,12 +734,12 @@ class SystemInfo(ProtectBaseObject):
     memory: MemoryInfo
     storage: StorageInfo
     tmpfs: TMPFSInfo
-    ustorage: Optional[UOSStorage] = None
+    ustorage: UOSStorage | None = None
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -794,10 +794,10 @@ class StorageDistribution(ProtectBaseObject):
     recording_type_distributions: list[RecordingTypeDistribution]
     resolution_distributions: list[ResolutionDistribution]
 
-    _recording_type_dict: Optional[dict[RecordingType, RecordingTypeDistribution]] = (
+    _recording_type_dict: dict[RecordingType, RecordingTypeDistribution] | None = (
         PrivateAttr(None)
     )
-    _resolution_dict: Optional[dict[ResolutionStorageType, ResolutionDistribution]] = (
+    _resolution_dict: dict[ResolutionStorageType, ResolutionDistribution] | None = (
         PrivateAttr(None)
     )
 
@@ -824,27 +824,27 @@ class StorageDistribution(ProtectBaseObject):
         return self._resolution_dict
 
     @property
-    def timelapse_recordings(self) -> Optional[RecordingTypeDistribution]:
+    def timelapse_recordings(self) -> RecordingTypeDistribution | None:
         return self._get_recording_type_dict().get(RecordingType.TIMELAPSE)
 
     @property
-    def continuous_recordings(self) -> Optional[RecordingTypeDistribution]:
+    def continuous_recordings(self) -> RecordingTypeDistribution | None:
         return self._get_recording_type_dict().get(RecordingType.CONTINUOUS)
 
     @property
-    def detections_recordings(self) -> Optional[RecordingTypeDistribution]:
+    def detections_recordings(self) -> RecordingTypeDistribution | None:
         return self._get_recording_type_dict().get(RecordingType.DETECTIONS)
 
     @property
-    def uhd_usage(self) -> Optional[ResolutionDistribution]:
+    def uhd_usage(self) -> ResolutionDistribution | None:
         return self._get_resolution_dict().get(ResolutionStorageType.UHD)
 
     @property
-    def hd_usage(self) -> Optional[ResolutionDistribution]:
+    def hd_usage(self) -> ResolutionDistribution | None:
         return self._get_resolution_dict().get(ResolutionStorageType.HD)
 
     @property
-    def free(self) -> Optional[ResolutionDistribution]:
+    def free(self) -> ResolutionDistribution | None:
         return self._get_resolution_dict().get(ResolutionStorageType.FREE)
 
     def update_from_dict(self, data: dict[str, Any]) -> StorageDistribution:
@@ -857,8 +857,8 @@ class StorageDistribution(ProtectBaseObject):
 
 class StorageStats(ProtectBaseObject):
     utilization: float
-    capacity: Optional[timedelta]
-    remaining_capacity: Optional[timedelta]
+    capacity: timedelta | None
+    remaining_capacity: timedelta | None
     recording_space: StorageSpace
     storage_distribution: StorageDistribution
 
@@ -878,11 +878,11 @@ class NVRFeatureFlags(ProtectBaseObject):
     beta: bool
     dev: bool
     notifications_v2: bool
-    homekit_paired: Optional[bool] = None
-    ulp_role_management: Optional[bool] = None
+    homekit_paired: bool | None = None
+    ulp_role_management: bool | None = None
     # 2.9.20+
-    detection_labels: Optional[bool] = None
-    has_two_way_audio_media_streams: Optional[bool] = None
+    detection_labels: bool | None = None
+    has_two_way_audio_media_streams: bool | None = None
 
 
 class NVRSmartDetection(ProtectBaseObject):
@@ -908,25 +908,25 @@ class NVR(ProtectDeviceModel):
     ucore_version: str
     hardware_platform: str
     ports: PortConfig
-    last_update_at: Optional[datetime]
+    last_update_at: datetime | None
     is_station: bool
     enable_automatic_backups: bool
     enable_stats_reporting: bool
     release_channel: FirmwareReleaseChannel
-    hosts: list[Union[IPv4Address, IPv6Address, str]]
+    hosts: list[IPv4Address | IPv6Address | str]
     enable_bridge_auto_adoption: bool
     hardware_id: UUID
     host_type: int
     host_shortname: str
     is_hardware: bool
-    is_wireless_uplink_enabled: Optional[bool]
+    is_wireless_uplink_enabled: bool | None
     time_format: Literal["12h", "24h"]
     temperature_unit: Literal["C", "F"]
-    recording_retention_duration: Optional[timedelta]
+    recording_retention_duration: timedelta | None
     enable_crash_reporting: bool
     disable_audio: bool
     analytics_data: AnalyticsOption
-    anonymous_device_id: Optional[UUID]
+    anonymous_device_id: UUID | None
     camera_utilization: int
     is_recycling: bool
     disable_auto_link: bool
@@ -940,38 +940,38 @@ class NVR(ProtectDeviceModel):
     is_setup: bool
     network: str
     max_camera_capacity: dict[Literal["4K", "2K", "HD"], int]
-    market_name: Optional[str] = None
-    stream_sharing_available: Optional[bool] = None
-    is_db_available: Optional[bool] = None
-    is_insights_enabled: Optional[bool] = None
-    is_recording_disabled: Optional[bool] = None
-    is_recording_motion_only: Optional[bool] = None
-    ui_version: Optional[str] = None
-    sso_channel: Optional[FirmwareReleaseChannel] = None
-    is_stacked: Optional[bool] = None
-    is_primary: Optional[bool] = None
-    last_drive_slow_event: Optional[datetime] = None
-    is_u_core_setup: Optional[bool] = None
+    market_name: str | None = None
+    stream_sharing_available: bool | None = None
+    is_db_available: bool | None = None
+    is_insights_enabled: bool | None = None
+    is_recording_disabled: bool | None = None
+    is_recording_motion_only: bool | None = None
+    ui_version: str | None = None
+    sso_channel: FirmwareReleaseChannel | None = None
+    is_stacked: bool | None = None
+    is_primary: bool | None = None
+    last_drive_slow_event: datetime | None = None
+    is_u_core_setup: bool | None = None
     vault_camera_ids: list[str] = []
     # requires 2.8.14+
-    corruption_state: Optional[str] = None
-    country_code: Optional[str] = None
-    has_gateway: Optional[bool] = None
-    is_vault_registered: Optional[bool] = None
-    public_ip: Optional[IPv4Address] = None
-    ulp_version: Optional[str] = None
-    wan_ip: Optional[Union[IPv4Address, IPv6Address]] = None
+    corruption_state: str | None = None
+    country_code: str | None = None
+    has_gateway: bool | None = None
+    is_vault_registered: bool | None = None
+    public_ip: IPv4Address | None = None
+    ulp_version: str | None = None
+    wan_ip: IPv4Address | IPv6Address | None = None
     # requires 2.9.20+
-    hard_drive_state: Optional[str] = None
-    is_network_installed: Optional[bool] = None
-    is_protect_updatable: Optional[bool] = None
-    is_ucore_updatable: Optional[bool] = None
+    hard_drive_state: str | None = None
+    is_network_installed: bool | None = None
+    is_protect_updatable: bool | None = None
+    is_ucore_updatable: bool | None = None
     # requires 2.11.13+
-    last_device_fw_updates_checked_at: Optional[datetime] = None
+    last_device_fw_updates_checked_at: datetime | None = None
     # requires 3.0.22+
-    smart_detection: Optional[NVRSmartDetection] = None
-    is_ucore_stacked: Optional[bool] = None
-    global_camera_settings: Optional[GlobalRecordingSettings] = None
+    smart_detection: NVRSmartDetection | None = None
+    is_ucore_stacked: bool | None = None
+    global_camera_settings: GlobalRecordingSettings | None = None
 
     # TODO:
     # errorCode   read only
@@ -1467,7 +1467,7 @@ class LiveviewSlot(ProtectBaseObject):
     cycle_mode: str
     cycle_interval: int
 
-    _cameras: Optional[list[Camera]] = PrivateAttr(None)
+    _cameras: list[Camera] | None = PrivateAttr(None)
 
     @classmethod
     @cache
@@ -1507,7 +1507,7 @@ class Liveview(ProtectModelWithId):
         return super()._get_read_only_fields() | {"isDefault", "owner"}
 
     @property
-    def owner(self) -> Optional[User]:
+    def owner(self) -> User | None:
         """
         Owner of liveview.
 

@@ -30,7 +30,7 @@ BLANK_VIDEO_CMD = "ffmpeg -y -hide_banner -loglevel error -f lavfi -i color=size
 def placeholder_image(
     output_path: Path,
     width: int,
-    height: Optional[int] = None,
+    height: int | None = None,
 ) -> None:
     if height is None:
         height = width
@@ -51,9 +51,9 @@ class SampleDataGenerator:
     _record_ws_start_time: float = time.monotonic()
     _record_listen_for_events: bool = False
     _record_ws_messages: dict[str, dict[str, Any]] = {}
-    _log: Optional[LOG_CALLABLE] = None
-    _log_warning: Optional[LOG_CALLABLE] = None
-    _ws_progress: Optional[PROGRESS_CALLABLE] = None
+    _log: LOG_CALLABLE | None = None
+    _log_warning: LOG_CALLABLE | None = None
+    _ws_progress: PROGRESS_CALLABLE | None = None
 
     constants: dict[str, Any] = {}
     client: ProtectApiClient
@@ -68,9 +68,9 @@ class SampleDataGenerator:
         output: Path,
         anonymize: bool,
         wait_time: int,
-        log: Optional[LOG_CALLABLE] = None,
-        log_warning: Optional[LOG_CALLABLE] = None,
-        ws_progress: Optional[PROGRESS_CALLABLE] = None,
+        log: LOG_CALLABLE | None = None,
+        log_warning: LOG_CALLABLE | None = None,
+        ws_progress: PROGRESS_CALLABLE | None = None,
         do_zip: bool = False,
     ) -> None:
         self.client = client
@@ -179,7 +179,7 @@ class SampleDataGenerator:
         self,
         name: str,
         data: list[Any],
-        anonymize: Optional[bool] = None,
+        anonymize: bool | None = None,
     ) -> list[Any]: ...
 
     @overload
@@ -187,15 +187,15 @@ class SampleDataGenerator:
         self,
         name: str,
         data: dict[str, Any],
-        anonymize: Optional[bool] = None,
+        anonymize: bool | None = None,
     ) -> dict[str, Any]: ...
 
     async def write_json_file(
         self,
         name: str,
-        data: Union[list[Any], dict[str, Any]],
-        anonymize: Optional[bool] = None,
-    ) -> Union[list[Any], dict[str, Any]]:
+        data: list[Any] | dict[str, Any],
+        anonymize: bool | None = None,
+    ) -> list[Any] | dict[str, Any]:
         if anonymize is None:
             anonymize = self.anonymize
 
@@ -211,7 +211,7 @@ class SampleDataGenerator:
         self,
         name: str,
         ext: str,
-        raw: Optional[bytes],
+        raw: bytes | None,
     ) -> None:
         def write() -> None:
             if raw is None:
@@ -224,19 +224,19 @@ class SampleDataGenerator:
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, write)
 
-    async def write_image_file(self, name: str, raw: Optional[bytes]) -> None:
+    async def write_image_file(self, name: str, raw: bytes | None) -> None:
         await self.write_binary_file(name, "png", raw)
 
     async def generate_event_data(
         self,
-    ) -> tuple[Optional[dict[str, Any]], Optional[dict[str, Any]]]:
+    ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
         data = await self.client.get_events_raw()
 
         self.constants["time"] = datetime.now(tz=timezone.utc).isoformat()
         self.constants["event_count"] = len(data)
 
-        motion_event: Optional[dict[str, Any]] = None
-        smart_detection: Optional[dict[str, Any]] = None
+        motion_event: dict[str, Any] | None = None
+        smart_detection: dict[str, Any] | None = None
         for event_dict in reversed(data):
             if (
                 motion_event is None
@@ -267,8 +267,8 @@ class SampleDataGenerator:
 
     async def generate_device_data(
         self,
-        motion_event: Optional[dict[str, Any]],
-        smart_detection: Optional[dict[str, Any]],
+        motion_event: dict[str, Any] | None,
+        smart_detection: dict[str, Any] | None,
     ) -> None:
         await asyncio.gather(
             self.generate_camera_data(),
@@ -285,7 +285,7 @@ class SampleDataGenerator:
 
     async def generate_camera_data(self) -> None:
         objs = await self.client.api_request_list("cameras")
-        device_id: Optional[str] = None
+        device_id: str | None = None
         camera_is_online = False
         for obj_dict in objs:
             device_id = obj_dict["id"]
@@ -320,7 +320,7 @@ class SampleDataGenerator:
 
     async def generate_motion_data(
         self,
-        motion_event: Optional[dict[str, Any]],
+        motion_event: dict[str, Any] | None,
     ) -> None:
         if motion_event is None:
             self.log("No motion event, skipping thumbnail and heatmap generation...")
@@ -375,7 +375,7 @@ class SampleDataGenerator:
 
     async def generate_smart_detection_data(
         self,
-        smart_detection: Optional[dict[str, Any]],
+        smart_detection: dict[str, Any] | None,
     ) -> None:
         if smart_detection is None:
             self.log("No smart detection event, skipping smart detection data...")
@@ -392,7 +392,7 @@ class SampleDataGenerator:
 
     async def generate_light_data(self) -> None:
         objs = await self.client.api_request_list("lights")
-        device_id: Optional[str] = None
+        device_id: str | None = None
         for obj_dict in objs:
             device_id = obj_dict["id"]
             if is_online(obj_dict):
@@ -407,7 +407,7 @@ class SampleDataGenerator:
 
     async def generate_viewport_data(self) -> None:
         objs = await self.client.api_request_list("viewers")
-        device_id: Optional[str] = None
+        device_id: str | None = None
         for obj_dict in objs:
             device_id = obj_dict["id"]
             if is_online(obj_dict):
@@ -422,7 +422,7 @@ class SampleDataGenerator:
 
     async def generate_sensor_data(self) -> None:
         objs = await self.client.api_request_list("sensors")
-        device_id: Optional[str] = None
+        device_id: str | None = None
         for obj_dict in objs:
             device_id = obj_dict["id"]
             if is_online(obj_dict):
@@ -437,7 +437,7 @@ class SampleDataGenerator:
 
     async def generate_lock_data(self) -> None:
         objs = await self.client.api_request_list("doorlocks")
-        device_id: Optional[str] = None
+        device_id: str | None = None
         for obj_dict in objs:
             device_id = obj_dict["id"]
             if is_online(obj_dict):
@@ -452,7 +452,7 @@ class SampleDataGenerator:
 
     async def generate_chime_data(self) -> None:
         objs = await self.client.api_request_list("chimes")
-        device_id: Optional[str] = None
+        device_id: str | None = None
         for obj_dict in objs:
             device_id = obj_dict["id"]
             if is_online(obj_dict):
@@ -467,7 +467,7 @@ class SampleDataGenerator:
 
     async def generate_bridge_data(self) -> None:
         objs = await self.client.api_request_list("bridges")
-        device_id: Optional[str] = None
+        device_id: str | None = None
         for obj_dict in objs:
             device_id = obj_dict["id"]
             if is_online(obj_dict):
@@ -482,7 +482,7 @@ class SampleDataGenerator:
 
     async def generate_liveview_data(self) -> None:
         objs = await self.client.api_request_list("liveviews")
-        device_id: Optional[str] = None
+        device_id: str | None = None
         for obj_dict in objs:
             device_id = obj_dict["id"]
             break

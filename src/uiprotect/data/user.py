@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from functools import cache
-from typing import Any, Optional
+from typing import Any
 
 from pydantic.v1.fields import PrivateAttr
 
@@ -16,7 +16,7 @@ class Permission(ProtectBaseObject):
     raw_permission: str
     model: ModelType
     nodes: set[PermissionNode]
-    obj_ids: Optional[set[str]]
+    obj_ids: set[str] | None
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -41,13 +41,13 @@ class Permission(ProtectBaseObject):
 
     def unifi_dict(  # type: ignore[override]
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> str:
         return self.raw_permission
 
     @property
-    def objs(self) -> Optional[list[ProtectModelWithId]]:
+    def objs(self) -> list[ProtectModelWithId] | None:
         if self.obj_ids == {"self"} or self.obj_ids is None:
             return None
 
@@ -72,8 +72,8 @@ class Group(ProtectModelWithId):
 
 class UserLocation(ProtectModel):
     is_away: bool
-    latitude: Optional[float]
-    longitude: Optional[float]
+    latitude: float | None
+    longitude: float | None
 
 
 class CloudAccount(ProtectModelWithId):
@@ -82,8 +82,8 @@ class CloudAccount(ProtectModelWithId):
     email: str
     user_id: str
     name: str
-    location: Optional[UserLocation]
-    profile_img: Optional[str] = None
+    location: UserLocation | None
+    profile_img: str | None = None
 
     @classmethod
     @cache
@@ -92,8 +92,8 @@ class CloudAccount(ProtectModelWithId):
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -116,21 +116,21 @@ class UserFeatureFlags(ProtectBaseObject):
 
 class User(ProtectModelWithId):
     permissions: list[Permission]
-    last_login_ip: Optional[str]
-    last_login_time: Optional[datetime]
+    last_login_ip: str | None
+    last_login_time: datetime | None
     is_owner: bool
     enable_notifications: bool
     has_accepted_invite: bool
     all_permissions: list[Permission]
-    scopes: Optional[list[str]] = None
-    location: Optional[UserLocation]
+    scopes: list[str] | None = None
+    location: UserLocation | None
     name: str
     first_name: str
     last_name: str
-    email: Optional[str]
+    email: str | None
     local_username: str
     group_ids: list[str]
-    cloud_account: Optional[CloudAccount]
+    cloud_account: CloudAccount | None
     feature_flags: UserFeatureFlags
 
     # TODO:
@@ -140,7 +140,7 @@ class User(ProtectModelWithId):
     # notifications
     # cloudProviders
 
-    _groups: Optional[list[Group]] = PrivateAttr(None)
+    _groups: list[Group] | None = PrivateAttr(None)
     _perm_cache: dict[str, bool] = PrivateAttr({})
 
     def __init__(self, **data: Any) -> None:
@@ -175,8 +175,8 @@ class User(ProtectModelWithId):
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -206,7 +206,7 @@ class User(ProtectModelWithId):
         self,
         model: ModelType,
         node: PermissionNode,
-        obj: Optional[ProtectModelWithId] = None,
+        obj: ProtectModelWithId | None = None,
     ) -> bool:
         """Checks if a user can do a specific action"""
         check_self = False

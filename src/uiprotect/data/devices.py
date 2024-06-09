@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from functools import cache
 from ipaddress import IPv4Address
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic.v1.fields import PrivateAttr
 
@@ -132,7 +132,7 @@ class Light(ProtectMotionDeviceModel):
     light_device_settings: LightDeviceSettings
     light_on_settings: LightOnSettings
     light_mode_settings: LightModeSettings
-    camera_id: Optional[str]
+    camera_id: str | None
     is_camera_paired: bool
 
     @classmethod
@@ -150,14 +150,14 @@ class Light(ProtectMotionDeviceModel):
         }
 
     @property
-    def camera(self) -> Optional[Camera]:
+    def camera(self) -> Camera | None:
         """Paired Camera will always be none if no camera is paired"""
         if self.camera_id is None:
             return None
 
         return self.api.bootstrap.cameras[self.camera_id]
 
-    async def set_paired_camera(self, camera: Optional[Camera]) -> None:
+    async def set_paired_camera(self, camera: Camera | None) -> None:
         """Sets the camera paired with the light"""
         async with self._update_lock:
             await asyncio.sleep(
@@ -186,7 +186,7 @@ class Light(ProtectMotionDeviceModel):
 
         await self.queue_update(callback)
 
-    async def set_light(self, enabled: bool, led_level: Optional[int] = None) -> None:
+    async def set_light(self, enabled: bool, led_level: int | None = None) -> None:
         """Force turns on/off the light"""
 
         def callback() -> None:
@@ -217,9 +217,9 @@ class Light(ProtectMotionDeviceModel):
     async def set_light_settings(
         self,
         mode: LightModeType,
-        enable_at: Optional[LightModeEnableType] = None,
-        duration: Optional[timedelta] = None,
-        sensitivity: Optional[int] = None,
+        enable_at: LightModeEnableType | None = None,
+        duration: timedelta | None = None,
+        sensitivity: int | None = None,
     ) -> None:
         """
         Updates various Light settings.
@@ -255,26 +255,26 @@ class CameraChannel(ProtectBaseObject):
     name: str  # read only
     enabled: bool  # read only
     is_rtsp_enabled: bool
-    rtsp_alias: Optional[str]  # read only
+    rtsp_alias: str | None  # read only
     width: int
     height: int
     fps: int
     bitrate: int
     min_bitrate: int  # read only
     max_bitrate: int  # read only
-    min_client_adaptive_bit_rate: Optional[int]  # read only
-    min_motion_adaptive_bit_rate: Optional[int]  # read only
+    min_client_adaptive_bit_rate: int | None  # read only
+    min_motion_adaptive_bit_rate: int | None  # read only
     fps_values: list[int]  # read only
     idr_interval: int
     # 3.0.22+
-    auto_bitrate: Optional[bool] = None
-    auto_fps: Optional[bool] = None
+    auto_bitrate: bool | None = None
+    auto_fps: bool | None = None
 
-    _rtsp_url: Optional[str] = PrivateAttr(None)
-    _rtsps_url: Optional[str] = PrivateAttr(None)
+    _rtsp_url: str | None = PrivateAttr(None)
+    _rtsps_url: str | None = PrivateAttr(None)
 
     @property
-    def rtsp_url(self) -> Optional[str]:
+    def rtsp_url(self) -> str | None:
         if not self.is_rtsp_enabled or self.rtsp_alias is None:
             return None
 
@@ -284,7 +284,7 @@ class CameraChannel(ProtectBaseObject):
         return self._rtsp_url
 
     @property
-    def rtsps_url(self) -> Optional[str]:
+    def rtsps_url(self) -> str | None:
         if not self.is_rtsp_enabled or self.rtsp_alias is None:
             return None
 
@@ -322,24 +322,24 @@ class ISPSettings(ProtectBaseObject):
     d_zoom_center_y: int
     d_zoom_scale: int
     d_zoom_stream_id: int
-    focus_mode: Optional[FocusMode] = None
+    focus_mode: FocusMode | None = None
     focus_position: int
-    touch_focus_x: Optional[int]
-    touch_focus_y: Optional[int]
+    touch_focus_x: int | None
+    touch_focus_y: int | None
     zoom_position: PercentInt
-    mount_position: Optional[MountPosition] = None
+    mount_position: MountPosition | None = None
     # requires 2.8.14+
-    is_color_night_vision_enabled: Optional[bool] = None
+    is_color_night_vision_enabled: bool | None = None
     # 3.0.22+
-    hdr_mode: Optional[HDRMode] = None
-    icr_custom_value: Optional[ICRCustomValue] = None
-    icr_switch_mode: Optional[str] = None
-    spotlight_duration: Optional[int] = None
+    hdr_mode: HDRMode | None = None
+    icr_custom_value: ICRCustomValue | None = None
+    icr_switch_mode: str | None = None
+    spotlight_duration: int | None = None
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -383,15 +383,15 @@ class RecordingSettings(ProtectBaseObject):
     mode: RecordingMode
     geofencing: GeofencingSetting
     motion_algorithm: MotionAlgorithm
-    enable_motion_detection: Optional[bool] = None
+    enable_motion_detection: bool | None = None
     use_new_motion_algorithm: bool
     # requires 2.9.20+
-    in_schedule_mode: Optional[str] = None
-    out_schedule_mode: Optional[str] = None
+    in_schedule_mode: str | None = None
+    out_schedule_mode: str | None = None
     # 2.11.13+
-    retention_duration: Optional[datetime] = None
-    smart_detect_post_padding: Optional[timedelta] = None
-    smart_detect_pre_padding: Optional[timedelta] = None
+    retention_duration: datetime | None = None
+    smart_detect_post_padding: timedelta | None = None
+    smart_detect_pre_padding: timedelta | None = None
 
     @classmethod
     @cache
@@ -432,8 +432,8 @@ class RecordingSettings(ProtectBaseObject):
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -465,9 +465,9 @@ class RecordingSettings(ProtectBaseObject):
 
 class SmartDetectSettings(ProtectBaseObject):
     object_types: list[SmartDetectObjectType]
-    audio_types: Optional[list[SmartDetectAudioType]] = None
+    audio_types: list[SmartDetectAudioType] | None = None
     # requires 2.8.22+
-    auto_tracking_object_types: Optional[list[SmartDetectObjectType]] = None
+    auto_tracking_object_types: list[SmartDetectObjectType] | None = None
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -486,7 +486,7 @@ class SmartDetectSettings(ProtectBaseObject):
 class LCDMessage(ProtectBaseObject):
     type: DoorbellMessageType
     text: str
-    reset_at: Optional[datetime] = None
+    reset_at: datetime | None = None
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -502,7 +502,7 @@ class LCDMessage(ProtectBaseObject):
         return super().unifi_dict_to_dict(data)
 
     @classmethod
-    def _fix_text(cls, text: str, text_type: Optional[str]) -> str:
+    def _fix_text(cls, text: str, text_type: str | None) -> str:
         if text_type is None:
             text_type = cls.type.value
 
@@ -513,8 +513,8 @@ class LCDMessage(ProtectBaseObject):
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -536,8 +536,8 @@ class TalkbackSettings(ProtectBaseObject):
     type_in: str
     bind_addr: IPv4Address
     bind_port: int
-    filter_addr: Optional[str]  # can be used to restrict sender address
-    filter_port: Optional[int]  # can be used to restrict sender port
+    filter_addr: str | None  # can be used to restrict sender address
+    filter_port: int | None  # can be used to restrict sender port
     channels: int  # 1 or 2
     sampling_rate: int  # 8000, 11025, 22050, 44100, 48000
     bits_per_sample: int
@@ -545,22 +545,22 @@ class TalkbackSettings(ProtectBaseObject):
 
 
 class WifiStats(ProtectBaseObject):
-    channel: Optional[int]
-    frequency: Optional[int]
-    link_speed_mbps: Optional[str]
+    channel: int | None
+    frequency: int | None
+    link_speed_mbps: str | None
     signal_quality: PercentInt
     signal_strength: int
 
 
 class VideoStats(ProtectBaseObject):
-    recording_start: Optional[datetime]
-    recording_end: Optional[datetime]
-    recording_start_lq: Optional[datetime]
-    recording_end_lq: Optional[datetime]
-    timelapse_start: Optional[datetime]
-    timelapse_end: Optional[datetime]
-    timelapse_start_lq: Optional[datetime]
-    timelapse_end_lq: Optional[datetime]
+    recording_start: datetime | None
+    recording_end: datetime | None
+    recording_start_lq: datetime | None
+    recording_end_lq: datetime | None
+    timelapse_start: datetime | None
+    timelapse_end: datetime | None
+    timelapse_start_lq: datetime | None
+    timelapse_end_lq: datetime | None
 
     @classmethod
     @cache
@@ -596,11 +596,11 @@ class VideoStats(ProtectBaseObject):
 
 
 class StorageStats(ProtectBaseObject):
-    used: Optional[int]  # bytes
-    rate: Optional[float]  # bytes / millisecond
+    used: int | None  # bytes
+    rate: float | None  # bytes / millisecond
 
     @property
-    def rate_per_second(self) -> Optional[float]:
+    def rate_per_second(self) -> float | None:
         if self.rate is None:
             return None
 
@@ -615,8 +615,8 @@ class StorageStats(ProtectBaseObject):
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -631,7 +631,7 @@ class CameraStats(ProtectBaseObject):
     tx_bytes: int
     wifi: WifiStats
     video: VideoStats
-    storage: Optional[StorageStats]
+    storage: StorageStats | None
     wifi_quality: PercentInt
     wifi_strength: int
 
@@ -644,8 +644,8 @@ class CameraStats(ProtectBaseObject):
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -671,8 +671,8 @@ class CameraZone(ProtectBaseObject):
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -707,17 +707,17 @@ class SmartMotionZone(MotionZone):
 
 
 class PrivacyMaskCapability(ProtectBaseObject):
-    max_masks: Optional[int]
+    max_masks: int | None
     rectangle_only: bool
 
 
 class HotplugExtender(ProtectBaseObject):
-    has_flash: Optional[bool] = None
-    has_ir: Optional[bool] = None
-    has_radar: Optional[bool] = None
-    is_attached: Optional[bool] = None
+    has_flash: bool | None = None
+    has_ir: bool | None = None
+    has_radar: bool | None = None
+    is_attached: bool | None = None
     # 3.0.22+
-    flash_range: Optional[Any] = None
+    flash_range: Any | None = None
 
     @classmethod
     @cache
@@ -726,17 +726,17 @@ class HotplugExtender(ProtectBaseObject):
 
 
 class Hotplug(ProtectBaseObject):
-    audio: Optional[bool] = None
-    video: Optional[bool] = None
-    extender: Optional[HotplugExtender] = None
+    audio: bool | None = None
+    video: bool | None = None
+    extender: HotplugExtender | None = None
     # 2.8.35+
-    standalone_adoption: Optional[bool] = None
+    standalone_adoption: bool | None = None
 
 
 class PTZRangeSingle(ProtectBaseObject):
-    max: Optional[float]
-    min: Optional[float]
-    step: Optional[float]
+    max: float | None
+    min: float | None
+    step: float | None
 
 
 class PTZRange(ProtectBaseObject):
@@ -826,27 +826,27 @@ class CameraFeatureFlags(ProtectBaseObject):
     audio: list[str] = []
     audio_codecs: list[AudioCodecs] = []
     mount_positions: list[MountPosition] = []
-    has_infrared: Optional[bool] = None
-    lens_type: Optional[LensType] = None
-    hotplug: Optional[Hotplug] = None
-    smart_detect_audio_types: Optional[list[SmartDetectAudioType]] = None
+    has_infrared: bool | None = None
+    lens_type: LensType | None = None
+    hotplug: Hotplug | None = None
+    smart_detect_audio_types: list[SmartDetectAudioType] | None = None
     # 2.7.18+
     is_doorbell: bool
     # 2.8.22+
-    lens_model: Optional[str] = None
+    lens_model: str | None = None
     # 2.9.20+
-    has_color_lcd_screen: Optional[bool] = None
-    has_line_crossing: Optional[bool] = None
-    has_line_crossing_counting: Optional[bool] = None
-    has_liveview_tracking: Optional[bool] = None
+    has_color_lcd_screen: bool | None = None
+    has_line_crossing: bool | None = None
+    has_line_crossing_counting: bool | None = None
+    has_liveview_tracking: bool | None = None
     # 2.10.10+
-    has_flash: Optional[bool] = None
-    is_ptz: Optional[bool] = None
+    has_flash: bool | None = None
+    is_ptz: bool | None = None
     # 2.11.13+
-    audio_style: Optional[list[AudioStyle]] = None
-    has_vertical_flip: Optional[bool] = None
+    audio_style: list[AudioStyle] | None = None
+    has_vertical_flip: bool | None = None
     # 3.0.22+
-    flash_range: Optional[Any] = None
+    flash_range: Any | None = None
 
     focus: PTZRange
     pan: PTZRange
@@ -908,13 +908,13 @@ class Camera(ProtectMotionDeviceModel):
     is_recording: bool
     is_motion_detected: bool
     is_smart_detected: bool
-    phy_rate: Optional[float]
+    phy_rate: float | None
     hdr_mode: bool
     # Recording Quality -> High Frame
     video_mode: VideoMode
     is_probing_for_wifi: bool
     chime_duration: timedelta
-    last_ring: Optional[datetime]
+    last_ring: datetime | None
     is_live_heatmap_enabled: bool
     video_reconfiguration_in_progress: bool
     channels: list[CameraChannel]
@@ -930,7 +930,7 @@ class Camera(ProtectMotionDeviceModel):
     smart_detect_zones: list[SmartMotionZone]
     stats: CameraStats
     feature_flags: CameraFeatureFlags
-    lcd_message: Optional[LCDMessage]
+    lcd_message: LCDMessage | None
     lenses: list[CameraLenses]
     platform: str
     has_speaker: bool
@@ -938,29 +938,29 @@ class Camera(ProtectMotionDeviceModel):
     audio_bitrate: int
     can_manage: bool
     is_managed: bool
-    voltage: Optional[float]
+    voltage: float | None
     # requires 1.21+
-    is_poor_network: Optional[bool]
-    is_wireless_uplink_enabled: Optional[bool]
+    is_poor_network: bool | None
+    is_wireless_uplink_enabled: bool | None
     # requires 2.6.13+
-    homekit_settings: Optional[CameraHomekitSettings] = None
+    homekit_settings: CameraHomekitSettings | None = None
     # requires 2.6.17+
-    ap_mgmt_ip: Optional[IPv4Address] = None
+    ap_mgmt_ip: IPv4Address | None = None
     # requires 2.7.5+
-    is_waterproof_case_attached: Optional[bool] = None
-    last_disconnect: Optional[datetime] = None
+    is_waterproof_case_attached: bool | None = None
+    last_disconnect: datetime | None = None
     # requires 2.8.14+
-    is_2k: Optional[bool] = None
-    is_4k: Optional[bool] = None
-    use_global: Optional[bool] = None
+    is_2k: bool | None = None
+    is_4k: bool | None = None
+    use_global: bool | None = None
     # requires 2.8.22+
-    user_configured_ap: Optional[bool] = None
+    user_configured_ap: bool | None = None
     # requires 2.9.20+
-    has_recordings: Optional[bool] = None
+    has_recordings: bool | None = None
     # requires 2.10.10+
-    is_ptz: Optional[bool] = None
+    is_ptz: bool | None = None
     # requires 2.11.13+
-    audio_settings: Optional[CameraAudioSettings] = None
+    audio_settings: CameraAudioSettings | None = None
 
     # TODO: used for adopting
     # apMac read only
@@ -976,17 +976,17 @@ class Camera(ProtectMotionDeviceModel):
     # recordingSchedulesV2
 
     # not directly from UniFi
-    last_ring_event_id: Optional[str] = None
-    last_smart_detect: Optional[datetime] = None
-    last_smart_audio_detect: Optional[datetime] = None
-    last_smart_detect_event_id: Optional[str] = None
-    last_smart_audio_detect_event_id: Optional[str] = None
+    last_ring_event_id: str | None = None
+    last_smart_detect: datetime | None = None
+    last_smart_audio_detect: datetime | None = None
+    last_smart_detect_event_id: str | None = None
+    last_smart_audio_detect_event_id: str | None = None
     last_smart_detects: dict[SmartDetectObjectType, datetime] = {}
     last_smart_audio_detects: dict[SmartDetectAudioType, datetime] = {}
     last_smart_detect_event_ids: dict[SmartDetectObjectType, str] = {}
     last_smart_audio_detect_event_ids: dict[SmartDetectAudioType, str] = {}
-    talkback_stream: Optional[TalkbackStream] = None
-    _last_ring_timeout: Optional[datetime] = PrivateAttr(None)
+    talkback_stream: TalkbackStream | None = None
+    _last_ring_timeout: datetime | None = PrivateAttr(None)
 
     @classmethod
     @cache
@@ -1040,8 +1040,8 @@ class Camera(ProtectMotionDeviceModel):
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         if data is not None:
             if "motion_zones" in data:
@@ -1117,14 +1117,14 @@ class Camera(ProtectMotionDeviceModel):
         return super().update_from_dict(data)
 
     @property
-    def last_ring_event(self) -> Optional[Event]:
+    def last_ring_event(self) -> Event | None:
         if self.last_ring_event_id is None:
             return None
 
         return self.api.bootstrap.events.get(self.last_ring_event_id)
 
     @property
-    def last_smart_detect_event(self) -> Optional[Event]:
+    def last_smart_detect_event(self) -> Event | None:
         """Get the last smart detect event id."""
         if self.last_smart_detect_event_id is None:
             return None
@@ -1151,7 +1151,7 @@ class Camera(ProtectMotionDeviceModel):
     def get_last_smart_detect_event(
         self,
         smart_type: SmartDetectObjectType,
-    ) -> Optional[Event]:
+    ) -> Event | None:
         """Get the last smart detect event for given type."""
         event_id = self.last_smart_detect_event_ids.get(smart_type)
         if event_id is None:
@@ -1160,7 +1160,7 @@ class Camera(ProtectMotionDeviceModel):
         return self.api.bootstrap.events.get(event_id)
 
     @property
-    def last_smart_audio_detect_event(self) -> Optional[Event]:
+    def last_smart_audio_detect_event(self) -> Event | None:
         """Get the last smart audio detect event id."""
         if self.last_smart_audio_detect_event_id is None:
             return None
@@ -1170,7 +1170,7 @@ class Camera(ProtectMotionDeviceModel):
     def get_last_smart_audio_detect_event(
         self,
         smart_type: SmartDetectAudioType,
-    ) -> Optional[Event]:
+    ) -> Event | None:
         """Get the last smart audio detect event for given type."""
         event_id = self.last_smart_audio_detect_event_ids.get(smart_type)
         if event_id is None:
@@ -1362,12 +1362,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_smart_enabled(SmartDetectObjectType.PERSON)
 
     @property
-    def last_person_detect_event(self) -> Optional[Event]:
+    def last_person_detect_event(self) -> Event | None:
         """Get the last person smart detection event."""
         return self.get_last_smart_detect_event(SmartDetectObjectType.PERSON)
 
     @property
-    def last_person_detect(self) -> Optional[datetime]:
+    def last_person_detect(self) -> datetime | None:
         """Get the last person smart detection event."""
         return self.last_smart_detects.get(SmartDetectObjectType.PERSON)
 
@@ -1405,12 +1405,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_smart_enabled(SmartDetectObjectType.VEHICLE)
 
     @property
-    def last_vehicle_detect_event(self) -> Optional[Event]:
+    def last_vehicle_detect_event(self) -> Event | None:
         """Get the last vehicle smart detection event."""
         return self.get_last_smart_detect_event(SmartDetectObjectType.VEHICLE)
 
     @property
-    def last_vehicle_detect(self) -> Optional[datetime]:
+    def last_vehicle_detect(self) -> datetime | None:
         """Get the last vehicle smart detection event."""
         return self.last_smart_detects.get(SmartDetectObjectType.VEHICLE)
 
@@ -1444,12 +1444,12 @@ class Camera(ProtectMotionDeviceModel):
         )
 
     @property
-    def last_license_plate_detect_event(self) -> Optional[Event]:
+    def last_license_plate_detect_event(self) -> Event | None:
         """Get the last license plate smart detection event."""
         return self.get_last_smart_detect_event(SmartDetectObjectType.LICENSE_PLATE)
 
     @property
-    def last_license_plate_detect(self) -> Optional[datetime]:
+    def last_license_plate_detect(self) -> datetime | None:
         """Get the last license plate smart detection event."""
         return self.last_smart_detects.get(SmartDetectObjectType.LICENSE_PLATE)
 
@@ -1481,12 +1481,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_smart_enabled(SmartDetectObjectType.PACKAGE)
 
     @property
-    def last_package_detect_event(self) -> Optional[Event]:
+    def last_package_detect_event(self) -> Event | None:
         """Get the last package smart detection event."""
         return self.get_last_smart_detect_event(SmartDetectObjectType.PACKAGE)
 
     @property
-    def last_package_detect(self) -> Optional[datetime]:
+    def last_package_detect(self) -> datetime | None:
         """Get the last package smart detection event."""
         return self.last_smart_detects.get(SmartDetectObjectType.PACKAGE)
 
@@ -1515,12 +1515,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_smart_enabled(SmartDetectObjectType.ANIMAL)
 
     @property
-    def last_animal_detect_event(self) -> Optional[Event]:
+    def last_animal_detect_event(self) -> Event | None:
         """Get the last animal smart detection event."""
         return self.get_last_smart_detect_event(SmartDetectObjectType.ANIMAL)
 
     @property
-    def last_animal_detect(self) -> Optional[datetime]:
+    def last_animal_detect(self) -> datetime | None:
         """Get the last animal smart detection event."""
         return self.last_smart_detects.get(SmartDetectObjectType.ANIMAL)
 
@@ -1592,12 +1592,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.SMOKE)
 
     @property
-    def last_smoke_detect_event(self) -> Optional[Event]:
+    def last_smoke_detect_event(self) -> Event | None:
         """Get the last person smart detection event."""
         return self.get_last_smart_audio_detect_event(SmartDetectAudioType.SMOKE)
 
     @property
-    def last_smoke_detect(self) -> Optional[datetime]:
+    def last_smoke_detect(self) -> datetime | None:
         """Get the last smoke smart detection event."""
         return self.last_smart_audio_detects.get(SmartDetectAudioType.SMOKE)
 
@@ -1626,12 +1626,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.CMONX)
 
     @property
-    def last_cmonx_detect_event(self) -> Optional[Event]:
+    def last_cmonx_detect_event(self) -> Event | None:
         """Get the last CO alarm smart detection event."""
         return self.get_last_smart_audio_detect_event(SmartDetectAudioType.CMONX)
 
     @property
-    def last_cmonx_detect(self) -> Optional[datetime]:
+    def last_cmonx_detect(self) -> datetime | None:
         """Get the last CO alarm smart detection event."""
         return self.last_smart_audio_detects.get(SmartDetectAudioType.CMONX)
 
@@ -1660,12 +1660,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.SIREN)
 
     @property
-    def last_siren_detect_event(self) -> Optional[Event]:
+    def last_siren_detect_event(self) -> Event | None:
         """Get the last Siren smart detection event."""
         return self.get_last_smart_audio_detect_event(SmartDetectAudioType.SIREN)
 
     @property
-    def last_siren_detect(self) -> Optional[datetime]:
+    def last_siren_detect(self) -> datetime | None:
         """Get the last Siren smart detection event."""
         return self.last_smart_audio_detects.get(SmartDetectAudioType.SIREN)
 
@@ -1694,12 +1694,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.BABY_CRY)
 
     @property
-    def last_baby_cry_detect_event(self) -> Optional[Event]:
+    def last_baby_cry_detect_event(self) -> Event | None:
         """Get the last Baby Cry smart detection event."""
         return self.get_last_smart_audio_detect_event(SmartDetectAudioType.BABY_CRY)
 
     @property
-    def last_baby_cry_detect(self) -> Optional[datetime]:
+    def last_baby_cry_detect(self) -> datetime | None:
         """Get the last Baby Cry smart detection event."""
         return self.last_smart_audio_detects.get(SmartDetectAudioType.BABY_CRY)
 
@@ -1728,12 +1728,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.SPEAK)
 
     @property
-    def last_speaking_detect_event(self) -> Optional[Event]:
+    def last_speaking_detect_event(self) -> Event | None:
         """Get the last Speaking smart detection event."""
         return self.get_last_smart_audio_detect_event(SmartDetectAudioType.SPEAK)
 
     @property
-    def last_speaking_detect(self) -> Optional[datetime]:
+    def last_speaking_detect(self) -> datetime | None:
         """Get the last Speaking smart detection event."""
         return self.last_smart_audio_detects.get(SmartDetectAudioType.SPEAK)
 
@@ -1762,12 +1762,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.BARK)
 
     @property
-    def last_bark_detect_event(self) -> Optional[Event]:
+    def last_bark_detect_event(self) -> Event | None:
         """Get the last Bark smart detection event."""
         return self.get_last_smart_audio_detect_event(SmartDetectAudioType.BARK)
 
     @property
-    def last_bark_detect(self) -> Optional[datetime]:
+    def last_bark_detect(self) -> datetime | None:
         """Get the last Bark smart detection event."""
         return self.last_smart_audio_detects.get(SmartDetectAudioType.BARK)
 
@@ -1797,12 +1797,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.BURGLAR)
 
     @property
-    def last_car_alarm_detect_event(self) -> Optional[Event]:
+    def last_car_alarm_detect_event(self) -> Event | None:
         """Get the last Car Alarm smart detection event."""
         return self.get_last_smart_audio_detect_event(SmartDetectAudioType.BURGLAR)
 
     @property
-    def last_car_alarm_detect(self) -> Optional[datetime]:
+    def last_car_alarm_detect(self) -> datetime | None:
         """Get the last Car Alarm smart detection event."""
         return self.last_smart_audio_detects.get(SmartDetectAudioType.BURGLAR)
 
@@ -1831,12 +1831,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.CAR_HORN)
 
     @property
-    def last_car_horn_detect_event(self) -> Optional[Event]:
+    def last_car_horn_detect_event(self) -> Event | None:
         """Get the last Car Horn smart detection event."""
         return self.get_last_smart_audio_detect_event(SmartDetectAudioType.CAR_HORN)
 
     @property
-    def last_car_horn_detect(self) -> Optional[datetime]:
+    def last_car_horn_detect(self) -> datetime | None:
         """Get the last Car Horn smart detection event."""
         return self.last_smart_audio_detects.get(SmartDetectAudioType.CAR_HORN)
 
@@ -1865,12 +1865,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.GLASS_BREAK)
 
     @property
-    def last_glass_break_detect_event(self) -> Optional[Event]:
+    def last_glass_break_detect_event(self) -> Event | None:
         """Get the last Glass Break smart detection event."""
         return self.get_last_smart_audio_detect_event(SmartDetectAudioType.GLASS_BREAK)
 
     @property
-    def last_glass_break_detect(self) -> Optional[datetime]:
+    def last_glass_break_detect(self) -> datetime | None:
         """Get the last Glass Break smart detection event."""
         return self.last_smart_audio_detects.get(SmartDetectAudioType.GLASS_BREAK)
 
@@ -1905,25 +1905,25 @@ class Camera(ProtectMotionDeviceModel):
         return self.chime_type is ChimeType.DIGITAL
 
     @property
-    def high_camera_channel(self) -> Optional[CameraChannel]:
+    def high_camera_channel(self) -> CameraChannel | None:
         if len(self.channels) >= 3:
             return self.channels[0]
         return None
 
     @property
-    def medium_camera_channel(self) -> Optional[CameraChannel]:
+    def medium_camera_channel(self) -> CameraChannel | None:
         if len(self.channels) >= 3:
             return self.channels[1]
         return None
 
     @property
-    def low_camera_channel(self) -> Optional[CameraChannel]:
+    def low_camera_channel(self) -> CameraChannel | None:
         if len(self.channels) >= 3:
             return self.channels[2]
         return None
 
     @property
-    def default_camera_channel(self) -> Optional[CameraChannel]:
+    def default_camera_channel(self) -> CameraChannel | None:
         for channel in [
             self.high_camera_channel,
             self.medium_camera_channel,
@@ -1934,7 +1934,7 @@ class Camera(ProtectMotionDeviceModel):
         return self.high_camera_channel
 
     @property
-    def package_camera_channel(self) -> Optional[CameraChannel]:
+    def package_camera_channel(self) -> CameraChannel | None:
         if self.feature_flags.has_package_camera and len(self.channels) == 4:
             return self.channels[3]
         return None
@@ -1983,7 +1983,7 @@ class Camera(ProtectMotionDeviceModel):
         self._last_ring_timeout = utc_now() + EVENT_PING_INTERVAL
         self._event_callback_ping()
 
-    def get_privacy_zone(self) -> tuple[Optional[int], Optional[CameraZone]]:
+    def get_privacy_zone(self) -> tuple[int | None, CameraZone | None]:
         for index, zone in enumerate(self.privacy_zones):
             if zone.name == PRIVACY_ZONE_NAME:
                 return index, zone
@@ -2006,10 +2006,10 @@ class Camera(ProtectMotionDeviceModel):
 
     async def get_snapshot(
         self,
-        width: Optional[int] = None,
-        height: Optional[int] = None,
-        dt: Optional[datetime] = None,
-    ) -> Optional[bytes]:
+        width: int | None = None,
+        height: int | None = None,
+        dt: datetime | None = None,
+    ) -> bytes | None:
         """
         Gets snapshot for camera.
 
@@ -2031,10 +2031,10 @@ class Camera(ProtectMotionDeviceModel):
 
     async def get_package_snapshot(
         self,
-        width: Optional[int] = None,
-        height: Optional[int] = None,
-        dt: Optional[datetime] = None,
-    ) -> Optional[bytes]:
+        width: int | None = None,
+        height: int | None = None,
+        dt: datetime | None = None,
+    ) -> bytes | None:
         """
         Gets snapshot from the package camera.
 
@@ -2062,12 +2062,12 @@ class Camera(ProtectMotionDeviceModel):
         start: datetime,
         end: datetime,
         channel_index: int = 0,
-        output_file: Optional[Path] = None,
-        iterator_callback: Optional[IteratorCallback] = None,
-        progress_callback: Optional[ProgressCallback] = None,
+        output_file: Path | None = None,
+        iterator_callback: IteratorCallback | None = None,
+        progress_callback: ProgressCallback | None = None,
         chunk_size: int = 65536,
-        fps: Optional[int] = None,
-    ) -> Optional[bytes]:
+        fps: int | None = None,
+    ) -> bytes | None:
         """
         Exports MP4 video from a given camera at a specific time.
 
@@ -2407,9 +2407,9 @@ class Camera(ProtectMotionDeviceModel):
 
     async def set_lcd_text(
         self,
-        text_type: Optional[DoorbellMessageType],
-        text: Optional[str] = None,
-        reset_at: Union[None, datetime, DEFAULT_TYPE] = None,
+        text_type: DoorbellMessageType | None,
+        text: str | None = None,
+        reset_at: None | datetime | DEFAULT_TYPE = None,
     ) -> None:
         """Sets doorbell LCD text. Requires camera to be doorbell"""
         if not self.feature_flags.has_lcd_screen:
@@ -2450,8 +2450,8 @@ class Camera(ProtectMotionDeviceModel):
     async def set_privacy(
         self,
         enabled: bool,
-        mic_level: Optional[int] = None,
-        recording_mode: Optional[RecordingMode] = None,
+        mic_level: int | None = None,
+        recording_mode: RecordingMode | None = None,
         reenable_global: bool = False,
     ) -> None:
         """Adds/removes a privacy zone that blacks out the whole camera."""
@@ -2494,7 +2494,7 @@ class Camera(ProtectMotionDeviceModel):
     def create_talkback_stream(
         self,
         content_url: str,
-        ffmpeg_path: Optional[Path] = None,
+        ffmpeg_path: Path | None = None,
     ) -> TalkbackStream:
         """
         Creates a subprocess to play audio to a camera through its speaker.
@@ -2521,7 +2521,7 @@ class Camera(ProtectMotionDeviceModel):
     async def play_audio(
         self,
         content_url: str,
-        ffmpeg_path: Optional[Path] = None,
+        ffmpeg_path: Path | None = None,
         blocking: bool = True,
     ) -> None:
         """
@@ -2726,7 +2726,7 @@ class Viewer(ProtectAdoptableDeviceModel):
         return super()._get_read_only_fields() | {"softwareVersion"}
 
     @property
-    def liveview(self) -> Optional[Liveview]:
+    def liveview(self) -> Liveview | None:
         # user may not have permission to see the liveview
         return self.api.bootstrap.liveviews.get(self.liveview_id)
 
@@ -2764,8 +2764,8 @@ class SensorThresholdSettings(SensorSettingsBase):
     margin: float  # read only
     # "safe" thresholds for alerting
     # anything below/above will trigger alert
-    low_threshold: Optional[float]
-    high_threshold: Optional[float]
+    low_threshold: float | None
+    high_threshold: float | None
 
 
 class SensorSensitivitySettings(SensorSettingsBase):
@@ -2773,12 +2773,12 @@ class SensorSensitivitySettings(SensorSettingsBase):
 
 
 class SensorBatteryStatus(ProtectBaseObject):
-    percentage: Optional[PercentInt]
+    percentage: PercentInt | None
     is_low: bool
 
 
 class SensorStat(ProtectBaseObject):
-    value: Optional[float]
+    value: float | None
     status: SensorStatusType
 
 
@@ -2790,31 +2790,31 @@ class SensorStats(ProtectBaseObject):
 
 class Sensor(ProtectAdoptableDeviceModel):
     alarm_settings: SensorSettingsBase
-    alarm_triggered_at: Optional[datetime]
+    alarm_triggered_at: datetime | None
     battery_status: SensorBatteryStatus
-    camera_id: Optional[str]
+    camera_id: str | None
     humidity_settings: SensorThresholdSettings
     is_motion_detected: bool
     is_opened: bool
-    leak_detected_at: Optional[datetime]
+    leak_detected_at: datetime | None
     led_settings: SensorSettingsBase
     light_settings: SensorThresholdSettings
-    motion_detected_at: Optional[datetime]
+    motion_detected_at: datetime | None
     motion_settings: SensorSensitivitySettings
-    open_status_changed_at: Optional[datetime]
+    open_status_changed_at: datetime | None
     stats: SensorStats
-    tampering_detected_at: Optional[datetime]
+    tampering_detected_at: datetime | None
     temperature_settings: SensorThresholdSettings
     mount_type: MountType
 
     # not directly from UniFi
-    last_motion_event_id: Optional[str] = None
-    last_contact_event_id: Optional[str] = None
-    last_value_event_id: Optional[str] = None
-    last_alarm_event_id: Optional[str] = None
-    extreme_value_detected_at: Optional[datetime] = None
-    _tamper_timeout: Optional[datetime] = PrivateAttr(None)
-    _alarm_timeout: Optional[datetime] = PrivateAttr(None)
+    last_motion_event_id: str | None = None
+    last_contact_event_id: str | None = None
+    last_value_event_id: str | None = None
+    last_alarm_event_id: str | None = None
+    extreme_value_detected_at: datetime | None = None
+    _tamper_timeout: datetime | None = PrivateAttr(None)
+    _alarm_timeout: datetime | None = PrivateAttr(None)
 
     @classmethod
     @cache
@@ -2838,8 +2838,8 @@ class Sensor(ProtectAdoptableDeviceModel):
 
     def unifi_dict(
         self,
-        data: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
@@ -2857,7 +2857,7 @@ class Sensor(ProtectAdoptableDeviceModel):
         return data
 
     @property
-    def camera(self) -> Optional[Camera]:
+    def camera(self) -> Camera | None:
         """Paired Camera will always be none if no camera is paired"""
         if self.camera_id is None:
             return None
@@ -2909,28 +2909,28 @@ class Sensor(ProtectAdoptableDeviceModel):
         self._event_callback_ping()
 
     @property
-    def last_motion_event(self) -> Optional[Event]:
+    def last_motion_event(self) -> Event | None:
         if self.last_motion_event_id is None:
             return None
 
         return self.api.bootstrap.events.get(self.last_motion_event_id)
 
     @property
-    def last_contact_event(self) -> Optional[Event]:
+    def last_contact_event(self) -> Event | None:
         if self.last_contact_event_id is None:
             return None
 
         return self.api.bootstrap.events.get(self.last_contact_event_id)
 
     @property
-    def last_value_event(self) -> Optional[Event]:
+    def last_value_event(self) -> Event | None:
         if self.last_value_event_id is None:
             return None
 
         return self.api.bootstrap.events.get(self.last_value_event_id)
 
     @property
-    def last_alarm_event(self) -> Optional[Event]:
+    def last_alarm_event(self) -> Event | None:
         if self.last_alarm_event_id is None:
             return None
 
@@ -3076,7 +3076,7 @@ class Sensor(ProtectAdoptableDeviceModel):
 
         await self.queue_update(callback)
 
-    async def set_paired_camera(self, camera: Optional[Camera]) -> None:
+    async def set_paired_camera(self, camera: Camera | None) -> None:
         """Sets the camera paired with the sensor"""
 
         def callback() -> None:
@@ -3101,13 +3101,13 @@ class Sensor(ProtectAdoptableDeviceModel):
 
 
 class Doorlock(ProtectAdoptableDeviceModel):
-    credentials: Optional[str]
+    credentials: str | None
     lock_status: LockStatusType
     enable_homekit: bool
     auto_close_time: timedelta
     led_settings: SensorSettingsBase
     battery_status: SensorBatteryStatus
-    camera_id: Optional[str]
+    camera_id: str | None
     has_homekit: bool
     private_token: str
 
@@ -3140,14 +3140,14 @@ class Doorlock(ProtectAdoptableDeviceModel):
         return super().unifi_dict_to_dict(data)
 
     @property
-    def camera(self) -> Optional[Camera]:
+    def camera(self) -> Camera | None:
         """Paired Camera will always be none if no camera is paired"""
         if self.camera_id is None:
             return None
 
         return self.api.bootstrap.cameras[self.camera_id]
 
-    async def set_paired_camera(self, camera: Optional[Camera]) -> None:
+    async def set_paired_camera(self, camera: Camera | None) -> None:
         """Sets the camera paired with the sensor"""
 
         def callback() -> None:
@@ -3202,7 +3202,7 @@ class Doorlock(ProtectAdoptableDeviceModel):
 class ChimeFeatureFlags(ProtectBaseObject):
     has_wifi: bool
     # 2.9.20+
-    has_https_client_ota: Optional[bool] = None
+    has_https_client_ota: bool | None = None
 
     @classmethod
     @cache
@@ -3222,7 +3222,7 @@ class RingSetting(ProtectBaseObject):
         return {**super()._get_unifi_remaps(), "camera": "cameraId"}
 
     @property
-    def camera(self) -> Optional[Camera]:
+    def camera(self) -> Camera | None:
         """Paired Camera will always be none if no camera is paired"""
         if self.camera_id is None:
             return None  # type: ignore[unreachable]
@@ -3247,20 +3247,20 @@ class ChimeTrack(ProtectBaseObject):
 class Chime(ProtectAdoptableDeviceModel):
     volume: PercentInt
     is_probing_for_wifi: bool
-    last_ring: Optional[datetime]
+    last_ring: datetime | None
     is_wireless_uplink_enabled: bool
     camera_ids: list[str]
     # requires 2.6.17+
-    ap_mgmt_ip: Optional[IPv4Address] = None
+    ap_mgmt_ip: IPv4Address | None = None
     # requires 2.7.15+
-    feature_flags: Optional[ChimeFeatureFlags] = None
+    feature_flags: ChimeFeatureFlags | None = None
     # requires 2.8.22+
-    user_configured_ap: Optional[bool] = None
+    user_configured_ap: bool | None = None
     # requires 3.0.22+
-    has_https_client_ota: Optional[bool] = None
-    platform: Optional[str] = None
-    repeat_times: Optional[RepeatTimes] = None
-    track_no: Optional[int] = None
+    has_https_client_ota: bool | None = None
+    platform: str | None = None
+    repeat_times: RepeatTimes | None = None
+    track_no: int | None = None
     ring_settings: list[RingSetting] = []
     speaker_track_list: list[ChimeTrack] = []
 
