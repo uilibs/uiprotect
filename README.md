@@ -212,3 +212,4 @@ Anything that is strictly a UniFi OS feature. If it is ever done, it will be in 
 Some features that require an Ubiquiti Account or "Remote Access" to be enabled are currently not implemented. Examples include:
 
 - Stream sharing
+- Face detection
