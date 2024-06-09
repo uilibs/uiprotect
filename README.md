@@ -40,6 +40,10 @@
 
 Python API for Unifi Protect (Unofficial)
 
+## Looking for maintainers
+
+This project is looking for maintainers.
+
 ## Installation
 
 Install this via pip (or your favorite package manager):
