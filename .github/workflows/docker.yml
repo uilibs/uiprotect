@@ -37,16 +37,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install poetry
+        run: pipx install poetry
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "${{ env.DEFAULT_PYTHON }}"
+          cache: "poetry"
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt -r dev-requirements.txt
-          pip install -e ".[dev]"
+          poetry install
 
       - name: Get current version (rebuild)
         if: ${{ inputs.rebuild == 'yes' }}
