@@ -18,6 +18,11 @@ from uiprotect.data.nvr import NVRSmartDetection
 from uiprotect.exceptions import BadRequest
 from uiprotect.utils import to_ms
 
+try:
+    from pydantic.v1 import ValidationError
+except ImportError:
+    from pydantic import ValidationError
+
 
 @pytest.mark.parametrize("status", [True, False])
 @pytest.mark.asyncio()

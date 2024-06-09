@@ -11,9 +11,6 @@ from ipaddress import IPv4Address
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 from uuid import UUID
 
-from pydantic.v1 import BaseModel
-from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
-
 from uiprotect.data.types import (
     ModelType,
     PercentFloat,
@@ -37,16 +34,34 @@ from uiprotect.utils import (
     to_snake_case,
 )
 
+try:
+    from pydantic.v1 import BaseModel
+    from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
+except ImportError:
+    from pydantic import BaseModel  # type: ignore[assignment, no-redef]
+    from pydantic.fields import (  # type: ignore[attr-defined, assignment, no-redef]
+        SHAPE_DICT,
+        SHAPE_LIST,
+        PrivateAttr,
+    )
+
 if TYPE_CHECKING:
     from asyncio.events import TimerHandle
 
-    from pydantic.v1.typing import DictStrAny, SetStr
     from typing_extensions import Self  # requires Python 3.11+
 
     from uiprotect.api import ProtectApiClient
     from uiprotect.data.devices import Bridge
     from uiprotect.data.nvr import Event
     from uiprotect.data.user import User
+
+    try:
+        from pydantic.v1.typing import DictStrAny, SetStr
+    except ImportError:
+        from pydantic.typing import (  # type: ignore[assignment, no-redef]
+            DictStrAny,
+            SetStr,
+        )
 
 
 ProtectObject = TypeVar("ProtectObject", bound="ProtectBaseObject")
