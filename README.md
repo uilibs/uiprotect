@@ -38,7 +38,7 @@
 
 ---
 
-Python API for Unifi Protect (Unofficial)
+Python API for UniFi Protect (Unofficial)
 
 ## Looking for maintainers
 
@@ -86,7 +86,7 @@ Smart Detections (person, vehicle, animal, face), a feature that previously coul
 
 Enabling Remote Access may grant other users access to your console [due to the fact Ubiquiti can reconfigure access controls at any time](https://community.ui.com/questions/Bug-Fix-Cloud-Access-Misconfiguration/fe8d4479-e187-4471-bf95-b2799183ceb7).
 
-If you are not okay with the feature being locked behind Remote Access access, [let Ubiquiti know](https://community.ui.com/questions/Cannot-enable-Smart-Detections/e3d50641-5c00-4607-9723-453cda557e35).
+If you are not okay with the feature being locked behind Remote Access, [let Ubiquiti know](https://community.ui.com/questions/Cannot-enable-Smart-Detections/e3d50641-5c00-4607-9723-453cda557e35).
 
 ## Documentation
 
@@ -100,7 +100,7 @@ If you want to install `uiprotect` natively, the below are the requirements:
   - Latest version of library is generally only tested against the two latest minor version. This is either two latest stable versions (such as 1.21.x and 2.0.x) or the latest EA version and stable version (such as 2.2.x EA and 2.1.x).
 - [Python](https://www.python.org/) 3.10+
 - POSIX compatible system
-  - Library is only tested on Linux, specifically the latest Debian version available for the official Python Docker images, but there is no reason the library should not work on any Linux distro or MacOS.
+  - Library is only tested on Linux, specifically the latest Debian version available for the official Python Docker images, but there is no reason the library should not work on any Linux distro or macOS.
 - [ffmpeg](https://ffmpeg.org/)
   - ffmpeg is primarily only for streaming audio to Protect cameras, this can be considered a soft requirement
 
@@ -118,7 +118,7 @@ Windows is **not supported**. If you need to use `uiprotect` on Windows, use Doc
 pip install uiprotect
 ```
 
-### From Github
+### From GitHub
 
 ```bash
 pip install git+https://github.com/uilibs/uiprotect.git#egg=uiprotect
@@ -126,7 +126,7 @@ pip install git+https://github.com/uilibs/uiprotect.git#egg=uiprotect
 
 ### Using Docker Container
 
-A Docker container is also provided so you do not need to install/manage Python as well. You can add the following to your `.bashrc` or similar.
+A Docker container is also provided, so you do not need to install/manage Python as well. You can add the following to your `.bashrc` or similar.
 
 ```bash
 function uiprotect() {
@@ -141,11 +141,11 @@ function uiprotect() {
 }
 ```
 
-Some notes about the Docker version since it is running inside of a container:
+Some notes about the Docker version since it is running inside a container:
 
 - You can update at any time using the command `docker pull ghcr.io/uilibs/uiprotect:latest`
 - Your local current working directory (`$PWD`) will automatically be mounted to `/data` inside of the container. For commands that output files, this is the _only_ path you can write to and have the file persist.
-- The container supports `linux/amd64` and `linux/arm64` natively. This means it will also work well on MacOS or Windows using Docker Desktop.
+- The container supports `linux/amd64` and `linux/arm64` natively. This means it will also work well on macOS or Windows using Docker Desktop.
 - `TZ` should be the [Olson timezone name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for the timezone your UniFi Protect instance is in.
 - For more details on `TZ` and other environment variables, check the [command line docs](https://uilibs.github.io/uiprotect/latest/cli/)
 
@@ -153,8 +153,8 @@ Some notes about the Docker version since it is running inside of a container:
 
 ### CLI
 
-!!! warning "About Ubiquiti SSO accounts"
-Ubiquiti SSO accounts are not supported and actively discouraged from being used. There is no option to use MFA. You are expected to use local access user. `uiprotect` is not designed to allow you to use your owner account to access the console or to be used over the public Internet as both pose a security risk.
+> [!WARNING]
+> Ubiquiti SSO accounts are not supported and actively discouraged from being used. There is no option to use MFA. You are expected to use local access user. `uiprotect` is not designed to allow you to use your owner account to access the console or to be used over the public internet as both pose a security risk.
 
 ```bash
 export UFP_USERNAME=YOUR_USERNAME_HERE
@@ -202,12 +202,14 @@ Generally any feature missing from the library is planned to be done eventually 
 
 ### UniFi OS Features
 
-Anything that is strictly a UniFi OS feature. If it ever done, it will be in a separate library that interacts with this one. Examples include:
+Anything that is strictly a UniFi OS feature. If it is ever done, it will be in a separate library that interacts with this one. Examples include:
 
 - Managing RAID and disks
 - Creating and managing users
 
-Examples include:
+### Remote Access / Ubiquiti Cloud Features
+
+Some features that require an Ubiquiti Account or "Remote Access" to be enabled are currently not implemented. Examples include:
 
 - Stream sharing
-- Smart Detections, including person, vehicle, animals license plate and faces
+- Face detection
