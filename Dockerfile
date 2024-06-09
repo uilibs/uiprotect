@@ -20,12 +20,6 @@ RUN --mount=type=cache,mode=0755,id=apt-$TARGETPLATFORM,target=/var/lib/apt/list
     apt-get update -qq \
     && apt-get install -yqq build-essential git
 
-COPY requirements.txt /
-RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
-    pip install --root-user-action=ignore -U pip uv \
-    && uv pip install -r /requirements.txt \
-    && rm /requirements.txt
-
 
 FROM base as prod
 
@@ -49,11 +43,11 @@ ENTRYPOINT ["/usr/local/bin/entrypoint"]
 
 FROM builder as builder-dev
 
-COPY dev-requirements.txt /
 RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
-    uv pip install -r /dev-requirements.txt \
-    && rm /dev-requirements.txt
+    uv pip install poetry
 
+RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
+    uv pip install poetry install
 
 FROM base as dev
 
