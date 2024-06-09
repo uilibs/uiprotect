@@ -95,14 +95,14 @@ def get_now():
 
 def validate_video_file(filepath: Path, length: int):
     output = run(
-        split(CHECK_CMD.format(filename=filepath)),
+        split(CHECK_CMD.format(filename=filepath)),  # noqa: S603
         check=True,
         capture_output=True,
     )
     assert output.stdout.decode("utf8").strip() == "video"
 
     output = run(
-        split(LENGTH_CMD.format(filename=filepath)),
+        split(LENGTH_CMD.format(filename=filepath)),  # noqa: S603
         check=True,
         capture_output=True,
     )
