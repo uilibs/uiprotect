@@ -52,7 +52,7 @@ Install this via pip (or your favorite package manager):
 
 ## History
 
-This project was split off from the pyunifiprotect because that project changed the license to one which would not be accepted in Home Assistant. This project is committed to keeping the MIT license.
+This project was split off from `pyunifiprotect` because that project changed its license to one that would not be accepted in Home Assistant. This project is committed to keeping the MIT license.
 
 ## Credits
 
