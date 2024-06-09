@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.3.6 (2024-06-09)
+
+### Fix
+
+
+- Switch readthedocs to mkdocs ([`6009f9d`](https://github.com/uilibs/uiprotect/commit/6009f9dbb5beed141a8af866eb6e1dfd081af067))
+
+
+- More docs fixes ([`52261ef`](https://github.com/uilibs/uiprotect/commit/52261eff11919768d75e73f9f3a85243c7eff90a))
+
+
 ## v0.3.5 (2024-06-09)
 
 ### Fix
