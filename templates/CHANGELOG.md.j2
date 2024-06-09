@@ -9,7 +9,7 @@
 ### {{ category | capitalize }}
 {# List actual changes in the category #}
 {%- for commit in commits %}
-{% if commit is not none && commit.descriptions is not none %}
+{% if commit is not none and commit.descriptions is not none %}
 - {{ commit.descriptions[0] | capitalize }} ([`{{ commit.short_hash }}`]({{ commit.hexsha | commit_hash_url }}))
 {% endif %}
 {%- endfor %}{# for commit #}
