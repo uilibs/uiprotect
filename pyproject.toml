@@ -8,11 +8,15 @@ readme = "README.md"
 repository = "https://github.com/uilibs/uiprotect"
 documentation = "https://uiprotect.readthedocs.io"
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Build Tools",
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12"
 ]
 packages = [
     { include = "uiprotect", from = "src" },
