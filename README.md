@@ -129,7 +129,7 @@ pip install git+https://github.com/uilibs/uiprotect.git#egg=uiprotect
 A Docker container is also provided so you do not need to install/manage Python as well. You can add the following to your `.bashrc` or similar.
 
 ```bash
-function unifi-protect() {
+function uiprotect() {
     docker run --rm -it \
       -e UFP_USERNAME=YOUR_USERNAME_HERE \
       -e UFP_PASSWORD=YOUR_PASSWORD_HERE \
@@ -164,8 +164,8 @@ export UFP_PORT=443
 # change to false if you do not have a valid HTTPS Certificate for your instance
 export UFP_SSL_VERIFY=True
 
-unifi-protect --help
-unifi-protect nvr
+uiprotect --help
+uiprotect nvr
 ```
 
 ### Python

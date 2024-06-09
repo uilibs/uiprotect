@@ -28,7 +28,7 @@
         {
             "label": "Generate Sample Data",
             "type": "shell",
-            "command": "unifi-protect generate-sample-data -w ${input:sampleTime} ${input:sampleAnonymize}",
+            "command": "uiprotect generate-sample-data -w ${input:sampleTime} ${input:sampleAnonymize}",
             "problemMatcher": [],
             "options": {
                 "env": {
@@ -39,7 +39,7 @@
         {
             "label": "Regenerate Release Cache",
             "type": "shell",
-            "command": "unifi-protect release-versions",
+            "command": "uiprotect release-versions",
             "problemMatcher": [],
         },
     ],
