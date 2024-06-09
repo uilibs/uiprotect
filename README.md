@@ -100,7 +100,7 @@ If you want to install `uiprotect` natively, the below are the requirements:
   - Latest version of library is generally only tested against the two latest minor version. This is either two latest stable versions (such as 1.21.x and 2.0.x) or the latest EA version and stable version (such as 2.2.x EA and 2.1.x).
 - [Python](https://www.python.org/) 3.10+
 - POSIX compatible system
-  - Library is only test on Linux, specifically the latest Debian version available for the official Python Docker images, but there is no reason the library should not work on any Linux distro or MacOS.
+  - Library is only tested on Linux, specifically the latest Debian version available for the official Python Docker images, but there is no reason the library should not work on any Linux distro or MacOS.
 - [ffmpeg](https://ffmpeg.org/)
   - ffmpeg is primarily only for streaming audio to Protect cameras, this can be considered a soft requirement
 
@@ -154,14 +154,14 @@ Some notes about the Docker version since it is running inside of a container:
 ### CLI
 
 !!! warning "About Ubiquiti SSO accounts"
-Ubiquiti SSO accounts are not supported and actively discouraged from being used. There is no option to use MFA. You are expected to use local access user. `uiprotect` is not designed to allow you to use your owner account to access the your console or to be used over the public Internet as both pose a security risk.
+Ubiquiti SSO accounts are not supported and actively discouraged from being used. There is no option to use MFA. You are expected to use local access user. `uiprotect` is not designed to allow you to use your owner account to access the console or to be used over the public Internet as both pose a security risk.
 
 ```bash
 export UFP_USERNAME=YOUR_USERNAME_HERE
 export UFP_PASSWORD=YOUR_PASSWORD_HERE
 export UFP_ADDRESS=YOUR_IP_ADDRESS
 export UFP_PORT=443
-# change to false if you do not have a valid HTTPS Certificate for your instance
+# change to false if you do not have a valid HTTPS certificate for your instance
 export UFP_SSL_VERIFY=True
 
 uiprotect --help
