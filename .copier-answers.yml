@@ -1,0 +1,21 @@
+# Changes here will be overwritten by Copier
+_commit: 368c483
+_src_path: gh:browniebroke/pypackage-template
+add_me_as_contributor: false
+cli_name: uiprotect
+copyright_year: '2024'
+documentation: true
+email: ui@koston.org
+full_name: UI Protect Maintainers
+github_username: uilibs
+has_cli: true
+initial_commit: true
+open_source_license: MIT
+package_name: uiprotect
+project_name: uiprotect
+project_short_description: Python API for Unifi Protect (Unofficial)
+project_slug: uiprotect
+run_poetry_install: true
+setup_github: true
+setup_pre_commit: true
+
