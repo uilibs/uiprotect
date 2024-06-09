@@ -1,0 +1,32 @@
+{
+    "mac": "A28D0DB15AE1",
+    "host": "192.168.231.68",
+    "connectionHost": "192.168.102.63",
+    "type": "UFP-UAP-B",
+    "name": "Vdr Fzr",
+    "upSince": 1639807977891,
+    "uptime": 3247782,
+    "lastSeen": 1643055759891,
+    "connectedSince": 1642374159304,
+    "state": "CONNECTED",
+    "hardwareRevision": 19,
+    "firmwareVersion": "0.3.1",
+    "latestFirmwareVersion": null,
+    "firmwareBuild": null,
+    "isUpdating": false,
+    "isAdopting": false,
+    "isAdopted": true,
+    "isAdoptedByOther": false,
+    "isProvisioned": false,
+    "isRebooting": false,
+    "isSshEnabled": false,
+    "canAdopt": false,
+    "isAttemptingToConnect": false,
+    "wiredConnectionState": {
+        "phyRate": null
+    },
+    "id": "1f5a055254fb9169d7536fb9",
+    "isConnected": true,
+    "platform": "mt7621",
+    "modelKey": "bridge"
+}

@@ -1,0 +1,160 @@
+# mypy: disable-error-code="attr-defined, dict-item, assignment, union-attr"
+
+from __future__ import annotations
+
+from datetime import timedelta
+from typing import TYPE_CHECKING
+
+import pytest
+
+from tests.conftest import TEST_CAMERA_EXISTS, TEST_DOORLOCK_EXISTS
+from uiprotect.data.types import LockStatusType
+from uiprotect.exceptions import BadRequest
+from uiprotect.utils import to_ms
+
+if TYPE_CHECKING:
+    from uiprotect.data import Camera, Doorlock, Light
+
+
+@pytest.mark.skipif(not TEST_DOORLOCK_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_doorlock_set_paired_camera_none(doorlock_obj: Doorlock):
+    doorlock_obj.api.api_request.reset_mock()
+
+    doorlock_obj.camera_id = "bad_id"
+
+    await doorlock_obj.set_paired_camera(None)
+
+    doorlock_obj.api.api_request.assert_called_with(
+        f"doorlocks/{doorlock_obj.id}",
+        method="patch",
+        json={"camera": None},
+    )
+
+
+@pytest.mark.skipif(
+    not TEST_DOORLOCK_EXISTS or not TEST_CAMERA_EXISTS,
+    reason="Missing testdata",
+)
+@pytest.mark.asyncio()
+async def test_doorlock_set_paired_camera(doorlock_obj: Light, camera_obj: Camera):
+    doorlock_obj.api.api_request.reset_mock()
+
+    doorlock_obj.camera_id = None
+
+    await doorlock_obj.set_paired_camera(camera_obj)
+
+    doorlock_obj.api.api_request.assert_called_with(
+        f"doorlocks/{doorlock_obj.id}",
+        method="patch",
+        json={"camera": camera_obj.id},
+    )
+
+
+@pytest.mark.skipif(not TEST_DOORLOCK_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("status", [True, False])
+@pytest.mark.asyncio()
+async def test_doorlock_set_status_light(doorlock_obj: Doorlock, status: bool):
+    doorlock_obj.api.api_request.reset_mock()
+
+    doorlock_obj.led_settings.is_enabled = not status
+
+    await doorlock_obj.set_status_light(status)
+
+    doorlock_obj.api.api_request.assert_called_with(
+        f"doorlocks/{doorlock_obj.id}",
+        method="patch",
+        json={"ledSettings": {"isEnabled": status}},
+    )
+
+
+@pytest.mark.skipif(not TEST_DOORLOCK_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    "duration",
+    [
+        timedelta(seconds=0),
+        timedelta(seconds=15),
+        timedelta(seconds=3600),
+        timedelta(seconds=3601),
+    ],
+)
+@pytest.mark.asyncio()
+async def test_doorlock_set_auto_close_time(
+    doorlock_obj: Doorlock,
+    duration: timedelta,
+):
+    doorlock_obj.api.api_request.reset_mock()
+
+    doorlock_obj.auto_close_time = timedelta(seconds=30)
+
+    duration_invalid = duration is not None and int(duration.total_seconds()) == 3601
+    if duration_invalid:
+        with pytest.raises(BadRequest):
+            await doorlock_obj.set_auto_close_time(duration)
+        assert not doorlock_obj.api.api_request.called
+    else:
+        await doorlock_obj.set_auto_close_time(duration)
+
+        expected = {"autoCloseTimeMs": to_ms(duration)}
+
+        doorlock_obj.api.api_request.assert_called_with(
+            f"doorlocks/{doorlock_obj.id}",
+            method="patch",
+            json=expected,
+        )
+
+
+@pytest.mark.skipif(not TEST_DOORLOCK_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_doorlock_close(doorlock_obj: Doorlock):
+    doorlock_obj.api.api_request.reset_mock()
+
+    doorlock_obj.lock_status = LockStatusType.OPEN
+
+    await doorlock_obj.close_lock()
+
+    doorlock_obj.api.api_request.assert_called_with(
+        f"doorlocks/{doorlock_obj.id}/close",
+        method="post",
+    )
+
+
+@pytest.mark.skipif(not TEST_DOORLOCK_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_doorlock_close_invalid(doorlock_obj: Doorlock):
+    doorlock_obj.api.api_request.reset_mock()
+
+    doorlock_obj.lock_status = LockStatusType.CLOSED
+
+    with pytest.raises(BadRequest):
+        await doorlock_obj.close_lock()
+
+    assert not doorlock_obj.api.api_request.called
+
+
+@pytest.mark.skipif(not TEST_DOORLOCK_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_doorlock_open(doorlock_obj: Doorlock):
+    doorlock_obj.api.api_request.reset_mock()
+
+    doorlock_obj.lock_status = LockStatusType.CLOSED
+
+    await doorlock_obj.open_lock()
+
+    doorlock_obj.api.api_request.assert_called_with(
+        f"doorlocks/{doorlock_obj.id}/open",
+        method="post",
+    )
+
+
+@pytest.mark.skipif(not TEST_DOORLOCK_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_doorlock_open_invalid(doorlock_obj: Doorlock):
+    doorlock_obj.api.api_request.reset_mock()
+
+    doorlock_obj.lock_status = LockStatusType.OPEN
+
+    with pytest.raises(BadRequest):
+        await doorlock_obj.open_lock()
+
+    assert not doorlock_obj.api.api_request.called

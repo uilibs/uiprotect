@@ -1,0 +1,93 @@
+{
+    "mac": "4191A8E35F39",
+    "host": null,
+    "connectionHost": "192.168.102.63",
+    "type": "UFP-SENSE",
+    "name": "Vyiu Ccxeqw",
+    "upSince": 1642991171327,
+    "uptime": null,
+    "lastSeen": 1643054753862,
+    "connectedSince": 1643054778327,
+    "state": "CONNECTED",
+    "hardwareRevision": 6,
+    "firmwareVersion": "1.0.2",
+    "latestFirmwareVersion": "1.0.2",
+    "firmwareBuild": null,
+    "isUpdating": false,
+    "isAdopting": false,
+    "isAdopted": true,
+    "isAdoptedByOther": false,
+    "isProvisioned": false,
+    "isRebooting": false,
+    "isSshEnabled": false,
+    "canAdopt": false,
+    "isAttemptingToConnect": false,
+    "isMotionDetected": false,
+    "mountType": "door",
+    "leakDetectedAt": null,
+    "tamperingDetectedAt": null,
+    "isOpened": true,
+    "openStatusChangedAt": 1643055798932,
+    "alarmTriggeredAt": null,
+    "motionDetectedAt": 1643055801008,
+    "wiredConnectionState": {
+        "phyRate": null
+    },
+    "stats": {
+        "light": {
+            "value": 20,
+            "status": "neutral"
+        },
+        "humidity": {
+            "value": 29,
+            "status": "neutral"
+        },
+        "temperature": {
+            "value": 16.95,
+            "status": "neutral"
+        }
+    },
+    "bluetoothConnectionState": {
+        "signalQuality": 45,
+        "signalStrength": -72
+    },
+    "batteryStatus": {
+        "percentage": 80,
+        "isLow": false
+    },
+    "alarmSettings": {
+        "isEnabled": false
+    },
+    "lightSettings": {
+        "isEnabled": true,
+        "lowThreshold": null,
+        "highThreshold": null,
+        "margin": 10
+    },
+    "motionSettings": {
+        "isEnabled": true,
+        "sensitivity": 100
+    },
+    "temperatureSettings": {
+        "isEnabled": true,
+        "lowThreshold": null,
+        "highThreshold": null,
+        "margin": 0.1
+    },
+    "humiditySettings": {
+        "isEnabled": true,
+        "lowThreshold": null,
+        "highThreshold": null,
+        "margin": 1
+    },
+    "ledSettings": {
+        "isEnabled": true
+    },
+    "bridge": "61b3f5c90054a703e700042b",
+    "camera": null,
+    "bridgeCandidates": [],
+    "id": "02ee9b99f17d69346e0c8c00",
+    "isConnected": true,
+    "marketName": "UP Sense",
+    "modelKey": "sensor"
+}

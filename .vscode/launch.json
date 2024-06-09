@@ -1,0 +1,44 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Subcommand: shell",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uiprotect",
+            "args": [
+                "-u",
+                "shell",
+            ]
+        },
+        {
+            "name": "Run Subcommand: generate-sample-data",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uiprotect",
+            "args": [
+                "generate-sample-data",
+                "-w",
+                "30",
+                "--actual",
+            ],
+            "env": {
+                "UFP_SAMPLE_DIR": "${workspaceFolder}/test-data"
+            }
+        },
+        {
+            "name": "Python: Debug Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "purpose": [
+                "debug-test"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTEST_ADDOPTS": "-n=0 --no-cov -vv"
+            }
+        }
+    ]
+}

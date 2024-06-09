@@ -1,0 +1,23 @@
+{
+    "name": "Txvocs Vwn",
+    "isDefault": false,
+    "isGlobal": true,
+    "layout": 1,
+    "slots": [
+        {
+            "cameras": [
+                "1c9a2db4df6efda47a3509be",
+                "e2ff0ade6be0f2a2beb61869",
+                "c462c07dbd63ad805a7318c7",
+                "4a333d993fe8e2e8472bc901",
+                "ab3e27f2d55fad817dac7bb9",
+                "f0cd15b8bed9e38899286a8c"
+            ],
+            "cycleMode": "motion",
+            "cycleInterval": 10
+        }
+    ],
+    "owner": "4c5f03a8c8bd48ad8e066285",
+    "id": "d65bb41c14d6aa92bfa4a6d1",
+    "modelKey": "liveview"
+}

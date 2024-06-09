@@ -1,5 +1,24 @@
-"""Make the CLI runnable using python -m uiprotect."""
+from __future__ import annotations
 
-from .cli import app
+import os
 
-app(prog_name="uiprotect")
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None  # type: ignore[assignment]
+
+from uiprotect.cli import app
+
+
+def start() -> None:
+    if load_dotenv is not None:
+        env_file = os.path.join(os.getcwd(), ".env")
+        if os.path.exists(env_file):
+            load_dotenv(dotenv_path=env_file)
+        else:
+            load_dotenv()
+    app()
+
+
+if __name__ == "__main__":
+    start()

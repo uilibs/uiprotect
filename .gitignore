@@ -1,5 +1,18 @@
 # Created by .ignore support plugin (hsz.mobi)
 ### Python template
+# settings.json is user-specific overrides for devcontainer.json
+.vscode/settings.json
+test-data
+ufp-data
+*.mp3
+*.mp4
+*.js
+*.json
+*.csv
+backup
+.benchmarks
+.ruff_cache
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -22,6 +35,7 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
 share/python-wheels/
 *.egg-info/
 .installed.cfg
@@ -88,6 +102,7 @@ ipython_config.py
 #   For a library or package, you might want to ignore these files since the code is
 #   intended to run in multiple environments; otherwise, check them in:
 # .python-version
+.python-version
 
 # pipenv
 #   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
@@ -120,6 +135,11 @@ venv.bak/
 .spyproject
 
 # Rope {{package_name}} settings
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
 .ropeproject
 
 # mkdocs documentation
@@ -138,3 +158,29 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+.DS_Store
+test.py
+camerasnapshot.py
+dumpeventdata.py
+eventdata.json
+dumpeventdata.py
+heatmap_snapshot.py
+smartdetect.json
+dumpcameradata.py
+cameras.json
+setstatuslight.py
+# websocket.py
+test_function.py
+test_event.py
+events.json
+event_obj.json
+src/uiprotect/unifi_protect_server_ws.py
+websocket_test.py
+test_ws.py
+camera_cloudkey.json
+camera_cloudkey_privacy.json
+cameras_upsense.json
+event.json
+test_websocket.py
+test_raw.py
+rawdata.json

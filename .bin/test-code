@@ -1,0 +1,24 @@
+#!/bin/bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+BASE_DIR=$( realpath $( dirname "${BASH_SOURCE[0]}" )/../ )
+source "$BASE_DIR/.bin/lib/common.sh"
+setRoot
+
+WS_TIMEOUT="${WS_TIMEOUT:-40}"
+PYTEST_EXTRA_ARGS="${PYTEST_EXTRA_ARGS:-}"
+
+pushd "$ROOT_PATH" 2>&1 >/dev/null
+
+rm -rf .coverage*
+
+echo -e "\nRunning tests (no benchmarks)..."
+pytest --timeout=10 --color=yes --cov-report= --benchmark-skip --maxfail=10 $PYTEST_EXTRA_ARGS
+
+echo -e "\nRunning benchmark tests..."
+pytest --timeout=$WS_TIMEOUT --cov-report=term --color=yes --benchmark-only -n=0 -rP $PYTEST_EXTRA_ARGS
+
+popd 2>&1 >/dev/null
