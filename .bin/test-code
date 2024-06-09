@@ -16,9 +16,9 @@ pushd "$ROOT_PATH" 2>&1 >/dev/null
 rm -rf .coverage*
 
 echo -e "\nRunning tests (no benchmarks)..."
-pytest --timeout=10 --color=yes --cov-report=xml --benchmark-skip --maxfail=10 $PYTEST_EXTRA_ARGS
+poetry run pytest --timeout=10 --color=yes --cov-report=xml --benchmark-skip --maxfail=10 $PYTEST_EXTRA_ARGS
 
 echo -e "\nRunning benchmark tests..."
-pytest --timeout=$WS_TIMEOUT --cov-report=term --color=yes --benchmark-only -n=0 -rP $PYTEST_EXTRA_ARGS
+poetry run pytest --timeout=$WS_TIMEOUT --cov-report=term --color=yes --benchmark-only -n=0 -rP $PYTEST_EXTRA_ARGS
 
 popd 2>&1 >/dev/null
