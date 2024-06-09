@@ -58,8 +58,7 @@ UFP_SSL_VERIFY=True
 The following scripts exist to easily format, lint and test code in the same fashion as CI:
 
 ```
-.bin/format-code
-.bin/lint-code
+pre-commit run --all-files
 .bin/test-code
 ```
 

@@ -2,12 +2,6 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Format && Lint Code",
-            "type": "shell",
-            "command": "${workspaceFolder}/.bin/format-code && ${workspaceFolder}/.bin/lint-code",
-            "problemMatcher": []
-        },
-        {
             "label": "Test Code",
             "type": "shell",
             "command": "${workspaceFolder}/.bin/test-code",
