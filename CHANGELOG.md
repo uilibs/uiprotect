@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.3 (2024-06-09)
+
+### Fix
+
+
+- Ensure uv is installed for docker image ([`d286198`](https://github.com/uilibs/uiprotect/commit/d286198ce4d26ff5151c9b937058b4c223aa95f2))
+
+
 ## v0.3.2 (2024-06-09)
 
 ### Fix
