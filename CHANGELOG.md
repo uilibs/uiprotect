@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.2 (2024-06-09)
+
+### Fix
+
+
+- Readme updates (#3) ([`8cf5d24`](https://github.com/uilibs/uiprotect/commit/8cf5d24915e9aed2ffbdce4390dd061c9c40d4a1))
+
+
 ## v0.2.1 (2024-06-09)
 
 ### Fix
