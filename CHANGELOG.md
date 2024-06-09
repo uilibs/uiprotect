@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.3.1 (2024-06-09)
+
+### Fix
+
+
+- Dockerfile ([`b25d8a1`](https://github.com/uilibs/uiprotect/commit/b25d8a1218158368ec50d1a2b20280b94696ccee))
+
+
+- Docker ci (#5) ([`3d8e9fe`](https://github.com/uilibs/uiprotect/commit/3d8e9fe294c7c75a7efc2d2653a51fdb052fbf29))
+
+
 ## v0.3.0 (2024-06-09)
 
 ### Feature
