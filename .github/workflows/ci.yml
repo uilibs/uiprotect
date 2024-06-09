@@ -36,15 +36,12 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.8"
           - "3.9"
           - "3.10"
           - "3.11"
           - "3.12"
         os:
           - ubuntu-latest
-          - windows-latest
-          - macOS-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -58,10 +55,12 @@ jobs:
           cache: "poetry"
       - run: echo "Cache hit:${{ steps.setup-python.outputs.cache-hit }}" # true if cache-hit occurred on the primary key
       - name: Install Dependencies
-        run: poetry install
-        shell: bash
+        run: |
+          sudo apt update
+          sudo apt install -y ffmpeg
+          poetry install
       - name: Test with Pytest
-        run: poetry run pytest --cov-report=xml
+        run: ./.bin/test-code
         shell: bash
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
