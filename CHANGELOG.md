@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.8 (2024-06-09)
+
+### Fix
+
+
+- Improve readme and testdata docs (#8) ([`90ae6a8`](https://github.com/uilibs/uiprotect/commit/90ae6a8cec7a10c1631b301a5d64c94bffdee16d))
+
+
 ## v0.3.7 (2024-06-09)
 
 ### Fix
