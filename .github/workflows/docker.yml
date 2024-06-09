@@ -51,22 +51,22 @@ jobs:
       - name: Get current version (rebuild)
         if: ${{ inputs.rebuild == 'yes' }}
         run: |
-          PYUFP_VERSION=$(git describe --tags --abbrev=0)
+          UIPROTECT_VERSION=$(git describe --tags --abbrev=0)
 
-          echo "PYUFP_VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
-          echo "DOCKER_TAGS=ghcr.io/uilibs/uiprotect:dev,ghcr.io/uilibs/uiprotect:$PYUFP_VERSION" >> $GITHUB_ENV
+          echo "UIPROTECT_VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+          echo "DOCKER_TAGS=ghcr.io/uilibs/uiprotect:dev,ghcr.io/uilibs/uiprotect:$UIPROTECT_VERSION" >> $GITHUB_ENV
 
       - name: Get current version (no rebuild)
         if: ${{ inputs.rebuild != 'yes' }}
         run: |
-          PYUFP_VERSION=v$(python -c 'from importlib.metadata import version; print(version("uiprotect"))')
+          UIPROTECT_VERSION=v$(python -c 'from importlib.metadata import version; print(version("uiprotect"))')
 
-          echo "PYUFP_VERSION=$PYUFP_VERSION" >> $GITHUB_ENV
-          echo "DOCKER_TAGS=ghcr.io/uilibs/uiprotect:dev,ghcr.io/uilibs/uiprotect:$(echo $PYUFP_VERSION | tr "+" -)" >> $GITHUB_ENV
+          echo "UIPROTECT_VERSION=$UIPROTECT_VERSION" >> $GITHUB_ENV
+          echo "DOCKER_TAGS=ghcr.io/uilibs/uiprotect:dev,ghcr.io/uilibs/uiprotect:$(echo $UIPROTECT_VERSION | tr "+" -)" >> $GITHUB_ENV
 
       - name: Add Latest Docker Tag
         run: |
-          if [[ ! "$PYUFP_VERSION" == *"dev"* ]]; then
+          if [[ ! "$UIPROTECT_VERSION" == *"dev"* ]]; then
             echo "DOCKER_TAGS=ghcr.io/uilibs/uiprotect:latest,$DOCKER_TAGS" >> $GITHUB_ENV
           fi
 
@@ -91,7 +91,7 @@ jobs:
           target: prod
           push: true
           build-args: |
-            PYUFP_VERSION=${{ env.PYUFP_VERSION }}
+            UIPROTECT_VERSION=${{ env.UIPROTECT_VERSION }}
           cache-from: ghcr.io/uilibs/uiprotect:buildcache
           cache-to: type=registry,ref=ghcr.io/uilibs/uiprotect:buildcache,mode=max
           tags: ${{ env.DOCKER_TAGS }}

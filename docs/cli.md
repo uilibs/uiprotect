@@ -5,7 +5,7 @@ hide:
 
 # Command Line
 
-The `unifi-protect` command is provided to give a CLI interface to interact with your UniFi Protect instance as well. All
+The `uiprotect` command is provided to give a CLI interface to interact with your UniFi Protect instance as well. All
 commands support JSON output so it works great with `jq` for complex scripting.
 
 ## Authentication
@@ -26,13 +26,13 @@ export UFP_PORT=443
 # change to false if you do not have a valid HTTPS Certificate for your instance
 export UFP_SSL_VERIFY=True
 
-unifi-protect nvr
+uiprotect nvr
 ```
 
 ### CLI Args
 
 ```bash
-unifi-protect -U YOUR_USERNAME_HERE -P YOUR_PASSWORD_HERE -a YOUR_IP_ADDRESS -p 443 --no-verify nvr
+uiprotect -U YOUR_USERNAME_HERE -P YOUR_PASSWORD_HERE -a YOUR_IP_ADDRESS -p 443 --no-verify nvr
 ```
 
 ## Timezones
@@ -40,22 +40,14 @@ unifi-protect -U YOUR_USERNAME_HERE -P YOUR_PASSWORD_HERE -a YOUR_IP_ADDRESS -p 
 A number of commands allow you to enter a datetime as an argument or output files with the datetime in the filename. As a result, it is very important for `uiprotect` to know your consoles local timezone. If you on a physical machine (not docker/VM), chances are this is already set up correctly for you (`/etc/localtime`), but otherwise you may need to set the `TZ` environment variable. `TZ` can also be used to override your system timezone as well if for whatever reason you need to. It should be the [Olson timezone name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for the timezone that your UniFi Protect Instance is in.
 
 ```bash
-TZ=America/New_York unifi-protect --help
+TZ=America/New_York uiprotect --help
 ```
-
-!!! note
-
-    If for whatever reason your system does not have then correct timezone data, you can install the `tz` extra to get the data. This just adds the package [tzdata](https://pypi.org/project/tzdata/) as a requirement. It is included by default in the [Docker image](/#using-docker-container).
-
-    ```bash
-    pip install uiprotect[tz]
-    ```
 
 ## Reference
 
 ```bash
-$ unifi-protect --help
-Usage: unifi-protect [OPTIONS] COMMAND [ARGS]...
+$ uiprotect --help
+Usage: uiprotect [OPTIONS] COMMAND [ARGS]...
 
 UniFi Protect CLI
 ```
@@ -76,7 +68,7 @@ UniFi Protect CLI
 
 ### Subcommands
 
-For any subcommand you can use `unifi-protect COMMAND --help`
+For any subcommand you can use `uiprotect COMMAND --help`
 
 | Command                | Description                                                      |
 | ---------------------- | ---------------------------------------------------------------- |
@@ -101,16 +93,16 @@ All adoptable device CLIs, event and liveview CLI work on the idea you have mult
 
 ```bash
 # list all devices (or events/liveviews)
-unifi-protect cameras
+uiprotect cameras
 
 # list short list of all devices (or events/liveviews)
-unifi-protect cameras list-ids
+uiprotect cameras list-ids
 
 # list a specific device (or event/liveview)
-unifi-protect cameras DEVICE_ID
+uiprotect cameras DEVICE_ID
 
 # run a command against a specific device (or event/liveview)
-unifi-protect cameras DEVICE_ID COMMAND
+uiprotect cameras DEVICE_ID COMMAND
 ```
 
 !!! note
@@ -128,7 +120,7 @@ The "list all devices" and "list a specific device" commands always return raw J
 === "Plain"
 
     ```bash
-    $ unifi-protect cameras list-ids
+    $ uiprotect cameras list-ids
 
     61b3f5c7033ea703e7000424: G4 Bullet
     61f9824e004adc03e700132c: G4 PTZ
@@ -138,7 +130,7 @@ The "list all devices" and "list a specific device" commands always return raw J
 === "JSON"
 
     ```bash
-    $ unifi-protect --output-format json cameras list-ids
+    $ uiprotect --output-format json cameras list-ids
 
     [
       [
@@ -160,14 +152,14 @@ The "list all devices" and "list a specific device" commands always return raw J
 ###### Check if a Light is Online
 
 ```bash
-$ unifi-protect cameras 61ddb66b018e2703e7008c19 | jq .isConnected
+$ uiprotect cameras 61ddb66b018e2703e7008c19 | jq .isConnected
 true
 ```
 
 ###### Take Snapshot of Camera
 
 ```bash
-$ unifi-protect cameras 61ddb66b018e2703e7008c19 save-snapshot output.jpg
+$ uiprotectcameras 61ddb66b018e2703e7008c19 save-snapshot output.jpg
 ```
 
 #### Adoptable Devices CLI Commands
@@ -189,9 +181,9 @@ Adoptable devices (Cameras, Chimes, Doorlocks, Lights, Sensors, Viewers) all hav
 #### Backup CLI
 
 ```bash
-$ unifi-protect backup --help
+$ uiprotect backup --help
 
- Usage: unifi-protect backup [OPTIONS] COMMAND [ARGS]...
+ Usage: uiprotect backup [OPTIONS] COMMAND [ARGS]...
 
  Backup CLI.
  The backup CLI is still very WIP in progress and consider experimental and potentially unstable (interface may change in the future).
@@ -274,9 +266,9 @@ Recommended formats for the backup command:
 ##### Backing Up Camera Events
 
 ```bash
-$ unifi-protect backup events --help
+$ uiprotect backup events --help
 
- Usage: unifi-protect backup events [OPTIONS]
+ Usage: uiprotect backup events [OPTIONS]
 
  Backup thumbnails and video clips for camera events.
 ```
@@ -308,19 +300,19 @@ As an example using a UniFi Protect instance with ~200k events and ~8 months of 
 ###### Backup All Events
 
 ```bash
-unifi-protect backup events
+uiprotect backup events
 ```
 
 ###### Backup All Smart Detections for the Past Hour
 
 ```bash
-unifi-protect backup --start "1 hour ago" events -t smartDetectZone
+uiprotect backup --start "1 hour ago" events -t smartDetectZone
 ```
 
 ###### Backup All Person Smart Detections from December 31st at 10PM to January 1st at 5AM
 
 ```bash
-unifi-protect backup --start "2021-12-31T22:00:00" --end "2022-1-1T05:00:00" events -t smartDetectZone -m person
+uiprotect backup --start "2021-12-31T22:00:00" --end "2022-1-1T05:00:00" events -t smartDetectZone -m person
 ```
 
 #### Camera CLI
@@ -332,13 +324,13 @@ Inherits [Multiple Item CLI Commands](#multiple-item-cli-commands) and [Adoptabl
 ###### Take Snapshot of Camera
 
 ```bash
-$ unifi-protect cameras 61ddb66b018e2703e7008c19 save-snapshot output.jpg
+$ uiprotect cameras 61ddb66b018e2703e7008c19 save-snapshot output.jpg
 ```
 
 ###### Export Video From Camera
 
 ```bash
-$ unifi-protect cameras 61ddb66b018e2703e7008c19 save-video export.mp4 2022-6-1T00:00:00 2022-6-1T00:00:30
+$ uiprotect cameras 61ddb66b018e2703e7008c19 save-video export.mp4 2022-6-1T00:00:00 2022-6-1T00:00:30
 ```
 
 !!! note "Timezones"
@@ -348,42 +340,42 @@ $ unifi-protect cameras 61ddb66b018e2703e7008c19 save-video export.mp4 2022-6-1T
 ###### Play Audio File to Cameras Speaker
 
 ```bash
-$ unifi-protect cameras 61ddb66b018e2703e7008c19 play-audio test.mp3
+$ uiprotect cameras 61ddb66b018e2703e7008c19 play-audio test.mp3
 ```
 
 ###### Include Unadopted Cameras in list
 
 ```bash
-$ unifi-protect -u cameras list-ids
+$ uiprotect -u cameras list-ids
 ```
 
 ###### Adopt an Unadopted Camera
 
 ```bash
-$ unifi-protect -u cameras 61ddb66b018e2703e7008c19 adopt
+$ uiprotect -u cameras 61ddb66b018e2703e7008c19 adopt
 ```
 
 ###### Enable SSH on Camera
 
 ```bash
-$ unifi-protect cameras 61ddb66b018e2703e7008c19 set-ssh true
+$ uiprotect cameras 61ddb66b018e2703e7008c19 set-ssh true
 
 # get current value to verify
-$ unifi-protect cameras 61ddb66b018e2703e7008c19 | jq .isSshEnabled
+$ uiprotect cameras 61ddb66b018e2703e7008c19 | jq .isSshEnabled
 true
 ```
 
 ###### Reboot Camera
 
 ```bash
-$ unifi-protect lights 61b3f5c801f8a703e7000428 reboot
+$ uiprotect lights 61b3f5c801f8a703e7000428 reboot
 ```
 
 ###### Reboot All Cameras
 
 ```bash
-for id in $(unifi-protect cameras list-ids | awk '{ print $1 }'); do
-    unifi-protect cameras $id reboot
+for id in $(uiprotect cameras list-ids | awk '{ print $1 }'); do
+    uiprotect cameras $id reboot
 done
 ```
 
@@ -396,5 +388,5 @@ Inherits [Multiple Item CLI Commands](#multiple-item-cli-commands) and [Adoptabl
 ###### Set Paired Cameras
 
 ```bash
-$ unifi-protect chimes 6275b22e00e3c403e702a019 cameras 61ddb66b018e2703e7008c19 61f9824e004adc03e700132c
+$ uiprotect chimes 6275b22e00e3c403e702a019 cameras 61ddb66b018e2703e7008c19 61f9824e004adc03e700132c
 ```

@@ -29,13 +29,13 @@ RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
 
 FROM base as prod
 
-ARG PYUFP_VERSION
+ARG UIPROTECT_VERSION
 
 COPY --from=builder /usr/local/bin/ /usr/local/bin/
 COPY --from=builder /usr/local/lib/python3.12/ /usr/local/lib/python3.12/
 RUN --mount=source=.,target=/tmp/uiprotect,type=bind,readwrite \
     --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
-    SETUPTOOLS_SCM_PRETEND_VERSION=${PYUFP_VERSION} uv pip install -U "/tmp/uiprotect[tz]" \
+    SETUPTOOLS_SCM_PRETEND_VERSION=${UIPROTECT_VERSION} uv pip install -U "/tmp/uiprotect[tz]" \
     && cp /tmp/uiprotect/.docker/entrypoint.sh /usr/local/bin/entrypoint \
     && chmod +x /usr/local/bin/entrypoint \
     && mkdir /data \
