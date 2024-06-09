@@ -7,7 +7,7 @@ import base64
 from copy import deepcopy
 from datetime import timedelta
 from ipaddress import IPv4Address
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import Mock, patch
 
 import pytest
@@ -527,7 +527,7 @@ async def test_play_audio_error(mock_talkback, camera_obj: Camera):
 
 
 @pytest.mark.asyncio()
-async def test_get_smart_detect_track_bad_type(smart_dectect_obj: Optional[Event]):
+async def test_get_smart_detect_track_bad_type(smart_dectect_obj: Event | None):
     if smart_dectect_obj is None:
         pytest.skip("No smart detection object found")
 
@@ -538,7 +538,7 @@ async def test_get_smart_detect_track_bad_type(smart_dectect_obj: Optional[Event
 
 
 @pytest.mark.asyncio()
-async def test_get_smart_detect_track(smart_dectect_obj: Optional[Event]):
+async def test_get_smart_detect_track(smart_dectect_obj: Event | None):
     if smart_dectect_obj is None:
         pytest.skip("No smart detection object found")
 
@@ -547,7 +547,7 @@ async def test_get_smart_detect_track(smart_dectect_obj: Optional[Event]):
 
 
 @pytest.mark.asyncio()
-async def test_get_smart_detect_zones(smart_dectect_obj: Optional[Event]):
+async def test_get_smart_detect_zones(smart_dectect_obj: Event | None):
     if smart_dectect_obj is None:
         pytest.skip("No smart detection object found")
 
@@ -910,7 +910,7 @@ async def test_multiple_updates(user_obj: User, camera_obj: Camera):
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 def test_unknown_smart(
-    camera: Optional[dict[str, Any]],
+    camera: dict[str, Any] | None,
     bootstrap: dict[str, Any],
     protect_client: ProtectApiClient,
 ):
@@ -945,7 +945,7 @@ def test_unknown_smart(
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 def test_unknown_video(
-    camera: Optional[dict[str, Any]],
+    camera: dict[str, Any] | None,
     bootstrap: dict[str, Any],
     protect_client: ProtectApiClient,
 ):

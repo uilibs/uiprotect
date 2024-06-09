@@ -7,7 +7,7 @@ import base64
 import logging
 from copy import deepcopy
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -46,7 +46,7 @@ def packet_fixture():
 
 class SubscriptionTest:
     callback_count: int = 0
-    unsub: Optional[Callable[[], None]] = None
+    unsub: Callable[[], None] | None = None
 
     def callback(self, msg: WSSubscriptionMessage):
         self.callback_count += 1

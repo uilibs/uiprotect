@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import pytest
 from pydantic.v1 import ValidationError
@@ -95,7 +95,7 @@ async def test_light_set_led_level(light_obj: Light, level: int):
 @pytest.mark.parametrize("status", [True, False])
 @pytest.mark.parametrize("level", [None, -1, 1, 3, 6, 7])
 @pytest.mark.asyncio()
-async def test_light_set_light(light_obj: Light, status: bool, level: Optional[int]):
+async def test_light_set_light(light_obj: Light, status: bool, level: int | None):
     light_obj.api.api_request.reset_mock()
 
     light_obj.light_on_settings.is_led_force_on = not status
@@ -209,9 +209,9 @@ async def test_light_set_duration(
 async def test_light_set_light_settings(
     light_obj: Light,
     mode: LightModeType,
-    enable_at: Optional[LightModeEnableType],
-    duration: Optional[timedelta],
-    sensitivity: Optional[int],
+    enable_at: LightModeEnableType | None,
+    duration: timedelta | None,
+    sensitivity: int | None,
 ):
     light_obj.api.api_request.reset_mock()
 

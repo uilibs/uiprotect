@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import pytest
 from pydantic.v1 import ValidationError
@@ -22,8 +22,8 @@ if TYPE_CHECKING:
 @pytest.mark.parametrize("level", [-1, 0, 100, 200])
 @pytest.mark.asyncio()
 async def test_chime_set_volume(
-    chime_obj: Optional[Chime],
-    camera_obj: Optional[Camera],
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
     level: int,
 ):
     if chime_obj is None:
@@ -71,8 +71,8 @@ async def test_chime_set_volume(
 )
 @pytest.mark.asyncio()
 async def test_chime_set_volume_with_existing_custom(
-    chime_obj: Optional[Chime],
-    camera_obj: Optional[Camera],
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
 ):
     if chime_obj is None:
         pytest.skip("No chime_obj obj found")
@@ -107,8 +107,8 @@ async def test_chime_set_volume_with_existing_custom(
 )
 @pytest.mark.asyncio()
 async def test_chime_set_volume_for_camera(
-    chime_obj: Optional[Chime],
-    camera_obj: Optional[Camera],
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
 ):
     if chime_obj is None:
         pytest.skip("No chime_obj obj found")
@@ -152,8 +152,8 @@ async def test_chime_set_volume_for_camera(
 )
 @pytest.mark.asyncio()
 async def test_chime_set_volume_for_camera_not_exist(
-    chime_obj: Optional[Chime],
-    camera_obj: Optional[Camera],
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
 ):
     if chime_obj is None:
         pytest.skip("No chime_obj obj found")
@@ -181,7 +181,7 @@ async def test_chime_set_volume_for_camera_not_exist(
 
 @pytest.mark.skipif(not TEST_CHIME_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_chime_play(chime_obj: Optional[Chime]):
+async def test_chime_play(chime_obj: Chime | None):
     if chime_obj is None:
         pytest.skip("No chime_obj obj found")
 
@@ -196,7 +196,7 @@ async def test_chime_play(chime_obj: Optional[Chime]):
 
 @pytest.mark.skipif(not TEST_CHIME_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_chime_play_with_options(chime_obj: Optional[Chime]):
+async def test_chime_play_with_options(chime_obj: Chime | None):
     if chime_obj is None:
         pytest.skip("No chime_obj obj found")
 
@@ -220,7 +220,7 @@ async def test_chime_play_with_options(chime_obj: Optional[Chime]):
 
 @pytest.mark.skipif(not TEST_CHIME_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_chime_play_buzzer(chime_obj: Optional[Chime]):
+async def test_chime_play_buzzer(chime_obj: Chime | None):
     if chime_obj is None:
         pytest.skip("No chime_obj obj found")
 
@@ -238,8 +238,8 @@ async def test_chime_play_buzzer(chime_obj: Optional[Chime]):
 )
 @pytest.mark.asyncio()
 async def test_chime_add_camera(
-    chime_obj: Optional[Chime],
-    camera_obj: Optional[Camera],
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
 ):
     if chime_obj is None:
         pytest.skip("No chime_obj obj found")
@@ -267,8 +267,8 @@ async def test_chime_add_camera(
 )
 @pytest.mark.asyncio()
 async def test_chime_add_camera_not_doorbell(
-    chime_obj: Optional[Chime],
-    camera_obj: Optional[Camera],
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
 ):
     if chime_obj is None:
         pytest.skip("No chime_obj obj found")
@@ -293,8 +293,8 @@ async def test_chime_add_camera_not_doorbell(
 )
 @pytest.mark.asyncio()
 async def test_chime_add_camera_exists(
-    chime_obj: Optional[Chime],
-    camera_obj: Optional[Camera],
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
 ):
     if chime_obj is None:
         pytest.skip("No chime_obj obj found")
@@ -319,8 +319,8 @@ async def test_chime_add_camera_exists(
 )
 @pytest.mark.asyncio()
 async def test_chime_remove_camera(
-    chime_obj: Optional[Chime],
-    camera_obj: Optional[Camera],
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
 ):
     if chime_obj is None:
         pytest.skip("No chime_obj obj found")
@@ -348,8 +348,8 @@ async def test_chime_remove_camera(
 )
 @pytest.mark.asyncio()
 async def test_chime_remove_camera_not_exists(
-    chime_obj: Optional[Chime],
-    camera_obj: Optional[Camera],
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
 ):
     if chime_obj is None:
         pytest.skip("No chime_obj obj found")
@@ -374,8 +374,8 @@ async def test_chime_remove_camera_not_exists(
 )
 @pytest.mark.asyncio()
 async def test_chime_set_repeat_times(
-    chime_obj: Optional[Chime],
-    camera_obj: Optional[Camera],
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
 ):
     if chime_obj is None:
         pytest.skip("No chime_obj obj found")
@@ -420,8 +420,8 @@ async def test_chime_set_repeat_times(
 )
 @pytest.mark.asyncio()
 async def test_chime_set_repeat_times_with_existing_custom(
-    chime_obj: Optional[Chime],
-    camera_obj: Optional[Camera],
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
 ):
     if chime_obj is None:
         pytest.skip("No chime_obj obj found")
@@ -456,8 +456,8 @@ async def test_chime_set_repeat_times_with_existing_custom(
 )
 @pytest.mark.asyncio()
 async def test_chime_set_repeat_times_for_camera(
-    chime_obj: Optional[Chime],
-    camera_obj: Optional[Camera],
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
 ):
     if chime_obj is None:
         pytest.skip("No chime_obj obj found")
@@ -501,8 +501,8 @@ async def test_chime_set_repeat_times_for_camera(
 )
 @pytest.mark.asyncio()
 async def test_chime_set_repeat_times_for_camera_not_exist(
-    chime_obj: Optional[Chime],
-    camera_obj: Optional[Camera],
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
 ):
     if chime_obj is None:
         pytest.skip("No chime_obj obj found")
