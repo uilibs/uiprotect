@@ -161,7 +161,7 @@ class EventType(str, ValuesEnumMixin, enum.Enum):
     DEVICE_ADOPTED = "deviceAdopted"
     DEVICE_UNADOPTED = "deviceUnadopted"
     UVF_DISCOVERED = "ufvDiscovered"
-    DEVICE_PASSWORD_UPDATE = "devicesPasswordUpdated"
+    DEVICE_PASSWORD_UPDATE = "devicesPasswordUpdated"  # noqa: S105
     DEVICE_UPDATABLE = "deviceUpdatable"
     MULTIPLE_DEVICE_UPDATABLE = "multipleDeviceUpdatable"
     DEVICE_CONNECTED = "deviceConnected"

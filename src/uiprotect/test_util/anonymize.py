@@ -174,7 +174,7 @@ def anonymize_ip(ip: Any) -> Any:
     if not isinstance(ip, str):
         return ip
 
-    if ip in {"0.0.0.0", "127.0.0.1", "255.255.255.255"}:
+    if ip in {"0.0.0.0", "127.0.0.1", "255.255.255.255"}:  # noqa: S104
         return ip
 
     return anonymize_peristent_string(ip, random_ip(ip))

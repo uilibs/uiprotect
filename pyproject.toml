@@ -117,12 +117,18 @@ ignore = [
     "D102", # Missing docstring in public method
     "D103", # Missing docstring in public module
     "D104", # Missing docstring in public package
+    "D105", # Missing docstring in magic method
     "D107", # Missing docstring in `__init__`
     "D400", # First line should end with a period
     "D401", # First line of docstring should be in imperative mood
+    "D205", # 1 blank line required between summary line and description
     "D415", # First line should end with a period, question mark, or exclamation point
     "D417", # Missing argument descriptions in the docstring
     "E501", # Line too long
+    "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
+    "B008", # Do not perform function call
+    "S110", # `try`-`except`-`pass` detected, consider logging the exception
+    "D106", # Missing docstring in public nested class
 ]
 select = [
     "B",   # flake8-bugbear
