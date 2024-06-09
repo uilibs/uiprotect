@@ -50,6 +50,10 @@ Install this via pip (or your favorite package manager):
 
 `pip install uiprotect`
 
+## History
+
+This project was split off from `pyunifiprotect` because that project changed its license to one that would not be accepted in Home Assistant. This project is committed to keeping the MIT license.
+
 ## Credits
 
 - Bjarne Riis ([@briis](https://github.com/briis/)) for the original pyunifiprotect package
@@ -94,7 +98,7 @@ If you want to install `uiprotect` natively, the below are the requirements:
 
 - [UniFi Protect](https://ui.com/camera-security) version 1.20+
   - Latest version of library is generally only tested against the two latest minor version. This is either two latest stable versions (such as 1.21.x and 2.0.x) or the latest EA version and stable version (such as 2.2.x EA and 2.1.x).
-- [Python](https://www.python.org/) 3.9+
+- [Python](https://www.python.org/) 3.10+
 - POSIX compatible system
   - Library is only test on Linux, specifically the latest Debian version available for the official Python Docker images, but there is no reason the library should not work on any Linux distro or MacOS.
 - [ffmpeg](https://ffmpeg.org/)
