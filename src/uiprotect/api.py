@@ -16,7 +16,6 @@ from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
 from typing import Any, Literal, cast
 from urllib.parse import urljoin
-from uuid import UUID
 
 import aiofiles
 import aiohttp
@@ -647,7 +646,7 @@ class BaseApiClient:
     def _process_ws_message(self, msg: aiohttp.WSMessage) -> None:
         raise NotImplementedError
 
-    def _get_last_update_id(self) -> UUID | None:
+    def _get_last_update_id(self) -> str | None:
         raise NotImplementedError
 
 
@@ -833,7 +832,7 @@ class ProtectApiClient(BaseApiClient):
             except Exception:
                 _LOGGER.exception("Exception while running subscription handler")
 
-    def _get_last_update_id(self) -> UUID | None:
+    def _get_last_update_id(self) -> str | None:
         if self._bootstrap is None:
             return None
         return self._bootstrap.last_update_id

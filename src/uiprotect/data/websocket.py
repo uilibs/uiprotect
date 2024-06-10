@@ -8,7 +8,6 @@ import struct
 import zlib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
-from uuid import UUID
 
 import orjson
 
@@ -40,7 +39,7 @@ class WSAction(str, enum.Enum):
 @dataclass
 class WSSubscriptionMessage:
     action: WSAction
-    new_update_id: UUID
+    new_update_id: str
     changed_data: dict[str, Any]
     new_obj: ProtectModelWithId | None = None
     old_obj: ProtectModelWithId | None = None
