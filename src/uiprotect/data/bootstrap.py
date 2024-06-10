@@ -553,7 +553,7 @@ class Bootstrap(ProtectBaseObject):
         if action["newUpdateId"] is not None:
             self.last_update_id = action["newUpdateId"]
 
-        if action["modelKey"] not in ModelType.values():
+        if action["modelKey"] not in ModelType.values_set():
             _LOGGER.debug("Unknown model type: %s", action["modelKey"])
             self._create_stat(packet, [], True)
             return None
@@ -577,7 +577,7 @@ class Bootstrap(ProtectBaseObject):
                 if action["modelKey"] == ModelType.NVR.value:
                     return self._process_nvr_update(packet, data, ignore_stats)
                 if (
-                    action["modelKey"] in ModelType.bootstrap_models()
+                    action["modelKey"] in ModelType.bootstrap_models_set()
                     or action["modelKey"] == ModelType.EVENT.value
                 ):
                     return self._process_device_update(
