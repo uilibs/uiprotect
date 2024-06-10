@@ -278,7 +278,7 @@ def serialize_unifi_obj(value: Any, levels: int = -1) -> Any:
 
 def serialize_dict(data: dict[str, Any], levels: int = -1) -> dict[str, Any]:
     """Serializes UFP data dict"""
-    for key in list(data.keys()):
+    for key in list(data):
         set_key = key
         if set_key not in SNAKE_CASE_KEYS:
             set_key = to_camel_case(set_key)
