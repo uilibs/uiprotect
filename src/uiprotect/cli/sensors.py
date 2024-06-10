@@ -5,9 +5,9 @@ from typing import Optional
 
 import typer
 
-from uiprotect.api import ProtectApiClient
-from uiprotect.cli import base
-from uiprotect.data import MountType, Sensor
+from ..api import ProtectApiClient
+from ..cli import base
+from ..data import MountType, Sensor
 
 app = typer.Typer(rich_markup_mode="rich")
 

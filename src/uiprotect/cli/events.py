@@ -9,11 +9,11 @@ from typing import Optional
 import typer
 from rich.progress import Progress
 
-from uiprotect import data as d
-from uiprotect.api import ProtectApiClient
-from uiprotect.cli import base
-from uiprotect.exceptions import NvrError
-from uiprotect.utils import local_datetime
+from .. import data as d
+from ..api import ProtectApiClient
+from ..cli import base
+from ..exceptions import NvrError
+from ..utils import local_datetime
 
 app = typer.Typer(rich_markup_mode="rich")
 
