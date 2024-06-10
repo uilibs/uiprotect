@@ -234,17 +234,23 @@ def convert_unifi_data(value: Any, field: ModelField) -> Any:
                 return value
         if type_ == datetime:
             return from_js_time(value)
-        if type_ in _CREATE_TYPES or (isclass(type_) and issubclass(type_, Enum)):
+        if type_ in _CREATE_TYPES or _is_enum_type(type_):
             # cannot do this check too soon because some types cannot be used in isinstance
             if isinstance(value, type_):
                 return value
-            # handle edge case for improperly formated UUIDs
+            # handle edge case for improperly formatted UUIDs
             # 00000000-0000-00 0- 000-000000000000
             if type_ == UUID and value == _BAD_UUID:
                 value = "0" * 32
             return type_(value)
 
     return value
+
+
+@lru_cache
+def _is_enum_type(type_: Any) -> bool:
+    """Checks if type is an Enum."""
+    return isclass(type_) and issubclass(type_, Enum)
 
 
 def serialize_unifi_obj(value: Any, levels: int = -1) -> Any:
