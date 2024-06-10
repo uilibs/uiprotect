@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.10 (2024-06-10)
+
+### Fix
+
+
+- Add missing doorbellmessagetype image (#11) ([`eaed04b`](https://github.com/uilibs/uiprotect/commit/eaed04bbc1697553895a64edc573d1acc9112a1a))
+
+
 ## v0.3.9 (2024-06-09)
 
 ### Fix
