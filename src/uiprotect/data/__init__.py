@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from uiprotect.data.base import (
+from .base import (
     ProtectAdoptableDeviceModel,
     ProtectBaseObject,
     ProtectDeviceModel,
     ProtectModel,
     ProtectModelWithId,
 )
-from uiprotect.data.bootstrap import Bootstrap
-from uiprotect.data.convert import create_from_unifi_dict
-from uiprotect.data.devices import (
+from .bootstrap import Bootstrap
+from .convert import create_from_unifi_dict
+from .devices import (
     Bridge,
     Camera,
     CameraChannel,
@@ -21,7 +21,7 @@ from uiprotect.data.devices import (
     Sensor,
     Viewer,
 )
-from uiprotect.data.nvr import (
+from .nvr import (
     NVR,
     DoorbellMessage,
     Event,
@@ -30,7 +30,7 @@ from uiprotect.data.nvr import (
     SmartDetectItem,
     SmartDetectTrack,
 )
-from uiprotect.data.types import (
+from .types import (
     DEFAULT,
     DEFAULT_TYPE,
     AnalyticsOption,
@@ -69,8 +69,8 @@ from uiprotect.data.types import (
     VideoMode,
     WDRLevel,
 )
-from uiprotect.data.user import CloudAccount, Group, Permission, User, UserLocation
-from uiprotect.data.websocket import (
+from .user import CloudAccount, Group, Permission, User, UserLocation
+from .websocket import (
     WS_HEADER_SIZE,
     WSAction,
     WSJSONPacketFrame,
