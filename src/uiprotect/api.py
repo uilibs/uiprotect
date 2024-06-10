@@ -161,6 +161,7 @@ class BaseApiClient:
     _last_token_cookie_decode: dict[str, Any] | None = None
     _session: aiohttp.ClientSession | None = None
     _loaded_session: bool = False
+    _cookiename = "TOKEN"
 
     headers: dict[str, str] | None = None
     _websocket: Websocket | None = None
@@ -203,6 +204,10 @@ class BaseApiClient:
             self._session = session
 
         self._update_url()
+
+    def _update_cookiename(self, cookie: SimpleCookie) -> None:
+        if "UOS_TOKEN" in cookie:
+            self._cookiename = "UOS_TOKEN"
 
     def _update_url(self) -> None:
         """Updates the url after changing _host or _port."""
@@ -475,7 +480,6 @@ class BaseApiClient:
             response = await self.request("post", url=url, json=auth)
             self.set_header("cookie", response.headers.get("set-cookie", ""))
             self._is_authenticated = True
-            await self._update_last_token_cookie(response)
             _LOGGER.debug("Authenticated successfully!")
 
     async def _update_last_token_cookie(self, response: aiohttp.ClientResponse) -> None:
@@ -488,9 +492,10 @@ class BaseApiClient:
         ):
             self.set_header("x-csrf-token", csrf_token)
             await self._update_last_token_cookie(response)
+            self._update_cookiename(response.cookies)
 
         if (
-            token_cookie := response.cookies.get("TOKEN")
+            token_cookie := response.cookies.get(self._cookiename)
         ) and token_cookie != self._last_token_cookie:
             self._last_token_cookie = token_cookie
             if self.store_sessions:
@@ -520,6 +525,7 @@ class BaseApiClient:
         config["sessions"] = config.get("sessions", {})
         config["sessions"][session_hash] = {
             "metadata": dict(cookie),
+            "cookiename": self._cookiename,
             "value": cookie.value,
             "csrf": self.headers.get("x-csrf-token") if self.headers else None,
         }
@@ -561,12 +567,15 @@ class BaseApiClient:
             return None
 
         cookie = SimpleCookie()
-        cookie["TOKEN"] = session.get("value")
+        cookie_name = session.get("cookiename")
+        if cookie_name is None:
+            return None
+        cookie[cookie_name] = session.get("value")
         for key, value in session.get("metadata", {}).items():
-            cookie["TOKEN"][key] = value
+            cookie[cookie_name][key] = value
 
-        cookie_value = _COOKIE_RE.sub("", str(cookie["TOKEN"]))
-        self._last_token_cookie = cookie["TOKEN"]
+        cookie_value = _COOKIE_RE.sub("", str(cookie[cookie_name]))
+        self._last_token_cookie = cookie[cookie_name]
         self._last_token_cookie_decode = None
         self._is_authenticated = True
         self.set_header("cookie", cookie_value)
