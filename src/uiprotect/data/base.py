@@ -56,11 +56,10 @@ if TYPE_CHECKING:
     from uiprotect.data.user import User
 
     try:
-        from pydantic.v1.typing import DictStrAny, SetStr
+        from pydantic.v1.typing import DictStrAny
     except ImportError:
         from pydantic.typing import (  # type: ignore[assignment, no-redef]
             DictStrAny,
-            SetStr,
         )
 
 
@@ -88,11 +87,8 @@ class ProtectBaseObject(BaseModel):
     _api: ProtectApiClient | None = PrivateAttr(None)
 
     _protect_objs: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
-    _protect_objs_set: ClassVar[SetStr | None] = None
     _protect_lists: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
-    _protect_lists_set: ClassVar[SetStr | None] = None
     _protect_dicts: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
-    _protect_dicts_set: ClassVar[SetStr | None] = None
     _to_unifi_remaps: ClassVar[DictStrAny | None] = None
 
     class Config:
@@ -193,6 +189,12 @@ class ProtectBaseObject(BaseModel):
         return {}
 
     @classmethod
+    @cache
+    def _get_unifi_remaps_set(self) -> set[str]:
+        """Helper method to get set of all child UFP objects."""
+        return set(self._get_unifi_remaps())
+
+    @classmethod
     def _get_to_unifi_remaps(cls) -> dict[str, str]:
         """
         Helper method for overriding in child classes for reversing remap UFP
@@ -231,55 +233,49 @@ class ProtectBaseObject(BaseModel):
                 pass
 
     @classmethod
+    @cache
     def _get_protect_objs(cls) -> dict[str, type[ProtectBaseObject]]:
         """Helper method to get all child UFP objects"""
-        if cls._protect_objs is not None:
-            return cls._protect_objs
-
-        cls._set_protect_subtypes()
-        return cls._protect_objs  # type: ignore[return-value]
+        if cls._protect_objs is None:
+            cls._set_protect_subtypes()
+            assert cls._protect_objs is not None
+        return cls._protect_objs
 
     @classmethod
+    @cache
     def _get_protect_objs_set(cls) -> set[str]:
         """Helper method to get all child UFP objects"""
-        if cls._protect_objs_set is None:
-            cls._protect_objs_set = set(cls._get_protect_objs().keys())
-
-        return cls._protect_objs_set
+        return set(cls._get_protect_objs())
 
     @classmethod
+    @cache
     def _get_protect_lists(cls) -> dict[str, type[ProtectBaseObject]]:
         """Helper method to get all child of UFP objects (lists)"""
-        if cls._protect_lists is not None:
-            return cls._protect_lists
-
-        cls._set_protect_subtypes()
-        return cls._protect_lists  # type: ignore[return-value]
+        if cls._protect_lists is None:
+            cls._set_protect_subtypes()
+            assert cls._protect_lists is not None
+        return cls._protect_lists
 
     @classmethod
+    @cache
     def _get_protect_lists_set(cls) -> set[str]:
         """Helper method to get all child UFP objects"""
-        if cls._protect_lists_set is None:
-            cls._protect_lists_set = set(cls._get_protect_lists().keys())
-
-        return cls._protect_lists_set
+        return set(cls._get_protect_lists())
 
     @classmethod
+    @cache
     def _get_protect_dicts(cls) -> dict[str, type[ProtectBaseObject]]:
         """Helper method to get all child of UFP objects (dicts)"""
-        if cls._protect_dicts is not None:
-            return cls._protect_dicts
-
-        cls._set_protect_subtypes()
-        return cls._protect_dicts  # type: ignore[return-value]
+        if cls._protect_dicts is None:
+            cls._set_protect_subtypes()
+            assert cls._protect_dicts is not None
+        return cls._protect_dicts
 
     @classmethod
+    @cache
     def _get_protect_dicts_set(cls) -> set[str]:
         """Helper method to get all child UFP objects"""
-        if cls._protect_dicts_set is None:
-            cls._protect_dicts_set = set(cls._get_protect_dicts().keys())
-
-        return cls._protect_dicts_set
+        return set(cls._get_protect_dicts())
 
     @classmethod
     def _get_api(cls, api: ProtectApiClient | None) -> ProtectApiClient | None:
@@ -344,7 +340,7 @@ class ProtectBaseObject(BaseModel):
 
         # remap keys that will not be converted correctly by snake_case convert
         remaps = cls._get_unifi_remaps()
-        for from_key in set(remaps).intersection(data):
+        for from_key in cls._get_unifi_remaps_set().intersection(data):
             data[remaps[from_key]] = data.pop(from_key)
 
         # convert to snake_case and remove extra fields
