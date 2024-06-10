@@ -1034,7 +1034,7 @@ class Camera(ProtectMotionDeviceModel):
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         # LCD messages comes back as empty dict {}
-        if "lcdMessage" in data and len(data["lcdMessage"].keys()) == 0:
+        if "lcdMessage" in data and len(data["lcdMessage"]) == 0:
             del data["lcdMessage"]
         if "chimeDuration" in data and not isinstance(data["chimeDuration"], timedelta):
             data["chimeDuration"] = timedelta(milliseconds=data["chimeDuration"])

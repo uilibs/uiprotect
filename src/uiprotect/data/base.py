@@ -338,7 +338,7 @@ class ProtectBaseObject(BaseModel):
             data[remaps[from_key]] = data.pop(from_key)
 
         # convert to snake_case and remove extra fields
-        for key in list(data.keys()):
+        for key in list(data):
             new_key = to_snake_case(key)
             data[new_key] = data.pop(key)
             key = new_key
@@ -765,7 +765,7 @@ class ProtectModelWithId(ProtectModel):
         if updated == {}:
             return
 
-        read_only_keys = read_only_fields.intersection(updated.keys())
+        read_only_keys = read_only_fields.intersection(updated)
         if len(read_only_keys) > 0:
             self.revert_changes(data_before_changes)
             raise BadRequest(

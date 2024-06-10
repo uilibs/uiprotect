@@ -50,7 +50,7 @@ class FixSizeOrderedDict(dict[KT, VT]):
         """Set an update up to the max size."""
         dict.__setitem__(self, key, value)
         if self._max_size > 0 and len(self) > 0 and len(self) > self._max_size:
-            del self[next(iter(self.keys()))]
+            del self[next(iter(self))]
 
 
 class ValuesEnumMixin:

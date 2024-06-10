@@ -824,7 +824,7 @@ class ProtectApiClient(BaseApiClient):
                 msg.action,
                 msg.new_obj.model,
                 msg.new_obj.id,
-                list(msg.changed_data.keys()),
+                list(msg.changed_data),
             )
         elif msg.old_obj is not None:
             _LOGGER.debug(
