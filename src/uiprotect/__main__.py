@@ -7,7 +7,7 @@ try:
 except ImportError:
     load_dotenv = None  # type: ignore[assignment]
 
-from uiprotect.cli import app
+from .cli import app
 
 
 def start() -> None:

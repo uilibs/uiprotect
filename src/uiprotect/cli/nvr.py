@@ -6,8 +6,8 @@ from datetime import timedelta
 import orjson
 import typer
 
-from uiprotect.cli import base
-from uiprotect.data import NVR, AnalyticsOption
+from ..cli import base
+from ..data import NVR, AnalyticsOption
 
 app = typer.Typer(rich_markup_mode="rich")
 

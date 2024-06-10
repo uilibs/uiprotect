@@ -5,9 +5,9 @@ from typing import Optional
 
 import typer
 
-from uiprotect.api import ProtectApiClient
-from uiprotect.cli import base
-from uiprotect.data import Chime
+from ..api import ProtectApiClient
+from ..cli import base
+from ..data import Chime
 
 app = typer.Typer(rich_markup_mode="rich")
 

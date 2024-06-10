@@ -29,14 +29,14 @@ from uuid import UUID
 import jwt
 from aiohttp import ClientResponse
 
-from uiprotect.data.types import (
+from .data.types import (
     Color,
     SmartDetectAudioType,
     SmartDetectObjectType,
     Version,
     VideoMode,
 )
-from uiprotect.exceptions import NvrError
+from .exceptions import NvrError
 
 try:
     from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, SHAPE_SET, ModelField

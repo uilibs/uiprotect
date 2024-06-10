@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING, Any
 
 import orjson
 
-from uiprotect.data.types import ProtectWSPayloadFormat
-from uiprotect.exceptions import WSDecodeError, WSEncodeError
+from ..exceptions import WSDecodeError, WSEncodeError
+from .types import ProtectWSPayloadFormat
 
 if TYPE_CHECKING:
-    from uiprotect.data.base import ProtectModelWithId
+    from .base import ProtectModelWithId
 
 WS_HEADER_SIZE = 8
 

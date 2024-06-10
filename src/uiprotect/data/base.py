@@ -11,20 +11,8 @@ from ipaddress import IPv4Address
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 from uuid import UUID
 
-from uiprotect.data.types import (
-    ModelType,
-    PercentFloat,
-    PermissionNode,
-    ProtectWSPayloadFormat,
-    StateType,
-)
-from uiprotect.data.websocket import (
-    WSJSONPacketFrame,
-    WSPacket,
-    WSPacketFrameHeader,
-)
-from uiprotect.exceptions import BadRequest, ClientError, NotAuthorized
-from uiprotect.utils import (
+from ..exceptions import BadRequest, ClientError, NotAuthorized
+from ..utils import (
     asyncio_timeout,
     convert_unifi_data,
     dict_diff,
@@ -32,6 +20,18 @@ from uiprotect.utils import (
     process_datetime,
     serialize_unifi_obj,
     to_snake_case,
+)
+from .types import (
+    ModelType,
+    PercentFloat,
+    PermissionNode,
+    ProtectWSPayloadFormat,
+    StateType,
+)
+from .websocket import (
+    WSJSONPacketFrame,
+    WSPacket,
+    WSPacketFrameHeader,
 )
 
 try:
@@ -50,10 +50,10 @@ if TYPE_CHECKING:
 
     from typing_extensions import Self  # requires Python 3.11+
 
-    from uiprotect.api import ProtectApiClient
-    from uiprotect.data.devices import Bridge
-    from uiprotect.data.nvr import Event
-    from uiprotect.data.user import User
+    from ..api import ProtectApiClient
+    from ..data.devices import Bridge
+    from ..data.nvr import Event
+    from ..data.user import User
 
     try:
         from pydantic.v1.typing import DictStrAny
@@ -136,7 +136,7 @@ class ProtectBaseObject(BaseModel):
 
     @classmethod
     def construct(cls, _fields_set: set[str] | None = None, **values: Any) -> Self:
-        api = values.pop("api", None)
+        api: ProtectApiClient | None = values.pop("api", None)
         values_set = set(values)
 
         unifi_objs = cls._get_protect_objs()
@@ -278,14 +278,6 @@ class ProtectBaseObject(BaseModel):
         return set(cls._get_protect_dicts())
 
     @classmethod
-    def _get_api(cls, api: ProtectApiClient | None) -> ProtectApiClient | None:
-        """Helper method to try to find and the current ProjtectAPIClient instance from given data"""
-        if api is None and isinstance(cls, ProtectBaseObject) and hasattr(cls, "_api"):  # type: ignore[unreachable]
-            api = cls._api  # type: ignore[unreachable]
-
-        return api
-
-    @classmethod
     def _clean_protect_obj(
         cls,
         data: Any,
@@ -336,7 +328,9 @@ class ProtectBaseObject(BaseModel):
 
         """
         # get the API client instance
-        api = cls._get_api(data.get("api"))
+        api: ProtectApiClient | None = data.get("api") or (
+            cls._api if isinstance(cls, ProtectBaseObject) else None
+        )
 
         # remap keys that will not be converted correctly by snake_case convert
         remaps = cls._get_unifi_remaps()

@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 import typer
 
-from uiprotect.data import ModelType
+from ..data import ModelType
 
 object_id_mapping: dict[str, str] = {}
 

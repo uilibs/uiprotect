@@ -11,8 +11,8 @@ try:
 except ImportError:
     from pydantic.fields import PrivateAttr
 
-from uiprotect.data.base import ProtectBaseObject, ProtectModel, ProtectModelWithId
-from uiprotect.data.types import ModelType, PermissionNode
+from .base import ProtectBaseObject, ProtectModel, ProtectModelWithId
+from .types import ModelType, PermissionNode
 
 
 class Permission(ProtectBaseObject):

@@ -7,7 +7,7 @@ import logging
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from aiohttp.client_exceptions import ServerDisconnectedError
 
@@ -16,14 +16,16 @@ try:
 except ImportError:
     from pydantic import PrivateAttr, ValidationError  # type: ignore[assignment]
 
-from uiprotect.data.base import (
+from ..exceptions import ClientError
+from ..utils import utc_now
+from .base import (
     RECENT_EVENT_MAX,
     ProtectBaseObject,
     ProtectModel,
     ProtectModelWithId,
 )
-from uiprotect.data.convert import create_from_unifi_dict
-from uiprotect.data.devices import (
+from .convert import create_from_unifi_dict
+from .devices import (
     Bridge,
     Camera,
     Chime,
@@ -33,17 +35,19 @@ from uiprotect.data.devices import (
     Sensor,
     Viewer,
 )
-from uiprotect.data.nvr import NVR, Event, Liveview
-from uiprotect.data.types import EventType, FixSizeOrderedDict, ModelType
-from uiprotect.data.user import Group, User
-from uiprotect.data.websocket import (
+from .nvr import NVR, Event, Liveview
+from .types import EventType, FixSizeOrderedDict, ModelType
+from .user import Group, User
+from .websocket import (
     WSAction,
     WSJSONPacketFrame,
     WSPacket,
     WSSubscriptionMessage,
 )
-from uiprotect.exceptions import ClientError
-from uiprotect.utils import utc_now
+
+if TYPE_CHECKING:
+    from ..api import ProtectApiClient
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -198,7 +202,9 @@ class Bootstrap(ProtectBaseObject):
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        api = cls._get_api(data.get("api"))
+        api: ProtectApiClient | None = data.get("api") or (
+            cls._api if isinstance(cls, ProtectBaseObject) else None
+        )
         data["macLookup"] = {}
         data["idLookup"] = {}
         for model_type in ModelType.bootstrap_models():
