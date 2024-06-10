@@ -15,14 +15,14 @@ from typing import Any, overload
 import aiohttp
 from PIL import Image
 
-from uiprotect.api import ProtectApiClient
-from uiprotect.data import EventType, WSJSONPacketFrame, WSPacket
-from uiprotect.exceptions import BadRequest
-from uiprotect.test_util.anonymize import (
+from ..api import ProtectApiClient
+from ..data import EventType, WSJSONPacketFrame, WSPacket
+from ..exceptions import BadRequest
+from ..test_util.anonymize import (
     anonymize_data,
     anonymize_prefixed_event_id,
 )
-from uiprotect.utils import from_js_time, is_online, run_async, write_json
+from ..utils import from_js_time, is_online, run_async, write_json
 
 BLANK_VIDEO_CMD = "ffmpeg -y -hide_banner -loglevel error -f lavfi -i color=size=1280x720:rate=25:color=black -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -t {length} {filename}"
 
