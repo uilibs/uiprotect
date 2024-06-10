@@ -152,7 +152,7 @@ class EventThumbnailAttributes(ProtectBaseObject):
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
-        for key in DELETE_KEYS_THUMB.intersection(data.keys()):
+        for key in DELETE_KEYS_THUMB.intersection(data):
             if data[key] is None:
                 del data[key]
 
@@ -240,7 +240,7 @@ class EventMetadata(ProtectBaseObject):
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        for key in cls._collapse_keys.intersection(data.keys()):
+        for key in cls._collapse_keys.intersection(data):
             if isinstance(data[key], dict):
                 data[key] = data[key]["text"]
 
@@ -258,7 +258,7 @@ class EventMetadata(ProtectBaseObject):
             if value is None:
                 del data[key]
 
-        for key in self._collapse_keys.intersection(data.keys()):
+        for key in self._collapse_keys.intersection(data):
             # AI Theta/Hotplug exception
             if key != "type" or data[key] not in {"audio", "video", "extender"}:
                 data[key] = {"text": data[key]}
@@ -308,7 +308,7 @@ class Event(ProtectModelWithId):
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        for key in {"start", "end", "timestamp", "deletedAt"}.intersection(data.keys()):
+        for key in {"start", "end", "timestamp", "deletedAt"}.intersection(data):
             data[key] = process_datetime(data, key)
 
         return super().unifi_dict_to_dict(data)
@@ -320,7 +320,7 @@ class Event(ProtectModelWithId):
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
-        for key in DELETE_KEYS_EVENT.intersection(data.keys()):
+        for key in DELETE_KEYS_EVENT.intersection(data):
             if data[key] is None:
                 del data[key]
 

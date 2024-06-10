@@ -814,7 +814,7 @@ def _add_metadata(path: Path, creation: datetime, title: str) -> bool:
                 in_to_out[stream] = output_file.add_stream(template=stream)  # type: ignore[index]
                 in_to_out[stream].metadata["creation_time"] = creation.isoformat()  # type: ignore[index]
 
-            for packet in input_file.demux(list(in_to_out.keys())):
+            for packet in input_file.demux(list(in_to_out)):
                 if packet.dts is None:
                     continue
 
