@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.7.0 (2024-06-10)
+
+### Feature
+
+
+- Refactor protect object subtype bucketing (#18) ([`e4123ac`](https://github.com/uilibs/uiprotect/commit/e4123ac13015c186f141c1bfec3a7c064bb2d732))
+
+
 ## v0.6.0 (2024-06-10)
 
 ### Feature
