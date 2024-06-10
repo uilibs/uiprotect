@@ -818,23 +818,26 @@ class ProtectApiClient(BaseApiClient):
         return self._bootstrap
 
     def emit_message(self, msg: WSSubscriptionMessage) -> None:
-        if msg.new_obj is not None:
-            _LOGGER.debug(
-                "emitting message: %s:%s:%s:%s",
-                msg.action,
-                msg.new_obj.model,
-                msg.new_obj.id,
-                list(msg.changed_data),
-            )
-        elif msg.old_obj is not None:
-            _LOGGER.debug(
-                "emitting message: %s:%s:%s",
-                msg.action,
-                msg.old_obj.model,
-                msg.old_obj.id,
-            )
-        else:
-            _LOGGER.debug("emitting message: %s", msg.action)
+        """Emit message to all subscriptions."""
+        if _LOGGER.isEnabledFor(logging.DEBUG):
+            if msg.new_obj is not None:
+                _LOGGER.debug(
+                    "emitting message: %s:%s:%s:%s",
+                    msg.action,
+                    msg.new_obj.model,
+                    msg.new_obj.id,
+                    list(msg.changed_data),
+                )
+            elif msg.old_obj is not None:
+                _LOGGER.debug(
+                    "emitting message: %s:%s:%s",
+                    msg.action,
+                    msg.old_obj.model,
+                    msg.old_obj.id,
+                )
+            else:
+                _LOGGER.debug("emitting message: %s", msg.action)
+
         for sub in self._ws_subscriptions:
             try:
                 sub(msg)
