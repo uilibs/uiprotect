@@ -32,10 +32,10 @@ from sqlalchemy import event as saevent
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import Mapped, declarative_base, relationship
 
-from uiprotect import data as d
-from uiprotect.api import ProtectApiClient
-from uiprotect.cli import base
-from uiprotect.utils import (
+from .. import data as d
+from ..api import ProtectApiClient
+from ..cli import base
+from ..utils import (
     format_duration,
     get_local_timezone,
     local_datetime,
