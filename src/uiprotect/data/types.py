@@ -305,6 +305,7 @@ class DoorbellMessageType(str, ValuesEnumMixin, enum.Enum):
     LEAVE_PACKAGE_AT_DOOR = "LEAVE_PACKAGE_AT_DOOR"
     DO_NOT_DISTURB = "DO_NOT_DISTURB"
     CUSTOM_MESSAGE = "CUSTOM_MESSAGE"
+    IMAGE = "IMAGE"
 
 
 @enum.unique
