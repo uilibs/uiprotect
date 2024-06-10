@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.0 (2024-06-10)
+
+### Feature
+
+
+- Avoid parsing last_update_id (#12) ([`ac86b13`](https://github.com/uilibs/uiprotect/commit/ac86b13b3efc8fc619471536ea993f3741882264))
+
+
 ## v0.3.10 (2024-06-10)
 
 ### Fix

@@ -7,7 +7,7 @@
 project = "uiprotect"
 copyright = "2024, UI Protect Maintainers"
 author = "UI Protect Maintainers"
-release = "0.3.10"
+release = "0.4.0"
 
 # General configuration
 extensions = [
