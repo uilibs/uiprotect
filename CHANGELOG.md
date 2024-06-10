@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.9.0 (2024-06-10)
+
+### Feature
+
+
+- Avoid linear searches to process websocket packets (#21) ([`86d5f19`](https://github.com/uilibs/uiprotect/commit/86d5f198071b0478b480804d055ed80c88341ee1))
+
+
 ## v0.8.0 (2024-06-10)
 
 ### Feature
