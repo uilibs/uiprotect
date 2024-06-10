@@ -12,23 +12,24 @@ import typer
 from rich.progress import track
 
 from uiprotect.api import ProtectApiClient
-from uiprotect.cli.base import CliContext, OutputFormatEnum
-from uiprotect.cli.cameras import app as camera_app
-from uiprotect.cli.chimes import app as chime_app
-from uiprotect.cli.doorlocks import app as doorlock_app
-from uiprotect.cli.events import app as event_app
-from uiprotect.cli.lights import app as light_app
-from uiprotect.cli.liveviews import app as liveview_app
-from uiprotect.cli.nvr import app as nvr_app
-from uiprotect.cli.sensors import app as sensor_app
-from uiprotect.cli.viewers import app as viewer_app
-from uiprotect.data import Version, WSPacket
-from uiprotect.test_util import SampleDataGenerator
-from uiprotect.utils import RELEASE_CACHE, get_local_timezone, run_async
-from uiprotect.utils import profile_ws as profile_ws_job
+
+from ..data import Version, WSPacket
+from ..test_util import SampleDataGenerator
+from ..utils import RELEASE_CACHE, get_local_timezone, run_async
+from ..utils import profile_ws as profile_ws_job
+from .base import CliContext, OutputFormatEnum
+from .cameras import app as camera_app
+from .chimes import app as chime_app
+from .doorlocks import app as doorlock_app
+from .events import app as event_app
+from .lights import app as light_app
+from .liveviews import app as liveview_app
+from .nvr import app as nvr_app
+from .sensors import app as sensor_app
+from .viewers import app as viewer_app
 
 try:
-    from uiprotect.cli.backup import app as backup_app
+    from .backup import app as backup_app
 except ImportError:
     backup_app = None  # type: ignore[assignment]
 
