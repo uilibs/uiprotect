@@ -17,13 +17,26 @@ try:
 except ImportError:
     from pydantic.fields import PrivateAttr
 
-from uiprotect.data.base import (
+from ..exceptions import BadRequest, NotAuthorized, StreamError
+from ..stream import TalkbackStream
+from ..utils import (
+    clamp_value,
+    convert_smart_audio_types,
+    convert_smart_types,
+    convert_video_modes,
+    from_js_time,
+    process_datetime,
+    serialize_point,
+    to_js_time,
+    utc_now,
+)
+from .base import (
     EVENT_PING_INTERVAL,
     ProtectAdoptableDeviceModel,
     ProtectBaseObject,
     ProtectMotionDeviceModel,
 )
-from uiprotect.data.types import (
+from .types import (
     DEFAULT,
     DEFAULT_TYPE,
     AudioCodecs,
@@ -65,23 +78,10 @@ from uiprotect.data.types import (
     VideoMode,
     WDRLevel,
 )
-from uiprotect.data.user import User
-from uiprotect.exceptions import BadRequest, NotAuthorized, StreamError
-from uiprotect.stream import TalkbackStream
-from uiprotect.utils import (
-    clamp_value,
-    convert_smart_audio_types,
-    convert_smart_types,
-    convert_video_modes,
-    from_js_time,
-    process_datetime,
-    serialize_point,
-    to_js_time,
-    utc_now,
-)
+from .user import User
 
 if TYPE_CHECKING:
-    from uiprotect.data.nvr import Event, Liveview
+    from .nvr import Event, Liveview
 
 PRIVACY_ZONE_NAME = "pyufp_privacy_zone"
 LUX_MAPPING_VALUES = [

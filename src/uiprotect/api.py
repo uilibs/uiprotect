@@ -25,7 +25,7 @@ from aiohttp import CookieJar, client_exceptions
 from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
-from uiprotect.data import (
+from .data import (
     NVR,
     Bootstrap,
     Bridge,
@@ -50,11 +50,11 @@ from uiprotect.data import (
     WSSubscriptionMessage,
     create_from_unifi_dict,
 )
-from uiprotect.data.base import ProtectModelWithId
-from uiprotect.data.devices import Chime
-from uiprotect.data.types import IteratorCallback, ProgressCallback, RecordingMode
-from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
-from uiprotect.utils import (
+from .data.base import ProtectModelWithId
+from .data.devices import Chime
+from .data.types import IteratorCallback, ProgressCallback, RecordingMode
+from .exceptions import BadRequest, NotAuthorized, NvrError
+from .utils import (
     decode_token_cookie,
     get_response_reason,
     ip_from_host,
@@ -62,7 +62,7 @@ from uiprotect.utils import (
     to_js_time,
     utc_now,
 )
-from uiprotect.websocket import Websocket
+from .websocket import Websocket
 
 TOKEN_COOKIE_MAX_EXP_SECONDS = 60
 

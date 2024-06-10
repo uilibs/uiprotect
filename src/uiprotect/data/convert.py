@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from uiprotect.data.devices import (
+from ..exceptions import DataDecodeError
+from .devices import (
     Bridge,
     Camera,
     Chime,
@@ -13,14 +14,13 @@ from uiprotect.data.devices import (
     Sensor,
     Viewer,
 )
-from uiprotect.data.nvr import NVR, Event, Liveview
-from uiprotect.data.types import ModelType
-from uiprotect.data.user import CloudAccount, Group, User, UserLocation
-from uiprotect.exceptions import DataDecodeError
+from .nvr import NVR, Event, Liveview
+from .types import ModelType
+from .user import CloudAccount, Group, User, UserLocation
 
 if TYPE_CHECKING:
-    from uiprotect.api import ProtectApiClient
-    from uiprotect.data.base import ProtectModel
+    from ..api import ProtectApiClient
+    from ..data.base import ProtectModel
 
 
 MODEL_TO_CLASS: dict[str, type[ProtectModel]] = {

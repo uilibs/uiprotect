@@ -9,10 +9,10 @@ import orjson
 import typer
 from pydantic.v1 import ValidationError
 
-from uiprotect.api import ProtectApiClient
-from uiprotect.data import NVR, ProtectAdoptableDeviceModel, ProtectBaseObject
-from uiprotect.exceptions import BadRequest, NvrError, StreamError
-from uiprotect.utils import run_async
+from ..api import ProtectApiClient
+from ..data import NVR, ProtectAdoptableDeviceModel, ProtectBaseObject
+from ..exceptions import BadRequest, NvrError, StreamError
+from ..utils import run_async
 
 try:
     from pydantic.v1 import ValidationError

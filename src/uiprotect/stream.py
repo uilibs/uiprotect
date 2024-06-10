@@ -11,10 +11,10 @@ from urllib.parse import urlparse
 
 from aioshutil import which
 
-from uiprotect.exceptions import BadRequest, StreamError
+from .exceptions import BadRequest, StreamError
 
 if TYPE_CHECKING:
-    from uiprotect.data import Camera
+    from .data import Camera
 
 _LOGGER = logging.getLogger(__name__)
 

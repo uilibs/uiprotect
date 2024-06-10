@@ -16,12 +16,14 @@ import aiofiles
 import orjson
 from aiofiles import os as aos
 
-from uiprotect.data.base import (
+from ..exceptions import BadRequest, NotAuthorized
+from ..utils import RELEASE_CACHE, process_datetime
+from .base import (
     ProtectBaseObject,
     ProtectDeviceModel,
     ProtectModelWithId,
 )
-from uiprotect.data.devices import (
+from .devices import (
     Camera,
     CameraZone,
     Light,
@@ -30,7 +32,7 @@ from uiprotect.data.devices import (
     Sensor,
     SmartDetectSettings,
 )
-from uiprotect.data.types import (
+from .types import (
     AnalyticsOption,
     DoorbellMessageType,
     DoorbellText,
@@ -53,9 +55,7 @@ from uiprotect.data.types import (
     StorageType,
     Version,
 )
-from uiprotect.data.user import User, UserLocation
-from uiprotect.exceptions import BadRequest, NotAuthorized
-from uiprotect.utils import RELEASE_CACHE, process_datetime
+from .user import User, UserLocation
 
 try:
     from pydantic.v1.fields import PrivateAttr
