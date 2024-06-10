@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import enum
 from collections.abc import Callable, Coroutine
+from functools import cache
 from typing import Any, Literal, Optional, TypeVar, Union
 
 from packaging.version import Version as BaseVersion
@@ -58,10 +59,16 @@ class ValuesEnumMixin:
     _values_normalized: dict[str, str] | None = None
 
     @classmethod
+    @cache
     def values(cls) -> list[str]:
         if cls._values is None:
             cls._values = [e.value for e in cls]  # type: ignore[attr-defined]
         return cls._values
+
+    @classmethod
+    @cache
+    def values_set(cls) -> set[str]:
+        return set(cls.values())
 
     @classmethod
     def _missing_(cls, value: Any) -> Any | None:
@@ -103,6 +110,7 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
     UNKNOWN = "unknown"
 
     @staticmethod
+    @cache
     def bootstrap_models() -> tuple[str, ...]:
         # TODO:
         # legacyUFV
@@ -120,6 +128,11 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
             ModelType.DOORLOCK.value,
             ModelType.CHIME.value,
         )
+
+    @staticmethod
+    @cache
+    def bootstrap_models_set() -> set[str]:
+        return set(ModelType.bootstrap_models())
 
 
 @enum.unique
@@ -204,6 +217,7 @@ class EventType(str, ValuesEnumMixin, enum.Enum):
     RECORDING_OFF = "recordingOff"
 
     @staticmethod
+    @cache
     def device_events() -> list[str]:
         return [
             EventType.MOTION.value,
@@ -212,6 +226,12 @@ class EventType(str, ValuesEnumMixin, enum.Enum):
         ]
 
     @staticmethod
+    @cache
+    def device_events_set() -> set[str]:
+        return set(EventType.device_events())
+
+    @staticmethod
+    @cache
     def motion_events() -> list[str]:
         return [EventType.MOTION.value, EventType.SMART_DETECT.value]
 

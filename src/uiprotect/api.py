@@ -1075,7 +1075,10 @@ class ProtectApiClient(BaseApiClient):
 
         for event_dict in response:
             # ignore unknown events
-            if "type" not in event_dict or event_dict["type"] not in EventType.values():
+            if (
+                "type" not in event_dict
+                or event_dict["type"] not in EventType.values_set()
+            ):
                 _LOGGER.debug("Unknown event type: %s", event_dict)
                 continue
 
@@ -1086,7 +1089,7 @@ class ProtectApiClient(BaseApiClient):
                 continue
 
             if (
-                event.type.value in EventType.device_events()
+                event.type.value in EventType.device_events_set()
                 and event.score >= self._minimum_score
             ):
                 events.append(event)
