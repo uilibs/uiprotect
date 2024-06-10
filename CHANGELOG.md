@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.1 (2024-06-10)
+
+### Fix
+
+
+- Handle unifi os 4 token change (#14) ([`a6aab8f`](https://github.com/uilibs/uiprotect/commit/a6aab8f1eefd631119288f6d29d643f3984c5b0d))
+
+
 ## v0.4.0 (2024-06-10)
 
 ### Feature
