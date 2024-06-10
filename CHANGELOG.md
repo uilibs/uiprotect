@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.5.0 (2024-06-10)
+
+### Feature
+
+
+- Memoize enum type check to speed up data conversion (#15) ([`73b0c4a`](https://github.com/uilibs/uiprotect/commit/73b0c4a813e99d3f353a8fbf3d8a997158cedf3a))
+
+
 ## v0.4.1 (2024-06-10)
 
 ### Fix
