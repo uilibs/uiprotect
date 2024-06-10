@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.6.0 (2024-06-10)
+
+### Feature
+
+
+- Small code cleanups (#17) ([`f1668ae`](https://github.com/uilibs/uiprotect/commit/f1668ae2c9c9f49f6e703a387159d305c2cba847))
+
+
 ## v0.5.0 (2024-06-10)
 
 ### Feature
