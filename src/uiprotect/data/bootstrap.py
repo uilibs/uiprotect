@@ -8,7 +8,6 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, cast
-from uuid import UUID
 
 from aiohttp.client_exceptions import ServerDisconnectedError
 
@@ -179,7 +178,7 @@ class Bootstrap(ProtectBaseObject):
     sensors: dict[str, Sensor]
     doorlocks: dict[str, Doorlock]
     chimes: dict[str, Chime]
-    last_update_id: UUID
+    last_update_id: str
 
     # TODO:
     # schedules
@@ -546,7 +545,7 @@ class Bootstrap(ProtectBaseObject):
 
         action, data = self._get_frame_data(packet)
         if action["newUpdateId"] is not None:
-            self.last_update_id = UUID(action["newUpdateId"])
+            self.last_update_id = action["newUpdateId"]
 
         if action["modelKey"] not in ModelType.values():
             _LOGGER.debug("Unknown model type: %s", action["modelKey"])
