@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from uiprotect.api import ProtectApiClient
-from uiprotect.exceptions import Invalid, NotAuthorized, NvrError
+from .api import ProtectApiClient
+from .exceptions import Invalid, NotAuthorized, NvrError
 
 __all__ = [
     "Invalid",
