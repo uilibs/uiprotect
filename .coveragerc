@@ -23,3 +23,4 @@ exclude_lines =
     if TYPE_CHECKING:
     @overload
     except ImportError:
+    if _LOGGER.isEnabledFor(logging.DEBUG):
