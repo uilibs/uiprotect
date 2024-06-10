@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.8.0 (2024-06-10)
+
+### Feature
+
+
+- Guard debug logging that reformats data in the arguments (#20) ([`0cfdea8`](https://github.com/uilibs/uiprotect/commit/0cfdea8d27c0a35d71cd98d65120288218f4ca4c))
+
+
+### Refactor
+
+
+- Remove useless .keys() calls (#19) ([`ec1fd12`](https://github.com/uilibs/uiprotect/commit/ec1fd129deb06b5d2334d49ccd0b238033c5b904))
+
+
 ## v0.7.0 (2024-06-10)
 
 ### Feature
