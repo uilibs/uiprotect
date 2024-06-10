@@ -8,9 +8,9 @@ from typing import Optional, cast
 import typer
 from rich.progress import Progress
 
-from uiprotect import data as d
-from uiprotect.api import ProtectApiClient
-from uiprotect.cli import base
+from .. import data as d
+from ..api import ProtectApiClient
+from ..cli import base
 
 app = typer.Typer(rich_markup_mode="rich")
 
