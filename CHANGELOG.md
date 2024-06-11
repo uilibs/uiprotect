@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.12.0 (2024-06-11)
+
+### Feature
+
+
+- Cleanup websocket add/remove packet processing (#25) ([`fdf0f6e`](https://github.com/uilibs/uiprotect/commit/fdf0f6eef96c17c0d2afe008444c24ce8fad72ee))
+
+
+- Use a single function to normalize mac addresses (#26) ([`7ce8654`](https://github.com/uilibs/uiprotect/commit/7ce86543d4ec1efa9143839b1b7be1c6dd977ca1))
+
+
 ## v0.11.0 (2024-06-11)
 
 ### Feature
