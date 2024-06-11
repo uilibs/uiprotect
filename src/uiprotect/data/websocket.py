@@ -7,6 +7,7 @@ import enum
 import struct
 import zlib
 from dataclasses import dataclass
+from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 import orjson
@@ -174,13 +175,15 @@ class WSJSONPacketFrame(BaseWSPacketFrame):
 
 
 class WSPacket:
+    """Class to handle a unifi protect websocket packet."""
+
     _raw: bytes
     _raw_encoded: str | None = None
 
     _action_frame: BaseWSPacketFrame | None = None
     _data_frame: BaseWSPacketFrame | None = None
 
-    def __init__(self, data: bytes):
+    def __init__(self, data: bytes) -> None:
         self._raw = data
 
     def decode(self) -> None:
@@ -190,7 +193,7 @@ class WSPacket:
             self._action_frame.length,
         )
 
-    @property
+    @cached_property
     def action_frame(self) -> BaseWSPacketFrame:
         if self._action_frame is None:
             self.decode()
@@ -200,7 +203,7 @@ class WSPacket:
 
         return self._action_frame
 
-    @property
+    @cached_property
     def data_frame(self) -> BaseWSPacketFrame:
         if self._data_frame is None:
             self.decode()
@@ -220,6 +223,8 @@ class WSPacket:
         self._action_frame = None
         self._data_frame = None
         self._raw_encoded = None
+        self.__dict__.pop("data_frame", None)
+        self.__dict__.pop("action_frame", None)
 
     @property
     def raw_base64(self) -> str:
