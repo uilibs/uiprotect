@@ -746,10 +746,6 @@ class ProtectApiClient(BaseApiClient):
             set_debug()
 
     @property
-    def is_ready(self) -> bool:
-        return self._bootstrap is not None
-
-    @property
     def bootstrap(self) -> Bootstrap:
         if self._bootstrap is None:
             raise BadRequest("Client not initalized, run `update` first")
