@@ -620,6 +620,12 @@ class LensType(str, enum.Enum):
     DLSR_17 = "m43"
 
 
+@enum.unique
+class VideoExportType(str, ValuesEnumMixin, enum.Enum):
+    TIMELAPSE = "timelapse"
+    ROTATING = "rotating"
+
+
 class DoorbellText(ConstrainedStr):
     max_length = 30
 

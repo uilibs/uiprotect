@@ -48,6 +48,7 @@ from .data import (
     SmartDetectObjectType,
     SmartDetectTrack,
     Version,
+    VideoExportType,
     Viewer,
     WSPacket,
     WSSubscriptionMessage,
@@ -88,6 +89,8 @@ TYPES_BUG_MESSAGE = """There is currently a bug in UniFi Protect that makes `sta
 
 If your Protect instance has a lot of events, this request will take much longer then expected. It is recommended adding additional filters to speed the request up."""
 
+# Version where new download mechanism was added
+NEW_DOWNLOAD_VERSION = Version("4.0.0")
 
 _LOGGER = logging.getLogger(__name__)
 _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
@@ -1482,69 +1485,49 @@ class ProtectApiClient(BaseApiClient):
             if progress_callback is not None:
                 await progress_callback(step, current, total)
 
-    async def get_camera_video(
+    async def download_camera_video(
         self,
         camera_id: str,
-        start: datetime,
-        end: datetime,
-        channel_index: int = 0,
-        validate_channel_id: bool = True,
+        filename: str,
         output_file: Path | None = None,
         iterator_callback: IteratorCallback | None = None,
         progress_callback: ProgressCallback | None = None,
         chunk_size: int = 65536,
-        fps: int | None = None,
     ) -> bytes | None:
         """
-        Exports MP4 video from a given camera at a specific time.
+        Downloads a prepared MP4 video from a given camera.
 
-        Start/End of video export are approximate. It may be +/- a few seconds.
+        This is the newer implementation of retrieving video from Unifi Protect.
+        You need to supply the filename returned from prepare_camera_video().
 
-        It is recommended to provide a output file or progress callback for larger
+        It is recommended to provide an output file or progress callback for larger
         video clips, otherwise the full video must be downloaded to memory before
         being written.
-
-        Providing the `fps` parameter creates a "timelapse" export wtih the given FPS
-        value. Protect app gives the options for 60x (fps=4), 120x (fps=8), 300x
-        (fps=20), and 600x (fps=40).
         """
-        if validate_channel_id and self._bootstrap is not None:
-            camera = self._bootstrap.cameras[camera_id]
-            try:
-                camera.channels[channel_index]
-            except IndexError as e:
-                raise BadRequest from e
+        if self.bootstrap.nvr.version < NEW_DOWNLOAD_VERSION:
+            raise ValueError(
+                "This method is only support from Unifi Protect version >= 4.0.0."
+            )
 
         params = {
             "camera": camera_id,
-            "start": to_js_time(start),
-            "end": to_js_time(end),
+            "filename": filename,
         }
 
-        if fps is not None:
-            params["fps"] = fps
-            params["type"] = "timelapse"
-
-        if channel_index == 3:
-            params.update({"lens": 2})
-        else:
-            params.update({"channel": channel_index})
-
-        path = "video/export"
         if (
             iterator_callback is None
             and progress_callback is None
             and output_file is None
         ):
             return await self.api_request_raw(
-                path,
+                "video/download",
                 params=params,
                 raise_exception=False,
             )
 
         r = await self.request(
             "get",
-            f"{self.api_path}{path}",
+            f"{self.api_path}video/download",
             auto_close=False,
             timeout=0,
             params=params,
@@ -1568,6 +1551,219 @@ class ProtectApiClient(BaseApiClient):
             )
         r.close()
         return None
+
+    async def _validate_channel_id(self, camera_id: str, channel_index: int) -> None:
+        """Validate if camera_id and channel_index are valid."""
+        if self._bootstrap is None:
+            await self.update()
+        try:
+            camera = self._bootstrap.cameras[camera_id]  # type: ignore[union-attr]
+            camera.channels[channel_index]
+        except (IndexError, AttributeError, KeyError) as e:
+            raise BadRequest(f"Invalid input: {e}") from e
+
+    async def prepare_camera_video(
+        self,
+        camera_id: str,
+        start: datetime,
+        end: datetime,
+        channel_index: int = 0,
+        validate_channel_id: bool = True,
+        fps: int | None = None,
+        filename: str | None = None,
+    ) -> list[Any] | dict[str, Any] | None:
+        """
+        Prepares MP4 video from a given camera at a specific time.
+
+        This is the newer implementation of retrieving video from Unifi Protect.
+        When using this method, it should be followed up with download_camera_video().
+
+        Start/End of video export are approximate. It may be +/- a few seconds.
+
+        Providing the `fps` parameter creates a "timelapse" export wtih the given FPS
+        value. Protect app gives the options for 60x (fps=4), 120x (fps=8), 300x
+        (fps=20), and 600x (fps=40).
+
+        You will receive a filename and an expiry time in seconds.
+        """
+        if self.bootstrap.nvr.version < NEW_DOWNLOAD_VERSION:
+            raise ValueError(
+                "This method is only support from Unifi Protect version >= 4.0.0."
+            )
+
+        if validate_channel_id:
+            await self._validate_channel_id(camera_id, channel_index)
+
+        params = {
+            "camera": camera_id,
+            "start": to_js_time(start),
+            "end": to_js_time(end),
+        }
+
+        if channel_index == 3:
+            params.update({"lens": 2})
+        else:
+            params.update({"channel": channel_index})
+
+        if fps is not None and fps > 0:
+            params["fps"] = fps
+            params["type"] = VideoExportType.TIMELAPSE
+        else:
+            params["type"] = VideoExportType.ROTATING
+
+        if not filename:
+            start_str = start.strftime("%m-%d-%Y, %H.%M.%S %Z")
+            end_str = end.strftime("%m-%d-%Y, %H.%M.%S %Z")
+            filename = f"{camera_id} {start_str} - {end_str}.mp4"
+
+        params["filename"] = filename
+
+        return await self.api_request(
+            "video/prepare",
+            params=params,
+            raise_exception=True,
+        )
+
+    async def export_camera_video(
+        self,
+        camera_id: str,
+        start: datetime,
+        end: datetime,
+        channel_index: int = 0,
+        validate_channel_id: bool = True,
+        output_file: Path | None = None,
+        iterator_callback: IteratorCallback | None = None,
+        progress_callback: ProgressCallback | None = None,
+        chunk_size: int = 65536,
+        fps: int | None = None,
+    ) -> bytes | None:
+        """
+        Exports MP4 video from a given camera at a specific time.
+
+        Start/End of video export are approximate. It may be +/- a few seconds.
+
+        It is recommended to provide an output file or progress callback for larger
+        video clips, otherwise the full video must be downloaded to memory before
+        being written.
+
+        Providing the `fps` parameter creates a "timelapse" export wtih the given FPS
+        value. Protect app gives the options for 60x (fps=4), 120x (fps=8), 300x
+        (fps=20), and 600x (fps=40).
+        """
+        if validate_channel_id:
+            await self._validate_channel_id(camera_id, channel_index)
+
+        params = {
+            "camera": camera_id,
+            "start": to_js_time(start),
+            "end": to_js_time(end),
+        }
+
+        if fps is not None and fps > 0:
+            params["fps"] = fps
+            params["type"] = VideoExportType.TIMELAPSE
+
+        if channel_index == 3:
+            params.update({"lens": 2})
+        else:
+            params.update({"channel": channel_index})
+
+        if (
+            iterator_callback is None
+            and progress_callback is None
+            and output_file is None
+        ):
+            return await self.api_request_raw(
+                "video/export",
+                params=params,
+                raise_exception=False,
+            )
+
+        r = await self.request(
+            "get",
+            f"{self.api_path}video/export",
+            auto_close=False,
+            timeout=0,
+            params=params,
+        )
+        if output_file is not None:
+            async with aiofiles.open(output_file, "wb") as output:
+
+                async def callback(total: int, chunk: bytes | None) -> None:
+                    if iterator_callback is not None:
+                        await iterator_callback(total, chunk)
+                    if chunk is not None:
+                        await output.write(chunk)
+
+                await self._stream_response(r, chunk_size, callback, progress_callback)
+        else:
+            await self._stream_response(
+                r,
+                chunk_size,
+                iterator_callback,
+                progress_callback,
+            )
+        r.close()
+        return None
+
+    async def get_camera_video(
+        self,
+        camera_id: str,
+        start: datetime,
+        end: datetime,
+        channel_index: int = 0,
+        validate_channel_id: bool = True,
+        output_file: Path | None = None,
+        iterator_callback: IteratorCallback | None = None,
+        progress_callback: ProgressCallback | None = None,
+        chunk_size: int = 65536,
+        fps: int | None = None,
+        filename: str | None = None,
+    ) -> bytes | None:
+        """
+        Deprecated: maintained for backwards compatibility.
+
+        If you are using Unifi Protect 4 or later, please use
+        prepare_camera_video() and download_camera_video() instead.
+        """
+        if self.bootstrap.nvr.version >= NEW_DOWNLOAD_VERSION:
+            prepare_response = await self.prepare_camera_video(
+                camera_id=camera_id,
+                start=start,
+                end=end,
+                channel_index=channel_index,
+                validate_channel_id=validate_channel_id,
+                fps=fps,
+                filename=filename,
+            )
+
+            if not isinstance(prepare_response, dict):
+                raise ValueError(
+                    f"Expected `prepare_response` to be a dict, but it is {prepare_response}"
+                )
+            download_filename = prepare_response["fileName"]
+
+            return await self.download_camera_video(
+                camera_id=camera_id,
+                filename=download_filename,
+                output_file=output_file,
+                iterator_callback=iterator_callback,
+                progress_callback=progress_callback,
+                chunk_size=chunk_size,
+            )
+
+        return await self.export_camera_video(
+            camera_id=camera_id,
+            start=start,
+            end=end,
+            channel_index=channel_index,
+            validate_channel_id=validate_channel_id,
+            output_file=output_file,
+            iterator_callback=iterator_callback,
+            progress_callback=progress_callback,
+            chunk_size=chunk_size,
+            fps=fps,
+        )
 
     async def _get_image_with_retry(
         self,
