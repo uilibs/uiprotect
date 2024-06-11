@@ -47,6 +47,9 @@ jobs:
           - "3.12"
         os:
           - ubuntu-latest
+        pydantic:
+          - "1"
+          - "2"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -64,6 +67,10 @@ jobs:
           sudo apt update
           sudo apt install -y ffmpeg
           poetry install
+      - name: Install Pydantic
+        if: ${{ matrix.pydantic }} == "1"
+        run: |
+          poetry add 'pydantic>=1.0,<2.0'
       - name: Test with Pytest
         run: ./.bin/test-code
         shell: bash
