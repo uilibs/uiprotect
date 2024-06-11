@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.14.0 (2024-06-11)
+
+### Feature
+
+
+- Cache parsing of datetimes (#29) ([`8b6747a`](https://github.com/uilibs/uiprotect/commit/8b6747ae41d483da7395f49e402e29f68112fe83))
+
+
+### Refactor
+
+
+- Use f-strings in more places (#28) ([`22706c8`](https://github.com/uilibs/uiprotect/commit/22706c896121eac3b6847a951ef516f350119072))
+
+
 ## v0.13.0 (2024-06-11)
 
 ### Feature
