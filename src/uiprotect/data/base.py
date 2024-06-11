@@ -84,7 +84,7 @@ class ProtectBaseObject(BaseModel):
     * Provides `.unifi_dict` to convert object back into UFP JSON
     """
 
-    _api: ProtectApiClient | None = PrivateAttr(None)
+    _api: ProtectApiClient = PrivateAttr(...)
 
     _protect_objs: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
     _protect_lists: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
@@ -103,7 +103,8 @@ class ProtectBaseObject(BaseModel):
         Use the static method `.from_unifi_dict()` to create objects from UFP JSON data from then the main class constructor.
         """
         super().__init__(**data)
-        self._api = api
+        if api is not None:
+            self._api = api
 
     @classmethod
     def from_unifi_dict(
@@ -125,7 +126,8 @@ class ProtectBaseObject(BaseModel):
         (cameras, users, etc.)
 
         """
-        data["api"] = api
+        if api is not None:
+            data["api"] = api
         data = cls.unifi_dict_to_dict(data)
 
         if is_debug():
@@ -161,7 +163,8 @@ class ProtectBaseObject(BaseModel):
                 }
 
         obj = super().construct(_fields_set=_fields_set, **values)
-        obj._api = api
+        if api is not None:
+            obj._api = api
 
         return obj
 
@@ -756,7 +759,9 @@ class ProtectModelWithId(ProtectModel):
         if self.model is None:
             raise BadRequest("Unknown model type")
 
-        if not self.api.bootstrap.auth_user.can(self.model, PermissionNode.WRITE, self):
+        if not self._api.bootstrap.auth_user.can(
+            self.model, PermissionNode.WRITE, self
+        ):
             if revert_on_fail:
                 self.revert_changes(data_before_changes)
             raise NotAuthorized(f"Do not have write permission for obj: {self.id}")
@@ -811,11 +816,11 @@ class ProtectModelWithId(ProtectModel):
         data_frame.header = header
         data_frame.data = updated
 
-        message = self.api.bootstrap.process_ws_packet(
+        message = self._api.bootstrap.process_ws_packet(
             WSPacket(action_frame.packed + data_frame.packed),
         )
         if message is not None:
-            self.api.emit_message(message)
+            self._api.emit_message(message)
 
 
 class ProtectDeviceModel(ProtectModelWithId):
@@ -977,7 +982,7 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         if self.model is not None:
-            return await self.api.update_device(self.model, self.id, data)
+            return await self._api.update_device(self.model, self.id, data)
         return None
 
     def unifi_dict(
@@ -1026,12 +1031,12 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
         if self.bridge_id is None:
             return None
 
-        return self.api.bootstrap.bridges[self.bridge_id]
+        return self._api.bootstrap.bridges[self.bridge_id]
 
     @property
     def protect_url(self) -> str:
         """UFP Web app URL for this device"""
-        return f"{self.api.base_url}/protect/devices/{self.id}"
+        return f"{self._api.base_url}/protect/devices/{self.id}"
 
     @property
     def is_adopted_by_us(self) -> bool:
@@ -1053,13 +1058,13 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     async def reboot(self) -> None:
         """Reboots an adopted device"""
         if self.model is not None:
-            if not self.api.bootstrap.auth_user.can(
+            if not self._api.bootstrap.auth_user.can(
                 self.model,
                 PermissionNode.WRITE,
                 self,
             ):
                 raise NotAuthorized("Do not have permission to reboot device")
-            await self.api.reboot_device(self.model, self.id)
+            await self._api.reboot_device(self.model, self.id)
 
     async def unadopt(self) -> None:
         """Unadopt/Unmanage adopted device"""
@@ -1067,13 +1072,13 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
             raise BadRequest("Device is not adopted")
 
         if self.model is not None:
-            if not self.api.bootstrap.auth_user.can(
+            if not self._api.bootstrap.auth_user.can(
                 self.model,
                 PermissionNode.DELETE,
                 self,
             ):
                 raise NotAuthorized("Do not have permission to unadopt devices")
-            await self.api.unadopt_device(self.model, self.id)
+            await self._api.unadopt_device(self.model, self.id)
 
     async def adopt(self, name: str | None = None) -> None:
         """Adopts a device"""
@@ -1081,10 +1086,10 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
             raise BadRequest("Device cannot be adopted")
 
         if self.model is not None:
-            if not self.api.bootstrap.auth_user.can(self.model, PermissionNode.CREATE):
+            if not self._api.bootstrap.auth_user.can(self.model, PermissionNode.CREATE):
                 raise NotAuthorized("Do not have permission to adopt devices")
 
-            await self.api.adopt_device(self.model, self.id)
+            await self._api.adopt_device(self.model, self.id)
             if name is not None:
                 await self.set_name(name)
 
@@ -1118,4 +1123,4 @@ class ProtectMotionDeviceModel(ProtectAdoptableDeviceModel):
         if self.last_motion_event_id is None:
             return None
 
-        return self.api.bootstrap.events.get(self.last_motion_event_id)
+        return self._api.bootstrap.events.get(self.last_motion_event_id)

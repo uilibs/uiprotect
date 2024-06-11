@@ -158,7 +158,7 @@ class Light(ProtectMotionDeviceModel):
         if self.camera_id is None:
             return None
 
-        return self.api.bootstrap.cameras[self.camera_id]
+        return self._api.bootstrap.cameras[self.camera_id]
 
     async def set_paired_camera(self, camera: Camera | None) -> None:
         """Sets the camera paired with the light"""
@@ -283,7 +283,7 @@ class CameraChannel(ProtectBaseObject):
 
         if self._rtsp_url is not None:
             return self._rtsp_url
-        self._rtsp_url = f"rtsp://{self.api.connection_host}:{self.api.bootstrap.nvr.ports.rtsp}/{self.rtsp_alias}"
+        self._rtsp_url = f"rtsp://{self._api.connection_host}:{self._api.bootstrap.nvr.ports.rtsp}/{self.rtsp_alias}"
         return self._rtsp_url
 
     @property
@@ -293,7 +293,7 @@ class CameraChannel(ProtectBaseObject):
 
         if self._rtsps_url is not None:
             return self._rtsps_url
-        self._rtsps_url = f"rtsps://{self.api.connection_host}:{self.api.bootstrap.nvr.ports.rtsps}/{self.rtsp_alias}?enableSrtp"
+        self._rtsps_url = f"rtsps://{self._api.connection_host}:{self._api.bootstrap.nvr.ports.rtsps}/{self.rtsp_alias}?enableSrtp"
         return self._rtsps_url
 
     @property
@@ -1124,7 +1124,7 @@ class Camera(ProtectMotionDeviceModel):
         if self.last_ring_event_id is None:
             return None
 
-        return self.api.bootstrap.events.get(self.last_ring_event_id)
+        return self._api.bootstrap.events.get(self.last_ring_event_id)
 
     @property
     def last_smart_detect_event(self) -> Event | None:
@@ -1132,7 +1132,7 @@ class Camera(ProtectMotionDeviceModel):
         if self.last_smart_detect_event_id is None:
             return None
 
-        return self.api.bootstrap.events.get(self.last_smart_detect_event_id)
+        return self._api.bootstrap.events.get(self.last_smart_detect_event_id)
 
     @property
     def hdr_mode_display(self) -> Literal["auto", "off", "always"]:
@@ -1160,7 +1160,7 @@ class Camera(ProtectMotionDeviceModel):
         if event_id is None:
             return None
 
-        return self.api.bootstrap.events.get(event_id)
+        return self._api.bootstrap.events.get(event_id)
 
     @property
     def last_smart_audio_detect_event(self) -> Event | None:
@@ -1168,7 +1168,7 @@ class Camera(ProtectMotionDeviceModel):
         if self.last_smart_audio_detect_event_id is None:
             return None
 
-        return self.api.bootstrap.events.get(self.last_smart_audio_detect_event_id)
+        return self._api.bootstrap.events.get(self.last_smart_audio_detect_event_id)
 
     def get_last_smart_audio_detect_event(
         self,
@@ -1179,11 +1179,11 @@ class Camera(ProtectMotionDeviceModel):
         if event_id is None:
             return None
 
-        return self.api.bootstrap.events.get(event_id)
+        return self._api.bootstrap.events.get(event_id)
 
     @property
     def timelapse_url(self) -> str:
-        return f"{self.api.base_url}/protect/timelapse/{self.id}"
+        return f"{self._api.base_url}/protect/timelapse/{self.id}"
 
     @property
     def is_privacy_on(self) -> bool:
@@ -1199,7 +1199,7 @@ class Camera(ProtectMotionDeviceModel):
         motion/smart detection events.
         """
         if self.use_global:
-            return self.api.bootstrap.nvr.is_global_recording_enabled
+            return self._api.bootstrap.nvr.is_global_recording_enabled
 
         return self.recording_settings.mode is not RecordingMode.NEVER
 
@@ -1208,7 +1208,7 @@ class Camera(ProtectMotionDeviceModel):
         """Is smart detections allowed for this camera?"""
         return (
             self.is_recording_enabled
-            and self.api.bootstrap.nvr.is_smart_detections_enabled
+            and self._api.bootstrap.nvr.is_smart_detections_enabled
         )
 
     @property
@@ -1216,7 +1216,7 @@ class Camera(ProtectMotionDeviceModel):
         """Is license plate detections allowed for this camera?"""
         return (
             self.is_recording_enabled
-            and self.api.bootstrap.nvr.is_license_plate_detections_enabled
+            and self._api.bootstrap.nvr.is_license_plate_detections_enabled
         )
 
     @property
@@ -1224,22 +1224,22 @@ class Camera(ProtectMotionDeviceModel):
         """Is face detections allowed for this camera?"""
         return (
             self.is_recording_enabled
-            and self.api.bootstrap.nvr.is_face_detections_enabled
+            and self._api.bootstrap.nvr.is_face_detections_enabled
         )
 
     @property
     def active_recording_settings(self) -> RecordingSettings:
         """Get active recording settings."""
-        if self.use_global and self.api.bootstrap.nvr.global_camera_settings:
-            return self.api.bootstrap.nvr.global_camera_settings.recording_settings
+        if self.use_global and self._api.bootstrap.nvr.global_camera_settings:
+            return self._api.bootstrap.nvr.global_camera_settings.recording_settings
 
         return self.recording_settings
 
     @property
     def active_smart_detect_settings(self) -> SmartDetectSettings:
         """Get active smart detection settings."""
-        if self.use_global and self.api.bootstrap.nvr.global_camera_settings:
-            return self.api.bootstrap.nvr.global_camera_settings.smart_detect_settings
+        if self.use_global and self._api.bootstrap.nvr.global_camera_settings:
+            return self._api.bootstrap.nvr.global_camera_settings.smart_detect_settings
 
         return self.smart_detect_settings
 
@@ -1991,7 +1991,7 @@ class Camera(ProtectMotionDeviceModel):
 
         Datetime of screenshot is approximate. It may be +/- a few seconds.
         """
-        if not self.api.bootstrap.auth_user.can(
+        if not self._api.bootstrap.auth_user.can(
             ModelType.CAMERA,
             PermissionNode.READ_MEDIA,
             self,
@@ -2003,7 +2003,7 @@ class Camera(ProtectMotionDeviceModel):
         if height is None and width is None and self.high_camera_channel is not None:
             height = self.high_camera_channel.height
 
-        return await self.api.get_camera_snapshot(self.id, width, height, dt=dt)
+        return await self._api.get_camera_snapshot(self.id, width, height, dt=dt)
 
     async def get_package_snapshot(
         self,
@@ -2019,7 +2019,7 @@ class Camera(ProtectMotionDeviceModel):
         if not self.feature_flags.has_package_camera:
             raise BadRequest("Device does not have package camera")
 
-        if not self.api.bootstrap.auth_user.can(
+        if not self._api.bootstrap.auth_user.can(
             ModelType.CAMERA,
             PermissionNode.READ_MEDIA,
             self,
@@ -2031,7 +2031,9 @@ class Camera(ProtectMotionDeviceModel):
         if height is None and width is None and self.package_camera_channel is not None:
             height = self.package_camera_channel.height
 
-        return await self.api.get_package_camera_snapshot(self.id, width, height, dt=dt)
+        return await self._api.get_package_camera_snapshot(
+            self.id, width, height, dt=dt
+        )
 
     async def get_video(
         self,
@@ -2057,7 +2059,7 @@ class Camera(ProtectMotionDeviceModel):
         value. Protect app gives the options for 60x (fps=4), 120x (fps=8), 300x
         (fps=20), and 600x (fps=40).
         """
-        if not self.api.bootstrap.auth_user.can(
+        if not self._api.bootstrap.auth_user.can(
             ModelType.CAMERA,
             PermissionNode.READ_MEDIA,
             self,
@@ -2066,7 +2068,7 @@ class Camera(ProtectMotionDeviceModel):
                 f"Do not have permission to read media for camera: {self.id}",
             )
 
-        return await self.api.get_camera_video(
+        return await self._api.get_camera_video(
             self.id,
             start,
             end,
@@ -2410,7 +2412,7 @@ class Camera(ProtectMotionDeviceModel):
         if reset_at == DEFAULT:
             reset_at = (
                 utc_now()
-                + self.api.bootstrap.nvr.doorbell_settings.default_message_reset_timeout
+                + self._api.bootstrap.nvr.doorbell_settings.default_message_reset_timeout
             )
 
         def callback() -> None:
@@ -2584,7 +2586,7 @@ class Camera(ProtectMotionDeviceModel):
             pan = self.feature_flags.pan.to_native_value(pan, is_relative=True)
             tilt = self.feature_flags.tilt.to_native_value(tilt, is_relative=True)
 
-        await self.api.relative_move_ptz_camera(
+        await self._api.relative_move_ptz_camera(
             self.id,
             pan=pan,
             tilt=tilt,
@@ -2606,7 +2608,7 @@ class Camera(ProtectMotionDeviceModel):
 
         z value is zoom, but since it is capped at 1000, probably better to use `ptz_zoom`.
         """
-        await self.api.center_ptz_camera(self.id, x=x, y=y, z=z)
+        await self._api.center_ptz_camera(self.id, x=x, y=y, z=z)
 
     async def ptz_zoom(
         self,
@@ -2628,14 +2630,14 @@ class Camera(ProtectMotionDeviceModel):
         if not use_native:
             zoom = self.feature_flags.zoom.to_native_value(zoom)
 
-        await self.api.zoom_ptz_camera(self.id, zoom=zoom, speed=speed)
+        await self._api.zoom_ptz_camera(self.id, zoom=zoom, speed=speed)
 
     async def get_ptz_position(self) -> PTZPosition:
         """Get current PTZ Position."""
         if not self.feature_flags.is_ptz:
             raise BadRequest("Camera does not support PTZ features.")
 
-        return await self.api.get_position_ptz_camera(self.id)
+        return await self._api.get_position_ptz_camera(self.id)
 
     async def goto_ptz_slot(self, *, slot: int) -> None:
         """
@@ -2646,42 +2648,42 @@ class Camera(ProtectMotionDeviceModel):
         if not self.feature_flags.is_ptz:
             raise BadRequest("Camera does not support PTZ features.")
 
-        await self.api.goto_ptz_camera(self.id, slot=slot)
+        await self._api.goto_ptz_camera(self.id, slot=slot)
 
     async def create_ptz_preset(self, *, name: str) -> PTZPreset:
         """Create PTZ Preset for camera based on current camera settings."""
         if not self.feature_flags.is_ptz:
             raise BadRequest("Camera does not support PTZ features.")
 
-        return await self.api.create_preset_ptz_camera(self.id, name=name)
+        return await self._api.create_preset_ptz_camera(self.id, name=name)
 
     async def get_ptz_presets(self) -> list[PTZPreset]:
         """Get PTZ Presets for camera."""
         if not self.feature_flags.is_ptz:
             raise BadRequest("Camera does not support PTZ features.")
 
-        return await self.api.get_presets_ptz_camera(self.id)
+        return await self._api.get_presets_ptz_camera(self.id)
 
     async def delete_ptz_preset(self, *, slot: int) -> None:
         """Delete PTZ preset for camera."""
         if not self.feature_flags.is_ptz:
             raise BadRequest("Camera does not support PTZ features.")
 
-        await self.api.delete_preset_ptz_camera(self.id, slot=slot)
+        await self._api.delete_preset_ptz_camera(self.id, slot=slot)
 
     async def get_ptz_home(self) -> PTZPreset:
         """Get PTZ home preset (-1)."""
         if not self.feature_flags.is_ptz:
             raise BadRequest("Camera does not support PTZ features.")
 
-        return await self.api.get_home_ptz_camera(self.id)
+        return await self._api.get_home_ptz_camera(self.id)
 
     async def set_ptz_home(self) -> PTZPreset:
         """Get PTZ home preset (-1) to current position."""
         if not self.feature_flags.is_ptz:
             raise BadRequest("Camera does not support PTZ features.")
 
-        return await self.api.set_home_ptz_camera(self.id)
+        return await self._api.set_home_ptz_camera(self.id)
 
     # endregion
 
@@ -2704,7 +2706,7 @@ class Viewer(ProtectAdoptableDeviceModel):
     @property
     def liveview(self) -> Liveview | None:
         # user may not have permission to see the liveview
-        return self.api.bootstrap.liveviews.get(self.liveview_id)
+        return self._api.bootstrap.liveviews.get(self.liveview_id)
 
     async def set_liveview(self, liveview: Liveview) -> None:
         """
@@ -2838,7 +2840,7 @@ class Sensor(ProtectAdoptableDeviceModel):
         if self.camera_id is None:
             return None
 
-        return self.api.bootstrap.cameras[self.camera_id]
+        return self._api.bootstrap.cameras[self.camera_id]
 
     @property
     def is_tampering_detected(self) -> bool:
@@ -2889,28 +2891,28 @@ class Sensor(ProtectAdoptableDeviceModel):
         if self.last_motion_event_id is None:
             return None
 
-        return self.api.bootstrap.events.get(self.last_motion_event_id)
+        return self._api.bootstrap.events.get(self.last_motion_event_id)
 
     @property
     def last_contact_event(self) -> Event | None:
         if self.last_contact_event_id is None:
             return None
 
-        return self.api.bootstrap.events.get(self.last_contact_event_id)
+        return self._api.bootstrap.events.get(self.last_contact_event_id)
 
     @property
     def last_value_event(self) -> Event | None:
         if self.last_value_event_id is None:
             return None
 
-        return self.api.bootstrap.events.get(self.last_value_event_id)
+        return self._api.bootstrap.events.get(self.last_value_event_id)
 
     @property
     def last_alarm_event(self) -> Event | None:
         if self.last_alarm_event_id is None:
             return None
 
-        return self.api.bootstrap.events.get(self.last_alarm_event_id)
+        return self._api.bootstrap.events.get(self.last_alarm_event_id)
 
     @property
     def is_leak_detected(self) -> bool:
@@ -3065,7 +3067,7 @@ class Sensor(ProtectAdoptableDeviceModel):
 
     async def clear_tamper(self) -> None:
         """Clears tamper status for sensor"""
-        if not self.api.bootstrap.auth_user.can(
+        if not self._api.bootstrap.auth_user.can(
             ModelType.SENSOR,
             PermissionNode.WRITE,
             self,
@@ -3073,7 +3075,7 @@ class Sensor(ProtectAdoptableDeviceModel):
             raise NotAuthorized(
                 f"Do not have permission to clear tamper for sensor: {self.id}",
             )
-        await self.api.clear_tamper_sensor(self.id)
+        await self._api.clear_tamper_sensor(self.id)
 
 
 class Doorlock(ProtectAdoptableDeviceModel):
@@ -3121,7 +3123,7 @@ class Doorlock(ProtectAdoptableDeviceModel):
         if self.camera_id is None:
             return None
 
-        return self.api.bootstrap.cameras[self.camera_id]
+        return self._api.bootstrap.cameras[self.camera_id]
 
     async def set_paired_camera(self, camera: Camera | None) -> None:
         """Sets the camera paired with the sensor"""
@@ -3157,14 +3159,14 @@ class Doorlock(ProtectAdoptableDeviceModel):
         if self.lock_status != LockStatusType.OPEN:
             raise BadRequest("Lock is not open")
 
-        await self.api.close_lock(self.id)
+        await self._api.close_lock(self.id)
 
     async def open_lock(self) -> None:
         """Open doorlock (unlock)"""
         if self.lock_status != LockStatusType.CLOSED:
             raise BadRequest("Lock is not closed")
 
-        await self.api.open_lock(self.id)
+        await self._api.open_lock(self.id)
 
     async def calibrate(self) -> None:
         """
@@ -3172,7 +3174,7 @@ class Doorlock(ProtectAdoptableDeviceModel):
 
         Door must be open and lock unlocked.
         """
-        await self.api.calibrate_lock(self.id)
+        await self._api.calibrate_lock(self.id)
 
 
 class ChimeFeatureFlags(ProtectBaseObject):
@@ -3203,7 +3205,7 @@ class RingSetting(ProtectBaseObject):
         if self.camera_id is None:
             return None  # type: ignore[unreachable]
 
-        return self.api.bootstrap.cameras[self.camera_id]
+        return self._api.bootstrap.cameras[self.camera_id]
 
 
 class ChimeTrack(ProtectBaseObject):
@@ -3260,7 +3262,7 @@ class Chime(ProtectAdoptableDeviceModel):
         """Paired Cameras for chime"""
         if len(self.camera_ids) == 0:
             return []
-        return [self.api.bootstrap.cameras[c] for c in self.camera_ids]
+        return [self._api.bootstrap.cameras[c] for c in self.camera_ids]
 
     async def set_volume(self, level: int) -> None:
         """Set the volume on chime."""
@@ -3321,11 +3323,11 @@ class Chime(ProtectAdoptableDeviceModel):
         repeat_times: int | None = None,
     ) -> None:
         """Plays chime tone"""
-        await self.api.play_speaker(self.id, volume=volume, repeat_times=repeat_times)
+        await self._api.play_speaker(self.id, volume=volume, repeat_times=repeat_times)
 
     async def play_buzzer(self) -> None:
         """Plays chime buzzer"""
-        await self.api.play_buzzer(self.id)
+        await self._api.play_buzzer(self.id)
 
     async def set_repeat_times(self, value: int) -> None:
         """Set repeat times on chime."""

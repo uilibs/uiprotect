@@ -54,7 +54,7 @@ class Permission(ProtectBaseObject):
         if self.obj_ids == {"self"} or self.obj_ids is None:
             return None
 
-        devices = getattr(self.api.bootstrap, f"{self.model.value}s")
+        devices = getattr(self._api.bootstrap, f"{self.model.value}s")
         return [devices[oid] for oid in self.obj_ids]
 
 
@@ -110,7 +110,7 @@ class CloudAccount(ProtectModelWithId):
 
     @property
     def user(self) -> User:
-        return self.api.bootstrap.users[self.user_id]
+        return self._api.bootstrap.users[self.user_id]
 
 
 class UserFeatureFlags(ProtectBaseObject):
@@ -199,9 +199,9 @@ class User(ProtectModelWithId):
             return self._groups
 
         self._groups = [
-            self.api.bootstrap.groups[g]
+            self._api.bootstrap.groups[g]
             for g in self.group_ids
-            if g in self.api.bootstrap.groups
+            if g in self._api.bootstrap.groups
         ]
         return self._groups
 

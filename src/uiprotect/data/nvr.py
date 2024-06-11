@@ -124,11 +124,11 @@ class SmartDetectTrack(ProtectBaseObject):
 
     @property
     def camera(self) -> Camera:
-        return self.api.bootstrap.cameras[self.camera_id]
+        return self._api.bootstrap.cameras[self.camera_id]
 
     @property
     def event(self) -> Event | None:
-        return self.api.bootstrap.events.get(self.event_id)
+        return self._api.bootstrap.events.get(self.event_id)
 
 
 class LicensePlateMetadata(ProtectBaseObject):
@@ -331,28 +331,28 @@ class Event(ProtectModelWithId):
         if self.camera_id is None:
             return None
 
-        return self.api.bootstrap.cameras.get(self.camera_id)
+        return self._api.bootstrap.cameras.get(self.camera_id)
 
     @property
     def light(self) -> Light | None:
         if self.metadata is None or self.metadata.light_id is None:
             return None
 
-        return self.api.bootstrap.lights.get(self.metadata.light_id)
+        return self._api.bootstrap.lights.get(self.metadata.light_id)
 
     @property
     def sensor(self) -> Sensor | None:
         if self.metadata is None or self.metadata.sensor_id is None:
             return None
 
-        return self.api.bootstrap.sensors.get(self.metadata.sensor_id)
+        return self._api.bootstrap.sensors.get(self.metadata.sensor_id)
 
     @property
     def user(self) -> User | None:
         if self.user_id is None:
             return None
 
-        return self.api.bootstrap.users.get(self.user_id)
+        return self._api.bootstrap.users.get(self.user_id)
 
     @property
     def smart_detect_events(self) -> list[Event]:
@@ -360,9 +360,9 @@ class Event(ProtectModelWithId):
             return self._smart_detect_events
 
         self._smart_detect_events = [
-            self.api.bootstrap.events[g]
+            self._api.bootstrap.events[g]
             for g in self.smart_detect_event_ids
-            if g in self.api.bootstrap.events
+            if g in self._api.bootstrap.events
         ]
         return self._smart_detect_events
 
@@ -374,7 +374,7 @@ class Event(ProtectModelWithId):
         """Gets thumbnail for event"""
         if self.thumbnail_id is None:
             return None
-        if not self.api.bootstrap.auth_user.can(
+        if not self._api.bootstrap.auth_user.can(
             ModelType.CAMERA,
             PermissionNode.READ_MEDIA,
             self.camera,
@@ -382,7 +382,7 @@ class Event(ProtectModelWithId):
             raise NotAuthorized(
                 f"Do not have permission to read media for camera: {self.id}",
             )
-        return await self.api.get_event_thumbnail(self.thumbnail_id, width, height)
+        return await self._api.get_event_thumbnail(self.thumbnail_id, width, height)
 
     async def get_animated_thumbnail(
         self,
@@ -394,7 +394,7 @@ class Event(ProtectModelWithId):
         """Gets animated thumbnail for event"""
         if self.thumbnail_id is None:
             return None
-        if not self.api.bootstrap.auth_user.can(
+        if not self._api.bootstrap.auth_user.can(
             ModelType.CAMERA,
             PermissionNode.READ_MEDIA,
             self.camera,
@@ -402,7 +402,7 @@ class Event(ProtectModelWithId):
             raise NotAuthorized(
                 f"Do not have permission to read media for camera: {self.id}",
             )
-        return await self.api.get_event_animated_thumbnail(
+        return await self._api.get_event_animated_thumbnail(
             self.thumbnail_id,
             width,
             height,
@@ -413,7 +413,7 @@ class Event(ProtectModelWithId):
         """Gets heatmap for event"""
         if self.heatmap_id is None:
             return None
-        if not self.api.bootstrap.auth_user.can(
+        if not self._api.bootstrap.auth_user.can(
             ModelType.CAMERA,
             PermissionNode.READ_MEDIA,
             self.camera,
@@ -421,7 +421,7 @@ class Event(ProtectModelWithId):
             raise NotAuthorized(
                 f"Do not have permission to read media for camera: {self.id}",
             )
-        return await self.api.get_event_heatmap(self.heatmap_id)
+        return await self._api.get_event_heatmap(self.heatmap_id)
 
     async def get_video(
         self,
@@ -446,7 +446,7 @@ class Event(ProtectModelWithId):
         if self.end is None:
             raise BadRequest("Event is ongoing")
 
-        if not self.api.bootstrap.auth_user.can(
+        if not self._api.bootstrap.auth_user.can(
             ModelType.CAMERA,
             PermissionNode.READ_MEDIA,
             self.camera,
@@ -454,7 +454,7 @@ class Event(ProtectModelWithId):
             raise NotAuthorized(
                 f"Do not have permission to read media for camera: {self.id}",
             )
-        return await self.api.get_camera_video(
+        return await self._api.get_camera_video(
             self.camera.id,
             self.start,
             self.end,
@@ -475,7 +475,7 @@ class Event(ProtectModelWithId):
             raise BadRequest("Not a smart detect event")
 
         if self._smart_detect_track is None:
-            self._smart_detect_track = await self.api.get_event_smart_detect_track(
+            self._smart_detect_track = await self._api.get_event_smart_detect_track(
                 self.id,
             )
 
@@ -1043,7 +1043,7 @@ class NVR(ProtectDeviceModel):
         return super().unifi_dict_to_dict(data)
 
     async def _api_update(self, data: dict[str, Any]) -> None:
-        return await self.api.update_nvr(data)
+        return await self._api.update_nvr(data)
 
     @property
     def is_analytics_enabled(self) -> bool:
@@ -1051,7 +1051,7 @@ class NVR(ProtectDeviceModel):
 
     @property
     def protect_url(self) -> str:
-        return f"{self.api.base_url}/protect/devices/{self.api.bootstrap.nvr.id}"
+        return f"{self._api.base_url}/protect/devices/{self._api.bootstrap.nvr.id}"
 
     @property
     def display_name(self) -> str:
@@ -1062,7 +1062,7 @@ class NVR(ProtectDeviceModel):
         """Vault Cameras for NVR"""
         if len(self.vault_camera_ids) == 0:
             return []
-        return [self.api.bootstrap.cameras[c] for c in self.vault_camera_ids]
+        return [self._api.bootstrap.cameras[c] for c in self.vault_camera_ids]
 
     @property
     def is_global_recording_enabled(self) -> bool:
@@ -1194,7 +1194,7 @@ class NVR(ProtectDeviceModel):
 
     async def reboot(self) -> None:
         """Reboots the NVR"""
-        await self.api.reboot_nvr()
+        await self._api.reboot_nvr()
 
     async def _read_cache_file(self, file_path: Path) -> set[Version] | None:
         versions: set[Version] | None = None
@@ -1218,16 +1218,16 @@ class NVR(ProtectDeviceModel):
             return True
 
         # 2.6.14 is an EA version that looks like a release version
-        cache_file_path = self.api.cache_dir / "release_cache.json"
+        cache_file_path = self._api.cache_dir / "release_cache.json"
         versions = await self._read_cache_file(
             cache_file_path,
         ) or await self._read_cache_file(RELEASE_CACHE)
         if versions is None or self.version not in versions:
-            versions = await self.api.get_release_versions()
+            versions = await self._api.get_release_versions()
             try:
                 _LOGGER.debug("Fetching releases from APT repos...")
-                tmp = self.api.cache_dir / "release_cache.tmp.json"
-                await aos.makedirs(self.api.cache_dir, exist_ok=True)
+                tmp = self._api.cache_dir / "release_cache.tmp.json"
+                await aos.makedirs(self._api.cache_dir, exist_ok=True)
                 async with aiofiles.open(tmp, "wb") as cache_file:
                     await cache_file.write(orjson.dumps([str(v) for v in versions]))
                 await aos.rename(tmp, cache_file_path)
@@ -1487,9 +1487,9 @@ class LiveviewSlot(ProtectBaseObject):
 
         # user may not have permission to see the cameras in the liveview
         self._cameras = [
-            self.api.bootstrap.cameras[g]
+            self._api.bootstrap.cameras[g]
             for g in self.camera_ids
-            if g in self.api.bootstrap.cameras
+            if g in self._api.bootstrap.cameras
         ]
         return self._cameras
 
@@ -1519,8 +1519,8 @@ class Liveview(ProtectModelWithId):
 
         Will be none if the user only has read only access and it was not made by their user.
         """
-        return self.api.bootstrap.users.get(self.owner_id)
+        return self._api.bootstrap.users.get(self.owner_id)
 
     @property
     def protect_url(self) -> str:
-        return f"{self.api.base_url}/protect/liveview/{self.id}"
+        return f"{self._api.base_url}/protect/liveview/{self.id}"

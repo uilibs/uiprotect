@@ -272,7 +272,7 @@ class Bootstrap(ProtectBaseObject):
 
     @property
     def auth_user(self) -> User:
-        user: User = self.api.bootstrap.users[self.auth_user_id]
+        user: User = self._api.bootstrap.users[self.auth_user_id]
         return user
 
     @property
@@ -388,7 +388,7 @@ class Bootstrap(ProtectBaseObject):
             and obj.model.value in ModelType.bootstrap_models_set()
         ):
             key = f"{obj.model.value}s"
-            if not self.api.ignore_unadopted or (
+            if not self._api.ignore_unadopted or (
                 obj.is_adopted and not obj.is_adopted_by_other
             ):
                 getattr(self, key)[obj.id] = obj
@@ -612,9 +612,9 @@ class Bootstrap(ProtectBaseObject):
         """Refresh a device in the bootstrap."""
         try:
             if model_type == ModelType.NVR:
-                device: ProtectModelWithId = await self.api.get_nvr()
+                device: ProtectModelWithId = await self._api.get_nvr()
             else:
-                device = await self.api.get_device(model_type, device_id)
+                device = await self._api.get_device(model_type, device_id)
         except (
             ValidationError,
             TimeoutError,
