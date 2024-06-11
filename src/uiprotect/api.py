@@ -11,6 +11,7 @@ import sys
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
+from functools import cached_property
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
@@ -749,10 +750,10 @@ class ProtectApiClient(BaseApiClient):
     def is_ready(self) -> bool:
         return self._bootstrap is not None
 
-    @property
+    @cached_property
     def bootstrap(self) -> Bootstrap:
         if self._bootstrap is None:
-            raise BadRequest("Client not initalized, run `update` first")
+            raise BadRequest("Client not initialized, run `update` first")
 
         return self._bootstrap
 
