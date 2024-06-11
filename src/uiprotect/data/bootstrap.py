@@ -18,7 +18,7 @@ except ImportError:
     from pydantic import PrivateAttr, ValidationError  # type: ignore[assignment]
 
 from ..exceptions import ClientError
-from ..utils import utc_now
+from ..utils import normalize_mac, utc_now
 from .base import (
     RECENT_EVENT_MAX,
     ProtectBaseObject,
@@ -234,7 +234,7 @@ class Bootstrap(ProtectBaseObject):
                 items[item["id"]] = item
                 data["idLookup"][item["id"]] = ref
                 if "mac" in item:
-                    cleaned_mac = item["mac"].lower().replace(":", "")
+                    cleaned_mac = normalize_mac(item["mac"])
                     data["macLookup"][cleaned_mac] = ref
             data[key] = items
 
@@ -320,8 +320,7 @@ class Bootstrap(ProtectBaseObject):
 
     def get_device_from_mac(self, mac: str) -> ProtectAdoptableDeviceModel | None:
         """Retrieve a device from MAC address."""
-        mac = mac.lower().replace(":", "").replace("-", "").replace("_", "")
-        ref = self.mac_lookup.get(mac)
+        ref = self.mac_lookup.get(normalize_mac(mac))
         if ref is None:
             return None
 
@@ -386,7 +385,7 @@ class Bootstrap(ProtectBaseObject):
         elif (
             isinstance(obj, ProtectAdoptableDeviceModel)
             and obj.model is not None
-            and obj.model.value in ModelType.bootstrap_models()
+            and obj.model.value in ModelType.bootstrap_models_set()
         ):
             key = obj.model.value + "s"
             if not self.api.ignore_unadopted or (
@@ -395,7 +394,7 @@ class Bootstrap(ProtectBaseObject):
                 getattr(self, key)[obj.id] = obj
                 ref = ProtectDeviceRef(model=obj.model, id=obj.id)
                 self.id_lookup[obj.id] = ref
-                self.mac_lookup[obj.mac.lower().replace(":", "")] = ref
+                self.mac_lookup[normalize_mac(obj.mac)] = ref
         else:
             _LOGGER.debug("Unexpected bootstrap model type for add: %s", obj.model)
             return None
@@ -411,23 +410,19 @@ class Bootstrap(ProtectBaseObject):
             new_obj=obj,
         )
 
-    def _process_remove_packet(
-        self,
-        packet: WSPacket,
-        data: dict[str, Any] | None,
-    ) -> WSSubscriptionMessage | None:
-        model = packet.action_frame.data.get("modelKey")
-        device_id = packet.action_frame.data.get("id")
+    def _process_remove_packet(self, packet: WSPacket) -> WSSubscriptionMessage | None:
+        model: str | None = packet.action_frame.data.get("modelKey")
         devices = getattr(self, f"{model}s", None)
 
         if devices is None:
             return None
 
+        device_id: str = packet.action_frame.data["id"]
         self.id_lookup.pop(device_id, None)
         device = devices.pop(device_id, None)
         if device is None:
             return None
-        self.mac_lookup.pop(device.mac.lower().replace(":", ""), None)
+        self.mac_lookup.pop(normalize_mac(device.mac), None)
 
         self._create_stat(packet, None, False)
         return WSSubscriptionMessage(
@@ -497,12 +492,11 @@ class Bootstrap(ProtectBaseObject):
 
         key = f"{model_type}s"
         devices = getattr(self, key)
-        if action["id"] in devices:
-            if action["id"] not in devices:
-                raise ValueError(
-                    f"Unknown device update for {model_type}: { action['id']}",
-                )
-            obj: ProtectModelWithId = devices[action["id"]]
+        action_id: str = action["id"]
+        if action_id in devices:
+            if action_id not in devices:
+                raise ValueError(f"Unknown device update for {model_type}: {action_id}")
+            obj: ProtectModelWithId = devices[action_id]
             data = obj.unifi_dict_to_dict(data)
             old_obj = obj.copy()
             obj = obj.update_from_dict(deepcopy(data))
@@ -525,7 +519,7 @@ class Bootstrap(ProtectBaseObject):
                 if is_recent:
                     obj.set_alarm_timeout()
 
-            devices[action["id"]] = obj
+            devices[action_id] = obj
 
             self._create_stat(packet, data, False)
             return WSSubscriptionMessage(
@@ -537,8 +531,8 @@ class Bootstrap(ProtectBaseObject):
             )
 
         # ignore updates to events that phase out
-        if model_type != ModelType.EVENT.value:
-            _LOGGER.debug("Unexpected %s: %s", key, action["id"])
+        if model_type != _ModelType_Event_value:
+            _LOGGER.debug("Unexpected %s: %s", key, action_id)
         return None
 
     def process_ws_packet(
@@ -565,7 +559,7 @@ class Bootstrap(ProtectBaseObject):
 
         action_action: str = action["action"]
         if action_action == "remove":
-            return self._process_remove_packet(packet, data)
+            return self._process_remove_packet(packet)
 
         if not data:
             self._create_stat(packet, None, True)
@@ -604,7 +598,7 @@ class Bootstrap(ProtectBaseObject):
         else:
             try:
                 model_type = ModelType(action["modelKey"])
-                device_id = action["id"]
+                device_id: str = action["id"]
                 task = asyncio.create_task(self.refresh_device(model_type, device_id))
                 self._refresh_tasks.add(task)
                 task.add_done_callback(self._refresh_tasks.discard)
