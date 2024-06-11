@@ -316,6 +316,14 @@ async def test_force_update(protect_client: ProtectApiClient):
     await protect_client.update(force=True)
 
     assert protect_client.bootstrap
+    original_bootstrap = protect_client.bootstrap
+    protect_client._bootstrap = None
+    with patch("uiprotect.api.ProtectApiClient.get_bootstrap", AsyncMock()) as mock:
+        await protect_client.update(force=False)
+        assert mock.called
+
+    assert protect_client.bootstrap
+    assert original_bootstrap != protect_client.bootstrap
 
 
 @pytest.mark.asyncio()
