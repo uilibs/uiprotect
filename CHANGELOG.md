@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.15.1 (2024-06-11)
+
+### Fix
+
+
+- Missing url param in websocket disconnected error log message (#32) ([`60e6511`](https://github.com/uilibs/uiprotect/commit/60e651110ed935bb0c35b09aedbc2253a73c35a4))
+
+
 ## v0.15.0 (2024-06-11)
 
 ### Feature
