@@ -67,7 +67,7 @@ jobs:
           sudo apt update
           sudo apt install -y ffmpeg
           poetry install
-      - name: Install Pydantic
+      - name: Downgrade to Pydantic 1.x
         if: matrix.pydantic == '1'
         run: |
           poetry add 'pydantic>=1.0,<2.0'
