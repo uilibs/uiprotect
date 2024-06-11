@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.13.0 (2024-06-11)
+
+### Feature
+
+
+- Cleanup processing camera events (#27) ([`2c1a266`](https://github.com/uilibs/uiprotect/commit/2c1a266a3f7c290e4ae9724642eb427ca41cabf1))
+
+
 ## v0.12.0 (2024-06-11)
 
 ### Feature
