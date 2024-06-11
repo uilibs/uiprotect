@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.15.0 (2024-06-11)
+
+### Feature
+
+
+- Cache bootstrap on the protectapiclient once it has been initialized (#31) ([`185e47f`](https://github.com/uilibs/uiprotect/commit/185e47fed693c5a6f8383cece10c5267dbb7e046))
+
+
 ## v0.14.0 (2024-06-11)
 
 ### Feature

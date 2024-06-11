@@ -11,6 +11,7 @@ import sys
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
+from functools import cached_property
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
@@ -745,10 +746,10 @@ class ProtectApiClient(BaseApiClient):
         if debug:
             set_debug()
 
-    @property
+    @cached_property
     def bootstrap(self) -> Bootstrap:
         if self._bootstrap is None:
-            raise BadRequest("Client not initalized, run `update` first")
+            raise BadRequest("Client not initialized, run `update` first")
 
         return self._bootstrap
 
@@ -789,6 +790,7 @@ class ProtectApiClient(BaseApiClient):
         if self._bootstrap is None or now - self._last_update > DEVICE_UPDATE_INTERVAL:
             bootstrap_updated = True
             self._bootstrap = await self.get_bootstrap()
+            self.__dict__.pop("bootstrap", None)
             self._last_update = now
             self._last_update_dt = now_dt
 
