@@ -7,7 +7,7 @@ import enum
 import struct
 import zlib
 from dataclasses import dataclass
-from functools import cached_property
+from functools import cache, cached_property
 from typing import TYPE_CHECKING, Any
 
 import orjson
@@ -63,6 +63,7 @@ class BaseWSPacketFrame:
         raise NotImplementedError
 
     @staticmethod
+    @cache
     def klass_from_format(format_raw: int) -> type[BaseWSPacketFrame]:
         payload_format = ProtectWSPayloadFormat(format_raw)
 
