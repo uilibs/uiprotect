@@ -65,6 +65,13 @@ from .utils import (
 )
 from .websocket import Websocket
 
+if sys.version_info[:2] < (3, 13):
+    from http import cookies
+
+    # See: https://github.com/python/cpython/issues/112713
+    cookies.Morsel._reserved["partitioned"] = "partitioned"  # type: ignore[attr-defined]
+    cookies.Morsel._flags.add("partitioned")  # type: ignore[attr-defined]
+
 TOKEN_COOKIE_MAX_EXP_SECONDS = 60
 
 NEVER_RAN = -1000
