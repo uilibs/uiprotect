@@ -220,7 +220,7 @@ class Bootstrap(ProtectBaseObject):
         data["macLookup"] = {}
         data["idLookup"] = {}
         for model_type in ModelType.bootstrap_models():
-            key = model_type + "s"
+            key = f"{model_type}s"
             items: dict[str, ProtectModel] = {}
             for item in data[key]:
                 if (
@@ -257,7 +257,7 @@ class Bootstrap(ProtectBaseObject):
             del data["idLookup"]
 
         for model_type in ModelType.bootstrap_models():
-            attr = model_type + "s"
+            attr = f"{model_type}s"
             if attr in data and isinstance(data[attr], dict):
                 data[attr] = list(data[attr].values())
 
@@ -387,7 +387,7 @@ class Bootstrap(ProtectBaseObject):
             and obj.model is not None
             and obj.model.value in ModelType.bootstrap_models_set()
         ):
-            key = obj.model.value + "s"
+            key = f"{obj.model.value}s"
             if not self.api.ignore_unadopted or (
                 obj.is_adopted and not obj.is_adopted_by_other
             ):
