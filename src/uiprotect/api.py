@@ -1460,7 +1460,8 @@ class ProtectApiClient(BaseApiClient):
         progress_callback: Optional[ProgressCallback] = None,
         chunk_size: int = 65536,
     ) -> Optional[bytes]:
-        """Downloads a prepared MP4 video from a given camera.
+        """
+        Downloads a prepared MP4 video from a given camera.
 
         This is the newer implementation of retrieving video from Unifi Protect.
         You need to supply the filename returned from prepare_camera_video().
@@ -1469,7 +1470,6 @@ class ProtectApiClient(BaseApiClient):
         video clips, otherwise the full video must be downloaded to memory before
         being written.
         """
-
         path = "video/download"
 
         params = {
@@ -1525,7 +1525,8 @@ class ProtectApiClient(BaseApiClient):
         fps: Optional[int] = None,
         filename: Optional[str] = None,
     ) -> Optional[Union[list[Any], dict[str, Any]]]:
-        """Prepares MP4 video from a given camera at a specific time.
+        """
+        Prepares MP4 video from a given camera at a specific time.
 
         This is the newer implementation of retrieving video from Unifi Protect.
         When using this method, it should be followed up with download_camera_video().
@@ -1538,7 +1539,6 @@ class ProtectApiClient(BaseApiClient):
 
         You will receive a filename and an expiry time in seconds.
         """
-
         if validate_channel_id and self._bootstrap is not None:
             camera = self._bootstrap.cameras[camera_id]
             try:
@@ -1591,7 +1591,8 @@ class ProtectApiClient(BaseApiClient):
         chunk_size: int = 65536,
         fps: Optional[int] = None,
     ) -> Optional[bytes]:
-        """Exports MP4 video from a given camera at a specific time.
+        """
+        Exports MP4 video from a given camera at a specific time.
 
         Start/End of video export are approximate. It may be +/- a few seconds.
 
@@ -1679,12 +1680,12 @@ class ProtectApiClient(BaseApiClient):
         fps: Optional[int] = None,
         filename: Optional[str] = None,
     ) -> Optional[bytes]:
-        """Deprecated: maintained for backwards compatibility.
+        """
+        Deprecated: maintained for backwards compatibility.
 
         If you are using Unifi Protect 4 or later, please use
         prepare_camera_video() and download_camera_video() instead.
         """
-
         try:
             prepare_response = await self.prepare_camera_video(
                 camera_id=camera_id,
