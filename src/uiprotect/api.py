@@ -794,6 +794,7 @@ class ProtectApiClient(BaseApiClient):
         if self._bootstrap is None or now - self._last_update > DEVICE_UPDATE_INTERVAL:
             bootstrap_updated = True
             self._bootstrap = await self.get_bootstrap()
+            self.__dict__.pop("bootstrap", None)
             self._last_update = now
             self._last_update_dt = now_dt
 
