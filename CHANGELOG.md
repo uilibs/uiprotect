@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.10.0 (2024-06-11)
+
+### Feature
+
+
+- Improve performance of process websocket packets (#22) ([`7b59c98`](https://github.com/uilibs/uiprotect/commit/7b59c98d02d2f874375b168979a1db253da58914))
+
+
 ## v0.9.0 (2024-06-10)
 
 ### Feature
