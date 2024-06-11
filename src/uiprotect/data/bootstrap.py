@@ -41,7 +41,6 @@ from .types import EventType, FixSizeOrderedDict, ModelType
 from .user import Group, User
 from .websocket import (
     WSAction,
-    WSJSONPacketFrame,
     WSPacket,
     WSSubscriptionMessage,
 )
@@ -167,6 +166,10 @@ class WSStat:
 class ProtectDeviceRef(ProtectBaseObject):
     model: ModelType
     id: str
+
+
+_ModelType_NVR_value = ModelType.NVR.value
+_ModelType_Event_value = ModelType.EVENT.value
 
 
 class Bootstrap(ProtectBaseObject):
@@ -536,51 +539,40 @@ class Bootstrap(ProtectBaseObject):
         models: set[ModelType] | None = None,
         ignore_stats: bool = False,
     ) -> WSSubscriptionMessage | None:
-        if models is None:
-            models = set()
-
-        if not isinstance(packet.action_frame, WSJSONPacketFrame):
-            _LOGGER.debug(
-                "Unexpected action frame format: %s",
-                packet.action_frame.payload_format,
-            )
-
-        if not isinstance(packet.data_frame, WSJSONPacketFrame):
-            _LOGGER.debug(
-                "Unexpected data frame format: %s",
-                packet.data_frame.payload_format,
-            )
-
+        """Process a WS packet."""
         action, data = self._get_frame_data(packet)
-        if action["newUpdateId"] is not None:
-            self.last_update_id = action["newUpdateId"]
+        new_update_id: str = action["newUpdateId"]
+        if new_update_id is not None:
+            self.last_update_id = new_update_id
 
-        if action["modelKey"] not in ModelType.values_set():
-            _LOGGER.debug("Unknown model type: %s", action["modelKey"])
+        model_key: str = action["modelKey"]
+        if model_key not in ModelType.values_set():
+            _LOGGER.debug("Unknown model type: %s", model_key)
             self._create_stat(packet, None, True)
             return None
 
-        if len(models) > 0 and ModelType(action["modelKey"]) not in models:
+        if models and ModelType(model_key) not in models:
             self._create_stat(packet, None, True)
             return None
 
-        if action["action"] == "remove":
+        action_action: str = action["action"]
+        if action_action == "remove":
             return self._process_remove_packet(packet, data)
 
-        if data is None or len(data) == 0:
+        if not data:
             self._create_stat(packet, None, True)
             return None
 
         try:
-            if action["action"] == "add":
+            if action_action == "add":
                 return self._process_add_packet(packet, data)
-
-            if action["action"] == "update":
-                if action["modelKey"] == ModelType.NVR.value:
+            if action_action == "update":
+                if model_key == _ModelType_NVR_value:
                     return self._process_nvr_update(packet, data, ignore_stats)
+
                 if (
-                    action["modelKey"] in ModelType.bootstrap_models_set()
-                    or action["modelKey"] == ModelType.EVENT.value
+                    model_key in ModelType.bootstrap_models_set()
+                    or model_key == _ModelType_Event_value
                 ):
                     return self._process_device_update(
                         packet,
@@ -588,13 +580,12 @@ class Bootstrap(ProtectBaseObject):
                         data,
                         ignore_stats,
                     )
-                _LOGGER.debug(
-                    "Unexpected bootstrap model type deviceadoptedfor update: %s",
-                    action["modelKey"],
-                )
         except (ValidationError, ValueError) as err:
             self._handle_ws_error(action, err)
 
+        _LOGGER.debug(
+            "Unexpected bootstrap model type deviceadoptedfor update: %s", model_key
+        )
         self._create_stat(packet, None, True)
         return None
 
