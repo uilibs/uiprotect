@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.11.0 (2024-06-11)
+
+### Feature
+
+
+- Cleanup processing of websocket packets (#24) ([`b59e19c`](https://github.com/uilibs/uiprotect/commit/b59e19c13ea48e5ab235090c1b02d8d73c3aac24))
+
+
 ## v0.10.1 (2024-06-11)
 
 ### Fix
