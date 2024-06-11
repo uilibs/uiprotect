@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.0.0 (2024-06-11)
+
+### Breaking
+
+
+- Remove unused is_ready property from the api client (#33) ([`c36ee42`](https://github.com/uilibs/uiprotect/commit/c36ee422ddd04f811019d2e99cbb1d6b398eae01))
+
+
+### Refactor
+
+
+- Use internal self._api inside the object (#34) ([`c20e7a9`](https://github.com/uilibs/uiprotect/commit/c20e7a9690a15f42ff0f17105141f21b2e6e4020))
+
+
 ## v0.15.1 (2024-06-11)
 
 ### Fix
