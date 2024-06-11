@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
@@ -337,7 +338,7 @@ class Bootstrap(ProtectBaseObject):
     def _create_stat(
         self,
         packet: WSPacket,
-        keys_set: list[str],
+        keys_set: Iterable[str] | None,
         filtered: bool,
     ) -> None:
         if self.capture_ws_stats:
@@ -346,7 +347,7 @@ class Bootstrap(ProtectBaseObject):
                     model=packet.action_frame.data["modelKey"],
                     action=packet.action_frame.data["action"],
                     keys=list(packet.data_frame.data),
-                    keys_set=keys_set,
+                    keys_set=[] if keys_set is None else list(keys_set),
                     size=len(packet.raw),
                     filtered=filtered,
                 ),
@@ -389,7 +390,9 @@ class Bootstrap(ProtectBaseObject):
             return None
 
         updated = obj.dict()
-        self._create_stat(packet, list(updated), False)
+
+        self._create_stat(packet, updated, False)
+
         return WSSubscriptionMessage(
             action=WSAction.ADD,
             new_update_id=self.last_update_id,
@@ -415,7 +418,7 @@ class Bootstrap(ProtectBaseObject):
             return None
         self.mac_lookup.pop(device.mac.lower().replace(":", ""), None)
 
-        self._create_stat(packet, [], False)
+        self._create_stat(packet, None, False)
         return WSSubscriptionMessage(
             action=WSAction.REMOVE,
             new_update_id=self.last_update_id,
@@ -433,25 +436,25 @@ class Bootstrap(ProtectBaseObject):
             _remove_stats_keys(data)
         # nothing left to process
         if not data:
-            self._create_stat(packet, [], True)
+            self._create_stat(packet, None, True)
             return None
 
         # for another NVR in stack
         nvr_id = packet.action_frame.data.get("id")
         if nvr_id and nvr_id != self.nvr.id:
-            self._create_stat(packet, [], True)
+            self._create_stat(packet, None, True)
             return None
 
         data = self.nvr.unifi_dict_to_dict(data)
         # nothing left to process
         if not data:
-            self._create_stat(packet, [], True)
+            self._create_stat(packet, None, True)
             return None
 
         old_nvr = self.nvr.copy()
         self.nvr = self.nvr.update_from_dict(deepcopy(data))
 
-        self._create_stat(packet, list(data), False)
+        self._create_stat(packet, data, False)
         return WSSubscriptionMessage(
             action=WSAction.UPDATE,
             new_update_id=self.last_update_id,
@@ -478,7 +481,7 @@ class Bootstrap(ProtectBaseObject):
             del data["lastMotion"]
         # nothing left to process
         if not data:
-            self._create_stat(packet, [], True)
+            self._create_stat(packet, None, True)
             return None
 
         key = f"{model_type}s"
@@ -492,12 +495,14 @@ class Bootstrap(ProtectBaseObject):
             data = obj.unifi_dict_to_dict(data)
             old_obj = obj.copy()
             obj = obj.update_from_dict(deepcopy(data))
-            now = utc_now()
+            now: datetime | None = None
 
             if isinstance(obj, Event):
                 self.process_event(obj)
             elif isinstance(obj, Camera):
                 if "last_ring" in data and obj.last_ring:
+                    if now is None:
+                        now = utc_now()
                     is_recent = obj.last_ring + RECENT_EVENT_MAX >= now
                     _LOGGER.debug("last_ring for %s (%s)", obj.id, is_recent)
                     if is_recent:
@@ -507,6 +512,8 @@ class Bootstrap(ProtectBaseObject):
                 and "alarm_triggered_at" in data
                 and obj.alarm_triggered_at
             ):
+                if now is None:
+                    now = utc_now()
                 is_recent = obj.alarm_triggered_at + RECENT_EVENT_MAX >= now
                 _LOGGER.debug("alarm_triggered_at for %s (%s)", obj.id, is_recent)
                 if is_recent:
@@ -514,7 +521,7 @@ class Bootstrap(ProtectBaseObject):
 
             devices[action["id"]] = obj
 
-            self._create_stat(packet, list(data), False)
+            self._create_stat(packet, data, False)
             return WSSubscriptionMessage(
                 action=WSAction.UPDATE,
                 new_update_id=self.last_update_id,
@@ -555,18 +562,18 @@ class Bootstrap(ProtectBaseObject):
 
         if action["modelKey"] not in ModelType.values_set():
             _LOGGER.debug("Unknown model type: %s", action["modelKey"])
-            self._create_stat(packet, [], True)
+            self._create_stat(packet, None, True)
             return None
 
         if len(models) > 0 and ModelType(action["modelKey"]) not in models:
-            self._create_stat(packet, [], True)
+            self._create_stat(packet, None, True)
             return None
 
         if action["action"] == "remove":
             return self._process_remove_packet(packet, data)
 
         if data is None or len(data) == 0:
-            self._create_stat(packet, [], True)
+            self._create_stat(packet, None, True)
             return None
 
         try:
@@ -593,7 +600,7 @@ class Bootstrap(ProtectBaseObject):
         except (ValidationError, ValueError) as err:
             self._handle_ws_error(action, err)
 
-        self._create_stat(packet, [], True)
+        self._create_stat(packet, None, True)
         return None
 
     def _handle_ws_error(self, action: dict[str, Any], err: Exception) -> None:
