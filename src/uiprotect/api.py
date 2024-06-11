@@ -746,10 +746,6 @@ class ProtectApiClient(BaseApiClient):
         if debug:
             set_debug()
 
-    @property
-    def is_ready(self) -> bool:
-        return self._bootstrap is not None
-
     @cached_property
     def bootstrap(self) -> Bootstrap:
         if self._bootstrap is None:
