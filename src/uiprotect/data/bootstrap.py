@@ -495,15 +495,12 @@ class Bootstrap(ProtectBaseObject):
             data = obj.unifi_dict_to_dict(data)
             old_obj = obj.copy()
             obj = obj.update_from_dict(deepcopy(data))
-            now: datetime | None = None
 
             if isinstance(obj, Event):
                 self.process_event(obj)
             elif isinstance(obj, Camera):
                 if "last_ring" in data and obj.last_ring:
-                    if now is None:
-                        now = utc_now()
-                    is_recent = obj.last_ring + RECENT_EVENT_MAX >= now
+                    is_recent = obj.last_ring + RECENT_EVENT_MAX >= utc_now()
                     _LOGGER.debug("last_ring for %s (%s)", obj.id, is_recent)
                     if is_recent:
                         obj.set_ring_timeout()
@@ -512,9 +509,7 @@ class Bootstrap(ProtectBaseObject):
                 and "alarm_triggered_at" in data
                 and obj.alarm_triggered_at
             ):
-                if now is None:
-                    now = utc_now()
-                is_recent = obj.alarm_triggered_at + RECENT_EVENT_MAX >= now
+                is_recent = obj.alarm_triggered_at + RECENT_EVENT_MAX >= utc_now()
                 _LOGGER.debug("alarm_triggered_at for %s (%s)", obj.id, is_recent)
                 if is_recent:
                     obj.set_alarm_timeout()
