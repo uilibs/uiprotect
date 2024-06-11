@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.10.1 (2024-06-11)
+
+### Fix
+
+
+- Remove useless time check (#23) ([`749cfef`](https://github.com/uilibs/uiprotect/commit/749cfef9b44f87397153977c673c577659450a48))
+
+
 ## v0.10.0 (2024-06-11)
 
 ### Feature
