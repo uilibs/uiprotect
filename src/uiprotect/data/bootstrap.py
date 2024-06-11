@@ -18,7 +18,7 @@ except ImportError:
     from pydantic import PrivateAttr, ValidationError  # type: ignore[assignment]
 
 from ..exceptions import ClientError
-from ..utils import utc_now
+from ..utils import normalize_mac, utc_now
 from .base import (
     RECENT_EVENT_MAX,
     ProtectBaseObject,
@@ -226,7 +226,7 @@ class Bootstrap(ProtectBaseObject):
                 items[item["id"]] = item
                 data["idLookup"][item["id"]] = ref
                 if "mac" in item:
-                    cleaned_mac = item["mac"].lower().replace(":", "")
+                    cleaned_mac = normalize_mac(item["mac"])
                     data["macLookup"][cleaned_mac] = ref
             data[key] = items
 
@@ -312,8 +312,7 @@ class Bootstrap(ProtectBaseObject):
 
     def get_device_from_mac(self, mac: str) -> ProtectAdoptableDeviceModel | None:
         """Retrieve a device from MAC address."""
-        mac = mac.lower().replace(":", "").replace("-", "").replace("_", "")
-        ref = self.mac_lookup.get(mac)
+        ref = self.mac_lookup.get(normalize_mac(mac))
         if ref is None:
             return None
 
@@ -387,7 +386,7 @@ class Bootstrap(ProtectBaseObject):
                 getattr(self, key)[obj.id] = obj
                 ref = ProtectDeviceRef(model=obj.model, id=obj.id)
                 self.id_lookup[obj.id] = ref
-                self.mac_lookup[obj.mac.lower().replace(":", "")] = ref
+                self.mac_lookup[normalize_mac(obj.mac)] = ref
         else:
             _LOGGER.debug("Unexpected bootstrap model type for add: %s", obj.model)
             return None
@@ -419,7 +418,7 @@ class Bootstrap(ProtectBaseObject):
         device = devices.pop(device_id, None)
         if device is None:
             return None
-        self.mac_lookup.pop(device.mac.lower().replace(":", ""), None)
+        self.mac_lookup.pop(normalize_mac(device.mac), None)
 
         self._create_stat(packet, None, False)
         return WSSubscriptionMessage(

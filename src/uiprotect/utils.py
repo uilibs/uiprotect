@@ -624,3 +624,9 @@ def clamp_value(value: float, step_size: float) -> float:
     """Clamps value to multiples of step size."""
     ratio = 1 / step_size
     return int(value * ratio) / ratio
+
+
+@lru_cache(maxsize=1024)
+def normalize_mac(mac: str) -> str:
+    """Normalize MAC address."""
+    return mac.lower().replace(":", "").replace("-", "").replace("_", "")
