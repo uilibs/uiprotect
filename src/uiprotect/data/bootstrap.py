@@ -541,10 +541,11 @@ class Bootstrap(ProtectBaseObject):
     ) -> WSSubscriptionMessage | None:
         """Process a WS packet."""
         action, data = self._get_frame_data(packet)
-        if action["newUpdateId"] is not None:
-            self.last_update_id = action["newUpdateId"]
+        new_update_id: str = action["newUpdateId"]
+        if new_update_id is not None:
+            self.last_update_id = new_update_id
 
-        model_key = action["modelKey"]
+        model_key: str = action["modelKey"]
         if model_key not in ModelType.values_set():
             _LOGGER.debug("Unknown model type: %s", model_key)
             self._create_stat(packet, None, True)
@@ -554,7 +555,7 @@ class Bootstrap(ProtectBaseObject):
             self._create_stat(packet, None, True)
             return None
 
-        action_action = action["action"]
+        action_action: str = action["action"]
         if action_action == "remove":
             return self._process_remove_packet(packet, data)
 
