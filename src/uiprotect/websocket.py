@@ -104,7 +104,7 @@ class Websocket:
                     break
                 self._reset_timeout()
         except ClientError:
-            _LOGGER.exception("Websocket disconnect error: %s")
+            _LOGGER.exception("Websocket disconnect error: %s", self.url)
         finally:
             _LOGGER.debug("Websocket disconnected")
             self._increase_failure()
