@@ -23,9 +23,9 @@ from ..utils import (
     clamp_value,
     convert_smart_audio_types,
     convert_smart_types,
+    convert_to_datetime,
     convert_video_modes,
     from_js_time,
-    process_datetime,
     serialize_point,
     to_js_time,
     utc_now,
@@ -494,7 +494,7 @@ class LCDMessage(ProtectBaseObject):
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         if "resetAt" in data:
-            data["resetAt"] = process_datetime(data, "resetAt")
+            data["resetAt"] = convert_to_datetime(data["resetAt"])
         if "text" in data:
             # UniFi Protect bug: some times LCD messages can get into a bad state where message = DEFAULT MESSAGE, but no type
             if "type" not in data:
@@ -579,21 +579,21 @@ class VideoStats(ProtectBaseObject):
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         if "recordingStart" in data:
-            data["recordingStart"] = process_datetime(data, "recordingStart")
+            data["recordingStart"] = convert_to_datetime(data["recordingStart"])
         if "recordingEnd" in data:
-            data["recordingEnd"] = process_datetime(data, "recordingEnd")
+            data["recordingEnd"] = convert_to_datetime(data["recordingEnd"])
         if "recordingStartLQ" in data:
-            data["recordingStartLQ"] = process_datetime(data, "recordingStartLQ")
+            data["recordingStartLQ"] = convert_to_datetime(data["recordingStartLQ"])
         if "recordingEndLQ" in data:
-            data["recordingEndLQ"] = process_datetime(data, "recordingEndLQ")
+            data["recordingEndLQ"] = convert_to_datetime(data["recordingEndLQ"])
         if "timelapseStart" in data:
-            data["timelapseStart"] = process_datetime(data, "timelapseStart")
+            data["timelapseStart"] = convert_to_datetime(data["timelapseStart"])
         if "timelapseEnd" in data:
-            data["timelapseEnd"] = process_datetime(data, "timelapseEnd")
+            data["timelapseEnd"] = convert_to_datetime(data["timelapseEnd"])
         if "timelapseStartLQ" in data:
-            data["timelapseStartLQ"] = process_datetime(data, "timelapseStartLQ")
+            data["timelapseStartLQ"] = convert_to_datetime(data["timelapseStartLQ"])
         if "timelapseEndLQ" in data:
-            data["timelapseEndLQ"] = process_datetime(data, "timelapseEndLQ")
+            data["timelapseEndLQ"] = convert_to_datetime(data["timelapseEndLQ"])
 
         return super().unifi_dict_to_dict(data)
 

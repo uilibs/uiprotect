@@ -172,9 +172,10 @@ def from_js_time(num: float | str | datetime) -> datetime:
     return datetime.fromtimestamp(int(num) / 1000, tz=timezone.utc)
 
 
-def process_datetime(data: dict[str, Any], key: str) -> datetime | None:
-    """Extracts datetime object from Protect dictionary"""
-    return None if data.get(key) is None else from_js_time(data[key])
+@lru_cache(maxsize=1024)
+def convert_to_datetime(source_time: float | str | datetime | None) -> datetime | None:
+    """Converts timestamp to datetime object"""
+    return None if source_time is None else from_js_time(source_time)
 
 
 def format_datetime(
