@@ -1589,7 +1589,7 @@ class ProtectApiClient(BaseApiClient):
         iterator_callback: IteratorCallback | None = None,
         progress_callback: ProgressCallback | None = None,
         chunk_size: int = 65536,
-        fps: [int] | None = None,
+        fps: int | None = None,
     ) -> bytes:
         """
         Exports MP4 video from a given camera at a specific time.
@@ -1677,8 +1677,8 @@ class ProtectApiClient(BaseApiClient):
         iterator_callback: IteratorCallback | None = None,
         progress_callback: ProgressCallback | None = None,
         chunk_size: int = 65536,
-        fps: int | None,
-        filename: str | None,
+        fps: int | None = None,
+        filename: str | None = None,
     ) -> bytes:
         """
         Deprecated: maintained for backwards compatibility.
