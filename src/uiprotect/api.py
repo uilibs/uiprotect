@@ -1154,7 +1154,7 @@ class ProtectApiClient(BaseApiClient):
         objs: list[ProtectModel] = []
 
         for obj_dict in await self.get_devices_raw(model_type):
-            obj = create_from_unifi_dict(obj_dict)
+            obj = create_from_unifi_dict(obj_dict, api=self)
 
             if expected_type is not None and not isinstance(obj, expected_type):
                 raise NvrError(f"Unexpected model returned: {obj.model}")
