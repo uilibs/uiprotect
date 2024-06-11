@@ -1523,7 +1523,7 @@ class ProtectApiClient(BaseApiClient):
         channel_index: int = 0,
         validate_channel_id: bool = True,
         fps: int | None = None,
-        filename: str | None =  None,
+        filename: str | None = None,
     ) -> list[Any] | dict[str, Any] | None:
         """
         Prepares MP4 video from a given camera at a specific time.
