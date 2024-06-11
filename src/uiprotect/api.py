@@ -1455,11 +1455,11 @@ class ProtectApiClient(BaseApiClient):
         self,
         camera_id: str,
         filename: str,
-        output_file: Optional[Path] = None,
-        iterator_callback: Optional[IteratorCallback] = None,
-        progress_callback: Optional[ProgressCallback] = None,
+        output_file: Path | None = None,
+        iterator_callback: IteratorCallback | None = None,
+        progress_callback: ProgressCallback | None = None,
         chunk_size: int = 65536,
-    ) -> Optional[bytes]:
+    ) -> bytes:
         """
         Downloads a prepared MP4 video from a given camera.
 
@@ -1522,9 +1522,9 @@ class ProtectApiClient(BaseApiClient):
         end: datetime,
         channel_index: int = 0,
         validate_channel_id: bool = True,
-        fps: Optional[int] = None,
-        filename: Optional[str] = None,
-    ) -> Optional[Union[list[Any], dict[str, Any]]]:
+        fps: int | None = None,
+        filename: str | None =  None,
+    ) -> list[Any] | dict[str, Any] | None:
         """
         Prepares MP4 video from a given camera at a specific time.
 
@@ -1540,8 +1540,8 @@ class ProtectApiClient(BaseApiClient):
         You will receive a filename and an expiry time in seconds.
         """
         if validate_channel_id and self._bootstrap is not None:
-            camera = self._bootstrap.cameras[camera_id]
             try:
+                camera = self._bootstrap.cameras[camera_id]
                 camera.channels[channel_index]
             except IndexError as e:
                 raise BadRequest from e
@@ -1557,7 +1557,7 @@ class ProtectApiClient(BaseApiClient):
         else:
             params.update({"channel": channel_index})
 
-        if fps is not None:
+        if fps is not None and fps > 0:
             params["fps"] = fps
             params["type"] = "timelapse"
         else:
@@ -1585,12 +1585,12 @@ class ProtectApiClient(BaseApiClient):
         end: datetime,
         channel_index: int = 0,
         validate_channel_id: bool = True,
-        output_file: Optional[Path] = None,
-        iterator_callback: Optional[IteratorCallback] = None,
-        progress_callback: Optional[ProgressCallback] = None,
+        output_file: Path | None = None,
+        iterator_callback: IteratorCallback | None = None,
+        progress_callback: ProgressCallback | None = None,
         chunk_size: int = 65536,
-        fps: Optional[int] = None,
-    ) -> Optional[bytes]:
+        fps: [int] | None = None,
+    ) -> bytes:
         """
         Exports MP4 video from a given camera at a specific time.
 
@@ -1605,8 +1605,8 @@ class ProtectApiClient(BaseApiClient):
         (fps=20), and 600x (fps=40).
         """
         if validate_channel_id and self._bootstrap is not None:
-            camera = self._bootstrap.cameras[camera_id]
             try:
+                camera = self._bootstrap.cameras[camera_id]
                 camera.channels[channel_index]
             except IndexError as e:
                 raise BadRequest from e
@@ -1622,7 +1622,7 @@ class ProtectApiClient(BaseApiClient):
         else:
             params.update({"channel": channel_index})
 
-        if fps is not None:
+        if fps is not None and fps > 0:
             params["fps"] = fps
             params["type"] = "timelapse"
 
@@ -1673,13 +1673,13 @@ class ProtectApiClient(BaseApiClient):
         end: datetime,
         channel_index: int = 0,
         validate_channel_id: bool = True,
-        output_file: Optional[Path] = None,
-        iterator_callback: Optional[IteratorCallback] = None,
-        progress_callback: Optional[ProgressCallback] = None,
+        output_file: Path | None = None,
+        iterator_callback: IteratorCallback | None = None,
+        progress_callback: ProgressCallback | None = None,
         chunk_size: int = 65536,
-        fps: Optional[int] = None,
-        filename: Optional[str] = None,
-    ) -> Optional[bytes]:
+        fps: int | None,
+        filename: str | None,
+    ) -> bytes:
         """
         Deprecated: maintained for backwards compatibility.
 
