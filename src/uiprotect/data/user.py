@@ -7,7 +7,7 @@ from functools import cache
 from typing import Any
 
 try:
-    from pydantic.v1.fields import PrivateAttr
+    from pydantic.v1 import PrivateAttr
 except ImportError:
     from pydantic.fields import PrivateAttr
 
