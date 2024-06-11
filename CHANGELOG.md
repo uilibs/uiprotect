@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.1 (2024-06-11)
+
+### Fix
+
+
+- New cookie flag preventing auth cookie from being stored (#36) ([`b6eb7fc`](https://github.com/uilibs/uiprotect/commit/b6eb7fcef23885d734ba0f9031bf15bdbba91bc5))
+
+
 ## v1.0.0 (2024-06-11)
 
 ### Breaking
