@@ -14,10 +14,10 @@ from uuid import UUID
 from ..exceptions import BadRequest, ClientError, NotAuthorized
 from ..utils import (
     asyncio_timeout,
+    convert_to_datetime,
     convert_unifi_data,
     dict_diff,
     is_debug,
-    process_datetime,
     serialize_unifi_obj,
     to_snake_case,
 )
@@ -850,9 +850,9 @@ class ProtectDeviceModel(ProtectModelWithId):
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         if "lastSeen" in data:
-            data["lastSeen"] = process_datetime(data, "lastSeen")
+            data["lastSeen"] = convert_to_datetime(data["lastSeen"])
         if "upSince" in data and data["upSince"] is not None:
-            data["upSince"] = process_datetime(data, "upSince")
+            data["upSince"] = convert_to_datetime(data["upSince"])
         if (
             "uptime" in data
             and data["uptime"] is not None
@@ -1001,7 +1001,7 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         if "lastDisconnect" in data and data["lastDisconnect"] is not None:
-            data["lastDisconnect"] = process_datetime(data, "lastDisconnect")
+            data["lastDisconnect"] = convert_to_datetime(data["lastDisconnect"])
 
         return super().unifi_dict_to_dict(data)
 

@@ -17,7 +17,7 @@ import orjson
 from aiofiles import os as aos
 
 from ..exceptions import BadRequest, NotAuthorized
-from ..utils import RELEASE_CACHE, process_datetime
+from ..utils import RELEASE_CACHE, convert_to_datetime
 from .base import (
     ProtectBaseObject,
     ProtectDeviceModel,
@@ -170,7 +170,7 @@ class EventDetectedThumbnail(ProtectBaseObject):
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         if "clockBestWall" in data:
             if data["clockBestWall"]:
-                data["clockBestWall"] = process_datetime(data, "clockBestWall")
+                data["clockBestWall"] = convert_to_datetime(data["clockBestWall"])
             else:
                 del data["clockBestWall"]
 
@@ -309,7 +309,7 @@ class Event(ProtectModelWithId):
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         for key in {"start", "end", "timestamp", "deletedAt"}.intersection(data):
-            data[key] = process_datetime(data, key)
+            data[key] = convert_to_datetime(data[key])
 
         return super().unifi_dict_to_dict(data)
 
@@ -1025,11 +1025,10 @@ class NVR(ProtectDeviceModel):
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         if "lastUpdateAt" in data:
-            data["lastUpdateAt"] = process_datetime(data, "lastUpdateAt")
+            data["lastUpdateAt"] = convert_to_datetime(data["lastUpdateAt"])
         if "lastDeviceFwUpdatesCheckedAt" in data:
-            data["lastDeviceFwUpdatesCheckedAt"] = process_datetime(
-                data,
-                "lastDeviceFwUpdatesCheckedAt",
+            data["lastDeviceFwUpdatesCheckedAt"] = convert_to_datetime(
+                data["lastDeviceFwUpdatesCheckedAt"]
             )
         if (
             "recordingRetentionDurationMs" in data

@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
 import pytest
 
-from uiprotect.utils import convert_unifi_data, dict_diff, to_snake_case
+from uiprotect.utils import (
+    convert_to_datetime,
+    convert_unifi_data,
+    dict_diff,
+    to_snake_case,
+)
 
 try:
     from pydantic.v1.config import BaseConfig
@@ -151,3 +157,48 @@ def test_to_snake_case():
 )
 def test_convert_unifi_data(value: Any, field: ModelField, output: Any):
     assert convert_unifi_data(value, field) == output
+
+
+@pytest.mark.asyncio
+async def test_valid_float_timestamp():
+    timestamp = 1715563200000.0
+    expected_datetime = datetime(2024, 5, 13, 1, 20, tzinfo=timezone.utc)
+    assert convert_to_datetime(timestamp).timestamp() * 1000 == timestamp
+    assert convert_to_datetime(timestamp) == expected_datetime
+
+
+@pytest.mark.asyncio
+async def test_valid_string_timestamp():
+    timestamp = "1715563200000"
+    expected_datetime = datetime(2024, 5, 13, 1, 20, tzinfo=timezone.utc)
+    assert convert_to_datetime(timestamp).timestamp() * 1000 == int(timestamp)
+    assert convert_to_datetime(timestamp) == expected_datetime
+
+
+@pytest.mark.asyncio
+async def test_valid_datetime_object():
+    # Direct datetime object
+    dt = datetime(2024, 6, 11, 12, 0, tzinfo=timezone.utc)
+    assert convert_to_datetime(dt) == dt
+
+
+@pytest.mark.asyncio
+async def test_none_input():
+    # None input should return None
+    assert convert_to_datetime(None) is None
+
+
+@pytest.mark.asyncio
+async def test_invalid_string_input():
+    # Invalid string should raise ValueError
+    with pytest.raises(ValueError):
+        convert_to_datetime("invalid-date")
+
+
+@pytest.mark.asyncio
+async def test_caching():
+    # Test if caching is working by calling the function with the same input multiple times
+    timestamp = 1715563200.0
+    result1 = convert_to_datetime(timestamp)
+    result2 = convert_to_datetime(timestamp)
+    assert result1 is result2
