@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.1.0 (2024-06-12)
+
+### Feature
+
+
+- Remove _get_frame_data helper (#45) ([`21d6768`](https://github.com/uilibs/uiprotect/commit/21d6768132d553cc9f59e73cc7adbfde02a42915))
+
+
+### Refactor
+
+
+- Consolidate logic to remove keys (#44) ([`9da56d2`](https://github.com/uilibs/uiprotect/commit/9da56d2c0f094d31b0cf8cba07c4c07fd96c64ea))
+
+
+- Use new _event_is_in_range helper in _process_camera_event (#43) ([`49e0a67`](https://github.com/uilibs/uiprotect/commit/49e0a67c5f2473ae1a6bfbe3db513a77786a68df))
+
+
+- Reduce duplicate code to process sensor events (#41) ([`78c291b`](https://github.com/uilibs/uiprotect/commit/78c291b76a0cbce1f891f91c9c01236d71edbf81))
+
+
 ## v1.0.1 (2024-06-11)
 
 ### Fix
