@@ -349,14 +349,6 @@ class Bootstrap(ProtectBaseObject):
                 ),
             )
 
-    def _get_frame_data(
-        self,
-        packet: WSPacket,
-    ) -> tuple[dict[str, Any], dict[str, Any] | None]:
-        if self.capture_ws_stats:
-            return deepcopy(packet.action_frame.data), deepcopy(packet.data_frame.data)
-        return packet.action_frame.data, packet.data_frame.data
-
     def _process_add_packet(
         self,
         packet: WSPacket,
@@ -530,7 +522,12 @@ class Bootstrap(ProtectBaseObject):
         ignore_stats: bool = False,
     ) -> WSSubscriptionMessage | None:
         """Process a WS packet."""
-        action, data = self._get_frame_data(packet)
+        action = packet.action_frame.data
+        data = packet.data_frame.data
+        if self.capture_ws_stats:
+            action = deepcopy(action)
+            data = deepcopy(data)
+
         new_update_id: str = action["newUpdateId"]
         if new_update_id is not None:
             self.last_update_id = new_update_id
