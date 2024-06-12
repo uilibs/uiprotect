@@ -88,47 +88,32 @@ def _process_light_event(event: Event) -> None:
     if event.light is None:
         return
 
-    dt = event.light.last_motion
-    if dt is None or event.start >= dt or (event.end is not None and event.end >= dt):
+    if _event_is_in_range(event, event.light.last_motion):
         event.light.last_motion_event_id = event.id
+
+
+def _event_is_in_range(event: Event, dt: datetime | None) -> bool:
+    """Check if event is in range of datetime."""
+    return (
+        dt is None or event.start >= dt or (event.end is not None and event.end >= dt)
+    )
 
 
 def _process_sensor_event(event: Event) -> None:
     if event.sensor is None:
         return
-
-    if event.type == EventType.MOTION_SENSOR:
-        dt = event.sensor.motion_detected_at
-        if (
-            dt is None
-            or event.start >= dt
-            or (event.end is not None and event.end >= dt)
-        ):
+    if event.type is EventType.MOTION_SENSOR:
+        if _event_is_in_range(event, event.sensor.motion_detected_at):
             event.sensor.last_motion_event_id = event.id
     elif event.type in {EventType.SENSOR_CLOSED, EventType.SENSOR_OPENED}:
-        dt = event.sensor.open_status_changed_at
-        if (
-            dt is None
-            or event.start >= dt
-            or (event.end is not None and event.end >= dt)
-        ):
+        if _event_is_in_range(event, event.sensor.open_status_changed_at):
             event.sensor.last_contact_event_id = event.id
-    elif event.type == EventType.SENSOR_EXTREME_VALUE:
-        dt = event.sensor.extreme_value_detected_at
-        if (
-            dt is None
-            or event.start >= dt
-            or (event.end is not None and event.end >= dt)
-        ):
+    elif event.type is EventType.SENSOR_EXTREME_VALUE:
+        if _event_is_in_range(event, event.sensor.extreme_value_detected_at):
             event.sensor.extreme_value_detected_at = event.end
             event.sensor.last_value_event_id = event.id
-    elif event.type == EventType.SENSOR_ALARM:
-        dt = event.sensor.alarm_triggered_at
-        if (
-            dt is None
-            or event.start >= dt
-            or (event.end is not None and event.end >= dt)
-        ):
+    elif event.type is EventType.SENSOR_ALARM:
+        if _event_is_in_range(event, event.sensor.alarm_triggered_at):
             event.sensor.last_value_event_id = event.id
 
 
