@@ -22,6 +22,7 @@ from ..utils import normalize_mac, utc_now
 from .base import (
     RECENT_EVENT_MAX,
     ProtectBaseObject,
+    ProtectDeviceModel,
     ProtectModel,
     ProtectModelWithId,
 )
@@ -65,6 +66,7 @@ STATS_KEYS = {
     "recordingSchedules",
 }
 IGNORE_DEVICE_KEYS = {"nvrMac", "guid"}
+STATS_AND_IGNORE_DEVICE_KEYS = STATS_KEYS | IGNORE_DEVICE_KEYS
 
 CAMERA_EVENT_ATTR_MAP: dict[EventType, tuple[str, str]] = {
     EventType.MOTION: ("last_motion", "last_motion_event_id"),
@@ -78,56 +80,36 @@ CAMERA_EVENT_ATTR_MAP: dict[EventType, tuple[str, str]] = {
 }
 
 
-def _remove_stats_keys(data: dict[str, Any]) -> None:
-    for key in STATS_KEYS.intersection(data):
-        del data[key]
-
-
 def _process_light_event(event: Event) -> None:
     if event.light is None:
         return
 
-    dt = event.light.last_motion
-    if dt is None or event.start >= dt or (event.end is not None and event.end >= dt):
+    if _event_is_in_range(event, event.light.last_motion):
         event.light.last_motion_event_id = event.id
+
+
+def _event_is_in_range(event: Event, dt: datetime | None) -> bool:
+    """Check if event is in range of datetime."""
+    return (
+        dt is None or event.start >= dt or (event.end is not None and event.end >= dt)
+    )
 
 
 def _process_sensor_event(event: Event) -> None:
     if event.sensor is None:
         return
-
-    if event.type == EventType.MOTION_SENSOR:
-        dt = event.sensor.motion_detected_at
-        if (
-            dt is None
-            or event.start >= dt
-            or (event.end is not None and event.end >= dt)
-        ):
+    if event.type is EventType.MOTION_SENSOR:
+        if _event_is_in_range(event, event.sensor.motion_detected_at):
             event.sensor.last_motion_event_id = event.id
     elif event.type in {EventType.SENSOR_CLOSED, EventType.SENSOR_OPENED}:
-        dt = event.sensor.open_status_changed_at
-        if (
-            dt is None
-            or event.start >= dt
-            or (event.end is not None and event.end >= dt)
-        ):
+        if _event_is_in_range(event, event.sensor.open_status_changed_at):
             event.sensor.last_contact_event_id = event.id
-    elif event.type == EventType.SENSOR_EXTREME_VALUE:
-        dt = event.sensor.extreme_value_detected_at
-        if (
-            dt is None
-            or event.start >= dt
-            or (event.end is not None and event.end >= dt)
-        ):
+    elif event.type is EventType.SENSOR_EXTREME_VALUE:
+        if _event_is_in_range(event, event.sensor.extreme_value_detected_at):
             event.sensor.extreme_value_detected_at = event.end
             event.sensor.last_value_event_id = event.id
-    elif event.type == EventType.SENSOR_ALARM:
-        dt = event.sensor.alarm_triggered_at
-        if (
-            dt is None
-            or event.start >= dt
-            or (event.end is not None and event.end >= dt)
-        ):
+    elif event.type is EventType.SENSOR_ALARM:
+        if _event_is_in_range(event, event.sensor.alarm_triggered_at):
             event.sensor.last_value_event_id = event.id
 
 
@@ -144,21 +126,25 @@ def _process_camera_event(event: Event) -> None:
 
     event_type = event.type
     dt_attr, event_attr = CAMERA_EVENT_ATTR_MAP[event_type]
-    dt = getattr(camera, dt_attr)
-    if dt is None or event.start >= dt or (event.end is not None and event.end >= dt):
-        setattr(camera, event_attr, event.id)
-        setattr(camera, dt_attr, event.start)
-        if event_type in _CAMERA_SMART_AND_LINE_EVENTS:
-            for smart_type in event.smart_detect_types:
-                camera.last_smart_detect_event_ids[smart_type] = event.id
-                camera.last_smart_detects[smart_type] = event.start
-        elif event_type is _CAMERA_SMART_AUDIO_EVENT:
-            for smart_type in event.smart_detect_types:
-                audio_type = smart_type.audio_type
-                if audio_type is None:
-                    continue
-                camera.last_smart_audio_detect_event_ids[audio_type] = event.id
-                camera.last_smart_audio_detects[audio_type] = event.start
+    dt: datetime | None = getattr(camera, dt_attr)
+    if not _event_is_in_range(event, dt):
+        return
+
+    event_id = event.id
+    event_start = event.start
+
+    setattr(camera, event_attr, event_id)
+    setattr(camera, dt_attr, event_start)
+    if event_type in _CAMERA_SMART_AND_LINE_EVENTS:
+        for smart_type in event.smart_detect_types:
+            camera.last_smart_detect_event_ids[smart_type] = event_id
+            camera.last_smart_detects[smart_type] = event_start
+    elif event_type is _CAMERA_SMART_AUDIO_EVENT:
+        for smart_type in event.smart_detect_types:
+            if (audio_type := smart_type.audio_type) is None:
+                continue
+            camera.last_smart_audio_detect_event_ids[audio_type] = event_id
+            camera.last_smart_audio_detects[audio_type] = event_start
 
 
 @dataclass
@@ -324,7 +310,7 @@ class Bootstrap(ProtectBaseObject):
         if ref is None:
             return None
 
-        devices = getattr(self, f"{ref.model.value}s")
+        devices: dict[str, ProtectModelWithId] = getattr(self, f"{ref.model.value}s")
         return cast(ProtectAdoptableDeviceModel, devices.get(ref.id))
 
     def get_device_from_id(self, device_id: str) -> ProtectAdoptableDeviceModel | None:
@@ -332,7 +318,7 @@ class Bootstrap(ProtectBaseObject):
         ref = self.id_lookup.get(device_id)
         if ref is None:
             return None
-        devices = getattr(self, f"{ref.model.value}s")
+        devices: dict[str, ProtectModelWithId] = getattr(self, f"{ref.model.value}s")
         return cast(ProtectAdoptableDeviceModel, devices.get(ref.id))
 
     def process_event(self, event: Event) -> None:
@@ -412,7 +398,7 @@ class Bootstrap(ProtectBaseObject):
 
     def _process_remove_packet(self, packet: WSPacket) -> WSSubscriptionMessage | None:
         model: str | None = packet.action_frame.data.get("modelKey")
-        devices = getattr(self, f"{model}s", None)
+        devices: dict[str, ProtectDeviceModel] | None = getattr(self, f"{model}s", None)
 
         if devices is None:
             return None
@@ -439,7 +425,8 @@ class Bootstrap(ProtectBaseObject):
         ignore_stats: bool,
     ) -> WSSubscriptionMessage | None:
         if ignore_stats:
-            _remove_stats_keys(data)
+            for key in STATS_KEYS.intersection(data):
+                del data[key]
         # nothing left to process
         if not data:
             self._create_stat(packet, None, True)
@@ -477,9 +464,10 @@ class Bootstrap(ProtectBaseObject):
         ignore_stats: bool,
     ) -> WSSubscriptionMessage | None:
         model_type = action["modelKey"]
-        if ignore_stats:
-            _remove_stats_keys(data)
-        for key in IGNORE_DEVICE_KEYS.intersection(data):
+        remove_keys = (
+            STATS_AND_IGNORE_DEVICE_KEYS if ignore_stats else IGNORE_DEVICE_KEYS
+        )
+        for key in remove_keys.intersection(data):
             del data[key]
         # `last_motion` from cameras update every 100 milliseconds when a motion event is active
         # this overrides the behavior to only update `last_motion` when a new event starts
@@ -491,12 +479,12 @@ class Bootstrap(ProtectBaseObject):
             return None
 
         key = f"{model_type}s"
-        devices = getattr(self, key)
+        devices: dict[str, ProtectModelWithId] = getattr(self, key)
         action_id: str = action["id"]
         if action_id in devices:
             if action_id not in devices:
                 raise ValueError(f"Unknown device update for {model_type}: {action_id}")
-            obj: ProtectModelWithId = devices[action_id]
+            obj = devices[action_id]
             data = obj.unifi_dict_to_dict(data)
             old_obj = obj.copy()
             obj = obj.update_from_dict(deepcopy(data))
@@ -629,7 +617,9 @@ class Bootstrap(ProtectBaseObject):
         if isinstance(device, NVR):
             self.nvr = device
         else:
-            devices = getattr(self, f"{model_type.value}s")
+            devices: dict[str, ProtectModelWithId] = getattr(
+                self, f"{model_type.value}s"
+            )
             devices[device.id] = device
         _LOGGER.debug("Successfully refresh model: %s %s", model_type, device_id)
 
