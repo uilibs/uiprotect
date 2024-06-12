@@ -22,6 +22,7 @@ from ..utils import normalize_mac, utc_now
 from .base import (
     RECENT_EVENT_MAX,
     ProtectBaseObject,
+    ProtectDeviceModel,
     ProtectModel,
     ProtectModelWithId,
 )
@@ -324,7 +325,7 @@ class Bootstrap(ProtectBaseObject):
         if ref is None:
             return None
 
-        devices = getattr(self, f"{ref.model.value}s")
+        devices: dict[str, ProtectModelWithId] = getattr(self, f"{ref.model.value}s")
         return cast(ProtectAdoptableDeviceModel, devices.get(ref.id))
 
     def get_device_from_id(self, device_id: str) -> ProtectAdoptableDeviceModel | None:
@@ -332,7 +333,7 @@ class Bootstrap(ProtectBaseObject):
         ref = self.id_lookup.get(device_id)
         if ref is None:
             return None
-        devices = getattr(self, f"{ref.model.value}s")
+        devices: dict[str, ProtectModelWithId] = getattr(self, f"{ref.model.value}s")
         return cast(ProtectAdoptableDeviceModel, devices.get(ref.id))
 
     def process_event(self, event: Event) -> None:
@@ -412,7 +413,7 @@ class Bootstrap(ProtectBaseObject):
 
     def _process_remove_packet(self, packet: WSPacket) -> WSSubscriptionMessage | None:
         model: str | None = packet.action_frame.data.get("modelKey")
-        devices = getattr(self, f"{model}s", None)
+        devices: dict[str, ProtectDeviceModel] | None = getattr(self, f"{model}s", None)
 
         if devices is None:
             return None
@@ -491,12 +492,12 @@ class Bootstrap(ProtectBaseObject):
             return None
 
         key = f"{model_type}s"
-        devices = getattr(self, key)
+        devices: dict[str, ProtectModelWithId] = getattr(self, key)
         action_id: str = action["id"]
         if action_id in devices:
             if action_id not in devices:
                 raise ValueError(f"Unknown device update for {model_type}: {action_id}")
-            obj: ProtectModelWithId = devices[action_id]
+            obj = devices[action_id]
             data = obj.unifi_dict_to_dict(data)
             old_obj = obj.copy()
             obj = obj.update_from_dict(deepcopy(data))
@@ -629,7 +630,9 @@ class Bootstrap(ProtectBaseObject):
         if isinstance(device, NVR):
             self.nvr = device
         else:
-            devices = getattr(self, f"{model_type.value}s")
+            devices: dict[str, ProtectModelWithId] = getattr(
+                self, f"{model_type.value}s"
+            )
             devices[device.id] = device
         _LOGGER.debug("Successfully refresh model: %s %s", model_type, device_id)
 
