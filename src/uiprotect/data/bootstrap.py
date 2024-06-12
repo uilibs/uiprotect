@@ -66,6 +66,7 @@ STATS_KEYS = {
     "recordingSchedules",
 }
 IGNORE_DEVICE_KEYS = {"nvrMac", "guid"}
+STATS_AND_IGNORE_DEVICE_KEYS = STATS_KEYS | IGNORE_DEVICE_KEYS
 
 CAMERA_EVENT_ATTR_MAP: dict[EventType, tuple[str, str]] = {
     EventType.MOTION: ("last_motion", "last_motion_event_id"),
@@ -77,11 +78,6 @@ CAMERA_EVENT_ATTR_MAP: dict[EventType, tuple[str, str]] = {
     ),
     EventType.RING: ("last_ring", "last_ring_event_id"),
 }
-
-
-def _remove_stats_keys(data: dict[str, Any]) -> None:
-    for key in STATS_KEYS.intersection(data):
-        del data[key]
 
 
 def _process_light_event(event: Event) -> None:
@@ -425,7 +421,8 @@ class Bootstrap(ProtectBaseObject):
         ignore_stats: bool,
     ) -> WSSubscriptionMessage | None:
         if ignore_stats:
-            _remove_stats_keys(data)
+            for key in STATS_KEYS.intersection(data):
+                del data[key]
         # nothing left to process
         if not data:
             self._create_stat(packet, None, True)
@@ -463,9 +460,10 @@ class Bootstrap(ProtectBaseObject):
         ignore_stats: bool,
     ) -> WSSubscriptionMessage | None:
         model_type = action["modelKey"]
-        if ignore_stats:
-            _remove_stats_keys(data)
-        for key in IGNORE_DEVICE_KEYS.intersection(data):
+        remove_keys = (
+            STATS_AND_IGNORE_DEVICE_KEYS if ignore_stats else IGNORE_DEVICE_KEYS
+        )
+        for key in remove_keys.intersection(data):
             del data[key]
         # `last_motion` from cameras update every 100 milliseconds when a motion event is active
         # this overrides the behavior to only update `last_motion` when a new event starts
