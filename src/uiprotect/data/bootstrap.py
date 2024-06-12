@@ -88,8 +88,7 @@ def _process_light_event(event: Event) -> None:
     if event.light is None:
         return
 
-    dt = event.light.last_motion
-    if dt is None or event.start >= dt or (event.end is not None and event.end >= dt):
+    if _event_is_in_range(event, event.light.last_motion):
         event.light.last_motion_event_id = event.id
 
 
