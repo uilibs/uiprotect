@@ -1139,7 +1139,7 @@ class Camera(ProtectMotionDeviceModel):
         """Get HDR mode similar to how Protect interface works."""
         if not self.hdr_mode:
             return "off"
-        if self.isp_settings.hdr_mode == HDRMode.NORMAL:
+        if self.isp_settings.hdr_mode is HDRMode.NORMAL:
             return "auto"
         return "always"
 
@@ -1917,13 +1917,13 @@ class Camera(ProtectMotionDeviceModel):
 
     @property
     def is_high_fps_enabled(self) -> bool:
-        return self.video_mode == VideoMode.HIGH_FPS
+        return self.video_mode is VideoMode.HIGH_FPS
 
     @property
     def is_video_ready(self) -> bool:
         return (
             self.feature_flags.lens_type is None
-            or self.feature_flags.lens_type != LensType.NONE
+            or self.feature_flags.lens_type is not LensType.NONE
         )
 
     @property
@@ -2121,7 +2121,7 @@ class Camera(ProtectMotionDeviceModel):
         """Return if IR LED custom slider is enabled."""
         return (
             self.feature_flags.has_led_ir
-            and self.isp_settings.ir_led_mode == IRLEDMode.CUSTOM
+            and self.isp_settings.ir_led_mode is IRLEDMode.CUSTOM
         )
 
     async def set_status_light(self, enabled: bool) -> None:
@@ -2404,7 +2404,7 @@ class Camera(ProtectMotionDeviceModel):
                 await self.save_device(data_before_changes, force_emit=True)
                 return
 
-        if text_type != DoorbellMessageType.CUSTOM_MESSAGE:
+        if text_type is not DoorbellMessageType.CUSTOM_MESSAGE:
             if text is not None:
                 raise BadRequest("Can only set text if text_type is CUSTOM_MESSAGE")
             text = text_type.value.replace("_", " ")
@@ -2858,25 +2858,28 @@ class Sensor(ProtectAdoptableDeviceModel):
 
     @property
     def is_motion_sensor_enabled(self) -> bool:
-        return self.mount_type != MountType.LEAK and self.motion_settings.is_enabled
+        return self.mount_type is not MountType.LEAK and self.motion_settings.is_enabled
 
     @property
     def is_alarm_sensor_enabled(self) -> bool:
-        return self.mount_type != MountType.LEAK and self.alarm_settings.is_enabled
+        return self.mount_type is not MountType.LEAK and self.alarm_settings.is_enabled
 
     @property
     def is_light_sensor_enabled(self) -> bool:
-        return self.mount_type != MountType.LEAK and self.light_settings.is_enabled
+        return self.mount_type is not MountType.LEAK and self.light_settings.is_enabled
 
     @property
     def is_temperature_sensor_enabled(self) -> bool:
         return (
-            self.mount_type != MountType.LEAK and self.temperature_settings.is_enabled
+            self.mount_type is not MountType.LEAK
+            and self.temperature_settings.is_enabled
         )
 
     @property
     def is_humidity_sensor_enabled(self) -> bool:
-        return self.mount_type != MountType.LEAK and self.humidity_settings.is_enabled
+        return (
+            self.mount_type is not MountType.LEAK and self.humidity_settings.is_enabled
+        )
 
     @property
     def is_leak_sensor_enabled(self) -> bool:
@@ -3156,14 +3159,14 @@ class Doorlock(ProtectAdoptableDeviceModel):
 
     async def close_lock(self) -> None:
         """Close doorlock (lock)"""
-        if self.lock_status != LockStatusType.OPEN:
+        if self.lock_status is not LockStatusType.OPEN:
             raise BadRequest("Lock is not open")
 
         await self._api.close_lock(self.id)
 
     async def open_lock(self) -> None:
         """Open doorlock (unlock)"""
-        if self.lock_status != LockStatusType.CLOSED:
+        if self.lock_status is not LockStatusType.CLOSED:
             raise BadRequest("Lock is not closed")
 
         await self._api.open_lock(self.id)
