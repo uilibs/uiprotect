@@ -126,21 +126,25 @@ def _process_camera_event(event: Event) -> None:
 
     event_type = event.type
     dt_attr, event_attr = CAMERA_EVENT_ATTR_MAP[event_type]
-    dt = getattr(camera, dt_attr)
-    if dt is None or event.start >= dt or (event.end is not None and event.end >= dt):
-        setattr(camera, event_attr, event.id)
-        setattr(camera, dt_attr, event.start)
-        if event_type in _CAMERA_SMART_AND_LINE_EVENTS:
-            for smart_type in event.smart_detect_types:
-                camera.last_smart_detect_event_ids[smart_type] = event.id
-                camera.last_smart_detects[smart_type] = event.start
-        elif event_type is _CAMERA_SMART_AUDIO_EVENT:
-            for smart_type in event.smart_detect_types:
-                audio_type = smart_type.audio_type
-                if audio_type is None:
-                    continue
-                camera.last_smart_audio_detect_event_ids[audio_type] = event.id
-                camera.last_smart_audio_detects[audio_type] = event.start
+    dt: datetime | None = getattr(camera, dt_attr)
+    if not _event_is_in_range(event, dt):
+        return
+
+    event_id = event.id
+    event_start = event.start
+
+    setattr(camera, event_attr, event_id)
+    setattr(camera, dt_attr, event_start)
+    if event_type in _CAMERA_SMART_AND_LINE_EVENTS:
+        for smart_type in event.smart_detect_types:
+            camera.last_smart_detect_event_ids[smart_type] = event_id
+            camera.last_smart_detects[smart_type] = event_start
+    elif event_type is _CAMERA_SMART_AUDIO_EVENT:
+        for smart_type in event.smart_detect_types:
+            if (audio_type := smart_type.audio_type) is None:
+                continue
+            camera.last_smart_audio_detect_event_ids[audio_type] = event_id
+            camera.last_smart_audio_detects[audio_type] = event_start
 
 
 @dataclass
