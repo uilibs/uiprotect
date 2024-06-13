@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2.2 (2024-06-13)
+
+### Fix
+
+
+- Restore some unreachable code in _process_device_update (#50) ([`c638cd3`](https://github.com/uilibs/uiprotect/commit/c638cd3b087d63279bd8f798bd8831fc2e11a916))
+
+
 ## v1.2.1 (2024-06-13)
 
 ### Fix
