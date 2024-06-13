@@ -520,24 +520,34 @@ class ProtectBaseObject(BaseModel):
         data["api"] = api
         data_set = set(data)
 
-        for key in self._get_protect_objs_set().intersection(data_set):
-            unifi_obj: Any | None = getattr(self, key)
-            if unifi_obj is not None and isinstance(unifi_obj, dict):
-                unifi_obj["api"] = api
+        if (unifi_objs_sets := self._get_protect_objs_set()) and (
+            intersections := unifi_objs_sets.intersection(data_set)
+        ):
+            for key in intersections:
+                unifi_obj: Any | None = getattr(self, key)
+                if unifi_obj is not None and isinstance(unifi_obj, dict):
+                    unifi_obj["api"] = api
 
-        for key in self._get_protect_lists_set().intersection(data_set):
-            new_items = []
-            for item in data[key]:
-                if isinstance(item, dict):
-                    item["api"] = api
-                new_items.append(item)
-            data[key] = new_items
+        if (unifi_lists_sets := self._get_protect_lists_set()) and (
+            intersections := unifi_lists_sets.intersection(data_set)
+        ):
+            for key in intersections:
+                new_items = []
+                for item in data[key]:
+                    if isinstance(item, dict):
+                        item["api"] = api
+                    new_items.append(item)
+                data[key] = new_items
 
-        for key in self._get_protect_dicts_set().intersection(data_set):
-            for item_key, item in data[key].items():
-                if isinstance(item, dict):
-                    item["api"] = api
-                data[key][item_key] = item
+        if (unifi_dicts_sets := self._get_protect_dicts_set()) and (
+            intersections := unifi_dicts_sets.intersection(data_set)
+        ):
+            for key in intersections:
+                inner_dict: dict[str, Any] = data[key]
+                for item_key, item in inner_dict.items():
+                    if isinstance(item, dict):
+                        item["api"] = api
+                    inner_dict[item_key] = item
 
         return data
 
