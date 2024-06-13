@@ -80,12 +80,9 @@ CAMERA_EVENT_ATTR_MAP: dict[EventType, tuple[str, str]] = {
 }
 
 
-def _process_light_event(event: Event) -> None:
-    if event.light is None:
-        return
-
-    if _event_is_in_range(event, event.light.last_motion):
-        event.light.last_motion_event_id = event.id
+def _process_light_event(event: Event, light: Light) -> None:
+    if _event_is_in_range(event, light.last_motion):
+        light.last_motion_event_id = event.id
 
 
 def _event_is_in_range(event: Event, dt: datetime | None) -> bool:
@@ -95,22 +92,20 @@ def _event_is_in_range(event: Event, dt: datetime | None) -> bool:
     )
 
 
-def _process_sensor_event(event: Event) -> None:
-    if event.sensor is None:
-        return
+def _process_sensor_event(event: Event, sensor: Sensor) -> None:
     if event.type is EventType.MOTION_SENSOR:
-        if _event_is_in_range(event, event.sensor.motion_detected_at):
-            event.sensor.last_motion_event_id = event.id
+        if _event_is_in_range(event, sensor.motion_detected_at):
+            sensor.last_motion_event_id = event.id
     elif event.type in {EventType.SENSOR_CLOSED, EventType.SENSOR_OPENED}:
-        if _event_is_in_range(event, event.sensor.open_status_changed_at):
-            event.sensor.last_contact_event_id = event.id
+        if _event_is_in_range(event, sensor.open_status_changed_at):
+            sensor.last_contact_event_id = event.id
     elif event.type is EventType.SENSOR_EXTREME_VALUE:
-        if _event_is_in_range(event, event.sensor.extreme_value_detected_at):
-            event.sensor.extreme_value_detected_at = event.end
-            event.sensor.last_value_event_id = event.id
+        if _event_is_in_range(event, sensor.extreme_value_detected_at):
+            sensor.extreme_value_detected_at = event.end
+            sensor.last_value_event_id = event.id
     elif event.type is EventType.SENSOR_ALARM:
-        if _event_is_in_range(event, event.sensor.alarm_triggered_at):
-            event.sensor.last_value_event_id = event.id
+        if _event_is_in_range(event, sensor.alarm_triggered_at):
+            sensor.last_value_event_id = event.id
 
 
 _CAMERA_SMART_AND_LINE_EVENTS = {
@@ -120,10 +115,7 @@ _CAMERA_SMART_AND_LINE_EVENTS = {
 _CAMERA_SMART_AUDIO_EVENT = EventType.SMART_AUDIO_DETECT
 
 
-def _process_camera_event(event: Event) -> None:
-    if (camera := event.camera) is None:
-        return
-
+def _process_camera_event(event: Event, camera: Camera) -> None:
     event_type = event.type
     dt_attr, event_attr = CAMERA_EVENT_ATTR_MAP[event_type]
     dt: datetime | None = getattr(camera, dt_attr)
@@ -322,12 +314,13 @@ class Bootstrap(ProtectBaseObject):
         return cast(ProtectAdoptableDeviceModel, devices.get(ref.id))
 
     def process_event(self, event: Event) -> None:
-        if event.type in CAMERA_EVENT_ATTR_MAP and event.camera is not None:
-            _process_camera_event(event)
-        elif event.type == EventType.MOTION_LIGHT and event.light is not None:
-            _process_light_event(event)
-        elif event.type == EventType.MOTION_SENSOR and event.sensor is not None:
-            _process_sensor_event(event)
+        event_type = event.type
+        if event_type in CAMERA_EVENT_ATTR_MAP and (camera := event.camera):
+            _process_camera_event(event, camera)
+        elif event_type is EventType.MOTION_LIGHT and (light := event.light):
+            _process_light_event(event, light)
+        elif event_type is EventType.MOTION_SENSOR and (sensor := event.sensor):
+            _process_sensor_event(event, sensor)
 
         self.events[event.id] = event
 
