@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.2.2 (2024-06-13)
+
+### Fix
+
+
+- Restore some unreachable code in _process_device_update (#50) ([`c638cd3`](https://github.com/uilibs/uiprotect/commit/c638cd3b087d63279bd8f798bd8831fc2e11a916))
+
+
+## v1.2.1 (2024-06-13)
+
+### Fix
+
+
+- Blocking i/o in the event loop (#49) ([`36a4355`](https://github.com/uilibs/uiprotect/commit/36a4355170566b9d7cfb1632d9c35c28b693d9ce))
+
+
 ## v1.2.0 (2024-06-13)
 
 ### Feature

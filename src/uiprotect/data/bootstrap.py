@@ -80,12 +80,9 @@ CAMERA_EVENT_ATTR_MAP: dict[EventType, tuple[str, str]] = {
 }
 
 
-def _process_light_event(event: Event) -> None:
-    if event.light is None:
-        return
-
-    if _event_is_in_range(event, event.light.last_motion):
-        event.light.last_motion_event_id = event.id
+def _process_light_event(event: Event, light: Light) -> None:
+    if _event_is_in_range(event, light.last_motion):
+        light.last_motion_event_id = event.id
 
 
 def _event_is_in_range(event: Event, dt: datetime | None) -> bool:
@@ -95,22 +92,20 @@ def _event_is_in_range(event: Event, dt: datetime | None) -> bool:
     )
 
 
-def _process_sensor_event(event: Event) -> None:
-    if event.sensor is None:
-        return
+def _process_sensor_event(event: Event, sensor: Sensor) -> None:
     if event.type is EventType.MOTION_SENSOR:
-        if _event_is_in_range(event, event.sensor.motion_detected_at):
-            event.sensor.last_motion_event_id = event.id
+        if _event_is_in_range(event, sensor.motion_detected_at):
+            sensor.last_motion_event_id = event.id
     elif event.type in {EventType.SENSOR_CLOSED, EventType.SENSOR_OPENED}:
-        if _event_is_in_range(event, event.sensor.open_status_changed_at):
-            event.sensor.last_contact_event_id = event.id
+        if _event_is_in_range(event, sensor.open_status_changed_at):
+            sensor.last_contact_event_id = event.id
     elif event.type is EventType.SENSOR_EXTREME_VALUE:
-        if _event_is_in_range(event, event.sensor.extreme_value_detected_at):
-            event.sensor.extreme_value_detected_at = event.end
-            event.sensor.last_value_event_id = event.id
+        if _event_is_in_range(event, sensor.extreme_value_detected_at):
+            sensor.extreme_value_detected_at = event.end
+            sensor.last_value_event_id = event.id
     elif event.type is EventType.SENSOR_ALARM:
-        if _event_is_in_range(event, event.sensor.alarm_triggered_at):
-            event.sensor.last_value_event_id = event.id
+        if _event_is_in_range(event, sensor.alarm_triggered_at):
+            sensor.last_value_event_id = event.id
 
 
 _CAMERA_SMART_AND_LINE_EVENTS = {
@@ -120,10 +115,7 @@ _CAMERA_SMART_AND_LINE_EVENTS = {
 _CAMERA_SMART_AUDIO_EVENT = EventType.SMART_AUDIO_DETECT
 
 
-def _process_camera_event(event: Event) -> None:
-    if (camera := event.camera) is None:
-        return
-
+def _process_camera_event(event: Event, camera: Camera) -> None:
     event_type = event.type
     dt_attr, event_attr = CAMERA_EVENT_ATTR_MAP[event_type]
     dt: datetime | None = getattr(camera, dt_attr)
@@ -322,12 +314,13 @@ class Bootstrap(ProtectBaseObject):
         return cast(ProtectAdoptableDeviceModel, devices.get(ref.id))
 
     def process_event(self, event: Event) -> None:
-        if event.type in CAMERA_EVENT_ATTR_MAP and event.camera is not None:
-            _process_camera_event(event)
-        elif event.type == EventType.MOTION_LIGHT and event.light is not None:
-            _process_light_event(event)
-        elif event.type == EventType.MOTION_SENSOR and event.sensor is not None:
-            _process_sensor_event(event)
+        event_type = event.type
+        if event_type in CAMERA_EVENT_ATTR_MAP and (camera := event.camera):
+            _process_camera_event(event, camera)
+        elif event_type is EventType.MOTION_LIGHT and (light := event.light):
+            _process_light_event(event, light)
+        elif event_type is EventType.MOTION_SENSOR and (sensor := event.sensor):
+            _process_sensor_event(event, sensor)
 
         self.events[event.id] = event
 
@@ -473,47 +466,48 @@ class Bootstrap(ProtectBaseObject):
         key = f"{model_type}s"
         devices: dict[str, ProtectModelWithId] = getattr(self, key)
         action_id: str = action["id"]
-        if action_id in devices:
-            if action_id not in devices:
-                raise ValueError(f"Unknown device update for {model_type}: {action_id}")
-            obj = devices[action_id]
-            data = obj.unifi_dict_to_dict(data)
-            old_obj = obj.copy()
-            obj = obj.update_from_dict(deepcopy(data))
+        if action_id not in devices:
+            # ignore updates to events that phase out
+            if model_type != _ModelType_Event_value:
+                _LOGGER.debug("Unexpected %s: %s", key, action_id)
+            return None
 
-            if isinstance(obj, Event):
-                self.process_event(obj)
-            elif isinstance(obj, Camera):
-                if "last_ring" in data and obj.last_ring:
-                    is_recent = obj.last_ring + RECENT_EVENT_MAX >= utc_now()
-                    _LOGGER.debug("last_ring for %s (%s)", obj.id, is_recent)
-                    if is_recent:
-                        obj.set_ring_timeout()
-            elif (
-                isinstance(obj, Sensor)
-                and "alarm_triggered_at" in data
-                and obj.alarm_triggered_at
-            ):
+        obj = devices[action_id]
+        model = obj.model
+        data = obj.unifi_dict_to_dict(data)
+        old_obj = obj.copy()
+        obj = obj.update_from_dict(deepcopy(data))
+
+        if model is ModelType.EVENT:
+            if TYPE_CHECKING:
+                assert isinstance(obj, Event)
+            self.process_event(obj)
+        elif model is ModelType.CAMERA:
+            if TYPE_CHECKING:
+                assert isinstance(obj, Camera)
+            if "last_ring" in data and obj.last_ring:
+                is_recent = obj.last_ring + RECENT_EVENT_MAX >= utc_now()
+                _LOGGER.debug("last_ring for %s (%s)", obj.id, is_recent)
+                if is_recent:
+                    obj.set_ring_timeout()
+        elif model is ModelType.SENSOR:
+            if TYPE_CHECKING:
+                assert isinstance(obj, Sensor)
+            if "alarm_triggered_at" in data and obj.alarm_triggered_at:
                 is_recent = obj.alarm_triggered_at + RECENT_EVENT_MAX >= utc_now()
                 _LOGGER.debug("alarm_triggered_at for %s (%s)", obj.id, is_recent)
                 if is_recent:
                     obj.set_alarm_timeout()
 
-            devices[action_id] = obj
-
-            self._create_stat(packet, data, False)
-            return WSSubscriptionMessage(
-                action=WSAction.UPDATE,
-                new_update_id=self.last_update_id,
-                changed_data=data,
-                new_obj=obj,
-                old_obj=old_obj,
-            )
-
-        # ignore updates to events that phase out
-        if model_type != _ModelType_Event_value:
-            _LOGGER.debug("Unexpected %s: %s", key, action_id)
-        return None
+        devices[action_id] = obj
+        self._create_stat(packet, data, False)
+        return WSSubscriptionMessage(
+            action=WSAction.UPDATE,
+            new_update_id=self.last_update_id,
+            changed_data=data,
+            new_obj=obj,
+            old_obj=old_obj,
+        )
 
     def process_ws_packet(
         self,
