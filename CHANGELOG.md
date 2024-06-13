@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.2.0 (2024-06-13)
+
+### Feature
+
+
+- Avoid fetching and iterating convert keys when empty (#48) ([`7c9ae89`](https://github.com/uilibs/uiprotect/commit/7c9ae89ed667bbe3e9ca2f5561489d4b8335180e))
+
+
+### Style
+
+
+- Remove ide workspace files and add the directories for them to the gitignore (#47) ([`486e3f9`](https://github.com/uilibs/uiprotect/commit/486e3f92f4d12ab195f0433e599c9eac0f008aef))
+
+
 ## v1.1.0 (2024-06-12)
 
 ### Feature
