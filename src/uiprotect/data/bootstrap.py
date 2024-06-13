@@ -474,24 +474,22 @@ class Bootstrap(ProtectBaseObject):
         devices: dict[str, ProtectModelWithId] = getattr(self, key)
         action_id: str = action["id"]
         if action_id not in devices:
-            raise ValueError(f"Unknown device update for {model_type}: {action_id}")
+            # ignore updates to events that phase out
+            if model_type != _ModelType_Event_value:
+                _LOGGER.debug("Unexpected %s: %s", key, action_id)
+            return None
 
         obj = devices[action_id]
         model = obj.model
-
-        # ignore updates to events that phase out
-        if model is ModelType.EVENT:
-            if TYPE_CHECKING:
-                assert isinstance(obj, Event)
-            self.process_event(obj)
-            _LOGGER.debug("Unexpected %s: %s", key, action_id)
-            return None
-
         data = obj.unifi_dict_to_dict(data)
         old_obj = obj.copy()
         obj = obj.update_from_dict(deepcopy(data))
 
-        if model is ModelType.CAMERA:
+        if model is ModelType.EVENT:
+            if TYPE_CHECKING:
+                assert isinstance(obj, Event)
+            self.process_event(obj)
+        elif model is ModelType.CAMERA:
             if TYPE_CHECKING:
                 assert isinstance(obj, Camera)
             if "last_ring" in data and obj.last_ring:
@@ -509,7 +507,6 @@ class Bootstrap(ProtectBaseObject):
                     obj.set_alarm_timeout()
 
         devices[action_id] = obj
-
         self._create_stat(packet, data, False)
         return WSSubscriptionMessage(
             action=WSAction.UPDATE,
