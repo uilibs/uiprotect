@@ -473,47 +473,51 @@ class Bootstrap(ProtectBaseObject):
         key = f"{model_type}s"
         devices: dict[str, ProtectModelWithId] = getattr(self, key)
         action_id: str = action["id"]
-        if action_id in devices:
-            if action_id not in devices:
-                raise ValueError(f"Unknown device update for {model_type}: {action_id}")
-            obj = devices[action_id]
-            data = obj.unifi_dict_to_dict(data)
-            old_obj = obj.copy()
-            obj = obj.update_from_dict(deepcopy(data))
+        if action_id not in devices:
+            raise ValueError(f"Unknown device update for {model_type}: {action_id}")
 
-            if isinstance(obj, Event):
-                self.process_event(obj)
-            elif isinstance(obj, Camera):
-                if "last_ring" in data and obj.last_ring:
-                    is_recent = obj.last_ring + RECENT_EVENT_MAX >= utc_now()
-                    _LOGGER.debug("last_ring for %s (%s)", obj.id, is_recent)
-                    if is_recent:
-                        obj.set_ring_timeout()
-            elif (
-                isinstance(obj, Sensor)
-                and "alarm_triggered_at" in data
-                and obj.alarm_triggered_at
-            ):
+        obj = devices[action_id]
+        model = obj.model
+
+        # ignore updates to events that phase out
+        if model is ModelType.EVENT:
+            if TYPE_CHECKING:
+                assert isinstance(obj, Event)
+            self.process_event(obj)
+            _LOGGER.debug("Unexpected %s: %s", key, action_id)
+            return None
+
+        data = obj.unifi_dict_to_dict(data)
+        old_obj = obj.copy()
+        obj = obj.update_from_dict(deepcopy(data))
+
+        if model is ModelType.CAMERA:
+            if TYPE_CHECKING:
+                assert isinstance(obj, Camera)
+            if "last_ring" in data and obj.last_ring:
+                is_recent = obj.last_ring + RECENT_EVENT_MAX >= utc_now()
+                _LOGGER.debug("last_ring for %s (%s)", obj.id, is_recent)
+                if is_recent:
+                    obj.set_ring_timeout()
+        elif model is ModelType.SENSOR:
+            if TYPE_CHECKING:
+                assert isinstance(obj, Sensor)
+            if "alarm_triggered_at" in data and obj.alarm_triggered_at:
                 is_recent = obj.alarm_triggered_at + RECENT_EVENT_MAX >= utc_now()
                 _LOGGER.debug("alarm_triggered_at for %s (%s)", obj.id, is_recent)
                 if is_recent:
                     obj.set_alarm_timeout()
 
-            devices[action_id] = obj
+        devices[action_id] = obj
 
-            self._create_stat(packet, data, False)
-            return WSSubscriptionMessage(
-                action=WSAction.UPDATE,
-                new_update_id=self.last_update_id,
-                changed_data=data,
-                new_obj=obj,
-                old_obj=old_obj,
-            )
-
-        # ignore updates to events that phase out
-        if model_type != _ModelType_Event_value:
-            _LOGGER.debug("Unexpected %s: %s", key, action_id)
-        return None
+        self._create_stat(packet, data, False)
+        return WSSubscriptionMessage(
+            action=WSAction.UPDATE,
+            new_update_id=self.last_update_id,
+            changed_data=data,
+            new_obj=obj,
+            old_obj=old_obj,
+        )
 
     def process_ws_packet(
         self,
