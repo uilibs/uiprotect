@@ -141,21 +141,27 @@ class ProtectBaseObject(BaseModel):
         api: ProtectApiClient | None = values.pop("api", None)
         values_set = set(values)
 
-        if unifi_objs := cls._get_protect_objs():
-            for key in cls._get_protect_objs_set().intersection(values_set):
+        if (unifi_objs := cls._get_protect_objs()) and (
+            intersections := cls._get_protect_objs_set().intersection(values_set)
+        ):
+            for key in intersections:
                 if isinstance(values[key], dict):
                     values[key] = unifi_objs[key].construct(**values[key])
 
-        if unifi_lists := cls._get_protect_lists():
-            for key in cls._get_protect_lists_set().intersection(values_set):
+        if (unifi_lists := cls._get_protect_lists()) and (
+            intersections := cls._get_protect_lists_set().intersection(values_set)
+        ):
+            for key in intersections:
                 if isinstance(values[key], list):
                     values[key] = [
                         unifi_lists[key].construct(**v) if isinstance(v, dict) else v
                         for v in values[key]
                     ]
 
-        if unifi_dicts := cls._get_protect_dicts():
-            for key in cls._get_protect_dicts_set().intersection(values_set):
+        if (unifi_dicts := cls._get_protect_dicts()) and (
+            intersections := cls._get_protect_dicts_set().intersection(values_set)
+        ):
+            for key in intersections:
                 if isinstance(values[key], dict):
                     values[key] = {
                         k: unifi_dicts[key].construct(**v) if isinstance(v, dict) else v
@@ -336,8 +342,10 @@ class ProtectBaseObject(BaseModel):
         )
 
         # remap keys that will not be converted correctly by snake_case convert
-        if remaps := cls._get_unifi_remaps():
-            for from_key in cls._get_unifi_remaps_set().intersection(data):
+        if (remaps := cls._get_unifi_remaps()) and (
+            intersections := cls._get_unifi_remaps_set().intersection(data)
+        ):
+            for from_key in intersections:
                 data[remaps[from_key]] = data.pop(from_key)
 
         # convert to snake_case and remove extra fields
@@ -358,12 +366,16 @@ class ProtectBaseObject(BaseModel):
         # clean child UFP objs
         data_set = set(data)
 
-        if unifi_objs := cls._get_protect_objs():
-            for key in cls._get_protect_objs_set().intersection(data_set):
+        if (unifi_objs := cls._get_protect_objs()) and (
+            intersections := cls._get_protect_objs_set().intersection(data_set)
+        ):
+            for key in intersections:
                 data[key] = cls._clean_protect_obj(data[key], unifi_objs[key], api)
 
-        if unifi_lists := cls._get_protect_lists():
-            for key in cls._get_protect_lists_set().intersection(data_set):
+        if (unifi_lists := cls._get_protect_lists()) and (
+            intersections := cls._get_protect_lists_set().intersection(data_set)
+        ):
+            for key in intersections:
                 if isinstance(data[key], list):
                     data[key] = cls._clean_protect_obj_list(
                         data[key],
@@ -371,8 +383,10 @@ class ProtectBaseObject(BaseModel):
                         api,
                     )
 
-        if unifi_dicts := cls._get_protect_dicts():
-            for key in cls._get_protect_dicts_set().intersection(data_set):
+        if (unifi_dicts := cls._get_protect_dicts()) and (
+            intersections := cls._get_protect_dicts_set().intersection(data_set)
+        ):
+            for key in intersections:
                 if isinstance(data[key], dict):
                     data[key] = cls._clean_protect_obj_dict(
                         data[key],
