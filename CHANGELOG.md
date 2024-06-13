@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2.1 (2024-06-13)
+
+### Fix
+
+
+- Blocking i/o in the event loop (#49) ([`36a4355`](https://github.com/uilibs/uiprotect/commit/36a4355170566b9d7cfb1632d9c35c28b693d9ce))
+
+
 ## v1.2.0 (2024-06-13)
 
 ### Feature
