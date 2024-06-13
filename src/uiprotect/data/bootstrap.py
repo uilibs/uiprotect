@@ -315,16 +315,11 @@ class Bootstrap(ProtectBaseObject):
 
     def process_event(self, event: Event) -> None:
         event_type = event.type
-        if event_type in CAMERA_EVENT_ATTR_MAP and (camera := event.camera) is not None:
+        if event_type in CAMERA_EVENT_ATTR_MAP and (camera := event.camera):
             _process_camera_event(event, camera)
-        elif (
-            event_type is EventType.MOTION_LIGHT and (light := event.light) is not None
-        ):
+        elif event_type is EventType.MOTION_LIGHT and (light := event.light):
             _process_light_event(event, light)
-        elif (
-            event_type is EventType.MOTION_SENSOR
-            and (sensor := event.sensor) is not None
-        ):
+        elif event_type is EventType.MOTION_SENSOR and (sensor := event.sensor):
             _process_sensor_event(event, sensor)
 
         self.events[event.id] = event
