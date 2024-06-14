@@ -66,6 +66,8 @@ if TYPE_CHECKING:
 ProtectObject = TypeVar("ProtectObject", bound="ProtectBaseObject")
 RECENT_EVENT_MAX = timedelta(seconds=30)
 EVENT_PING_INTERVAL = timedelta(seconds=3)
+EVENT_PING_INTERVAL_SECONDS = EVENT_PING_INTERVAL.total_seconds()
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -787,10 +789,14 @@ class ProtectModelWithId(ProtectModel):
             raise
 
         if force_emit:
-            await self.emit_message(updated)
+            self._emit_message(updated)
 
     async def emit_message(self, updated: dict[str, Any]) -> None:
-        """Emites fake WS message for ProtectApiClient to process."""
+        """Emits fake WS message for ProtectApiClient to process."""
+        self._emit_message(updated)
+
+    def _emit_message(self, updated: dict[str, Any]) -> None:
+        """Emits fake WS message for ProtectApiClient to process."""
         if updated == {}:
             _LOGGER.debug("Event ping callback started for %s", self.id)
 
@@ -877,9 +883,9 @@ class ProtectDeviceModel(ProtectModelWithId):
         _LOGGER.debug("Event ping timer started for %s", self.id)
         loop = asyncio.get_event_loop()
         self._callback_ping = loop.call_later(
-            EVENT_PING_INTERVAL.total_seconds(),
-            asyncio.create_task,
-            self.emit_message({}),
+            EVENT_PING_INTERVAL_SECONDS,
+            self._emit_message,
+            {},
         )
 
     async def set_name(self, name: str | None) -> None:
