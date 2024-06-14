@@ -348,7 +348,7 @@ class Bootstrap(ProtectBaseObject):
         packet: WSPacket,
         data: dict[str, Any],
     ) -> WSSubscriptionMessage | None:
-        obj = create_from_unifi_dict(data, api=self._api)
+        obj = create_from_unifi_dict(data, api=self._api, model_type=model_type)
         if model_type is ModelType.EVENT:
             if TYPE_CHECKING:
                 assert isinstance(obj, Event)
