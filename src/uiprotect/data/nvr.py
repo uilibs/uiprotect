@@ -1198,16 +1198,15 @@ class NVR(ProtectDeviceModel):
 
     async def _read_cache_file(self, file_path: Path) -> set[Version] | None:
         versions: set[Version] | None = None
-
-        if file_path.is_file():
-            try:
-                _LOGGER.debug("Reading release cache file: %s", file_path)
-                async with aiofiles.open(file_path, "rb") as cache_file:
-                    versions = {
-                        Version(v) for v in orjson.loads(await cache_file.read())
-                    }
-            except Exception:
-                _LOGGER.warning("Failed to parse cache file: %s", file_path)
+        try:
+            _LOGGER.debug("Reading release cache file: %s", file_path)
+            async with aiofiles.open(file_path, "rb") as cache_file:
+                versions = {Version(v) for v in orjson.loads(await cache_file.read())}
+        except FileNotFoundError:
+            # ignore missing file
+            pass
+        except Exception:
+            _LOGGER.warning("Failed to parse cache file: %s", file_path)
 
         return versions
 

@@ -1,5 +1,71 @@
 # Changelog
 
+## v1.4.0 (2024-06-14)
+
+### Feature
+
+
+- Only process incoming websocket packet model type once (#52) ([`57d7c10`](https://github.com/uilibs/uiprotect/commit/57d7c10d3915fbf45dd81a855298530a36b9e3c7))
+
+
+## v1.3.0 (2024-06-13)
+
+### Feature
+
+
+- Cleanup duplicate object lookups in event processing (#51) ([`ec00121`](https://github.com/uilibs/uiprotect/commit/ec001218a39f7ec10bcc18005e59a1130f16f8aa))
+
+
+## v1.2.2 (2024-06-13)
+
+### Fix
+
+
+- Restore some unreachable code in _process_device_update (#50) ([`c638cd3`](https://github.com/uilibs/uiprotect/commit/c638cd3b087d63279bd8f798bd8831fc2e11a916))
+
+
+## v1.2.1 (2024-06-13)
+
+### Fix
+
+
+- Blocking i/o in the event loop (#49) ([`36a4355`](https://github.com/uilibs/uiprotect/commit/36a4355170566b9d7cfb1632d9c35c28b693d9ce))
+
+
+## v1.2.0 (2024-06-13)
+
+### Feature
+
+
+- Avoid fetching and iterating convert keys when empty (#48) ([`7c9ae89`](https://github.com/uilibs/uiprotect/commit/7c9ae89ed667bbe3e9ca2f5561489d4b8335180e))
+
+
+### Style
+
+
+- Remove ide workspace files and add the directories for them to the gitignore (#47) ([`486e3f9`](https://github.com/uilibs/uiprotect/commit/486e3f92f4d12ab195f0433e599c9eac0f008aef))
+
+
+## v1.1.0 (2024-06-12)
+
+### Feature
+
+
+- Remove _get_frame_data helper (#45) ([`21d6768`](https://github.com/uilibs/uiprotect/commit/21d6768132d553cc9f59e73cc7adbfde02a42915))
+
+
+### Refactor
+
+
+- Consolidate logic to remove keys (#44) ([`9da56d2`](https://github.com/uilibs/uiprotect/commit/9da56d2c0f094d31b0cf8cba07c4c07fd96c64ea))
+
+
+- Use new _event_is_in_range helper in _process_camera_event (#43) ([`49e0a67`](https://github.com/uilibs/uiprotect/commit/49e0a67c5f2473ae1a6bfbe3db513a77786a68df))
+
+
+- Reduce duplicate code to process sensor events (#41) ([`78c291b`](https://github.com/uilibs/uiprotect/commit/78c291b76a0cbce1f891f91c9c01236d71edbf81))
+
+
 ## v1.0.1 (2024-06-11)
 
 ### Fix

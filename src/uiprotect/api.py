@@ -1146,7 +1146,7 @@ class ProtectApiClient(BaseApiClient):
 
     async def get_devices_raw(self, model_type: ModelType) -> list[dict[str, Any]]:
         """Gets a raw device list given a model_type"""
-        return await self.api_request_list(f"{model_type.value}s")
+        return await self.api_request_list(model_type.devices_key)
 
     async def get_devices(
         self,
@@ -1703,7 +1703,7 @@ class ProtectApiClient(BaseApiClient):
 
     async def adopt_device(self, model_type: ModelType, device_id: str) -> None:
         """Adopts a device"""
-        key = f"{model_type.value}s"
+        key = model_type.devices_key
         data = await self.api_request_obj(
             "devices/adopt",
             method="post",

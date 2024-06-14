@@ -184,3 +184,7 @@ event.json
 test_websocket.py
 test_raw.py
 rawdata.json
+
+# IDE settings
+.vscode/
+.idea/

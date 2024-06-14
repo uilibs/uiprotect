@@ -84,7 +84,7 @@ class ProtectBaseObject(BaseModel):
     * Provides `.unifi_dict` to convert object back into UFP JSON
     """
 
-    _api: ProtectApiClient = PrivateAttr(...)
+    _api: ProtectApiClient = PrivateAttr(None)
 
     _protect_objs: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
     _protect_lists: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
@@ -141,26 +141,32 @@ class ProtectBaseObject(BaseModel):
         api: ProtectApiClient | None = values.pop("api", None)
         values_set = set(values)
 
-        unifi_objs = cls._get_protect_objs()
-        for key in cls._get_protect_objs_set().intersection(values_set):
-            if isinstance(values[key], dict):
-                values[key] = unifi_objs[key].construct(**values[key])
+        if (unifi_objs := cls._get_protect_objs()) and (
+            intersections := cls._get_protect_objs_set().intersection(values_set)
+        ):
+            for key in intersections:
+                if isinstance(values[key], dict):
+                    values[key] = unifi_objs[key].construct(**values[key])
 
-        unifi_lists = cls._get_protect_lists()
-        for key in cls._get_protect_lists_set().intersection(values_set):
-            if isinstance(values[key], list):
-                values[key] = [
-                    unifi_lists[key].construct(**v) if isinstance(v, dict) else v
-                    for v in values[key]
-                ]
+        if (unifi_lists := cls._get_protect_lists()) and (
+            intersections := cls._get_protect_lists_set().intersection(values_set)
+        ):
+            for key in intersections:
+                if isinstance(values[key], list):
+                    values[key] = [
+                        unifi_lists[key].construct(**v) if isinstance(v, dict) else v
+                        for v in values[key]
+                    ]
 
-        unifi_dicts = cls._get_protect_dicts()
-        for key in cls._get_protect_dicts_set().intersection(values_set):
-            if isinstance(values[key], dict):
-                values[key] = {
-                    k: unifi_dicts[key].construct(**v) if isinstance(v, dict) else v
-                    for k, v in values[key].items()
-                }
+        if (unifi_dicts := cls._get_protect_dicts()) and (
+            intersections := cls._get_protect_dicts_set().intersection(values_set)
+        ):
+            for key in intersections:
+                if isinstance(values[key], dict):
+                    values[key] = {
+                        k: unifi_dicts[key].construct(**v) if isinstance(v, dict) else v
+                        for k, v in values[key].items()
+                    }
 
         obj = super().construct(_fields_set=_fields_set, **values)
         if api is not None:
@@ -336,11 +342,14 @@ class ProtectBaseObject(BaseModel):
         )
 
         # remap keys that will not be converted correctly by snake_case convert
-        remaps = cls._get_unifi_remaps()
-        for from_key in cls._get_unifi_remaps_set().intersection(data):
-            data[remaps[from_key]] = data.pop(from_key)
+        if (remaps := cls._get_unifi_remaps()) and (
+            intersections := cls._get_unifi_remaps_set().intersection(data)
+        ):
+            for from_key in intersections:
+                data[remaps[from_key]] = data.pop(from_key)
 
         # convert to snake_case and remove extra fields
+        _fields = cls.__fields__
         for key in list(data):
             new_key = to_snake_case(key)
             data[new_key] = data.pop(key)
@@ -349,35 +358,41 @@ class ProtectBaseObject(BaseModel):
             if key == "api":
                 continue
 
-            if key not in cls.__fields__:
+            if key not in _fields:
                 del data[key]
                 continue
-            data[key] = convert_unifi_data(data[key], cls.__fields__[key])
+            data[key] = convert_unifi_data(data[key], _fields[key])
 
         # clean child UFP objs
         data_set = set(data)
 
-        unifi_objs = cls._get_protect_objs()
-        for key in cls._get_protect_objs_set().intersection(data_set):
-            data[key] = cls._clean_protect_obj(data[key], unifi_objs[key], api)
+        if (unifi_objs := cls._get_protect_objs()) and (
+            intersections := cls._get_protect_objs_set().intersection(data_set)
+        ):
+            for key in intersections:
+                data[key] = cls._clean_protect_obj(data[key], unifi_objs[key], api)
 
-        unifi_lists = cls._get_protect_lists()
-        for key in cls._get_protect_lists_set().intersection(data_set):
-            if isinstance(data[key], list):
-                data[key] = cls._clean_protect_obj_list(
-                    data[key],
-                    unifi_lists[key],
-                    api,
-                )
+        if (unifi_lists := cls._get_protect_lists()) and (
+            intersections := cls._get_protect_lists_set().intersection(data_set)
+        ):
+            for key in intersections:
+                if isinstance(data[key], list):
+                    data[key] = cls._clean_protect_obj_list(
+                        data[key],
+                        unifi_lists[key],
+                        api,
+                    )
 
-        unifi_dicts = cls._get_protect_dicts()
-        for key in cls._get_protect_dicts_set().intersection(data_set):
-            if isinstance(data[key], dict):
-                data[key] = cls._clean_protect_obj_dict(
-                    data[key],
-                    unifi_dicts[key],
-                    api,
-                )
+        if (unifi_dicts := cls._get_protect_dicts()) and (
+            intersections := cls._get_protect_dicts_set().intersection(data_set)
+        ):
+            for key in intersections:
+                if isinstance(data[key], dict):
+                    data[key] = cls._clean_protect_obj_dict(
+                        data[key],
+                        unifi_dicts[key],
+                        api,
+                    )
 
         return data
 
@@ -505,24 +520,34 @@ class ProtectBaseObject(BaseModel):
         data["api"] = api
         data_set = set(data)
 
-        for key in self._get_protect_objs_set().intersection(data_set):
-            unifi_obj: Any | None = getattr(self, key)
-            if unifi_obj is not None and isinstance(unifi_obj, dict):
-                unifi_obj["api"] = api
+        if (unifi_objs_sets := self._get_protect_objs_set()) and (
+            intersections := unifi_objs_sets.intersection(data_set)
+        ):
+            for key in intersections:
+                unifi_obj: Any | None = getattr(self, key)
+                if unifi_obj is not None and isinstance(unifi_obj, dict):
+                    unifi_obj["api"] = api
 
-        for key in self._get_protect_lists_set().intersection(data_set):
-            new_items = []
-            for item in data[key]:
-                if isinstance(item, dict):
-                    item["api"] = api
-                new_items.append(item)
-            data[key] = new_items
+        if (unifi_lists_sets := self._get_protect_lists_set()) and (
+            intersections := unifi_lists_sets.intersection(data_set)
+        ):
+            for key in intersections:
+                new_items = []
+                for item in data[key]:
+                    if isinstance(item, dict):
+                        item["api"] = api
+                    new_items.append(item)
+                data[key] = new_items
 
-        for key in self._get_protect_dicts_set().intersection(data_set):
-            for item_key, item in data[key].items():
-                if isinstance(item, dict):
-                    item["api"] = api
-                data[key][item_key] = item
+        if (unifi_dicts_sets := self._get_protect_dicts_set()) and (
+            intersections := unifi_dicts_sets.intersection(data_set)
+        ):
+            for key in intersections:
+                inner_dict: dict[str, Any] = data[key]
+                for item_key, item in inner_dict.items():
+                    if isinstance(item, dict):
+                        item["api"] = api
+                    inner_dict[item_key] = item
 
         return data
 
@@ -608,9 +633,9 @@ class ProtectModel(ProtectBaseObject):
 class ProtectModelWithId(ProtectModel):
     id: str
 
-    _update_lock: asyncio.Lock = PrivateAttr(...)
-    _update_queue: asyncio.Queue[Callable[[], None]] = PrivateAttr(...)
-    _update_event: asyncio.Event = PrivateAttr(...)
+    _update_lock: asyncio.Lock = PrivateAttr(None)
+    _update_queue: asyncio.Queue[Callable[[], None]] = PrivateAttr(None)
+    _update_event: asyncio.Event = PrivateAttr(None)
 
     def __init__(self, **data: Any) -> None:
         update_lock = data.pop("update_lock", None)
