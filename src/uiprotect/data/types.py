@@ -109,11 +109,10 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
     RECORDING_SCHEDULE = "recordingSchedule"
     UNKNOWN = "unknown"
 
-    @classmethod
-    @cache
-    def devices_key(cls) -> str:
+    @cache  # - enums are singletons
+    def devices_key(self) -> str:
         """Return the devices key."""
-        return f"{cls.value}s"
+        return f"{self.value}s"
 
     @classmethod
     @cache
