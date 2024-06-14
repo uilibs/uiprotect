@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.7.2 (2024-06-14)
+
+### Fix
+
+
+- Pingback did not hold a strong reference to the task (#61) ([`7b11ce9`](https://github.com/uilibs/uiprotect/commit/7b11ce952a9e2f66fc5ac9ceccd1a21e74c218b9))
+
+
 ## v1.7.1 (2024-06-14)
 
 ### Fix
