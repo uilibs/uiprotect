@@ -536,7 +536,7 @@ class Bootstrap(ProtectBaseObject):
             self._create_stat(packet, None, True)
             return None
 
-        model_type = ModelType(model_key)
+        model_type = ModelType.from_string(model_key)
         if models and model_type not in models:
             self._create_stat(packet, None, True)
             return None
@@ -578,7 +578,7 @@ class Bootstrap(ProtectBaseObject):
             msg = f"Validation error processing event: {action['id']}. Ignoring event."
         else:
             try:
-                model_type = ModelType(action["modelKey"])
+                model_type = ModelType.from_string(action["modelKey"])
                 device_id: str = action["id"]
                 task = asyncio.create_task(self.refresh_device(model_type, device_id))
                 self._refresh_tasks.add(task)

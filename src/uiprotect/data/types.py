@@ -109,6 +109,11 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
     RECORDING_SCHEDULE = "recordingSchedule"
     UNKNOWN = "unknown"
 
+    @classmethod
+    @cache
+    def from_string(cls, value: str) -> ModelType:
+        return cls(value)
+
     @staticmethod
     @cache
     def bootstrap_model_types() -> tuple[ModelType, ...]:
