@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.6.0 (2024-06-14)
+
+### Feature
+
+
+- Simplify object conversions (#55) ([`feb8236`](https://github.com/uilibs/uiprotect/commit/feb8236d7e1817a604186a493d57511fff455e47))
+
+
 ## v1.5.0 (2024-06-14)
 
 ### Feature
