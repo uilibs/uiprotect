@@ -111,6 +111,12 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
 
     @classmethod
     @cache
+    def devices_key(cls) -> str:
+        """Return the devices key."""
+        return f"{cls.value}s"
+
+    @classmethod
+    @cache
     def from_string(cls, value: str) -> ModelType:
         return cls(value)
 

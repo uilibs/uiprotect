@@ -197,8 +197,8 @@ class Bootstrap(ProtectBaseObject):
         )
         data["macLookup"] = {}
         data["idLookup"] = {}
-        for model_type in ModelType.bootstrap_models():
-            key = f"{model_type}s"
+        for model_type in ModelType.bootstrap_models_types_set():
+            key = model_type.devices_key()
             items: dict[str, ProtectModel] = {}
             for item in data[key]:
                 if (
@@ -234,8 +234,8 @@ class Bootstrap(ProtectBaseObject):
         if "idLookup" in data:
             del data["idLookup"]
 
-        for model_type in ModelType.bootstrap_models():
-            attr = f"{model_type}s"
+        for model_type in ModelType.bootstrap_models_types_set():
+            attr = model_type.devices_key()
             if attr in data and isinstance(data[attr], dict):
                 data[attr] = list(data[attr].values())
 
@@ -302,7 +302,7 @@ class Bootstrap(ProtectBaseObject):
         if ref is None:
             return None
 
-        devices: dict[str, ProtectModelWithId] = getattr(self, f"{ref.model.value}s")
+        devices: dict[str, ProtectModelWithId] = getattr(self, ref.model.devices_key())
         return cast(ProtectAdoptableDeviceModel, devices.get(ref.id))
 
     def get_device_from_id(self, device_id: str) -> ProtectAdoptableDeviceModel | None:
@@ -310,7 +310,7 @@ class Bootstrap(ProtectBaseObject):
         ref = self.id_lookup.get(device_id)
         if ref is None:
             return None
-        devices: dict[str, ProtectModelWithId] = getattr(self, f"{ref.model.value}s")
+        devices: dict[str, ProtectModelWithId] = getattr(self, ref.model.devices_key())
         return cast(ProtectAdoptableDeviceModel, devices.get(ref.id))
 
     def process_event(self, event: Event) -> None:
@@ -361,7 +361,7 @@ class Bootstrap(ProtectBaseObject):
             if TYPE_CHECKING:
                 assert isinstance(obj, ProtectAdoptableDeviceModel)
                 assert isinstance(obj.model, ModelType)
-            key = f"{obj.model.value}s"
+            key = obj.model.devices_key()
             if not self._api.ignore_unadopted or (
                 obj.is_adopted and not obj.is_adopted_by_other
             ):
@@ -387,8 +387,9 @@ class Bootstrap(ProtectBaseObject):
     def _process_remove_packet(
         self, model_type: ModelType, packet: WSPacket
     ) -> WSSubscriptionMessage | None:
-        model = model_type.value
-        devices: dict[str, ProtectDeviceModel] | None = getattr(self, f"{model}s", None)
+        devices: dict[str, ProtectDeviceModel] | None = getattr(
+            self, model_type.devices_key(), None
+        )
 
         if devices is None:
             return None
@@ -468,8 +469,7 @@ class Bootstrap(ProtectBaseObject):
             self._create_stat(packet, None, True)
             return None
 
-        key = f"{model_type.value}s"
-        devices: dict[str, ProtectModelWithId] = getattr(self, key)
+        devices: dict[str, ProtectModelWithId] = getattr(self, model_type.devices_key())
         action_id: str = action["id"]
         if action_id not in devices:
             # ignore updates to events that phase out
@@ -611,7 +611,7 @@ class Bootstrap(ProtectBaseObject):
             self.nvr = device
         else:
             devices: dict[str, ProtectModelWithId] = getattr(
-                self, f"{model_type.value}s"
+                self, model_type.devices_key()
             )
             devices[device.id] = device
         _LOGGER.debug("Successfully refresh model: %s %s", model_type, device_id)
