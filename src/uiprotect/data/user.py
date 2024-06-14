@@ -54,7 +54,7 @@ class Permission(ProtectBaseObject):
         if self.obj_ids == {"self"} or self.obj_ids is None:
             return None
 
-        devices = getattr(self._api.bootstrap, f"{self.model.value}s")
+        devices = getattr(self._api.bootstrap, self.model.devices_key)
         return [devices[oid] for oid in self.obj_ids]
 
 

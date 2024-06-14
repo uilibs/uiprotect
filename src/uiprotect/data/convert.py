@@ -63,6 +63,7 @@ def create_from_unifi_dict(
     data: dict[str, Any],
     api: ProtectApiClient | None = None,
     klass: type[ProtectModel] | None = None,
+    model_type: ModelType | None = None,
 ) -> ProtectModel:
     """
     Helper method to read the `modelKey` from a UFP JSON dict and convert to currect Python class.
@@ -70,6 +71,9 @@ def create_from_unifi_dict(
     """
     if "modelKey" not in data:
         raise DataDecodeError("No modelKey")
+
+    if model_type is not None and klass is None:
+        klass = MODEL_TO_CLASS.get(model_type)
 
     if klass is None:
         klass = get_klass_from_dict(data)

@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.3.0 (2024-06-13)
+
+### Feature
+
+
+- Cleanup duplicate object lookups in event processing (#51) ([`ec00121`](https://github.com/uilibs/uiprotect/commit/ec001218a39f7ec10bcc18005e59a1130f16f8aa))
+
+
 ## v1.2.2 (2024-06-13)
 
 ### Fix
