@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.7.0 (2024-06-14)
+
+### Feature
+
+
+- Add debug logging when saving device changes (#59) ([`1c57d00`](https://github.com/uilibs/uiprotect/commit/1c57d005f8f97c148b70401256929c262ba5a8a1))
+
+
+### Refactor
+
+
+- Cleanup duplicate doorbell text code (#58) ([`5e3fac8`](https://github.com/uilibs/uiprotect/commit/5e3fac8b862dfe7df83fe7b5b565578f494b8bf1))
+
+
 ## v1.6.0 (2024-06-14)
 
 ### Feature
