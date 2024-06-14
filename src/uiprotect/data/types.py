@@ -111,28 +111,49 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
 
     @staticmethod
     @cache
-    def bootstrap_models() -> tuple[str, ...]:
+    def bootstrap_model_types() -> tuple[ModelType, ...]:
+        """Return the bootstrap models as a tuple."""
         # TODO:
         # legacyUFV
         # display
-
         return (
-            ModelType.CAMERA.value,
-            ModelType.USER.value,
-            ModelType.GROUP.value,
-            ModelType.LIVEVIEW.value,
-            ModelType.VIEWPORT.value,
-            ModelType.LIGHT.value,
-            ModelType.BRIDGE.value,
-            ModelType.SENSOR.value,
-            ModelType.DOORLOCK.value,
-            ModelType.CHIME.value,
+            ModelType.CAMERA,
+            ModelType.USER,
+            ModelType.GROUP,
+            ModelType.LIVEVIEW,
+            ModelType.VIEWPORT,
+            ModelType.LIGHT,
+            ModelType.BRIDGE,
+            ModelType.SENSOR,
+            ModelType.DOORLOCK,
+            ModelType.CHIME,
+        )
+
+    @staticmethod
+    @cache
+    def bootstrap_models() -> tuple[str, ...]:
+        """Return the bootstrap models strings as a tuple."""
+        return tuple(
+            model_type.value for model_type in ModelType.bootstrap_model_types()
         )
 
     @staticmethod
     @cache
     def bootstrap_models_set() -> set[str]:
+        """Return the set of bootstrap models strings as a set."""
         return set(ModelType.bootstrap_models())
+
+    @staticmethod
+    @cache
+    def bootstrap_models_types_set() -> set[ModelType]:
+        """Return the set of bootstrap models as a set."""
+        return set(ModelType.bootstrap_model_types())
+
+    @staticmethod
+    @cache
+    def bootstrap_models_types_and_event_set() -> set[ModelType]:
+        """Return the set of bootstrap models and the event model as a set."""
+        return ModelType.bootstrap_models_types_set() | {ModelType.EVENT}
 
 
 @enum.unique

@@ -344,20 +344,23 @@ class Bootstrap(ProtectBaseObject):
 
     def _process_add_packet(
         self,
+        model_type: ModelType,
         packet: WSPacket,
         data: dict[str, Any],
     ) -> WSSubscriptionMessage | None:
         obj = create_from_unifi_dict(data, api=self._api)
-
-        if isinstance(obj, Event):
+        if model_type is ModelType.EVENT:
+            if TYPE_CHECKING:
+                assert isinstance(obj, Event)
             self.process_event(obj)
-        elif isinstance(obj, NVR):
+        if model_type is ModelType.NVR:
+            if TYPE_CHECKING:
+                assert isinstance(obj, NVR)
             self.nvr = obj
-        elif (
-            isinstance(obj, ProtectAdoptableDeviceModel)
-            and obj.model is not None
-            and obj.model.value in ModelType.bootstrap_models_set()
-        ):
+        elif model_type in ModelType.bootstrap_models_types_set():
+            if TYPE_CHECKING:
+                assert isinstance(obj, ProtectAdoptableDeviceModel)
+                assert isinstance(obj.model, ModelType)
             key = f"{obj.model.value}s"
             if not self._api.ignore_unadopted or (
                 obj.is_adopted and not obj.is_adopted_by_other
@@ -381,8 +384,10 @@ class Bootstrap(ProtectBaseObject):
             new_obj=obj,
         )
 
-    def _process_remove_packet(self, packet: WSPacket) -> WSSubscriptionMessage | None:
-        model: str | None = packet.action_frame.data.get("modelKey")
+    def _process_remove_packet(
+        self, model_type: ModelType, packet: WSPacket
+    ) -> WSSubscriptionMessage | None:
+        model = model_type.value
         devices: dict[str, ProtectDeviceModel] | None = getattr(self, f"{model}s", None)
 
         if devices is None:
@@ -443,12 +448,13 @@ class Bootstrap(ProtectBaseObject):
 
     def _process_device_update(
         self,
+        model_type: ModelType,
         packet: WSPacket,
         action: dict[str, Any],
         data: dict[str, Any],
         ignore_stats: bool,
     ) -> WSSubscriptionMessage | None:
-        model_type = action["modelKey"]
+        model_key = model_type.value
         remove_keys = (
             STATS_AND_IGNORE_DEVICE_KEYS if ignore_stats else IGNORE_DEVICE_KEYS
         )
@@ -456,33 +462,32 @@ class Bootstrap(ProtectBaseObject):
             del data[key]
         # `last_motion` from cameras update every 100 milliseconds when a motion event is active
         # this overrides the behavior to only update `last_motion` when a new event starts
-        if model_type == "camera" and "lastMotion" in data:
+        if model_key == "camera" and "lastMotion" in data:
             del data["lastMotion"]
         # nothing left to process
         if not data:
             self._create_stat(packet, None, True)
             return None
 
-        key = f"{model_type}s"
+        key = f"{model_key}s"
         devices: dict[str, ProtectModelWithId] = getattr(self, key)
         action_id: str = action["id"]
         if action_id not in devices:
             # ignore updates to events that phase out
-            if model_type != _ModelType_Event_value:
+            if model_type is not ModelType.EVENT:
                 _LOGGER.debug("Unexpected %s: %s", key, action_id)
             return None
 
         obj = devices[action_id]
-        model = obj.model
         data = obj.unifi_dict_to_dict(data)
         old_obj = obj.copy()
         obj = obj.update_from_dict(deepcopy(data))
 
-        if model is ModelType.EVENT:
+        if model_type is ModelType.EVENT:
             if TYPE_CHECKING:
                 assert isinstance(obj, Event)
             self.process_event(obj)
-        elif model is ModelType.CAMERA:
+        elif model_type is ModelType.CAMERA:
             if TYPE_CHECKING:
                 assert isinstance(obj, Camera)
             if "last_ring" in data and obj.last_ring:
@@ -490,7 +495,7 @@ class Bootstrap(ProtectBaseObject):
                 _LOGGER.debug("last_ring for %s (%s)", obj.id, is_recent)
                 if is_recent:
                     obj.set_ring_timeout()
-        elif model is ModelType.SENSOR:
+        elif model_type is ModelType.SENSOR:
             if TYPE_CHECKING:
                 assert isinstance(obj, Sensor)
             if "alarm_triggered_at" in data and obj.alarm_triggered_at:
@@ -532,13 +537,14 @@ class Bootstrap(ProtectBaseObject):
             self._create_stat(packet, None, True)
             return None
 
-        if models and ModelType(model_key) not in models:
+        model_type = ModelType(model_key)
+        if models and model_type not in models:
             self._create_stat(packet, None, True)
             return None
 
         action_action: str = action["action"]
         if action_action == "remove":
-            return self._process_remove_packet(packet)
+            return self._process_remove_packet(model_type, packet)
 
         if not data:
             self._create_stat(packet, None, True)
@@ -546,16 +552,13 @@ class Bootstrap(ProtectBaseObject):
 
         try:
             if action_action == "add":
-                return self._process_add_packet(packet, data)
+                return self._process_add_packet(model_type, packet, data)
             if action_action == "update":
-                if model_key == _ModelType_NVR_value:
+                if model_type is ModelType.NVR:
                     return self._process_nvr_update(packet, data, ignore_stats)
-
-                if (
-                    model_key in ModelType.bootstrap_models_set()
-                    or model_key == _ModelType_Event_value
-                ):
+                if model_type in ModelType.bootstrap_models_types_and_event_set():
                     return self._process_device_update(
+                        model_type,
                         packet,
                         action,
                         data,
