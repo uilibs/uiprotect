@@ -1192,7 +1192,7 @@ class NVR(ProtectDeviceModel):
     ) -> None:
         """Updates doorbell messages and saves to Protect."""
         async with self._update_lock:
-            # yield to the event loop once we have the look to ensure websocket updates are processed
+            # yield to the event loop once we have the lock to ensure websocket updates are processed
             await asyncio.sleep(0)
             data_before_changes = self.dict_with_excludes()
             update_callback()
