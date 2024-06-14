@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 from collections.abc import Callable, Coroutine
-from functools import cache
+from functools import cache, cached_property
 from typing import Any, Literal, Optional, TypeVar, Union
 
 from packaging.version import Version as BaseVersion
@@ -109,7 +109,7 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
     RECORDING_SCHEDULE = "recordingSchedule"
     UNKNOWN = "unknown"
 
-    @cache  # - enums are singletons
+    @cached_property
     def devices_key(self) -> str:
         """Return the devices key."""
         return f"{self.value}s"
