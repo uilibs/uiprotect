@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.1 (2024-06-14)
+
+### Fix
+
+
+- Use none instead of ... for privateattr (#53) ([`fc06f42`](https://github.com/uilibs/uiprotect/commit/fc06f420b6c4531dd59bfa3db8b53a965409cac0))
+
+
 ## v1.4.0 (2024-06-14)
 
 ### Feature
