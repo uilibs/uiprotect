@@ -304,7 +304,7 @@ class SmartDetectObjectType(str, ValuesEnumMixin, enum.Enum):
     CAR = "car"
     PET = "pet"
 
-    @property
+    @cached_property
     def audio_type(self) -> SmartDetectAudioType | None:
         return OBJECT_TO_AUDIO_MAP.get(self)
 
