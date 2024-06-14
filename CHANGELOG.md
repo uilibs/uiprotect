@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.7.1 (2024-06-14)
+
+### Fix
+
+
+- Refactoring error in _process_add_packet (#60) ([`e21516b`](https://github.com/uilibs/uiprotect/commit/e21516b212762955a49d6da66f2f823a1b252ca2))
+
+
 ## v1.7.0 (2024-06-14)
 
 ### Feature
