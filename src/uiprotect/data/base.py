@@ -84,7 +84,7 @@ class ProtectBaseObject(BaseModel):
     * Provides `.unifi_dict` to convert object back into UFP JSON
     """
 
-    _api: ProtectApiClient = PrivateAttr(...)
+    _api: ProtectApiClient = PrivateAttr(None)
 
     _protect_objs: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
     _protect_lists: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
@@ -633,9 +633,9 @@ class ProtectModel(ProtectBaseObject):
 class ProtectModelWithId(ProtectModel):
     id: str
 
-    _update_lock: asyncio.Lock = PrivateAttr(...)
-    _update_queue: asyncio.Queue[Callable[[], None]] = PrivateAttr(...)
-    _update_event: asyncio.Event = PrivateAttr(...)
+    _update_lock: asyncio.Lock = PrivateAttr(None)
+    _update_queue: asyncio.Queue[Callable[[], None]] = PrivateAttr(None)
+    _update_event: asyncio.Event = PrivateAttr(None)
 
     def __init__(self, **data: Any) -> None:
         update_lock = data.pop("update_lock", None)
