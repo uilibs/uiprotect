@@ -353,7 +353,7 @@ class Bootstrap(ProtectBaseObject):
             if TYPE_CHECKING:
                 assert isinstance(obj, Event)
             self.process_event(obj)
-        if model_type is ModelType.NVR:
+        elif model_type is ModelType.NVR:
             if TYPE_CHECKING:
                 assert isinstance(obj, NVR)
             self.nvr = obj
@@ -370,7 +370,7 @@ class Bootstrap(ProtectBaseObject):
                 self.id_lookup[obj.id] = ref
                 self.mac_lookup[normalize_mac(obj.mac)] = ref
         else:
-            _LOGGER.debug("Unexpected bootstrap model type for add: %s", obj.model)
+            _LOGGER.debug("Unexpected bootstrap model type for add: %s", model_type)
             return None
 
         updated = obj.dict()
