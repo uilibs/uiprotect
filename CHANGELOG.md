@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.5.0 (2024-06-14)
+
+### Feature
+
+
+- Make audio_type a cached_property (#54) ([`50d22de`](https://github.com/uilibs/uiprotect/commit/50d22de5bbf03328c307c7710015e6ec62ab6826))
+
+
 ## v1.4.1 (2024-06-14)
 
 ### Fix
