@@ -479,6 +479,12 @@ class Bootstrap(ProtectBaseObject):
 
         obj = devices[action_id]
         data = obj.unifi_dict_to_dict(data)
+
+        if not data:
+            # nothing left to process
+            self._create_stat(packet, None, True)
+            return None
+
         old_obj = obj.copy()
         obj = obj.update_from_dict(deepcopy(data))
 
