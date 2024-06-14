@@ -507,14 +507,10 @@ class ProtectBaseObject(BaseModel):
                 value["api"] = api
             elif (
                 has_unifi_lists and key in unifi_lists_sets and isinstance(value, list)
-            ):
-                for item in value:
-                    if isinstance(item, dict):
-                        item["api"] = api
-            elif (
+            ) or (
                 has_unifi_dicts and key in unifi_dicts_sets and isinstance(value, dict)
             ):
-                for item in value.values():
+                for item in value:
                     if isinstance(item, dict):
                         item["api"] = api
 
