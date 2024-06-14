@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.0 (2024-06-14)
+
+### Feature
+
+
+- Only process incoming websocket packet model type once (#52) ([`57d7c10`](https://github.com/uilibs/uiprotect/commit/57d7c10d3915fbf45dd81a855298530a36b9e3c7))
+
+
 ## v1.3.0 (2024-06-13)
 
 ### Feature
