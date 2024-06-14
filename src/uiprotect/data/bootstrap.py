@@ -454,7 +454,6 @@ class Bootstrap(ProtectBaseObject):
         data: dict[str, Any],
         ignore_stats: bool,
     ) -> WSSubscriptionMessage | None:
-        model_key = model_type.value
         remove_keys = (
             STATS_AND_IGNORE_DEVICE_KEYS if ignore_stats else IGNORE_DEVICE_KEYS
         )
@@ -462,14 +461,14 @@ class Bootstrap(ProtectBaseObject):
             del data[key]
         # `last_motion` from cameras update every 100 milliseconds when a motion event is active
         # this overrides the behavior to only update `last_motion` when a new event starts
-        if model_key == "camera" and "lastMotion" in data:
+        if model_type is ModelType.CAMERA and "lastMotion" in data:
             del data["lastMotion"]
         # nothing left to process
         if not data:
             self._create_stat(packet, None, True)
             return None
 
-        key = f"{model_key}s"
+        key = f"{model_type.value}s"
         devices: dict[str, ProtectModelWithId] = getattr(self, key)
         action_id: str = action["id"]
         if action_id not in devices:
