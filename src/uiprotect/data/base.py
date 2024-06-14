@@ -745,6 +745,14 @@ class ProtectModelWithId(ProtectModel):
         revert_on_fail: bool = True,
     ) -> None:
         """Saves the current device changes to UFP."""
+        _LOGGER.debug(
+            "Saving device changes for %s (%s) data_before_changes=%s updated=%s",
+            self.id,
+            self.model,
+            data_before_changes,
+            updated,
+        )
+
         assert (
             self._update_lock.locked()
         ), "save_device_changes should only be called when the update lock is held"
