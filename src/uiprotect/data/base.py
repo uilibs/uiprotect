@@ -746,7 +746,7 @@ class ProtectModelWithId(ProtectModel):
     ) -> None:
         """Saves the current device changes to UFP."""
         _LOGGER.debug(
-            "Saving device changes for %s (%s) " "data_before_changes=%s updated=%s",
+            "Saving device changes for %s (%s) data_before_changes=%s updated=%s",
             self.id,
             self.model,
             data_before_changes,
