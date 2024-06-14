@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import zoneinfo
+from collections.abc import Callable
 from datetime import datetime, timedelta, tzinfo
 from functools import cache
 from ipaddress import IPv4Address, IPv6Address
@@ -1169,26 +1170,32 @@ class NVR(ProtectDeviceModel):
         if message in self.doorbell_settings.custom_messages:
             raise BadRequest("Custom doorbell message already exists")
 
-        async with self._update_lock:
-            await asyncio.sleep(
-                0,
-            )  # yield to the event loop once we have the look to ensure websocket updates are processed
-            data_before_changes = self.dict_with_excludes()
-            self.doorbell_settings.custom_messages.append(DoorbellText(message))
-            await self.save_device(data_before_changes)
-            self.update_all_messages()
+        await self._update_doorbell_messages(
+            lambda: self.doorbell_settings.custom_messages.append(
+                DoorbellText(message)
+            ),
+        )
 
     async def remove_custom_doorbell_message(self, message: str) -> None:
         """Removes custom doorbell message"""
         if message not in self.doorbell_settings.custom_messages:
             raise BadRequest("Custom doorbell message does not exists")
 
+        await self._update_doorbell_messages(
+            lambda: self.doorbell_settings.custom_messages.remove(
+                DoorbellText(message)
+            ),
+        )
+
+    async def _update_doorbell_messages(
+        self, update_callback: Callable[[], None]
+    ) -> None:
+        """Updates doorbell messages and saves to Protect."""
         async with self._update_lock:
-            await asyncio.sleep(
-                0,
-            )  # yield to the event loop once we have the look to ensure websocket updates are processed
+            # yield to the event loop once we have the look to ensure websocket updates are processed
+            await asyncio.sleep(0)
             data_before_changes = self.dict_with_excludes()
-            self.doorbell_settings.custom_messages.remove(DoorbellText(message))
+            update_callback()
             await self.save_device(data_before_changes)
             self.update_all_messages()
 
