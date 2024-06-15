@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.8.0 (2024-06-15)
+
+### Feature
+
+
+- Replace some attrs with cached methods (#65) ([`fc0fc57`](https://github.com/uilibs/uiprotect/commit/fc0fc5717a171eb705dce4f88dca79509bd889b4))
+
+
+### Refactor
+
+
+- Delete unused bootstrap constants (#64) ([`0283c45`](https://github.com/uilibs/uiprotect/commit/0283c4564c905bee1b1f82cc4c0280a02e07ec5d))
+
+
+- Small cleanups to _process_add_packet (#63) ([`8fd8280`](https://github.com/uilibs/uiprotect/commit/8fd82800b63c7cb8c70da164dcc3e1853fc170a6))
+
+
 ## v1.7.2 (2024-06-14)
 
 ### Fix
