@@ -193,8 +193,8 @@ class Bootstrap(ProtectBaseObject):
         )
         data["macLookup"] = {}
         data["idLookup"] = {}
-        for model_type in ModelType.bootstrap_models_types_set():
-            key = model_type.devices_key
+        for model_type in ModelType.bootstrap_models_types_set:
+            key = model_type.devices_key  # type: ignore[attr-defined]
             items: dict[str, ProtectModel] = {}
             for item in data[key]:
                 if (
@@ -230,8 +230,8 @@ class Bootstrap(ProtectBaseObject):
         if "idLookup" in data:
             del data["idLookup"]
 
-        for model_type in ModelType.bootstrap_models_types_set():
-            attr = model_type.devices_key
+        for model_type in ModelType.bootstrap_models_types_set:
+            attr = model_type.devices_key  # type: ignore[attr-defined]
             if attr in data and isinstance(data[attr], dict):
                 data[attr] = list(data[attr].values())
 
@@ -353,7 +353,7 @@ class Bootstrap(ProtectBaseObject):
             if TYPE_CHECKING:
                 assert isinstance(obj, NVR)
             self.nvr = obj
-        elif model_type in ModelType.bootstrap_models_types_set():
+        elif model_type in ModelType.bootstrap_models_types_set:
             if TYPE_CHECKING:
                 assert isinstance(obj, ProtectAdoptableDeviceModel)
             if not self._api.ignore_unadopted or (
@@ -550,7 +550,7 @@ class Bootstrap(ProtectBaseObject):
             if action_action == "update":
                 if model_type is ModelType.NVR:
                     return self._process_nvr_update(packet, data, ignore_stats)
-                if model_type in ModelType.bootstrap_models_types_and_event_set():
+                if model_type in ModelType.bootstrap_models_types_and_event_set:
                     return self._process_device_update(
                         model_type,
                         packet,
