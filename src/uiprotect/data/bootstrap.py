@@ -154,10 +154,6 @@ class ProtectDeviceRef(ProtectBaseObject):
     id: str
 
 
-_ModelType_NVR_value = ModelType.NVR.value
-_ModelType_Event_value = ModelType.EVENT.value
-
-
 class Bootstrap(ProtectBaseObject):
     auth_user_id: str
     access_key: str
