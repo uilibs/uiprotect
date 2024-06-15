@@ -55,13 +55,6 @@ if TYPE_CHECKING:
     from ..data.nvr import Event
     from ..data.user import User
 
-    try:
-        from pydantic.v1.typing import DictStrAny
-    except ImportError:
-        from pydantic.typing import (  # type: ignore[assignment, no-redef]
-            DictStrAny,
-        )
-
 
 ProtectObject = TypeVar("ProtectObject", bound="ProtectBaseObject")
 RECENT_EVENT_MAX = timedelta(seconds=30)
@@ -91,7 +84,6 @@ class ProtectBaseObject(BaseModel):
     _protect_objs: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
     _protect_lists: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
     _protect_dicts: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
-    _to_unifi_remaps: ClassVar[DictStrAny | None] = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -197,6 +189,7 @@ class ProtectBaseObject(BaseModel):
         return set(self._get_unifi_remaps())
 
     @classmethod
+    @cache
     def _get_to_unifi_remaps(cls) -> dict[str, str]:
         """
         Helper method for overriding in child classes for reversing remap UFP
@@ -208,12 +201,9 @@ class ProtectBaseObject(BaseModel):
             "python_name": "ufpJsonName"
         }
         """
-        if cls._to_unifi_remaps is None:
-            cls._to_unifi_remaps = {
-                to_key: from_key for from_key, to_key in cls._get_unifi_remaps().items()
-            }
-
-        return cls._to_unifi_remaps
+        return {
+            to_key: from_key for from_key, to_key in cls._get_unifi_remaps().items()
+        }
 
     @classmethod
     def _set_protect_subtypes(cls) -> None:
@@ -630,6 +620,7 @@ class ProtectModelWithId(ProtectModel):
         return obj
 
     @classmethod
+    @cache
     def _get_read_only_fields(cls) -> set[str]:
         return set()
 
