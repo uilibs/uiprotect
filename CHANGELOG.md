@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.12.0 (2024-06-16)
+
+### Fix
+
+
+- Add missing eventstats key to stats_keys (#73) ([`6c8be31`](https://github.com/uilibs/uiprotect/commit/6c8be3129c763d6ade16c57df01cc79d57190fef))
+
+
+### Feature
+
+
+- Small cleanups to bootstrap code (#72) ([`78e6dbb`](https://github.com/uilibs/uiprotect/commit/78e6dbb8165b97522b7f42d8f9e885f0e23cd1eb))
+
+
+## v1.11.1 (2024-06-16)
+
+### Fix
+
+
+- Revert to using protected attrs for property cache (#71) ([`f0b259c`](https://github.com/uilibs/uiprotect/commit/f0b259caaf7c990de68f1a51a0bd166f94eb3bf7))
+
+
+## v1.11.0 (2024-06-16)
+
+### Feature
+
+
+- Speed up bootstrap by adding cached_property (#68) ([`c6b746d`](https://github.com/uilibs/uiprotect/commit/c6b746d8e4d961c0fc1f98d693357e9becd26baa))
+
+
 ## v1.10.0 (2024-06-16)
 
 ### Feature
