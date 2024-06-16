@@ -70,7 +70,7 @@ jobs:
       - name: Downgrade to Pydantic 1.x
         if: matrix.pydantic == '1'
         run: |
-          poetry add 'pydantic>=1.0,<2.0'
+          poetry add 'pydantic>1.10.16,<2.0'
       - name: Test with Pytest
         run: ./.bin/test-code
         shell: bash

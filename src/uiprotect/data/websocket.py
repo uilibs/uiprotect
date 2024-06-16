@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 WS_HEADER_SIZE = 8
 
 
-@dataclass
+@dataclass(slots=True)
 class WSPacketFrameHeader:
     packet_type: int
     payload_format: int
@@ -37,7 +37,7 @@ class WSAction(str, enum.Enum):
     REMOVE = "remove"
 
 
-@dataclass
+@dataclass(slots=True)
 class WSSubscriptionMessage:
     action: WSAction
     new_update_id: str

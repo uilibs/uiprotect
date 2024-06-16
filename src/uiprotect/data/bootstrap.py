@@ -154,10 +154,6 @@ class ProtectDeviceRef(ProtectBaseObject):
     id: str
 
 
-_ModelType_NVR_value = ModelType.NVR.value
-_ModelType_Event_value = ModelType.EVENT.value
-
-
 class Bootstrap(ProtectBaseObject):
     auth_user_id: str
     access_key: str
@@ -197,8 +193,8 @@ class Bootstrap(ProtectBaseObject):
         )
         data["macLookup"] = {}
         data["idLookup"] = {}
-        for model_type in ModelType.bootstrap_models_types_set():
-            key = model_type.devices_key
+        for model_type in ModelType.bootstrap_models_types_set:
+            key = model_type.devices_key  # type: ignore[attr-defined]
             items: dict[str, ProtectModel] = {}
             for item in data[key]:
                 if (
@@ -234,8 +230,8 @@ class Bootstrap(ProtectBaseObject):
         if "idLookup" in data:
             del data["idLookup"]
 
-        for model_type in ModelType.bootstrap_models_types_set():
-            attr = model_type.devices_key
+        for model_type in ModelType.bootstrap_models_types_set:
+            attr = model_type.devices_key  # type: ignore[attr-defined]
             if attr in data and isinstance(data[attr], dict):
                 data[attr] = list(data[attr].values())
 
@@ -353,24 +349,23 @@ class Bootstrap(ProtectBaseObject):
             if TYPE_CHECKING:
                 assert isinstance(obj, Event)
             self.process_event(obj)
-        if model_type is ModelType.NVR:
+        elif model_type is ModelType.NVR:
             if TYPE_CHECKING:
                 assert isinstance(obj, NVR)
             self.nvr = obj
-        elif model_type in ModelType.bootstrap_models_types_set():
+        elif model_type in ModelType.bootstrap_models_types_set:
             if TYPE_CHECKING:
                 assert isinstance(obj, ProtectAdoptableDeviceModel)
-                assert isinstance(obj.model, ModelType)
-            key = obj.model.devices_key
             if not self._api.ignore_unadopted or (
                 obj.is_adopted and not obj.is_adopted_by_other
             ):
-                getattr(self, key)[obj.id] = obj
-                ref = ProtectDeviceRef(model=obj.model, id=obj.id)
-                self.id_lookup[obj.id] = ref
+                id_ = obj.id
+                getattr(self, model_type.devices_key)[id_] = obj
+                ref = ProtectDeviceRef(model=model_type, id=id_)
+                self.id_lookup[id_] = ref
                 self.mac_lookup[normalize_mac(obj.mac)] = ref
         else:
-            _LOGGER.debug("Unexpected bootstrap model type for add: %s", obj.model)
+            _LOGGER.debug("Unexpected bootstrap model type for add: %s", model_type)
             return None
 
         updated = obj.dict()
@@ -555,7 +550,7 @@ class Bootstrap(ProtectBaseObject):
             if action_action == "update":
                 if model_type is ModelType.NVR:
                     return self._process_nvr_update(packet, data, ignore_stats)
-                if model_type in ModelType.bootstrap_models_types_and_event_set():
+                if model_type in ModelType.bootstrap_models_types_and_event_set:
                     return self._process_device_update(
                         model_type,
                         packet,

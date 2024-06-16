@@ -109,6 +109,12 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
     RECORDING_SCHEDULE = "recordingSchedule"
     UNKNOWN = "unknown"
 
+    bootstrap_model_types: tuple[ModelType, ...]
+    bootstrap_models: tuple[str, ...]
+    bootstrap_models_set: set[str]
+    bootstrap_models_types_set: set[ModelType]
+    bootstrap_models_types_and_event_set: set[ModelType]
+
     @cached_property
     def devices_key(self) -> str:
         """Return the devices key."""
@@ -119,9 +125,8 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
     def from_string(cls, value: str) -> ModelType:
         return cls(value)
 
-    @staticmethod
-    @cache
-    def bootstrap_model_types() -> tuple[ModelType, ...]:
+    @classmethod
+    def _bootstrap_model_types(cls) -> tuple[ModelType, ...]:
         """Return the bootstrap models as a tuple."""
         # TODO:
         # legacyUFV
@@ -139,31 +144,40 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
             ModelType.CHIME,
         )
 
-    @staticmethod
-    @cache
-    def bootstrap_models() -> tuple[str, ...]:
+    @classmethod
+    def _bootstrap_models(cls) -> tuple[str, ...]:
         """Return the bootstrap models strings as a tuple."""
         return tuple(
-            model_type.value for model_type in ModelType.bootstrap_model_types()
+            model_type.value for model_type in ModelType._bootstrap_model_types()
         )
 
-    @staticmethod
-    @cache
-    def bootstrap_models_set() -> set[str]:
+    @classmethod
+    def _bootstrap_models_set(cls) -> set[str]:
         """Return the set of bootstrap models strings as a set."""
-        return set(ModelType.bootstrap_models())
+        return set(ModelType._bootstrap_models())
 
-    @staticmethod
-    @cache
-    def bootstrap_models_types_set() -> set[ModelType]:
+    @classmethod
+    def _bootstrap_models_types_set(cls) -> set[ModelType]:
         """Return the set of bootstrap models as a set."""
-        return set(ModelType.bootstrap_model_types())
+        return set(ModelType._bootstrap_model_types())
 
-    @staticmethod
-    @cache
-    def bootstrap_models_types_and_event_set() -> set[ModelType]:
+    @classmethod
+    def _bootstrap_models_types_and_event_set(cls) -> set[ModelType]:
         """Return the set of bootstrap models and the event model as a set."""
-        return ModelType.bootstrap_models_types_set() | {ModelType.EVENT}
+        return ModelType._bootstrap_models_types_set() | {ModelType.EVENT}
+
+    def _immutable(self, name: str, value: Any) -> None:
+        raise AttributeError("Cannot modify ModelType")
+
+
+ModelType.bootstrap_model_types = ModelType._bootstrap_model_types()
+ModelType.bootstrap_models = ModelType._bootstrap_models()
+ModelType.bootstrap_models_set = ModelType._bootstrap_models_set()
+ModelType.bootstrap_models_types_set = ModelType._bootstrap_models_types_set()
+ModelType.bootstrap_models_types_and_event_set = (
+    ModelType._bootstrap_models_types_and_event_set()
+)
+ModelType.__setattr__ = ModelType._immutable  # type: ignore[method-assign, assignment]
 
 
 @enum.unique
@@ -304,7 +318,7 @@ class SmartDetectObjectType(str, ValuesEnumMixin, enum.Enum):
     CAR = "car"
     PET = "pet"
 
-    @property
+    @cached_property
     def audio_type(self) -> SmartDetectAudioType | None:
         return OBJECT_TO_AUDIO_MAP.get(self)
 
