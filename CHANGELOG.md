@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.10.0 (2024-06-16)
+
+### Feature
+
+
+- Make websocket dataclasses sloted (#67) ([`58e42f6`](https://github.com/uilibs/uiprotect/commit/58e42f69b7603ab77ffe170d091051febe22e48f))
+
+
 ## v1.9.0 (2024-06-15)
 
 ### Feature
