@@ -61,6 +61,9 @@ RECENT_EVENT_MAX = timedelta(seconds=30)
 EVENT_PING_INTERVAL = timedelta(seconds=3)
 EVENT_PING_INTERVAL_SECONDS = EVENT_PING_INTERVAL.total_seconds()
 
+_EMPTY_EVENT_PING_BACK: dict[Any, Any] = {}
+
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -788,7 +791,7 @@ class ProtectModelWithId(ProtectModel):
 
     def _emit_message(self, updated: dict[str, Any]) -> None:
         """Emits fake WS message for ProtectApiClient to process."""
-        if updated == {}:
+        if _is_ping_back := updated is _EMPTY_EVENT_PING_BACK:
             _LOGGER.debug("Event ping callback started for %s", self.id)
 
         if self.model is None:
@@ -817,7 +820,9 @@ class ProtectModelWithId(ProtectModel):
 
         message = self._api.bootstrap.process_ws_packet(
             WSPacket(action_frame.packed + data_frame.packed),
+            is_ping_back=_is_ping_back,
         )
+
         if message is not None:
             self._api.emit_message(message)
 
@@ -876,7 +881,7 @@ class ProtectDeviceModel(ProtectModelWithId):
         self._callback_ping = loop.call_later(
             EVENT_PING_INTERVAL_SECONDS,
             self._emit_message,
-            {},
+            _EMPTY_EVENT_PING_BACK,
         )
 
     async def set_name(self, name: str | None) -> None:

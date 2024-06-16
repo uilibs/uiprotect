@@ -451,7 +451,15 @@ class Bootstrap(ProtectBaseObject):
         action: dict[str, Any],
         data: dict[str, Any],
         ignore_stats: bool,
+        is_ping_back: bool,
     ) -> WSSubscriptionMessage | None:
+        """
+        Process a device update packet.
+
+        If is_ping_back is True, the packet is an empty packet
+        that was generated internally as a result of an event
+        that will expire and result in a state change.
+        """
         remove_keys = (
             STATS_AND_IGNORE_DEVICE_KEYS if ignore_stats else IGNORE_DEVICE_KEYS
         )
@@ -462,7 +470,7 @@ class Bootstrap(ProtectBaseObject):
         if model_type is ModelType.CAMERA and "lastMotion" in data:
             del data["lastMotion"]
         # nothing left to process
-        if not data:
+        if not data and not is_ping_back:
             self._create_stat(packet, None, True)
             return None
 
@@ -477,7 +485,7 @@ class Bootstrap(ProtectBaseObject):
         obj = devices[action_id]
         data = obj.unifi_dict_to_dict(data)
 
-        if not data:
+        if not data and not is_ping_back:
             # nothing left to process
             self._create_stat(packet, None, True)
             return None
@@ -519,6 +527,7 @@ class Bootstrap(ProtectBaseObject):
         packet: WSPacket,
         models: set[ModelType] | None = None,
         ignore_stats: bool = False,
+        is_ping_back: bool = False,
     ) -> WSSubscriptionMessage | None:
         """Process a WS packet."""
         action = packet.action_frame.data
@@ -532,12 +541,13 @@ class Bootstrap(ProtectBaseObject):
             self.last_update_id = new_update_id
 
         model_key: str = action["modelKey"]
-        if model_key not in ModelType.values_set():
+        model_type = ModelType.from_string_or_none(model_key)
+
+        if model_type is None:
             _LOGGER.debug("Unknown model type: %s", model_key)
             self._create_stat(packet, None, True)
             return None
 
-        model_type = ModelType.from_string(model_key)
         if models and model_type not in models:
             self._create_stat(packet, None, True)
             return None
@@ -546,7 +556,7 @@ class Bootstrap(ProtectBaseObject):
         if action_action == "remove":
             return self._process_remove_packet(model_type, packet)
 
-        if not data:
+        if not data and not is_ping_back:
             self._create_stat(packet, None, True)
             return None
 
@@ -558,11 +568,7 @@ class Bootstrap(ProtectBaseObject):
                     return self._process_nvr_update(packet, data, ignore_stats)
                 if model_type in ModelType.bootstrap_models_types_and_event_set:
                     return self._process_device_update(
-                        model_type,
-                        packet,
-                        action,
-                        data,
-                        ignore_stats,
+                        model_type, packet, action, data, ignore_stats, is_ping_back
                     )
         except (ValidationError, ValueError) as err:
             self._handle_ws_error(action, err)
