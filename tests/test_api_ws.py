@@ -412,6 +412,7 @@ async def test_ws_event_update(
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @patch("uiprotect.data.devices.utc_now")
+@patch("uiprotect.data.base.EVENT_PING_INTERVAL_SECONDS", 0)
 @pytest.mark.asyncio()
 async def test_ws_emit_ring_callback(
     mock_now,
@@ -448,6 +449,18 @@ async def test_ws_emit_ring_callback(
     assert obj.is_ringing
     mock_now.return_value = utc_now() + EVENT_PING_INTERVAL
     assert not obj.is_ringing
+
+    # The event message should be emitted
+    assert protect_client.emit_message.call_count == 1
+
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+
+    # An empty messages should be emitted
+    assert protect_client.emit_message.call_count == 2
+
+    message: WSSubscriptionMessage = protect_client.emit_message.call_args[0][0]
+    assert message.changed_data == {}
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
