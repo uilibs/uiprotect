@@ -536,7 +536,7 @@ class Bootstrap(ProtectBaseObject):
             action = deepcopy(action)
             data = deepcopy(data)
 
-        new_update_id: str = action["newUpdateId"]
+        new_update_id: str | None = action["newUpdateId"]
         if new_update_id is not None:
             self.last_update_id = new_update_id
 
