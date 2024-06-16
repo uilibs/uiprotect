@@ -8,6 +8,7 @@ from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
+from functools import cache, cached_property
 from typing import TYPE_CHECKING, Any, cast
 
 from aiohttp.client_exceptions import ServerDisconnectedError
@@ -180,10 +181,6 @@ class Bootstrap(ProtectBaseObject):
     mac_lookup: dict[str, ProtectDeviceRef] = {}
     id_lookup: dict[str, ProtectDeviceRef] = {}
     _ws_stats: list[WSStat] = PrivateAttr([])
-    _has_doorbell: bool | None = PrivateAttr(None)
-    _has_smart: bool | None = PrivateAttr(None)
-    _has_media: bool | None = PrivateAttr(None)
-    _recording_start: datetime | None = PrivateAttr(None)
     _refresh_tasks: set[asyncio.Task[None]] = PrivateAttr(set())
 
     @classmethod
@@ -191,8 +188,11 @@ class Bootstrap(ProtectBaseObject):
         api: ProtectApiClient | None = data.get("api") or (
             cls._api if isinstance(cls, ProtectBaseObject) else None
         )
-        data["macLookup"] = {}
-        data["idLookup"] = {}
+        mac_lookup: dict[str, dict[str, str | ModelType]] = {}
+        id_lookup: dict[str, dict[str, str | ModelType]] = {}
+        data["idLookup"] = id_lookup
+        data["macLookup"] = mac_lookup
+
         for model_type in ModelType.bootstrap_models_types_set:
             key = model_type.devices_key  # type: ignore[attr-defined]
             items: dict[str, ProtectModel] = {}
@@ -204,15 +204,21 @@ class Bootstrap(ProtectBaseObject):
                 ):
                     continue
 
-                ref = {"model": model_type, "id": item["id"]}
-                items[item["id"]] = item
-                data["idLookup"][item["id"]] = ref
+                id_: str = item["id"]
+                ref = {"model": model_type, "id": id_}
+                items[id_] = item
+                id_lookup[id_] = ref
                 if "mac" in item:
                     cleaned_mac = normalize_mac(item["mac"])
-                    data["macLookup"][cleaned_mac] = ref
+                    mac_lookup[cleaned_mac] = ref
             data[key] = items
 
         return super().unifi_dict_to_dict(data)
+
+    @classmethod
+    @cache
+    def _unifi_dict_remove_keys(cls) -> set[str]:
+        return {"events", "captureWsStats", "macLookup", "idLookup"}
 
     def unifi_dict(
         self,
@@ -221,15 +227,9 @@ class Bootstrap(ProtectBaseObject):
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
-        if "events" in data:
-            del data["events"]
-        if "captureWsStats" in data:
-            del data["captureWsStats"]
-        if "macLookup" in data:
-            del data["macLookup"]
-        if "idLookup" in data:
-            del data["idLookup"]
-
+        for key in Bootstrap._unifi_dict_remove_keys():
+            if key in data:
+                del data[key]
         for model_type in ModelType.bootstrap_models_types_set:
             attr = model_type.devices_key  # type: ignore[attr-defined]
             if attr in data and isinstance(data[attr], dict):
@@ -246,51 +246,35 @@ class Bootstrap(ProtectBaseObject):
 
     @property
     def auth_user(self) -> User:
-        user: User = self._api.bootstrap.users[self.auth_user_id]
-        return user
+        return self._api.bootstrap.users[self.auth_user_id]
 
-    @property
+    @cached_property
     def has_doorbell(self) -> bool:
-        if self._has_doorbell is None:
-            self._has_doorbell = any(
-                c.feature_flags.is_doorbell for c in self.cameras.values()
-            )
+        return any(c.feature_flags.is_doorbell for c in self.cameras.values())
 
-        return self._has_doorbell
-
-    @property
+    @cached_property
     def recording_start(self) -> datetime | None:
-        """Get earilest recording date."""
-        if self._recording_start is None:
-            try:
-                self._recording_start = min(
-                    c.stats.video.recording_start
-                    for c in self.cameras.values()
-                    if c.stats.video.recording_start is not None
-                )
-            except ValueError:
-                return None
-        return self._recording_start
+        """Get earliest recording date."""
+        try:
+            return min(
+                c.stats.video.recording_start
+                for c in self.cameras.values()
+                if c.stats.video.recording_start is not None
+            )
+        except ValueError:
+            return None
 
-    @property
+    @cached_property
     def has_smart_detections(self) -> bool:
         """Check if any camera has smart detections."""
-        if self._has_smart is None:
-            self._has_smart = any(
-                c.feature_flags.has_smart_detect for c in self.cameras.values()
-            )
-        return self._has_smart
+        return any(c.feature_flags.has_smart_detect for c in self.cameras.values())
 
-    @property
+    @cached_property
     def has_media(self) -> bool:
         """Checks if user can read media for any camera."""
-        if self._has_media is None:
-            if self.recording_start is None:
-                return False
-            self._has_media = any(
-                c.can_read_media(self.auth_user) for c in self.cameras.values()
-            )
-        return self._has_media
+        if self.recording_start is None:
+            return False
+        return any(c.can_read_media(self.auth_user) for c in self.cameras.values())
 
     def get_device_from_mac(self, mac: str) -> ProtectAdoptableDeviceModel | None:
         """Retrieve a device from MAC address."""
@@ -419,14 +403,13 @@ class Bootstrap(ProtectBaseObject):
             return None
 
         # for another NVR in stack
-        nvr_id = packet.action_frame.data.get("id")
+        nvr_id: str | None = packet.action_frame.data.get("id")
         if nvr_id and nvr_id != self.nvr.id:
             self._create_stat(packet, None, True)
             return None
 
-        data = self.nvr.unifi_dict_to_dict(data)
         # nothing left to process
-        if not data:
+        if not (data := self.nvr.unifi_dict_to_dict(data)):
             self._create_stat(packet, None, True)
             return None
 
