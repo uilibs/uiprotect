@@ -56,6 +56,7 @@ _LOGGER = logging.getLogger(__name__)
 MAX_SUPPORTED_CAMERAS = 256
 MAX_EVENT_HISTORY_IN_STATE_MACHINE = MAX_SUPPORTED_CAMERAS * 2
 STATS_KEYS = {
+    "eventStats",
     "storageStats",
     "stats",
     "systemInfo",
