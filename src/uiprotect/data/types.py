@@ -126,14 +126,6 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
         return cls(value)
 
     @classmethod
-    @cache
-    def from_string_or_none(cls, value: str) -> ModelType | None:
-        try:
-            return cls.from_string(value)
-        except ValueError:
-            return None
-
-    @classmethod
     def _bootstrap_model_types(cls) -> tuple[ModelType, ...]:
         """Return the bootstrap models as a tuple."""
         # TODO:
