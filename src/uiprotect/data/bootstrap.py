@@ -541,9 +541,7 @@ class Bootstrap(ProtectBaseObject):
             self.last_update_id = new_update_id
 
         model_key: str = action["modelKey"]
-        model_type = ModelType.from_string(model_key)
-
-        if model_type is ModelType.UNKNOWN:
+        if (model_type := ModelType.from_string(model_key)) is ModelType.UNKNOWN:
             _LOGGER.debug("Unknown model type: %s", model_key)
             self._create_stat(packet, None, True)
             return None
