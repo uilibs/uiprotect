@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.11.1 (2024-06-16)
+
+### Fix
+
+
+- Revert to using protected attrs for property cache (#71) ([`f0b259c`](https://github.com/uilibs/uiprotect/commit/f0b259caaf7c990de68f1a51a0bd166f94eb3bf7))
+
+
 ## v1.11.0 (2024-06-16)
 
 ### Feature
