@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
-from functools import cache, cached_property
+from functools import cache
 from typing import TYPE_CHECKING, Any, cast
 
 from aiohttp.client_exceptions import ServerDisconnectedError
@@ -181,6 +181,10 @@ class Bootstrap(ProtectBaseObject):
     mac_lookup: dict[str, ProtectDeviceRef] = {}
     id_lookup: dict[str, ProtectDeviceRef] = {}
     _ws_stats: list[WSStat] = PrivateAttr([])
+    _has_doorbell: bool | None = PrivateAttr(None)
+    _has_smart: bool | None = PrivateAttr(None)
+    _has_media: bool | None = PrivateAttr(None)
+    _recording_start: datetime | None = PrivateAttr(None)
     _refresh_tasks: set[asyncio.Task[None]] = PrivateAttr(set())
 
     @classmethod
@@ -248,33 +252,48 @@ class Bootstrap(ProtectBaseObject):
     def auth_user(self) -> User:
         return self._api.bootstrap.users[self.auth_user_id]
 
-    @cached_property
+    @property
     def has_doorbell(self) -> bool:
-        return any(c.feature_flags.is_doorbell for c in self.cameras.values())
-
-    @cached_property
-    def recording_start(self) -> datetime | None:
-        """Get earliest recording date."""
-        try:
-            return min(
-                c.stats.video.recording_start
-                for c in self.cameras.values()
-                if c.stats.video.recording_start is not None
+        if self._has_doorbell is None:
+            self._has_doorbell = any(
+                c.feature_flags.is_doorbell for c in self.cameras.values()
             )
-        except ValueError:
-            return None
 
-    @cached_property
+        return self._has_doorbell
+
+    @property
+    def recording_start(self) -> datetime | None:
+        """Get earilest recording date."""
+        if self._recording_start is None:
+            try:
+                self._recording_start = min(
+                    c.stats.video.recording_start
+                    for c in self.cameras.values()
+                    if c.stats.video.recording_start is not None
+                )
+            except ValueError:
+                return None
+        return self._recording_start
+
+    @property
     def has_smart_detections(self) -> bool:
         """Check if any camera has smart detections."""
-        return any(c.feature_flags.has_smart_detect for c in self.cameras.values())
+        if self._has_smart is None:
+            self._has_smart = any(
+                c.feature_flags.has_smart_detect for c in self.cameras.values()
+            )
+        return self._has_smart
 
-    @cached_property
+    @property
     def has_media(self) -> bool:
         """Checks if user can read media for any camera."""
-        if self.recording_start is None:
-            return False
-        return any(c.can_read_media(self.auth_user) for c in self.cameras.values())
+        if self._has_media is None:
+            if self.recording_start is None:
+                return False
+            self._has_media = any(
+                c.can_read_media(self.auth_user) for c in self.cameras.values()
+            )
+        return self._has_media
 
     def get_device_from_mac(self, mac: str) -> ProtectAdoptableDeviceModel | None:
         """Retrieve a device from MAC address."""

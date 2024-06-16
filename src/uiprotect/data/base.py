@@ -6,7 +6,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta
-from functools import cache, cached_property
+from functools import cache
 from ipaddress import IPv4Address
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 from uuid import UUID
@@ -89,7 +89,6 @@ class ProtectBaseObject(BaseModel):
         arbitrary_types_allowed = True
         validate_assignment = True
         copy_on_model_validation = "shallow"
-        keep_untouched = (cached_property,)
 
     def __init__(self, api: ProtectApiClient | None = None, **data: Any) -> None:
         """

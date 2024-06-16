@@ -349,7 +349,7 @@ async def test_bootstrap_cached_property(protect_client: ProtectApiClient):
     assert bootstrap.has_doorbell is True
     bootstrap.cameras = {}
     assert bootstrap.has_doorbell is True
-    del bootstrap.__dict__["has_doorbell"]
+    bootstrap._has_doorbell = None
     assert bootstrap.has_doorbell is False
 
 
