@@ -394,8 +394,7 @@ class Bootstrap(ProtectBaseObject):
 
         device_id: str = packet.action_frame.data["id"]
         self.id_lookup.pop(device_id, None)
-        device = devices.pop(device_id, None)
-        if device is None:
+        if (device := devices.pop(device_id, None)) is None:
             return None
         self.mac_lookup.pop(normalize_mac(device.mac), None)
 
@@ -486,19 +485,17 @@ class Bootstrap(ProtectBaseObject):
         elif model_type is ModelType.CAMERA:
             if TYPE_CHECKING:
                 assert isinstance(obj, Camera)
-            if "last_ring" in data and obj.last_ring:
-                is_recent = obj.last_ring + RECENT_EVENT_MAX >= utc_now()
-                _LOGGER.debug("last_ring for %s (%s)", obj.id, is_recent)
-                if is_recent:
+            if "last_ring" in data and (last_ring := obj.last_ring):
+                if is_recent := last_ring + RECENT_EVENT_MAX >= utc_now():
                     obj.set_ring_timeout()
+                _LOGGER.debug("last_ring for %s (%s)", obj.id, is_recent)
         elif model_type is ModelType.SENSOR:
             if TYPE_CHECKING:
                 assert isinstance(obj, Sensor)
-            if "alarm_triggered_at" in data and obj.alarm_triggered_at:
-                is_recent = obj.alarm_triggered_at + RECENT_EVENT_MAX >= utc_now()
-                _LOGGER.debug("alarm_triggered_at for %s (%s)", obj.id, is_recent)
-                if is_recent:
+            if "alarm_triggered_at" in data and (trigged_at := obj.alarm_triggered_at):
+                if is_recent := trigged_at + RECENT_EVENT_MAX >= utc_now():
                     obj.set_alarm_timeout()
+                _LOGGER.debug("alarm_triggered_at for %s (%s)", obj.id, is_recent)
 
         devices[action_id] = obj
         self._create_stat(packet, data, False)
