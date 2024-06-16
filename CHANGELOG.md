@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.12.1 (2024-06-16)
+
+### Fix
+
+
+- Ensure ping back messages are called back and empty updates excluded (#62) ([`b319dba`](https://github.com/uilibs/uiprotect/commit/b319dba4b88e0a7d7b237ec57f2e89ca46c1cc6c))
+
+
 ## v1.12.0 (2024-06-16)
 
 ### Fix
