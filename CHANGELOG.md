@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.11.0 (2024-06-16)
+
+### Feature
+
+
+- Speed up bootstrap by adding cached_property (#68) ([`c6b746d`](https://github.com/uilibs/uiprotect/commit/c6b746d8e4d961c0fc1f98d693357e9becd26baa))
+
+
 ## v1.10.0 (2024-06-16)
 
 ### Feature
