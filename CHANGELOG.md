@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.12.0 (2024-06-16)
+
+### Fix
+
+
+- Add missing eventstats key to stats_keys (#73) ([`6c8be31`](https://github.com/uilibs/uiprotect/commit/6c8be3129c763d6ade16c57df01cc79d57190fef))
+
+
+### Feature
+
+
+- Small cleanups to bootstrap code (#72) ([`78e6dbb`](https://github.com/uilibs/uiprotect/commit/78e6dbb8165b97522b7f42d8f9e885f0e23cd1eb))
+
+
 ## v1.11.1 (2024-06-16)
 
 ### Fix
