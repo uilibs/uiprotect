@@ -309,7 +309,7 @@ def test_bootstrap(bootstrap: dict[str, Any]):
     if "deviceGroups" in bootstrap:
         del bootstrap["deviceGroups"]
 
-    for model_type in ModelType.bootstrap_models():
+    for model_type in ModelType.bootstrap_models:
         key = model_type + "s"
         expected_data = bootstrap.pop(key)
         actual_data = obj_dict.pop(key)
