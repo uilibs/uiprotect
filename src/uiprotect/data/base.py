@@ -502,6 +502,8 @@ class ProtectBaseObject(BaseModel):
         api = cls._api
         _fields = cls.__fields__
         unifi_obj: ProtectBaseObject
+        if "api" in data:
+            del data["api"]
         value: Any
 
         for key, item in data.items():
@@ -526,8 +528,6 @@ class ProtectBaseObject(BaseModel):
                     for i in item.values():
                         if isinstance(i, dict):
                             i["api"] = api
-                elif key == "api":
-                    continue
                 value = convert_unifi_data(item, _fields[key])
 
             setattr(cls, key, value)
