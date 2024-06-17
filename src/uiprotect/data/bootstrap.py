@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
@@ -343,28 +342,9 @@ class Bootstrap(ProtectBaseObject):
 
         self.events[event.id] = event
 
-    def _create_stat(
-        self,
-        packet: WSPacket,
-        keys_set: Iterable[str] | None,
-        filtered: bool,
-    ) -> None:
-        if self.capture_ws_stats:
-            self._ws_stats.append(
-                WSStat(
-                    model=packet.action_frame.data["modelKey"],
-                    action=packet.action_frame.data["action"],
-                    keys=list(packet.data_frame.data),
-                    keys_set=[] if keys_set is None else list(keys_set),
-                    size=len(packet.raw),
-                    filtered=filtered,
-                ),
-            )
-
     def _process_add_packet(
         self,
         model_type: ModelType,
-        packet: WSPacket,
         data: dict[str, Any],
     ) -> WSSubscriptionMessage | None:
         obj = create_from_unifi_dict(data, api=self._api, model_type=model_type)
@@ -391,33 +371,26 @@ class Bootstrap(ProtectBaseObject):
             _LOGGER.debug("Unexpected bootstrap model type for add: %s", model_type)
             return None
 
-        updated = obj.dict()
-
-        self._create_stat(packet, updated, False)
-
         return WSSubscriptionMessage(
             action=WSAction.ADD,
             new_update_id=self.last_update_id,
-            changed_data=updated,
+            changed_data=obj.dict(),
             new_obj=obj,
         )
 
     def _process_remove_packet(
-        self, model_type: ModelType, packet: WSPacket
+        self, model_type: ModelType, action: dict[str, Any]
     ) -> WSSubscriptionMessage | None:
         devices_key = model_type.devices_key
         devices: dict[str, ProtectDeviceModel] | None = getattr(self, devices_key, None)
-
         if devices is None:
             return None
 
-        device_id: str = packet.action_frame.data["id"]
+        device_id: str = action["id"]
         self.id_lookup.pop(device_id, None)
         if (device := devices.pop(device_id, None)) is None:
             return None
         self.mac_lookup.pop(normalize_mac(device.mac), None)
-
-        self._create_stat(packet, None, False)
         return WSSubscriptionMessage(
             action=WSAction.REMOVE,
             new_update_id=self.last_update_id,
@@ -427,7 +400,7 @@ class Bootstrap(ProtectBaseObject):
 
     def _process_nvr_update(
         self,
-        packet: WSPacket,
+        action: dict[str, Any],
         data: dict[str, Any],
         ignore_stats: bool,
     ) -> WSSubscriptionMessage | None:
@@ -436,24 +409,20 @@ class Bootstrap(ProtectBaseObject):
                 del data[key]
         # nothing left to process
         if not data:
-            self._create_stat(packet, None, True)
             return None
 
         # for another NVR in stack
-        nvr_id: str | None = packet.action_frame.data.get("id")
+        nvr_id: str | None = action.get("id")
         if nvr_id and nvr_id != self.nvr.id:
-            self._create_stat(packet, None, True)
             return None
 
         # nothing left to process
         if not (data := self.nvr.unifi_dict_to_dict(data)):
-            self._create_stat(packet, None, True)
             return None
 
         old_nvr = self.nvr.copy()
         self.nvr = self.nvr.update_from_dict(deepcopy(data))
 
-        self._create_stat(packet, data, False)
         return WSSubscriptionMessage(
             action=WSAction.UPDATE,
             new_update_id=self.last_update_id,
@@ -465,7 +434,6 @@ class Bootstrap(ProtectBaseObject):
     def _process_device_update(
         self,
         model_type: ModelType,
-        packet: WSPacket,
         action: dict[str, Any],
         data: dict[str, Any],
         ignore_stats: bool,
@@ -492,7 +460,6 @@ class Bootstrap(ProtectBaseObject):
 
         # nothing left to process
         if not data and not is_ping_back:
-            self._create_stat(packet, None, True)
             return None
 
         devices: dict[str, ProtectModelWithId] = getattr(self, model_type.devices_key)
@@ -508,7 +475,6 @@ class Bootstrap(ProtectBaseObject):
 
         if not data and not is_ping_back:
             # nothing left to process
-            self._create_stat(packet, None, True)
             return None
 
         old_obj = obj.copy()
@@ -534,7 +500,6 @@ class Bootstrap(ProtectBaseObject):
                 _LOGGER.debug("alarm_triggered_at for %s (%s)", obj.id, is_recent)
 
         devices[action_id] = obj
-        self._create_stat(packet, data, False)
         return WSSubscriptionMessage(
             action=WSAction.UPDATE,
             new_update_id=self.last_update_id,
@@ -551,9 +516,10 @@ class Bootstrap(ProtectBaseObject):
         is_ping_back: bool = False,
     ) -> WSSubscriptionMessage | None:
         """Process a WS packet."""
+        capture_ws_stats = self.capture_ws_stats
         action = packet.action_frame.data
         data = packet.data_frame.data
-        if self.capture_ws_stats:
+        if capture_ws_stats:
             action = deepcopy(action)
             data = deepcopy(data)
 
@@ -561,33 +527,57 @@ class Bootstrap(ProtectBaseObject):
         if new_update_id is not None:
             self.last_update_id = new_update_id
 
+        message = self._make_ws_packet_message(
+            action, data, models, ignore_stats, is_ping_back
+        )
+
+        if capture_ws_stats:
+            self._ws_stats.append(
+                WSStat(
+                    model=packet.action_frame.data["modelKey"],
+                    action=packet.action_frame.data["action"],
+                    keys=list(packet.data_frame.data),
+                    keys_set=[] if message is None else list(message.changed_data),
+                    size=len(packet.raw),
+                    filtered=message is None,
+                ),
+            )
+
+        return message
+
+    def _make_ws_packet_message(
+        self,
+        action: dict[str, Any],
+        data: dict[str, Any],
+        models: set[ModelType] | None,
+        ignore_stats: bool,
+        is_ping_back: bool,
+    ) -> WSSubscriptionMessage | None:
+        """Process a WS packet."""
         model_key: str = action["modelKey"]
         if (model_type := ModelType.from_string(model_key)) is ModelType.UNKNOWN:
             _LOGGER.debug("Unknown model type: %s", model_key)
-            self._create_stat(packet, None, True)
             return None
 
         if models and model_type not in models:
-            self._create_stat(packet, None, True)
             return None
 
         action_action: str = action["action"]
         if action_action == "remove":
-            return self._process_remove_packet(model_type, packet)
+            return self._process_remove_packet(model_type, action)
 
         if not data and not is_ping_back:
-            self._create_stat(packet, None, True)
             return None
 
         try:
             if action_action == "add":
-                return self._process_add_packet(model_type, packet, data)
+                return self._process_add_packet(model_type, data)
             if action_action == "update":
                 if model_type is ModelType.NVR:
-                    return self._process_nvr_update(packet, data, ignore_stats)
+                    return self._process_nvr_update(action, data, ignore_stats)
                 if model_type in ModelType.bootstrap_models_types_and_event_set:
                     return self._process_device_update(
-                        model_type, packet, action, data, ignore_stats, is_ping_back
+                        model_type, action, data, ignore_stats, is_ping_back
                     )
         except (ValidationError, ValueError) as err:
             self._handle_ws_error(action, err)
@@ -595,7 +585,6 @@ class Bootstrap(ProtectBaseObject):
         _LOGGER.debug(
             "Unexpected bootstrap model type deviceadoptedfor update: %s", model_key
         )
-        self._create_stat(packet, None, True)
         return None
 
     def _handle_ws_error(self, action: dict[str, Any], err: Exception) -> None:
