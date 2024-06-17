@@ -496,8 +496,6 @@ class ProtectBaseObject(BaseModel):
         has_unifi_objs = bool(unifi_objs)
         unifi_lists = cls._get_protect_lists()
         has_unifi_lists = bool(unifi_lists)
-        unifi_dicts_sets = cls._get_protect_dicts_set()
-        has_unifi_dicts = bool(unifi_dicts_sets)
 
         api = cls._api
         _fields = cls.__fields__
@@ -520,15 +518,6 @@ class ProtectBaseObject(BaseModel):
                     if i is not None and isinstance(i, (dict, ProtectBaseObject))
                 ]
             else:
-                # Inject the api if the key is in the unifi_dicts_sets
-                if (
-                    has_unifi_dicts
-                    and key in unifi_dicts_sets
-                    and isinstance(item, dict)
-                ):
-                    for i in item.values():
-                        if isinstance(i, dict):
-                            i["api"] = api
                 value = convert_unifi_data(item, _fields[key])
 
             setattr(cls, key, value)
