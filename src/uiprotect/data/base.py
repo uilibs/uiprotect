@@ -55,17 +55,15 @@ if TYPE_CHECKING:
     from ..data.nvr import Event
     from ..data.user import User
 
-    try:
-        from pydantic.v1.typing import DictStrAny
-    except ImportError:
-        from pydantic.typing import (  # type: ignore[assignment, no-redef]
-            DictStrAny,
-        )
-
 
 ProtectObject = TypeVar("ProtectObject", bound="ProtectBaseObject")
 RECENT_EVENT_MAX = timedelta(seconds=30)
 EVENT_PING_INTERVAL = timedelta(seconds=3)
+EVENT_PING_INTERVAL_SECONDS = EVENT_PING_INTERVAL.total_seconds()
+
+_EMPTY_EVENT_PING_BACK: dict[Any, Any] = {}
+
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -84,12 +82,11 @@ class ProtectBaseObject(BaseModel):
     * Provides `.unifi_dict` to convert object back into UFP JSON
     """
 
-    _api: ProtectApiClient = PrivateAttr(...)
+    _api: ProtectApiClient = PrivateAttr(None)
 
     _protect_objs: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
     _protect_lists: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
     _protect_dicts: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
-    _to_unifi_remaps: ClassVar[DictStrAny | None] = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -139,34 +136,25 @@ class ProtectBaseObject(BaseModel):
     @classmethod
     def construct(cls, _fields_set: set[str] | None = None, **values: Any) -> Self:
         api: ProtectApiClient | None = values.pop("api", None)
-        values_set = set(values)
-
-        if (unifi_objs := cls._get_protect_objs()) and (
-            intersections := cls._get_protect_objs_set().intersection(values_set)
-        ):
-            for key in intersections:
-                if isinstance(values[key], dict):
-                    values[key] = unifi_objs[key].construct(**values[key])
-
-        if (unifi_lists := cls._get_protect_lists()) and (
-            intersections := cls._get_protect_lists_set().intersection(values_set)
-        ):
-            for key in intersections:
-                if isinstance(values[key], list):
-                    values[key] = [
-                        unifi_lists[key].construct(**v) if isinstance(v, dict) else v
-                        for v in values[key]
-                    ]
-
-        if (unifi_dicts := cls._get_protect_dicts()) and (
-            intersections := cls._get_protect_dicts_set().intersection(values_set)
-        ):
-            for key in intersections:
-                if isinstance(values[key], dict):
-                    values[key] = {
-                        k: unifi_dicts[key].construct(**v) if isinstance(v, dict) else v
-                        for k, v in values[key].items()
-                    }
+        unifi_objs = cls._get_protect_objs()
+        has_unifi_objs = bool(unifi_objs)
+        unifi_lists = cls._get_protect_lists()
+        has_unifi_lists = bool(unifi_lists)
+        unifi_dicts = cls._get_protect_dicts()
+        has_unifi_dicts = bool(unifi_dicts)
+        for key, value in values.items():
+            if has_unifi_objs and key in unifi_objs and isinstance(value, dict):
+                values[key] = unifi_objs[key].construct(**value)
+            elif has_unifi_lists and key in unifi_lists and isinstance(value, list):
+                values[key] = [
+                    unifi_lists[key].construct(**v) if isinstance(v, dict) else v
+                    for v in value
+                ]
+            elif has_unifi_dicts and key in unifi_dicts and isinstance(value, dict):
+                values[key] = {
+                    k: unifi_dicts[key].construct(**v) if isinstance(v, dict) else v
+                    for k, v in value.items()
+                }
 
         obj = super().construct(_fields_set=_fields_set, **values)
         if api is not None:
@@ -204,6 +192,7 @@ class ProtectBaseObject(BaseModel):
         return set(self._get_unifi_remaps())
 
     @classmethod
+    @cache
     def _get_to_unifi_remaps(cls) -> dict[str, str]:
         """
         Helper method for overriding in child classes for reversing remap UFP
@@ -215,12 +204,9 @@ class ProtectBaseObject(BaseModel):
             "python_name": "ufpJsonName"
         }
         """
-        if cls._to_unifi_remaps is None:
-            cls._to_unifi_remaps = {
-                to_key: from_key for from_key, to_key in cls._get_unifi_remaps().items()
-            }
-
-        return cls._to_unifi_remaps
+        return {
+            to_key: from_key for from_key, to_key in cls._get_unifi_remaps().items()
+        }
 
     @classmethod
     def _set_protect_subtypes(cls) -> None:
@@ -341,16 +327,16 @@ class ProtectBaseObject(BaseModel):
             cls._api if isinstance(cls, ProtectBaseObject) else None
         )
 
-        # remap keys that will not be converted correctly by snake_case convert
-        if (remaps := cls._get_unifi_remaps()) and (
-            intersections := cls._get_unifi_remaps_set().intersection(data)
-        ):
-            for from_key in intersections:
-                data[remaps[from_key]] = data.pop(from_key)
-
+        remaps = cls._get_unifi_remaps()
         # convert to snake_case and remove extra fields
         _fields = cls.__fields__
         for key in list(data):
+            if key in remaps:
+                # remap keys that will not be converted correctly by snake_case convert
+                remapped_key = remaps[key]
+                data[remapped_key] = data.pop(key)
+                key = remapped_key
+
             new_key = to_snake_case(key)
             data[new_key] = data.pop(key)
             key = new_key
@@ -363,36 +349,23 @@ class ProtectBaseObject(BaseModel):
                 continue
             data[key] = convert_unifi_data(data[key], _fields[key])
 
+        if not data:
+            return data
+
         # clean child UFP objs
-        data_set = set(data)
-
-        if (unifi_objs := cls._get_protect_objs()) and (
-            intersections := cls._get_protect_objs_set().intersection(data_set)
-        ):
-            for key in intersections:
-                data[key] = cls._clean_protect_obj(data[key], unifi_objs[key], api)
-
-        if (unifi_lists := cls._get_protect_lists()) and (
-            intersections := cls._get_protect_lists_set().intersection(data_set)
-        ):
-            for key in intersections:
-                if isinstance(data[key], list):
-                    data[key] = cls._clean_protect_obj_list(
-                        data[key],
-                        unifi_lists[key],
-                        api,
-                    )
-
-        if (unifi_dicts := cls._get_protect_dicts()) and (
-            intersections := cls._get_protect_dicts_set().intersection(data_set)
-        ):
-            for key in intersections:
-                if isinstance(data[key], dict):
-                    data[key] = cls._clean_protect_obj_dict(
-                        data[key],
-                        unifi_dicts[key],
-                        api,
-                    )
+        unifi_objs = cls._get_protect_objs()
+        has_unifi_objs = bool(unifi_objs)
+        unifi_lists = cls._get_protect_lists()
+        has_unifi_lists = bool(unifi_lists)
+        unifi_dicts = cls._get_protect_dicts()
+        has_unifi_dicts = bool(unifi_dicts)
+        for key, value in data.items():
+            if has_unifi_objs and key in unifi_objs:
+                data[key] = cls._clean_protect_obj(value, unifi_objs[key], api)
+            elif has_unifi_lists and key in unifi_lists and isinstance(value, list):
+                data[key] = cls._clean_protect_obj_list(value, unifi_lists[key], api)
+            elif has_unifi_dicts and key in unifi_dicts and isinstance(value, dict):
+                data[key] = cls._clean_protect_obj_dict(value, unifi_dicts[key], api)
 
         return data
 
@@ -512,77 +485,44 @@ class ProtectBaseObject(BaseModel):
 
         return new_data
 
-    def _inject_api(
-        self,
-        data: dict[str, Any],
-        api: ProtectApiClient | None,
-    ) -> dict[str, Any]:
-        data["api"] = api
-        data_set = set(data)
+    def update_from_dict(cls: ProtectObject, data: dict[str, Any]) -> ProtectObject:
+        """
+        Updates current object from a cleaned UFP JSON dict.
 
-        if (unifi_objs_sets := self._get_protect_objs_set()) and (
-            intersections := unifi_objs_sets.intersection(data_set)
-        ):
-            for key in intersections:
-                unifi_obj: Any | None = getattr(self, key)
-                if unifi_obj is not None and isinstance(unifi_obj, dict):
-                    unifi_obj["api"] = api
+        The api client is injected into each dict for any child
+        UFP objects that are detected.
+        """
+        unifi_objs = cls._get_protect_objs()
+        has_unifi_objs = bool(unifi_objs)
+        unifi_lists = cls._get_protect_lists()
+        has_unifi_lists = bool(unifi_lists)
 
-        if (unifi_lists_sets := self._get_protect_lists_set()) and (
-            intersections := unifi_lists_sets.intersection(data_set)
-        ):
-            for key in intersections:
-                new_items = []
-                for item in data[key]:
-                    if isinstance(item, dict):
-                        item["api"] = api
-                    new_items.append(item)
-                data[key] = new_items
+        api = cls._api
+        _fields = cls.__fields__
+        unifi_obj: ProtectBaseObject | None
+        if "api" in data:
+            del data["api"]
+        value: Any
 
-        if (unifi_dicts_sets := self._get_protect_dicts_set()) and (
-            intersections := unifi_dicts_sets.intersection(data_set)
-        ):
-            for key in intersections:
-                inner_dict: dict[str, Any] = data[key]
-                for item_key, item in inner_dict.items():
-                    if isinstance(item, dict):
-                        item["api"] = api
-                    inner_dict[item_key] = item
+        for key, item in data.items():
+            if has_unifi_objs and key in unifi_objs and isinstance(item, dict):
+                if (unifi_obj := getattr(cls, key)) is not None:
+                    value = unifi_obj.update_from_dict(item)
+                else:
+                    value = None
+            elif has_unifi_lists and key in unifi_lists and isinstance(item, list):
+                klass = unifi_lists[key]
+                value = [
+                    klass(**i, api=api) if isinstance(i, dict) else i
+                    for i in item
+                    if i is not None and isinstance(i, (dict, ProtectBaseObject))
+                ]
+            else:
+                value = convert_unifi_data(item, _fields[key])
 
-        return data
+            setattr(cls, key, value)
 
-    def update_from_dict(self: ProtectObject, data: dict[str, Any]) -> ProtectObject:
-        """Updates current object from a cleaned UFP JSON dict"""
-        data_set = set(data)
-        for key in self._get_protect_objs_set().intersection(data_set):
-            unifi_obj: Any | None = getattr(self, key)
-            if unifi_obj is not None and isinstance(unifi_obj, ProtectBaseObject):
-                item = data.pop(key)
-                if item is not None:
-                    item = unifi_obj.update_from_dict(item)
-                setattr(self, key, item)
-
-        data = self._inject_api(data, self._api)
-        unifi_lists = self._get_protect_lists()
-        for key in self._get_protect_lists_set().intersection(data_set):
-            if not isinstance(data[key], list):
-                continue
-            klass = unifi_lists[key]
-            new_items = []
-            for item in data.pop(key):
-                if item is not None and isinstance(item, ProtectBaseObject):
-                    new_items.append(item)
-                elif isinstance(item, dict):
-                    new_items.append(klass(**item))
-            setattr(self, key, new_items)
-
-        # Always injected above
-        del data["api"]
-
-        for key in data:
-            setattr(self, key, convert_unifi_data(data[key], self.__fields__[key]))
-
-        return self
+        return cls
 
     def dict_with_excludes(self) -> dict[str, Any]:
         """Returns a dict of the current object without any UFP objects converted to dicts."""
@@ -633,9 +573,9 @@ class ProtectModel(ProtectBaseObject):
 class ProtectModelWithId(ProtectModel):
     id: str
 
-    _update_lock: asyncio.Lock = PrivateAttr(...)
-    _update_queue: asyncio.Queue[Callable[[], None]] = PrivateAttr(...)
-    _update_event: asyncio.Event = PrivateAttr(...)
+    _update_lock: asyncio.Lock = PrivateAttr(None)
+    _update_queue: asyncio.Queue[Callable[[], None]] = PrivateAttr(None)
+    _update_event: asyncio.Event = PrivateAttr(None)
 
     def __init__(self, **data: Any) -> None:
         update_lock = data.pop("update_lock", None)
@@ -659,6 +599,7 @@ class ProtectModelWithId(ProtectModel):
         return obj
 
     @classmethod
+    @cache
     def _get_read_only_fields(cls) -> set[str]:
         return set()
 
@@ -776,6 +717,14 @@ class ProtectModelWithId(ProtectModel):
         revert_on_fail: bool = True,
     ) -> None:
         """Saves the current device changes to UFP."""
+        _LOGGER.debug(
+            "Saving device changes for %s (%s) data_before_changes=%s updated=%s",
+            self.id,
+            self.model,
+            data_before_changes,
+            updated,
+        )
+
         assert (
             self._update_lock.locked()
         ), "save_device_changes should only be called when the update lock is held"
@@ -810,11 +759,15 @@ class ProtectModelWithId(ProtectModel):
             raise
 
         if force_emit:
-            await self.emit_message(updated)
+            self._emit_message(updated)
 
     async def emit_message(self, updated: dict[str, Any]) -> None:
-        """Emites fake WS message for ProtectApiClient to process."""
-        if updated == {}:
+        """Emits fake WS message for ProtectApiClient to process."""
+        self._emit_message(updated)
+
+    def _emit_message(self, updated: dict[str, Any]) -> None:
+        """Emits fake WS message for ProtectApiClient to process."""
+        if _is_ping_back := updated is _EMPTY_EVENT_PING_BACK:
             _LOGGER.debug("Event ping callback started for %s", self.id)
 
         if self.model is None:
@@ -843,7 +796,9 @@ class ProtectModelWithId(ProtectModel):
 
         message = self._api.bootstrap.process_ws_packet(
             WSPacket(action_frame.packed + data_frame.packed),
+            is_ping_back=_is_ping_back,
         )
+
         if message is not None:
             self._api.emit_message(message)
 
@@ -900,9 +855,9 @@ class ProtectDeviceModel(ProtectModelWithId):
         _LOGGER.debug("Event ping timer started for %s", self.id)
         loop = asyncio.get_event_loop()
         self._callback_ping = loop.call_later(
-            EVENT_PING_INTERVAL.total_seconds(),
-            asyncio.create_task,
-            self.emit_message({}),
+            EVENT_PING_INTERVAL_SECONDS,
+            self._emit_message,
+            _EMPTY_EVENT_PING_BACK,
         )
 
     async def set_name(self, name: str | None) -> None:

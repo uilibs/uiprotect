@@ -228,6 +228,7 @@ class BaseApiClient:
 
     @property
     def ws_url(self) -> str:
+        """Get Websocket URL."""
         url = f"wss://{self._host}"
         if self._port != 443:
             url += f":{self._port}"
@@ -267,7 +268,7 @@ class BaseApiClient:
 
         if self._websocket is None:
             self._websocket = Websocket(
-                self.ws_url,
+                self.get_websocket_url,
                 _auth,
                 verify=self._verify_ssl,
                 timeout=self._ws_timeout,
@@ -626,9 +627,6 @@ class BaseApiClient:
             self._websocket = None
 
         websocket = await self.get_websocket()
-        # important to make sure WS URL is always current
-        websocket.url = self.ws_url
-
         if not websocket.is_connected:
             self._last_ws_status = False
             with contextlib.suppress(
@@ -637,6 +635,10 @@ class BaseApiClient:
                 asyncio.CancelledError,
             ):
                 await websocket.connect()
+
+    def get_websocket_url(self) -> str:
+        """Get Websocket URL."""
+        return self.ws_url
 
     async def async_disconnect_ws(self) -> None:
         """Disconnect from Websocket."""
@@ -861,10 +863,6 @@ class ProtectApiClient(BaseApiClient):
             models=self._subscribed_models,
             ignore_stats=self._ignore_stats,
         )
-        # update websocket URL after every message to ensure the latest last_update_id
-        if self._websocket is not None:
-            self._websocket.url = self.ws_url
-
         if processed_message is None:
             return
 

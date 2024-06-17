@@ -8,7 +8,8 @@ from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, cast
+from functools import cache
+from typing import TYPE_CHECKING, Any
 
 from aiohttp.client_exceptions import ServerDisconnectedError
 
@@ -55,6 +56,7 @@ _LOGGER = logging.getLogger(__name__)
 MAX_SUPPORTED_CAMERAS = 256
 MAX_EVENT_HISTORY_IN_STATE_MACHINE = MAX_SUPPORTED_CAMERAS * 2
 STATS_KEYS = {
+    "eventStats",
     "storageStats",
     "stats",
     "systemInfo",
@@ -154,10 +156,6 @@ class ProtectDeviceRef(ProtectBaseObject):
     id: str
 
 
-_ModelType_NVR_value = ModelType.NVR.value
-_ModelType_Event_value = ModelType.EVENT.value
-
-
 class Bootstrap(ProtectBaseObject):
     auth_user_id: str
     access_key: str
@@ -195,10 +193,13 @@ class Bootstrap(ProtectBaseObject):
         api: ProtectApiClient | None = data.get("api") or (
             cls._api if isinstance(cls, ProtectBaseObject) else None
         )
-        data["macLookup"] = {}
-        data["idLookup"] = {}
-        for model_type in ModelType.bootstrap_models_types_set():
-            key = model_type.devices_key
+        mac_lookup: dict[str, dict[str, str | ModelType]] = {}
+        id_lookup: dict[str, dict[str, str | ModelType]] = {}
+        data["idLookup"] = id_lookup
+        data["macLookup"] = mac_lookup
+
+        for model_type in ModelType.bootstrap_models_types_set:
+            key = model_type.devices_key  # type: ignore[attr-defined]
             items: dict[str, ProtectModel] = {}
             for item in data[key]:
                 if (
@@ -208,15 +209,21 @@ class Bootstrap(ProtectBaseObject):
                 ):
                     continue
 
-                ref = {"model": model_type, "id": item["id"]}
-                items[item["id"]] = item
-                data["idLookup"][item["id"]] = ref
+                id_: str = item["id"]
+                ref = {"model": model_type, "id": id_}
+                items[id_] = item
+                id_lookup[id_] = ref
                 if "mac" in item:
                     cleaned_mac = normalize_mac(item["mac"])
-                    data["macLookup"][cleaned_mac] = ref
+                    mac_lookup[cleaned_mac] = ref
             data[key] = items
 
         return super().unifi_dict_to_dict(data)
+
+    @classmethod
+    @cache
+    def _unifi_dict_remove_keys(cls) -> set[str]:
+        return {"events", "captureWsStats", "macLookup", "idLookup"}
 
     def unifi_dict(
         self,
@@ -225,17 +232,11 @@ class Bootstrap(ProtectBaseObject):
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
-        if "events" in data:
-            del data["events"]
-        if "captureWsStats" in data:
-            del data["captureWsStats"]
-        if "macLookup" in data:
-            del data["macLookup"]
-        if "idLookup" in data:
-            del data["idLookup"]
-
-        for model_type in ModelType.bootstrap_models_types_set():
-            attr = model_type.devices_key
+        for key in Bootstrap._unifi_dict_remove_keys():
+            if key in data:
+                del data[key]
+        for model_type in ModelType.bootstrap_models_types_set:
+            attr = model_type.devices_key  # type: ignore[attr-defined]
             if attr in data and isinstance(data[attr], dict):
                 data[attr] = list(data[attr].values())
 
@@ -250,8 +251,7 @@ class Bootstrap(ProtectBaseObject):
 
     @property
     def auth_user(self) -> User:
-        user: User = self._api.bootstrap.users[self.auth_user_id]
-        return user
+        return self._api.bootstrap.users[self.auth_user_id]
 
     @property
     def has_doorbell(self) -> bool:
@@ -298,20 +298,20 @@ class Bootstrap(ProtectBaseObject):
 
     def get_device_from_mac(self, mac: str) -> ProtectAdoptableDeviceModel | None:
         """Retrieve a device from MAC address."""
-        ref = self.mac_lookup.get(normalize_mac(mac))
-        if ref is None:
-            return None
-
-        devices: dict[str, ProtectModelWithId] = getattr(self, ref.model.devices_key)
-        return cast(ProtectAdoptableDeviceModel, devices.get(ref.id))
+        return self._get_device_from_ref(self.mac_lookup.get(normalize_mac(mac)))
 
     def get_device_from_id(self, device_id: str) -> ProtectAdoptableDeviceModel | None:
         """Retrieve a device from device ID (without knowing model type)."""
-        ref = self.id_lookup.get(device_id)
+        return self._get_device_from_ref(self.id_lookup.get(device_id))
+
+    def _get_device_from_ref(
+        self, ref: ProtectDeviceRef | None
+    ) -> ProtectAdoptableDeviceModel | None:
         if ref is None:
             return None
-        devices: dict[str, ProtectModelWithId] = getattr(self, ref.model.devices_key)
-        return cast(ProtectAdoptableDeviceModel, devices.get(ref.id))
+        devices_key = ref.model.devices_key
+        devices: dict[str, ProtectAdoptableDeviceModel] = getattr(self, devices_key)
+        return devices[ref.id]
 
     def process_event(self, event: Event) -> None:
         event_type = event.type
@@ -353,24 +353,23 @@ class Bootstrap(ProtectBaseObject):
             if TYPE_CHECKING:
                 assert isinstance(obj, Event)
             self.process_event(obj)
-        if model_type is ModelType.NVR:
+        elif model_type is ModelType.NVR:
             if TYPE_CHECKING:
                 assert isinstance(obj, NVR)
             self.nvr = obj
-        elif model_type in ModelType.bootstrap_models_types_set():
+        elif model_type in ModelType.bootstrap_models_types_set:
             if TYPE_CHECKING:
                 assert isinstance(obj, ProtectAdoptableDeviceModel)
-                assert isinstance(obj.model, ModelType)
-            key = obj.model.devices_key
             if not self._api.ignore_unadopted or (
                 obj.is_adopted and not obj.is_adopted_by_other
             ):
-                getattr(self, key)[obj.id] = obj
-                ref = ProtectDeviceRef(model=obj.model, id=obj.id)
-                self.id_lookup[obj.id] = ref
+                id_ = obj.id
+                getattr(self, model_type.devices_key)[id_] = obj
+                ref = ProtectDeviceRef(model=model_type, id=id_)
+                self.id_lookup[id_] = ref
                 self.mac_lookup[normalize_mac(obj.mac)] = ref
         else:
-            _LOGGER.debug("Unexpected bootstrap model type for add: %s", obj.model)
+            _LOGGER.debug("Unexpected bootstrap model type for add: %s", model_type)
             return None
 
         updated = obj.dict()
@@ -387,17 +386,15 @@ class Bootstrap(ProtectBaseObject):
     def _process_remove_packet(
         self, model_type: ModelType, packet: WSPacket
     ) -> WSSubscriptionMessage | None:
-        devices: dict[str, ProtectDeviceModel] | None = getattr(
-            self, model_type.devices_key, None
-        )
+        devices_key = model_type.devices_key
+        devices: dict[str, ProtectDeviceModel] | None = getattr(self, devices_key, None)
 
         if devices is None:
             return None
 
         device_id: str = packet.action_frame.data["id"]
         self.id_lookup.pop(device_id, None)
-        device = devices.pop(device_id, None)
-        if device is None:
+        if (device := devices.pop(device_id, None)) is None:
             return None
         self.mac_lookup.pop(normalize_mac(device.mac), None)
 
@@ -424,14 +421,13 @@ class Bootstrap(ProtectBaseObject):
             return None
 
         # for another NVR in stack
-        nvr_id = packet.action_frame.data.get("id")
+        nvr_id: str | None = packet.action_frame.data.get("id")
         if nvr_id and nvr_id != self.nvr.id:
             self._create_stat(packet, None, True)
             return None
 
-        data = self.nvr.unifi_dict_to_dict(data)
         # nothing left to process
-        if not data:
+        if not (data := self.nvr.unifi_dict_to_dict(data)):
             self._create_stat(packet, None, True)
             return None
 
@@ -454,7 +450,15 @@ class Bootstrap(ProtectBaseObject):
         action: dict[str, Any],
         data: dict[str, Any],
         ignore_stats: bool,
+        is_ping_back: bool,
     ) -> WSSubscriptionMessage | None:
+        """
+        Process a device update packet.
+
+        If is_ping_back is True, the packet is an empty packet
+        that was generated internally as a result of an event
+        that will expire and result in a state change.
+        """
         remove_keys = (
             STATS_AND_IGNORE_DEVICE_KEYS if ignore_stats else IGNORE_DEVICE_KEYS
         )
@@ -465,7 +469,7 @@ class Bootstrap(ProtectBaseObject):
         if model_type is ModelType.CAMERA and "lastMotion" in data:
             del data["lastMotion"]
         # nothing left to process
-        if not data:
+        if not data and not is_ping_back:
             self._create_stat(packet, None, True)
             return None
 
@@ -479,6 +483,12 @@ class Bootstrap(ProtectBaseObject):
 
         obj = devices[action_id]
         data = obj.unifi_dict_to_dict(data)
+
+        if not data and not is_ping_back:
+            # nothing left to process
+            self._create_stat(packet, None, True)
+            return None
+
         old_obj = obj.copy()
         obj = obj.update_from_dict(deepcopy(data))
 
@@ -489,19 +499,17 @@ class Bootstrap(ProtectBaseObject):
         elif model_type is ModelType.CAMERA:
             if TYPE_CHECKING:
                 assert isinstance(obj, Camera)
-            if "last_ring" in data and obj.last_ring:
-                is_recent = obj.last_ring + RECENT_EVENT_MAX >= utc_now()
-                _LOGGER.debug("last_ring for %s (%s)", obj.id, is_recent)
-                if is_recent:
+            if "last_ring" in data and (last_ring := obj.last_ring):
+                if is_recent := last_ring + RECENT_EVENT_MAX >= utc_now():
                     obj.set_ring_timeout()
+                _LOGGER.debug("last_ring for %s (%s)", obj.id, is_recent)
         elif model_type is ModelType.SENSOR:
             if TYPE_CHECKING:
                 assert isinstance(obj, Sensor)
-            if "alarm_triggered_at" in data and obj.alarm_triggered_at:
-                is_recent = obj.alarm_triggered_at + RECENT_EVENT_MAX >= utc_now()
-                _LOGGER.debug("alarm_triggered_at for %s (%s)", obj.id, is_recent)
-                if is_recent:
+            if "alarm_triggered_at" in data and (trigged_at := obj.alarm_triggered_at):
+                if is_recent := trigged_at + RECENT_EVENT_MAX >= utc_now():
                     obj.set_alarm_timeout()
+                _LOGGER.debug("alarm_triggered_at for %s (%s)", obj.id, is_recent)
 
         devices[action_id] = obj
         self._create_stat(packet, data, False)
@@ -518,6 +526,7 @@ class Bootstrap(ProtectBaseObject):
         packet: WSPacket,
         models: set[ModelType] | None = None,
         ignore_stats: bool = False,
+        is_ping_back: bool = False,
     ) -> WSSubscriptionMessage | None:
         """Process a WS packet."""
         action = packet.action_frame.data
@@ -526,17 +535,16 @@ class Bootstrap(ProtectBaseObject):
             action = deepcopy(action)
             data = deepcopy(data)
 
-        new_update_id: str = action["newUpdateId"]
+        new_update_id: str | None = action["newUpdateId"]
         if new_update_id is not None:
             self.last_update_id = new_update_id
 
         model_key: str = action["modelKey"]
-        if model_key not in ModelType.values_set():
+        if (model_type := ModelType.from_string(model_key)) is ModelType.UNKNOWN:
             _LOGGER.debug("Unknown model type: %s", model_key)
             self._create_stat(packet, None, True)
             return None
 
-        model_type = ModelType.from_string(model_key)
         if models and model_type not in models:
             self._create_stat(packet, None, True)
             return None
@@ -545,7 +553,7 @@ class Bootstrap(ProtectBaseObject):
         if action_action == "remove":
             return self._process_remove_packet(model_type, packet)
 
-        if not data:
+        if not data and not is_ping_back:
             self._create_stat(packet, None, True)
             return None
 
@@ -555,13 +563,9 @@ class Bootstrap(ProtectBaseObject):
             if action_action == "update":
                 if model_type is ModelType.NVR:
                     return self._process_nvr_update(packet, data, ignore_stats)
-                if model_type in ModelType.bootstrap_models_types_and_event_set():
+                if model_type in ModelType.bootstrap_models_types_and_event_set:
                     return self._process_device_update(
-                        model_type,
-                        packet,
-                        action,
-                        data,
-                        ignore_stats,
+                        model_type, packet, action, data, ignore_stats, is_ping_back
                     )
         except (ValidationError, ValueError) as err:
             self._handle_ws_error(action, err)
@@ -610,9 +614,8 @@ class Bootstrap(ProtectBaseObject):
         if isinstance(device, NVR):
             self.nvr = device
         else:
-            devices: dict[str, ProtectModelWithId] = getattr(
-                self, model_type.devices_key
-            )
+            devices_key = model_type.devices_key
+            devices: dict[str, ProtectModelWithId] = getattr(self, devices_key)
             devices[device.id] = device
         _LOGGER.debug("Successfully refresh model: %s %s", model_type, device_id)
 

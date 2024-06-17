@@ -342,6 +342,18 @@ async def test_bootstrap(protect_client: ProtectApiClient):
 
 
 @pytest.mark.asyncio()
+async def test_bootstrap_cached_property(protect_client: ProtectApiClient):
+    """Test cached property works with bootstrap."""
+    bootstrap = protect_client.bootstrap
+
+    assert bootstrap.has_doorbell is True
+    bootstrap.cameras = {}
+    assert bootstrap.has_doorbell is True
+    bootstrap._has_doorbell = None
+    assert bootstrap.has_doorbell is False
+
+
+@pytest.mark.asyncio()
 async def test_bootstrap_construct(protect_client_no_debug: ProtectApiClient):
     """Verifies lookup of all object via ID"""
     await check_bootstrap(protect_client_no_debug.bootstrap)

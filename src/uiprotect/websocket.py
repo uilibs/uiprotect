@@ -45,7 +45,7 @@ class Websocket:
 
     def __init__(
         self,
-        url: str,
+        get_url: Callable[[], str],
         auth_callback: CALLBACK_TYPE,
         *,
         timeout: int = 30,
@@ -53,7 +53,7 @@ class Websocket:
         verify: bool = True,
     ) -> None:
         """Init Websocket."""
-        self.url = url
+        self.get_url = get_url
         self.timeout_interval = timeout
         self.backoff = backoff
         self.verify = verify
@@ -85,14 +85,15 @@ class Websocket:
         return True
 
     async def _websocket_loop(self, start_event: asyncio.Event) -> None:
-        _LOGGER.debug("Connecting WS to %s", self.url)
+        url = self.get_url()
+        _LOGGER.debug("Connecting WS to %s", url)
         self._headers = await self._auth(self._should_reset_auth)
 
         session = self._get_session()
         # catch any and all errors for Websocket so we can clean up correctly
         try:
             self._ws_connection = await session.ws_connect(
-                self.url,
+                url,
                 ssl=None if self.verify else False,
                 headers=self._headers,
             )
@@ -104,7 +105,7 @@ class Websocket:
                     break
                 self._reset_timeout()
         except ClientError:
-            _LOGGER.exception("Websocket disconnect error: %s", self.url)
+            _LOGGER.exception("Websocket disconnect error: %s", url)
         finally:
             _LOGGER.debug("Websocket disconnected")
             self._increase_failure()

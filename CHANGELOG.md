@@ -1,5 +1,154 @@
 # Changelog
 
+## v1.14.0 (2024-06-17)
+
+### Feature
+
+
+- Optimize update_from_dict (#75) ([`1b8ed6d`](https://github.com/uilibs/uiprotect/commit/1b8ed6dc146c0351927eeb15c47373481b3ad40e))
+
+
+## v1.13.0 (2024-06-16)
+
+### Feature
+
+
+- Improve performance of processing websocket messages (#74) ([`84277cb`](https://github.com/uilibs/uiprotect/commit/84277cb3ac8b47e8d6b483ace8e31c0d9b07baad))
+
+
+## v1.12.1 (2024-06-16)
+
+### Fix
+
+
+- Ensure ping back messages are called back and empty updates excluded (#62) ([`b319dba`](https://github.com/uilibs/uiprotect/commit/b319dba4b88e0a7d7b237ec57f2e89ca46c1cc6c))
+
+
+## v1.12.0 (2024-06-16)
+
+### Fix
+
+
+- Add missing eventstats key to stats_keys (#73) ([`6c8be31`](https://github.com/uilibs/uiprotect/commit/6c8be3129c763d6ade16c57df01cc79d57190fef))
+
+
+### Feature
+
+
+- Small cleanups to bootstrap code (#72) ([`78e6dbb`](https://github.com/uilibs/uiprotect/commit/78e6dbb8165b97522b7f42d8f9e885f0e23cd1eb))
+
+
+## v1.11.1 (2024-06-16)
+
+### Fix
+
+
+- Revert to using protected attrs for property cache (#71) ([`f0b259c`](https://github.com/uilibs/uiprotect/commit/f0b259caaf7c990de68f1a51a0bd166f94eb3bf7))
+
+
+## v1.11.0 (2024-06-16)
+
+### Feature
+
+
+- Speed up bootstrap by adding cached_property (#68) ([`c6b746d`](https://github.com/uilibs/uiprotect/commit/c6b746d8e4d961c0fc1f98d693357e9becd26baa))
+
+
+## v1.10.0 (2024-06-16)
+
+### Feature
+
+
+- Make websocket dataclasses sloted (#67) ([`58e42f6`](https://github.com/uilibs/uiprotect/commit/58e42f69b7603ab77ffe170d091051febe22e48f))
+
+
+## v1.9.0 (2024-06-15)
+
+### Feature
+
+
+- Improve performance of websocket message processing (#66) ([`d6a6472`](https://github.com/uilibs/uiprotect/commit/d6a6472d3516e27dcfdd2ed3b5d8ca68428e273f))
+
+
+## v1.8.0 (2024-06-15)
+
+### Feature
+
+
+- Replace some attrs with cached methods (#65) ([`fc0fc57`](https://github.com/uilibs/uiprotect/commit/fc0fc5717a171eb705dce4f88dca79509bd889b4))
+
+
+### Refactor
+
+
+- Delete unused bootstrap constants (#64) ([`0283c45`](https://github.com/uilibs/uiprotect/commit/0283c4564c905bee1b1f82cc4c0280a02e07ec5d))
+
+
+- Small cleanups to _process_add_packet (#63) ([`8fd8280`](https://github.com/uilibs/uiprotect/commit/8fd82800b63c7cb8c70da164dcc3e1853fc170a6))
+
+
+## v1.7.2 (2024-06-14)
+
+### Fix
+
+
+- Pingback did not hold a strong reference to the task (#61) ([`7b11ce9`](https://github.com/uilibs/uiprotect/commit/7b11ce952a9e2f66fc5ac9ceccd1a21e74c218b9))
+
+
+## v1.7.1 (2024-06-14)
+
+### Fix
+
+
+- Refactoring error in _process_add_packet (#60) ([`e21516b`](https://github.com/uilibs/uiprotect/commit/e21516b212762955a49d6da66f2f823a1b252ca2))
+
+
+## v1.7.0 (2024-06-14)
+
+### Feature
+
+
+- Add debug logging when saving device changes (#59) ([`1c57d00`](https://github.com/uilibs/uiprotect/commit/1c57d005f8f97c148b70401256929c262ba5a8a1))
+
+
+### Refactor
+
+
+- Cleanup duplicate doorbell text code (#58) ([`5e3fac8`](https://github.com/uilibs/uiprotect/commit/5e3fac8b862dfe7df83fe7b5b565578f494b8bf1))
+
+
+## v1.6.0 (2024-06-14)
+
+### Feature
+
+
+- Simplify object conversions (#55) ([`feb8236`](https://github.com/uilibs/uiprotect/commit/feb8236d7e1817a604186a493d57511fff455e47))
+
+
+## v1.5.0 (2024-06-14)
+
+### Feature
+
+
+- Make audio_type a cached_property (#54) ([`50d22de`](https://github.com/uilibs/uiprotect/commit/50d22de5bbf03328c307c7710015e6ec62ab6826))
+
+
+## v1.4.1 (2024-06-14)
+
+### Fix
+
+
+- Use none instead of ... for privateattr (#53) ([`fc06f42`](https://github.com/uilibs/uiprotect/commit/fc06f420b6c4531dd59bfa3db8b53a965409cac0))
+
+
+## v1.4.0 (2024-06-14)
+
+### Feature
+
+
+- Only process incoming websocket packet model type once (#52) ([`57d7c10`](https://github.com/uilibs/uiprotect/commit/57d7c10d3915fbf45dd81a855298530a36b9e3c7))
+
+
 ## v1.3.0 (2024-06-13)
 
 ### Feature
