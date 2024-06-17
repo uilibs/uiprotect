@@ -502,6 +502,7 @@ class ProtectBaseObject(BaseModel):
         api = cls._api
         _fields = cls.__fields__
         unifi_obj: ProtectBaseObject
+        value: Any
 
         for key, item in data.items():
             if key == "api":
@@ -509,15 +510,14 @@ class ProtectBaseObject(BaseModel):
             if has_unifi_objs and key in unifi_objs and isinstance(item, dict):
                 item["api"] = api
                 unifi_obj = getattr(cls, key)
-                setattr(cls, key, unifi_obj.update_from_dict(item))
+                value = unifi_obj.update_from_dict(item)
             elif has_unifi_lists and key in unifi_lists and isinstance(item, list):
                 klass = unifi_lists[key]
-                new_list = [
+                value = [
                     klass(**i, api=api) if isinstance(i, dict) else i
                     for i in item
                     if i is not None and isinstance(i, (dict, ProtectBaseObject))
                 ]
-                setattr(cls, key, new_list)
             else:
                 # Inject the api if the key is in the unifi_dicts_sets
                 if (
@@ -528,7 +528,9 @@ class ProtectBaseObject(BaseModel):
                     for i in item.values():
                         if isinstance(i, dict):
                             i["api"] = api
-                setattr(cls, key, convert_unifi_data(item, _fields[key]))
+                value = convert_unifi_data(item, _fields[key])
+
+            setattr(cls, key, value)
 
         return cls
 
