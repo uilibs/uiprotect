@@ -300,18 +300,16 @@ class Bootstrap(ProtectBaseObject):
         """Retrieve a device from MAC address."""
         if (ref := self.mac_lookup.get(normalize_mac(mac))) is None:
             return None
-        devices: dict[str, ProtectAdoptableDeviceModel] = getattr(
-            self, ref.model.devices_key
-        )
+        devices_key = ref.model.devices_key
+        devices: dict[str, ProtectAdoptableDeviceModel] = getattr(self, devices_key)
         return devices[ref.id]
 
     def get_device_from_id(self, device_id: str) -> ProtectAdoptableDeviceModel | None:
         """Retrieve a device from device ID (without knowing model type)."""
         if (ref := self.id_lookup.get(device_id)) is None:
             return None
-        devices: dict[str, ProtectAdoptableDeviceModel] = getattr(
-            self, ref.model.devices_key
-        )
+        devices_key = ref.model.devices_key
+        devices: dict[str, ProtectAdoptableDeviceModel] = getattr(self, devices_key)
         return devices[ref.id]
 
     def process_event(self, event: Event) -> None:
@@ -387,9 +385,8 @@ class Bootstrap(ProtectBaseObject):
     def _process_remove_packet(
         self, model_type: ModelType, packet: WSPacket
     ) -> WSSubscriptionMessage | None:
-        devices: dict[str, ProtectDeviceModel] | None = getattr(
-            self, model_type.devices_key, None
-        )
+        devices_key = model_type.devices_key
+        devices: dict[str, ProtectDeviceModel] | None = getattr(self, devices_key, None)
 
         if devices is None:
             return None
@@ -616,9 +613,8 @@ class Bootstrap(ProtectBaseObject):
         if isinstance(device, NVR):
             self.nvr = device
         else:
-            devices: dict[str, ProtectModelWithId] = getattr(
-                self, model_type.devices_key
-            )
+            devices_key = model_type.devices_key
+            devices: dict[str, ProtectModelWithId] = getattr(self, devices_key)
             devices[device.id] = device
         _LOGGER.debug("Successfully refresh model: %s %s", model_type, device_id)
 
