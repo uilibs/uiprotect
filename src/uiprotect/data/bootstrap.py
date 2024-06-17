@@ -9,7 +9,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cache
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from aiohttp.client_exceptions import ServerDisconnectedError
 
@@ -298,20 +298,20 @@ class Bootstrap(ProtectBaseObject):
 
     def get_device_from_mac(self, mac: str) -> ProtectAdoptableDeviceModel | None:
         """Retrieve a device from MAC address."""
-        ref = self.mac_lookup.get(normalize_mac(mac))
-        if ref is None:
-            return None
-
-        devices: dict[str, ProtectModelWithId] = getattr(self, ref.model.devices_key)
-        return cast(ProtectAdoptableDeviceModel, devices.get(ref.id))
+        return self._get_device_from_ref(self.mac_lookup.get(normalize_mac(mac)))
 
     def get_device_from_id(self, device_id: str) -> ProtectAdoptableDeviceModel | None:
         """Retrieve a device from device ID (without knowing model type)."""
-        ref = self.id_lookup.get(device_id)
+        return self._get_device_from_ref(self.id_lookup.get(device_id))
+
+    def _get_device_from_ref(
+        self, ref: ProtectDeviceRef | None
+    ) -> ProtectAdoptableDeviceModel | None:
         if ref is None:
             return None
-        devices: dict[str, ProtectModelWithId] = getattr(self, ref.model.devices_key)
-        return cast(ProtectAdoptableDeviceModel, devices.get(ref.id))
+        devices_key = ref.model.devices_key
+        devices: dict[str, ProtectAdoptableDeviceModel] = getattr(self, devices_key)
+        return devices[ref.id]
 
     def process_event(self, event: Event) -> None:
         event_type = event.type
@@ -386,9 +386,8 @@ class Bootstrap(ProtectBaseObject):
     def _process_remove_packet(
         self, model_type: ModelType, packet: WSPacket
     ) -> WSSubscriptionMessage | None:
-        devices: dict[str, ProtectDeviceModel] | None = getattr(
-            self, model_type.devices_key, None
-        )
+        devices_key = model_type.devices_key
+        devices: dict[str, ProtectDeviceModel] | None = getattr(self, devices_key, None)
 
         if devices is None:
             return None
@@ -615,9 +614,8 @@ class Bootstrap(ProtectBaseObject):
         if isinstance(device, NVR):
             self.nvr = device
         else:
-            devices: dict[str, ProtectModelWithId] = getattr(
-                self, model_type.devices_key
-            )
+            devices_key = model_type.devices_key
+            devices: dict[str, ProtectModelWithId] = getattr(self, devices_key)
             devices[device.id] = device
         _LOGGER.debug("Successfully refresh model: %s %s", model_type, device_id)
 
