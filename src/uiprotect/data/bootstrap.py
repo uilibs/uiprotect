@@ -67,7 +67,7 @@ STATS_KEYS = {
     "recordingSchedules",
 }
 
-IGNORE_DEVICE_KEYS = {"nvrMac", "guid", "lastMotion", "cameraIds"}
+IGNORE_DEVICE_KEYS = {"nvrMac", "guid"}
 STATS_AND_IGNORE_DEVICE_KEYS = STATS_KEYS | IGNORE_DEVICE_KEYS
 
 _IGNORE_KEYS_BY_MODEL_TYPE = {
