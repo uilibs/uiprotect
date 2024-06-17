@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.16.0 (2024-06-17)
+
+### Feature
+
+
+- Refactor protect obj methods to use comprehensions (#77) ([`ae4cdb9`](https://github.com/uilibs/uiprotect/commit/ae4cdb914b162c756f8384c0c25f256fbaa634d7))
+
+
 ## v1.15.0 (2024-06-17)
 
 ### Feature
