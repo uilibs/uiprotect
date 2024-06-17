@@ -1,5 +1,59 @@
 # Changelog
 
+## v1.14.0 (2024-06-17)
+
+### Feature
+
+
+- Optimize update_from_dict (#75) ([`1b8ed6d`](https://github.com/uilibs/uiprotect/commit/1b8ed6dc146c0351927eeb15c47373481b3ad40e))
+
+
+## v1.13.0 (2024-06-16)
+
+### Feature
+
+
+- Improve performance of processing websocket messages (#74) ([`84277cb`](https://github.com/uilibs/uiprotect/commit/84277cb3ac8b47e8d6b483ace8e31c0d9b07baad))
+
+
+## v1.12.1 (2024-06-16)
+
+### Fix
+
+
+- Ensure ping back messages are called back and empty updates excluded (#62) ([`b319dba`](https://github.com/uilibs/uiprotect/commit/b319dba4b88e0a7d7b237ec57f2e89ca46c1cc6c))
+
+
+## v1.12.0 (2024-06-16)
+
+### Fix
+
+
+- Add missing eventstats key to stats_keys (#73) ([`6c8be31`](https://github.com/uilibs/uiprotect/commit/6c8be3129c763d6ade16c57df01cc79d57190fef))
+
+
+### Feature
+
+
+- Small cleanups to bootstrap code (#72) ([`78e6dbb`](https://github.com/uilibs/uiprotect/commit/78e6dbb8165b97522b7f42d8f9e885f0e23cd1eb))
+
+
+## v1.11.1 (2024-06-16)
+
+### Fix
+
+
+- Revert to using protected attrs for property cache (#71) ([`f0b259c`](https://github.com/uilibs/uiprotect/commit/f0b259caaf7c990de68f1a51a0bd166f94eb3bf7))
+
+
+## v1.11.0 (2024-06-16)
+
+### Feature
+
+
+- Speed up bootstrap by adding cached_property (#68) ([`c6b746d`](https://github.com/uilibs/uiprotect/commit/c6b746d8e4d961c0fc1f98d693357e9becd26baa))
+
+
 ## v1.10.0 (2024-06-16)
 
 ### Feature
