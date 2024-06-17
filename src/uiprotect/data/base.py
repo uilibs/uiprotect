@@ -187,12 +187,6 @@ class ProtectBaseObject(BaseModel):
 
     @classmethod
     @cache
-    def _get_unifi_remaps_set(self) -> set[str]:
-        """Helper method to get set of all child UFP objects."""
-        return set(self._get_unifi_remaps())
-
-    @classmethod
-    @cache
     def _get_to_unifi_remaps(cls) -> dict[str, str]:
         """
         Helper method for overriding in child classes for reversing remap UFP
@@ -238,9 +232,9 @@ class ProtectBaseObject(BaseModel):
 
     @classmethod
     @cache
-    def _get_protect_objs_set(cls) -> set[str]:
-        """Helper method to get all child UFP objects"""
-        return set(cls._get_protect_objs())
+    def _get_excluded_fields(cls) -> set[str]:
+        """Helper method to get all excluded fields for the current object."""
+        return set(cls._get_protect_objs()) | set(cls._get_protect_lists())
 
     @classmethod
     @cache
@@ -253,24 +247,12 @@ class ProtectBaseObject(BaseModel):
 
     @classmethod
     @cache
-    def _get_protect_lists_set(cls) -> set[str]:
-        """Helper method to get all child UFP objects"""
-        return set(cls._get_protect_lists())
-
-    @classmethod
-    @cache
     def _get_protect_dicts(cls) -> dict[str, type[ProtectBaseObject]]:
         """Helper method to get all child of UFP objects (dicts)"""
         if cls._protect_dicts is None:
             cls._set_protect_subtypes()
             assert cls._protect_dicts is not None
         return cls._protect_dicts
-
-    @classmethod
-    @cache
-    def _get_protect_dicts_set(cls) -> set[str]:
-        """Helper method to get all child UFP objects"""
-        return set(cls._get_protect_dicts())
 
     @classmethod
     def _clean_protect_obj(
@@ -448,9 +430,7 @@ class ProtectBaseObject(BaseModel):
         """
         use_obj = False
         if data is None:
-            excluded_fields = (
-                self._get_protect_objs_set() | self._get_protect_lists_set()
-            )
+            excluded_fields = self._get_excluded_fields()
             if exclude is not None:
                 excluded_fields |= exclude
             data = self.dict(exclude=excluded_fields)
