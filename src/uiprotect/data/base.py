@@ -485,68 +485,52 @@ class ProtectBaseObject(BaseModel):
 
         return new_data
 
-    def _inject_api(
-        self,
-        data: dict[str, Any],
-        api: ProtectApiClient | None,
-    ) -> dict[str, Any]:
-        data["api"] = api
-        unifi_objs_sets = self._get_protect_objs_set()
-        has_unifi_objs = bool(unifi_objs_sets)
-        unifi_lists_sets = self._get_protect_lists_set()
-        has_unifi_lists = bool(unifi_lists_sets)
-        unifi_dicts_sets = self._get_protect_dicts_set()
+    def update_from_dict(cls: ProtectObject, data: dict[str, Any]) -> ProtectObject:
+        """
+        Updates current object from a cleaned UFP JSON dict.
+
+        The api client is injected into each dict for any child
+        UFP objects that are detected.
+        """
+        unifi_objs = cls._get_protect_objs()
+        has_unifi_objs = bool(unifi_objs)
+        unifi_lists = cls._get_protect_lists()
+        has_unifi_lists = bool(unifi_lists)
+        unifi_dicts_sets = cls._get_protect_dicts_set()
         has_unifi_dicts = bool(unifi_dicts_sets)
-        for key, value in data.items():
-            if has_unifi_objs and key in unifi_objs_sets and isinstance(value, dict):
-                value["api"] = api
-            elif (
-                has_unifi_lists and key in unifi_lists_sets and isinstance(value, list)
-            ):
-                for item in value:
-                    if isinstance(item, dict):
-                        item["api"] = api
-            elif (
-                has_unifi_dicts and key in unifi_dicts_sets and isinstance(value, dict)
-            ):
-                for item in value.values():
-                    if isinstance(item, dict):
-                        item["api"] = api
 
-        return data
+        api = cls._api
+        _fields = cls.__fields__
+        unifi_obj: ProtectBaseObject
 
-    def update_from_dict(self: ProtectObject, data: dict[str, Any]) -> ProtectObject:
-        """Updates current object from a cleaned UFP JSON dict"""
-        data_set = set(data)
-        for key in self._get_protect_objs_set().intersection(data_set):
-            unifi_obj: Any | None = getattr(self, key)
-            if unifi_obj is not None and isinstance(unifi_obj, ProtectBaseObject):
-                item = data.pop(key)
-                if item is not None:
-                    item = unifi_obj.update_from_dict(item)
-                setattr(self, key, item)
-
-        data = self._inject_api(data, self._api)
-        unifi_lists = self._get_protect_lists()
-        for key in self._get_protect_lists_set().intersection(data_set):
-            if not isinstance(data[key], list):
+        for key, item in data.items():
+            if key == "api":
                 continue
-            klass = unifi_lists[key]
-            new_items = []
-            for item in data.pop(key):
-                if item is not None and isinstance(item, ProtectBaseObject):
-                    new_items.append(item)
-                elif isinstance(item, dict):
-                    new_items.append(klass(**item))
-            setattr(self, key, new_items)
+            if has_unifi_objs and key in unifi_objs and isinstance(item, dict):
+                item["api"] = api
+                unifi_obj = getattr(cls, key)
+                setattr(cls, key, unifi_obj.update_from_dict(item))
+            elif has_unifi_lists and key in unifi_lists and isinstance(item, list):
+                klass = unifi_lists[key]
+                new_list = [
+                    klass(**i, api=api) if isinstance(i, dict) else i
+                    for i in item
+                    if i is not None and isinstance(i, (dict, ProtectBaseObject))
+                ]
+                setattr(cls, key, new_list)
+            else:
+                # Inject the api if the key is in the unifi_dicts_sets
+                if (
+                    has_unifi_dicts
+                    and key in unifi_dicts_sets
+                    and isinstance(item, dict)
+                ):
+                    for i in item.values():
+                        if isinstance(i, dict):
+                            i["api"] = api
+                setattr(cls, key, convert_unifi_data(item, _fields[key]))
 
-        # Always injected above
-        del data["api"]
-
-        for key in data:
-            setattr(self, key, convert_unifi_data(data[key], self.__fields__[key]))
-
-        return self
+        return cls
 
     def dict_with_excludes(self) -> dict[str, Any]:
         """Returns a dict of the current object without any UFP objects converted to dicts."""
