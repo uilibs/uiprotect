@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.18.0 (2024-06-17)
+
+### Feature
+
+
+- Add repr for websocket packets (#84) ([`60dd356`](https://github.com/uilibs/uiprotect/commit/60dd356a233ab183c31375417ded3f6e53427e5d))
+
+
+### Refactor
+
+
+- Avoid writing out some more key converts (#83) ([`851c798`](https://github.com/uilibs/uiprotect/commit/851c7987b772a185fd4c448dddd9e180fd4f16da))
+
+
 ## v1.17.0 (2024-06-17)
 
 ### Feature
