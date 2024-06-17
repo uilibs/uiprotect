@@ -501,16 +501,18 @@ class ProtectBaseObject(BaseModel):
 
         api = cls._api
         _fields = cls.__fields__
-        unifi_obj: ProtectBaseObject
+        unifi_obj: ProtectBaseObject | None
         if "api" in data:
             del data["api"]
         value: Any
 
         for key, item in data.items():
             if has_unifi_objs and key in unifi_objs and isinstance(item, dict):
-                item["api"] = api
-                unifi_obj = getattr(cls, key)
-                value = unifi_obj.update_from_dict(item)
+                if (unifi_obj := getattr(cls, key)) is not None:
+                    item["api"] = api
+                    value = unifi_obj.update_from_dict(item)
+                else:
+                    value = None
             elif has_unifi_lists and key in unifi_lists and isinstance(item, list):
                 klass = unifi_lists[key]
                 value = [
