@@ -298,15 +298,16 @@ class Bootstrap(ProtectBaseObject):
 
     def get_device_from_mac(self, mac: str) -> ProtectAdoptableDeviceModel | None:
         """Retrieve a device from MAC address."""
-        if (ref := self.mac_lookup.get(normalize_mac(mac))) is None:
-            return None
-        devices_key = ref.model.devices_key
-        devices: dict[str, ProtectAdoptableDeviceModel] = getattr(self, devices_key)
-        return devices[ref.id]
+        return self._get_device_from_ref(self.mac_lookup.get(normalize_mac(mac)))
 
     def get_device_from_id(self, device_id: str) -> ProtectAdoptableDeviceModel | None:
         """Retrieve a device from device ID (without knowing model type)."""
-        if (ref := self.id_lookup.get(device_id)) is None:
+        return self._get_device_from_ref(self.id_lookup.get(device_id))
+
+    def _get_device_from_ref(
+        self, ref: ProtectDeviceRef | None
+    ) -> ProtectAdoptableDeviceModel | None:
+        if ref is None:
             return None
         devices_key = ref.model.devices_key
         devices: dict[str, ProtectAdoptableDeviceModel] = getattr(self, devices_key)
