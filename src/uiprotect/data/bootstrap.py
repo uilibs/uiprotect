@@ -518,9 +518,9 @@ class Bootstrap(ProtectBaseObject):
         """Process a WS packet."""
         message = self._process_ws_packet(
             packet,
-            models=models,
-            ignore_stats=ignore_stats,
-            is_ping_back=is_ping_back,
+            models,
+            ignore_stats,
+            is_ping_back,
         )
         if self.capture_ws_stats:
             self._ws_stats.append(
@@ -538,9 +538,9 @@ class Bootstrap(ProtectBaseObject):
     def _process_ws_packet(
         self,
         packet: WSPacket,
-        models: set[ModelType] | None = None,
-        ignore_stats: bool = False,
-        is_ping_back: bool = False,
+        models: set[ModelType] | None,
+        ignore_stats: bool,
+        is_ping_back: bool,
     ) -> WSSubscriptionMessage | None:
         """Process a WS packet."""
         action = packet.action_frame.data
