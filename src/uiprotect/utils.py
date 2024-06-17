@@ -17,7 +17,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone, tzinfo
 from decimal import Decimal
 from enum import Enum
-from functools import lru_cache
+from functools import cache, lru_cache
 from hashlib import sha224
 from http.cookies import Morsel
 from inspect import isclass
@@ -96,22 +96,20 @@ IP_TYPES = {
     Union[IPv6Address, IPv4Address, None],
 }
 
-if sys.version_info[:2] < (3, 11):
-    pass
-else:
-    pass
-
 
 def set_debug() -> None:
     """Sets ENV variable for UFP_DEBUG to on (True)"""
     os.environ[DEBUG_ENV] = str(True)
+    is_debug.cache_clear()
 
 
 def set_no_debug() -> None:
     """Sets ENV variable for UFP_DEBUG to off (False)"""
     os.environ[DEBUG_ENV] = str(False)
+    is_debug.cache_clear()
 
 
+@cache
 def is_debug() -> bool:
     """Returns if debug ENV is on (True)"""
     return os.environ.get(DEBUG_ENV) == str(True)
