@@ -56,6 +56,9 @@ class BaseWSPacketFrame:
     is_deflated: bool = False
     length: int = 0
 
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} header={self.header} data={self.data}>"
+
     def set_data_from_binary(self, data: bytes) -> None:
         self.data = data
         if self.header is not None and self.header.deflated:
@@ -187,6 +190,9 @@ class WSPacket:
 
     def __init__(self, data: bytes) -> None:
         self._raw = data
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} action_frame={self.action_frame} data_frame={self.data_frame}>"
 
     def decode(self) -> None:
         data = self._raw
