@@ -474,14 +474,11 @@ class SmartDetectSettings(ProtectBaseObject):
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "objectTypes" in data:
-            data["objectTypes"] = convert_smart_types(data.pop("objectTypes"))
         if "audioTypes" in data:
-            data["audioTypes"] = convert_smart_audio_types(data.pop("audioTypes"))
-        if "autoTrackingObjectTypes" in data:
-            data["autoTrackingObjectTypes"] = convert_smart_types(
-                data.pop("autoTrackingObjectTypes"),
-            )
+            data["audioTypes"] = convert_smart_audio_types(data["audioTypes"])
+        for key in ("objectTypes", "autoTrackingObjectTypes"):
+            if key in data:
+                data[key] = convert_smart_types(data[key])
 
         return super().unifi_dict_to_dict(data)
 
@@ -578,22 +575,18 @@ class VideoStats(ProtectBaseObject):
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "recordingStart" in data:
-            data["recordingStart"] = convert_to_datetime(data["recordingStart"])
-        if "recordingEnd" in data:
-            data["recordingEnd"] = convert_to_datetime(data["recordingEnd"])
-        if "recordingStartLQ" in data:
-            data["recordingStartLQ"] = convert_to_datetime(data["recordingStartLQ"])
-        if "recordingEndLQ" in data:
-            data["recordingEndLQ"] = convert_to_datetime(data["recordingEndLQ"])
-        if "timelapseStart" in data:
-            data["timelapseStart"] = convert_to_datetime(data["timelapseStart"])
-        if "timelapseEnd" in data:
-            data["timelapseEnd"] = convert_to_datetime(data["timelapseEnd"])
-        if "timelapseStartLQ" in data:
-            data["timelapseStartLQ"] = convert_to_datetime(data["timelapseStartLQ"])
-        if "timelapseEndLQ" in data:
-            data["timelapseEndLQ"] = convert_to_datetime(data["timelapseEndLQ"])
+        for key in (
+            "recordingStart",
+            "recordingEnd",
+            "recordingStartLQ",
+            "recordingEndLQ",
+            "timelapseStart",
+            "timelapseEnd",
+            "timelapseStartLQ",
+            "timelapseEndLQ",
+        ):
+            if key in data:
+                data[key] = convert_to_datetime(data[key])
 
         return super().unifi_dict_to_dict(data)
 
