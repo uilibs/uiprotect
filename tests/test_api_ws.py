@@ -481,6 +481,9 @@ async def test_ws_emit_alarm_callback(
 
     expected_updated_id = "0441ecc6-f0fa-4b19-b071-7987c143138a"
 
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {"alarmTriggeredAt": to_js_time(now)}
+
     action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
     action_frame.data = {
         "action": "update",
@@ -488,9 +491,6 @@ async def test_ws_emit_alarm_callback(
         "modelKey": "sensor",
         "id": sensor["id"],
     }
-
-    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
-    data_frame.data = {"alarmTriggeredAt": to_js_time(now)}
 
     msg = MagicMock()
     msg.data = packet.pack_frames()

@@ -47,6 +47,8 @@ class WSSubscriptionMessage:
 
 
 class BaseWSPacketFrame:
+    UNPACK_FORMAT = struct.Struct("!bbbbi")
+
     data: Any
     position: int = 0
     header: WSPacketFrameHeader | None = None
@@ -89,7 +91,7 @@ class BaseWSPacketFrame:
         i: payload_size
         """
         header_end = position + WS_HEADER_SIZE
-
+        payload_size: int
         try:
             (
                 packet_type,
@@ -97,8 +99,7 @@ class BaseWSPacketFrame:
                 deflated,
                 unknown,
                 payload_size,
-            ) = struct.unpack(
-                "!bbbbi",
+            ) = BaseWSPacketFrame.UNPACK_FORMAT.unpack(
                 data[position:header_end],
             )
         except struct.error as e:
@@ -117,9 +118,9 @@ class BaseWSPacketFrame:
             unknown=unknown,
             payload_size=payload_size,
         )
-        frame.length = WS_HEADER_SIZE + frame.header.payload_size
-        frame.is_deflated = bool(frame.header.deflated)
-        frame_end = header_end + frame.header.payload_size
+        frame.length = WS_HEADER_SIZE + payload_size
+        frame.is_deflated = bool(deflated)
+        frame_end = header_end + payload_size
         frame.set_data_from_binary(data[header_end:frame_end])
 
         return frame
@@ -188,11 +189,10 @@ class WSPacket:
         self._raw = data
 
     def decode(self) -> None:
-        self._action_frame = WSRawPacketFrame.from_binary(self._raw)
-        self._data_frame = WSRawPacketFrame.from_binary(
-            self._raw,
-            self._action_frame.length,
-        )
+        data = self._raw
+        self._action_frame = WSRawPacketFrame.from_binary(data)
+        length = self._action_frame.length
+        self._data_frame = WSRawPacketFrame.from_binary(data, length)
 
     @cached_property
     def action_frame(self) -> BaseWSPacketFrame:
@@ -202,6 +202,7 @@ class WSPacket:
         if self._action_frame is None:
             raise WSDecodeError("Packet unexpectedly not decoded")
 
+        self.__dict__["data_frame"] = self._data_frame
         return self._action_frame
 
     @cached_property
@@ -212,6 +213,7 @@ class WSPacket:
         if self._data_frame is None:
             raise WSDecodeError("Packet unexpectedly not decoded")
 
+        self.__dict__["action_frame"] = self._action_frame
         return self._data_frame
 
     @property

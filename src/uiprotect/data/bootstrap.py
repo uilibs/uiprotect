@@ -8,7 +8,6 @@ from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
-from functools import cache
 from typing import TYPE_CHECKING, Any
 
 from aiohttp.client_exceptions import ServerDisconnectedError
@@ -220,11 +219,6 @@ class Bootstrap(ProtectBaseObject):
 
         return super().unifi_dict_to_dict(data)
 
-    @classmethod
-    @cache
-    def _unifi_dict_remove_keys(cls) -> set[str]:
-        return {"events", "captureWsStats", "macLookup", "idLookup"}
-
     def unifi_dict(
         self,
         data: dict[str, Any] | None = None,
@@ -232,7 +226,7 @@ class Bootstrap(ProtectBaseObject):
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
-        for key in Bootstrap._unifi_dict_remove_keys():
+        for key in ("events", "captureWsStats", "macLookup", "idLookup"):
             if key in data:
                 del data[key]
         for model_type in ModelType.bootstrap_models_types_set:
