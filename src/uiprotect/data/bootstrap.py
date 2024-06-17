@@ -516,13 +516,22 @@ class Bootstrap(ProtectBaseObject):
         is_ping_back: bool = False,
     ) -> WSSubscriptionMessage | None:
         """Process a WS packet."""
-        message = self._process_ws_packet(
-            packet,
-            models,
-            ignore_stats,
-            is_ping_back,
+        capture_ws_stats = self.capture_ws_stats
+        action = packet.action_frame.data
+        data = packet.data_frame.data
+        if capture_ws_stats:
+            action = deepcopy(action)
+            data = deepcopy(data)
+
+        new_update_id: str | None = action["newUpdateId"]
+        if new_update_id is not None:
+            self.last_update_id = new_update_id
+
+        message = self._make_ws_packet_message(
+            action, data, models, ignore_stats, is_ping_back
         )
-        if self.capture_ws_stats:
+
+        if capture_ws_stats:
             self._ws_stats.append(
                 WSStat(
                     model=packet.action_frame.data["modelKey"],
@@ -533,26 +542,18 @@ class Bootstrap(ProtectBaseObject):
                     filtered=message is None,
                 ),
             )
+
         return message
 
-    def _process_ws_packet(
+    def _make_ws_packet_message(
         self,
-        packet: WSPacket,
+        action: dict[str, Any],
+        data: dict[str, Any],
         models: set[ModelType] | None,
         ignore_stats: bool,
         is_ping_back: bool,
     ) -> WSSubscriptionMessage | None:
         """Process a WS packet."""
-        action = packet.action_frame.data
-        data = packet.data_frame.data
-        if self.capture_ws_stats:
-            action = deepcopy(action)
-            data = deepcopy(data)
-
-        new_update_id: str | None = action["newUpdateId"]
-        if new_update_id is not None:
-            self.last_update_id = new_update_id
-
         model_key: str = action["modelKey"]
         if (model_type := ModelType.from_string(model_key)) is ModelType.UNKNOWN:
             _LOGGER.debug("Unknown model type: %s", model_key)
