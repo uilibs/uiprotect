@@ -509,7 +509,6 @@ class ProtectBaseObject(BaseModel):
         for key, item in data.items():
             if has_unifi_objs and key in unifi_objs and isinstance(item, dict):
                 if (unifi_obj := getattr(cls, key)) is not None:
-                    item["api"] = api
                     value = unifi_obj.update_from_dict(item)
                 else:
                     value = None
