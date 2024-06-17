@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
@@ -342,23 +341,6 @@ class Bootstrap(ProtectBaseObject):
             _process_sensor_event(event, sensor)
 
         self.events[event.id] = event
-
-    def _create_stat(
-        self,
-        packet: WSPacket,
-        keys_set: Iterable[str] | None,
-        filtered: bool,
-    ) -> None:
-        self._ws_stats.append(
-            WSStat(
-                model=packet.action_frame.data["modelKey"],
-                action=packet.action_frame.data["action"],
-                keys=list(packet.data_frame.data),
-                keys_set=[] if keys_set is None else list(keys_set),
-                size=len(packet.raw),
-                filtered=filtered,
-            ),
-        )
 
     def _process_add_packet(
         self,
