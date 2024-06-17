@@ -965,16 +965,13 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "wiredConnectionState" in data and data["wiredConnectionState"] is None:
-            del data["wiredConnectionState"]
-        if "wifiConnectionState" in data and data["wifiConnectionState"] is None:
-            del data["wifiConnectionState"]
-        if (
-            "bluetoothConnectionState" in data
-            and data["bluetoothConnectionState"] is None
+        for key in (
+            "wiredConnectionState",
+            "wifiConnectionState",
+            "bluetoothConnectionState",
         ):
-            del data["bluetoothConnectionState"]
+            if key in data and data[key] is None:
+                del data[key]
         return data
 
     @classmethod
