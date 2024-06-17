@@ -1062,27 +1062,21 @@ class Camera(ProtectMotionDeviceModel):
                 ]
 
         data = super().unifi_dict(data=data, exclude=exclude)
+        for key in (
+            "lastRingEventId",
+            "lastSmartDetect",
+            "lastSmartAudioDetect",
+            "lastSmartDetectEventId",
+            "lastSmartAudioDetectEventId",
+            "lastSmartDetects",
+            "lastSmartAudioDetects",
+            "lastSmartDetectEventIds",
+            "lastSmartAudioDetectEventIds",
+            "talkbackStream",
+        ):
+            if key in data:
+                del data[key]
 
-        if "lastRingEventId" in data:
-            del data["lastRingEventId"]
-        if "lastSmartDetect" in data:
-            del data["lastSmartDetect"]
-        if "lastSmartAudioDetect" in data:
-            del data["lastSmartAudioDetect"]
-        if "lastSmartDetectEventId" in data:
-            del data["lastSmartDetectEventId"]
-        if "lastSmartAudioDetectEventId" in data:
-            del data["lastSmartAudioDetectEventId"]
-        if "lastSmartDetects" in data:
-            del data["lastSmartDetects"]
-        if "lastSmartAudioDetects" in data:
-            del data["lastSmartAudioDetects"]
-        if "lastSmartDetectEventIds" in data:
-            del data["lastSmartDetectEventIds"]
-        if "lastSmartAudioDetectEventIds" in data:
-            del data["lastSmartAudioDetectEventIds"]
-        if "talkbackStream" in data:
-            del data["talkbackStream"]
         if "lcdMessage" in data and data["lcdMessage"] is None:
             data["lcdMessage"] = {}
 
@@ -2820,18 +2814,15 @@ class Sensor(ProtectAdoptableDeviceModel):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "lastMotionEventId" in data:
-            del data["lastMotionEventId"]
-        if "lastContactEventId" in data:
-            del data["lastContactEventId"]
-        if "lastValueEventId" in data:
-            del data["lastValueEventId"]
-        if "lastAlarmEventId" in data:
-            del data["lastAlarmEventId"]
-        if "extremeValueDetectedAt" in data:
-            del data["extremeValueDetectedAt"]
-
+        for key in (
+            "lastMotionEventId",
+            "lastContactEventId",
+            "lastValueEventId",
+            "lastAlarmEventId",
+            "extremeValueDetectedAt",
+        ):
+            if key in data:
+                del data[key]
         return data
 
     @property
