@@ -9,7 +9,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cache
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from aiohttp.client_exceptions import ServerDisconnectedError
 
@@ -298,20 +298,21 @@ class Bootstrap(ProtectBaseObject):
 
     def get_device_from_mac(self, mac: str) -> ProtectAdoptableDeviceModel | None:
         """Retrieve a device from MAC address."""
-        ref = self.mac_lookup.get(normalize_mac(mac))
-        if ref is None:
+        if (ref := self.mac_lookup.get(normalize_mac(mac))) is None:
             return None
-
-        devices: dict[str, ProtectModelWithId] = getattr(self, ref.model.devices_key)
-        return cast(ProtectAdoptableDeviceModel, devices.get(ref.id))
+        devices: dict[str, ProtectAdoptableDeviceModel] = getattr(
+            self, ref.model.devices_key
+        )
+        return devices[ref.id]
 
     def get_device_from_id(self, device_id: str) -> ProtectAdoptableDeviceModel | None:
         """Retrieve a device from device ID (without knowing model type)."""
-        ref = self.id_lookup.get(device_id)
-        if ref is None:
+        if (ref := self.id_lookup.get(device_id)) is None:
             return None
-        devices: dict[str, ProtectModelWithId] = getattr(self, ref.model.devices_key)
-        return cast(ProtectAdoptableDeviceModel, devices.get(ref.id))
+        devices: dict[str, ProtectAdoptableDeviceModel] = getattr(
+            self, ref.model.devices_key
+        )
+        return devices[ref.id]
 
     def process_event(self, event: Event) -> None:
         event_type = event.type
