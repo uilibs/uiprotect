@@ -66,8 +66,33 @@ STATS_KEYS = {
     "lastSeen",
     "recordingSchedules",
 }
-IGNORE_DEVICE_KEYS = {"nvrMac", "guid"}
+
+IGNORE_DEVICE_KEYS = {"nvrMac", "guid", "lastMotion", "cameraIds"}
 STATS_AND_IGNORE_DEVICE_KEYS = STATS_KEYS | IGNORE_DEVICE_KEYS
+
+_IGNORE_KEYS_BY_MODEL_TYPE = {
+    #
+    # `lastMotion` from cameras update every 100 milliseconds when a motion event is active
+    # this overrides the behavior to only update `lastMotion` when a new event starts
+    #
+    ModelType.CAMERA: {"lastMotion"},
+    #
+    # `cameraIds` is updated every 10s, but we don't need to process it since bootstrap
+    # is resynced every so often anyways.
+    #
+    ModelType.CHIME: {"cameraIds"},
+}
+
+
+IGNORE_DEVICE_KEYS_BY_MODEL_TYPE = {
+    model_type: IGNORE_DEVICE_KEYS | keys
+    for model_type, keys in _IGNORE_KEYS_BY_MODEL_TYPE.items()
+}
+STATS_AND_IGNORE_DEVICE_KEYS_BY_MODEL_TYPE = {
+    model_type: STATS_AND_IGNORE_DEVICE_KEYS | keys
+    for model_type, keys in _IGNORE_KEYS_BY_MODEL_TYPE.items()
+}
+
 
 CAMERA_EVENT_ATTR_MAP: dict[EventType, tuple[str, str]] = {
     EventType.MOTION: ("last_motion", "last_motion_event_id"),
@@ -453,15 +478,18 @@ class Bootstrap(ProtectBaseObject):
         that was generated internally as a result of an event
         that will expire and result in a state change.
         """
-        remove_keys = (
-            STATS_AND_IGNORE_DEVICE_KEYS if ignore_stats else IGNORE_DEVICE_KEYS
-        )
+        if ignore_stats:
+            remove_keys = STATS_AND_IGNORE_DEVICE_KEYS_BY_MODEL_TYPE.get(
+                model_type, STATS_AND_IGNORE_DEVICE_KEYS
+            )
+        else:
+            remove_keys = IGNORE_DEVICE_KEYS_BY_MODEL_TYPE.get(
+                model_type, IGNORE_DEVICE_KEYS
+            )
+
         for key in remove_keys.intersection(data):
             del data[key]
-        # `last_motion` from cameras update every 100 milliseconds when a motion event is active
-        # this overrides the behavior to only update `last_motion` when a new event starts
-        if model_type is ModelType.CAMERA and "lastMotion" in data:
-            del data["lastMotion"]
+
         # nothing left to process
         if not data and not is_ping_back:
             self._create_stat(packet, None, True)
