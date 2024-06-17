@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.19.0 (2024-06-17)
+
+### Feature
+
+
+- Simplify websocket stats logic (#88) ([`5b01f34`](https://github.com/uilibs/uiprotect/commit/5b01f34b9c5cc8bcb3cae9f274acd687870a4091))
+
+
+### Fix
+
+
+- Refactoring error in 83 (#89) ([`ed477c2`](https://github.com/uilibs/uiprotect/commit/ed477c288047fd1fba39f51d6e695adb6a72ba08))
+
+
 ## v1.18.1 (2024-06-17)
 
 ### Fix
