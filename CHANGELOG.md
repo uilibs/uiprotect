@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.17.0 (2024-06-17)
+
+### Feature
+
+
+- Improve performance of websocket packet processing (#82) ([`58df1c3`](https://github.com/uilibs/uiprotect/commit/58df1c3ac1c050c418d6ea6255ce18ad64422168))
+
+
+### Refactor
+
+
+- Remove and consolidate unused code in base (#81) ([`523d931`](https://github.com/uilibs/uiprotect/commit/523d931f6a06b7c66fc7af7cdfac2abf8ebaa737))
+
+
+- Use tuples for all the delete iterators (#80) ([`9ec88ce`](https://github.com/uilibs/uiprotect/commit/9ec88ce68ab5c0d9f6cb30175eb4ffd9b4a47d43))
+
+
+- Cleanup debug (#79) ([`7883c24`](https://github.com/uilibs/uiprotect/commit/7883c24c9b9a08e41ec044e943e6fab3b66a56f1))
+
+
+- Reduce code to remove keys (#78) ([`7b496cb`](https://github.com/uilibs/uiprotect/commit/7b496cb72b3b5efffad18bb86f58355e910122e7))
+
+
 ## v1.16.0 (2024-06-17)
 
 ### Feature
