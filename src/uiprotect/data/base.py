@@ -401,15 +401,12 @@ class ProtectBaseObject(BaseModel):
         if not isinstance(value, list):
             return value
 
-        items: list[Any] = []
-        for item in value:
-            if isinstance(item, ProtectBaseObject):
-                new_item = item.unifi_dict()
-            else:
-                new_item = klass.construct({}).unifi_dict(data=item)  # type: ignore[arg-type]
-            items.append(new_item)
-
-        return items
+        return [
+            item.unifi_dict()
+            if isinstance(item, ProtectBaseObject)
+            else klass.construct({}).unifi_dict(data=item)  # type: ignore[arg-type]
+            for item in value
+        ]
 
     def _unifi_dict_protect_obj_dict(
         self,
@@ -424,13 +421,10 @@ class ProtectBaseObject(BaseModel):
         if not isinstance(value, dict):
             return value
 
-        items: dict[Any, Any] = {}
-        for obj_key, obj in value.items():
-            if isinstance(obj, ProtectBaseObject):
-                obj = obj.unifi_dict()
-            items[obj_key] = obj
-
-        return items
+        return {
+            obj_key: obj.unifi_dict() if isinstance(obj, ProtectBaseObject) else obj
+            for obj_key, obj in value.items()
+        }
 
     def unifi_dict(
         self,
