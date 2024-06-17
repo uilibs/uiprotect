@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.18.1 (2024-06-17)
+
+### Fix
+
+
+- Ensure camera and chime keys are not included in the base ignored set (#86) ([`02ab5f6`](https://github.com/uilibs/uiprotect/commit/02ab5f696db9497610ec6b34739452abdfe6ca68))
+
+
+- Ignore cameraids for chime updates (#85) ([`3a7e48d`](https://github.com/uilibs/uiprotect/commit/3a7e48dea4111eb6b0a6012ffe08cafcd66cf4d6))
+
+
 ## v1.18.0 (2024-06-17)
 
 ### Feature
