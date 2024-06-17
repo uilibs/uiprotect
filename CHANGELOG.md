@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.14.0 (2024-06-17)
+
+### Feature
+
+
+- Optimize update_from_dict (#75) ([`1b8ed6d`](https://github.com/uilibs/uiprotect/commit/1b8ed6dc146c0351927eeb15c47373481b3ad40e))
+
+
 ## v1.13.0 (2024-06-16)
 
 ### Feature
