@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.19.1 (2024-06-19)
+
+### Fix
+
+
+- Update broken documentation readme link (#90) ([`1580c04`](https://github.com/uilibs/uiprotect/commit/1580c042d04d989e1ebe4b919df3d232ae4e8ae9))
+
+
 ## v1.19.0 (2024-06-17)
 
 ### Feature
