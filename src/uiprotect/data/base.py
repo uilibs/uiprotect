@@ -483,7 +483,7 @@ class ProtectBaseObject(BaseModel):
                 if (unifi_obj := getattr(cls, key)) is not None:
                     value = unifi_obj.update_from_dict(item)
                 else:
-                    value = None
+                    value = unifi_objs[key](**item, api=api)
             elif has_unifi_lists and key in unifi_lists and isinstance(item, list):
                 klass = unifi_lists[key]
                 value = [
