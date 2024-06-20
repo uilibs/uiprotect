@@ -59,7 +59,7 @@ from .types import (
 from .user import User, UserLocation
 
 try:
-    from pydantic.v1 import PrivateAttr
+    from pydantic.v1.fields import PrivateAttr
 except ImportError:
     from pydantic.fields import PrivateAttr
 

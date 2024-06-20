@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 try:
-    from pydantic.v1 import PrivateAttr
+    from pydantic.v1.fields import PrivateAttr
 except ImportError:
     from pydantic.fields import PrivateAttr
 
