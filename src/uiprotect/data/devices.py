@@ -474,14 +474,11 @@ class SmartDetectSettings(ProtectBaseObject):
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "objectTypes" in data:
-            data["objectTypes"] = convert_smart_types(data.pop("objectTypes"))
         if "audioTypes" in data:
-            data["audioTypes"] = convert_smart_audio_types(data.pop("audioTypes"))
-        if "autoTrackingObjectTypes" in data:
-            data["autoTrackingObjectTypes"] = convert_smart_types(
-                data.pop("autoTrackingObjectTypes"),
-            )
+            data["audioTypes"] = convert_smart_audio_types(data["audioTypes"])
+        for key in ("objectTypes", "autoTrackingObjectTypes"):
+            if key in data:
+                data[key] = convert_smart_types(data[key])
 
         return super().unifi_dict_to_dict(data)
 
@@ -578,22 +575,18 @@ class VideoStats(ProtectBaseObject):
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "recordingStart" in data:
-            data["recordingStart"] = convert_to_datetime(data["recordingStart"])
-        if "recordingEnd" in data:
-            data["recordingEnd"] = convert_to_datetime(data["recordingEnd"])
-        if "recordingStartLQ" in data:
-            data["recordingStartLQ"] = convert_to_datetime(data["recordingStartLQ"])
-        if "recordingEndLQ" in data:
-            data["recordingEndLQ"] = convert_to_datetime(data["recordingEndLQ"])
-        if "timelapseStart" in data:
-            data["timelapseStart"] = convert_to_datetime(data["timelapseStart"])
-        if "timelapseEnd" in data:
-            data["timelapseEnd"] = convert_to_datetime(data["timelapseEnd"])
-        if "timelapseStartLQ" in data:
-            data["timelapseStartLQ"] = convert_to_datetime(data["timelapseStartLQ"])
-        if "timelapseEndLQ" in data:
-            data["timelapseEndLQ"] = convert_to_datetime(data["timelapseEndLQ"])
+        for key in (
+            "recordingStart",
+            "recordingEnd",
+            "recordingStartLQ",
+            "recordingEndLQ",
+            "timelapseStart",
+            "timelapseEnd",
+            "timelapseStartLQ",
+            "timelapseEndLQ",
+        ):
+            if key in data:
+                data[key] = convert_to_datetime(data[key])
 
         return super().unifi_dict_to_dict(data)
 
@@ -1062,27 +1055,21 @@ class Camera(ProtectMotionDeviceModel):
                 ]
 
         data = super().unifi_dict(data=data, exclude=exclude)
+        for key in (
+            "lastRingEventId",
+            "lastSmartDetect",
+            "lastSmartAudioDetect",
+            "lastSmartDetectEventId",
+            "lastSmartAudioDetectEventId",
+            "lastSmartDetects",
+            "lastSmartAudioDetects",
+            "lastSmartDetectEventIds",
+            "lastSmartAudioDetectEventIds",
+            "talkbackStream",
+        ):
+            if key in data:
+                del data[key]
 
-        if "lastRingEventId" in data:
-            del data["lastRingEventId"]
-        if "lastSmartDetect" in data:
-            del data["lastSmartDetect"]
-        if "lastSmartAudioDetect" in data:
-            del data["lastSmartAudioDetect"]
-        if "lastSmartDetectEventId" in data:
-            del data["lastSmartDetectEventId"]
-        if "lastSmartAudioDetectEventId" in data:
-            del data["lastSmartAudioDetectEventId"]
-        if "lastSmartDetects" in data:
-            del data["lastSmartDetects"]
-        if "lastSmartAudioDetects" in data:
-            del data["lastSmartAudioDetects"]
-        if "lastSmartDetectEventIds" in data:
-            del data["lastSmartDetectEventIds"]
-        if "lastSmartAudioDetectEventIds" in data:
-            del data["lastSmartAudioDetectEventIds"]
-        if "talkbackStream" in data:
-            del data["talkbackStream"]
         if "lcdMessage" in data and data["lcdMessage"] is None:
             data["lcdMessage"] = {}
 
@@ -2820,18 +2807,15 @@ class Sensor(ProtectAdoptableDeviceModel):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "lastMotionEventId" in data:
-            del data["lastMotionEventId"]
-        if "lastContactEventId" in data:
-            del data["lastContactEventId"]
-        if "lastValueEventId" in data:
-            del data["lastValueEventId"]
-        if "lastAlarmEventId" in data:
-            del data["lastAlarmEventId"]
-        if "extremeValueDetectedAt" in data:
-            del data["extremeValueDetectedAt"]
-
+        for key in (
+            "lastMotionEventId",
+            "lastContactEventId",
+            "lastValueEventId",
+            "lastAlarmEventId",
+            "extremeValueDetectedAt",
+        ):
+            if key in data:
+                del data[key]
         return data
 
     @property

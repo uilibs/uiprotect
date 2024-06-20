@@ -1,5 +1,91 @@
 # Changelog
 
+## v1.19.1 (2024-06-19)
+
+### Fix
+
+
+- Update broken documentation readme link (#90) ([`1580c04`](https://github.com/uilibs/uiprotect/commit/1580c042d04d989e1ebe4b919df3d232ae4e8ae9))
+
+
+## v1.19.0 (2024-06-17)
+
+### Feature
+
+
+- Simplify websocket stats logic (#88) ([`5b01f34`](https://github.com/uilibs/uiprotect/commit/5b01f34b9c5cc8bcb3cae9f274acd687870a4091))
+
+
+### Fix
+
+
+- Refactoring error in 83 (#89) ([`ed477c2`](https://github.com/uilibs/uiprotect/commit/ed477c288047fd1fba39f51d6e695adb6a72ba08))
+
+
+## v1.18.1 (2024-06-17)
+
+### Fix
+
+
+- Ensure camera and chime keys are not included in the base ignored set (#86) ([`02ab5f6`](https://github.com/uilibs/uiprotect/commit/02ab5f696db9497610ec6b34739452abdfe6ca68))
+
+
+- Ignore cameraids for chime updates (#85) ([`3a7e48d`](https://github.com/uilibs/uiprotect/commit/3a7e48dea4111eb6b0a6012ffe08cafcd66cf4d6))
+
+
+## v1.18.0 (2024-06-17)
+
+### Feature
+
+
+- Add repr for websocket packets (#84) ([`60dd356`](https://github.com/uilibs/uiprotect/commit/60dd356a233ab183c31375417ded3f6e53427e5d))
+
+
+### Refactor
+
+
+- Avoid writing out some more key converts (#83) ([`851c798`](https://github.com/uilibs/uiprotect/commit/851c7987b772a185fd4c448dddd9e180fd4f16da))
+
+
+## v1.17.0 (2024-06-17)
+
+### Feature
+
+
+- Improve performance of websocket packet processing (#82) ([`58df1c3`](https://github.com/uilibs/uiprotect/commit/58df1c3ac1c050c418d6ea6255ce18ad64422168))
+
+
+### Refactor
+
+
+- Remove and consolidate unused code in base (#81) ([`523d931`](https://github.com/uilibs/uiprotect/commit/523d931f6a06b7c66fc7af7cdfac2abf8ebaa737))
+
+
+- Use tuples for all the delete iterators (#80) ([`9ec88ce`](https://github.com/uilibs/uiprotect/commit/9ec88ce68ab5c0d9f6cb30175eb4ffd9b4a47d43))
+
+
+- Cleanup debug (#79) ([`7883c24`](https://github.com/uilibs/uiprotect/commit/7883c24c9b9a08e41ec044e943e6fab3b66a56f1))
+
+
+- Reduce code to remove keys (#78) ([`7b496cb`](https://github.com/uilibs/uiprotect/commit/7b496cb72b3b5efffad18bb86f58355e910122e7))
+
+
+## v1.16.0 (2024-06-17)
+
+### Feature
+
+
+- Refactor protect obj methods to use comprehensions (#77) ([`ae4cdb9`](https://github.com/uilibs/uiprotect/commit/ae4cdb914b162c756f8384c0c25f256fbaa634d7))
+
+
+## v1.15.0 (2024-06-17)
+
+### Feature
+
+
+- Small cleanup to get device functions (#76) ([`86f18d8`](https://github.com/uilibs/uiprotect/commit/86f18d8901d8fd9b6e2ebfa9c3926ed1d1d0e45c))
+
+
 ## v1.14.0 (2024-06-17)
 
 ### Feature

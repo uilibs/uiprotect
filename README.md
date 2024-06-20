@@ -90,7 +90,7 @@ If you are not okay with the feature being locked behind Remote Access, [let Ubi
 
 ## Documentation
 
-[Full documentation for the project](https://uilibs.github.io/uiprotect/).
+[Full documentation for the project](https://uiprotect.readthedocs.io/).
 
 ## Requirements
 

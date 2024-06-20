@@ -309,9 +309,9 @@ class Event(ProtectModelWithId):
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        for key in {"start", "end", "timestamp", "deletedAt"}.intersection(data):
-            data[key] = convert_to_datetime(data[key])
-
+        for key in ("start", "end", "timestamp", "deletedAt"):
+            if key in data:
+                data[key] = convert_to_datetime(data[key])
         return super().unifi_dict_to_dict(data)
 
     def unifi_dict(

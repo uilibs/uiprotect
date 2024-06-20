@@ -187,12 +187,6 @@ class ProtectBaseObject(BaseModel):
 
     @classmethod
     @cache
-    def _get_unifi_remaps_set(self) -> set[str]:
-        """Helper method to get set of all child UFP objects."""
-        return set(self._get_unifi_remaps())
-
-    @classmethod
-    @cache
     def _get_to_unifi_remaps(cls) -> dict[str, str]:
         """
         Helper method for overriding in child classes for reversing remap UFP
@@ -238,9 +232,9 @@ class ProtectBaseObject(BaseModel):
 
     @classmethod
     @cache
-    def _get_protect_objs_set(cls) -> set[str]:
-        """Helper method to get all child UFP objects"""
-        return set(cls._get_protect_objs())
+    def _get_excluded_fields(cls) -> set[str]:
+        """Helper method to get all excluded fields for the current object."""
+        return set(cls._get_protect_objs()) | set(cls._get_protect_lists())
 
     @classmethod
     @cache
@@ -253,24 +247,12 @@ class ProtectBaseObject(BaseModel):
 
     @classmethod
     @cache
-    def _get_protect_lists_set(cls) -> set[str]:
-        """Helper method to get all child UFP objects"""
-        return set(cls._get_protect_lists())
-
-    @classmethod
-    @cache
     def _get_protect_dicts(cls) -> dict[str, type[ProtectBaseObject]]:
         """Helper method to get all child of UFP objects (dicts)"""
         if cls._protect_dicts is None:
             cls._set_protect_subtypes()
             assert cls._protect_dicts is not None
         return cls._protect_dicts
-
-    @classmethod
-    @cache
-    def _get_protect_dicts_set(cls) -> set[str]:
-        """Helper method to get all child UFP objects"""
-        return set(cls._get_protect_dicts())
 
     @classmethod
     def _clean_protect_obj(
@@ -401,15 +383,12 @@ class ProtectBaseObject(BaseModel):
         if not isinstance(value, list):
             return value
 
-        items: list[Any] = []
-        for item in value:
-            if isinstance(item, ProtectBaseObject):
-                new_item = item.unifi_dict()
-            else:
-                new_item = klass.construct({}).unifi_dict(data=item)  # type: ignore[arg-type]
-            items.append(new_item)
-
-        return items
+        return [
+            item.unifi_dict()
+            if isinstance(item, ProtectBaseObject)
+            else klass.construct({}).unifi_dict(data=item)  # type: ignore[arg-type]
+            for item in value
+        ]
 
     def _unifi_dict_protect_obj_dict(
         self,
@@ -424,13 +403,10 @@ class ProtectBaseObject(BaseModel):
         if not isinstance(value, dict):
             return value
 
-        items: dict[Any, Any] = {}
-        for obj_key, obj in value.items():
-            if isinstance(obj, ProtectBaseObject):
-                obj = obj.unifi_dict()
-            items[obj_key] = obj
-
-        return items
+        return {
+            obj_key: obj.unifi_dict() if isinstance(obj, ProtectBaseObject) else obj
+            for obj_key, obj in value.items()
+        }
 
     def unifi_dict(
         self,
@@ -454,9 +430,7 @@ class ProtectBaseObject(BaseModel):
         """
         use_obj = False
         if data is None:
-            excluded_fields = (
-                self._get_protect_objs_set() | self._get_protect_lists_set()
-            )
+            excluded_fields = self._get_excluded_fields()
             if exclude is not None:
                 excluded_fields |= exclude
             data = self.dict(exclude=excluded_fields)
@@ -971,16 +945,13 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "wiredConnectionState" in data and data["wiredConnectionState"] is None:
-            del data["wiredConnectionState"]
-        if "wifiConnectionState" in data and data["wifiConnectionState"] is None:
-            del data["wifiConnectionState"]
-        if (
-            "bluetoothConnectionState" in data
-            and data["bluetoothConnectionState"] is None
+        for key in (
+            "wiredConnectionState",
+            "wifiConnectionState",
+            "bluetoothConnectionState",
         ):
-            del data["bluetoothConnectionState"]
+            if key in data and data[key] is None:
+                del data[key]
         return data
 
     @classmethod
