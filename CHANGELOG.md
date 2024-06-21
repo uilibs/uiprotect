@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.19.3 (2024-06-21)
+
+### Fix
+
+
+- Pin and drop pydantic compat imports now that pydantic is fixed (#94) ([`00adc2c`](https://github.com/uilibs/uiprotect/commit/00adc2cc39cf004e93952a8ef489ef1051c1fb83))
+
+
 ## v1.19.2 (2024-06-20)
 
 ### Fix
