@@ -5,6 +5,8 @@ from typing import Any
 from uuid import UUID
 
 import pytest
+from pydantic.v1.config import BaseConfig
+from pydantic.v1.fields import ModelField
 
 from uiprotect.utils import (
     convert_to_datetime,
@@ -12,13 +14,6 @@ from uiprotect.utils import (
     dict_diff,
     to_snake_case,
 )
-
-try:
-    from pydantic.v1.config import BaseConfig
-    from pydantic.v1.fields import ModelField
-except ImportError:
-    from pydantic.config import BaseConfig
-    from pydantic.fields import ModelField  # type: ignore[attr-defined]
 
 
 def test_dict_diff_equal():
