@@ -11,6 +11,9 @@ from ipaddress import IPv4Address
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 from uuid import UUID
 
+from pydantic.v1 import BaseModel
+from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
+
 from ..exceptions import BadRequest, ClientError, NotAuthorized
 from ..utils import (
     asyncio_timeout,
@@ -33,17 +36,6 @@ from .websocket import (
     WSPacket,
     WSPacketFrameHeader,
 )
-
-try:
-    from pydantic.v1 import BaseModel
-    from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
-except ImportError:
-    from pydantic import BaseModel  # type: ignore[assignment, no-redef]
-    from pydantic.fields import (  # type: ignore[attr-defined, assignment, no-redef]
-        SHAPE_DICT,
-        SHAPE_LIST,
-        PrivateAttr,
-    )
 
 if TYPE_CHECKING:
     from asyncio.events import TimerHandle

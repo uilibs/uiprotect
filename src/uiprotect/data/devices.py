@@ -12,10 +12,7 @@ from ipaddress import IPv4Address
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-try:
-    from pydantic.v1.fields import PrivateAttr
-except ImportError:
-    from pydantic.fields import PrivateAttr
+from pydantic.v1.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized, StreamError
 from ..stream import TalkbackStream

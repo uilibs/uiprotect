@@ -25,11 +25,6 @@ from uiprotect.data.websocket import WSAction, WSSubscriptionMessage
 from uiprotect.exceptions import BadRequest
 from uiprotect.utils import to_js_time
 
-try:
-    from pydantic.v1 import ValidationError
-except ImportError:
-    from pydantic import ValidationError
-
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("status", [True, False])

@@ -14,11 +14,6 @@ from ..data import NVR, ProtectAdoptableDeviceModel, ProtectBaseObject
 from ..exceptions import BadRequest, NvrError, StreamError
 from ..utils import run_async
 
-try:
-    from pydantic.v1 import ValidationError
-except ImportError:
-    from pydantic import ValidationError  # type: ignore[assignment]
-
 T = TypeVar("T")
 
 OPTION_FORCE = typer.Option(False, "-f", "--force", help="Skip confirmation prompt")
