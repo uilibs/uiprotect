@@ -17,11 +17,12 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone, tzinfo
 from decimal import Decimal
 from enum import Enum
-from functools import cache, lru_cache
+from functools import cache, lru_cache, partial
 from hashlib import sha224
 from http.cookies import Morsel
 from inspect import isclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
+from operator import attrgetter
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar, Union, overload
 from uuid import UUID
@@ -619,3 +620,57 @@ def clamp_value(value: float, step_size: float) -> float:
 def normalize_mac(mac: str) -> str:
     """Normalize MAC address."""
     return mac.lower().replace(":", "").replace("-", "").replace("_", "")
+
+
+_SENTINEL = object()
+
+
+def get_nested_attr(attrs: tuple[str, ...], obj: Any) -> Any:
+    """Fetch a nested attribute."""
+    value = obj
+    for key in attrs:
+        if (value := getattr(value, key, _SENTINEL)) is _SENTINEL:
+            return None
+    return value.value if isinstance(value, Enum) else value
+
+
+def get_nested_attr_as_bool(attrs: tuple[str, ...], obj: Any) -> bool:
+    """Fetch a nested attribute as a bool."""
+    value = obj
+    for key in attrs:
+        if (value := getattr(value, key, _SENTINEL)) is _SENTINEL:
+            return False
+    return bool(value.value if isinstance(value, Enum) else value)
+
+
+def get_top_level_attr(attr: str, obj: Any) -> Any:
+    """Fetch a top level attribute."""
+    value = getattr(obj, attr)
+    return value.value if isinstance(value, Enum) else value
+
+
+def get_top_level_attr_as_bool(attr: str, obj: Any) -> Any:
+    """Fetch a top level attribute as a bool."""
+    value = getattr(obj, attr)
+    return bool(value.value if isinstance(value, Enum) else value)
+
+
+def make_value_getter(ufp_value: str) -> Callable[[T], Any]:
+    """Return a function to get a value from a Protect device."""
+    if "." not in ufp_value:
+        return partial(get_top_level_attr, ufp_value)
+    return partial(get_nested_attr, tuple(ufp_value.split(".")))
+
+
+def make_enabled_getter(ufp_enabled: str) -> Callable[[T], bool]:
+    """Return a function to get a value from a Protect device."""
+    if "." not in ufp_enabled:
+        return attrgetter(ufp_enabled)
+    return partial(get_nested_attr, tuple(ufp_enabled.split(".")))
+
+
+def make_required_getter(ufp_required_field: str) -> Callable[[T], bool]:
+    """Return a function to get a value from a Protect device."""
+    if "." not in ufp_required_field:
+        return partial(get_top_level_attr_as_bool, ufp_required_field)
+    return partial(get_nested_attr_as_bool, tuple(ufp_required_field.split(".")))

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any
+from unittest.mock import Mock
 from uuid import UUID
 
 import pytest
@@ -12,6 +14,13 @@ from uiprotect.utils import (
     convert_to_datetime,
     convert_unifi_data,
     dict_diff,
+    get_nested_attr,
+    get_nested_attr_as_bool,
+    get_top_level_attr,
+    get_top_level_attr_as_bool,
+    make_enabled_getter,
+    make_required_getter,
+    make_value_getter,
     to_snake_case,
 )
 
@@ -197,3 +206,71 @@ async def test_caching():
     result1 = convert_to_datetime(timestamp)
     result2 = convert_to_datetime(timestamp)
     assert result1 is result2
+
+
+class _MockEnum(Enum):
+    A = 1
+    B = 2
+    C = 3
+
+
+@pytest.mark.asyncio
+def test_get_nested_attr():
+    data = Mock(a=Mock(b=Mock(c=1)), d=3, f=_MockEnum.C)
+    assert get_nested_attr(("a", "b", "c"), data) == 1
+    assert get_nested_attr(("d",), data) == 3
+    assert get_nested_attr(("f",), data) == _MockEnum.C.value
+
+
+@pytest.mark.asyncio
+def test_get_nested_attr_as_bool():
+    data = Mock(a=Mock(b=Mock(c=True)), d=False, f=_MockEnum.C)
+    assert get_nested_attr_as_bool(("a", "b", "c"), data) is True
+    assert get_nested_attr_as_bool(("d",), data) is False
+    assert get_nested_attr_as_bool(("f",), data) is True
+
+
+@pytest.mark.asyncio
+def test_get_top_level_attr():
+    data = Mock(a=1, b=2, c=3, d=_MockEnum.C)
+    assert get_top_level_attr("a", data) == 1
+    assert get_top_level_attr("b", data) == 2
+    assert get_top_level_attr("c", data) == 3
+    assert get_top_level_attr("d", data) == _MockEnum.C.value
+
+
+@pytest.mark.asyncio
+def test_get_top_level_attr_as_bool():
+    data = Mock(a=True, b=False, c=_MockEnum.C, d=None)
+    assert get_top_level_attr_as_bool("a", data) is True
+    assert get_top_level_attr_as_bool("b", data) is False
+    assert get_top_level_attr_as_bool("c", data) is True
+    assert get_top_level_attr_as_bool("d", data) is False
+
+
+@pytest.mark.asyncio
+def test_make_value_getter():
+    data = Mock(a=1, b=2, c=3, d=_MockEnum.C)
+    assert make_value_getter("a")(data) == 1
+    assert make_value_getter("b")(data) == 2
+    assert make_value_getter("c")(data) == 3
+    assert make_value_getter("d")(data) == _MockEnum.C.value
+
+
+@pytest.mark.asyncio
+def test_make_enabled_getter():
+    data = Mock(a=True, b=False, c=True, d=False)
+    assert make_enabled_getter("a")(data) is True
+    assert make_enabled_getter("b")(data) is False
+    assert make_enabled_getter("c")(data) is True
+    assert make_enabled_getter("d")(data) is False
+
+
+@pytest.mark.asyncio
+def test_make_required_getter():
+    data = Mock(a=1, b=2, c=3, d=_MockEnum.C, e=None)
+    assert make_required_getter("a")(data) is True
+    assert make_required_getter("b")(data) is True
+    assert make_required_getter("c")(data) is True
+    assert make_required_getter("d")(data) is True
+    assert make_required_getter("e")(data) is False
