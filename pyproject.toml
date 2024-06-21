@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "uiprotect"
-version = "1.19.0"
+version = "1.19.2"
 description = "Python API for Unifi Protect (Unofficial)"
 authors = ["UI Protect Maintainers <ui@koston.org>"]
 license = "MIT"
@@ -41,7 +41,7 @@ orjson = ">=3.9.15"
 packaging = ">=23"
 pillow = ">=10"
 platformdirs = ">=4"
-pydantic = "!=1.9.1,>=1.10.13"
+pydantic = "!=1.9.1,>=1.10.17"
 pyjwt = ">=2.6"
 yarl = ">=1.9"
 typer = ">=0.12.3"

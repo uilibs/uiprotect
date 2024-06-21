@@ -28,6 +28,8 @@ from uuid import UUID
 
 import jwt
 from aiohttp import ClientResponse
+from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, SHAPE_SET, ModelField
+from pydantic.v1.utils import to_camel
 
 from .data.types import (
     Color,
@@ -37,18 +39,6 @@ from .data.types import (
     VideoMode,
 )
 from .exceptions import NvrError
-
-try:
-    from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, SHAPE_SET, ModelField
-    from pydantic.v1.utils import to_camel
-except ImportError:
-    from pydantic.fields import (  # type: ignore[assignment, no-redef, attr-defined]
-        SHAPE_DICT,
-        SHAPE_LIST,
-        SHAPE_SET,
-        ModelField,
-    )
-    from pydantic.utils import to_camel  # type: ignore[assignment, no-redef]
 
 if TYPE_CHECKING:
     from uiprotect.api import ProtectApiClient

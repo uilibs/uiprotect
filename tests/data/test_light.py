@@ -13,11 +13,6 @@ from uiprotect.data.types import LightModeEnableType, LightModeType
 from uiprotect.exceptions import BadRequest
 from uiprotect.utils import to_ms
 
-try:
-    from pydantic.v1 import ValidationError
-except ImportError:
-    from pydantic import ValidationError
-
 if TYPE_CHECKING:
     from uiprotect.data import Camera, Light
 

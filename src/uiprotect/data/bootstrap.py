@@ -10,11 +10,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from aiohttp.client_exceptions import ServerDisconnectedError
-
-try:
-    from pydantic.v1 import PrivateAttr, ValidationError
-except ImportError:
-    from pydantic import PrivateAttr, ValidationError  # type: ignore[assignment]
+from pydantic.v1 import PrivateAttr, ValidationError
 
 from ..exceptions import ClientError
 from ..utils import normalize_mac, utc_now

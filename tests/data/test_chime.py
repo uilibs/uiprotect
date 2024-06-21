@@ -11,11 +11,6 @@ from tests.conftest import TEST_CAMERA_EXISTS, TEST_CHIME_EXISTS
 from uiprotect.data import RingSetting
 from uiprotect.exceptions import BadRequest
 
-try:
-    from pydantic.v1 import ValidationError
-except ImportError:
-    from pydantic import ValidationError
-
 if TYPE_CHECKING:
     from uiprotect.data import Camera, Chime
 
