@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.20.0 (2024-06-21)
+
+### Feature
+
+
+- Include getter builder utils for fetching ufp object values (#95) ([`9056edf`](https://github.com/uilibs/uiprotect/commit/9056edf85ecf8cd59d053411ae18f1d05093d9e5))
+
+
 ## v1.19.3 (2024-06-21)
 
 ### Fix
