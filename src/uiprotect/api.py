@@ -75,7 +75,6 @@ if sys.version_info[:2] < (3, 13):
 
 TOKEN_COOKIE_MAX_EXP_SECONDS = 60
 
-NEVER_RAN = -1000
 # how many seconds before the bootstrap is refreshed from Protect
 DEVICE_UPDATE_INTERVAL = 900
 # retry timeout for thumbnails/heatmaps
@@ -164,7 +163,6 @@ class BaseApiClient:
     _ws_timeout: int
 
     _is_authenticated: bool = False
-    _last_update: float = NEVER_RAN
     _last_ws_status: bool = False
     _last_token_cookie: Morsel[str] | None = None
     _last_token_cookie_decode: dict[str, Any] | None = None
@@ -289,7 +287,7 @@ class BaseApiClient:
         # since the lastUpdateId is not valid anymore
         if self._update_task and not self._update_task.done():
             return
-        self._update_task = asyncio.create_task(self.update(force=True))
+        self._update_task = asyncio.create_task(self.update())
 
     async def close_session(self) -> None:
         """Closing and deletes client session"""
@@ -699,7 +697,7 @@ class BaseApiClient:
     def _get_last_update_id(self) -> str | None:
         raise NotImplementedError
 
-    async def update(self, force: bool = False) -> Bootstrap | None:
+    async def update(self) -> Bootstrap:
         raise NotImplementedError
 
 
@@ -710,8 +708,7 @@ class ProtectApiClient(BaseApiClient):
     UniFi Protect is a full async application. "normal" use of interacting with it is
     to call `.update()` which will initialize the `.bootstrap` and create a Websocket
     connection to UFP. This Websocket connection will emit messages that will automatically
-    update the `.bootstrap` over time. Caling `.udpate` again (without `force`) will
-    verify the integry of the Websocket connection.
+    update the `.bootstrap` over time.
 
     You can use the `.get_` methods to one off pull devices from the UFP API, but should
     not be used for building an aplication on top of.
@@ -816,32 +813,21 @@ class ProtectApiClient(BaseApiClient):
 
         return self._connection_host
 
-    async def update(self, force: bool = False) -> Bootstrap | None:
+    async def update(self) -> Bootstrap:
         """
-        Updates the state of devices, initalizes `.bootstrap` and
-        connects to UFP Websocket for real time updates
+        Updates the state of devices, initializes `.bootstrap`
+
+        The websocket is auto connected once there are any
+        subscriptions to it. update must be called at least
+        once before subscribing to the websocket.
 
         You can use the various other `get_` methods if you need one off data from UFP
         """
         async with self._update_lock:
-            now = time.monotonic()
-            if force:
-                self._last_update = NEVER_RAN
-
-            bootstrap_updated = False
-            if (
-                self._bootstrap is None
-                or now - self._last_update > DEVICE_UPDATE_INTERVAL
-            ):
-                bootstrap_updated = True
-                self._bootstrap = await self.get_bootstrap()
-                self.__dict__.pop("bootstrap", None)
-                self._last_update = now
-
-            if bootstrap_updated:
-                return None
-            self._last_update = now
-            return self._bootstrap
+            bootstrap = await self.get_bootstrap()
+            self.__dict__.pop("bootstrap", None)
+            self._bootstrap = bootstrap
+            return bootstrap
 
     async def poll_events(self) -> None:
         """Poll for events."""

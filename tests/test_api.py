@@ -286,13 +286,13 @@ def test_connection_host_override():
 async def test_force_update(protect_client: ProtectApiClient):
     protect_client._bootstrap = None
 
-    await protect_client.update(force=True)
+    await protect_client.update()
 
     assert protect_client.bootstrap
     original_bootstrap = protect_client.bootstrap
     protect_client._bootstrap = None
     with patch("uiprotect.api.ProtectApiClient.get_bootstrap", AsyncMock()) as mock:
-        await protect_client.update(force=False)
+        await protect_client.update()
         assert mock.called
 
     assert protect_client.bootstrap
