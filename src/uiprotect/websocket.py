@@ -76,28 +76,23 @@ class Websocket:
                 level = logging.ERROR if self._seen_non_close_message else logging.DEBUG
                 if isinstance(ex, WSServerHandshakeError):
                     if ex.status == HTTPStatus.UNAUTHORIZED.value:
-                        _LOGGER.log(level, "Websocket authentication error: %s", url)
+                        _LOGGER.log(
+                            level, "Websocket authentication error: %s: %s", url, ex
+                        )
                         await self._attempt_reauth()
                     else:
-                        _LOGGER.log(
-                            level, "Websocket handshake error: %s", url, exc_info=True
-                        )
+                        _LOGGER.log(level, "Websocket handshake error: %s: %s", url, ex)
                 else:
-                    _LOGGER.log(
-                        level, "Websocket disconnect error: %s", url, exc_info=True
-                    )
+                    _LOGGER.log(level, "Websocket disconnect error: %s: %s", url, ex)
             except asyncio.TimeoutError:
                 level = logging.ERROR if self._seen_non_close_message else logging.DEBUG
                 _LOGGER.log(level, "Websocket timeout: %s", url)
             except Exception:
-                _LOGGER.debug(
-                    "Unexpected error in websocket reconnect loop, backoff: %s",
-                    backoff,
-                    exc_info=True,
-                )
+                _LOGGER.exception("Unexpected error in websocket loop")
 
             if self._running is False:
                 break
+            _LOGGER.debug("Reconnecting websocket in %s seconds", backoff)
             await asyncio.sleep(self.backoff)
 
     async def _websocket_inner_loop(self, url: URL) -> None:
