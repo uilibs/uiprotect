@@ -261,6 +261,9 @@ class BaseApiClient:
             self.set_header("cookie", None)
             self.set_header("x-csrf-token", None)
             self._is_authenticated = False
+            # Force the next bootstrap update
+            # since the lastUpdateId is not valid anymore
+            self._last_update = NEVER_RAN
 
         await self.ensure_authenticated()
         return self.headers
