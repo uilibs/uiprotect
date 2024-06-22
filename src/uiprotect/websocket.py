@@ -16,8 +16,6 @@ from aiohttp import (
     WSMsgType,
 )
 
-from .utils import asyncio_timeout
-
 _LOGGER = logging.getLogger(__name__)
 AuthCallbackType = Callable[..., Coroutine[Any, Any, Optional[dict[str, str]]]]
 GetSessionCallbackType = Callable[[], Awaitable[ClientSession]]
@@ -112,13 +110,9 @@ class Websocket:
         # catch any and all errors for Websocket so we can clean up correctly
         try:
             session = await self._get_session()
-            async with asyncio_timeout(self.timeout):
-                self._ws_connection = await session.ws_connect(
-                    url,
-                    ssl=ssl,
-                    headers=self._headers,
-                )
-
+            self._ws_connection = await session.ws_connect(
+                url, ssl=ssl, headers=self._headers, timeout=self.timeout
+            )
             self._last_ws_connect_ok = True
             while True:
                 msg = await self._ws_connection.receive(self.timeout)
