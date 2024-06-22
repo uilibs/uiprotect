@@ -83,7 +83,7 @@ class Websocket:
             try:
                 await self._websocket_loop()
             except ClientError:
-                _LOGGER.debug("Error in websocket reconnect loop, backoff", backoff)
+                _LOGGER.debug("Error in websocket reconnect loop, backoff: %s", backoff)
             except Exception:
                 _LOGGER.debug(
                     "Error in websocket reconnect loop, backoff: %s",
