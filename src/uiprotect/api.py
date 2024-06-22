@@ -203,6 +203,7 @@ class BaseApiClient:
         self._verify_ssl = verify_ssl
         self._ws_timeout = ws_timeout
         self._loaded_session = False
+        self._update_task: asyncio.Task[Bootstrap | None] | None = None
 
         self.config_dir = config_dir or (Path(user_config_dir()) / "ufp")
         self.cache_dir = cache_dir or (Path(user_cache_dir()) / "ufp_cache")
@@ -284,14 +285,24 @@ class BaseApiClient:
         _LOGGER.debug("Updating bootstrap soon")
         # Force the next bootstrap update
         # since the lastUpdateId is not valid anymore
-        self._last_update = NEVER_RAN
+        if self._update_task and not self._update_task.done():
+            return
+        self._update_task = asyncio.create_task(self.update(force=True))
 
     async def close_session(self) -> None:
         """Closing and deletes client session"""
+        await self._cancel_update_task()
         if self._session is not None:
             await self._session.close()
             self._session = None
             self._loaded_session = False
+
+    async def _cancel_update_task(self) -> None:
+        if self._update_task:
+            self._update_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._update_task
+            self._update_task = None
 
     def set_header(self, key: str, value: str | None) -> None:
         """Set header."""
@@ -668,6 +679,9 @@ class BaseApiClient:
     def _get_last_update_id(self) -> str | None:
         raise NotImplementedError
 
+    async def update(self, force: bool = False) -> Bootstrap | None:
+        raise NotImplementedError
+
 
 class ProtectApiClient(BaseApiClient):
     """
@@ -748,6 +762,7 @@ class ProtectApiClient(BaseApiClient):
         self._ignore_stats = ignore_stats
         self._ws_subscriptions = []
         self.ignore_unadopted = ignore_unadopted
+        self._update_lock = asyncio.Lock()
 
         if override_connection_host:
             self._connection_host = ip_from_host(self._host)
@@ -788,21 +803,25 @@ class ProtectApiClient(BaseApiClient):
 
         You can use the various other `get_` methods if you need one off data from UFP
         """
-        now = time.monotonic()
-        if force:
-            self._last_update = NEVER_RAN
+        async with self._update_lock:
+            now = time.monotonic()
+            if force:
+                self._last_update = NEVER_RAN
 
-        bootstrap_updated = False
-        if self._bootstrap is None or now - self._last_update > DEVICE_UPDATE_INTERVAL:
-            bootstrap_updated = True
-            self._bootstrap = await self.get_bootstrap()
-            self.__dict__.pop("bootstrap", None)
+            bootstrap_updated = False
+            if (
+                self._bootstrap is None
+                or now - self._last_update > DEVICE_UPDATE_INTERVAL
+            ):
+                bootstrap_updated = True
+                self._bootstrap = await self.get_bootstrap()
+                self.__dict__.pop("bootstrap", None)
+                self._last_update = now
+
+            if bootstrap_updated:
+                return None
             self._last_update = now
-
-        if bootstrap_updated:
-            return None
-        self._last_update = now
-        return self._bootstrap
+            return self._bootstrap
 
     async def poll_events(self) -> None:
         """Poll for events."""
