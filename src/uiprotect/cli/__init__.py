@@ -201,6 +201,7 @@ def shell(ctx: typer.Context) -> None:
 
     async def wait_forever() -> None:
         await protect.update()
+        protect.subscribe_websocket(lambda _: None)
         while True:
             await asyncio.sleep(10)
             await protect.update()
@@ -262,12 +263,16 @@ def profile_ws(
 
     async def callback() -> None:
         await protect.update()
+        unsub = protect.subscribe_websocket(lambda _: None)
         await profile_ws_job(
             protect,
             wait_time,
             output_path=output_path,
             ws_progress=_progress_bar,
         )
+        unsub()
+        await protect.async_disconnect_ws()
+        await protect.close_session()
 
     _setup_logger()
 
