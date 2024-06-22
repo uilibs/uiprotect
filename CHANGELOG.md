@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.0.0 (2024-06-22)
+
+### Breaking
+
+
+- Rework websocket (#96) ([`574a846`](https://github.com/uilibs/uiprotect/commit/574a846ff4e34737169b49ec418b4a112fa12f3e))
+
+
 ## v1.20.0 (2024-06-21)
 
 ### Feature
