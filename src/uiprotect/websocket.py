@@ -123,6 +123,7 @@ class Websocket:
                 self._headers = await self._auth(True)
             else:
                 _LOGGER.log(level, "Websocket handshake error: %s", url, exc_info=True)
+            raise
         except ClientError:
             level = logging.ERROR if self._last_ws_connect_ok else logging.DEBUG
             self._last_ws_connect_ok = False
