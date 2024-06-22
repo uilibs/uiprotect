@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.3.0 (2024-06-22)
+
+### Feature
+
+
+- Handle websocket auth errors on restart (#102) ([`7026491`](https://github.com/uilibs/uiprotect/commit/7026491ac909cb2ed2bf3d9457cf86a1a44de025))
+
+
 ## v2.2.0 (2024-06-22)
 
 ### Feature
