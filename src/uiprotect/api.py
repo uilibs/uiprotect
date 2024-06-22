@@ -11,7 +11,7 @@ import sys
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
-from functools import cached_property
+from functools import cached_property, partial
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
@@ -203,6 +203,7 @@ class BaseApiClient:
         self._verify_ssl = verify_ssl
         self._ws_timeout = ws_timeout
         self._loaded_session = False
+        self._update_task: asyncio.Task[Bootstrap | None] | None = None
 
         self.config_dir = config_dir or (Path(user_config_dir()) / "ufp")
         self.cache_dir = cache_dir or (Path(user_cache_dir()) / "ufp_cache")
@@ -253,36 +254,55 @@ class BaseApiClient:
 
         return self._session
 
-    async def get_websocket(self) -> Websocket:
+    async def _auth_websocket(self, force: bool) -> dict[str, str] | None:
+        """Authenticate for Websocket."""
+        if force:
+            if self._session is not None:
+                self._session.cookie_jar.clear()
+            self.set_header("cookie", None)
+            self.set_header("x-csrf-token", None)
+            self._is_authenticated = False
+
+        await self.ensure_authenticated()
+        return self.headers
+
+    def _get_websocket(self) -> Websocket:
         """Gets or creates current Websocket."""
-
-        async def _auth(force: bool) -> dict[str, str] | None:
-            if force:
-                if self._session is not None:
-                    self._session.cookie_jar.clear()
-                self.set_header("cookie", None)
-                self.set_header("x-csrf-token", None)
-
-            await self.ensure_authenticated()
-            return self.headers
-
         if self._websocket is None:
             self._websocket = Websocket(
                 self.get_websocket_url,
-                _auth,
+                self._auth_websocket,
+                self._update_bootstrap_soon,
+                self.get_session,
+                self._process_ws_message,
                 verify=self._verify_ssl,
                 timeout=self._ws_timeout,
             )
-            self._websocket.subscribe(self._process_ws_message)
-
         return self._websocket
 
+    def _update_bootstrap_soon(self) -> None:
+        """Update bootstrap soon."""
+        _LOGGER.debug("Updating bootstrap soon")
+        # Force the next bootstrap update
+        # since the lastUpdateId is not valid anymore
+        if self._update_task and not self._update_task.done():
+            return
+        self._update_task = asyncio.create_task(self.update(force=True))
+
     async def close_session(self) -> None:
-        """Closing and delets client session"""
+        """Closing and deletes client session"""
+        await self._cancel_update_task()
         if self._session is not None:
             await self._session.close()
             self._session = None
             self._loaded_session = False
+
+    async def _cancel_update_task(self) -> None:
+        if self._update_task:
+            self._update_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._update_task
+            self._update_task = None
 
     def set_header(self, key: str, value: str | None) -> None:
         """Set header."""
@@ -413,8 +433,13 @@ class BaseApiClient:
         )
 
         if data is not None:
-            json_data: list[Any] | dict[str, Any] = orjson.loads(data)
-            return json_data
+            json_data: list[Any] | dict[str, Any]
+            try:
+                json_data = orjson.loads(data)
+                return json_data
+            except orjson.JSONDecodeError as ex:
+                _LOGGER.error("Could not decode JSON from %s", url)
+                raise NvrError(f"Could not decode JSON from {url}") from ex
         return None
 
     async def api_request_obj(
@@ -620,31 +645,17 @@ class BaseApiClient:
 
         return token_expires_at >= max_expire_time
 
-    async def async_connect_ws(self, force: bool) -> None:
-        """Connect to Websocket."""
-        if force and self._websocket is not None:
-            await self._websocket.disconnect()
-            self._websocket = None
-
-        websocket = await self.get_websocket()
-        if not websocket.is_connected:
-            self._last_ws_status = False
-            with contextlib.suppress(
-                TimeoutError,
-                asyncio.TimeoutError,
-                asyncio.CancelledError,
-            ):
-                await websocket.connect()
-
     def get_websocket_url(self) -> str:
         """Get Websocket URL."""
         return self.ws_url
 
     async def async_disconnect_ws(self) -> None:
         """Disconnect from Websocket."""
-        if self._websocket is None:
-            return
-        await self._websocket.disconnect()
+        if self._websocket:
+            websocket = self._get_websocket()
+            websocket.stop()
+            await websocket.wait_closed()
+            self._websocket = None
 
     def check_ws(self) -> bool:
         """Checks current state of Websocket."""
@@ -666,6 +677,9 @@ class BaseApiClient:
         raise NotImplementedError
 
     def _get_last_update_id(self) -> str | None:
+        raise NotImplementedError
+
+    async def update(self, force: bool = False) -> Bootstrap | None:
         raise NotImplementedError
 
 
@@ -748,6 +762,7 @@ class ProtectApiClient(BaseApiClient):
         self._ignore_stats = ignore_stats
         self._ws_subscriptions = []
         self.ignore_unadopted = ignore_unadopted
+        self._update_lock = asyncio.Lock()
 
         if override_connection_host:
             self._connection_host = ip_from_host(self._host)
@@ -788,41 +803,37 @@ class ProtectApiClient(BaseApiClient):
 
         You can use the various other `get_` methods if you need one off data from UFP
         """
-        now = time.monotonic()
+        async with self._update_lock:
+            now = time.monotonic()
+            if force:
+                self._last_update = NEVER_RAN
+
+            bootstrap_updated = False
+            if (
+                self._bootstrap is None
+                or now - self._last_update > DEVICE_UPDATE_INTERVAL
+            ):
+                bootstrap_updated = True
+                self._bootstrap = await self.get_bootstrap()
+                self.__dict__.pop("bootstrap", None)
+                self._last_update = now
+
+            if bootstrap_updated:
+                return None
+            self._last_update = now
+            return self._bootstrap
+
+    async def poll_events(self) -> None:
+        """Poll for events."""
         now_dt = utc_now()
         max_event_dt = now_dt - timedelta(hours=1)
-        if force:
-            self._last_update = NEVER_RAN
-            self._last_update_dt = max_event_dt
-
-        bootstrap_updated = False
-        if self._bootstrap is None or now - self._last_update > DEVICE_UPDATE_INTERVAL:
-            bootstrap_updated = True
-            self._bootstrap = await self.get_bootstrap()
-            self.__dict__.pop("bootstrap", None)
-            self._last_update = now
-            self._last_update_dt = now_dt
-
-        await self.async_connect_ws(force)
-        if self.check_ws():
-            # If the websocket is connected/connecting
-            # we do not need to get events
-            _LOGGER.debug("Skipping update since websocket is active")
-            return None
-
-        if bootstrap_updated:
-            return None
-
         events = await self.get_events(
             start=self._last_update_dt or max_event_dt,
             end=now_dt,
         )
         for event in events:
             self.bootstrap.process_event(event)
-
-        self._last_update = now
         self._last_update_dt = now_dt
-        return self._bootstrap
 
     def emit_message(self, msg: WSSubscriptionMessage) -> None:
         """Emit message to all subscriptions."""
@@ -1108,13 +1119,20 @@ class ProtectApiClient(BaseApiClient):
 
         Returns a callback that will unsubscribe.
         """
-
-        def _unsub_ws_callback() -> None:
-            self._ws_subscriptions.remove(ws_callback)
-
         _LOGGER.debug("Adding subscription: %s", ws_callback)
         self._ws_subscriptions.append(ws_callback)
-        return _unsub_ws_callback
+        self._get_websocket().start()
+        return partial(self._unsubscribe_websocket, ws_callback)
+
+    def _unsubscribe_websocket(
+        self,
+        ws_callback: Callable[[WSSubscriptionMessage], None],
+    ) -> None:
+        """Unsubscribe to websocket events."""
+        _LOGGER.debug("Removing subscription: %s", ws_callback)
+        self._ws_subscriptions.remove(ws_callback)
+        if not self._ws_subscriptions:
+            self._get_websocket().stop()
 
     async def get_bootstrap(self) -> Bootstrap:
         """
