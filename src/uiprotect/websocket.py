@@ -72,7 +72,7 @@ class Websocket:
     @property
     def is_connected(self) -> bool:
         """Return if the websocket is connected and has received a valid message."""
-        return self._current_state is WebsocketState.CONNECTED
+        return self._ws_connection is not None and not self._ws_connection.closed
 
     async def _websocket_loop(self) -> None:
         """Running loop for websocket."""
