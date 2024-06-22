@@ -102,6 +102,7 @@ class Websocket:
         _LOGGER.debug("Connecting WS to %s", url)
         self._headers = await self._auth(False)
         ssl = None if self.verify else False
+        msg: WSMessage | None = None
         # catch any and all errors for Websocket so we can clean up correctly
         try:
             session = await self._get_session()
@@ -130,7 +131,7 @@ class Websocket:
             _LOGGER.log(level, "Websocket disconnect error: %s", url, exc_info=True)
             raise
         finally:
-            _LOGGER.debug("Websocket disconnected")
+            _LOGGER.debug("Websocket disconnected: last message: %s", msg)
             if self._ws_connection is not None and not self._ws_connection.closed:
                 await self._ws_connection.close()
             self._ws_connection = None
