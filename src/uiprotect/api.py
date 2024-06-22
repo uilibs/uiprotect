@@ -413,8 +413,13 @@ class BaseApiClient:
         )
 
         if data is not None:
-            json_data: list[Any] | dict[str, Any] = orjson.loads(data)
-            return json_data
+            json_data: list[Any] | dict[str, Any]
+            try:
+                json_data = orjson.loads(data)
+                return json_data
+            except orjson.JSONDecodeError as ex:
+                _LOGGER.error("Could not decode JSON from %s", url)
+                raise NvrError(f"Could not decode JSON from {url}") from ex
         return None
 
     async def api_request_obj(
