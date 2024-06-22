@@ -25,14 +25,7 @@ _CLOSE_MESSAGE_TYPES = {WSMsgType.CLOSE, WSMsgType.CLOSING, WSMsgType.CLOSED}
 class Websocket:
     """UniFi Protect Websocket manager."""
 
-    url: str
-    verify: bool
-    timeout: float
-    backoff: int
-    _auth: AuthCallbackType
-    _connect_lock: asyncio.Lock
     _running = False
-
     _headers: dict[str, str] | None = None
     _websocket_loop_task: asyncio.Task[None] | None = None
     _stop_task: asyncio.Task[None] | None = None
