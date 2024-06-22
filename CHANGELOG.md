@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.1.1 (2024-06-22)
+
+### Fix
+
+
+- _raise_for_status when raise_exception is not set (#105) ([`0a6ff9e`](https://github.com/uilibs/uiprotect/commit/0a6ff9e358e66058f2f7ca3bff12925f3b1d4e90))
+
+
 ## v3.1.0 (2024-06-22)
 
 ### Feature
