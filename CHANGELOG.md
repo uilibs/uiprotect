@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.1.0 (2024-06-22)
+
+### Feature
+
+
+- Improve websocket error handling (#100) ([`813ac9c`](https://github.com/uilibs/uiprotect/commit/813ac9ca2eaefa2623b15f43d9cdf4f3fab31bcb))
+
+
 ## v2.0.0 (2024-06-22)
 
 ### Breaking
