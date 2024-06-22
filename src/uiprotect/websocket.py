@@ -19,6 +19,8 @@ from aiohttp import (
 )
 from yarl import URL
 
+from .exceptions import NotAuthorized, NvrError
+
 _LOGGER = logging.getLogger(__name__)
 AuthCallbackType = Callable[..., Coroutine[Any, Any, Optional[dict[str, str]]]]
 GetSessionCallbackType = Callable[[], Awaitable[ClientSession]]
@@ -79,7 +81,7 @@ class Websocket:
                         _LOGGER.log(
                             level, "Websocket authentication error: %s: %s", url, ex
                         )
-                        await self._attempt_reauth()
+                        await self._attempt_auth(True)
                     else:
                         _LOGGER.log(level, "Websocket handshake error: %s: %s", url, ex)
                 else:
@@ -97,7 +99,7 @@ class Websocket:
 
     async def _websocket_inner_loop(self, url: URL) -> None:
         _LOGGER.debug("Connecting WS to %s", url)
-        self._headers = await self._auth(False)
+        await self._attempt_auth(False)
         ssl = None if self.verify else False
         msg: WSMessage | None = None
         self._seen_non_close_message = False
@@ -140,12 +142,14 @@ class Websocket:
                 await self._ws_connection.close()
             self._ws_connection = None
 
-    async def _attempt_reauth(self) -> None:
-        """Attempt to re-authenticate."""
+    async def _attempt_auth(self, force: bool) -> None:
+        """Attempt to authenticate."""
         try:
-            self._headers = await self._auth(True)
+            self._headers = await self._auth(force)
+        except (NotAuthorized, NvrError) as ex:
+            _LOGGER.debug("Error authenticating websocket: %s", ex)
         except Exception:
-            _LOGGER.exception("Error reauthenticating websocket")
+            _LOGGER.exception("Unknown error authenticating websocket")
 
     def start(self) -> None:
         """Start the websocket."""
