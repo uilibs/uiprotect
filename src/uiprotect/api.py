@@ -411,11 +411,13 @@ class BaseApiClient:
     async def _raise_for_status(
         self, response: aiohttp.ClientResponse, raise_exception: bool = True
     ) -> None:
+        """Raise an exception based on the response status."""
         url = response.url
         reason = await get_response_reason(response)
         msg = "Request failed: %s - Status: %s - Reason: %s"
+        status = response.status
+
         if raise_exception:
-            status = response.status
             if status in {
                 HTTPStatus.UNAUTHORIZED.value,
                 HTTPStatus.FORBIDDEN.value,
@@ -430,6 +432,7 @@ class BaseApiClient:
             ):
                 raise BadRequest(msg % (url, status, reason))
             raise NvrError(msg % (url, status, reason))
+
         _LOGGER.debug(msg, url, status, reason)
 
     async def api_request(
