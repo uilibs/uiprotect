@@ -3,6 +3,7 @@ source = src/uiprotect
 
 omit =
     site
+    src/uiprotect/cli
 
 [report]
 # Regexes for lines to exclude from consideration
