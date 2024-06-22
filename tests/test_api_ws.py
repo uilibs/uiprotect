@@ -516,9 +516,9 @@ async def test_check_ws_connected(
     caplog: pytest.LogCaptureFixture,
 ):
     caplog.set_level(logging.DEBUG)
+    unsub = protect_client_ws.subscribe_websocket(lambda _: None)
     while not protect_client_ws._websocket.is_connected:
         await asyncio.sleep(0.01)
-    unsub = protect_client_ws.subscribe_websocket(lambda _: None)
     await asyncio.sleep(0)
     assert protect_client_ws._websocket.is_connected
 
