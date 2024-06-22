@@ -417,18 +417,22 @@ class BaseApiClient:
         reason = await get_response_reason(response)
         msg = "Request failed: %s - Status: %s - Reason: %s"
         if raise_exception:
-            if response.status in {
+            status = response.status
+            if status in {
                 HTTPStatus.UNAUTHORIZED.value,
                 HTTPStatus.FORBIDDEN.value,
             }:
-                raise NotAuthorized(msg % (url, response.status, reason))
-            if (
-                response.status >= HTTPStatus.BAD_REQUEST.value
-                and response.status < HTTPStatus.INTERNAL_SERVER_ERROR.value
+                raise NotAuthorized(msg % (url, status, reason))
+            elif status == HTTPStatus.TOO_MANY_REQUESTS.value:
+                _LOGGER.debug("Too many requests - Login is rate limited: %s", response)
+                raise NvrError(msg % (url, status, reason))
+            elif (
+                status >= HTTPStatus.BAD_REQUEST.value
+                and status < HTTPStatus.INTERNAL_SERVER_ERROR.value
             ):
-                raise BadRequest(msg % (url, response.status, reason))
-            raise NvrError(msg % (url, response.status, reason))
-        _LOGGER.debug(msg, url, response.status, reason)
+                raise BadRequest(msg % (url, status, reason))
+            raise NvrError(msg % (url, status, reason))
+        _LOGGER.debug(msg, url, status, reason)
 
     async def api_request(
         self,
