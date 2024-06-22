@@ -14,6 +14,7 @@ from aiohttp import (
     ClientWebSocketResponse,
     WSMessage,
     WSMsgType,
+    WSServerHandshakeError,
 )
 
 from .utils import asyncio_timeout
@@ -90,8 +91,10 @@ class Websocket:
             try:
                 await self._websocket_loop()
             except Exception:
-                _LOGGER.exception(
-                    "Error in websocket reconnect loop, backoff: %s", self.backoff
+                _LOGGER.debug(
+                    "Error in websocket reconnect loop, backoff: %s",
+                    self.backoff,
+                    exc_info=True,
                 )
                 await asyncio.sleep(self.backoff)
 
@@ -119,9 +122,14 @@ class Websocket:
                     break
         except asyncio.TimeoutError:
             _LOGGER.debug("Websocket timeout: %s", url)
+        except WSServerHandshakeError:
+            self._headers = await self._auth(True)
+            _LOGGER.warning("Websocket server handshake error: %s", url)
+            raise
         except ClientError:
             self._headers = await self._auth(True)
-            _LOGGER.exception("Websocket disconnect error: %s", url)
+            _LOGGER.warning("Websocket disconnect error: %s", url, exc_info=True)
+            raise
         finally:
             _LOGGER.debug("Websocket disconnected")
             if self._ws_connection is not None and not self._ws_connection.closed:
