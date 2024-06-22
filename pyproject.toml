@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "uiprotect"
-version = "2.1.0"
+version = "2.2.0"
 description = "Python API for Unifi Protect (Unofficial)"
 authors = ["UI Protect Maintainers <ui@koston.org>"]
 license = "MIT"

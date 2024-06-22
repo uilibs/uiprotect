@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.2.0 (2024-06-22)
+
+### Feature
+
+
+- Decrease websocket logging for known errors (#101) ([`05df499`](https://github.com/uilibs/uiprotect/commit/05df499863006b8d66d2ca0e3c76c639730e30de))
+
+
 ## v2.1.0 (2024-06-22)
 
 ### Feature
