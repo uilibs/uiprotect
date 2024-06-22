@@ -106,6 +106,7 @@ class Websocket:
         self._headers = await self._auth(False)
         ssl = None if self.verify else False
         msg: WSMessage | None = None
+        seen_non_close_message = False
         # catch any and all errors for Websocket so we can clean up correctly
         try:
             session = await self._get_session()
@@ -115,8 +116,19 @@ class Websocket:
             self._last_ws_connect_ok = True
             while True:
                 msg = await self._ws_connection.receive(self.timeout)
-                if not self._process_message(msg):
+                msg_type = msg.type
+                if msg_type is WSMsgType.ERROR:
+                    _LOGGER.exception("Error from Websocket: %s", msg.data)
                     break
+                elif msg_type in _CLOSE_MESSAGE_TYPES:
+                    _LOGGER.debug("Websocket closed: %s", msg)
+                    break
+
+                seen_non_close_message = True
+                try:
+                    self._subscription(msg)
+                except Exception:
+                    _LOGGER.exception("Error processing websocket message")
         except asyncio.TimeoutError:
             _LOGGER.debug("Websocket timeout: %s", url)
         except WSServerHandshakeError as ex:
@@ -137,8 +149,13 @@ class Websocket:
             if (
                 msg is not None
                 and msg.type is WSMsgType.CLOSE
-                and msg.extra
-                and "lastUpdateId" in msg.extra
+                # If it closes right away or lastUpdateId is in the extra
+                # its an indication that we should update the bootstrap
+                # since lastUpdateId is invalid
+                and (
+                    not seen_non_close_message
+                    or (msg.extra and "lastUpdateId" in msg.extra)
+                )
             ):
                 self._update_bootstrap_callback()
             _LOGGER.debug("Websocket disconnected: last message: %s", msg)
