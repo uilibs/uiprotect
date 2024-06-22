@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.1.0 (2024-06-22)
+
+### Feature
+
+
+- Add websocket state subscription (#104) ([`d7083ab`](https://github.com/uilibs/uiprotect/commit/d7083ab8ced2dc3cc65dcaf6ea2dd8c869e70a96))
+
+
 ## v3.0.0 (2024-06-22)
 
 ### Breaking
