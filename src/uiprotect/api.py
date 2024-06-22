@@ -12,6 +12,7 @@ import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import cached_property, partial
+from http import HTTPStatus
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
@@ -396,15 +397,7 @@ class BaseApiClient:
 
         try:
             if response.status != 200:
-                reason = await get_response_reason(response)
-                msg = "Request failed: %s - Status: %s - Reason: %s"
-                if raise_exception:
-                    if response.status in {401, 403}:
-                        raise NotAuthorized(msg % (url, response.status, reason))
-                    if response.status >= 400 and response.status < 500:
-                        raise BadRequest(msg % (url, response.status, reason))
-                    raise NvrError(msg % (url, response.status, reason))
-                _LOGGER.debug(msg, url, response.status, reason)
+                await self._raise_for_status(response, raise_exception)
                 return None
 
             data: bytes | None = await response.read()
@@ -416,6 +409,26 @@ class BaseApiClient:
             response.release()
             # re-raise exception
             raise
+
+    async def _raise_for_status(
+        self, response: aiohttp.ClientResponse, raise_exception: bool = True
+    ) -> None:
+        url = response.url
+        reason = await get_response_reason(response)
+        msg = "Request failed: %s - Status: %s - Reason: %s"
+        if raise_exception:
+            if response.status in {
+                HTTPStatus.UNAUTHORIZED.value,
+                HTTPStatus.FORBIDDEN.value,
+            }:
+                raise NotAuthorized(msg % (url, response.status, reason))
+            if (
+                response.status >= HTTPStatus.BAD_REQUEST.value
+                and response.status < HTTPStatus.INTERNAL_SERVER_ERROR.value
+            ):
+                raise BadRequest(msg % (url, response.status, reason))
+            raise NvrError(msg % (url, response.status, reason))
+        _LOGGER.debug(msg, url, response.status, reason)
 
     async def api_request(
         self,
@@ -513,6 +526,8 @@ class BaseApiClient:
             }
 
             response = await self.request("post", url=url, json=auth)
+            if response.status != 200:
+                await self._raise_for_status(response, True)
             self.set_header("cookie", response.headers.get("set-cookie", ""))
             self._is_authenticated = True
             _LOGGER.debug("Authenticated successfully!")
