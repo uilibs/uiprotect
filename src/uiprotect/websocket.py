@@ -6,7 +6,6 @@ import asyncio
 import contextlib
 import logging
 from collections.abc import Awaitable, Callable, Coroutine
-from functools import partial
 from typing import Any, Optional
 
 from aiohttp import (
@@ -60,7 +59,6 @@ class Websocket:
         self._auth = auth_callback
         self._connect_lock = asyncio.Lock()
         self._subscription = subscription
-        self._test_ws_subscriptions: list[Callable[[WSMessage], None]] = []
 
     @property
     def is_connected(self) -> bool:
@@ -77,15 +75,6 @@ class Websocket:
             self._subscription(msg)
         except Exception:
             _LOGGER.exception("Error processing websocket message")
-
-        # For testing only
-        if self._test_ws_subscriptions:
-            for subscription in self._test_ws_subscriptions:
-                try:
-                    subscription(msg)
-                except Exception:
-                    _LOGGER.exception("Error processing test websocket subscription")
-        # end - For testing only
 
         return True
 
@@ -169,17 +158,3 @@ class Websocket:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._websocket_loop_task
             self._websocket_loop_task = None
-
-    # For testing only
-    def subscribe(
-        self, subscription: Callable[[WSMessage], None]
-    ) -> Callable[[], None]:
-        """Subscribe to websocket messages."""
-        self._test_ws_subscriptions.append(subscription)
-        return partial(self._unsubscribe, subscription)
-
-    def _unsubscribe(self, subscription: Callable[[WSMessage], None]) -> None:
-        """Unsubscribe to websocket messages."""
-        self._test_ws_subscriptions.remove(subscription)
-
-    # end - For testing only

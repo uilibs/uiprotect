@@ -105,7 +105,7 @@ class SampleDataGenerator:
         self.output_folder.mkdir(parents=True, exist_ok=True)
         websocket = self.client._get_websocket()
         websocket.start()
-        websocket.subscribe(self._handle_ws_message)
+        websocket._subscription = self._handle_ws_message
 
         self.log("Updating devices...")
         await self.client.update()
