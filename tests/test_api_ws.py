@@ -28,6 +28,7 @@ from uiprotect.data.websocket import (
     WSSubscriptionMessage,
 )
 from uiprotect.utils import print_ws_stat_summary, to_js_time, utc_now
+from uiprotect.websocket import WebsocketState
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -515,15 +516,43 @@ async def test_check_ws_connected(
     caplog: pytest.LogCaptureFixture,
 ):
     caplog.set_level(logging.DEBUG)
-
+    while not protect_client_ws._websocket.is_connected:
+        await asyncio.sleep(0.01)
     unsub = protect_client_ws.subscribe_websocket(lambda _: None)
     await asyncio.sleep(0)
-    active_ws = protect_client_ws.check_ws()
+    assert protect_client_ws._websocket.is_connected
 
-    assert active_ws is True
-
-    assert "Websocket re-connected successfully" in caplog.text
     unsub()
+
+
+@pytest.mark.asyncio()
+async def test_check_ws_connected_state_callback(
+    protect_client_ws: ProtectApiClient,
+    caplog: pytest.LogCaptureFixture,
+):
+    websocket = protect_client_ws._websocket
+    assert not websocket.is_connected
+
+    caplog.set_level(logging.DEBUG)
+    states: list[bool] = []
+
+    def _on_state(state: bool):
+        states.append(state)
+
+    unsub_state = protect_client_ws.subscribe_websocket_state(_on_state)
+    unsub = protect_client_ws.subscribe_websocket(lambda _: None)
+    while not protect_client_ws._websocket.is_connected:
+        await asyncio.sleep(0.01)
+
+    assert websocket.is_connected
+
+    assert states == [WebsocketState.CONNECTED]
+    await protect_client_ws.async_disconnect_ws()
+    while websocket.is_connected:
+        await asyncio.sleep(0.01)
+    assert states == [WebsocketState.CONNECTED, WebsocketState.DISCONNECTED]
+    unsub()
+    unsub_state()
 
 
 @pytest.mark.asyncio()
@@ -534,36 +563,7 @@ async def test_check_ws_no_ws_initial(
     caplog.set_level(logging.DEBUG)
 
     await protect_client.async_disconnect_ws()
-    protect_client._last_ws_status = True
-
-    active_ws = protect_client.check_ws()
-
-    assert active_ws is False
-
-    expected_logs = [
-        "Disconnecting websocket...",
-    ]
-    assert expected_logs == [rec.message for rec in caplog.records]
-
-
-@pytest.mark.asyncio()
-async def test_check_ws_no_ws(
-    protect_client: ProtectApiClient,
-    caplog: pytest.LogCaptureFixture,
-):
-    caplog.set_level(logging.DEBUG)
-
-    await protect_client.async_disconnect_ws()
-    protect_client._last_ws_status = False
-
-    active_ws = protect_client.check_ws()
-
-    assert active_ws is False
-
-    expected_logs = [
-        "Disconnecting websocket...",
-    ]
-    assert expected_logs == [rec.message for rec in caplog.records]
+    assert not protect_client._websocket
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
