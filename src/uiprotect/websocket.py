@@ -185,22 +185,30 @@ class Websocket:
         if self._websocket_loop_task:
             self._websocket_loop_task.cancel()
         self._running = False
-        self._stop_task = asyncio.create_task(self._stop())
+        ws_connection = self._ws_connection
+        websocket_loop_task = self._websocket_loop_task
+        self._ws_connection = None
+        self._websocket_loop_task = None
+        self._stop_task = asyncio.create_task(
+            self._stop(ws_connection, websocket_loop_task)
+        )
+        self._state_changed(WebsocketState.DISCONNECTED)
 
     async def wait_closed(self) -> None:
         """Wait for the websocket to close."""
-        if self._stop_task:
+        if self._stop_task and not self._stop_task.done():
             with contextlib.suppress(asyncio.CancelledError):
                 await self._stop_task
             self._stop_task = None
 
-    async def _stop(self) -> None:
+    async def _stop(
+        self,
+        ws_connection: ClientWebSocketResponse | None,
+        websocket_loop_task: asyncio.Task[None] | None,
+    ) -> None:
         """Stop the websocket."""
-        if self._ws_connection:
-            await self._ws_connection.close()
-            self._ws_connection = None
-        if self._websocket_loop_task:
+        if ws_connection:
+            await ws_connection.close()
+        if websocket_loop_task:
             with contextlib.suppress(asyncio.CancelledError):
-                await self._websocket_loop_task
-            self._websocket_loop_task = None
-        self._state_changed(WebsocketState.DISCONNECTED)
+                await websocket_loop_task
