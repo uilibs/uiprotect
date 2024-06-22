@@ -109,6 +109,8 @@ class Websocket:
 
     def _state_changed(self, state: WebsocketState) -> None:
         """State changed."""
+        if self._current_state is state:
+            return
         self._current_state = state
         self._websocket_state(state)
 
