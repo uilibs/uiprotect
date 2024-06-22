@@ -66,7 +66,7 @@ class Websocket:
             _LOGGER.exception("Error from Websocket: %s", msg.data)
             return False
         elif msg.type in _CLOSE_MESSAGE_TYPES:
-            _LOGGER.debug("Websocket closed")
+            _LOGGER.debug("Websocket closed: %s", msg)
             return False
 
         try:
