@@ -63,22 +63,6 @@ class Websocket:
         """Return if the websocket is connected."""
         return self._ws_connection is not None and not self._ws_connection.closed
 
-    def _process_message(self, msg: WSMessage) -> bool:
-        """Process a message from the websocket."""
-        if msg.type is WSMsgType.ERROR:
-            _LOGGER.exception("Error from Websocket: %s", msg.data)
-            return False
-        elif msg.type in _CLOSE_MESSAGE_TYPES:
-            _LOGGER.debug("Websocket closed: %s", msg)
-            return False
-
-        try:
-            self._subscription(msg)
-        except Exception:
-            _LOGGER.exception("Error processing websocket message")
-
-        return True
-
     async def _websocket_reconnect_loop(self) -> None:
         """Reconnect loop for websocket."""
         await self.wait_closed()
