@@ -86,25 +86,23 @@ class Websocket:
     async def _websocket_reconnect_loop(self) -> None:
         """Reconnect loop for websocket."""
         await self.wait_closed()
+        backoff = self.backoff
 
         while True:
             try:
                 await self._websocket_loop()
-            except ClientError as ex:
-                _LOGGER.debug(
-                    "Error in websocket reconnect loop: %s, backoff", ex, self.backoff
-                )
-                await asyncio.sleep(self.backoff)
+            except ClientError:
+                _LOGGER.debug("Error in websocket reconnect loop, backoff", backoff)
             except Exception:
                 _LOGGER.debug(
                     "Error in websocket reconnect loop, backoff: %s",
-                    self.backoff,
+                    backoff,
                     exc_info=True,
                 )
-                await asyncio.sleep(self.backoff)
 
             if self._running is False:
                 break
+            await asyncio.sleep(self.backoff)
 
     async def _websocket_loop(self) -> None:
         url = self.get_url()
