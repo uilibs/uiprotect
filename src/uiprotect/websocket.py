@@ -34,7 +34,6 @@ class Websocket:
     _auth: AuthCallbackType
     _connect_lock: asyncio.Lock
     _running = False
-    _ws_subscriptions: list[Callable[[WSMessage], None]]
 
     _headers: dict[str, str] | None = None
     _websocket_loop_task: asyncio.Task[None] | None = None
@@ -61,6 +60,12 @@ class Websocket:
         self._auth = auth_callback
         self._connect_lock = asyncio.Lock()
         self._subscription = subscription
+        self._test_ws_subscriptions: list[Callable[[WSMessage], None]] = []
+
+    @property
+    def is_connected(self) -> bool:
+        """Return if the websocket is connected."""
+        return self._ws_connection is not None and not self._ws_connection.closed
 
     def _process_message(self, msg: WSMessage) -> bool:
         """Process a message from the websocket."""
@@ -74,12 +79,13 @@ class Websocket:
             _LOGGER.exception("Error processing websocket message")
 
         # For testing only
-        if self._ws_subscriptions:
-            for subscription in self._ws_subscriptions:
+        if self._test_ws_subscriptions:
+            for subscription in self._test_ws_subscriptions:
                 try:
                     subscription(msg)
                 except Exception:
-                    _LOGGER.exception("Error processing websocket subscription")
+                    _LOGGER.exception("Error processing test websocket subscription")
+        # end - For testing only
 
         return True
 
@@ -140,9 +146,9 @@ class Websocket:
 
     def stop(self) -> None:
         """Disconnect the websocket."""
+        _LOGGER.debug("Disconnecting websocket...")
         if not self._running:
             return
-        _LOGGER.debug("Disconnecting websocket...")
         if self._websocket_loop_task:
             self._websocket_loop_task.cancel()
         self._running = False
@@ -164,13 +170,16 @@ class Websocket:
                 await self._websocket_loop_task
             self._websocket_loop_task = None
 
+    # For testing only
     def subscribe(
         self, subscription: Callable[[WSMessage], None]
     ) -> Callable[[], None]:
         """Subscribe to websocket messages."""
-        self._ws_subscriptions.append(subscription)
+        self._test_ws_subscriptions.append(subscription)
         return partial(self._unsubscribe, subscription)
 
     def _unsubscribe(self, subscription: Callable[[WSMessage], None]) -> None:
         """Unsubscribe to websocket messages."""
-        self._ws_subscriptions.remove(subscription)
+        self._test_ws_subscriptions.remove(subscription)
+
+    # end - For testing only

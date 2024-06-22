@@ -630,6 +630,7 @@ class BaseApiClient:
             websocket = self._get_websocket()
             websocket.stop()
             await websocket.wait_closed()
+            self._websocket = None
 
     def _process_ws_message(self, msg: aiohttp.WSMessage) -> None:
         raise NotImplementedError
@@ -772,6 +773,18 @@ class ProtectApiClient(BaseApiClient):
             return None
         self._last_update = now
         return self._bootstrap
+
+    async def poll_events(self) -> None:
+        """Poll for events."""
+        now_dt = utc_now()
+        max_event_dt = now_dt - timedelta(hours=1)
+        events = await self.get_events(
+            start=self._last_update_dt or max_event_dt,
+            end=now_dt,
+        )
+        for event in events:
+            self.bootstrap.process_event(event)
+        self._last_update_dt = now_dt
 
     def emit_message(self, msg: WSSubscriptionMessage) -> None:
         """Emit message to all subscriptions."""
@@ -1061,6 +1074,19 @@ class ProtectApiClient(BaseApiClient):
         self._ws_subscriptions.append(ws_callback)
         self._get_websocket().start()
         return partial(self._unsubscribe_websocket, ws_callback)
+
+    def check_ws(self) -> bool:
+        """Checks current state of Websocket."""
+        if self._websocket is None:
+            return False
+
+        if not self._websocket.is_connected:
+            level = logging.DEBUG if self._last_ws_status else logging.WARNING
+            _LOGGER.log(level, "Websocket connection not active")
+            return False
+        elif not self._last_ws_status:
+            _LOGGER.info("Websocket re-connected successfully")
+        return True
 
     def _unsubscribe_websocket(
         self,

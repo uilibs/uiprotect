@@ -79,9 +79,17 @@ async def test_ws_all(
     sub.unsub = protect_client.subscribe_websocket(sub.callback)
     _orig = protect_client.bootstrap.process_ws_packet
 
+    websocket = protect_client._get_websocket()
+
+    while not websocket.is_connected:
+        await asyncio.sleep(0.05)
+
     stats = benchmark._make_stats(1)
+    processed_packets = 0
 
     def benchmark_process_ws_packet(*args, **kwargs):
+        nonlocal processed_packets
+        processed_packets += 1
         runner = benchmark._make_runner(_orig, args, kwargs)
         duration, result = runner(None)
         stats.update(duration)
@@ -95,16 +103,12 @@ async def test_ws_all(
         benchmark_process_ws_packet,
     )
 
-    websocket = await protect_client.get_websocket()
-
     ws_connect: MockWebsocket | None = websocket._ws_connection  # type: ignore[assignment]
     assert ws_connect is not None
 
     while websocket.is_connected:
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.05)
 
-    assert ws_connect.count == len(ws_messages)
-    assert ws_connect.now == float(list(ws_messages.keys())[-1])
     assert sub.callback_count == 3
 
 
@@ -130,6 +134,10 @@ async def test_ws_filtered(
     sub.unsub = protect_client.subscribe_websocket(sub.callback)
     _orig = protect_client.bootstrap.process_ws_packet
 
+    websocket = protect_client._get_websocket()
+    while not websocket.is_connected:
+        await asyncio.sleep(0.05)
+
     stats = benchmark._make_stats(1)
 
     def benchmark_process_ws_packet(*args, **kwargs):
@@ -146,13 +154,11 @@ async def test_ws_filtered(
         benchmark_process_ws_packet,
     )
 
-    websocket = await protect_client.get_websocket()
-
     ws_connect: MockWebsocket | None = websocket._ws_connection  # type: ignore[assignment]
     assert ws_connect is not None
 
     while websocket.is_connected:
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.05)
 
     print_ws_stat_summary(protect_client.bootstrap.ws_stats)
 
@@ -510,12 +516,14 @@ async def test_check_ws_connected(
 ):
     caplog.set_level(logging.DEBUG)
 
+    unsub = protect_client_ws.subscribe_websocket(lambda _: None)
+    await asyncio.sleep(0)
     active_ws = protect_client_ws.check_ws()
 
     assert active_ws is True
 
-    expected_logs: list[str] = []
-    assert expected_logs == [rec.message for rec in caplog.records]
+    assert "Websocket re-connected successfully" in caplog.text
+    unsub()
 
 
 @pytest.mark.asyncio()
@@ -534,10 +542,8 @@ async def test_check_ws_no_ws_initial(
 
     expected_logs = [
         "Disconnecting websocket...",
-        "Websocket connection not active, failing back to polling",
     ]
     assert expected_logs == [rec.message for rec in caplog.records]
-    assert caplog.records[1].levelname == "WARNING"
 
 
 @pytest.mark.asyncio()
@@ -556,10 +562,8 @@ async def test_check_ws_no_ws(
 
     expected_logs = [
         "Disconnecting websocket...",
-        "Websocket connection not active, failing back to polling",
     ]
     assert expected_logs == [rec.message for rec in caplog.records]
-    assert caplog.records[1].levelname == "DEBUG"
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")

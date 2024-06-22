@@ -225,6 +225,9 @@ class SimpleMockWebsocket:
             None,
         )
 
+    async def receive(self, timeout):
+        return await self.__anext__()
+
 
 class MockWebsocket(SimpleMockWebsocket):
     def __init__(self):
@@ -248,13 +251,13 @@ async def setup_client(
     websocket: SimpleMockWebsocket,
     timeout: int = 0,
 ):
-    mock_cs = Mock()
+    mock_cs = AsyncMock()
     mock_session = AsyncMock()
     mock_session.ws_connect = AsyncMock(return_value=websocket)
     mock_cs.return_value = mock_session
 
-    ws = await client.get_websocket()
-    ws.timeout_interval = timeout
+    ws = client._get_websocket()
+    ws.timeout = timeout
     ws._get_session = mock_cs  # type: ignore[method-assign]
     client.api_request = AsyncMock(side_effect=mock_api_request)  # type: ignore[method-assign]
     client.api_request_raw = AsyncMock(side_effect=mock_api_request_raw)  # type: ignore[method-assign]
