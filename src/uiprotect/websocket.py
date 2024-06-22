@@ -21,6 +21,7 @@ from .utils import asyncio_timeout
 _LOGGER = logging.getLogger(__name__)
 AuthCallbackType = Callable[..., Coroutine[Any, Any, Optional[dict[str, str]]]]
 GetSessionCallbackType = Callable[[], Awaitable[ClientSession]]
+_CLOSE_MESSAGE_TYPES = {WSMsgType.CLOSE, WSMsgType.CLOSING, WSMsgType.CLOSED}
 
 
 class Websocket:
@@ -69,6 +70,9 @@ class Websocket:
         """Process a message from the websocket."""
         if msg.type is WSMsgType.ERROR:
             _LOGGER.exception("Error from Websocket: %s", msg.data)
+            return False
+        elif msg.type in _CLOSE_MESSAGE_TYPES:
+            _LOGGER.debug("Websocket closed")
             return False
 
         try:
