@@ -17,6 +17,7 @@ from aiohttp import (
     WSMsgType,
     WSServerHandshakeError,
 )
+from yarl import URL
 
 _LOGGER = logging.getLogger(__name__)
 AuthCallbackType = Callable[..., Coroutine[Any, Any, Optional[dict[str, str]]]]
@@ -36,9 +37,9 @@ class Websocket:
 
     def __init__(
         self,
-        get_url: Callable[[], str],
+        get_url: Callable[[], URL],
         auth_callback: AuthCallbackType,
-        update_bootstrap_callback: UpdateBootstrapCallbackType,
+        update_bootstrap: UpdateBootstrapCallbackType,
         get_session: GetSessionCallbackType,
         subscription: Callable[[WSMessage], None],
         *,
@@ -53,29 +54,44 @@ class Websocket:
         self.verify = verify
         self._get_session = get_session
         self._auth = auth_callback
-        self._update_bootstrap_callback = update_bootstrap_callback
-        self._connect_lock = asyncio.Lock()
+        self._update_bootstrap = update_bootstrap
         self._subscription = subscription
-        self._last_ws_connect_ok = False
+        self._seen_non_close_message = False
 
     @property
     def is_connected(self) -> bool:
         """Return if the websocket is connected."""
         return self._ws_connection is not None and not self._ws_connection.closed
 
-    async def _websocket_reconnect_loop(self) -> None:
-        """Reconnect loop for websocket."""
+    async def _websocket_loop(self) -> None:
+        """Running loop for websocket."""
         await self.wait_closed()
         backoff = self.backoff
 
         while True:
+            url = self.get_url()
             try:
-                await self._websocket_loop()
-            except ClientError:
-                _LOGGER.debug("Error in websocket reconnect loop, backoff: %s", backoff)
+                await self._websocket_inner_loop(url)
+            except ClientError as ex:
+                level = logging.ERROR if self._seen_non_close_message else logging.DEBUG
+                if isinstance(ex, WSServerHandshakeError):
+                    if ex.status == HTTPStatus.UNAUTHORIZED.value:
+                        _LOGGER.log(level, "Websocket authentication error: %s", url)
+                        await self._attempt_reauth()
+                    else:
+                        _LOGGER.log(
+                            level, "Websocket handshake error: %s", url, exc_info=True
+                        )
+                else:
+                    _LOGGER.log(
+                        level, "Websocket disconnect error: %s", url, exc_info=True
+                    )
+            except asyncio.TimeoutError:
+                level = logging.ERROR if self._seen_non_close_message else logging.DEBUG
+                _LOGGER.log(level, "Websocket timeout: %s", url)
             except Exception:
                 _LOGGER.debug(
-                    "Error in websocket reconnect loop, backoff: %s",
+                    "Unexpected error in websocket reconnect loop, backoff: %s",
                     backoff,
                     exc_info=True,
                 )
@@ -84,20 +100,18 @@ class Websocket:
                 break
             await asyncio.sleep(self.backoff)
 
-    async def _websocket_loop(self) -> None:
-        url = self.get_url()
+    async def _websocket_inner_loop(self, url: URL) -> None:
         _LOGGER.debug("Connecting WS to %s", url)
         self._headers = await self._auth(False)
         ssl = None if self.verify else False
         msg: WSMessage | None = None
-        seen_non_close_message = False
+        self._seen_non_close_message = False
+        session = await self._get_session()
         # catch any and all errors for Websocket so we can clean up correctly
         try:
-            session = await self._get_session()
             self._ws_connection = await session.ws_connect(
                 url, ssl=ssl, headers=self._headers, timeout=self.timeout
             )
-            self._last_ws_connect_ok = True
             while True:
                 msg = await self._ws_connection.receive(self.timeout)
                 msg_type = msg.type
@@ -108,27 +122,11 @@ class Websocket:
                     _LOGGER.debug("Websocket closed: %s", msg)
                     break
 
-                seen_non_close_message = True
+                self._seen_non_close_message = True
                 try:
                     self._subscription(msg)
                 except Exception:
                     _LOGGER.exception("Error processing websocket message")
-        except asyncio.TimeoutError:
-            _LOGGER.debug("Websocket timeout: %s", url)
-        except WSServerHandshakeError as ex:
-            level = logging.ERROR if self._last_ws_connect_ok else logging.DEBUG
-            self._last_ws_connect_ok = False
-            if ex.status == HTTPStatus.UNAUTHORIZED.value:
-                _LOGGER.log(level, "Websocket authentication error: %s", url)
-                self._headers = await self._auth(True)
-            else:
-                _LOGGER.log(level, "Websocket handshake error: %s", url, exc_info=True)
-            raise
-        except ClientError:
-            level = logging.ERROR if self._last_ws_connect_ok else logging.DEBUG
-            self._last_ws_connect_ok = False
-            _LOGGER.log(level, "Websocket disconnect error: %s", url, exc_info=True)
-            raise
         finally:
             if (
                 msg is not None
@@ -137,24 +135,29 @@ class Websocket:
                 # its an indication that we should update the bootstrap
                 # since lastUpdateId is invalid
                 and (
-                    not seen_non_close_message
+                    not self._seen_non_close_message
                     or (msg.extra and "lastUpdateId" in msg.extra)
                 )
             ):
-                self._update_bootstrap_callback()
+                self._update_bootstrap()
             _LOGGER.debug("Websocket disconnected: last message: %s", msg)
             if self._ws_connection is not None and not self._ws_connection.closed:
                 await self._ws_connection.close()
             self._ws_connection = None
+
+    async def _attempt_reauth(self) -> None:
+        """Attempt to re-authenticate."""
+        try:
+            self._headers = await self._auth(True)
+        except Exception:
+            _LOGGER.exception("Error reauthenticating websocket")
 
     def start(self) -> None:
         """Start the websocket."""
         if self._running:
             return
         self._running = True
-        self._websocket_loop_task = asyncio.create_task(
-            self._websocket_reconnect_loop()
-        )
+        self._websocket_loop_task = asyncio.create_task(self._websocket_loop())
 
     def stop(self) -> None:
         """Disconnect the websocket."""
@@ -171,6 +174,7 @@ class Websocket:
         if self._stop_task:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._stop_task
+            self._stop_task = None
 
     async def _stop(self) -> None:
         """Stop the websocket."""

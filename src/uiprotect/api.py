@@ -12,6 +12,7 @@ import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import cached_property, partial
+from http import HTTPStatus
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
@@ -222,23 +223,24 @@ class BaseApiClient:
         """Updates the url after changing _host or _port."""
         if self._port != 443:
             self._url = URL(f"https://{self._host}:{self._port}")
+            self._ws_url = URL(f"wss://{self._host}:{self._port}{self.ws_path}")
         else:
             self._url = URL(f"https://{self._host}")
+            self._ws_url = URL(f"wss://{self._host}{self.ws_path}")
 
         self.base_url = str(self._url)
 
     @property
+    def _ws_url_object(self) -> URL:
+        """Get Websocket URL."""
+        if last_update_id := self._get_last_update_id():
+            return self._ws_url.with_query(lastUpdateId=last_update_id)
+        return self._ws_url
+
+    @property
     def ws_url(self) -> str:
         """Get Websocket URL."""
-        url = f"wss://{self._host}"
-        if self._port != 443:
-            url += f":{self._port}"
-
-        url += self.ws_path
-        last_update_id = self._get_last_update_id()
-        if last_update_id is None:
-            return url
-        return f"{url}?lastUpdateId={last_update_id}"
+        return str(self._ws_url_object)
 
     @property
     def config_file(self) -> Path:
@@ -270,7 +272,7 @@ class BaseApiClient:
         """Gets or creates current Websocket."""
         if self._websocket is None:
             self._websocket = Websocket(
-                self.get_websocket_url,
+                self._get_websocket_url,
                 self._auth_websocket,
                 self._update_bootstrap_soon,
                 self.get_session,
@@ -395,15 +397,7 @@ class BaseApiClient:
 
         try:
             if response.status != 200:
-                reason = await get_response_reason(response)
-                msg = "Request failed: %s - Status: %s - Reason: %s"
-                if raise_exception:
-                    if response.status in {401, 403}:
-                        raise NotAuthorized(msg % (url, response.status, reason))
-                    if response.status >= 400 and response.status < 500:
-                        raise BadRequest(msg % (url, response.status, reason))
-                    raise NvrError(msg % (url, response.status, reason))
-                _LOGGER.debug(msg, url, response.status, reason)
+                await self._raise_for_status(response, raise_exception)
                 return None
 
             data: bytes | None = await response.read()
@@ -415,6 +409,30 @@ class BaseApiClient:
             response.release()
             # re-raise exception
             raise
+
+    async def _raise_for_status(
+        self, response: aiohttp.ClientResponse, raise_exception: bool = True
+    ) -> None:
+        url = response.url
+        reason = await get_response_reason(response)
+        msg = "Request failed: %s - Status: %s - Reason: %s"
+        if raise_exception:
+            status = response.status
+            if status in {
+                HTTPStatus.UNAUTHORIZED.value,
+                HTTPStatus.FORBIDDEN.value,
+            }:
+                raise NotAuthorized(msg % (url, status, reason))
+            elif status == HTTPStatus.TOO_MANY_REQUESTS.value:
+                _LOGGER.debug("Too many requests - Login is rate limited: %s", response)
+                raise NvrError(msg % (url, status, reason))
+            elif (
+                status >= HTTPStatus.BAD_REQUEST.value
+                and status < HTTPStatus.INTERNAL_SERVER_ERROR.value
+            ):
+                raise BadRequest(msg % (url, status, reason))
+            raise NvrError(msg % (url, status, reason))
+        _LOGGER.debug(msg, url, status, reason)
 
     async def api_request(
         self,
@@ -512,6 +530,8 @@ class BaseApiClient:
             }
 
             response = await self.request("post", url=url, json=auth)
+            if response.status != 200:
+                await self._raise_for_status(response, True)
             self.set_header("cookie", response.headers.get("set-cookie", ""))
             self._is_authenticated = True
             _LOGGER.debug("Authenticated successfully!")
@@ -645,9 +665,9 @@ class BaseApiClient:
 
         return token_expires_at >= max_expire_time
 
-    def get_websocket_url(self) -> str:
+    def _get_websocket_url(self) -> URL:
         """Get Websocket URL."""
-        return self.ws_url
+        return self._ws_url_object
 
     async def async_disconnect_ws(self) -> None:
         """Disconnect from Websocket."""
