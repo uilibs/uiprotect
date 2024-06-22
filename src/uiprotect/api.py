@@ -75,7 +75,6 @@ if sys.version_info[:2] < (3, 13):
 
 TOKEN_COOKIE_MAX_EXP_SECONDS = 60
 
-NEVER_RAN = -1000
 # how many seconds before the bootstrap is refreshed from Protect
 DEVICE_UPDATE_INTERVAL = 900
 # retry timeout for thumbnails/heatmaps
