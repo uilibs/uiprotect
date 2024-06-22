@@ -21,6 +21,7 @@ from aiohttp import (
 _LOGGER = logging.getLogger(__name__)
 AuthCallbackType = Callable[..., Coroutine[Any, Any, Optional[dict[str, str]]]]
 GetSessionCallbackType = Callable[[], Awaitable[ClientSession]]
+UpdateBootstrapCallbackType = Callable[[], None]
 _CLOSE_MESSAGE_TYPES = {WSMsgType.CLOSE, WSMsgType.CLOSING, WSMsgType.CLOSED}
 
 
@@ -37,6 +38,7 @@ class Websocket:
         self,
         get_url: Callable[[], str],
         auth_callback: AuthCallbackType,
+        update_bootstrap_callback: UpdateBootstrapCallbackType,
         get_session: GetSessionCallbackType,
         subscription: Callable[[WSMessage], None],
         *,
@@ -51,6 +53,7 @@ class Websocket:
         self.verify = verify
         self._get_session = get_session
         self._auth = auth_callback
+        self._update_bootstrap_callback = update_bootstrap_callback
         self._connect_lock = asyncio.Lock()
         self._subscription = subscription
         self._last_ws_connect_ok = False
@@ -131,6 +134,13 @@ class Websocket:
             _LOGGER.log(level, "Websocket disconnect error: %s", url, exc_info=True)
             raise
         finally:
+            if (
+                msg is not None
+                and msg.type is WSMsgType.CLOSE
+                and msg.extra
+                and "lastUpdateId" in msg.extra
+            ):
+                self._update_bootstrap_callback()
             _LOGGER.debug("Websocket disconnected: last message: %s", msg)
             if self._ws_connection is not None and not self._ws_connection.closed:
                 await self._ws_connection.close()

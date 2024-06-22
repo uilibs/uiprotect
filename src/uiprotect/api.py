@@ -261,9 +261,6 @@ class BaseApiClient:
             self.set_header("cookie", None)
             self.set_header("x-csrf-token", None)
             self._is_authenticated = False
-            # Force the next bootstrap update
-            # since the lastUpdateId is not valid anymore
-            self._last_update = NEVER_RAN
 
         await self.ensure_authenticated()
         return self.headers
@@ -274,12 +271,20 @@ class BaseApiClient:
             self._websocket = Websocket(
                 self.get_websocket_url,
                 self._auth_websocket,
+                self._update_bootstrap_soon,
                 self.get_session,
                 self._process_ws_message,
                 verify=self._verify_ssl,
                 timeout=self._ws_timeout,
             )
         return self._websocket
+
+    def _update_bootstrap_soon(self) -> None:
+        """Update bootstrap soon."""
+        _LOGGER.debug("Updating bootstrap soon")
+        # Force the next bootstrap update
+        # since the lastUpdateId is not valid anymore
+        self._last_update = NEVER_RAN
 
     async def close_session(self) -> None:
         """Closing and deletes client session"""
