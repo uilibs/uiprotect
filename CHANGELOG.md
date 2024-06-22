@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.0.0 (2024-06-22)
+
+### Breaking
+
+
+- Remove the force flag from update (#103) ([`0bee3e6`](https://github.com/uilibs/uiprotect/commit/0bee3e64d8f1a540e6bfde7b3ab282bc26e6f150))
+
+
 ## v2.3.0 (2024-06-22)
 
 ### Feature
