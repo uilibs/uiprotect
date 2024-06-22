@@ -632,6 +632,22 @@ class BaseApiClient:
             await websocket.wait_closed()
             self._websocket = None
 
+    def check_ws(self) -> bool:
+        """Checks current state of Websocket."""
+        if self._websocket is None:
+            return False
+
+        if not self._websocket.is_connected:
+            log = _LOGGER.debug
+            if self._last_ws_status:
+                log = _LOGGER.warning
+            log("Websocket connection not active, failing back to polling")
+        elif not self._last_ws_status:
+            _LOGGER.info("Websocket re-connected successfully")
+
+        self._last_ws_status = self._websocket.is_connected
+        return self._last_ws_status
+
     def _process_ws_message(self, msg: aiohttp.WSMessage) -> None:
         raise NotImplementedError
 
@@ -1074,19 +1090,6 @@ class ProtectApiClient(BaseApiClient):
         self._ws_subscriptions.append(ws_callback)
         self._get_websocket().start()
         return partial(self._unsubscribe_websocket, ws_callback)
-
-    def check_ws(self) -> bool:
-        """Checks current state of Websocket."""
-        if self._websocket is None:
-            return False
-
-        if not self._websocket.is_connected:
-            level = logging.DEBUG if self._last_ws_status else logging.WARNING
-            _LOGGER.log(level, "Websocket connection not active")
-            return False
-        elif not self._last_ws_status:
-            _LOGGER.info("Websocket re-connected successfully")
-        return True
 
     def _unsubscribe_websocket(
         self,
