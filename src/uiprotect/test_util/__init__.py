@@ -105,6 +105,7 @@ class SampleDataGenerator:
         self.output_folder.mkdir(parents=True, exist_ok=True)
         websocket = self.client._get_websocket()
         websocket.start()
+        self.log("Websocket started...")
         websocket._subscription = self._handle_ws_message
 
         self.log("Updating devices...")
@@ -132,8 +133,10 @@ class SampleDataGenerator:
             "chime": len(bootstrap["chimes"]),
         }
 
+        self.log("Generating event data...")
         motion_event, smart_detection = await self.generate_event_data()
         await self.generate_device_data(motion_event, smart_detection)
+        self.log("Recording websocket events...")
         await self.record_ws_events()
 
         if close_session:
