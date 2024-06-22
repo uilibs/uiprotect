@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import logging
 from collections.abc import Awaitable, Callable, Coroutine
+from http import HTTPStatus
 from typing import Any, Optional
 
 from aiohttp import (
@@ -14,6 +15,7 @@ from aiohttp import (
     ClientWebSocketResponse,
     WSMessage,
     WSMsgType,
+    WSServerHandshakeError,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -113,11 +115,18 @@ class Websocket:
                     break
         except asyncio.TimeoutError:
             _LOGGER.debug("Websocket timeout: %s", url)
+        except WSServerHandshakeError as ex:
+            level = logging.ERROR if self._last_ws_connect_ok else logging.DEBUG
+            self._last_ws_connect_ok = False
+            if ex.status == HTTPStatus.UNAUTHORIZED.value:
+                _LOGGER.log(level, "Websocket authentication error: %s", url)
+                self._headers = await self._auth(True)
+            else:
+                _LOGGER.log(level, "Websocket handshake error: %s", url, exc_info=True)
         except ClientError:
             level = logging.ERROR if self._last_ws_connect_ok else logging.DEBUG
             self._last_ws_connect_ok = False
             _LOGGER.log(level, "Websocket disconnect error: %s", url, exc_info=True)
-            self._headers = await self._auth(True)
             raise
         finally:
             _LOGGER.debug("Websocket disconnected")

@@ -260,6 +260,7 @@ class BaseApiClient:
                 self._session.cookie_jar.clear()
             self.set_header("cookie", None)
             self.set_header("x-csrf-token", None)
+            self._is_authenticated = False
 
         await self.ensure_authenticated()
         return self.headers
