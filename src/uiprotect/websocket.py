@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import logging
 from collections.abc import Awaitable, Callable, Coroutine
+from enum import Enum
 from http import HTTPStatus
 from typing import Any, Optional
 
@@ -28,6 +29,11 @@ UpdateBootstrapCallbackType = Callable[[], None]
 _CLOSE_MESSAGE_TYPES = {WSMsgType.CLOSE, WSMsgType.CLOSING, WSMsgType.CLOSED}
 
 
+class WebsocketState(Enum):
+    CONNECTED = True
+    DISCONNECTED = False
+
+
 class Websocket:
     """UniFi Protect Websocket manager."""
 
@@ -44,6 +50,7 @@ class Websocket:
         update_bootstrap: UpdateBootstrapCallbackType,
         get_session: GetSessionCallbackType,
         subscription: Callable[[WSMessage], None],
+        state_callback: Callable[[WebsocketState], None],
         *,
         timeout: float = 30.0,
         backoff: int = 10,
@@ -59,10 +66,12 @@ class Websocket:
         self._update_bootstrap = update_bootstrap
         self._subscription = subscription
         self._seen_non_close_message = False
+        self._websocket_state = state_callback
+        self._current_state: WebsocketState = WebsocketState.DISCONNECTED
 
     @property
     def is_connected(self) -> bool:
-        """Return if the websocket is connected."""
+        """Return if the websocket is connected and has received a valid message."""
         return self._ws_connection is not None and not self._ws_connection.closed
 
     async def _websocket_loop(self) -> None:
@@ -92,10 +101,18 @@ class Websocket:
             except Exception:
                 _LOGGER.exception("Unexpected error in websocket loop")
 
+            self._state_changed(WebsocketState.DISCONNECTED)
             if self._running is False:
                 break
             _LOGGER.debug("Reconnecting websocket in %s seconds", backoff)
             await asyncio.sleep(self.backoff)
+
+    def _state_changed(self, state: WebsocketState) -> None:
+        """State changed."""
+        if self._current_state is state:
+            return
+        self._current_state = state
+        self._websocket_state(state)
 
     async def _websocket_inner_loop(self, url: URL) -> None:
         _LOGGER.debug("Connecting WS to %s", url)
@@ -119,7 +136,9 @@ class Websocket:
                     _LOGGER.debug("Websocket closed: %s", msg)
                     break
 
-                self._seen_non_close_message = True
+                if not self._seen_non_close_message:
+                    self._seen_non_close_message = True
+                    self._state_changed(WebsocketState.CONNECTED)
                 try:
                     self._subscription(msg)
                 except Exception:
@@ -166,21 +185,30 @@ class Websocket:
         if self._websocket_loop_task:
             self._websocket_loop_task.cancel()
         self._running = False
-        self._stop_task = asyncio.create_task(self._stop())
+        ws_connection = self._ws_connection
+        websocket_loop_task = self._websocket_loop_task
+        self._ws_connection = None
+        self._websocket_loop_task = None
+        self._stop_task = asyncio.create_task(
+            self._stop(ws_connection, websocket_loop_task)
+        )
+        self._state_changed(WebsocketState.DISCONNECTED)
 
     async def wait_closed(self) -> None:
         """Wait for the websocket to close."""
-        if self._stop_task:
+        if self._stop_task and not self._stop_task.done():
             with contextlib.suppress(asyncio.CancelledError):
                 await self._stop_task
             self._stop_task = None
 
-    async def _stop(self) -> None:
+    async def _stop(
+        self,
+        ws_connection: ClientWebSocketResponse | None,
+        websocket_loop_task: asyncio.Task[None] | None,
+    ) -> None:
         """Stop the websocket."""
-        if self._ws_connection:
-            await self._ws_connection.close()
-            self._ws_connection = None
-        if self._websocket_loop_task:
+        if ws_connection:
+            await ws_connection.close()
+        if websocket_loop_task:
             with contextlib.suppress(asyncio.CancelledError):
-                await self._websocket_loop_task
-            self._websocket_loop_task = None
+                await websocket_loop_task

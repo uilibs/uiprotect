@@ -64,7 +64,7 @@ from .utils import (
     to_js_time,
     utc_now,
 )
-from .websocket import Websocket
+from .websocket import Websocket, WebsocketState
 
 if sys.version_info[:2] < (3, 13):
     from http import cookies
@@ -163,7 +163,6 @@ class BaseApiClient:
     _ws_timeout: int
 
     _is_authenticated: bool = False
-    _last_ws_status: bool = False
     _last_token_cookie: Morsel[str] | None = None
     _last_token_cookie_decode: dict[str, Any] | None = None
     _session: aiohttp.ClientSession | None = None
@@ -275,6 +274,7 @@ class BaseApiClient:
                 self._update_bootstrap_soon,
                 self.get_session,
                 self._process_ws_message,
+                self._on_websocket_state_change,
                 verify=self._verify_ssl,
                 timeout=self._ws_timeout,
             )
@@ -675,22 +675,6 @@ class BaseApiClient:
             await websocket.wait_closed()
             self._websocket = None
 
-    def check_ws(self) -> bool:
-        """Checks current state of Websocket."""
-        if self._websocket is None:
-            return False
-
-        if not self._websocket.is_connected:
-            log = _LOGGER.debug
-            if self._last_ws_status:
-                log = _LOGGER.warning
-            log("Websocket connection not active, failing back to polling")
-        elif not self._last_ws_status:
-            _LOGGER.info("Websocket re-connected successfully")
-
-        self._last_ws_status = self._websocket.is_connected
-        return self._last_ws_status
-
     def _process_ws_message(self, msg: aiohttp.WSMessage) -> None:
         raise NotImplementedError
 
@@ -699,6 +683,10 @@ class BaseApiClient:
 
     async def update(self) -> Bootstrap:
         raise NotImplementedError
+
+    def _on_websocket_state_change(self, state: WebsocketState) -> None:
+        """Websocket state changed."""
+        _LOGGER.debug("Websocket state changed: %s", state)
 
 
 class ProtectApiClient(BaseApiClient):
@@ -736,6 +724,7 @@ class ProtectApiClient(BaseApiClient):
     _subscribed_models: set[ModelType]
     _ignore_stats: bool
     _ws_subscriptions: list[Callable[[WSSubscriptionMessage], None]]
+    _ws_state_subscriptions: list[Callable[[WebsocketState], None]]
     _bootstrap: Bootstrap | None = None
     _last_update_dt: datetime | None = None
     _connection_host: IPv4Address | IPv6Address | str | None = None
@@ -778,6 +767,7 @@ class ProtectApiClient(BaseApiClient):
         self._subscribed_models = subscribed_models or set()
         self._ignore_stats = ignore_stats
         self._ws_subscriptions = []
+        self._ws_state_subscriptions = []
         self.ignore_unadopted = ignore_unadopted
         self._update_lock = asyncio.Lock()
 
@@ -1139,6 +1129,34 @@ class ProtectApiClient(BaseApiClient):
         self._ws_subscriptions.remove(ws_callback)
         if not self._ws_subscriptions:
             self._get_websocket().stop()
+
+    def subscribe_websocket_state(
+        self,
+        ws_callback: Callable[[WebsocketState], None],
+    ) -> Callable[[], None]:
+        """
+        Subscribe to websocket state changes.
+
+        Returns a callback that will unsubscribe.
+        """
+        self._ws_state_subscriptions.append(ws_callback)
+        return partial(self._unsubscribe_websocket_state, ws_callback)
+
+    def _unsubscribe_websocket_state(
+        self,
+        ws_callback: Callable[[WebsocketState], None],
+    ) -> None:
+        """Unsubscribe to websocket state changes."""
+        self._ws_state_subscriptions.remove(ws_callback)
+
+    def _on_websocket_state_change(self, state: WebsocketState) -> None:
+        """Websocket state changed."""
+        super()._on_websocket_state_change(state)
+        for sub in self._ws_state_subscriptions:
+            try:
+                sub(state)
+            except Exception:
+                _LOGGER.exception("Exception while running websocket state handler")
 
     async def get_bootstrap(self) -> Bootstrap:
         """
