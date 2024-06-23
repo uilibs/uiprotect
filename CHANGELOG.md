@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.1.4 (2024-06-23)
+
+### Fix
+
+
+- Ensure test harness does not delete coveragerc (#108) ([`02bd064`](https://github.com/uilibs/uiprotect/commit/02bd0640fc6ce917db180a410ab0d102b6c8c73a))
+
+
 ## v3.1.3 (2024-06-23)
 
 ### Fix
