@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.1.2 (2024-06-23)
+
+### Fix
+
+
+- Coveragerc fails to omit cli and tests (#106) ([`d1a4052`](https://github.com/uilibs/uiprotect/commit/d1a4052984e8545b5ac876337909ae235813db7f))
+
+
 ## v3.1.1 (2024-06-22)
 
 ### Fix
