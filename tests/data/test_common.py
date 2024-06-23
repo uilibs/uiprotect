@@ -33,6 +33,7 @@ from uiprotect.data import (
     ModelType,
     Permission,
     RecordingMode,
+    SmartDetectAudioType,
     SmartDetectObjectType,
     StorageType,
     User,
@@ -42,6 +43,7 @@ from uiprotect.data import (
 )
 from uiprotect.data.devices import LCDMessage
 from uiprotect.data.types import RecordingType, ResolutionStorageType
+from uiprotect.data.user import CloudAccount
 from uiprotect.exceptions import BadRequest, NotAuthorized, StreamError
 from uiprotect.utils import set_debug, set_no_debug, utc_now
 
@@ -906,6 +908,69 @@ async def test_multiple_updates(user_obj: User, camera_obj: Camera):
             "smartDetectSettings": {"objectTypes": ["person", "vehicle"]},
         },
     )
+
+
+@pytest.mark.asyncio()
+async def test_user_becomes_cloud_account_and_than_removed(user_obj: User):
+    assert not user_obj.cloud_account
+    assert "cloud_account" in user_obj._get_protect_objs()
+
+    user_obj.update_from_dict(
+        {
+            "id": "test_id_1",
+            "name": "Test",
+            "cloud_account": {
+                "first_name": "Qpvfly",
+                "last_name": "Ikjzilt",
+                "email": "QhoFvCv@example.com",
+                "profile_img": None,
+                "user_id": "fe4c12ae2c1348edb7854e2f",
+                "id": "9efc4511-4539-4402-9581-51cee8b65cf5",
+                "cloud_id": "9efc4511-4539-4402-9581-51cee8b65cf5",
+                "name": "Qpvfly Ikjzilt",
+                "model_key": "cloudIdentity",
+            },
+        }
+    )
+
+    assert user_obj.name == "Test"
+    assert user_obj.cloud_account
+    assert isinstance(user_obj.cloud_account, CloudAccount)
+    assert user_obj.cloud_account.first_name == "Qpvfly"
+
+    user_obj.update_from_dict(
+        {
+            "id": "test_id_1",
+            "name": "Test",
+            "cloud_account": None,
+        }
+    )
+
+    assert user_obj.name == "Test"
+    assert user_obj.cloud_account is None
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_smart_detect_settings_becomes_none(camera_obj: Camera):
+    camera_obj.smart_detect_settings.update_from_dict(
+        {
+            "audio_types": None,
+        }
+    )
+    assert camera_obj.smart_detect_settings.audio_types is None
+    camera_obj.smart_detect_settings.update_from_dict(
+        {
+            "audio_types": ["alrmSmoke"],
+        }
+    )
+    assert camera_obj.smart_detect_settings.audio_types == [SmartDetectAudioType.SMOKE]
+
+    camera_obj.smart_detect_settings.update_from_dict(
+        {
+            "audio_types": None,
+        }
+    )
+    assert camera_obj.smart_detect_settings.audio_types is None
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
