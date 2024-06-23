@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.1.7 (2024-06-23)
+
+### Fix
+
+
+- Remove unreachable code in the websocket decoder (#112) ([`235cdef`](https://github.com/uilibs/uiprotect/commit/235cdef8bf930fc7b86084fc44cccea96fb316ef))
+
+
 ## v3.1.6 (2024-06-23)
 
 ### Fix
