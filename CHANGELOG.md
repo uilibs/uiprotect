@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.1.5 (2024-06-23)
+
+### Fix
+
+
+- Exclude_fields would mutate the classvar (#109) ([`1c461e1`](https://github.com/uilibs/uiprotect/commit/1c461e1a481eb1c022c1dc5aa09529fc1abfec0e))
+
+
 ## v3.1.4 (2024-06-23)
 
 ### Fix
