@@ -948,6 +948,8 @@ async def test_user_becomes_cloud_account_and_then_removed(user_obj: User):
 
     assert user_obj.name == "Test"
     assert user_obj.cloud_account is None
+
+
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 def test_smart_detect_settings_becomes_none(camera_obj: Camera):
     camera_obj.smart_detect_settings.update_from_dict(
