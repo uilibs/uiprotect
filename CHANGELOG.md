@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.1.8 (2024-06-23)
+
+### Fix
+
+
+- Small tweaks to compact code (#113) ([`aa136ba`](https://github.com/uilibs/uiprotect/commit/aa136badd8ff7dbad6b74fcd1418de5f8ca04d73))
+
+
 ## v3.1.7 (2024-06-23)
 
 ### Fix
