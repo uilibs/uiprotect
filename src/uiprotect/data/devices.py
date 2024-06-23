@@ -159,10 +159,9 @@ class Light(ProtectMotionDeviceModel):
 
     async def set_paired_camera(self, camera: Camera | None) -> None:
         """Sets the camera paired with the light"""
-        async with self._update_lock:
-            await asyncio.sleep(
-                0,
-            )  # yield to the event loop once we have the lock to process any pending updates
+        async with self._update_sync.lock:
+            # yield to the event loop once we have the lock to process any pending updates
+            await asyncio.sleep(0)
             data_before_changes = self.dict_with_excludes()
             if camera is None:
                 self.camera_id = None
@@ -2378,10 +2377,9 @@ class Camera(ProtectMotionDeviceModel):
             raise BadRequest("Camera does not have an LCD screen")
 
         if text_type is None:
-            async with self._update_lock:
-                await asyncio.sleep(
-                    0,
-                )  # yield to the event loop once we have the lock to process any pending updates
+            async with self._update_sync.lock:
+                # yield to the event loop once we have the lock to process any pending updates
+                await asyncio.sleep(0)
                 data_before_changes = self.dict_with_excludes()
                 self.lcd_message = None
                 # UniFi Protect bug: clearing LCD text message does _not_ emit a WS message
@@ -2704,10 +2702,9 @@ class Viewer(ProtectAdoptableDeviceModel):
         if self._api is not None and liveview.id not in self._api.bootstrap.liveviews:
             raise BadRequest("Unknown liveview")
 
-        async with self._update_lock:
-            await asyncio.sleep(
-                0,
-            )  # yield to the event loop once we have the lock to process any pending updates
+        async with self._update_sync.lock:
+            # yield to the event loop once we have the lock to process any pending updates
+            await asyncio.sleep(0)
             data_before_changes = self.dict_with_excludes()
             self.liveview_id = liveview.id
             # UniFi Protect bug: changing the liveview does _not_ emit a WS message
