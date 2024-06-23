@@ -13,7 +13,7 @@ PYTEST_EXTRA_ARGS="${PYTEST_EXTRA_ARGS:-}"
 
 pushd "$ROOT_PATH" 2>&1 >/dev/null
 
-rm -rf .coverage*
+rm -rf .coverage.* .coverage
 
 echo -e "\nRunning tests (no benchmarks)..."
 poetry run pytest --timeout=10 --color=yes --cov-report=xml --benchmark-skip --maxfail=10 $PYTEST_EXTRA_ARGS
