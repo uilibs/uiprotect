@@ -582,28 +582,24 @@ class ProtectModelWithId(ProtectModel):
             setattr(self, key, data_before_changes[key])
 
     def can_create(self, user: User) -> bool:
-        if self.model is None:
-            return True
-
-        return user.can(self.model, PermissionNode.CREATE, self)
+        if (model := self.model) is not None:
+            return user.can(model, PermissionNode.CREATE, self)
+        return True
 
     def can_read(self, user: User) -> bool:
-        if self.model is None:
-            return True
-
-        return user.can(self.model, PermissionNode.READ, self)
+        if (model := self.model) is not None:
+            return user.can(model, PermissionNode.READ, self)
+        return True
 
     def can_write(self, user: User) -> bool:
-        if self.model is None:
-            return True
-
-        return user.can(self.model, PermissionNode.WRITE, self)
+        if (model := self.model) is not None:
+            return user.can(model, PermissionNode.WRITE, self)
+        return True
 
     def can_delete(self, user: User) -> bool:
-        if self.model is None:
-            return True
-
-        return user.can(self.model, PermissionNode.DELETE, self)
+        if (model := self.model) is not None:
+            return user.can(model, PermissionNode.DELETE, self)
+        return True
 
     async def queue_update(self, callback: Callable[[], None]) -> None:
         """
@@ -615,9 +611,8 @@ class ProtectModelWithId(ProtectModel):
         self._update_sync.queue.put_nowait(callback)
 
         self._update_sync.event.set()
-        await asyncio.sleep(
-            0.001,
-        )  # release execution so other `queue_update` calls can abort
+        # release execution so other `queue_update` calls can abort
+        await asyncio.sleep(0.001)
         self._update_sync.event.clear()
 
         try:
@@ -930,8 +925,8 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
         }
 
     async def _api_update(self, data: dict[str, Any]) -> None:
-        if self.model is not None:
-            return await self._api.update_device(self.model, self.id, data)
+        if (model := self.model) is not None:
+            return await self._api.update_device(model, self.id, data)
         return None
 
     def unifi_dict(
@@ -974,10 +969,9 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
 
     @property
     def bridge(self) -> Bridge | None:
-        if self.bridge_id is None:
-            return None
-
-        return self._api.bootstrap.bridges[self.bridge_id]
+        if (bridge_id := self.bridge_id) is not None:
+            return self._api.bootstrap.bridges[bridge_id]
+        return None
 
     @property
     def protect_url(self) -> str:
@@ -1066,7 +1060,6 @@ class ProtectMotionDeviceModel(ProtectAdoptableDeviceModel):
 
     @property
     def last_motion_event(self) -> Event | None:
-        if self.last_motion_event_id is None:
-            return None
-
-        return self._api.bootstrap.events.get(self.last_motion_event_id)
+        if (last_motion_event_id := self.last_motion_event_id) is not None:
+            return self._api.bootstrap.events.get(last_motion_event_id)
+        return None
