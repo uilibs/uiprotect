@@ -424,7 +424,7 @@ class ProtectBaseObject(BaseModel):
         if data is None:
             excluded_fields = self._get_excluded_fields()
             if exclude is not None:
-                excluded_fields |= exclude
+                excluded_fields = excluded_fields.copy() | exclude
             data = self.dict(exclude=excluded_fields)
             use_obj = True
 
