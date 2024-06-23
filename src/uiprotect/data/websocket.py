@@ -204,10 +204,9 @@ class WSPacket:
     def action_frame(self) -> BaseWSPacketFrame:
         if self._action_frame is None:
             self.decode()
-
-        if self._action_frame is None:
-            raise WSDecodeError("Packet unexpectedly not decoded")
-
+        if TYPE_CHECKING:
+            assert self._action_frame is not None
+            assert self._data_frame is not None
         self.__dict__["data_frame"] = self._data_frame
         return self._action_frame
 
@@ -215,10 +214,9 @@ class WSPacket:
     def data_frame(self) -> BaseWSPacketFrame:
         if self._data_frame is None:
             self.decode()
-
-        if self._data_frame is None:
-            raise WSDecodeError("Packet unexpectedly not decoded")
-
+        if TYPE_CHECKING:
+            assert self._action_frame is not None
+            assert self._data_frame is not None
         self.__dict__["action_frame"] = self._action_frame
         return self._data_frame
 
