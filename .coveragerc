@@ -2,11 +2,16 @@
 source = src/uiprotect
 
 omit =
-    site
+    site/*
     src/uiprotect/cli/*
     src/uiprotect/test_util/*
 
 [report]
+omit =
+    site/*
+    src/uiprotect/cli/*
+    src/uiprotect/test_util/*
+
 # Regexes for lines to exclude from consideration
 exclude_lines =
     # Have to re-enable the standard pragma
