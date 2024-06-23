@@ -446,9 +446,6 @@ class ProtectBaseObject(BaseModel):
         for to_key in set(new_data).intersection(remaps):
             new_data[remaps[to_key]] = new_data.pop(to_key)
 
-        if "api" in new_data:
-            del new_data["api"]
-
         return new_data
 
     def update_from_dict(cls: ProtectObject, data: dict[str, Any]) -> ProtectObject:
@@ -466,8 +463,6 @@ class ProtectBaseObject(BaseModel):
         api = cls._api
         _fields = cls.__fields__
         unifi_obj: ProtectBaseObject | None
-        if "api" in data:
-            del data["api"]
         value: Any
 
         for key, item in data.items():
