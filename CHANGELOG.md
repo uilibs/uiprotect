@@ -1,5 +1,48 @@
 # Changelog
 
+## v3.1.8 (2024-06-23)
+
+### Fix
+
+
+- Small tweaks to compact code (#113) ([`aa136ba`](https://github.com/uilibs/uiprotect/commit/aa136badd8ff7dbad6b74fcd1418de5f8ca04d73))
+
+
+## v3.1.7 (2024-06-23)
+
+### Fix
+
+
+- Remove unreachable code in the websocket decoder (#112) ([`235cdef`](https://github.com/uilibs/uiprotect/commit/235cdef8bf930fc7b86084fc44cccea96fb316ef))
+
+
+## v3.1.6 (2024-06-23)
+
+### Fix
+
+
+- Remove unreachable api in data checks (#110) ([`c7772a9`](https://github.com/uilibs/uiprotect/commit/c7772a9ecdf8d29290d0ba84e31a6f104fcb1dd1))
+
+
+- Make creation of update sync primitives lazy (#111) ([`b05af57`](https://github.com/uilibs/uiprotect/commit/b05af578a1ed9b30a1c986a13d006fbaf89b760f))
+
+
+## v3.1.5 (2024-06-23)
+
+### Fix
+
+
+- Exclude_fields would mutate the classvar (#109) ([`1c461e1`](https://github.com/uilibs/uiprotect/commit/1c461e1a481eb1c022c1dc5aa09529fc1abfec0e))
+
+
+## v3.1.4 (2024-06-23)
+
+### Fix
+
+
+- Ensure test harness does not delete coveragerc (#108) ([`02bd064`](https://github.com/uilibs/uiprotect/commit/02bd0640fc6ce917db180a410ab0d102b6c8c73a))
+
+
 ## v3.1.3 (2024-06-23)
 
 ### Fix

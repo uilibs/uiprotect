@@ -328,6 +328,21 @@ def test_bootstrap(bootstrap: dict[str, Any]):
     assert obj == obj_construct
 
 
+def test_unifi_dict_exclude(bootstrap: dict[str, Any]):
+    obj = Bootstrap.from_unifi_dict(**deepcopy(bootstrap))
+
+    obj_dict = obj.unifi_dict(exclude=set())
+    assert "authUserId" in obj_dict
+    obj_dict = obj.unifi_dict()
+    assert "authUserId" in obj_dict
+    obj_dict = obj.unifi_dict(exclude={"auth_user_id"})
+    assert "authUserId" not in obj_dict
+    obj_dict = obj.unifi_dict()
+    assert "authUserId" in obj_dict
+    obj_dict = obj.unifi_dict(exclude=set())
+    assert "authUserId" in obj_dict
+
+
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 def test_bootstrap_device_not_adopted(bootstrap, protect_client: ProtectApiClient):
     bootstrap["cameras"][0]["isAdopted"] = False
