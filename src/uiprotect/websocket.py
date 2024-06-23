@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-import time
-from collections.abc import Callable, Coroutine
+from collections.abc import Awaitable, Callable, Coroutine
+from enum import Enum
+from http import HTTPStatus
 from typing import Any, Optional
 
 from aiohttp import (
@@ -14,213 +16,199 @@ from aiohttp import (
     ClientWebSocketResponse,
     WSMessage,
     WSMsgType,
+    WSServerHandshakeError,
 )
+from yarl import URL
 
-from .utils import asyncio_timeout
+from .exceptions import NotAuthorized, NvrError
 
 _LOGGER = logging.getLogger(__name__)
-CALLBACK_TYPE = Callable[..., Coroutine[Any, Any, Optional[dict[str, str]]]]
-RECENT_FAILURE_CUT_OFF = 30
-RECENT_FAILURE_THRESHOLD = 2
+AuthCallbackType = Callable[..., Coroutine[Any, Any, Optional[dict[str, str]]]]
+GetSessionCallbackType = Callable[[], Awaitable[ClientSession]]
+UpdateBootstrapCallbackType = Callable[[], None]
+_CLOSE_MESSAGE_TYPES = {WSMsgType.CLOSE, WSMsgType.CLOSING, WSMsgType.CLOSED}
+
+
+class WebsocketState(Enum):
+    CONNECTED = True
+    DISCONNECTED = False
 
 
 class Websocket:
     """UniFi Protect Websocket manager."""
 
-    url: str
-    verify: bool
-    timeout_interval: int
-    backoff: int
-    _auth: CALLBACK_TYPE
-    _timeout: float
-    _ws_subscriptions: list[Callable[[WSMessage], None]]
-    _connect_lock: asyncio.Lock
-
+    _running = False
     _headers: dict[str, str] | None = None
     _websocket_loop_task: asyncio.Task[None] | None = None
-    _timer_task: asyncio.Task[None] | None = None
+    _stop_task: asyncio.Task[None] | None = None
     _ws_connection: ClientWebSocketResponse | None = None
-    _last_connect: float = -1000
-    _recent_failures: int = 0
 
     def __init__(
         self,
-        get_url: Callable[[], str],
-        auth_callback: CALLBACK_TYPE,
+        get_url: Callable[[], URL],
+        auth_callback: AuthCallbackType,
+        update_bootstrap: UpdateBootstrapCallbackType,
+        get_session: GetSessionCallbackType,
+        subscription: Callable[[WSMessage], None],
+        state_callback: Callable[[WebsocketState], None],
         *,
-        timeout: int = 30,
+        timeout: float = 30.0,
         backoff: int = 10,
         verify: bool = True,
     ) -> None:
         """Init Websocket."""
         self.get_url = get_url
-        self.timeout_interval = timeout
+        self.timeout = timeout
         self.backoff = backoff
         self.verify = verify
+        self._get_session = get_session
         self._auth = auth_callback
-        self._timeout = time.monotonic()
-        self._ws_subscriptions = []
-        self._connect_lock = asyncio.Lock()
+        self._update_bootstrap = update_bootstrap
+        self._subscription = subscription
+        self._seen_non_close_message = False
+        self._websocket_state = state_callback
+        self._current_state: WebsocketState = WebsocketState.DISCONNECTED
 
     @property
     def is_connected(self) -> bool:
-        """Check if Websocket connected."""
-        return self._ws_connection is not None
+        """Return if the websocket is connected and has received a valid message."""
+        return self._ws_connection is not None and not self._ws_connection.closed
 
-    def _get_session(self) -> ClientSession:
-        # for testing, to make easier to mock
-        return ClientSession()
+    async def _websocket_loop(self) -> None:
+        """Running loop for websocket."""
+        await self.wait_closed()
+        backoff = self.backoff
 
-    def _process_message(self, msg: WSMessage) -> bool:
-        if msg.type == WSMsgType.ERROR:
-            _LOGGER.exception("Error from Websocket: %s", msg.data)
-            return False
-
-        for sub in self._ws_subscriptions:
+        while True:
+            url = self.get_url()
             try:
-                sub(msg)
+                await self._websocket_inner_loop(url)
+            except ClientError as ex:
+                level = logging.ERROR if self._seen_non_close_message else logging.DEBUG
+                if isinstance(ex, WSServerHandshakeError):
+                    if ex.status == HTTPStatus.UNAUTHORIZED.value:
+                        _LOGGER.log(
+                            level, "Websocket authentication error: %s: %s", url, ex
+                        )
+                        await self._attempt_auth(True)
+                    else:
+                        _LOGGER.log(level, "Websocket handshake error: %s: %s", url, ex)
+                else:
+                    _LOGGER.log(level, "Websocket disconnect error: %s: %s", url, ex)
+            except asyncio.TimeoutError:
+                level = logging.ERROR if self._seen_non_close_message else logging.DEBUG
+                _LOGGER.log(level, "Websocket timeout: %s", url)
             except Exception:
-                _LOGGER.exception("Error processing websocket message")
+                _LOGGER.exception("Unexpected error in websocket loop")
 
-        return True
+            self._state_changed(WebsocketState.DISCONNECTED)
+            if self._running is False:
+                break
+            _LOGGER.debug("Reconnecting websocket in %s seconds", backoff)
+            await asyncio.sleep(self.backoff)
 
-    async def _websocket_loop(self, start_event: asyncio.Event) -> None:
-        url = self.get_url()
+    def _state_changed(self, state: WebsocketState) -> None:
+        """State changed."""
+        if self._current_state is state:
+            return
+        self._current_state = state
+        self._websocket_state(state)
+
+    async def _websocket_inner_loop(self, url: URL) -> None:
         _LOGGER.debug("Connecting WS to %s", url)
-        self._headers = await self._auth(self._should_reset_auth)
-
-        session = self._get_session()
+        await self._attempt_auth(False)
+        ssl = None if self.verify else False
+        msg: WSMessage | None = None
+        self._seen_non_close_message = False
+        session = await self._get_session()
         # catch any and all errors for Websocket so we can clean up correctly
         try:
             self._ws_connection = await session.ws_connect(
-                url,
-                ssl=None if self.verify else False,
-                headers=self._headers,
+                url, ssl=ssl, headers=self._headers, timeout=self.timeout
             )
-            start_event.set()
-
-            self._reset_timeout()
-            async for msg in self._ws_connection:
-                if not self._process_message(msg):
+            while True:
+                msg = await self._ws_connection.receive(self.timeout)
+                msg_type = msg.type
+                if msg_type is WSMsgType.ERROR:
+                    _LOGGER.exception("Error from Websocket: %s", msg.data)
                     break
-                self._reset_timeout()
-        except ClientError:
-            _LOGGER.exception("Websocket disconnect error: %s", url)
+                elif msg_type in _CLOSE_MESSAGE_TYPES:
+                    _LOGGER.debug("Websocket closed: %s", msg)
+                    break
+
+                if not self._seen_non_close_message:
+                    self._seen_non_close_message = True
+                    self._state_changed(WebsocketState.CONNECTED)
+                try:
+                    self._subscription(msg)
+                except Exception:
+                    _LOGGER.exception("Error processing websocket message")
         finally:
-            _LOGGER.debug("Websocket disconnected")
-            self._increase_failure()
-            self._cancel_timeout()
+            if (
+                msg is not None
+                and msg.type is WSMsgType.CLOSE
+                # If it closes right away or lastUpdateId is in the extra
+                # its an indication that we should update the bootstrap
+                # since lastUpdateId is invalid
+                and (
+                    not self._seen_non_close_message
+                    or (msg.extra and "lastUpdateId" in msg.extra)
+                )
+            ):
+                self._update_bootstrap()
+            _LOGGER.debug("Websocket disconnected: last message: %s", msg)
             if self._ws_connection is not None and not self._ws_connection.closed:
                 await self._ws_connection.close()
-            if not session.closed:
-                await session.close()
             self._ws_connection = None
-            # make sure event does not timeout
-            start_event.set()
 
-    @property
-    def has_recent_connect(self) -> bool:
-        """Check if Websocket has recent connection."""
-        return time.monotonic() - RECENT_FAILURE_CUT_OFF <= self._last_connect
-
-    @property
-    def _should_reset_auth(self) -> bool:
-        if self.has_recent_connect:
-            if self._recent_failures > RECENT_FAILURE_THRESHOLD:
-                return True
-        else:
-            self._recent_failures = 0
-        return False
-
-    def _increase_failure(self) -> None:
-        if self.has_recent_connect:
-            self._recent_failures += 1
-        else:
-            self._recent_failures = 1
-
-    async def _do_timeout(self) -> bool:
-        _LOGGER.debug("WS timed out")
-        return await self.reconnect()
-
-    async def _timeout_loop(self) -> None:
-        while True:
-            now = time.monotonic()
-            if now > self._timeout:
-                _LOGGER.debug("WS timed out")
-                if not await self.reconnect():
-                    _LOGGER.debug("WS could not reconnect")
-                    continue
-            sleep_time = self._timeout - now
-            _LOGGER.debug("WS Timeout loop sleep %s", sleep_time)
-            await asyncio.sleep(sleep_time)
-
-    def _reset_timeout(self) -> None:
-        self._timeout = time.monotonic() + self.timeout_interval
-
-        if self._timer_task is None:
-            self._timer_task = asyncio.create_task(self._timeout_loop())
-
-    def _cancel_timeout(self) -> None:
-        if self._timer_task:
-            self._timer_task.cancel()
-
-    async def connect(self) -> bool:
-        """Connect the websocket."""
-        if self._connect_lock.locked():
-            _LOGGER.debug("Another connect is already happening")
-            return False
+    async def _attempt_auth(self, force: bool) -> None:
+        """Attempt to authenticate."""
         try:
-            async with asyncio_timeout(0.1):
-                await self._connect_lock.acquire()
-        except (TimeoutError, asyncio.TimeoutError, asyncio.CancelledError):
-            _LOGGER.debug("Failed to get connection lock")
+            self._headers = await self._auth(force)
+        except (NotAuthorized, NvrError) as ex:
+            _LOGGER.debug("Error authenticating websocket: %s", ex)
+        except Exception:
+            _LOGGER.exception("Unknown error authenticating websocket")
 
-        start_event = asyncio.Event()
-        _LOGGER.debug("Scheduling WS connect...")
-        self._websocket_loop_task = asyncio.create_task(
-            self._websocket_loop(start_event),
-        )
+    def start(self) -> None:
+        """Start the websocket."""
+        if self._running:
+            return
+        self._running = True
+        self._websocket_loop_task = asyncio.create_task(self._websocket_loop())
 
-        try:
-            async with asyncio_timeout(self.timeout_interval):
-                await start_event.wait()
-        except (TimeoutError, asyncio.TimeoutError, asyncio.CancelledError):
-            _LOGGER.warning("Timed out while waiting for Websocket to connect")
-            await self.disconnect()
-
-        self._connect_lock.release()
-        if self._ws_connection is None:
-            _LOGGER.debug("Failed to connect to Websocket")
-            return False
-        _LOGGER.debug("Connected to Websocket successfully")
-        self._last_connect = time.monotonic()
-        return True
-
-    async def disconnect(self) -> None:
+    def stop(self) -> None:
         """Disconnect the websocket."""
         _LOGGER.debug("Disconnecting websocket...")
-        if self._ws_connection is None:
+        if not self._running:
             return
-        await self._ws_connection.close()
+        if self._websocket_loop_task:
+            self._websocket_loop_task.cancel()
+        self._running = False
+        ws_connection = self._ws_connection
+        websocket_loop_task = self._websocket_loop_task
         self._ws_connection = None
+        self._websocket_loop_task = None
+        self._stop_task = asyncio.create_task(
+            self._stop(ws_connection, websocket_loop_task)
+        )
+        self._state_changed(WebsocketState.DISCONNECTED)
 
-    async def reconnect(self) -> bool:
-        """Reconnect the websocket."""
-        _LOGGER.debug("Reconnecting websocket...")
-        await self.disconnect()
-        await asyncio.sleep(self.backoff)
-        return await self.connect()
+    async def wait_closed(self) -> None:
+        """Wait for the websocket to close."""
+        if self._stop_task and not self._stop_task.done():
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._stop_task
+            self._stop_task = None
 
-    def subscribe(self, ws_callback: Callable[[WSMessage], None]) -> Callable[[], None]:
-        """
-        Subscribe to raw websocket messages.
-
-        Returns a callback that will unsubscribe.
-        """
-
-        def _unsub_ws_callback() -> None:
-            self._ws_subscriptions.remove(ws_callback)
-
-        _LOGGER.debug("Adding subscription: %s", ws_callback)
-        self._ws_subscriptions.append(ws_callback)
-        return _unsub_ws_callback
+    async def _stop(
+        self,
+        ws_connection: ClientWebSocketResponse | None,
+        websocket_loop_task: asyncio.Task[None] | None,
+    ) -> None:
+        """Stop the websocket."""
+        if ws_connection:
+            await ws_connection.close()
+        if websocket_loop_task:
+            with contextlib.suppress(asyncio.CancelledError):
+                await websocket_loop_task

@@ -28,6 +28,7 @@ from uiprotect.data.websocket import (
     WSSubscriptionMessage,
 )
 from uiprotect.utils import print_ws_stat_summary, to_js_time, utc_now
+from uiprotect.websocket import WebsocketState
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -79,9 +80,17 @@ async def test_ws_all(
     sub.unsub = protect_client.subscribe_websocket(sub.callback)
     _orig = protect_client.bootstrap.process_ws_packet
 
+    websocket = protect_client._get_websocket()
+
+    while not websocket.is_connected:
+        await asyncio.sleep(0.05)
+
     stats = benchmark._make_stats(1)
+    processed_packets = 0
 
     def benchmark_process_ws_packet(*args, **kwargs):
+        nonlocal processed_packets
+        processed_packets += 1
         runner = benchmark._make_runner(_orig, args, kwargs)
         duration, result = runner(None)
         stats.update(duration)
@@ -95,16 +104,12 @@ async def test_ws_all(
         benchmark_process_ws_packet,
     )
 
-    websocket = await protect_client.get_websocket()
-
     ws_connect: MockWebsocket | None = websocket._ws_connection  # type: ignore[assignment]
     assert ws_connect is not None
 
     while websocket.is_connected:
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.05)
 
-    assert ws_connect.count == len(ws_messages)
-    assert ws_connect.now == float(list(ws_messages.keys())[-1])
     assert sub.callback_count == 3
 
 
@@ -130,6 +135,10 @@ async def test_ws_filtered(
     sub.unsub = protect_client.subscribe_websocket(sub.callback)
     _orig = protect_client.bootstrap.process_ws_packet
 
+    websocket = protect_client._get_websocket()
+    while not websocket.is_connected:
+        await asyncio.sleep(0.05)
+
     stats = benchmark._make_stats(1)
 
     def benchmark_process_ws_packet(*args, **kwargs):
@@ -146,13 +155,11 @@ async def test_ws_filtered(
         benchmark_process_ws_packet,
     )
 
-    websocket = await protect_client.get_websocket()
-
     ws_connect: MockWebsocket | None = websocket._ws_connection  # type: ignore[assignment]
     assert ws_connect is not None
 
     while websocket.is_connected:
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.05)
 
     print_ws_stat_summary(protect_client.bootstrap.ws_stats)
 
@@ -509,13 +516,40 @@ async def test_check_ws_connected(
     caplog: pytest.LogCaptureFixture,
 ):
     caplog.set_level(logging.DEBUG)
+    unsub = protect_client_ws.subscribe_websocket(lambda _: None)
+    while not protect_client_ws._websocket.is_connected:
+        await asyncio.sleep(0.01)
+    assert protect_client_ws._websocket.is_connected
+    unsub()
 
-    active_ws = protect_client_ws.check_ws()
 
-    assert active_ws is True
+@pytest.mark.asyncio()
+async def test_check_ws_connected_state_callback(
+    protect_client_ws: ProtectApiClient,
+    caplog: pytest.LogCaptureFixture,
+):
+    websocket = protect_client_ws._websocket
+    assert not websocket.is_connected
 
-    expected_logs: list[str] = []
-    assert expected_logs == [rec.message for rec in caplog.records]
+    caplog.set_level(logging.DEBUG)
+    states: list[bool] = []
+
+    def _on_state(state: bool):
+        states.append(state)
+
+    unsub_state = protect_client_ws.subscribe_websocket_state(_on_state)
+    unsub = protect_client_ws.subscribe_websocket(lambda _: None)
+    while websocket._current_state is not WebsocketState.CONNECTED:
+        await asyncio.sleep(0.01)
+
+    assert states == [WebsocketState.CONNECTED]
+    await protect_client_ws.async_disconnect_ws()
+    while websocket._current_state is not WebsocketState.DISCONNECTED:
+        await asyncio.sleep(0.01)
+
+    assert states == [WebsocketState.CONNECTED, WebsocketState.DISCONNECTED]
+    unsub()
+    unsub_state()
 
 
 @pytest.mark.asyncio()
@@ -526,40 +560,7 @@ async def test_check_ws_no_ws_initial(
     caplog.set_level(logging.DEBUG)
 
     await protect_client.async_disconnect_ws()
-    protect_client._last_ws_status = True
-
-    active_ws = protect_client.check_ws()
-
-    assert active_ws is False
-
-    expected_logs = [
-        "Disconnecting websocket...",
-        "Websocket connection not active, failing back to polling",
-    ]
-    assert expected_logs == [rec.message for rec in caplog.records]
-    assert caplog.records[1].levelname == "WARNING"
-
-
-@pytest.mark.asyncio()
-async def test_check_ws_no_ws(
-    protect_client: ProtectApiClient,
-    caplog: pytest.LogCaptureFixture,
-):
-    caplog.set_level(logging.DEBUG)
-
-    await protect_client.async_disconnect_ws()
-    protect_client._last_ws_status = False
-
-    active_ws = protect_client.check_ws()
-
-    assert active_ws is False
-
-    expected_logs = [
-        "Disconnecting websocket...",
-        "Websocket connection not active, failing back to polling",
-    ]
-    assert expected_logs == [rec.message for rec in caplog.records]
-    assert caplog.records[1].levelname == "DEBUG"
+    assert not protect_client._websocket
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")

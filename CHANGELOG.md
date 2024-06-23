@@ -1,5 +1,93 @@
 # Changelog
 
+## v3.1.3 (2024-06-23)
+
+### Fix
+
+
+- Add test coverage for updating to none (#107) ([`b2adeac`](https://github.com/uilibs/uiprotect/commit/b2adeac94fcef09bac8fe06c9795c8a41694ff95))
+
+
+## v3.1.2 (2024-06-23)
+
+### Fix
+
+
+- Coveragerc fails to omit cli and tests (#106) ([`d1a4052`](https://github.com/uilibs/uiprotect/commit/d1a4052984e8545b5ac876337909ae235813db7f))
+
+
+## v3.1.1 (2024-06-22)
+
+### Fix
+
+
+- _raise_for_status when raise_exception is not set (#105) ([`0a6ff9e`](https://github.com/uilibs/uiprotect/commit/0a6ff9e358e66058f2f7ca3bff12925f3b1d4e90))
+
+
+## v3.1.0 (2024-06-22)
+
+### Feature
+
+
+- Add websocket state subscription (#104) ([`d7083ab`](https://github.com/uilibs/uiprotect/commit/d7083ab8ced2dc3cc65dcaf6ea2dd8c869e70a96))
+
+
+## v3.0.0 (2024-06-22)
+
+### Breaking
+
+
+- Remove the force flag from update (#103) ([`0bee3e6`](https://github.com/uilibs/uiprotect/commit/0bee3e64d8f1a540e6bfde7b3ab282bc26e6f150))
+
+
+## v2.3.0 (2024-06-22)
+
+### Feature
+
+
+- Handle websocket auth errors on restart (#102) ([`7026491`](https://github.com/uilibs/uiprotect/commit/7026491ac909cb2ed2bf3d9457cf86a1a44de025))
+
+
+## v2.2.0 (2024-06-22)
+
+### Feature
+
+
+- Decrease websocket logging for known errors (#101) ([`05df499`](https://github.com/uilibs/uiprotect/commit/05df499863006b8d66d2ca0e3c76c639730e30de))
+
+
+## v2.1.0 (2024-06-22)
+
+### Feature
+
+
+- Improve websocket error handling (#100) ([`813ac9c`](https://github.com/uilibs/uiprotect/commit/813ac9ca2eaefa2623b15f43d9cdf4f3fab31bcb))
+
+
+## v2.0.0 (2024-06-22)
+
+### Breaking
+
+
+- Rework websocket (#96) ([`574a846`](https://github.com/uilibs/uiprotect/commit/574a846ff4e34737169b49ec418b4a112fa12f3e))
+
+
+## v1.20.0 (2024-06-21)
+
+### Feature
+
+
+- Include getter builder utils for fetching ufp object values (#95) ([`9056edf`](https://github.com/uilibs/uiprotect/commit/9056edf85ecf8cd59d053411ae18f1d05093d9e5))
+
+
+## v1.19.3 (2024-06-21)
+
+### Fix
+
+
+- Pin and drop pydantic compat imports now that pydantic is fixed (#94) ([`00adc2c`](https://github.com/uilibs/uiprotect/commit/00adc2cc39cf004e93952a8ef489ef1051c1fb83))
+
+
 ## v1.19.2 (2024-06-20)
 
 ### Fix
