@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.1.3 (2024-06-23)
+
+### Fix
+
+
+- Add test coverage for updating to none (#107) ([`b2adeac`](https://github.com/uilibs/uiprotect/commit/b2adeac94fcef09bac8fe06c9795c8a41694ff95))
+
+
 ## v3.1.2 (2024-06-23)
 
 ### Fix
