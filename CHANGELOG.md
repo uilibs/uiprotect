@@ -1,5 +1,16 @@
 # Changelog
 
+## v3.1.6 (2024-06-23)
+
+### Fix
+
+
+- Remove unreachable api in data checks (#110) ([`c7772a9`](https://github.com/uilibs/uiprotect/commit/c7772a9ecdf8d29290d0ba84e31a6f104fcb1dd1))
+
+
+- Make creation of update sync primitives lazy (#111) ([`b05af57`](https://github.com/uilibs/uiprotect/commit/b05af578a1ed9b30a1c986a13d006fbaf89b760f))
+
+
 ## v3.1.5 (2024-06-23)
 
 ### Fix
