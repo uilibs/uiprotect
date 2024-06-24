@@ -102,31 +102,19 @@ CAMERA_EVENT_ATTR_MAP: dict[EventType, tuple[str, str]] = {
 
 
 def _process_light_event(event: Event, light: Light) -> None:
-    if _event_is_in_range(event, light.last_motion):
-        light.last_motion_event_id = event.id
-
-
-def _event_is_in_range(event: Event, dt: datetime | None) -> bool:
-    """Check if event is in range of datetime."""
-    return (
-        dt is None or event.start >= dt or (event.end is not None and event.end >= dt)
-    )
+    light.last_motion_event_id = event.id
 
 
 def _process_sensor_event(event: Event, sensor: Sensor) -> None:
     if event.type is EventType.MOTION_SENSOR:
-        if _event_is_in_range(event, sensor.motion_detected_at):
-            sensor.last_motion_event_id = event.id
+        sensor.last_motion_event_id = event.id
     elif event.type in {EventType.SENSOR_CLOSED, EventType.SENSOR_OPENED}:
-        if _event_is_in_range(event, sensor.open_status_changed_at):
-            sensor.last_contact_event_id = event.id
+        sensor.last_contact_event_id = event.id
     elif event.type is EventType.SENSOR_EXTREME_VALUE:
-        if _event_is_in_range(event, sensor.extreme_value_detected_at):
-            sensor.extreme_value_detected_at = event.end
-            sensor.last_value_event_id = event.id
+        sensor.extreme_value_detected_at = event.end
+        sensor.last_value_event_id = event.id
     elif event.type is EventType.SENSOR_ALARM:
-        if _event_is_in_range(event, sensor.alarm_triggered_at):
-            sensor.last_value_event_id = event.id
+        sensor.last_value_event_id = event.id
 
 
 _CAMERA_SMART_AND_LINE_EVENTS = {
@@ -139,10 +127,6 @@ _CAMERA_SMART_AUDIO_EVENT = EventType.SMART_AUDIO_DETECT
 def _process_camera_event(event: Event, camera: Camera) -> None:
     event_type = event.type
     dt_attr, event_attr = CAMERA_EVENT_ATTR_MAP[event_type]
-    dt: datetime | None = getattr(camera, dt_attr)
-    if not _event_is_in_range(event, dt):
-        return
-
     event_id = event.id
     event_start = event.start
 
