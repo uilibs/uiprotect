@@ -3,7 +3,6 @@ name = "uiprotect"
 version = "3.3.0"
 description = "Python API for Unifi Protect (Unofficial)"
 authors = ["UI Protect Maintainers <ui@koston.org>"]
-license = "MIT"
 readme = "README.md"
 repository = "https://github.com/uilibs/uiprotect"
 documentation = "https://uiprotect.readthedocs.io"
@@ -16,7 +15,8 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12"
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License"
 ]
 packages = [
     { include = "uiprotect", from = "src" },
