@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.3.0 (2024-06-24)
+
+### Feature
+
+
+- Skip empty models in unifi_dict (#115) ([`d42023f`](https://github.com/uilibs/uiprotect/commit/d42023f9f07d3bdf097669637e1ad754a70ea0b7))
+
+
 ## v3.2.0 (2024-06-24)
 
 ### Feature
