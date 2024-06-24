@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.3.1 (2024-06-24)
+
+### Fix
+
+
+- License classifier (#116) ([`ac048d7`](https://github.com/uilibs/uiprotect/commit/ac048d7325529823ab7d2840dc63aaa822008b32))
+
+
 ## v3.3.0 (2024-06-24)
 
 ### Feature
