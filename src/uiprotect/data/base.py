@@ -433,17 +433,22 @@ class ProtectBaseObject(BaseModel):
             has_unifi_dicts,
         ) = self._get_protect_model()
 
-        for key, klass in unifi_objs.items():
-            if use_obj or key in data:
-                data[key] = self._unifi_dict_protect_obj(data, key, use_obj, klass)
+        if has_unifi_objs:
+            for key, klass in unifi_objs.items():
+                if use_obj or key in data:
+                    data[key] = self._unifi_dict_protect_obj(data, key, use_obj, klass)
 
-        for key, klass in unifi_lists.items():
-            if use_obj or key in data:
-                data[key] = self._unifi_dict_protect_obj_list(data, key, use_obj, klass)
+        if has_unifi_lists:
+            for key, klass in unifi_lists.items():
+                if use_obj or key in data:
+                    data[key] = self._unifi_dict_protect_obj_list(
+                        data, key, use_obj, klass
+                    )
 
-        for key in unifi_dicts:
-            if use_obj or key in data:
-                data[key] = self._unifi_dict_protect_obj_dict(data, key, use_obj)
+        if has_unifi_dicts:
+            for key in unifi_dicts:
+                if use_obj or key in data:
+                    data[key] = self._unifi_dict_protect_obj_dict(data, key, use_obj)
 
         # all child objects have been serialized correctly do not do it twice
         new_data: dict[str, Any] = serialize_unifi_obj(data, levels=2)
