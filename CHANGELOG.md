@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.1.9 (2024-06-24)
+
+### Fix
+
+
+- Remove event is in range check (#92) ([`2847f40`](https://github.com/uilibs/uiprotect/commit/2847f402a19655e9dee1d596b331e70b25bf3da3))
+
+
 ## v3.1.8 (2024-06-23)
 
 ### Fix
