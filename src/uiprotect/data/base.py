@@ -8,7 +8,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import cache, cached_property
 from ipaddress import IPv4Address
-from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
+from typing import TYPE_CHECKING, Any, NamedTuple, TypeVar
 from uuid import UUID
 
 from pydantic.v1 import BaseModel
@@ -65,6 +65,23 @@ def _is_protect_base_object(cls: type) -> bool:
     return issubclass(cls, ProtectBaseObject)
 
 
+class _ProtectModelObjects(NamedTuple):
+    """
+    Class to track all child of UFP objects.
+
+    objs are UFP objects
+    lists are lists of UFP objects
+    dicts are dicts of UFP objects
+    """
+
+    objs: dict[str, type[ProtectBaseObject]]
+    has_objs: bool
+    lists: dict[str, type[ProtectBaseObject]]
+    has_lists: bool
+    dicts: dict[str, type[ProtectBaseObject]]
+    has_dicts: bool
+
+
 class ProtectBaseObject(BaseModel):
     """
     Base class for building Python objects from UniFi Protect JSON.
@@ -75,10 +92,6 @@ class ProtectBaseObject(BaseModel):
     """
 
     _api: ProtectApiClient = PrivateAttr(None)
-
-    _protect_objs: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
-    _protect_lists: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
-    _protect_dicts: ClassVar[dict[str, type[ProtectBaseObject]] | None] = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -128,12 +141,14 @@ class ProtectBaseObject(BaseModel):
     @classmethod
     def construct(cls, _fields_set: set[str] | None = None, **values: Any) -> Self:
         api: ProtectApiClient | None = values.pop("api", None)
-        unifi_objs = cls._get_protect_objs()
-        has_unifi_objs = bool(unifi_objs)
-        unifi_lists = cls._get_protect_lists()
-        has_unifi_lists = bool(unifi_lists)
-        unifi_dicts = cls._get_protect_dicts()
-        has_unifi_dicts = bool(unifi_dicts)
+        (
+            unifi_objs,
+            has_unifi_objs,
+            unifi_lists,
+            has_unifi_lists,
+            unifi_dicts,
+            has_unifi_dicts,
+        ) = cls._get_protect_model()
         for key, value in values.items():
             if has_unifi_objs and key in unifi_objs and isinstance(value, dict):
                 values[key] = unifi_objs[key].construct(**value)
@@ -195,56 +210,35 @@ class ProtectBaseObject(BaseModel):
         }
 
     @classmethod
-    def _set_protect_subtypes(cls) -> None:
+    @cache
+    def _get_protect_model(cls) -> _ProtectModelObjects:
         """Helper method to detect attrs of current class that are UFP Objects themselves"""
-        cls._protect_objs = {}
-        cls._protect_lists = {}
-        cls._protect_dicts = {}
+        objs: dict[str, type[ProtectBaseObject]] = {}
+        lists: dict[str, type[ProtectBaseObject]] = {}
+        dicts: dict[str, type[ProtectBaseObject]] = {}
 
         for name, field in cls.__fields__.items():
             try:
                 if _is_protect_base_object(field.type_):
                     if field.shape == SHAPE_LIST:
-                        cls._protect_lists[name] = field.type_
+                        lists[name] = field.type_
                     elif field.shape == SHAPE_DICT:
-                        cls._protect_dicts[name] = field.type_
+                        dicts[name] = field.type_
                     else:
-                        cls._protect_objs[name] = field.type_
+                        objs[name] = field.type_
             except TypeError:
                 pass
 
-    @classmethod
-    @cache
-    def _get_protect_objs(cls) -> dict[str, type[ProtectBaseObject]]:
-        """Helper method to get all child UFP objects"""
-        if cls._protect_objs is None:
-            cls._set_protect_subtypes()
-            assert cls._protect_objs is not None
-        return cls._protect_objs
+        return _ProtectModelObjects(
+            objs, bool(objs), lists, bool(lists), dicts, bool(dicts)
+        )
 
     @classmethod
     @cache
     def _get_excluded_fields(cls) -> set[str]:
         """Helper method to get all excluded fields for the current object."""
-        return set(cls._get_protect_objs()) | set(cls._get_protect_lists())
-
-    @classmethod
-    @cache
-    def _get_protect_lists(cls) -> dict[str, type[ProtectBaseObject]]:
-        """Helper method to get all child of UFP objects (lists)"""
-        if cls._protect_lists is None:
-            cls._set_protect_subtypes()
-            assert cls._protect_lists is not None
-        return cls._protect_lists
-
-    @classmethod
-    @cache
-    def _get_protect_dicts(cls) -> dict[str, type[ProtectBaseObject]]:
-        """Helper method to get all child of UFP objects (dicts)"""
-        if cls._protect_dicts is None:
-            cls._set_protect_subtypes()
-            assert cls._protect_dicts is not None
-        return cls._protect_dicts
+        protect_model = cls._get_protect_model()
+        return set(protect_model.objs) | set(protect_model.lists)
 
     @classmethod
     def _clean_protect_obj(
@@ -327,12 +321,14 @@ class ProtectBaseObject(BaseModel):
             return data
 
         # clean child UFP objs
-        unifi_objs = cls._get_protect_objs()
-        has_unifi_objs = bool(unifi_objs)
-        unifi_lists = cls._get_protect_lists()
-        has_unifi_lists = bool(unifi_lists)
-        unifi_dicts = cls._get_protect_dicts()
-        has_unifi_dicts = bool(unifi_dicts)
+        (
+            unifi_objs,
+            has_unifi_objs,
+            unifi_lists,
+            has_unifi_lists,
+            unifi_dicts,
+            has_unifi_dicts,
+        ) = cls._get_protect_model()
         for key, value in data.items():
             if has_unifi_objs and key in unifi_objs:
                 data[key] = cls._clean_protect_obj(value, unifi_objs[key], api)
@@ -428,15 +424,24 @@ class ProtectBaseObject(BaseModel):
             data = self.dict(exclude=excluded_fields)
             use_obj = True
 
-        for key, klass in self._get_protect_objs().items():
+        (
+            unifi_objs,
+            has_unifi_objs,
+            unifi_lists,
+            has_unifi_lists,
+            unifi_dicts,
+            has_unifi_dicts,
+        ) = self._get_protect_model()
+
+        for key, klass in unifi_objs.items():
             if use_obj or key in data:
                 data[key] = self._unifi_dict_protect_obj(data, key, use_obj, klass)
 
-        for key, klass in self._get_protect_lists().items():
+        for key, klass in unifi_lists.items():
             if use_obj or key in data:
                 data[key] = self._unifi_dict_protect_obj_list(data, key, use_obj, klass)
 
-        for key in self._get_protect_dicts():
+        for key in unifi_dicts:
             if use_obj or key in data:
                 data[key] = self._unifi_dict_protect_obj_dict(data, key, use_obj)
 
@@ -455,11 +460,14 @@ class ProtectBaseObject(BaseModel):
         The api client is injected into each dict for any child
         UFP objects that are detected.
         """
-        unifi_objs = cls._get_protect_objs()
-        has_unifi_objs = bool(unifi_objs)
-        unifi_lists = cls._get_protect_lists()
-        has_unifi_lists = bool(unifi_lists)
-
+        (
+            unifi_objs,
+            has_unifi_objs,
+            unifi_lists,
+            has_unifi_lists,
+            unifi_dicts,
+            has_unifi_dicts,
+        ) = cls._get_protect_model()
         api = cls._api
         _fields = cls.__fields__
         unifi_obj: ProtectBaseObject | None

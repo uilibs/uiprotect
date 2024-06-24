@@ -928,7 +928,8 @@ async def test_multiple_updates(user_obj: User, camera_obj: Camera):
 @pytest.mark.asyncio()
 async def test_user_becomes_cloud_account_and_then_removed(user_obj: User):
     assert not user_obj.cloud_account
-    assert "cloud_account" in user_obj._get_protect_objs()
+    model = user_obj._get_protect_model()
+    assert "cloud_account" in model.objs
 
     user_obj.update_from_dict(
         {
