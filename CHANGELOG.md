@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.2.0 (2024-06-24)
+
+### Feature
+
+
+- Refactor internal object tracking (#114) ([`ad1b2b4`](https://github.com/uilibs/uiprotect/commit/ad1b2b45f3d72243ca8cb24c326b4f0fcd0bd71f))
+
+
 ## v3.1.9 (2024-06-24)
 
 ### Fix
