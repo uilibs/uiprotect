@@ -1024,7 +1024,7 @@ class NVR(ProtectDeviceModel):
 
     @property
     def is_analytics_enabled(self) -> bool:
-        return self.analytics_data != AnalyticsOption.NONE
+        return self.analytics_data is not AnalyticsOption.NONE
 
     @property
     def protect_url(self) -> str:
@@ -1037,7 +1037,7 @@ class NVR(ProtectDeviceModel):
     @property
     def vault_cameras(self) -> list[Camera]:
         """Vault Cameras for NVR"""
-        if len(self.vault_camera_ids) == 0:
+        if not self.vault_camera_ids:
             return []
         return [self._api.bootstrap.cameras[c] for c in self.vault_camera_ids]
 
