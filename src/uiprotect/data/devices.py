@@ -2515,22 +2515,18 @@ class Camera(ProtectMotionDeviceModel):
 
     async def stop_audio(self) -> None:
         """Stop currently playing audio."""
-        stream = self.talkback_stream
-        if stream is None:
+        if (stream := self.talkback_stream) is None:
             raise StreamError("No audio playing to stop")
-
         await stream.stop()
 
     def can_read_media(self, user: User) -> bool:
         if self.model is None:
             return True
-
         return user.can(self.model, PermissionNode.READ_MEDIA, self)
 
     def can_delete_media(self, user: User) -> bool:
         if self.model is None:
             return True
-
         return user.can(self.model, PermissionNode.DELETE_MEDIA, self)
 
     # region PTZ
