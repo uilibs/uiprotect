@@ -260,9 +260,7 @@ class ProtectBaseObject(BaseModel):
         klass: type[ProtectBaseObject],
         api: ProtectApiClient | None,
     ) -> list[Any]:
-        for index, item in enumerate(items):
-            items[index] = cls._clean_protect_obj(item, klass, api)
-        return items
+        return [cls._clean_protect_obj(item, klass, api) for item in items]
 
     @classmethod
     def _clean_protect_obj_dict(
@@ -271,9 +269,7 @@ class ProtectBaseObject(BaseModel):
         klass: type[ProtectBaseObject],
         api: ProtectApiClient | None,
     ) -> dict[Any, Any]:
-        for key, value in items.items():
-            items[key] = cls._clean_protect_obj(value, klass, api)
-        return items
+        return {k: cls._clean_protect_obj(v, klass, api) for k, v in items.items()}
 
     @classmethod
     @cache
