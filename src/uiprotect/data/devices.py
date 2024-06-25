@@ -2812,10 +2812,9 @@ class Sensor(ProtectAdoptableDeviceModel):
     @property
     def camera(self) -> Camera | None:
         """Paired Camera will always be none if no camera is paired"""
-        if self.camera_id is None:
+        if (camera_id := self.camera_id) is None:
             return None
-
-        return self._api.bootstrap.cameras[self.camera_id]
+        return self._api.bootstrap.cameras[camera_id]
 
     @property
     def is_tampering_detected(self) -> bool:
