@@ -1,5 +1,19 @@
 # Changelog
 
+## v3.7.0 (2024-06-25)
+
+### Feature
+
+
+- Small cleanups to packet packing/unpacking (#122) ([`00cb125`](https://github.com/uilibs/uiprotect/commit/00cb125e89f5f43f7c759719d5fc581fb631af3c))
+
+
+- Small cleanups to devices (#124) ([`1b64a8e`](https://github.com/uilibs/uiprotect/commit/1b64a8e89259e9d791a9c9703ced088e4fc7622c))
+
+
+- Cleanup some additional dupe attr lookups (#123) ([`24849d8`](https://github.com/uilibs/uiprotect/commit/24849d819cfbba582a0f21c975de895d3754ef3b))
+
+
 ## v3.6.0 (2024-06-25)
 
 ### Feature
