@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import warnings
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import cache
 from ipaddress import IPv4Address
@@ -654,12 +654,11 @@ class CameraZone(ProtectBaseObject):
     points: list[tuple[Percent, Percent]]
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        data = super().unifi_dict_to_dict(data)
-        if "points" in data and isinstance(data["points"], Iterable):
-            data["points"] = [(p[0], p[1]) for p in data["points"]]
-
-        return data
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "points": lambda x: [(p[0], p[1]) for p in x["points"]],
+        } | super().unifi_dict_conversions()
 
     def unifi_dict(
         self,
