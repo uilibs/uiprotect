@@ -1010,13 +1010,16 @@ class NVR(ProtectDeviceModel):
         }
 
     @classmethod
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "lastUpdateAt": convert_to_datetime,
+            "lastDeviceFwUpdatesCheckedAt": convert_to_datetime,
+            "timezone": zoneinfo.ZoneInfo,
+        } | super().unifi_dict_conversions()
+
+    @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "lastUpdateAt" in data:
-            data["lastUpdateAt"] = convert_to_datetime(data["lastUpdateAt"])
-        if "lastDeviceFwUpdatesCheckedAt" in data:
-            data["lastDeviceFwUpdatesCheckedAt"] = convert_to_datetime(
-                data["lastDeviceFwUpdatesCheckedAt"]
-            )
         if (
             "recordingRetentionDurationMs" in data
             and data["recordingRetentionDurationMs"] is not None
@@ -1024,8 +1027,6 @@ class NVR(ProtectDeviceModel):
             data["recordingRetentionDuration"] = timedelta(
                 milliseconds=data.pop("recordingRetentionDurationMs"),
             )
-        if "timezone" in data and not isinstance(data["timezone"], tzinfo):
-            data["timezone"] = zoneinfo.ZoneInfo(data["timezone"])
 
         return super().unifi_dict_to_dict(data)
 
