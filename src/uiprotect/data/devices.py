@@ -1900,13 +1900,13 @@ class Camera(ProtectMotionDeviceModel):
 
     @property
     def is_high_fps_enabled(self) -> bool:
-        return self.video_mode == VideoMode.HIGH_FPS
+        return self.video_mode is VideoMode.HIGH_FPS
 
     @property
     def is_video_ready(self) -> bool:
         return (
             lens_type := self.feature_flags.lens_type
-        ) is None or lens_type != LensType.NONE
+        ) is None or lens_type is not LensType.NONE
 
     @property
     def has_removable_lens(self) -> bool:
