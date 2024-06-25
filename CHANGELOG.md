@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.6.0 (2024-06-25)
+
+### Feature
+
+
+- Reduce some duplicate attr lookups in devices (#121) ([`8ea72ea`](https://github.com/uilibs/uiprotect/commit/8ea72eae1c8c0e37206a1268937287b0b1f29b28))
+
+
 ## v3.5.0 (2024-06-25)
 
 ### Feature
