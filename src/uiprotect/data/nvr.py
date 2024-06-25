@@ -1016,19 +1016,9 @@ class NVR(ProtectDeviceModel):
             "lastUpdateAt": convert_to_datetime,
             "lastDeviceFwUpdatesCheckedAt": convert_to_datetime,
             "timezone": zoneinfo.ZoneInfo,
+            # recordingRetentionDurationMs is remapped to recordingRetentionDuration
+            "recordingRetentionDurationMs": lambda x: timedelta(milliseconds=x),
         } | super().unifi_dict_conversions()
-
-    @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if (
-            "recordingRetentionDurationMs" in data
-            and data["recordingRetentionDurationMs"] is not None
-        ):
-            data["recordingRetentionDuration"] = timedelta(
-                milliseconds=data.pop("recordingRetentionDurationMs"),
-            )
-
-        return super().unifi_dict_to_dict(data)
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         return await self._api.update_nvr(data)
