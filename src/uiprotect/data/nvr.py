@@ -94,11 +94,11 @@ class SmartDetectItem(ProtectBaseObject):
         }
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "duration" in data:
-            data["duration"] = timedelta(milliseconds=data["duration"])
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "duration": lambda x: timedelta(milliseconds=x),
+        } | super().unifi_dict_conversions()
 
 
 class SmartDetectTrack(ProtectBaseObject):
@@ -161,14 +161,9 @@ class EventDetectedThumbnail(ProtectBaseObject):
     name: str | None
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "clockBestWall" in data:
-            if data["clockBestWall"]:
-                data["clockBestWall"] = convert_to_datetime(data["clockBestWall"])
-            else:
-                del data["clockBestWall"]
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {"clockBestWall": convert_to_datetime} | super().unifi_dict_conversions()
 
     def unifi_dict(
         self,
@@ -865,15 +860,12 @@ class StorageStats(ProtectBaseObject):
     storage_distribution: StorageDistribution
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "capacity" in data and data["capacity"] is not None:
-            data["capacity"] = timedelta(milliseconds=data.pop("capacity"))
-        if "remainingCapacity" in data and data["remainingCapacity"] is not None:
-            data["remainingCapacity"] = timedelta(
-                milliseconds=data.pop("remainingCapacity"),
-            )
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "capacity": lambda x: timedelta(milliseconds=x),
+            "remainingCapacity": lambda x: timedelta(milliseconds=x),
+        } | super().unifi_dict_conversions()
 
 
 class NVRFeatureFlags(ProtectBaseObject):
