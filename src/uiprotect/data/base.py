@@ -310,8 +310,8 @@ class ProtectBaseObject(BaseModel):
 
         conversions = cls.unifi_dict_conversions()
         for key, convert in conversions.items():
-            if key in data and data[key] is not None:
-                data[key] = convert(data[key])  # type: ignore[operator]
+            if (val := data.get(key)) is not None:
+                data[key] = convert(val)  # type: ignore[operator]
 
         remaps = cls._get_unifi_remaps()
         # convert to snake_case and remove extra fields
