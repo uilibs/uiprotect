@@ -657,7 +657,7 @@ class CameraZone(ProtectBaseObject):
     @cache
     def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
         return {
-            "points": lambda x: [(p[0], p[1]) for p in x["points"]],
+            "points": lambda x: [(p[0], p[1]) for p in x],
         } | super().unifi_dict_conversions()
 
     def unifi_dict(
@@ -1020,13 +1020,17 @@ class Camera(ProtectMotionDeviceModel):
         }
 
     @classmethod
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "chimeDuration": lambda x: timedelta(milliseconds=x),
+        } | super().unifi_dict_conversions()
+
+    @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         # LCD messages comes back as empty dict {}
         if "lcdMessage" in data and len(data["lcdMessage"]) == 0:
             del data["lcdMessage"]
-        if "chimeDuration" in data and not isinstance(data["chimeDuration"], timedelta):
-            data["chimeDuration"] = timedelta(milliseconds=data["chimeDuration"])
-
         return super().unifi_dict_to_dict(data)
 
     def unifi_dict(
