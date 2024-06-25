@@ -3090,14 +3090,11 @@ class Doorlock(ProtectAdoptableDeviceModel):
         }
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "autoCloseTimeMs" in data and not isinstance(
-            data["autoCloseTimeMs"],
-            timedelta,
-        ):
-            data["autoCloseTimeMs"] = timedelta(milliseconds=data["autoCloseTimeMs"])
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "autoCloseTimeMs": lambda x: timedelta(milliseconds=x)
+        } | super().unifi_dict_conversions()
 
     @property
     def camera(self) -> Camera | None:
