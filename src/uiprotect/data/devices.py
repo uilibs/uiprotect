@@ -1107,18 +1107,16 @@ class Camera(ProtectMotionDeviceModel):
 
     @property
     def last_ring_event(self) -> Event | None:
-        if self.last_ring_event_id is None:
+        if (last_ring_event_id := self.last_ring_event_id) is None:
             return None
-
-        return self._api.bootstrap.events.get(self.last_ring_event_id)
+        return self._api.bootstrap.events.get(last_ring_event_id)
 
     @property
     def last_smart_detect_event(self) -> Event | None:
         """Get the last smart detect event id."""
-        if self.last_smart_detect_event_id is None:
+        if (last_smart_detect_event_id := self.last_smart_detect_event_id) is None:
             return None
-
-        return self._api.bootstrap.events.get(self.last_smart_detect_event_id)
+        return self._api.bootstrap.events.get(last_smart_detect_event_id)
 
     @property
     def hdr_mode_display(self) -> Literal["auto", "off", "always"]:
@@ -1151,20 +1149,19 @@ class Camera(ProtectMotionDeviceModel):
     @property
     def last_smart_audio_detect_event(self) -> Event | None:
         """Get the last smart audio detect event id."""
-        if self.last_smart_audio_detect_event_id is None:
+        if (
+            last_smart_audio_detect_event_id := self.last_smart_audio_detect_event_id
+        ) is None:
             return None
-
-        return self._api.bootstrap.events.get(self.last_smart_audio_detect_event_id)
+        return self._api.bootstrap.events.get(last_smart_audio_detect_event_id)
 
     def get_last_smart_audio_detect_event(
         self,
         smart_type: SmartDetectAudioType,
     ) -> Event | None:
         """Get the last smart audio detect event for given type."""
-        event_id = self.last_smart_audio_detect_event_ids.get(smart_type)
-        if event_id is None:
+        if (event_id := self.last_smart_audio_detect_event_ids.get(smart_type)) is None:
             return None
-
         return self._api.bootstrap.events.get(event_id)
 
     @property
@@ -1186,7 +1183,6 @@ class Camera(ProtectMotionDeviceModel):
         """
         if self.use_global:
             return self._api.bootstrap.nvr.is_global_recording_enabled
-
         return self.recording_settings.mode is not RecordingMode.NEVER
 
     @property
@@ -1218,7 +1214,6 @@ class Camera(ProtectMotionDeviceModel):
         """Get active recording settings."""
         if self.use_global and self._api.bootstrap.nvr.global_camera_settings:
             return self._api.bootstrap.nvr.global_camera_settings.recording_settings
-
         return self.recording_settings
 
     @property
@@ -1226,7 +1221,6 @@ class Camera(ProtectMotionDeviceModel):
         """Get active smart detection settings."""
         if self.use_global and self._api.bootstrap.nvr.global_camera_settings:
             return self._api.bootstrap.nvr.global_camera_settings.smart_detect_settings
-
         return self.smart_detect_settings
 
     @property
@@ -1234,9 +1228,8 @@ class Camera(ProtectMotionDeviceModel):
         """Get active smart detection types."""
         if self.use_global:
             return set(self.smart_detect_settings.object_types).intersection(
-                set(self.feature_flags.smart_detect_types),
+                self.feature_flags.smart_detect_types,
             )
-
         return set(self.smart_detect_settings.object_types)
 
     @property
@@ -1244,7 +1237,7 @@ class Camera(ProtectMotionDeviceModel):
         """Get active audio detection types."""
         if self.use_global:
             return set(self.smart_detect_settings.audio_types or []).intersection(
-                set(self.feature_flags.smart_detect_audio_types or []),
+                self.feature_flags.smart_detect_audio_types or [],
             )
 
         return set(self.smart_detect_settings.audio_types or [])
@@ -1504,8 +1497,11 @@ class Camera(ProtectMotionDeviceModel):
         audio_type = smart_type.audio_type
         return (
             audio_type is not None
-            and self.feature_flags.smart_detect_audio_types is not None
-            and audio_type in self.feature_flags.smart_detect_audio_types
+            and (
+                smart_detect_audio_types := self.feature_flags.smart_detect_audio_types
+            )
+            is not None
+            and audio_type in smart_detect_audio_types
         )
 
     def _is_audio_enabled(self, smart_type: SmartDetectObjectType) -> bool:
@@ -1535,8 +1531,9 @@ class Camera(ProtectMotionDeviceModel):
         return (
             self.is_recording_enabled
             and bool(self.active_audio_detect_types)
-            and self.last_smart_audio_detect_event is not None
-            and self.last_smart_audio_detect_event.end is None
+            and (last_smart_audio_detect_event := self.last_smart_audio_detect_event)
+            is not None
+            and last_smart_audio_detect_event.end is None
         )
 
     # region Smoke Alarm
@@ -1903,28 +1900,25 @@ class Camera(ProtectMotionDeviceModel):
 
     @property
     def is_high_fps_enabled(self) -> bool:
-        return self.video_mode == VideoMode.HIGH_FPS
+        return self.video_mode is VideoMode.HIGH_FPS
 
     @property
     def is_video_ready(self) -> bool:
         return (
-            self.feature_flags.lens_type is None
-            or self.feature_flags.lens_type != LensType.NONE
-        )
+            lens_type := self.feature_flags.lens_type
+        ) is None or lens_type is not LensType.NONE
 
     @property
     def has_removable_lens(self) -> bool:
         return (
-            self.feature_flags.hotplug is not None
-            and self.feature_flags.hotplug.video is not None
-        )
+            hotplug := self.feature_flags.hotplug
+        ) is not None and hotplug.video is not None
 
     @property
     def has_removable_speaker(self) -> bool:
         return (
-            self.feature_flags.hotplug is not None
-            and self.feature_flags.hotplug.audio is not None
-        )
+            hotplug := self.feature_flags.hotplug
+        ) is not None and hotplug.audio is not None
 
     @property
     def has_mic(self) -> bool:
@@ -1933,11 +1927,11 @@ class Camera(ProtectMotionDeviceModel):
     @property
     def has_color_night_vision(self) -> bool:
         if (
-            self.feature_flags.hotplug is not None
-            and self.feature_flags.hotplug.extender is not None
-            and self.feature_flags.hotplug.extender.is_attached is not None
+            (hotplug := self.feature_flags.hotplug) is not None
+            and (extender := hotplug.extender) is not None
+            and (is_attached := extender.is_attached) is not None
         ):
-            return self.feature_flags.hotplug.extender.is_attached
+            return is_attached
 
         return False
 
@@ -1955,14 +1949,14 @@ class Camera(ProtectMotionDeviceModel):
         index, _ = self.get_privacy_zone()
         if index is None:
             zone_id = 0
-            if len(self.privacy_zones) > 0:
-                zone_id = self.privacy_zones[-1].id + 1
+            privacy_zones = self.privacy_zones
+            if len(privacy_zones) > 0:
+                zone_id = privacy_zones[-1].id + 1
 
-            self.privacy_zones.append(CameraZone.create_privacy_zone(zone_id))
+            privacy_zones.append(CameraZone.create_privacy_zone(zone_id))
 
     def remove_privacy_zone(self) -> None:
         index, _ = self.get_privacy_zone()
-
         if index is not None:
             self.privacy_zones.pop(index)
 
@@ -2521,22 +2515,18 @@ class Camera(ProtectMotionDeviceModel):
 
     async def stop_audio(self) -> None:
         """Stop currently playing audio."""
-        stream = self.talkback_stream
-        if stream is None:
+        if (stream := self.talkback_stream) is None:
             raise StreamError("No audio playing to stop")
-
         await stream.stop()
 
     def can_read_media(self, user: User) -> bool:
         if self.model is None:
             return True
-
         return user.can(self.model, PermissionNode.READ_MEDIA, self)
 
     def can_delete_media(self, user: User) -> bool:
         if self.model is None:
             return True
-
         return user.can(self.model, PermissionNode.DELETE_MEDIA, self)
 
     # region PTZ
@@ -2818,10 +2808,9 @@ class Sensor(ProtectAdoptableDeviceModel):
     @property
     def camera(self) -> Camera | None:
         """Paired Camera will always be none if no camera is paired"""
-        if self.camera_id is None:
+        if (camera_id := self.camera_id) is None:
             return None
-
-        return self._api.bootstrap.cameras[self.camera_id]
+        return self._api.bootstrap.cameras[camera_id]
 
     @property
     def is_tampering_detected(self) -> bool:
@@ -2839,25 +2828,28 @@ class Sensor(ProtectAdoptableDeviceModel):
 
     @property
     def is_motion_sensor_enabled(self) -> bool:
-        return self.mount_type != MountType.LEAK and self.motion_settings.is_enabled
+        return self.mount_type is not MountType.LEAK and self.motion_settings.is_enabled
 
     @property
     def is_alarm_sensor_enabled(self) -> bool:
-        return self.mount_type != MountType.LEAK and self.alarm_settings.is_enabled
+        return self.mount_type is not MountType.LEAK and self.alarm_settings.is_enabled
 
     @property
     def is_light_sensor_enabled(self) -> bool:
-        return self.mount_type != MountType.LEAK and self.light_settings.is_enabled
+        return self.mount_type is not MountType.LEAK and self.light_settings.is_enabled
 
     @property
     def is_temperature_sensor_enabled(self) -> bool:
         return (
-            self.mount_type != MountType.LEAK and self.temperature_settings.is_enabled
+            self.mount_type is not MountType.LEAK
+            and self.temperature_settings.is_enabled
         )
 
     @property
     def is_humidity_sensor_enabled(self) -> bool:
-        return self.mount_type != MountType.LEAK and self.humidity_settings.is_enabled
+        return (
+            self.mount_type is not MountType.LEAK and self.humidity_settings.is_enabled
+        )
 
     @property
     def is_leak_sensor_enabled(self) -> bool:
@@ -2869,31 +2861,27 @@ class Sensor(ProtectAdoptableDeviceModel):
 
     @property
     def last_motion_event(self) -> Event | None:
-        if self.last_motion_event_id is None:
+        if (last_motion_event_id := self.last_motion_event_id) is None:
             return None
-
-        return self._api.bootstrap.events.get(self.last_motion_event_id)
+        return self._api.bootstrap.events.get(last_motion_event_id)
 
     @property
     def last_contact_event(self) -> Event | None:
-        if self.last_contact_event_id is None:
+        if (last_contact_event_id := self.last_contact_event_id) is None:
             return None
-
-        return self._api.bootstrap.events.get(self.last_contact_event_id)
+        return self._api.bootstrap.events.get(last_contact_event_id)
 
     @property
     def last_value_event(self) -> Event | None:
-        if self.last_value_event_id is None:
+        if (last_value_event_id := self.last_value_event_id) is None:
             return None
-
-        return self._api.bootstrap.events.get(self.last_value_event_id)
+        return self._api.bootstrap.events.get(last_value_event_id)
 
     @property
     def last_alarm_event(self) -> Event | None:
-        if self.last_alarm_event_id is None:
+        if (last_alarm_event_id := self.last_alarm_event_id) is None:
             return None
-
-        return self._api.bootstrap.events.get(self.last_alarm_event_id)
+        return self._api.bootstrap.events.get(last_alarm_event_id)
 
     @property
     def is_leak_detected(self) -> bool:
