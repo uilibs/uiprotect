@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.5.0 (2024-06-25)
+
+### Feature
+
+
+- Use more list/dict comps where possible (#120) ([`9c1ef3f`](https://github.com/uilibs/uiprotect/commit/9c1ef3f30b8e1c01edb5a6d44b0126edd9e3610d))
+
+
 ## v3.4.0 (2024-06-25)
 
 ### Feature
