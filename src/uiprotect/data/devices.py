@@ -401,6 +401,14 @@ class RecordingSettings(ProtectBaseObject):
         }
 
     @classmethod
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "minMotionEventTrigger": lambda x: timedelta(seconds=x),
+            "endMotionEventDelay": lambda x: timedelta(seconds=x),
+        } | super().unifi_dict_conversions()
+
+    @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         if "prePaddingSecs" in data:
             data["prePadding"] = timedelta(seconds=data.pop("prePaddingSecs"))
@@ -414,18 +422,6 @@ class RecordingSettings(ProtectBaseObject):
             data["smartDetectPostPadding"] = timedelta(
                 seconds=data.pop("smartDetectPostPaddingSecs"),
             )
-        if "minMotionEventTrigger" in data and not isinstance(
-            data["minMotionEventTrigger"],
-            timedelta,
-        ):
-            data["minMotionEventTrigger"] = timedelta(
-                seconds=data["minMotionEventTrigger"],
-            )
-        if "endMotionEventDelay" in data and not isinstance(
-            data["endMotionEventDelay"],
-            timedelta,
-        ):
-            data["endMotionEventDelay"] = timedelta(seconds=data["endMotionEventDelay"])
 
         return super().unifi_dict_to_dict(data)
 
