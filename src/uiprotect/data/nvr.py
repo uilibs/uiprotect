@@ -1050,32 +1050,34 @@ class NVR(ProtectDeviceModel):
         motion/smart detection events.
         """
         return (
-            self.global_camera_settings is not None
-            and self.global_camera_settings.recording_settings.mode
+            (global_camera_settings := self.global_camera_settings) is not None
+            and global_camera_settings.recording_settings.mode
             is not RecordingMode.NEVER
         )
 
     @property
     def is_smart_detections_enabled(self) -> bool:
         """If smart detected enabled globally."""
-        return self.smart_detection is not None and self.smart_detection.enable
+        return (
+            smart_detection := self.smart_detection
+        ) is not None and smart_detection.enable
 
     @property
     def is_license_plate_detections_enabled(self) -> bool:
         """If smart detected enabled globally."""
         return (
-            self.smart_detection is not None
-            and self.smart_detection.enable
-            and self.smart_detection.license_plate_recognition
+            (smart_detection := self.smart_detection) is not None
+            and smart_detection.enable
+            and smart_detection.license_plate_recognition
         )
 
     @property
     def is_face_detections_enabled(self) -> bool:
         """If smart detected enabled globally."""
         return (
-            self.smart_detection is not None
-            and self.smart_detection.enable
-            and self.smart_detection.face_recognition
+            (smart_detection := self.smart_detection) is not None
+            and smart_detection.enable
+            and smart_detection.face_recognition
         )
 
     def update_all_messages(self) -> None:
@@ -1309,9 +1311,8 @@ class NVR(ProtectDeviceModel):
     def _is_smart_enabled(self, smart_type: SmartDetectObjectType) -> bool:
         return (
             self.is_global_recording_enabled
-            and self.global_camera_settings is not None
-            and smart_type
-            in self.global_camera_settings.smart_detect_settings.object_types
+            and (global_camera_settings := self.global_camera_settings) is not None
+            and smart_type in global_camera_settings.smart_detect_settings.object_types
         )
 
     @property
@@ -1326,11 +1327,13 @@ class NVR(ProtectDeviceModel):
     def is_global_person_tracking_enabled(self) -> bool:
         """Is person tracking enabled"""
         return (
-            self.global_camera_settings is not None
-            and self.global_camera_settings.smart_detect_settings.auto_tracking_object_types
+            (global_camera_settings := self.global_camera_settings) is not None
+            and (
+                auto_tracking_object_types
+                := global_camera_settings.smart_detect_settings.auto_tracking_object_types
+            )
             is not None
-            and SmartDetectObjectType.PERSON
-            in self.global_camera_settings.smart_detect_settings.auto_tracking_object_types
+            and SmartDetectObjectType.PERSON in auto_tracking_object_types
         )
 
     @property
@@ -1366,15 +1369,15 @@ class NVR(ProtectDeviceModel):
         return self._is_smart_enabled(SmartDetectObjectType.ANIMAL)
 
     def _is_audio_enabled(self, smart_type: SmartDetectObjectType) -> bool:
-        audio_type = smart_type.audio_type
         return (
-            audio_type is not None
+            (audio_type := smart_type.audio_type) is not None
             and self.is_global_recording_enabled
-            and self.global_camera_settings is not None
-            and self.global_camera_settings.smart_detect_settings.audio_types
+            and (global_camera_settings := self.global_camera_settings) is not None
+            and (
+                audio_types := global_camera_settings.smart_detect_settings.audio_types
+            )
             is not None
-            and audio_type
-            in self.global_camera_settings.smart_detect_settings.audio_types
+            and audio_type in audio_types
         )
 
     @property
