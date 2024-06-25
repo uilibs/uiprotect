@@ -94,11 +94,11 @@ class SmartDetectItem(ProtectBaseObject):
         }
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "duration" in data:
-            data["duration"] = timedelta(milliseconds=data["duration"])
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "duration": lambda x: timedelta(milliseconds=x),
+        } | super().unifi_dict_conversions()
 
 
 class SmartDetectTrack(ProtectBaseObject):
@@ -161,14 +161,9 @@ class EventDetectedThumbnail(ProtectBaseObject):
     name: str | None
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "clockBestWall" in data:
-            if data["clockBestWall"]:
-                data["clockBestWall"] = convert_to_datetime(data["clockBestWall"])
-            else:
-                del data["clockBestWall"]
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {"clockBestWall": convert_to_datetime} | super().unifi_dict_conversions()
 
     def unifi_dict(
         self,
@@ -301,11 +296,12 @@ class Event(ProtectModelWithId):
         }
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        for key in ("start", "end", "timestamp", "deletedAt"):
-            if key in data:
-                data[key] = convert_to_datetime(data[key])
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            key: convert_to_datetime
+            for key in ("start", "end", "timestamp", "deletedAt")
+        } | super().unifi_dict_conversions()
 
     def unifi_dict(
         self,
@@ -618,11 +614,11 @@ class UOSDisk(ProtectBaseObject):
         }
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "estimate" in data and data["estimate"] is not None:
-            data["estimate"] = timedelta(seconds=data.pop("estimate"))
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "estimate": lambda x: timedelta(seconds=x)
+        } | super().unifi_dict_conversions()
 
     def unifi_dict(
         self,
@@ -702,11 +698,11 @@ class UOSSpace(ProtectBaseObject):
         }
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "estimate" in data and data["estimate"] is not None:
-            data["estimate"] = timedelta(seconds=data.pop("estimate"))
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "estimate": lambda x: timedelta(seconds=x)
+        } | super().unifi_dict_conversions()
 
     def unifi_dict(
         self,
@@ -770,13 +766,12 @@ class DoorbellSettings(ProtectBaseObject):
         }
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "defaultMessageResetTimeoutMs" in data:
-            data["defaultMessageResetTimeout"] = timedelta(
-                milliseconds=data.pop("defaultMessageResetTimeoutMs"),
-            )
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            # defaultMessageResetTimeoutMs is remapped to defaultMessageResetTimeout
+            "defaultMessageResetTimeoutMs": lambda x: timedelta(milliseconds=x),
+        } | super().unifi_dict_conversions()
 
 
 class RecordingTypeDistribution(ProtectBaseObject):
@@ -864,15 +859,12 @@ class StorageStats(ProtectBaseObject):
     storage_distribution: StorageDistribution
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "capacity" in data and data["capacity"] is not None:
-            data["capacity"] = timedelta(milliseconds=data.pop("capacity"))
-        if "remainingCapacity" in data and data["remainingCapacity"] is not None:
-            data["remainingCapacity"] = timedelta(
-                milliseconds=data.pop("remainingCapacity"),
-            )
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "capacity": lambda x: timedelta(milliseconds=x),
+            "remainingCapacity": lambda x: timedelta(milliseconds=x),
+        } | super().unifi_dict_conversions()
 
 
 class NVRFeatureFlags(ProtectBaseObject):
@@ -1017,24 +1009,15 @@ class NVR(ProtectDeviceModel):
         }
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "lastUpdateAt" in data:
-            data["lastUpdateAt"] = convert_to_datetime(data["lastUpdateAt"])
-        if "lastDeviceFwUpdatesCheckedAt" in data:
-            data["lastDeviceFwUpdatesCheckedAt"] = convert_to_datetime(
-                data["lastDeviceFwUpdatesCheckedAt"]
-            )
-        if (
-            "recordingRetentionDurationMs" in data
-            and data["recordingRetentionDurationMs"] is not None
-        ):
-            data["recordingRetentionDuration"] = timedelta(
-                milliseconds=data.pop("recordingRetentionDurationMs"),
-            )
-        if "timezone" in data and not isinstance(data["timezone"], tzinfo):
-            data["timezone"] = zoneinfo.ZoneInfo(data["timezone"])
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "lastUpdateAt": convert_to_datetime,
+            "lastDeviceFwUpdatesCheckedAt": convert_to_datetime,
+            "timezone": zoneinfo.ZoneInfo,
+            # recordingRetentionDurationMs is remapped to recordingRetentionDuration
+            "recordingRetentionDurationMs": lambda x: timedelta(milliseconds=x),
+        } | super().unifi_dict_conversions()
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         return await self._api.update_nvr(data)

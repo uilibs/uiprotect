@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import warnings
-from collections.abc import Iterable
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import cache
 from ipaddress import IPv4Address
@@ -107,11 +107,11 @@ class LightDeviceSettings(ProtectBaseObject):
     pir_sensitivity: PercentInt
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "pirDuration" in data and not isinstance(data["pirDuration"], timedelta):
-            data["pirDuration"] = timedelta(milliseconds=data["pirDuration"])
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "pirDuration": lambda x: timedelta(milliseconds=x)
+        } | super().unifi_dict_conversions()
 
 
 class LightOnSettings(ProtectBaseObject):
@@ -401,6 +401,14 @@ class RecordingSettings(ProtectBaseObject):
         }
 
     @classmethod
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "minMotionEventTrigger": lambda x: timedelta(seconds=x),
+            "endMotionEventDelay": lambda x: timedelta(seconds=x),
+        } | super().unifi_dict_conversions()
+
+    @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         if "prePaddingSecs" in data:
             data["prePadding"] = timedelta(seconds=data.pop("prePaddingSecs"))
@@ -414,18 +422,6 @@ class RecordingSettings(ProtectBaseObject):
             data["smartDetectPostPadding"] = timedelta(
                 seconds=data.pop("smartDetectPostPaddingSecs"),
             )
-        if "minMotionEventTrigger" in data and not isinstance(
-            data["minMotionEventTrigger"],
-            timedelta,
-        ):
-            data["minMotionEventTrigger"] = timedelta(
-                seconds=data["minMotionEventTrigger"],
-            )
-        if "endMotionEventDelay" in data and not isinstance(
-            data["endMotionEventDelay"],
-            timedelta,
-        ):
-            data["endMotionEventDelay"] = timedelta(seconds=data["endMotionEventDelay"])
 
         return super().unifi_dict_to_dict(data)
 
@@ -469,14 +465,13 @@ class SmartDetectSettings(ProtectBaseObject):
     auto_tracking_object_types: list[SmartDetectObjectType] | None = None
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "audioTypes" in data:
-            data["audioTypes"] = convert_smart_audio_types(data["audioTypes"])
-        for key in ("objectTypes", "autoTrackingObjectTypes"):
-            if key in data:
-                data[key] = convert_smart_types(data[key])
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "audioTypes": convert_smart_audio_types,
+            "objectTypes": convert_smart_types,
+            "autoTrackingObjectTypes": convert_smart_types,
+        } | super().unifi_dict_conversions()
 
 
 class LCDMessage(ProtectBaseObject):
@@ -485,9 +480,14 @@ class LCDMessage(ProtectBaseObject):
     reset_at: datetime | None = None
 
     @classmethod
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "resetAt": convert_to_datetime,
+        } | super().unifi_dict_conversions()
+
+    @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "resetAt" in data:
-            data["resetAt"] = convert_to_datetime(data["resetAt"])
         if "text" in data:
             # UniFi Protect bug: some times LCD messages can get into a bad state where message = DEFAULT MESSAGE, but no type
             if "type" not in data:
@@ -570,21 +570,21 @@ class VideoStats(ProtectBaseObject):
         }
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        for key in (
-            "recordingStart",
-            "recordingEnd",
-            "recordingStartLQ",
-            "recordingEndLQ",
-            "timelapseStart",
-            "timelapseEnd",
-            "timelapseStartLQ",
-            "timelapseEndLQ",
-        ):
-            if key in data:
-                data[key] = convert_to_datetime(data[key])
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            key: convert_to_datetime
+            for key in (
+                "recordingStart",
+                "recordingEnd",
+                "recordingStartLQ",
+                "recordingEndLQ",
+                "timelapseStart",
+                "timelapseEnd",
+                "timelapseStartLQ",
+                "timelapseEndLQ",
+            )
+        } | super().unifi_dict_conversions()
 
 
 class StorageStats(ProtectBaseObject):
@@ -654,12 +654,11 @@ class CameraZone(ProtectBaseObject):
     points: list[tuple[Percent, Percent]]
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        data = super().unifi_dict_to_dict(data)
-        if "points" in data and isinstance(data["points"], Iterable):
-            data["points"] = [(p[0], p[1]) for p in data["points"]]
-
-        return data
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "points": lambda x: [(p[0], p[1]) for p in x],
+        } | super().unifi_dict_conversions()
 
     def unifi_dict(
         self,
@@ -691,11 +690,11 @@ class SmartMotionZone(MotionZone):
     object_types: list[SmartDetectObjectType]
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "objectTypes" in data:
-            data["objectTypes"] = convert_smart_types(data.pop("objectTypes"))
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "objectTypes": convert_smart_types,
+        } | super().unifi_dict_conversions()
 
 
 class PrivacyMaskCapability(ProtectBaseObject):
@@ -846,16 +845,16 @@ class CameraFeatureFlags(ProtectBaseObject):
     zoom: PTZZoomRange
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "smartDetectTypes" in data:
-            data["smartDetectTypes"] = convert_smart_types(data.pop("smartDetectTypes"))
-        if "smartDetectAudioTypes" in data:
-            data["smartDetectAudioTypes"] = convert_smart_audio_types(
-                data.pop("smartDetectAudioTypes"),
-            )
-        if "videoModes" in data:
-            data["videoModes"] = convert_video_modes(data.pop("videoModes"))
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "smartDetectTypes": convert_smart_types,
+            "smartDetectAudioTypes": convert_smart_audio_types,
+            "videoModes": convert_video_modes,
+        } | super().unifi_dict_conversions()
 
+    @classmethod
+    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         # backport support for `is_doorbell` to older versions of Protect
         if "hasChime" in data and "isDoorbell" not in data:
             data["isDoorbell"] = data["hasChime"]
@@ -1021,13 +1020,17 @@ class Camera(ProtectMotionDeviceModel):
         }
 
     @classmethod
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "chimeDuration": lambda x: timedelta(milliseconds=x),
+        } | super().unifi_dict_conversions()
+
+    @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         # LCD messages comes back as empty dict {}
         if "lcdMessage" in data and len(data["lcdMessage"]) == 0:
             del data["lcdMessage"]
-        if "chimeDuration" in data and not isinstance(data["chimeDuration"], timedelta):
-            data["chimeDuration"] = timedelta(milliseconds=data["chimeDuration"])
-
         return super().unifi_dict_to_dict(data)
 
     def unifi_dict(
@@ -3086,14 +3089,11 @@ class Doorlock(ProtectAdoptableDeviceModel):
         }
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "autoCloseTimeMs" in data and not isinstance(
-            data["autoCloseTimeMs"],
-            timedelta,
-        ):
-            data["autoCloseTimeMs"] = timedelta(milliseconds=data["autoCloseTimeMs"])
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "autoCloseTimeMs": lambda x: timedelta(milliseconds=x)
+        } | super().unifi_dict_conversions()
 
     @property
     def camera(self) -> Camera | None:
