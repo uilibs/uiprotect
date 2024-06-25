@@ -107,11 +107,11 @@ class LightDeviceSettings(ProtectBaseObject):
     pir_sensitivity: PercentInt
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "pirDuration" in data and not isinstance(data["pirDuration"], timedelta):
-            data["pirDuration"] = timedelta(milliseconds=data["pirDuration"])
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "pirDuration": lambda x: timedelta(milliseconds=x)
+        } | super().unifi_dict_conversions()
 
 
 class LightOnSettings(ProtectBaseObject):
