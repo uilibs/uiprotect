@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import warnings
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta
 from functools import cache
 from ipaddress import IPv4Address
@@ -469,14 +469,13 @@ class SmartDetectSettings(ProtectBaseObject):
     auto_tracking_object_types: list[SmartDetectObjectType] | None = None
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "audioTypes" in data:
-            data["audioTypes"] = convert_smart_audio_types(data["audioTypes"])
-        for key in ("objectTypes", "autoTrackingObjectTypes"):
-            if key in data:
-                data[key] = convert_smart_types(data[key])
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "audioTypes": convert_smart_audio_types,
+            "objectTypes": convert_smart_types,
+            "autoTrackingObjectTypes": convert_smart_types,
+        } | super().unifi_dict_conversions()
 
 
 class LCDMessage(ProtectBaseObject):
@@ -485,9 +484,14 @@ class LCDMessage(ProtectBaseObject):
     reset_at: datetime | None = None
 
     @classmethod
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "resetAt": convert_to_datetime,
+        } | super().unifi_dict_conversions()
+
+    @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "resetAt" in data:
-            data["resetAt"] = convert_to_datetime(data["resetAt"])
         if "text" in data:
             # UniFi Protect bug: some times LCD messages can get into a bad state where message = DEFAULT MESSAGE, but no type
             if "type" not in data:
@@ -570,21 +574,21 @@ class VideoStats(ProtectBaseObject):
         }
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        for key in (
-            "recordingStart",
-            "recordingEnd",
-            "recordingStartLQ",
-            "recordingEndLQ",
-            "timelapseStart",
-            "timelapseEnd",
-            "timelapseStartLQ",
-            "timelapseEndLQ",
-        ):
-            if key in data:
-                data[key] = convert_to_datetime(data[key])
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            key: convert_to_datetime
+            for key in (
+                "recordingStart",
+                "recordingEnd",
+                "recordingStartLQ",
+                "recordingEndLQ",
+                "timelapseStart",
+                "timelapseEnd",
+                "timelapseStartLQ",
+                "timelapseEndLQ",
+            )
+        } | super().unifi_dict_conversions()
 
 
 class StorageStats(ProtectBaseObject):
@@ -691,11 +695,11 @@ class SmartMotionZone(MotionZone):
     object_types: list[SmartDetectObjectType]
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "objectTypes" in data:
-            data["objectTypes"] = convert_smart_types(data.pop("objectTypes"))
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "objectTypes": convert_smart_types,
+        } | super().unifi_dict_conversions()
 
 
 class PrivacyMaskCapability(ProtectBaseObject):
@@ -846,16 +850,16 @@ class CameraFeatureFlags(ProtectBaseObject):
     zoom: PTZZoomRange
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "smartDetectTypes" in data:
-            data["smartDetectTypes"] = convert_smart_types(data.pop("smartDetectTypes"))
-        if "smartDetectAudioTypes" in data:
-            data["smartDetectAudioTypes"] = convert_smart_audio_types(
-                data.pop("smartDetectAudioTypes"),
-            )
-        if "videoModes" in data:
-            data["videoModes"] = convert_video_modes(data.pop("videoModes"))
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "smartDetectTypes": convert_smart_types,
+            "smartDetectAudioTypes": convert_smart_audio_types,
+            "videoModes": convert_video_modes,
+        } | super().unifi_dict_conversions()
 
+    @classmethod
+    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         # backport support for `is_doorbell` to older versions of Protect
         if "hasChime" in data and "isDoorbell" not in data:
             data["isDoorbell"] = data["hasChime"]

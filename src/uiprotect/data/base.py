@@ -276,6 +276,19 @@ class ProtectBaseObject(BaseModel):
         return items
 
     @classmethod
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        """
+        Helper method for overriding in child classes for converting UFP JSON data to Python data types.
+
+        Return format is
+        {
+            "ufpJsonName": Callable[[Any], Any]
+        }
+        """
+        return {}
+
+    @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         """
         Takes a decoded UFP JSON dict and converts it into a Python dict
@@ -294,6 +307,11 @@ class ProtectBaseObject(BaseModel):
         api: ProtectApiClient | None = data.get("api") or (
             cls._api if isinstance(cls, ProtectBaseObject) else None
         )
+
+        conversions = cls.unifi_dict_conversions()
+        for key, convert in conversions.items():
+            if key in data and data[key] is not None:
+                data[key] = convert(data[key])  # type: ignore[operator]
 
         remaps = cls._get_unifi_remaps()
         # convert to snake_case and remove extra fields
@@ -810,23 +828,16 @@ class ProtectDeviceModel(ProtectModelWithId):
         }
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "lastSeen" in data:
-            data["lastSeen"] = convert_to_datetime(data["lastSeen"])
-        if "upSince" in data and data["upSince"] is not None:
-            data["upSince"] = convert_to_datetime(data["upSince"])
-        if (
-            "uptime" in data
-            and data["uptime"] is not None
-            and not isinstance(data["uptime"], timedelta)
-        ):
-            data["uptime"] = timedelta(milliseconds=int(data["uptime"]))
-        # hardware revisions for all devices are not simple numbers
-        # so cast them all to str to be consistent
-        if "hardwareRevision" in data and data["hardwareRevision"] is not None:
-            data["hardwareRevision"] = str(data["hardwareRevision"])
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "upSince": convert_to_datetime,
+            "uptime": lambda x: timedelta(milliseconds=int(x)),
+            "lastSeen": convert_to_datetime,
+            # hardware revisions for all devices are not simple numbers
+            # so cast them all to str to be consistent
+            "hardwareRevision": str,
+        } | super().unifi_dict_conversions()
 
     def _event_callback_ping(self) -> None:
         _LOGGER.debug("Event ping timer started for %s", self.id)
@@ -958,11 +969,11 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
         return data
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "lastDisconnect" in data and data["lastDisconnect"] is not None:
-            data["lastDisconnect"] = convert_to_datetime(data["lastDisconnect"])
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "lastDisconnect": convert_to_datetime,
+        } | super().unifi_dict_conversions()
 
     @property
     def display_name(self) -> str:
