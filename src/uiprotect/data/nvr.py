@@ -703,11 +703,11 @@ class UOSSpace(ProtectBaseObject):
         }
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "estimate" in data and data["estimate"] is not None:
-            data["estimate"] = timedelta(seconds=data.pop("estimate"))
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "estimate": lambda x: timedelta(seconds=x)
+        } | super().unifi_dict_conversions()
 
     def unifi_dict(
         self,
