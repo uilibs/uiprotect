@@ -766,13 +766,12 @@ class DoorbellSettings(ProtectBaseObject):
         }
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "defaultMessageResetTimeoutMs" in data:
-            data["defaultMessageResetTimeout"] = timedelta(
-                milliseconds=data.pop("defaultMessageResetTimeoutMs"),
-            )
-
-        return super().unifi_dict_to_dict(data)
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            # defaultMessageResetTimeoutMs is remapped to defaultMessageResetTimeout
+            "defaultMessageResetTimeoutMs": lambda x: timedelta(milliseconds=x),
+        } | super().unifi_dict_conversions()
 
 
 class RecordingTypeDistribution(ProtectBaseObject):
