@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.4.0 (2024-06-25)
+
+### Feature
+
+
+- Reduce duplicate code to do unifi_dict_to_dict conversions (#119) ([`f616c52`](https://github.com/uilibs/uiprotect/commit/f616c528cc94a313dd2ac0ba7e302bfcfca4afde))
+
+
 ## v3.3.1 (2024-06-24)
 
 ### Fix
