@@ -46,8 +46,12 @@ class WSSubscriptionMessage:
     old_obj: ProtectModelWithId | None = None
 
 
+_PACKET_STRUCT = struct.Struct("!bbbbi")
+
+
 class BaseWSPacketFrame:
-    UNPACK_FORMAT = struct.Struct("!bbbbi")
+    unpack = _PACKET_STRUCT.unpack
+    pack = _PACKET_STRUCT.pack
 
     data: Any
     position: int = 0
@@ -102,7 +106,7 @@ class BaseWSPacketFrame:
                 deflated,
                 unknown,
                 payload_size,
-            ) = BaseWSPacketFrame.UNPACK_FORMAT.unpack(
+            ) = BaseWSPacketFrame.unpack(
                 data[position:header_end],
             )
         except struct.error as e:
@@ -134,8 +138,7 @@ class BaseWSPacketFrame:
             raise WSEncodeError("No header to encode")
 
         data = self.get_binary_from_data()
-        header = struct.pack(
-            "!bbbbi",
+        header = self.pack(
             self.header.packet_type,
             self.header.payload_format,
             self.header.deflated,
