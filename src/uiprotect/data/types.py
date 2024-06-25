@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import enum
-from collections.abc import Callable, Coroutine
-from functools import cache, cached_property
+from collections.abc import Callable, Coroutine, Iterable
+from functools import cache, cached_property, lru_cache
 from typing import Any, Literal, Optional, TypeVar, Union
 
 from packaging.version import Version as BaseVersion
@@ -314,6 +314,23 @@ class SmartDetectObjectType(str, ValuesEnumMixin, enum.Enum):
         return OBJECT_TO_AUDIO_MAP.get(self)
 
 
+@lru_cache
+def smart_object_types_intersection(
+    object_types1: Iterable[SmartDetectObjectType],
+    object_types2: Iterable[SmartDetectObjectType],
+) -> set[SmartDetectObjectType]:
+    """Return the intersection of two object types."""
+    return set(object_types1).intersection(object_types2)
+
+
+@lru_cache
+def smart_object_types_set(
+    object_types: Iterable[SmartDetectObjectType],
+) -> set[SmartDetectObjectType]:
+    """Return the set of object types."""
+    return set(object_types)
+
+
 @enum.unique
 class SmartDetectAudioType(str, ValuesEnumMixin, enum.Enum):
     SMOKE = "alrmSmoke"
@@ -326,6 +343,21 @@ class SmartDetectAudioType(str, ValuesEnumMixin, enum.Enum):
     BURGLAR = "alrmBurglar"
     CAR_HORN = "alrmCarHorn"
     GLASS_BREAK = "alrmGlassBreak"
+
+
+def smart_audio_types_intersection(
+    audio_types1: Iterable[SmartDetectAudioType] | None,
+    audio_types2: Iterable[SmartDetectAudioType] | None,
+) -> set[SmartDetectAudioType]:
+    """Return the intersection of two audio types."""
+    return set(audio_types1 or []).intersection(audio_types2 or [])
+
+
+def smart_audio_types_set(
+    audio_types: Iterable[SmartDetectAudioType] | None,
+) -> set[SmartDetectAudioType]:
+    """Return the set of audio types."""
+    return set(audio_types or [])
 
 
 @enum.unique

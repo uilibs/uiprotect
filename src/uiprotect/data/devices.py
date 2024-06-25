@@ -74,6 +74,10 @@ from .types import (
     TwoByteInt,
     VideoMode,
     WDRLevel,
+    smart_audio_types_intersection,
+    smart_audio_types_set,
+    smart_object_types_intersection,
+    smart_object_types_set,
 )
 from .user import User
 
@@ -1229,22 +1233,25 @@ class Camera(ProtectMotionDeviceModel):
     @property
     def active_smart_detect_types(self) -> set[SmartDetectObjectType]:
         """Get active smart detection types."""
+        object_types = self.smart_detect_settings.object_types
         if self.use_global:
-            return set(self.smart_detect_settings.object_types).intersection(
-                set(self.feature_flags.smart_detect_types),
+            return smart_object_types_intersection(
+                object_types,  # type: ignore[arg-type]
+                self.feature_flags.smart_detect_types,  # type: ignore[arg-type]
             )
 
-        return set(self.smart_detect_settings.object_types)
+        return smart_object_types_set(object_types)  # type: ignore[arg-type]
 
     @property
     def active_audio_detect_types(self) -> set[SmartDetectAudioType]:
         """Get active audio detection types."""
         if self.use_global:
-            return set(self.smart_detect_settings.audio_types or []).intersection(
-                set(self.feature_flags.smart_detect_audio_types or []),
+            return smart_audio_types_intersection(
+                self.smart_detect_settings.audio_types,
+                self.feature_flags.smart_detect_audio_types,
             )
 
-        return set(self.smart_detect_settings.audio_types or [])
+        return smart_audio_types_set(self.smart_detect_settings.audio_types)
 
     @property
     def is_motion_detection_on(self) -> bool:
