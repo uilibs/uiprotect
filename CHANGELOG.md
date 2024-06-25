@@ -1,5 +1,61 @@
 # Changelog
 
+## v3.6.0 (2024-06-25)
+
+### Feature
+
+
+- Reduce some duplicate attr lookups in devices (#121) ([`8ea72ea`](https://github.com/uilibs/uiprotect/commit/8ea72eae1c8c0e37206a1268937287b0b1f29b28))
+
+
+## v3.5.0 (2024-06-25)
+
+### Feature
+
+
+- Use more list/dict comps where possible (#120) ([`9c1ef3f`](https://github.com/uilibs/uiprotect/commit/9c1ef3f30b8e1c01edb5a6d44b0126edd9e3610d))
+
+
+## v3.4.0 (2024-06-25)
+
+### Feature
+
+
+- Reduce duplicate code to do unifi_dict_to_dict conversions (#119) ([`f616c52`](https://github.com/uilibs/uiprotect/commit/f616c528cc94a313dd2ac0ba7e302bfcfca4afde))
+
+
+## v3.3.1 (2024-06-24)
+
+### Fix
+
+
+- License classifier (#116) ([`ac048d7`](https://github.com/uilibs/uiprotect/commit/ac048d7325529823ab7d2840dc63aaa822008b32))
+
+
+## v3.3.0 (2024-06-24)
+
+### Feature
+
+
+- Skip empty models in unifi_dict (#115) ([`d42023f`](https://github.com/uilibs/uiprotect/commit/d42023f9f07d3bdf097669637e1ad754a70ea0b7))
+
+
+## v3.2.0 (2024-06-24)
+
+### Feature
+
+
+- Refactor internal object tracking (#114) ([`ad1b2b4`](https://github.com/uilibs/uiprotect/commit/ad1b2b45f3d72243ca8cb24c326b4f0fcd0bd71f))
+
+
+## v3.1.9 (2024-06-24)
+
+### Fix
+
+
+- Remove event is in range check (#92) ([`2847f40`](https://github.com/uilibs/uiprotect/commit/2847f402a19655e9dee1d596b331e70b25bf3da3))
+
+
 ## v3.1.8 (2024-06-23)
 
 ### Fix
