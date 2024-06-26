@@ -1,5 +1,22 @@
 # Changelog
 
+## v3.8.0 (2024-06-26)
+
+### Fix
+
+
+- Use id checks for type compares (#126) ([`0e54ac6`](https://github.com/uilibs/uiprotect/commit/0e54ac6d82e010a6553c7ee7d42d884e8ec0bbd3))
+
+
+- Do not swallow asyncio.cancellederror (#129) ([`09bc38b`](https://github.com/uilibs/uiprotect/commit/09bc38b419b26c00363b47c5ae8ce0e6a7280133))
+
+
+### Feature
+
+
+- Improve websocket error handling (#128) ([`b70d071`](https://github.com/uilibs/uiprotect/commit/b70d071dc52fa179710134e023c34ac0c8caebbe))
+
+
 ## v3.7.0 (2024-06-25)
 
 ### Feature
