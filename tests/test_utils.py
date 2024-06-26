@@ -258,12 +258,27 @@ def test_make_value_getter():
 
 
 @pytest.mark.asyncio
+def test_make_value_getter_nested():
+    data = Mock(b=2, c=Mock(q="x"))
+    assert make_value_getter("c.q")(data) == "x"
+    assert make_value_getter("b.x")(data) is None
+
+
+@pytest.mark.asyncio
 def test_make_enabled_getter():
     data = Mock(a=True, b=False, c=True, d=False)
     assert make_enabled_getter("a")(data) is True
     assert make_enabled_getter("b")(data) is False
     assert make_enabled_getter("c")(data) is True
     assert make_enabled_getter("d")(data) is False
+
+
+@pytest.mark.asyncio
+def test_make_enabled_getter_nested():
+    data = Mock(a=Mock(q=True), q=None, c=Mock(q=False))
+    assert make_enabled_getter("a.q")(data) is True
+    assert make_enabled_getter("q.q")(data) is None
+    assert make_enabled_getter("c.q")(data) is False
 
 
 @pytest.mark.asyncio
@@ -274,3 +289,11 @@ def test_make_required_getter():
     assert make_required_getter("c")(data) is True
     assert make_required_getter("d")(data) is True
     assert make_required_getter("e")(data) is False
+
+
+@pytest.mark.asyncio
+def test_make_required_getter_nested():
+    data = Mock(a=Mock(q=2), b=Mock(q=0), d=Mock(q=_MockEnum.C))
+    assert make_required_getter("a.q")(data) is True
+    assert make_required_getter("b.q")(data) is False
+    assert make_required_getter("c.q")(data) is True
