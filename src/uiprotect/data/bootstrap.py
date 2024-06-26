@@ -492,9 +492,7 @@ class Bootstrap(ProtectBaseObject):
         capture_ws_stats = self.capture_ws_stats
         action = packet.action_frame.data
         data = packet.data_frame.data
-        if capture_ws_stats:
-            action = deepcopy(action)
-            data = deepcopy(data)
+        keys = list(data) if capture_ws_stats else None
 
         new_update_id: str | None = action["newUpdateId"]
         if new_update_id is not None:
@@ -505,11 +503,13 @@ class Bootstrap(ProtectBaseObject):
         )
 
         if capture_ws_stats:
+            if TYPE_CHECKING:
+                assert keys is not None
             self._ws_stats.append(
                 WSStat(
-                    model=packet.action_frame.data["modelKey"],
-                    action=packet.action_frame.data["action"],
-                    keys=list(packet.data_frame.data),
+                    model=action["modelKey"],
+                    action=action["action"],
+                    keys=keys,
                     keys_set=[] if message is None else list(message.changed_data),
                     size=len(packet.raw),
                     filtered=message is None,
