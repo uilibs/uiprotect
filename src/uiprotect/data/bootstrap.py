@@ -577,7 +577,7 @@ class Bootstrap(ProtectBaseObject):
         msg = ""
         device_id: str = action["id"]
         if model_type is ModelType.EVENT:
-            msg = f"Validation error processing event: " f"{device_id}. Ignoring event."
+            msg = f"Validation error processing event: {device_id}. Ignoring event."
         else:
             task = asyncio.create_task(self.refresh_device(model_type, device_id))
             self._refresh_tasks.add(task)
