@@ -560,28 +560,33 @@ class Bootstrap(ProtectBaseObject):
                         model_type, action, data, ignore_stats, is_ping_back
                     )
         except (ValidationError, ValueError) as err:
-            self._handle_ws_error(action, err)
+            self._handle_ws_error(action_action, model_type, action, err)
 
         _LOGGER.debug(
             "Unexpected bootstrap model type deviceadoptedfor update: %s", model_key
         )
         return None
 
-    def _handle_ws_error(self, action: dict[str, Any], err: Exception) -> None:
+    def _handle_ws_error(
+        self,
+        action_action: str,
+        model_type: ModelType,
+        action: dict[str, Any],
+        err: Exception,
+    ) -> None:
         msg = ""
-        if action["modelKey"] == "event":
+        if model_type is ModelType.EVENT:
             msg = f"Validation error processing event: {action['id']}. Ignoring event."
         else:
             try:
-                model_type = ModelType.from_string(action["modelKey"])
                 device_id: str = action["id"]
                 task = asyncio.create_task(self.refresh_device(model_type, device_id))
                 self._refresh_tasks.add(task)
                 task.add_done_callback(self._refresh_tasks.discard)
             except (ValueError, IndexError):
-                msg = f"{action['action']} packet caused invalid state. Unable to refresh device."
+                msg = f"{action_action} packet caused invalid state. Unable to refresh device."
             else:
-                msg = f"{action['action']} packet caused invalid state. Refreshing device: {model_type} {device_id}"
+                msg = f"{action_action} packet caused invalid state. Refreshing device: {model_type} {device_id}"
         _LOGGER.debug("%s Error: %s", msg, err)
 
     async def refresh_device(self, model_type: ModelType, device_id: str) -> None:
