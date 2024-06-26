@@ -1,5 +1,13 @@
 # Changelog
 
+## v4.0.0 (2024-06-26)
+
+### Breaking
+
+
+- Remove is_ringing property and ring ping back from camera (#125) ([`b400435`](https://github.com/uilibs/uiprotect/commit/b400435366c859d0350a9095ae6e9136afb2b08a))
+
+
 ## v3.8.0 (2024-06-26)
 
 ### Fix
