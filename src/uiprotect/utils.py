@@ -201,6 +201,9 @@ def to_camel_case(name: str) -> str:
     return name
 
 
+_EMPTY_UUID = UUID("0" * 32)
+
+
 def convert_unifi_data(value: Any, field: ModelField) -> Any:
     """Converts value from UFP data into pydantic field class"""
     type_ = field.type_
@@ -231,7 +234,7 @@ def convert_unifi_data(value: Any, field: ModelField) -> Any:
             # handle edge case for improperly formatted UUIDs
             # 00000000-0000-00 0- 000-000000000000
             if type_ is UUID and value == _BAD_UUID:
-                value = "0" * 32
+                return _EMPTY_UUID
             return type_(value)
 
     return value
