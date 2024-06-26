@@ -464,13 +464,6 @@ class Bootstrap(ProtectBaseObject):
             if TYPE_CHECKING:
                 assert isinstance(obj, Event)
             self.process_event(obj)
-        elif model_type is ModelType.CAMERA:
-            if TYPE_CHECKING:
-                assert isinstance(obj, Camera)
-            if "last_ring" in data and (last_ring := obj.last_ring):
-                if is_recent := last_ring + RECENT_EVENT_MAX >= utc_now():
-                    obj.set_ring_timeout()
-                _LOGGER.debug("last_ring for %s (%s)", obj.id, is_recent)
         elif model_type is ModelType.SENSOR:
             if TYPE_CHECKING:
                 assert isinstance(obj, Sensor)

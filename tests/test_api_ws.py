@@ -417,61 +417,9 @@ async def test_ws_event_update(
     assert bootstrap == bootstrap_before
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@patch("uiprotect.data.devices.utc_now")
-@patch("uiprotect.data.base.EVENT_PING_INTERVAL_SECONDS", 0)
-@pytest.mark.asyncio()
-async def test_ws_emit_ring_callback(
-    mock_now,
-    protect_client_no_debug: ProtectApiClient,
-    now: datetime,
-    camera,
-    packet: WSPacket,
-):
-    mock_now.return_value = now
-    protect_client = protect_client_no_debug
-    protect_client.emit_message = Mock()  # type: ignore[method-assign]
-
-    obj = protect_client.bootstrap.cameras[camera["id"]]
-
-    expected_updated_id = "0441ecc6-f0fa-4b19-b071-7987c143138a"
-
-    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
-    action_frame.data = {
-        "action": "update",
-        "newUpdateId": expected_updated_id,
-        "modelKey": "camera",
-        "id": camera["id"],
-    }
-
-    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
-    data_frame.data = {"lastRing": to_js_time(now)}
-
-    msg = MagicMock()
-    msg.data = packet.pack_frames()
-
-    assert not obj.is_ringing
-    with patch("uiprotect.data.bootstrap.utc_now", mock_now):
-        protect_client._process_ws_message(msg)
-    assert obj.is_ringing
-    mock_now.return_value = utc_now() + EVENT_PING_INTERVAL
-    assert not obj.is_ringing
-
-    # The event message should be emitted
-    assert protect_client.emit_message.call_count == 1
-
-    await asyncio.sleep(0)
-    await asyncio.sleep(0)
-
-    # An empty messages should be emitted
-    assert protect_client.emit_message.call_count == 2
-
-    message: WSSubscriptionMessage = protect_client.emit_message.call_args[0][0]
-    assert message.changed_data == {}
-
-
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @patch("uiprotect.data.devices.utc_now")
+@patch("uiprotect.data.base.EVENT_PING_INTERVAL_SECONDS", 0)
 @pytest.mark.asyncio()
 async def test_ws_emit_alarm_callback(
     mock_now,
@@ -499,6 +447,9 @@ async def test_ws_emit_alarm_callback(
         "id": sensor["id"],
     }
 
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {"alarmTriggeredAt": to_js_time(now)}
+
     msg = MagicMock()
     msg.data = packet.pack_frames()
 
@@ -507,6 +458,20 @@ async def test_ws_emit_alarm_callback(
         protect_client._process_ws_message(msg)
     assert obj.is_alarm_detected
     mock_now.return_value = utc_now() + EVENT_PING_INTERVAL
+    assert not obj.is_alarm_detected
+
+    # The event message should be emitted
+    assert protect_client.emit_message.call_count == 1
+
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+
+    # An empty messages should be emitted
+    assert protect_client.emit_message.call_count == 2
+
+    message: WSSubscriptionMessage = protect_client.emit_message.call_args[0][0]
+    assert message.changed_data == {}
+
     assert not obj.is_alarm_detected
 
 

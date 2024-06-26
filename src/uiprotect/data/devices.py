@@ -977,7 +977,6 @@ class Camera(ProtectMotionDeviceModel):
     last_smart_detect_event_ids: dict[SmartDetectObjectType, str] = {}
     last_smart_audio_detect_event_ids: dict[SmartDetectAudioType, str] = {}
     talkback_stream: TalkbackStream | None = None
-    _last_ring_timeout: datetime | None = PrivateAttr(None)
 
     @classmethod
     @cache
@@ -1846,12 +1845,6 @@ class Camera(ProtectMotionDeviceModel):
     # endregion
 
     @property
-    def is_ringing(self) -> bool:
-        if self._last_ring_timeout is None:
-            return False
-        return utc_now() < self._last_ring_timeout
-
-    @property
     def chime_type(self) -> ChimeType:
         if self.chime_duration.total_seconds() == 0.3:
             return ChimeType.MECHANICAL
@@ -1934,10 +1927,6 @@ class Camera(ProtectMotionDeviceModel):
             return is_attached
 
         return False
-
-    def set_ring_timeout(self) -> None:
-        self._last_ring_timeout = utc_now() + EVENT_PING_INTERVAL
-        self._event_callback_ping()
 
     def get_privacy_zone(self) -> tuple[int | None, CameraZone | None]:
         for index, zone in enumerate(self.privacy_zones):
