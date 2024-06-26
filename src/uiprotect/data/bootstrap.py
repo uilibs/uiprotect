@@ -591,7 +591,7 @@ class Bootstrap(ProtectBaseObject):
     async def refresh_device(self, model_type: ModelType, device_id: str) -> None:
         """Refresh a device in the bootstrap."""
         try:
-            if model_type == ModelType.NVR:
+            if model_type is ModelType.NVR:
                 device: ProtectModelWithId = await self._api.get_nvr()
             else:
                 device = await self._api.get_device(model_type, device_id)
