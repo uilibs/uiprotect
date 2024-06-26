@@ -577,7 +577,7 @@ def log_event(event: Event) -> None:
     )
     smart_settings = camera.smart_detect_settings
     for smart_type in event.smart_detect_types:
-        is_audio = event.type == EventType.SMART_AUDIO_DETECT
+        is_audio = event.type is EventType.SMART_AUDIO_DETECT
         if is_audio:
             if smart_type.audio_type is None:
                 return
