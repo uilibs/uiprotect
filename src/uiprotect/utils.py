@@ -205,7 +205,7 @@ def convert_unifi_data(value: Any, field: ModelField) -> Any:
     """Converts value from UFP data into pydantic field class"""
     type_ = field.type_
 
-    if type_ == Any:
+    if type_ is Any:
         return value
 
     shape = field.shape
@@ -222,7 +222,7 @@ def convert_unifi_data(value: Any, field: ModelField) -> Any:
                 return ip_address(value)
             except ValueError:
                 return value
-        if type_ == datetime:
+        if type_ is datetime:
             return from_js_time(value)
         if type_ in _CREATE_TYPES or _is_enum_type(type_):
             # cannot do this check too soon because some types cannot be used in isinstance
