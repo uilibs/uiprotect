@@ -575,27 +575,17 @@ class Bootstrap(ProtectBaseObject):
         err: Exception,
     ) -> None:
         msg = ""
+        device_id: str = action["id"]
         if model_type is ModelType.EVENT:
-            msg = (
-                f"Validation error processing event: "
-                f"{action['id']}. Ignoring event."
-            )
+            msg = f"Validation error processing event: " f"{device_id}. Ignoring event."
         else:
-            try:
-                device_id: str = action["id"]
-                task = asyncio.create_task(self.refresh_device(model_type, device_id))
-                self._refresh_tasks.add(task)
-                task.add_done_callback(self._refresh_tasks.discard)
-            except (ValueError, IndexError):
-                msg = (
-                    f"{action_action} packet caused invalid state. "
-                    "Unable to refresh device."
-                )
-            else:
-                msg = (
-                    f"{action_action} packet caused invalid state. "
-                    f"Refreshing device: {model_type} {device_id}"
-                )
+            task = asyncio.create_task(self.refresh_device(model_type, device_id))
+            self._refresh_tasks.add(task)
+            task.add_done_callback(self._refresh_tasks.discard)
+            msg = (
+                f"{action_action} packet caused invalid state. "
+                f"Refreshing device: {model_type} {device_id}"
+            )
         _LOGGER.debug("%s Error: %s", msg, err)
 
     async def refresh_device(self, model_type: ModelType, device_id: str) -> None:
