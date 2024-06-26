@@ -595,7 +595,6 @@ class Bootstrap(ProtectBaseObject):
             ValidationError,
             TimeoutError,
             asyncio.TimeoutError,
-            asyncio.CancelledError,
             ClientError,
             ServerDisconnectedError,
         ):

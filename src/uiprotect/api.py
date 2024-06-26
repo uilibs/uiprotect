@@ -1815,7 +1815,6 @@ class ProtectApiClient(BaseApiClient):
         except (
             TimeoutError,
             asyncio.TimeoutError,
-            asyncio.CancelledError,
             aiohttp.ServerDisconnectedError,
             client_exceptions.ClientError,
         ) as err:
