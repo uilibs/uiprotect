@@ -230,7 +230,7 @@ def convert_unifi_data(value: Any, field: ModelField) -> Any:
                 return value
             # handle edge case for improperly formatted UUIDs
             # 00000000-0000-00 0- 000-000000000000
-            if type_ == UUID and value == _BAD_UUID:
+            if type_ is UUID and value == _BAD_UUID:
                 value = "0" * 32
             return type_(value)
 
