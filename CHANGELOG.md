@@ -1,5 +1,13 @@
 # Changelog
 
+## v4.2.0 (2024-06-27)
+
+### Feature
+
+
+- Replace manual dict deletes with convertertools (#131) ([`22f7df8`](https://github.com/uilibs/uiprotect/commit/22f7df8852d5dcb252337a3f4620932619b6c5be))
+
+
 ## v4.1.0 (2024-06-27)
 
 ### Feature
