@@ -1,5 +1,13 @@
 # Changelog
 
+## v4.1.0 (2024-06-27)
+
+### Feature
+
+
+- Avoid the need to deepcopy in the ws stats (#130) ([`5318b02`](https://github.com/uilibs/uiprotect/commit/5318b0219c89a1183218c94525fe08319208bc30))
+
+
 ## v4.0.0 (2024-06-26)
 
 ### Breaking
