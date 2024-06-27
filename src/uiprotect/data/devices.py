@@ -12,6 +12,7 @@ from ipaddress import IPv4Address
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+from convertertools import pop_dict_set_if_none, pop_dict_tuple
 from pydantic.v1.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized, StreamError
@@ -341,10 +342,7 @@ class ISPSettings(ProtectBaseObject):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "focusMode" in data and data["focusMode"] is None:
-            del data["focusMode"]
-
+        pop_dict_set_if_none(data, {"focusMode"})
         return data
 
 
@@ -611,10 +609,7 @@ class StorageStats(ProtectBaseObject):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "rate" in data and data["rate"] is None:
-            del data["rate"]
-
+        pop_dict_set_if_none(data, {"rate"})
         return data
 
 
@@ -1053,21 +1048,21 @@ class Camera(ProtectMotionDeviceModel):
                 ]
 
         data = super().unifi_dict(data=data, exclude=exclude)
-        for key in (
-            "lastRingEventId",
-            "lastSmartDetect",
-            "lastSmartAudioDetect",
-            "lastSmartDetectEventId",
-            "lastSmartAudioDetectEventId",
-            "lastSmartDetects",
-            "lastSmartAudioDetects",
-            "lastSmartDetectEventIds",
-            "lastSmartAudioDetectEventIds",
-            "talkbackStream",
-        ):
-            if key in data:
-                del data[key]
-
+        pop_dict_tuple(
+            data,
+            (
+                "lastRingEventId",
+                "lastSmartDetect",
+                "lastSmartAudioDetect",
+                "lastSmartDetectEventId",
+                "lastSmartAudioDetectEventId",
+                "lastSmartDetects",
+                "lastSmartAudioDetects",
+                "lastSmartDetectEventIds",
+                "lastSmartAudioDetectEventIds",
+                "talkbackStream",
+            ),
+        )
         if "lcdMessage" in data and data["lcdMessage"] is None:
             data["lcdMessage"] = {}
 
@@ -2783,15 +2778,16 @@ class Sensor(ProtectAdoptableDeviceModel):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-        for key in (
-            "lastMotionEventId",
-            "lastContactEventId",
-            "lastValueEventId",
-            "lastAlarmEventId",
-            "extremeValueDetectedAt",
-        ):
-            if key in data:
-                del data[key]
+        pop_dict_tuple(
+            data,
+            (
+                "lastMotionEventId",
+                "lastContactEventId",
+                "lastValueEventId",
+                "lastAlarmEventId",
+                "extremeValueDetectedAt",
+            ),
+        )
         return data
 
     @property
