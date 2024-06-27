@@ -11,6 +11,7 @@ from ipaddress import IPv4Address
 from typing import TYPE_CHECKING, Any, NamedTuple, TypeVar
 from uuid import UUID
 
+from convertertools import pop_dict_set_if_none, pop_dict_tuple
 from pydantic.v1 import BaseModel
 from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
 
@@ -551,10 +552,7 @@ class ProtectModel(ProtectBaseObject):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "modelKey" in data and data["modelKey"] is None:
-            del data["modelKey"]
-
+        pop_dict_set_if_none(data, {"modelKey"})
         return data
 
 
@@ -955,13 +953,10 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-        for key in (
-            "wiredConnectionState",
-            "wifiConnectionState",
-            "bluetoothConnectionState",
-        ):
-            if key in data and data[key] is None:
-                del data[key]
+        pop_dict_set_if_none(
+            data,
+            {"wiredConnectionState", "wifiConnectionState", "bluetoothConnectionState"},
+        )
         return data
 
     @classmethod
@@ -1072,10 +1067,7 @@ class ProtectMotionDeviceModel(ProtectAdoptableDeviceModel):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "lastMotionEventId" in data:
-            del data["lastMotionEventId"]
-
+        pop_dict_tuple(data, ("lastMotionEventId",))
         return data
 
     @property

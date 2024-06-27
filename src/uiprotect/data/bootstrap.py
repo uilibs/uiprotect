@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from aiohttp.client_exceptions import ServerDisconnectedError
+from convertertools import pop_dict_set, pop_dict_tuple
 from pydantic.v1 import PrivateAttr, ValidationError
 
 from ..exceptions import ClientError
@@ -230,9 +231,7 @@ class Bootstrap(ProtectBaseObject):
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
-        for key in ("events", "captureWsStats", "macLookup", "idLookup"):
-            if key in data:
-                del data[key]
+        pop_dict_tuple(data, ("events", "captureWsStats", "macLookup", "idLookup"))
         for model_type in ModelType.bootstrap_models_types_set:
             attr = model_type.devices_key  # type: ignore[attr-defined]
             if attr in data and isinstance(data[attr], dict):
@@ -385,8 +384,7 @@ class Bootstrap(ProtectBaseObject):
         ignore_stats: bool,
     ) -> WSSubscriptionMessage | None:
         if ignore_stats:
-            for key in STATS_KEYS.intersection(data):
-                del data[key]
+            pop_dict_set(data, STATS_KEYS)
         # nothing left to process
         if not data:
             return None
@@ -435,8 +433,7 @@ class Bootstrap(ProtectBaseObject):
                 model_type, IGNORE_DEVICE_KEYS
             )
 
-        for key in remove_keys.intersection(data):
-            del data[key]
+        pop_dict_set(data, remove_keys)
 
         # nothing left to process
         if not data and not is_ping_back:
@@ -447,7 +444,7 @@ class Bootstrap(ProtectBaseObject):
         if action_id not in devices:
             # ignore updates to events that phase out
             if model_type is not ModelType.EVENT:
-                _LOGGER.debug("Unexpected %s: %s", key, action_id)
+                _LOGGER.debug("Unexpected %s: %s", model_type, action_id)
             return None
 
         obj = devices[action_id]
