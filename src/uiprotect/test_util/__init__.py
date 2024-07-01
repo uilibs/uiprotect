@@ -359,7 +359,7 @@ class SampleDataGenerator:
         length = int((motion_event["end"] - motion_event["start"]) / 1000)
         if self.anonymize:
             run(
-                split(  # noqa: S603
+                split(
                     BLANK_VIDEO_CMD.format(
                         length=length,
                         filename=self.output_folder / f"{filename}.mp4",
