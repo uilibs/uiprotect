@@ -16,6 +16,7 @@ from uuid import UUID
 import aiofiles
 import orjson
 from aiofiles import os as aos
+from convertertools import pop_dict_set_if_none, pop_dict_tuple
 from pydantic.v1.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized
@@ -145,11 +146,7 @@ class EventThumbnailAttributes(ProtectBaseObject):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-
-        for key in DELETE_KEYS_THUMB.intersection(data):
-            if data[key] is None:
-                del data[key]
-
+        pop_dict_set_if_none(data, DELETE_KEYS_THUMB)
         return data
 
 
@@ -171,10 +168,7 @@ class EventDetectedThumbnail(ProtectBaseObject):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "name" in data and data["name"] is None:
-            del data["name"]
-
+        pop_dict_set_if_none(data, {"name"})
         return data
 
 
@@ -309,11 +303,7 @@ class Event(ProtectModelWithId):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-
-        for key in DELETE_KEYS_EVENT.intersection(data):
-            if data[key] is None:
-                del data[key]
-
+        pop_dict_set_if_none(data, DELETE_KEYS_EVENT)
         return data
 
     @property
@@ -632,30 +622,29 @@ class UOSDisk(ProtectBaseObject):
             data["estimate"] /= 1000
 
         if "state" in data and data["state"] == "nodisk":
-            delete_keys = [
-                "action",
-                "ata",
-                "bad_sector",
-                "estimate",
-                "firmware",
-                "healthy",
-                "life_span",
-                "model",
-                "poweronhrs",
-                "progress",
-                "reason",
-                "rpm",
-                "sata",
-                "serial",
-                "tempature",
-                "temperature",
-                "threshold",
-                "type",
-            ]
-            for key in delete_keys:
-                if key in data:
-                    del data[key]
-
+            pop_dict_tuple(
+                data,
+                (
+                    "action",
+                    "ata",
+                    "bad_sector",
+                    "estimate",
+                    "firmware",
+                    "healthy",
+                    "life_span",
+                    "model",
+                    "poweronhrs",
+                    "progress",
+                    "reason",
+                    "rpm",
+                    "sata",
+                    "serial",
+                    "tempature",
+                    "temperature",
+                    "threshold",
+                    "type",
+                ),
+            )
         return data
 
     @property
@@ -739,10 +728,7 @@ class SystemInfo(ProtectBaseObject):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-
-        if data is not None and "ustorage" in data and data["ustorage"] is None:
-            del data["ustorage"]
-
+        pop_dict_set_if_none(data, {"ustorage"})
         return data
 
 

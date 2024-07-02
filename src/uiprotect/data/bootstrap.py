@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from aiohttp.client_exceptions import ServerDisconnectedError
+from convertertools import pop_dict_set, pop_dict_tuple
 from pydantic.v1 import PrivateAttr, ValidationError
 
 from ..exceptions import ClientError
@@ -230,9 +231,7 @@ class Bootstrap(ProtectBaseObject):
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
-        for key in ("events", "captureWsStats", "macLookup", "idLookup"):
-            if key in data:
-                del data[key]
+        pop_dict_tuple(data, ("events", "captureWsStats", "macLookup", "idLookup"))
         for model_type in ModelType.bootstrap_models_types_set:
             attr = model_type.devices_key  # type: ignore[attr-defined]
             if attr in data and isinstance(data[attr], dict):
@@ -385,8 +384,7 @@ class Bootstrap(ProtectBaseObject):
         ignore_stats: bool,
     ) -> WSSubscriptionMessage | None:
         if ignore_stats:
-            for key in STATS_KEYS.intersection(data):
-                del data[key]
+            pop_dict_set(data, STATS_KEYS)
         # nothing left to process
         if not data:
             return None
@@ -435,8 +433,7 @@ class Bootstrap(ProtectBaseObject):
                 model_type, IGNORE_DEVICE_KEYS
             )
 
-        for key in remove_keys.intersection(data):
-            del data[key]
+        pop_dict_set(data, remove_keys)
 
         # nothing left to process
         if not data and not is_ping_back:
@@ -447,7 +444,7 @@ class Bootstrap(ProtectBaseObject):
         if action_id not in devices:
             # ignore updates to events that phase out
             if model_type is not ModelType.EVENT:
-                _LOGGER.debug("Unexpected %s: %s", key, action_id)
+                _LOGGER.debug("Unexpected %s: %s", model_type, action_id)
             return None
 
         obj = devices[action_id]
@@ -464,13 +461,6 @@ class Bootstrap(ProtectBaseObject):
             if TYPE_CHECKING:
                 assert isinstance(obj, Event)
             self.process_event(obj)
-        elif model_type is ModelType.CAMERA:
-            if TYPE_CHECKING:
-                assert isinstance(obj, Camera)
-            if "last_ring" in data and (last_ring := obj.last_ring):
-                if is_recent := last_ring + RECENT_EVENT_MAX >= utc_now():
-                    obj.set_ring_timeout()
-                _LOGGER.debug("last_ring for %s (%s)", obj.id, is_recent)
         elif model_type is ModelType.SENSOR:
             if TYPE_CHECKING:
                 assert isinstance(obj, Sensor)
@@ -499,9 +489,7 @@ class Bootstrap(ProtectBaseObject):
         capture_ws_stats = self.capture_ws_stats
         action = packet.action_frame.data
         data = packet.data_frame.data
-        if capture_ws_stats:
-            action = deepcopy(action)
-            data = deepcopy(data)
+        keys = list(data) if capture_ws_stats else None
 
         new_update_id: str | None = action["newUpdateId"]
         if new_update_id is not None:
@@ -512,11 +500,13 @@ class Bootstrap(ProtectBaseObject):
         )
 
         if capture_ws_stats:
+            if TYPE_CHECKING:
+                assert keys is not None
             self._ws_stats.append(
                 WSStat(
-                    model=packet.action_frame.data["modelKey"],
-                    action=packet.action_frame.data["action"],
-                    keys=list(packet.data_frame.data),
+                    model=action["modelKey"],
+                    action=action["action"],
+                    keys=keys,
                     keys_set=[] if message is None else list(message.changed_data),
                     size=len(packet.raw),
                     filtered=message is None,
@@ -560,34 +550,38 @@ class Bootstrap(ProtectBaseObject):
                         model_type, action, data, ignore_stats, is_ping_back
                     )
         except (ValidationError, ValueError) as err:
-            self._handle_ws_error(action, err)
+            self._handle_ws_error(action_action, model_type, action, err)
 
         _LOGGER.debug(
             "Unexpected bootstrap model type deviceadoptedfor update: %s", model_key
         )
         return None
 
-    def _handle_ws_error(self, action: dict[str, Any], err: Exception) -> None:
+    def _handle_ws_error(
+        self,
+        action_action: str,
+        model_type: ModelType,
+        action: dict[str, Any],
+        err: Exception,
+    ) -> None:
         msg = ""
-        if action["modelKey"] == "event":
-            msg = f"Validation error processing event: {action['id']}. Ignoring event."
+        device_id: str = action["id"]
+        if model_type is ModelType.EVENT:
+            msg = f"Validation error processing event: {device_id}. Ignoring event."
         else:
-            try:
-                model_type = ModelType.from_string(action["modelKey"])
-                device_id: str = action["id"]
-                task = asyncio.create_task(self.refresh_device(model_type, device_id))
-                self._refresh_tasks.add(task)
-                task.add_done_callback(self._refresh_tasks.discard)
-            except (ValueError, IndexError):
-                msg = f"{action['action']} packet caused invalid state. Unable to refresh device."
-            else:
-                msg = f"{action['action']} packet caused invalid state. Refreshing device: {model_type} {device_id}"
+            task = asyncio.create_task(self.refresh_device(model_type, device_id))
+            self._refresh_tasks.add(task)
+            task.add_done_callback(self._refresh_tasks.discard)
+            msg = (
+                f"{action_action} packet caused invalid state. "
+                f"Refreshing device: {model_type} {device_id}"
+            )
         _LOGGER.debug("%s Error: %s", msg, err)
 
     async def refresh_device(self, model_type: ModelType, device_id: str) -> None:
         """Refresh a device in the bootstrap."""
         try:
-            if model_type == ModelType.NVR:
+            if model_type is ModelType.NVR:
                 device: ProtectModelWithId = await self._api.get_nvr()
             else:
                 device = await self._api.get_device(model_type, device_id)
@@ -595,7 +589,6 @@ class Bootstrap(ProtectBaseObject):
             ValidationError,
             TimeoutError,
             asyncio.TimeoutError,
-            asyncio.CancelledError,
             ClientError,
             ServerDisconnectedError,
         ):

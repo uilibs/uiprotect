@@ -12,6 +12,7 @@ from ipaddress import IPv4Address
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+from convertertools import pop_dict_set_if_none, pop_dict_tuple
 from pydantic.v1.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized, StreamError
@@ -341,10 +342,7 @@ class ISPSettings(ProtectBaseObject):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "focusMode" in data and data["focusMode"] is None:
-            del data["focusMode"]
-
+        pop_dict_set_if_none(data, {"focusMode"})
         return data
 
 
@@ -611,10 +609,7 @@ class StorageStats(ProtectBaseObject):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "rate" in data and data["rate"] is None:
-            del data["rate"]
-
+        pop_dict_set_if_none(data, {"rate"})
         return data
 
 
@@ -977,7 +972,6 @@ class Camera(ProtectMotionDeviceModel):
     last_smart_detect_event_ids: dict[SmartDetectObjectType, str] = {}
     last_smart_audio_detect_event_ids: dict[SmartDetectAudioType, str] = {}
     talkback_stream: TalkbackStream | None = None
-    _last_ring_timeout: datetime | None = PrivateAttr(None)
 
     @classmethod
     @cache
@@ -1054,21 +1048,21 @@ class Camera(ProtectMotionDeviceModel):
                 ]
 
         data = super().unifi_dict(data=data, exclude=exclude)
-        for key in (
-            "lastRingEventId",
-            "lastSmartDetect",
-            "lastSmartAudioDetect",
-            "lastSmartDetectEventId",
-            "lastSmartAudioDetectEventId",
-            "lastSmartDetects",
-            "lastSmartAudioDetects",
-            "lastSmartDetectEventIds",
-            "lastSmartAudioDetectEventIds",
-            "talkbackStream",
-        ):
-            if key in data:
-                del data[key]
-
+        pop_dict_tuple(
+            data,
+            (
+                "lastRingEventId",
+                "lastSmartDetect",
+                "lastSmartAudioDetect",
+                "lastSmartDetectEventId",
+                "lastSmartAudioDetectEventId",
+                "lastSmartDetects",
+                "lastSmartAudioDetects",
+                "lastSmartDetectEventIds",
+                "lastSmartAudioDetectEventIds",
+                "talkbackStream",
+            ),
+        )
         if "lcdMessage" in data and data["lcdMessage"] is None:
             data["lcdMessage"] = {}
 
@@ -1846,12 +1840,6 @@ class Camera(ProtectMotionDeviceModel):
     # endregion
 
     @property
-    def is_ringing(self) -> bool:
-        if self._last_ring_timeout is None:
-            return False
-        return utc_now() < self._last_ring_timeout
-
-    @property
     def chime_type(self) -> ChimeType:
         if self.chime_duration.total_seconds() == 0.3:
             return ChimeType.MECHANICAL
@@ -1934,10 +1922,6 @@ class Camera(ProtectMotionDeviceModel):
             return is_attached
 
         return False
-
-    def set_ring_timeout(self) -> None:
-        self._last_ring_timeout = utc_now() + EVENT_PING_INTERVAL
-        self._event_callback_ping()
 
     def get_privacy_zone(self) -> tuple[int | None, CameraZone | None]:
         for index, zone in enumerate(self.privacy_zones):
@@ -2794,15 +2778,16 @@ class Sensor(ProtectAdoptableDeviceModel):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-        for key in (
-            "lastMotionEventId",
-            "lastContactEventId",
-            "lastValueEventId",
-            "lastAlarmEventId",
-            "extremeValueDetectedAt",
-        ):
-            if key in data:
-                del data[key]
+        pop_dict_tuple(
+            data,
+            (
+                "lastMotionEventId",
+                "lastContactEventId",
+                "lastValueEventId",
+                "lastAlarmEventId",
+                "extremeValueDetectedAt",
+            ),
+        )
         return data
 
     @property

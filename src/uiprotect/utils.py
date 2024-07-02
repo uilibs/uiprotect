@@ -201,11 +201,14 @@ def to_camel_case(name: str) -> str:
     return name
 
 
+_EMPTY_UUID = UUID("0" * 32)
+
+
 def convert_unifi_data(value: Any, field: ModelField) -> Any:
     """Converts value from UFP data into pydantic field class"""
     type_ = field.type_
 
-    if type_ == Any:
+    if type_ is Any:
         return value
 
     shape = field.shape
@@ -222,7 +225,7 @@ def convert_unifi_data(value: Any, field: ModelField) -> Any:
                 return ip_address(value)
             except ValueError:
                 return value
-        if type_ == datetime:
+        if type_ is datetime:
             return from_js_time(value)
         if type_ in _CREATE_TYPES or _is_enum_type(type_):
             # cannot do this check too soon because some types cannot be used in isinstance
@@ -230,8 +233,8 @@ def convert_unifi_data(value: Any, field: ModelField) -> Any:
                 return value
             # handle edge case for improperly formatted UUIDs
             # 00000000-0000-00 0- 000-000000000000
-            if type_ == UUID and value == _BAD_UUID:
-                value = "0" * 32
+            if type_ is UUID and value == _BAD_UUID:
+                return _EMPTY_UUID
             return type_(value)
 
     return value
@@ -574,7 +577,7 @@ def log_event(event: Event) -> None:
     )
     smart_settings = camera.smart_detect_settings
     for smart_type in event.smart_detect_types:
-        is_audio = event.type == EventType.SMART_AUDIO_DETECT
+        is_audio = event.type is EventType.SMART_AUDIO_DETECT
         if is_audio:
             if smart_type.audio_type is None:
                 return

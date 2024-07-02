@@ -1,5 +1,60 @@
 # Changelog
 
+## v4.2.0 (2024-06-27)
+
+### Feature
+
+
+- Replace manual dict deletes with convertertools (#131) ([`22f7df8`](https://github.com/uilibs/uiprotect/commit/22f7df8852d5dcb252337a3f4620932619b6c5be))
+
+
+## v4.1.0 (2024-06-27)
+
+### Feature
+
+
+- Avoid the need to deepcopy in the ws stats (#130) ([`5318b02`](https://github.com/uilibs/uiprotect/commit/5318b0219c89a1183218c94525fe08319208bc30))
+
+
+## v4.0.0 (2024-06-26)
+
+### Breaking
+
+
+- Remove is_ringing property and ring ping back from camera (#125) ([`b400435`](https://github.com/uilibs/uiprotect/commit/b400435366c859d0350a9095ae6e9136afb2b08a))
+
+
+## v3.8.0 (2024-06-26)
+
+### Fix
+
+
+- Use id checks for type compares (#126) ([`0e54ac6`](https://github.com/uilibs/uiprotect/commit/0e54ac6d82e010a6553c7ee7d42d884e8ec0bbd3))
+
+
+- Do not swallow asyncio.cancellederror (#129) ([`09bc38b`](https://github.com/uilibs/uiprotect/commit/09bc38b419b26c00363b47c5ae8ce0e6a7280133))
+
+
+### Feature
+
+
+- Improve websocket error handling (#128) ([`b70d071`](https://github.com/uilibs/uiprotect/commit/b70d071dc52fa179710134e023c34ac0c8caebbe))
+
+
+## v3.7.0 (2024-06-25)
+
+### Feature
+
+
+- Small cleanups to packet packing/unpacking (#122) ([`00cb125`](https://github.com/uilibs/uiprotect/commit/00cb125e89f5f43f7c759719d5fc581fb631af3c))
+
+
+- Small cleanups to devices (#124) ([`1b64a8e`](https://github.com/uilibs/uiprotect/commit/1b64a8e89259e9d791a9c9703ced088e4fc7622c))
+
+
+- Cleanup some additional dupe attr lookups (#123) ([`24849d8`](https://github.com/uilibs/uiprotect/commit/24849d819cfbba582a0f21c975de895d3754ef3b))
+
+
 ## v3.6.0 (2024-06-25)
 
 ### Feature
