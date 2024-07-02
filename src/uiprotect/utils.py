@@ -634,7 +634,7 @@ def get_nested_attr(attrs: tuple[str, ...], obj: Any) -> Any:
     for key in attrs:
         if (value := getattr(value, key, _SENTINEL)) is _SENTINEL:
             return None
-    return value.value if isinstance(value, Enum) else value
+    return value
 
 
 def get_nested_attr_as_bool(attrs: tuple[str, ...], obj: Any) -> bool:
@@ -643,25 +643,18 @@ def get_nested_attr_as_bool(attrs: tuple[str, ...], obj: Any) -> bool:
     for key in attrs:
         if (value := getattr(value, key, _SENTINEL)) is _SENTINEL:
             return False
-    return bool(value.value if isinstance(value, Enum) else value)
-
-
-def get_top_level_attr(attr: str, obj: Any) -> Any:
-    """Fetch a top level attribute."""
-    value = getattr(obj, attr)
-    return value.value if isinstance(value, Enum) else value
+    return bool(value)
 
 
 def get_top_level_attr_as_bool(attr: str, obj: Any) -> Any:
     """Fetch a top level attribute as a bool."""
-    value = getattr(obj, attr)
-    return bool(value.value if isinstance(value, Enum) else value)
+    return bool(getattr(obj, attr))
 
 
 def make_value_getter(ufp_value: str) -> Callable[[T], Any]:
     """Return a function to get a value from a Protect device."""
     if "." not in ufp_value:
-        return partial(get_top_level_attr, ufp_value)
+        return attrgetter(ufp_value)
     return partial(get_nested_attr, tuple(ufp_value.split(".")))
 
 
