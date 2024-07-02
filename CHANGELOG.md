@@ -1,5 +1,13 @@
 # Changelog
 
+## v5.0.0 (2024-07-02)
+
+### Breaking
+
+
+- Do not auto convert enums to values for fetching attrs (#138) ([`f6d7ead`](https://github.com/uilibs/uiprotect/commit/f6d7eade0e2b1dc4073b5e45f7f2a75909180a30))
+
+
 ## v4.2.0 (2024-06-27)
 
 ### Feature
