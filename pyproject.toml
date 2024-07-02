@@ -146,6 +146,7 @@ ignore = [
     "D106", # Missing docstring in public nested class
     "UP007", # typer needs Optional syntax
     "UP038", # Use `X | Y` in `isinstance` is slower
+    "S603", #  check for execution of untrusted input
 ]
 select = [
     "B",   # flake8-bugbear
