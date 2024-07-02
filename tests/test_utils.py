@@ -16,7 +16,6 @@ from uiprotect.utils import (
     dict_diff,
     get_nested_attr,
     get_nested_attr_as_bool,
-    get_top_level_attr,
     get_top_level_attr_as_bool,
     make_enabled_getter,
     make_required_getter,
@@ -219,7 +218,7 @@ def test_get_nested_attr():
     data = Mock(a=Mock(b=Mock(c=1)), d=3, f=_MockEnum.C)
     assert get_nested_attr(("a", "b", "c"), data) == 1
     assert get_nested_attr(("d",), data) == 3
-    assert get_nested_attr(("f",), data) == _MockEnum.C.value
+    assert get_nested_attr(("f",), data) == _MockEnum.C
 
 
 @pytest.mark.asyncio
@@ -231,17 +230,8 @@ def test_get_nested_attr_as_bool():
 
 
 @pytest.mark.asyncio
-def test_get_top_level_attr():
-    data = Mock(a=1, b=2, c=3, d=_MockEnum.C)
-    assert get_top_level_attr("a", data) == 1
-    assert get_top_level_attr("b", data) == 2
-    assert get_top_level_attr("c", data) == 3
-    assert get_top_level_attr("d", data) == _MockEnum.C.value
-
-
-@pytest.mark.asyncio
 def test_get_top_level_attr_as_bool():
-    data = Mock(a=True, b=False, c=_MockEnum.C, d=None)
+    data = Mock(a=True, b=False, c=True, d=None)
     assert get_top_level_attr_as_bool("a", data) is True
     assert get_top_level_attr_as_bool("b", data) is False
     assert get_top_level_attr_as_bool("c", data) is True
@@ -250,11 +240,11 @@ def test_get_top_level_attr_as_bool():
 
 @pytest.mark.asyncio
 def test_make_value_getter():
-    data = Mock(a=1, b=2, c=3, d=_MockEnum.C)
+    data = Mock(a=1, b=2, c=3, d=4)
     assert make_value_getter("a")(data) == 1
     assert make_value_getter("b")(data) == 2
     assert make_value_getter("c")(data) == 3
-    assert make_value_getter("d")(data) == _MockEnum.C.value
+    assert make_value_getter("d")(data) == 4
 
 
 @pytest.mark.asyncio
