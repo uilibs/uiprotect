@@ -1,5 +1,13 @@
 # Changelog
 
+## v5.1.0 (2024-07-03)
+
+### Feature
+
+
+- Small cleanups to smart detect lookups (#139) ([`ef21763`](https://github.com/uilibs/uiprotect/commit/ef217638129bc48fb67d9e60fe828f78daf2a017))
+
+
 ## v5.0.0 (2024-07-02)
 
 ### Breaking
