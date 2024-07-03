@@ -1090,11 +1090,12 @@ class Camera(ProtectMotionDeviceModel):
         return updated
 
     def update_from_dict(self, data: dict[str, Any]) -> Camera:
-        # a message in the past is actually a singal to wipe the message
-        reset_at = data.get("lcd_message", {}).get("reset_at")
-        if reset_at is not None:
-            reset_at = from_js_time(reset_at)
-            if utc_now() > reset_at:
+        # a message in the past is actually a signal to wipe the message
+        if (reset_at := data.get("lcd_message", {}).get("reset_at")) is not None:
+            if utc_now() > from_js_time(reset_at):
+                # Important: Make a copy of the data before modifying it
+                # since unifi_dict_to_dict will otherwise report incorrect changes
+                data = data.copy()
                 data["lcd_message"] = None
 
         return super().update_from_dict(data)
