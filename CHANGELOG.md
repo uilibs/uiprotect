@@ -1,5 +1,13 @@
 # Changelog
 
+## v5.2.0 (2024-07-03)
+
+### Feature
+
+
+- Remove deepcopy before calling update_from_dict (#140) ([`23bc68f`](https://github.com/uilibs/uiprotect/commit/23bc68f2ca31c06e224cb5f5600ce87e1c842ec6))
+
+
 ## v5.1.0 (2024-07-03)
 
 ### Feature
