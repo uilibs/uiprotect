@@ -1134,11 +1134,9 @@ class Camera(ProtectMotionDeviceModel):
         smart_type: SmartDetectObjectType,
     ) -> Event | None:
         """Get the last smart detect event for given type."""
-        event_id = self.last_smart_detect_event_ids.get(smart_type)
-        if event_id is None:
-            return None
-
-        return self._api.bootstrap.events.get(event_id)
+        if event_id := self.last_smart_detect_event_ids.get(smart_type):
+            return self._api.bootstrap.events.get(event_id)
+        return None
 
     @property
     def last_smart_audio_detect_event(self) -> Event | None:
@@ -1222,19 +1220,20 @@ class Camera(ProtectMotionDeviceModel):
         """Get active smart detection types."""
         if self.use_global:
             return set(self.smart_detect_settings.object_types).intersection(
-                self.feature_flags.smart_detect_types,
+                self.feature_flags.smart_detect_types
             )
         return set(self.smart_detect_settings.object_types)
 
     @property
     def active_audio_detect_types(self) -> set[SmartDetectAudioType]:
         """Get active audio detection types."""
+        if not (enabled_audio_types := self.smart_detect_settings.audio_types):
+            return set()
         if self.use_global:
-            return set(self.smart_detect_settings.audio_types or []).intersection(
-                self.feature_flags.smart_detect_audio_types or [],
-            )
-
-        return set(self.smart_detect_settings.audio_types or [])
+            if not (feature_audio_types := self.feature_flags.smart_detect_audio_types):
+                return set()
+            return set(feature_audio_types).intersection(enabled_audio_types)
+        return set(enabled_audio_types)
 
     @property
     def is_motion_detection_on(self) -> bool:
