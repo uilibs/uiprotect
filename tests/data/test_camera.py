@@ -17,6 +17,7 @@ from uiprotect.data import (
     LCDMessage,
     PTZPreset,
     RecordingMode,
+    SmartDetectAudioType,
     VideoMode,
 )
 from uiprotect.data.devices import CameraZone, Hotplug, HotplugExtender
@@ -1014,6 +1015,43 @@ async def test_camera_set_person_track(camera_obj: Camera | None, status: bool):
             if status
             else {"smartDetectSettings": {"autoTrackingObjectTypes": []}}
         ),
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("status", [True, False])
+@pytest.mark.asyncio()
+async def test_camera_disable_co(camera_obj: Camera | None, status: bool):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.feature_flags.is_ptz = True
+    camera_obj.recording_settings.mode = RecordingMode.ALWAYS
+
+    if status:
+        camera_obj.smart_detect_settings.audio_types = []
+    else:
+        camera_obj.smart_detect_settings.audio_types = [
+            SmartDetectAudioType.SMOKE,
+            SmartDetectAudioType.CMONX,
+            SmartDetectAudioType.SMOKE_CMONX,
+        ]
+
+    camera_obj.api.api_request.reset_mock()
+
+    await camera_obj.set_smart_audio_detect_types(
+        [SmartDetectAudioType.SMOKE, SmartDetectAudioType.SMOKE_CMONX]
+    )
+
+    assert camera_obj.smart_detect_settings.audio_types == [
+        SmartDetectAudioType.SMOKE,
+        SmartDetectAudioType.SMOKE_CMONX,
+    ]
+
+    camera_obj.api.api_request.assert_called_with(
+        f"cameras/{camera_obj.id}",
+        method="patch",
+        json={"smartDetectSettings": {"audioTypes": ["alrmSmoke"]}},
     )
 
 
