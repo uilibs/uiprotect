@@ -1,5 +1,13 @@
 # Changelog
 
+## v5.2.1 (2024-07-04)
+
+### Fix
+
+
+- Avoid reflecting back smoke_cmonx when changing smart audio (#141) ([`7270a5c`](https://github.com/uilibs/uiprotect/commit/7270a5cb40ed9c83db353677abc0496dc7b59f9e))
+
+
 ## v5.2.0 (2024-07-03)
 
 ### Feature
