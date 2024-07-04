@@ -495,7 +495,8 @@ async def test_camera_set_chime_duration_duration(
     camera_obj.api.api_request.reset_mock()
 
     camera_obj.feature_flags.has_chime = True
-    camera_obj.chime_duration = 300
+    camera_obj.chime_duration = timedelta(seconds=300)
+    assert camera_obj.chime_duration_seconds == 300
     camera_obj.mic_volume = 10
 
     if duration in {-1, 20}:
