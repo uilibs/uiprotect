@@ -7,7 +7,7 @@ import logging
 import warnings
 from collections.abc import Callable
 from datetime import datetime, timedelta
-from functools import cache
+from functools import cache, lru_cache
 from ipaddress import IPv4Address
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -25,6 +25,7 @@ from ..utils import (
     convert_video_modes,
     from_js_time,
     serialize_point,
+    timedelta_total_seconds,
     to_js_time,
     utc_now,
 )
@@ -898,6 +899,15 @@ class CameraHomekitSettings(ProtectBaseObject):
 
 class CameraAudioSettings(ProtectBaseObject):
     style: list[AudioStyle]
+
+
+@lru_cache
+def _chime_type_from_total_seconds(total_seconds: float) -> ChimeType:
+    if total_seconds == 0.3:
+        return ChimeType.MECHANICAL
+    if total_seconds > 0.3:
+        return ChimeType.DIGITAL
+    return ChimeType.NONE
 
 
 class Camera(ProtectMotionDeviceModel):
@@ -1855,11 +1865,13 @@ class Camera(ProtectMotionDeviceModel):
 
     @property
     def chime_type(self) -> ChimeType:
-        if self.chime_duration.total_seconds() == 0.3:
-            return ChimeType.MECHANICAL
-        if self.chime_duration.total_seconds() > 0.3:
-            return ChimeType.DIGITAL
-        return ChimeType.NONE
+        return _chime_type_from_total_seconds(
+            timedelta_total_seconds(self.chime_duration)
+        )
+
+    @property
+    def chime_duration_seconds(self) -> float:
+        return timedelta_total_seconds(self.chime_duration)
 
     @property
     def is_digital_chime(self) -> bool:

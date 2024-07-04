@@ -670,3 +670,8 @@ def make_required_getter(ufp_required_field: str) -> Callable[[T], bool]:
     if "." not in ufp_required_field:
         return partial(get_top_level_attr_as_bool, ufp_required_field)
     return partial(get_nested_attr_as_bool, tuple(ufp_required_field.split(".")))
+
+
+@lru_cache
+def timedelta_total_seconds(td: timedelta) -> float:
+    return td.total_seconds()
