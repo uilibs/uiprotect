@@ -1,5 +1,13 @@
 # Changelog
 
+## v5.2.2 (2024-07-04)
+
+### Fix
+
+
+- Reflection of chime duration seconds (#142) ([`0266b8e`](https://github.com/uilibs/uiprotect/commit/0266b8e2470084df63422d4971c04354710b1ae8))
+
+
 ## v5.2.1 (2024-07-04)
 
 ### Fix
