@@ -471,6 +471,20 @@ class SmartDetectSettings(ProtectBaseObject):
             "autoTrackingObjectTypes": convert_smart_types,
         } | super().unifi_dict_conversions()
 
+    def unifi_dict(
+        self,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
+    ) -> dict[str, Any]:
+        data = super().unifi_dict(data=data, exclude=exclude)
+        if audio_types := data.get("audioTypes"):
+            # SMOKE_CMONX is not supported for audio types
+            # and should not be sent to the camera
+            data["audioTypes"] = [
+                t for t in audio_types if t != SmartDetectAudioType.SMOKE_CMONX.value
+            ]
+        return data
+
 
 class LCDMessage(ProtectBaseObject):
     type: DoorbellMessageType
