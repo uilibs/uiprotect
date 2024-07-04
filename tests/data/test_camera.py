@@ -11,6 +11,7 @@ from pydantic.v1 import ValidationError
 from tests.conftest import TEST_CAMERA_EXISTS
 from uiprotect.data import (
     Camera,
+    ChimeType,
     DoorbellMessageType,
     HDRMode,
     IRLEDMode,
@@ -483,6 +484,32 @@ async def test_camera_set_chime_duration_no_chime(camera_obj: Camera | None):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_mechanical_chime(
+    camera_obj: Camera | None,
+):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+    camera_obj.feature_flags.has_chime = True
+    camera_obj.chime_duration = timedelta(seconds=0.3)
+    assert camera_obj.chime_duration_seconds == 0.3
+    assert camera_obj.chime_type is ChimeType.MECHANICAL
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_no_chime(
+    camera_obj: Camera | None,
+):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+    camera_obj.feature_flags.has_chime = True
+    camera_obj.chime_duration = timedelta(seconds=0)
+    assert camera_obj.chime_duration_seconds == 0
+    assert camera_obj.chime_type is ChimeType.NONE
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("duration", [-1, 0, 0.5, 1, 20])
 @pytest.mark.asyncio()
 async def test_camera_set_chime_duration_duration(
@@ -497,6 +524,7 @@ async def test_camera_set_chime_duration_duration(
     camera_obj.feature_flags.has_chime = True
     camera_obj.chime_duration = timedelta(seconds=300)
     assert camera_obj.chime_duration_seconds == 300
+    assert camera_obj.chime_type is ChimeType.DIGITAL
     camera_obj.mic_volume = 10
 
     if duration in {-1, 20}:
