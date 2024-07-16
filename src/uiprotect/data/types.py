@@ -111,6 +111,16 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
         """Return the devices key."""
         return f"{self.value}s"
 
+    @cached_property
+    def name(self) -> str:
+        """Return the name."""
+        return self._name_
+
+    @cached_property
+    def value(self) -> str:
+        """Return the value."""
+        return self._value_
+
     @classmethod
     @cache
     def from_string(cls, value: str) -> ModelType:
@@ -574,6 +584,16 @@ class PermissionNode(str, UnknownValuesEnumMixin, enum.Enum):
     DELETE_MEDIA = "deletemedia"
     READ_LIVE = "readlive"
     UNKNOWN = "unknown"
+
+    @cached_property
+    def name(self) -> str:
+        """Return the name."""
+        return self._name_
+
+    @cached_property
+    def value(self) -> str:
+        """Return the value."""
+        return self._value_
 
 
 @enum.unique

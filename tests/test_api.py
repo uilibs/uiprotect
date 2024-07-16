@@ -26,6 +26,7 @@ from tests.conftest import (
     TEST_VIEWPORT_EXISTS,
     MockDatetime,
     compare_objs,
+    get_time,
     validate_video_file,
 )
 from tests.sample_data.constants import CONSTANTS
@@ -588,6 +589,7 @@ async def test_get_liveviews(protect_client: ProtectApiClient, liveviews):
 
 @pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
 @patch("uiprotect.utils.datetime", MockDatetime)
+@patch("uiprotect.api.time.time", get_time)
 @pytest.mark.asyncio()
 async def test_get_camera_snapshot(protect_client: ProtectApiClient, now):
     data = await protect_client.get_camera_snapshot("test_id")
@@ -608,6 +610,7 @@ async def test_get_camera_snapshot(protect_client: ProtectApiClient, now):
 
 @pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
 @patch("uiprotect.utils.datetime", MockDatetime)
+@patch("uiprotect.api.time.time", get_time)
 @pytest.mark.asyncio()
 async def test_get_pacakge_camera_snapshot(protect_client: ProtectApiClient, now):
     data = await protect_client.get_package_camera_snapshot("test_id")
@@ -628,6 +631,7 @@ async def test_get_pacakge_camera_snapshot(protect_client: ProtectApiClient, now
 
 @pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
 @patch("uiprotect.utils.datetime", MockDatetime)
+@patch("uiprotect.api.time.time", get_time)
 @pytest.mark.asyncio()
 async def test_get_camera_snapshot_args(protect_client: ProtectApiClient, now):
     data = await protect_client.get_camera_snapshot("test_id", 1920, 1080)
@@ -650,6 +654,7 @@ async def test_get_camera_snapshot_args(protect_client: ProtectApiClient, now):
 
 @pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
 @patch("uiprotect.utils.datetime", MockDatetime)
+@patch("uiprotect.api.time.time", get_time)
 @pytest.mark.asyncio()
 async def test_get_package_camera_snapshot_args(protect_client: ProtectApiClient, now):
     data = await protect_client.get_package_camera_snapshot("test_id", 1920, 1080)
@@ -672,6 +677,7 @@ async def test_get_package_camera_snapshot_args(protect_client: ProtectApiClient
 
 @pytest.mark.skipif(not TEST_VIDEO_EXISTS, reason="Missing testdata")
 @patch("uiprotect.api.datetime", MockDatetime)
+@patch("uiprotect.api.time.time", get_time)
 @pytest.mark.asyncio()
 async def test_get_camera_video(protect_client: ProtectApiClient, now, tmp_binary_file):
     camera = next(iter(protect_client.bootstrap.cameras.values()))
