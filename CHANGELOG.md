@@ -1,5 +1,13 @@
 # Changelog
 
+## v5.3.0 (2024-07-16)
+
+### Feature
+
+
+- Speed up camera snapshots (#152) ([`d333865`](https://github.com/uilibs/uiprotect/commit/d3338658c2fa714e993c3d668945b44a1e7ebd27))
+
+
 ## v5.2.2 (2024-07-04)
 
 ### Fix
