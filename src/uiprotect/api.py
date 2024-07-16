@@ -1401,21 +1401,20 @@ class ProtectApiClient(BaseApiClient):
 
         Datetime of screenshot is approximate. It may be +/- a few seconds.
         """
-        params = {
-            "ts": to_js_time(dt or utc_now()),
-            "force": "true",
-        }
-
-        if width is not None:
-            params.update({"w": width})
-
-        if height is not None:
-            params.update({"h": height})
-
-        path = "snapshot"
+        params: dict[str, Any] = {}
         if dt is not None:
             path = "recording-snapshot"
-            del params["force"]
+            params["ts"] = to_js_time(dt)
+        else:
+            path = "snapshot"
+            params["ts"] = int(time.time() * 1000)
+            params["force"] = "true"
+
+        if width is not None:
+            params["w"] = width
+
+        if height is not None:
+            params["h"] = height
 
         return await self.api_request_raw(
             f"cameras/{camera_id}/{path}",
@@ -1435,22 +1434,21 @@ class ProtectApiClient(BaseApiClient):
 
         Datetime of screenshot is approximate. It may be +/- a few seconds.
         """
-        params = {
-            "ts": to_js_time(dt or utc_now()),
-            "force": "true",
-        }
-
-        if width is not None:
-            params.update({"w": width})
-
-        if height is not None:
-            params.update({"h": height})
-
-        path = "package-snapshot"
+        params: dict[str, Any] = {}
         if dt is not None:
             path = "recording-snapshot"
-            del params["force"]
-            params.update({"lens": 2})
+            params["ts"] = to_js_time(dt)
+            params["lens"] = 2
+        else:
+            path = "package-snapshot"
+            params["ts"] = int(time.time() * 1000)
+            params["force"] = "true"
+
+        if width is not None:
+            params["w"] = width
+
+        if height is not None:
+            params["h"] = height
 
         return await self.api_request_raw(
             f"cameras/{camera_id}/{path}",
