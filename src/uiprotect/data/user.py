@@ -210,7 +210,7 @@ class User(ProtectModelWithId):
     ) -> bool:
         """Checks if a user can do a specific action"""
         check_self = False
-        if model == self.model and obj is not None and obj.id == self.id:
+        if model is self.model and obj is not None and obj.id == self.id:
             perm_str = f"{model.value}:{node.value}:$"
             check_self = True
         else:
@@ -221,7 +221,7 @@ class User(ProtectModelWithId):
             return self._perm_cache[perm_str]
 
         for perm in self.all_permissions:
-            if model != perm.model or node not in perm.nodes:
+            if model is not perm.model or node not in perm.nodes:
                 continue
             if perm.obj_ids is None:
                 self._perm_cache[perm_str] = True

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -399,7 +398,7 @@ class Bootstrap(ProtectBaseObject):
             return None
 
         old_nvr = self.nvr.copy()
-        self.nvr = self.nvr.update_from_dict(deepcopy(data))
+        self.nvr = self.nvr.update_from_dict(data)
 
         return WSSubscriptionMessage(
             action=WSAction.UPDATE,
@@ -455,7 +454,7 @@ class Bootstrap(ProtectBaseObject):
             return None
 
         old_obj = obj.copy()
-        obj = obj.update_from_dict(deepcopy(data))
+        obj = obj.update_from_dict(data)
 
         if model_type is ModelType.EVENT:
             if TYPE_CHECKING:

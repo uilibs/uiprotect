@@ -1,5 +1,45 @@
 # Changelog
 
+## v5.2.2 (2024-07-04)
+
+### Fix
+
+
+- Reflection of chime duration seconds (#142) ([`0266b8e`](https://github.com/uilibs/uiprotect/commit/0266b8e2470084df63422d4971c04354710b1ae8))
+
+
+## v5.2.1 (2024-07-04)
+
+### Fix
+
+
+- Avoid reflecting back smoke_cmonx when changing smart audio (#141) ([`7270a5c`](https://github.com/uilibs/uiprotect/commit/7270a5cb40ed9c83db353677abc0496dc7b59f9e))
+
+
+## v5.2.0 (2024-07-03)
+
+### Feature
+
+
+- Remove deepcopy before calling update_from_dict (#140) ([`23bc68f`](https://github.com/uilibs/uiprotect/commit/23bc68f2ca31c06e224cb5f5600ce87e1c842ec6))
+
+
+## v5.1.0 (2024-07-03)
+
+### Feature
+
+
+- Small cleanups to smart detect lookups (#139) ([`ef21763`](https://github.com/uilibs/uiprotect/commit/ef217638129bc48fb67d9e60fe828f78daf2a017))
+
+
+## v5.0.0 (2024-07-02)
+
+### Breaking
+
+
+- Do not auto convert enums to values for fetching attrs (#138) ([`f6d7ead`](https://github.com/uilibs/uiprotect/commit/f6d7eade0e2b1dc4073b5e45f7f2a75909180a30))
+
+
 ## v4.2.0 (2024-06-27)
 
 ### Feature

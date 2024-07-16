@@ -93,6 +93,10 @@ def get_now():
     return datetime.fromisoformat(CONSTANTS["time"]).replace(microsecond=0)
 
 
+def get_time():
+    return datetime.fromisoformat(CONSTANTS["time"]).replace(microsecond=0).timestamp()
+
+
 def validate_video_file(filepath: Path, length: int):
     output = run(
         split(CHECK_CMD.format(filename=filepath)),

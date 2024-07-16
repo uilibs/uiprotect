@@ -11,12 +11,14 @@ from pydantic.v1 import ValidationError
 from tests.conftest import TEST_CAMERA_EXISTS
 from uiprotect.data import (
     Camera,
+    ChimeType,
     DoorbellMessageType,
     HDRMode,
     IRLEDMode,
     LCDMessage,
     PTZPreset,
     RecordingMode,
+    SmartDetectAudioType,
     VideoMode,
 )
 from uiprotect.data.devices import CameraZone, Hotplug, HotplugExtender
@@ -482,6 +484,32 @@ async def test_camera_set_chime_duration_no_chime(camera_obj: Camera | None):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_mechanical_chime(
+    camera_obj: Camera | None,
+):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+    camera_obj.feature_flags.has_chime = True
+    camera_obj.chime_duration = timedelta(seconds=0.3)
+    assert camera_obj.chime_duration_seconds == 0.3
+    assert camera_obj.chime_type is ChimeType.MECHANICAL
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_no_chime(
+    camera_obj: Camera | None,
+):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+    camera_obj.feature_flags.has_chime = True
+    camera_obj.chime_duration = timedelta(seconds=0)
+    assert camera_obj.chime_duration_seconds == 0
+    assert camera_obj.chime_type is ChimeType.NONE
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("duration", [-1, 0, 0.5, 1, 20])
 @pytest.mark.asyncio()
 async def test_camera_set_chime_duration_duration(
@@ -494,7 +522,9 @@ async def test_camera_set_chime_duration_duration(
     camera_obj.api.api_request.reset_mock()
 
     camera_obj.feature_flags.has_chime = True
-    camera_obj.chime_duration = 300
+    camera_obj.chime_duration = timedelta(seconds=300)
+    assert camera_obj.chime_duration_seconds == 300
+    assert camera_obj.chime_type is ChimeType.DIGITAL
     camera_obj.mic_volume = 10
 
     if duration in {-1, 20}:
@@ -1014,6 +1044,43 @@ async def test_camera_set_person_track(camera_obj: Camera | None, status: bool):
             if status
             else {"smartDetectSettings": {"autoTrackingObjectTypes": []}}
         ),
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("status", [True, False])
+@pytest.mark.asyncio()
+async def test_camera_disable_co(camera_obj: Camera | None, status: bool):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.feature_flags.is_ptz = True
+    camera_obj.recording_settings.mode = RecordingMode.ALWAYS
+
+    if status:
+        camera_obj.smart_detect_settings.audio_types = []
+    else:
+        camera_obj.smart_detect_settings.audio_types = [
+            SmartDetectAudioType.SMOKE,
+            SmartDetectAudioType.CMONX,
+            SmartDetectAudioType.SMOKE_CMONX,
+        ]
+
+    camera_obj.api.api_request.reset_mock()
+
+    await camera_obj.set_smart_audio_detect_types(
+        [SmartDetectAudioType.SMOKE, SmartDetectAudioType.SMOKE_CMONX]
+    )
+
+    assert camera_obj.smart_detect_settings.audio_types == [
+        SmartDetectAudioType.SMOKE,
+        SmartDetectAudioType.SMOKE_CMONX,
+    ]
+
+    camera_obj.api.api_request.assert_called_with(
+        f"cameras/{camera_obj.id}",
+        method="patch",
+        json={"smartDetectSettings": {"audioTypes": ["alrmSmoke"]}},
     )
 
 

@@ -7,7 +7,7 @@ import logging
 import warnings
 from collections.abc import Callable
 from datetime import datetime, timedelta
-from functools import cache
+from functools import cache, lru_cache
 from ipaddress import IPv4Address
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -25,6 +25,7 @@ from ..utils import (
     convert_video_modes,
     from_js_time,
     serialize_point,
+    timedelta_total_seconds,
     to_js_time,
     utc_now,
 )
@@ -471,6 +472,20 @@ class SmartDetectSettings(ProtectBaseObject):
             "autoTrackingObjectTypes": convert_smart_types,
         } | super().unifi_dict_conversions()
 
+    def unifi_dict(
+        self,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
+    ) -> dict[str, Any]:
+        data = super().unifi_dict(data=data, exclude=exclude)
+        if audio_types := data.get("audioTypes"):
+            # SMOKE_CMONX is not supported for audio types
+            # and should not be sent to the camera
+            data["audioTypes"] = [
+                t for t in audio_types if t != SmartDetectAudioType.SMOKE_CMONX.value
+            ]
+        return data
+
 
 class LCDMessage(ProtectBaseObject):
     type: DoorbellMessageType
@@ -886,6 +901,15 @@ class CameraAudioSettings(ProtectBaseObject):
     style: list[AudioStyle]
 
 
+@lru_cache
+def _chime_type_from_total_seconds(total_seconds: float) -> ChimeType:
+    if total_seconds == 0.3:
+        return ChimeType.MECHANICAL
+    if total_seconds > 0.3:
+        return ChimeType.DIGITAL
+    return ChimeType.NONE
+
+
 class Camera(ProtectMotionDeviceModel):
     is_deleting: bool
     # Microphone Sensitivity
@@ -1090,11 +1114,12 @@ class Camera(ProtectMotionDeviceModel):
         return updated
 
     def update_from_dict(self, data: dict[str, Any]) -> Camera:
-        # a message in the past is actually a singal to wipe the message
-        reset_at = data.get("lcd_message", {}).get("reset_at")
-        if reset_at is not None:
-            reset_at = from_js_time(reset_at)
-            if utc_now() > reset_at:
+        # a message in the past is actually a signal to wipe the message
+        if (reset_at := data.get("lcd_message", {}).get("reset_at")) is not None:
+            if utc_now() > from_js_time(reset_at):
+                # Important: Make a copy of the data before modifying it
+                # since unifi_dict_to_dict will otherwise report incorrect changes
+                data = data.copy()
                 data["lcd_message"] = None
 
         return super().update_from_dict(data)
@@ -1134,11 +1159,9 @@ class Camera(ProtectMotionDeviceModel):
         smart_type: SmartDetectObjectType,
     ) -> Event | None:
         """Get the last smart detect event for given type."""
-        event_id = self.last_smart_detect_event_ids.get(smart_type)
-        if event_id is None:
-            return None
-
-        return self._api.bootstrap.events.get(event_id)
+        if event_id := self.last_smart_detect_event_ids.get(smart_type):
+            return self._api.bootstrap.events.get(event_id)
+        return None
 
     @property
     def last_smart_audio_detect_event(self) -> Event | None:
@@ -1222,19 +1245,20 @@ class Camera(ProtectMotionDeviceModel):
         """Get active smart detection types."""
         if self.use_global:
             return set(self.smart_detect_settings.object_types).intersection(
-                self.feature_flags.smart_detect_types,
+                self.feature_flags.smart_detect_types
             )
         return set(self.smart_detect_settings.object_types)
 
     @property
     def active_audio_detect_types(self) -> set[SmartDetectAudioType]:
         """Get active audio detection types."""
+        if not (enabled_audio_types := self.smart_detect_settings.audio_types):
+            return set()
         if self.use_global:
-            return set(self.smart_detect_settings.audio_types or []).intersection(
-                self.feature_flags.smart_detect_audio_types or [],
-            )
-
-        return set(self.smart_detect_settings.audio_types or [])
+            if not (feature_audio_types := self.feature_flags.smart_detect_audio_types):
+                return set()
+            return set(feature_audio_types).intersection(enabled_audio_types)
+        return set(enabled_audio_types)
 
     @property
     def is_motion_detection_on(self) -> bool:
@@ -1841,11 +1865,13 @@ class Camera(ProtectMotionDeviceModel):
 
     @property
     def chime_type(self) -> ChimeType:
-        if self.chime_duration.total_seconds() == 0.3:
-            return ChimeType.MECHANICAL
-        if self.chime_duration.total_seconds() > 0.3:
-            return ChimeType.DIGITAL
-        return ChimeType.NONE
+        return _chime_type_from_total_seconds(
+            timedelta_total_seconds(self.chime_duration)
+        )
+
+    @property
+    def chime_duration_seconds(self) -> float:
+        return timedelta_total_seconds(self.chime_duration)
 
     @property
     def is_digital_chime(self) -> bool:
