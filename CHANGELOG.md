@@ -1,5 +1,13 @@
 # Changelog
 
+## v5.4.0 (2024-07-20)
+
+### Feature
+
+
+- Improve performance of convert_unifi_data (#153) ([`45f66b4`](https://github.com/uilibs/uiprotect/commit/45f66b4d6f35cbd02abae21f0905089b0e329d59))
+
+
 ## v5.3.0 (2024-07-16)
 
 ### Feature
