@@ -109,13 +109,13 @@ speedups = ["Brotli", "aiodns", "brotlicffi"]
 
 [[package]]
 name = "aioshutil"
-version = "1.4"
+version = "1.5"
 description = "Asynchronous shutil module."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "aioshutil-1.4-py3-none-any.whl", hash = "sha256:ff14519f8155c3420f2a0cc921cbb23d4abe7738984fc21a76e67ae101fc35f0"},
-    {file = "aioshutil-1.4.tar.gz", hash = "sha256:7df42c2a1496dc9dd4e246bf09d490968ce8847ee2617cdc807aa0ee3804310b"},
+    {file = "aioshutil-1.5-py3-none-any.whl", hash = "sha256:bc2a6cdcf1a8615b62f856154fd81131031d03f2834912ebb06d8a2391253652"},
+    {file = "aioshutil-1.5.tar.gz", hash = "sha256:2756d6cd3bb03405dc7348ac11a0b60eb949ebd63cdd15f56e922410231c1201"},
 ]
 
 [[package]]
