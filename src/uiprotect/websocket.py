@@ -55,10 +55,12 @@ class Websocket:
         timeout: float = 30.0,
         backoff: int = 10,
         verify: bool = True,
+        receive_timeout: float | None = None,
     ) -> None:
         """Init Websocket."""
         self.get_url = get_url
         self.timeout = timeout
+        self.receive_timeout = receive_timeout
         self.backoff = backoff
         self.verify = verify
         self._get_session = get_session
@@ -117,7 +119,7 @@ class Websocket:
     async def _websocket_inner_loop(self, url: URL) -> None:
         _LOGGER.debug("Connecting WS to %s", url)
         await self._attempt_auth(False)
-        ssl = None if self.verify else False
+        ssl = True if self.verify else False
         msg: WSMessage | None = None
         self._seen_non_close_message = False
         session = await self._get_session()
@@ -127,7 +129,7 @@ class Websocket:
                 url, ssl=ssl, headers=self._headers, timeout=self.timeout
             )
             while True:
-                msg = await self._ws_connection.receive(self.timeout)
+                msg = await self._ws_connection.receive(self.receive_timeout)
                 msg_type = msg.type
                 if msg_type is WSMsgType.ERROR:
                     _LOGGER.exception("Error from Websocket: %s", msg.data)
