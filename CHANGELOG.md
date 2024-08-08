@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.0.0 (2024-08-08)
+
+### Breaking
+
+
+- Remove default websocket receive timeout (#173) ([`8b0b303`](https://github.com/uilibs/uiprotect/commit/8b0b3033880532ddbf00cb59df881100db273dcb))
+
+
 ## v5.4.0 (2024-07-20)
 
 ### Feature
