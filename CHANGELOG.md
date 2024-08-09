@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.0.1 (2024-08-09)
+
+### Fix
+
+
+- Simplify ssl verify flag in websocket class (#175) ([`c36e19a`](https://github.com/uilibs/uiprotect/commit/c36e19a549c78f4fd123b89f562669fdaa5f78a5))
+
+
 ## v6.0.0 (2024-08-08)
 
 ### Breaking
