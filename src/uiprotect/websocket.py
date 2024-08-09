@@ -119,14 +119,13 @@ class Websocket:
     async def _websocket_inner_loop(self, url: URL) -> None:
         _LOGGER.debug("Connecting WS to %s", url)
         await self._attempt_auth(False)
-        ssl = True if self.verify else False
         msg: WSMessage | None = None
         self._seen_non_close_message = False
         session = await self._get_session()
         # catch any and all errors for Websocket so we can clean up correctly
         try:
             self._ws_connection = await session.ws_connect(
-                url, ssl=ssl, headers=self._headers, timeout=self.timeout
+                url, ssl=self.verify, headers=self._headers, timeout=self.timeout
             )
             while True:
                 msg = await self._ws_connection.receive(self.receive_timeout)
