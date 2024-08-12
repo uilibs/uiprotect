@@ -10,7 +10,7 @@ ci:
 
 repos:
   - repo: https://github.com/commitizen-tools/commitizen
-    rev: v3.28.0
+    rev: v3.29.0
     hooks:
       - id: commitizen
         stages: [commit-msg]
@@ -36,7 +36,7 @@ repos:
       - id: prettier
         args: ["--tab-width", "2"]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.5.6
+    rev: v0.5.7
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
