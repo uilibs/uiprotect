@@ -451,7 +451,21 @@ description = "Tools for converting python data types"
 optional = false
 python-versions = ">=3.10"
 files = [
+    {file = "convertertools-0.5.0-cp311-cp311-macosx_14_0_arm64.whl", hash = "sha256:b723a3486f6250d5d738a31591776cbb20378177030a29f0e4fda56d7b99e795"},
+    {file = "convertertools-0.5.0-cp311-cp311-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:fbf4a533608c525dfbbd9b931e290dd679a74a2d6630f0f2e04d1fa44b33f3b0"},
+    {file = "convertertools-0.5.0-cp311-cp311-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8069e4c6bc908b370bfdb9129af5011d40c0704bda265a8f56345001d0478e6b"},
+    {file = "convertertools-0.5.0-cp311-cp311-musllinux_1_2_i686.whl", hash = "sha256:cfea4d24a8e988db79b2213124dafdd3d12dc3209c7d1d4d7205a21631bb8888"},
+    {file = "convertertools-0.5.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:e89fbb97f5f2945e11da457c5888f50ca006f9930a3d8d3a932091403cbea36b"},
+    {file = "convertertools-0.5.0-cp311-cp311-win32.whl", hash = "sha256:03e2816ea8bd481e0816d27b55a37ba90c01ae9df105d654a1a0e213c6fe425a"},
+    {file = "convertertools-0.5.0-cp311-cp311-win_amd64.whl", hash = "sha256:1b7e7dfd3daae6c44e9376297adc9920bd75791ad8de32ebb2f70dcee263e460"},
+    {file = "convertertools-0.5.0-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:4a8630056eb0d1250177fec1176b1bf9cf6e92eec7973cb78f238b802cc2003c"},
+    {file = "convertertools-0.5.0-cp312-cp312-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:e259aca6b4b9b7a30df25be2d2dafd7985c98fd6ce5f8eb5a43874e5ee1b6016"},
+    {file = "convertertools-0.5.0-cp312-cp312-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:24fd3d2c71beb77502ceaab9bb99c3d28b18f071e3856e7c39a62c631173fc7e"},
     {file = "convertertools-0.5.0-cp312-cp312-manylinux_2_36_x86_64.whl", hash = "sha256:021ff984d888b110040ea86a12ff8d02aa29a6f1b603bf88cd42b990f16e5f4e"},
+    {file = "convertertools-0.5.0-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:723e34b5859c2f7bb1892fe6be71e4d98a89cedd3f9e219b4cb70eb0d94a869a"},
+    {file = "convertertools-0.5.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:714dd41ef8bdcba5a9a20c3dc55d604b83b80b603da9ed9ca379893634792eca"},
+    {file = "convertertools-0.5.0-cp312-cp312-win32.whl", hash = "sha256:cefe9f4be7c600f1e27c1354e8dfd192bcd59f058f99ab93ca1c49abffbae687"},
+    {file = "convertertools-0.5.0-cp312-cp312-win_amd64.whl", hash = "sha256:4ac2ae852cc6c3e0e3d75fe80276fdecd1889155141364a5c75128c9ff249c29"},
     {file = "convertertools-0.5.0.tar.gz", hash = "sha256:477812a307adf368805da5ee2cbc2fe984ed305d76164fe3fbc2a9f9baf4c3f0"},
 ]
 
@@ -2437,13 +2451,13 @@ files = [
 
 [[package]]
 name = "typer"
-version = "0.12.3"
+version = "0.12.4"
 description = "Typer, build great CLIs. Easy to code. Based on Python type hints."
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "typer-0.12.3-py3-none-any.whl", hash = "sha256:070d7ca53f785acbccba8e7d28b08dcd88f79f1fbda035ade0aecec71ca5c914"},
-    {file = "typer-0.12.3.tar.gz", hash = "sha256:49e73131481d804288ef62598d97a1ceef3058905aa536a1134f90891ba35482"},
+    {file = "typer-0.12.4-py3-none-any.whl", hash = "sha256:819aa03699f438397e876aa12b0d63766864ecba1b579092cc9fe35d886e34b6"},
+    {file = "typer-0.12.4.tar.gz", hash = "sha256:c9c1613ed6a166162705b3347b8d10b661ccc5d95692654d0fb628118f2c34e6"},
 ]
 
 [package.dependencies]
