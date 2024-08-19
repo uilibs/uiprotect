@@ -51,6 +51,11 @@ class ValuesEnumMixin:
 
     @classmethod
     @cache
+    def from_string(cls, value: str) -> Any:
+        return cls(value)  # type: ignore[call-arg]
+
+    @classmethod
+    @cache
     def values(cls) -> list[str]:
         if cls._values is None:
             cls._values = [e.value for e in cls]  # type: ignore[attr-defined]

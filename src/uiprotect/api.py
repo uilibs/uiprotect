@@ -191,6 +191,7 @@ class BaseApiClient:
         cache_dir: Path | None = None,
         config_dir: Path | None = None,
         store_sessions: bool = True,
+        ws_receive_timeout: int | None = None,
     ) -> None:
         self._auth_lock = asyncio.Lock()
         self._host = host
@@ -200,6 +201,7 @@ class BaseApiClient:
         self._password = password
         self._verify_ssl = verify_ssl
         self._ws_timeout = ws_timeout
+        self._ws_receive_timeout = ws_receive_timeout
         self._loaded_session = False
         self._update_task: asyncio.Task[Bootstrap | None] | None = None
 
@@ -277,6 +279,7 @@ class BaseApiClient:
                 self._on_websocket_state_change,
                 verify=self._verify_ssl,
                 timeout=self._ws_timeout,
+                receive_timeout=self._ws_receive_timeout,
             )
         return self._websocket
 
@@ -752,6 +755,7 @@ class ProtectApiClient(BaseApiClient):
         ignore_stats: bool = False,
         ignore_unadopted: bool = True,
         debug: bool = False,
+        ws_receive_timeout: int | None = None,
     ) -> None:
         super().__init__(
             host=host,
@@ -761,6 +765,7 @@ class ProtectApiClient(BaseApiClient):
             verify_ssl=verify_ssl,
             session=session,
             ws_timeout=ws_timeout,
+            ws_receive_timeout=ws_receive_timeout,
             cache_dir=cache_dir,
             config_dir=config_dir,
             store_sessions=store_sessions,

@@ -1,5 +1,45 @@
 # Changelog
 
+## v6.0.2 (2024-08-13)
+
+### Fix
+
+
+- Bump aiofiles requirement to &gt;=24 (#182) ([`1eb9ea7`](https://github.com/uilibs/uiprotect/commit/1eb9ea7c5fb2036ad0af42eb607604652d1b0210))
+
+
+## v6.0.1 (2024-08-09)
+
+### Fix
+
+
+- Simplify ssl verify flag in websocket class (#175) ([`c36e19a`](https://github.com/uilibs/uiprotect/commit/c36e19a549c78f4fd123b89f562669fdaa5f78a5))
+
+
+## v6.0.0 (2024-08-08)
+
+### Breaking
+
+
+- Remove default websocket receive timeout (#173) ([`8b0b303`](https://github.com/uilibs/uiprotect/commit/8b0b3033880532ddbf00cb59df881100db273dcb))
+
+
+## v5.4.0 (2024-07-20)
+
+### Feature
+
+
+- Improve performance of convert_unifi_data (#153) ([`45f66b4`](https://github.com/uilibs/uiprotect/commit/45f66b4d6f35cbd02abae21f0905089b0e329d59))
+
+
+## v5.3.0 (2024-07-16)
+
+### Feature
+
+
+- Speed up camera snapshots (#152) ([`d333865`](https://github.com/uilibs/uiprotect/commit/d3338658c2fa714e993c3d668945b44a1e7ebd27))
+
+
 ## v5.2.2 (2024-07-04)
 
 ### Fix

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "uiprotect"
-version = "5.2.2"
+version = "6.0.2"
 description = "Python API for Unifi Protect (Unofficial)"
 authors = ["UI Protect Maintainers <ui@koston.org>"]
 readme = "README.md"
@@ -33,8 +33,8 @@ uiprotect = "uiprotect.cli:app"
 python = ">=3.10"
 rich = ">=10"
 async-timeout = ">=3.0.1"
-aiofiles = ">=23"
-aiohttp = ">=3.9.0"
+aiofiles = ">=24"
+aiohttp = ">=3.10.0"
 aioshutil = ">=1.3"
 dateparser = ">=1.1.0"
 orjson = ">=3.9.15"

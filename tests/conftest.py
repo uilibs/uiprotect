@@ -320,6 +320,7 @@ async def protect_client_ws():
         "username",
         "password",
         ws_timeout=0.1,
+        ws_receive_timeout=0.1,
         store_sessions=False,
     )
     yield await setup_client(client, MockWebsocket(), timeout=30)

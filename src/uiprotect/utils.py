@@ -202,6 +202,7 @@ def to_camel_case(name: str) -> str:
 
 
 _EMPTY_UUID = UUID("0" * 32)
+_SHAPE_TYPES = {SHAPE_DICT, SHAPE_LIST, SHAPE_SET}
 
 
 def convert_unifi_data(value: Any, field: ModelField) -> Any:
@@ -211,23 +212,20 @@ def convert_unifi_data(value: Any, field: ModelField) -> Any:
     if type_ is Any:
         return value
 
-    shape = field.shape
-    if shape == SHAPE_LIST and isinstance(value, list):
-        return [convert_unifi_data(v, field) for v in value]
-    if shape == SHAPE_SET and isinstance(value, list):
-        return {convert_unifi_data(v, field) for v in value}
-    if shape == SHAPE_DICT and isinstance(value, dict):
-        return {k: convert_unifi_data(v, field) for k, v in value.items()}
+    if (shape := field.shape) in _SHAPE_TYPES:
+        if shape == SHAPE_LIST and isinstance(value, list):
+            return [convert_unifi_data(v, field) for v in value]
+        if shape == SHAPE_SET and isinstance(value, list):
+            return {convert_unifi_data(v, field) for v in value}
+        if shape == SHAPE_DICT and isinstance(value, dict):
+            return {k: convert_unifi_data(v, field) for k, v in value.items()}
 
     if value is not None:
         if type_ in IP_TYPES:
-            try:
-                return ip_address(value)
-            except ValueError:
-                return value
+            return _cached_ip_address(value)
         if type_ is datetime:
             return from_js_time(value)
-        if type_ in _CREATE_TYPES or _is_enum_type(type_):
+        if type_ in _CREATE_TYPES:
             # cannot do this check too soon because some types cannot be used in isinstance
             if isinstance(value, type_):
                 return value
@@ -236,14 +234,32 @@ def convert_unifi_data(value: Any, field: ModelField) -> Any:
             if type_ is UUID and value == _BAD_UUID:
                 return _EMPTY_UUID
             return type_(value)
+        if _is_enum_type(type_):
+            if _is_from_string_enum(type_):
+                return type_.from_string(value)
+            return type_(value)
 
     return value
+
+
+@lru_cache
+def _cached_ip_address(value: str) -> IPv4Address | IPv6Address | str:
+    try:
+        return ip_address(value)
+    except ValueError:
+        return value
 
 
 @lru_cache
 def _is_enum_type(type_: Any) -> bool:
     """Checks if type is an Enum."""
     return isclass(type_) and issubclass(type_, Enum)
+
+
+@lru_cache
+def _is_from_string_enum(type_: Any) -> bool:
+    """Checks if Enum has from_string method."""
+    return hasattr(type_, "from_string")
 
 
 def serialize_unifi_obj(value: Any, levels: int = -1) -> Any:
