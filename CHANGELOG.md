@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.0.2 (2024-08-13)
+
+### Fix
+
+
+- Bump aiofiles requirement to &gt;=24 (#182) ([`1eb9ea7`](https://github.com/uilibs/uiprotect/commit/1eb9ea7c5fb2036ad0af42eb607604652d1b0210))
+
+
 ## v6.0.1 (2024-08-09)
 
 ### Fix
