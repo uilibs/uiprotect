@@ -76,7 +76,7 @@ async def check_camera(camera: Camera):
 
     camera.last_ring_event  # noqa: B018
 
-    assert camera.timelapse_url == f"https://127.0.0.1:0/protect/timelapse/{camera.id}"
+    assert camera.timelapse_url == f"https://127.0.0.1/protect/timelapse/{camera.id}"
     check_device(camera)
 
     for channel in camera.channels:
@@ -102,14 +102,14 @@ async def check_camera(camera: Camera):
 
 
 def check_device(device: ProtectAdoptableDeviceModel):
-    assert device.protect_url == f"https://127.0.0.1:0/protect/devices/{device.id}"
+    assert device.protect_url == f"https://127.0.0.1/protect/devices/{device.id}"
 
 
 async def check_bootstrap(bootstrap: Bootstrap):
     assert bootstrap.auth_user
     assert (
         bootstrap.nvr.protect_url
-        == f"https://127.0.0.1:0/protect/devices/{bootstrap.nvr.id}"
+        == f"https://127.0.0.1/protect/devices/{bootstrap.nvr.id}"
     )
 
     for light in bootstrap.lights.values():
@@ -131,8 +131,7 @@ async def check_bootstrap(bootstrap: Bootstrap):
     for liveview in bootstrap.liveviews.values():
         liveview.owner  # noqa: B018
         assert (
-            liveview.protect_url
-            == f"https://127.0.0.1:0/protect/liveview/{liveview.id}"
+            liveview.protect_url == f"https://127.0.0.1/protect/liveview/{liveview.id}"
         )
 
         for slot in liveview.slots:
@@ -157,8 +156,8 @@ async def check_bootstrap(bootstrap: Bootstrap):
 def test_base_url(protect_client: ProtectApiClient):
     arg = f"{protect_client.ws_path}?lastUpdateId={protect_client.bootstrap.last_update_id}"
 
-    assert protect_client.base_url == "https://127.0.0.1:0"
-    assert protect_client.ws_url == f"wss://127.0.0.1:0{arg}"
+    assert protect_client.base_url == "https://127.0.0.1"
+    assert protect_client.ws_url == f"wss://127.0.0.1{arg}"
 
     protect_client._port = 443
     protect_client._update_url()
