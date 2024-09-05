@@ -45,6 +45,7 @@ jobs:
           - "3.10"
           - "3.11"
           - "3.12"
+          - "3.13"
         os:
           - ubuntu-latest
         pydantic:
@@ -61,6 +62,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: "poetry"
+          allow-prereleases: true
       - run: echo "Cache hit:${{ steps.setup-python.outputs.cache-hit }}" # true if cache-hit occurred on the primary key
       - name: Install Dependencies
         run: |
