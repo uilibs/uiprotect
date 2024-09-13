@@ -274,6 +274,8 @@ class EventType(str, ValuesEnumMixin, enum.Enum):
             EventType.MOTION.value,
             EventType.RING.value,
             EventType.SMART_DETECT.value,
+            EventType.SMART_AUDIO_DETECT.value,
+            EventType.SMART_DETECT_LINE.value,
         ]
 
     @staticmethod
