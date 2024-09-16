@@ -1180,13 +1180,13 @@ files = [
 
 [[package]]
 name = "mkdocstrings"
-version = "0.26.0"
+version = "0.26.1"
 description = "Automatic documentation from sources, for MkDocs."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "mkdocstrings-0.26.0-py3-none-any.whl", hash = "sha256:1aa227fe94f88e80737d37514523aacd473fc4b50a7f6852ce41447ab23f2654"},
-    {file = "mkdocstrings-0.26.0.tar.gz", hash = "sha256:ff9d0de28c8fa877ed9b29a42fe407cfe6736d70a1c48177aa84fcc3dc8518cd"},
+    {file = "mkdocstrings-0.26.1-py3-none-any.whl", hash = "sha256:29738bfb72b4608e8e55cc50fb8a54f325dc7ebd2014e4e3881a49892d5983cf"},
+    {file = "mkdocstrings-0.26.1.tar.gz", hash = "sha256:bb8b8854d6713d5348ad05b069a09f3b79edbc6a0f33a34c6821141adb03fe33"},
 ]
 
 [package.dependencies]
@@ -2908,6 +2908,8 @@ files = [
     {file = "yarl-1.11.1-cp39-cp39-musllinux_1_2_x86_64.whl", hash = "sha256:6907daa4b9d7a688063ed098c472f96e8181733c525e03e866fb5db480a424df"},
     {file = "yarl-1.11.1-cp39-cp39-win32.whl", hash = "sha256:14438dfc5015661f75f85bc5adad0743678eefee266ff0c9a8e32969d5d69f74"},
     {file = "yarl-1.11.1-cp39-cp39-win_amd64.whl", hash = "sha256:94d0caaa912bfcdc702a4204cd5e2bb01eb917fc4f5ea2315aa23962549561b0"},
+    {file = "yarl-1.11.1-py3-none-any.whl", hash = "sha256:72bf26f66456baa0584eff63e44545c9f0eaed9b73cb6601b647c91f14c11f38"},
+    {file = "yarl-1.11.1.tar.gz", hash = "sha256:1bb2d9e212fb7449b8fb73bc461b51eaa17cc8430b4a87d87be7b25052d92f53"},
 ]
 
 [package.dependencies]
