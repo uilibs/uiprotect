@@ -17,7 +17,7 @@ from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
 from typing import Any, Literal, cast
-from urllib.parse import urljoin
+from urllib.parse import SplitResult
 
 import aiofiles
 import aiohttp
@@ -327,7 +327,9 @@ class BaseApiClient:
         if require_auth:
             await self.ensure_authenticated()
 
-        request_url = self._url.joinpath(url[1:])
+        request_url = self._url.join(
+            URL(SplitResult("", "", url, "", ""), encoded=True)
+        )
         headers = kwargs.get("headers") or self.headers
         _LOGGER.debug("Request url: %s", request_url)
         if not self._verify_ssl:
@@ -387,10 +389,9 @@ class BaseApiClient:
         **kwargs: Any,
     ) -> bytes | None:
         """Make a request to UniFi Protect API"""
-        url = urljoin(self.api_path, url)
         response = await self.request(
             method,
-            url,
+            f"{self.api_path}{url}",
             require_auth=require_auth,
             auto_close=False,
             **kwargs,
@@ -1542,7 +1543,7 @@ class ProtectApiClient(BaseApiClient):
 
         r = await self.request(
             "get",
-            urljoin(self.api_path, path),
+            f"{self.api_path}{path}",
             auto_close=False,
             timeout=0,
             params=params,
