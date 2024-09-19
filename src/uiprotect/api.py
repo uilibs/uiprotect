@@ -391,7 +391,7 @@ class BaseApiClient:
         """Make a request to UniFi Protect API"""
         response = await self.request(
             method,
-            f"{self.api_path}/{url}",
+            f"{self.api_path}{url}",
             require_auth=require_auth,
             auto_close=False,
             **kwargs,
@@ -1543,7 +1543,7 @@ class ProtectApiClient(BaseApiClient):
 
         r = await self.request(
             "get",
-            f"{self.api_path}/{path}",
+            f"{self.api_path}{path}",
             auto_close=False,
             timeout=0,
             params=params,
