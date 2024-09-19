@@ -1,5 +1,22 @@
 # Changelog
 
+## v6.1.0 (2024-09-19)
+
+### Fix
+
+
+- Add additional types to device_events (#213) ([`072bc7c`](https://github.com/uilibs/uiprotect/commit/072bc7cbc6a8af634f4638ac79658715cb31379a))
+
+
+- Bump psr to 9.8.8 to fix release process (#221) ([`b109433`](https://github.com/uilibs/uiprotect/commit/b1094333c8767dd7588fe0d0f97f4c711b7e2595))
+
+
+### Feature
+
+
+- Speed up url joins (#220) ([`a10fc5a`](https://github.com/uilibs/uiprotect/commit/a10fc5adc88a1cf78199f5ca2e4a995032f58743))
+
+
 ## v6.0.2 (2024-08-13)
 
 ### Fix
@@ -963,12 +980,12 @@
 
 
 
-
-
-
 ## v0.0.0 (2024-06-09)
 
 ### Unknown
+
+
+
 
 
 
