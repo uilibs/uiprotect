@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import enum
 from collections.abc import Callable, Coroutine
-from functools import cache, cached_property
+from functools import cache
 from typing import Any, Literal, Optional, TypeVar, Union
 
 from packaging.version import Version as BaseVersion
+from propcache import cached_property
 from pydantic.v1 import BaseModel, ConstrainedInt
 from pydantic.v1.color import Color as BaseColor
 from pydantic.v1.types import ConstrainedFloat, ConstrainedStr
