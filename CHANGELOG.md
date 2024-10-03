@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.2.0 (2024-10-03)
+
+### Feature
+
+
+- Switch to using fast cached_property from propcache (#224) ([`e5ce415`](https://github.com/uilibs/uiprotect/commit/e5ce4153cbb42d3f820d40444c2ede8a56133f5a))
+
+
 ## v6.1.0 (2024-09-19)
 
 ### Fix
