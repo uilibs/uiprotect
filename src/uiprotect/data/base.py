@@ -6,12 +6,13 @@ import asyncio
 import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta
-from functools import cache, cached_property
+from functools import cache
 from ipaddress import IPv4Address
 from typing import TYPE_CHECKING, Any, NamedTuple, TypeVar
 from uuid import UUID
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
+from propcache import cached_property
 from pydantic.v1 import BaseModel
 from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
 

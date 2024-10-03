@@ -11,7 +11,7 @@ import sys
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
-from functools import cached_property, partial
+from functools import partial
 from http import HTTPStatus
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address
@@ -25,6 +25,7 @@ import orjson
 from aiofiles import os as aos
 from aiohttp import CookieJar, client_exceptions
 from platformdirs import user_cache_dir, user_config_dir
+from propcache import cached_property
 from yarl import URL
 
 from .data import (

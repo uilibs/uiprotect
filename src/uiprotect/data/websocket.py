@@ -7,10 +7,11 @@ import enum
 import struct
 import zlib
 from dataclasses import dataclass
-from functools import cache, cached_property
+from functools import cache
 from typing import TYPE_CHECKING, Any
 
 import orjson
+from propcache import cached_property
 
 from ..exceptions import WSDecodeError, WSEncodeError
 from .types import ProtectWSPayloadFormat
