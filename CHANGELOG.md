@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.3.0 (2024-10-06)
+
+### Feature
+
+
+- Add support for propcache v1.0.0+ (#225) ([`b37f833`](https://github.com/uilibs/uiprotect/commit/b37f833ed64906a076e13251eb74f8fce605042f))
+
+
 ## v6.2.0 (2024-10-03)
 
 ### Feature
