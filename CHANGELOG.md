@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.3.1 (2024-10-06)
+
+### Fix
+
+
+- Typing with version of propcache older than 1.0.0 (#226) ([`94f9eaa`](https://github.com/uilibs/uiprotect/commit/94f9eaaa4c17f33f096099d696074ab59377b1ed))
+
+
 ## v6.3.0 (2024-10-06)
 
 ### Feature
