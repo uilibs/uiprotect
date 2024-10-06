@@ -25,9 +25,9 @@ import orjson
 from aiofiles import os as aos
 from aiohttp import CookieJar, client_exceptions
 from platformdirs import user_cache_dir, user_config_dir
-from propcache import cached_property
 from yarl import URL
 
+from ._compat import cached_property
 from .data import (
     NVR,
     Bootstrap,
