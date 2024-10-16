@@ -171,6 +171,14 @@ class Light(ProtectMotionDeviceModel):
                 self.camera_id = camera.id
             await self.save_device(data_before_changes, force_emit=True)
 
+    async def set_flood_light(self, enabled: bool) -> None:
+        """Sets the flood light (force on) for the light"""
+
+        def callback() -> None:
+            self.light_on_settings.is_led_force_on = enabled
+
+        await self.queue_update(callback)
+
     async def set_status_light(self, enabled: bool) -> None:
         """Sets the status indicator light for the light"""
 
