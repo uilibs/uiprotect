@@ -117,3 +117,12 @@ def set_duration(
     obj: Light = ctx.obj.device
 
     base.run(ctx, obj.set_duration(timedelta(seconds=duration)))
+
+
+@app.command()
+def set_flood_light(ctx: typer.Context, enabled: bool) -> None:
+    """Sets flood light (force on) for light device."""
+    base.require_device_id(ctx)
+    obj: Light = ctx.obj.device
+
+    base.run(ctx, obj.set_flood_light(enabled))
