@@ -1624,7 +1624,7 @@ class ProtectApiClient(BaseApiClient):
             raise_exception=True,
         )
 
-    async def export_camera_video(
+    async def get_camera_video(
         self,
         camera_id: str,
         start: datetime,
@@ -1705,65 +1705,6 @@ class ProtectApiClient(BaseApiClient):
             )
         r.close()
         return None
-
-    async def get_camera_video(
-        self,
-        camera_id: str,
-        start: datetime,
-        end: datetime,
-        channel_index: int = 0,
-        validate_channel_id: bool = True,
-        output_file: Path | None = None,
-        iterator_callback: IteratorCallback | None = None,
-        progress_callback: ProgressCallback | None = None,
-        chunk_size: int = 65536,
-        fps: int | None = None,
-        filename: str | None = None,
-    ) -> bytes | None:
-        """
-        Deprecated: maintained for backwards compatibility.
-
-        If you are using Unifi Protect 4 or later, please use
-        prepare_camera_video() and download_camera_video() instead.
-        """
-        if self.bootstrap.nvr.version >= NEW_DOWNLOAD_VERSION:
-            prepare_response = await self.prepare_camera_video(
-                camera_id=camera_id,
-                start=start,
-                end=end,
-                channel_index=channel_index,
-                validate_channel_id=validate_channel_id,
-                fps=fps,
-                filename=filename,
-            )
-
-            if not isinstance(prepare_response, dict):
-                raise ValueError(
-                    f"Expected `prepare_response` to be a dict, but it is {prepare_response}"
-                )
-            download_filename = prepare_response["fileName"]
-
-            return await self.download_camera_video(
-                camera_id=camera_id,
-                filename=download_filename,
-                output_file=output_file,
-                iterator_callback=iterator_callback,
-                progress_callback=progress_callback,
-                chunk_size=chunk_size,
-            )
-
-        return await self.export_camera_video(
-            camera_id=camera_id,
-            start=start,
-            end=end,
-            channel_index=channel_index,
-            validate_channel_id=validate_channel_id,
-            output_file=output_file,
-            iterator_callback=iterator_callback,
-            progress_callback=progress_callback,
-            chunk_size=chunk_size,
-            fps=fps,
-        )
 
     async def _get_image_with_retry(
         self,
