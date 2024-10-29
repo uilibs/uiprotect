@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.3.2 (2024-10-29)
+
+### Fix
+
+
+- Talkback stream bitrate settings (#248) ([`f10dedf`](https://github.com/uilibs/uiprotect/commit/f10dedfc5f1108c42310ac15a929b054f57160b8))
+
+
 ## v6.3.1 (2024-10-06)
 
 ### Fix
