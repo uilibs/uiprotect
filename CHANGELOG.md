@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.4.0 (2024-11-04)
+
+### Feature
+
+
+- Add support for fetching the rtsp url without srtp (#261) ([`7d0cfd3`](https://github.com/uilibs/uiprotect/commit/7d0cfd3fe4ae49e485284886b516fbef3ac76a22))
+
+
 ## v6.3.2 (2024-10-29)
 
 ### Fix
