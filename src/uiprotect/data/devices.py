@@ -273,6 +273,7 @@ class CameraChannel(ProtectBaseObject):
 
     _rtsp_url: str | None = PrivateAttr(None)
     _rtsps_url: str | None = PrivateAttr(None)
+    _rtsps_no_srtp_url: str | None = PrivateAttr(None)
 
     @property
     def rtsp_url(self) -> str | None:
@@ -293,6 +294,16 @@ class CameraChannel(ProtectBaseObject):
             return self._rtsps_url
         self._rtsps_url = f"rtsps://{self._api.connection_host}:{self._api.bootstrap.nvr.ports.rtsps}/{self.rtsp_alias}?enableSrtp"
         return self._rtsps_url
+
+    @property
+    def rtsps_no_srtp_url(self) -> str | None:
+        if not self.is_rtsp_enabled or self.rtsp_alias is None:
+            return None
+
+        if self._rtsps_no_srtp_url is not None:
+            return self._rtsps_no_srtp_url
+        self._rtsps_no_srtp_url = f"rtsps://{self._api.connection_host}:{self._api.bootstrap.nvr.ports.rtsps}/{self.rtsp_alias}"
+        return self._rtsps_no_srtp_url
 
     @property
     def is_package(self) -> bool:
