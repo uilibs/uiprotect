@@ -81,14 +81,19 @@ async def check_camera(camera: Camera):
 
     for channel in camera.channels:
         if channel.is_rtsp_enabled:
-            assert (
-                channel.rtsp_url
-                == f"rtsp://{camera.api.connection_host}:7447/{channel.rtsp_alias}"
-            )
-            assert (
-                channel.rtsps_url
-                == f"rtsps://{camera.api.connection_host}:7441/{channel.rtsp_alias}?enableSrtp"
-            )
+            for _ in range(2):
+                assert (
+                    channel.rtsp_url
+                    == f"rtsp://{camera.api.connection_host}:7447/{channel.rtsp_alias}"
+                )
+                assert (
+                    channel.rtsps_url
+                    == f"rtsps://{camera.api.connection_host}:7441/{channel.rtsp_alias}?enableSrtp"
+                )
+                assert (
+                    channel.rtsps_no_srtp_url
+                    == f"rtsps://{camera.api.connection_host}:7441/{channel.rtsp_alias}"
+                )
 
     if VideoMode.HIGH_FPS in camera.feature_flags.video_modes:
         assert camera.feature_flags.has_highfps
