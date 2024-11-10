@@ -329,12 +329,9 @@ async def test_ws_event_nfc_card_scanned(
         "partition": None,
         "user": None,
         "metadata": {
-            "nfc": {
-                "nfcId": expected_nfcId,
-                "userId": expected_userId
-            },
+            "nfc": {"nfcId": expected_nfcId, "userId": expected_userId},
             "ramDescription": "",
-            "ramClassifications": []
+            "ramClassifications": [],
         },
         "thumbnail": f"e-{expected_event_id}",
         "heatmap": f"e-{expected_event_id}",
@@ -354,8 +351,8 @@ async def test_ws_event_nfc_card_scanned(
 
     assert event.id == expected_event_id
     assert event.type == EventType.NFC_CARD_SCANNED
-    assert event.metadata.nfc.get('nfcId') == expected_nfcId
-    assert event.metadata.nfc.get('userId') == expected_userId
+    assert event.metadata.nfc.get("nfcId") == expected_nfcId
+    assert event.metadata.nfc.get("userId") == expected_userId
     assert event.id == expected_event_id
     assert event.thumbnail_id == f"e-{expected_event_id}"
     assert event.heatmap_id == f"e-{expected_event_id}"
