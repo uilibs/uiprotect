@@ -50,7 +50,7 @@ propcache = ">=0.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7,<9"
-pytest-cov = ">=3,<6"
+pytest-cov = ">=3,<7"
 aiosqlite = ">=0.20.0"
 asttokens = "^2.4.1"
 pytest-asyncio = ">=0.23.7,<0.25.0"
