@@ -29985,5 +29985,30 @@
         "heatmap": "e-df90543f94ff894427b79827",
         "modelKey": "event",
         "timestamp": null
+    },
+    {
+        "id": "6730b5af01029603e4453bdb",
+        "modelKey": "event",
+        "type": "nfcCardScanned",
+        "start": 1731245487257,
+        "end": 1731245487257,
+        "score": 0,
+        "smartDetectTypes": [],
+        "smartDetectEvents": [],
+        "camera": "1c9a2db4df6efda47a6749be",
+        "partition": null,
+        "user": null,
+        "metadata": {
+            "nfc": {
+                "nfcId": "64B2A621",
+                "userId": "672b573764f79603e400031d"
+            },
+            "ramDescription": "",
+            "ramClassifications": []
+        },
+        "thumbnail": "e-6730b5af01029603e4003bdb",
+        "heatmap": "e-6730b5af01029603e4003bdb",
+        "timestamp": 1731245487257,
+        "category": null
     }
 ]

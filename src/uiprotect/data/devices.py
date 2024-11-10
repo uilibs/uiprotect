@@ -936,6 +936,7 @@ class Camera(ProtectMotionDeviceModel):
     is_probing_for_wifi: bool
     chime_duration: timedelta
     last_ring: datetime | None
+    last_nfc_card_scanned: datetime | None
     is_live_heatmap_enabled: bool
     video_reconfiguration_in_progress: bool
     channels: list[CameraChannel]
@@ -998,6 +999,7 @@ class Camera(ProtectMotionDeviceModel):
 
     # not directly from UniFi
     last_ring_event_id: str | None = None
+    last_nfc_card_scanned_event_id: str | None = None
     last_smart_detect: datetime | None = None
     last_smart_audio_detect: datetime | None = None
     last_smart_detect_event_id: str | None = None
@@ -1018,6 +1020,7 @@ class Camera(ProtectMotionDeviceModel):
     def _get_excluded_changed_fields(cls) -> set[str]:
         return super()._get_excluded_changed_fields() | {
             "last_ring_event_id",
+            "last_nfc_card_scanned_event_id",
             "last_smart_detect",
             "last_smart_audio_detect",
             "last_smart_detect_event_id",
@@ -1140,6 +1143,12 @@ class Camera(ProtectMotionDeviceModel):
         if (last_ring_event_id := self.last_ring_event_id) is None:
             return None
         return self._api.bootstrap.events.get(last_ring_event_id)
+
+    @property
+    def last_nfc_card_scanned_event(self) -> Event | None:
+        if (last_nfc_card_scanned_event_id := self.last_nfc_card_scanned_event_id) is None:
+            return None
+        return self._api.bootstrap.events.get(last_nfc_card_scanned_event_id)
 
     @property
     def last_smart_detect_event(self) -> Event | None:
