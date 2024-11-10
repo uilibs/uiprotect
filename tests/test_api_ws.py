@@ -328,12 +328,9 @@ async def test_ws_event_nfc_card_scanned(
         "smartDetectEvents": [],
         "camera": camera["id"],
         "metadata": {
-            "nfc": {
-                "nfcId": expected_nfc_id,
-                "userId": expected_user_id
-            },
+            "nfc": {"nfcId": expected_nfc_id, "userId": expected_user_id},
             "ramDescription": "",
-            "ramClassifications": []
+            "ramClassifications": [],
         },
         "thumbnail": f"e-{expected_event_id}",
         "heatmap": f"e-{expected_event_id}",

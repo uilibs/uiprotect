@@ -135,9 +135,11 @@ class EventThumbnailAttribute(ProtectBaseObject):
     confidence: int
     val: str
 
+
 class NfcMetadata:
     nfcId: str
     userId: str
+
 
 class EventThumbnailAttributes(ProtectBaseObject):
     color: EventThumbnailAttribute | None = None

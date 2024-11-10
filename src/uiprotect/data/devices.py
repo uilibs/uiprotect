@@ -1156,7 +1156,9 @@ class Camera(ProtectMotionDeviceModel):
 
     @property
     def last_nfc_card_scanned_event(self) -> Event | None:
-        if (last_nfc_card_scanned_event_id := self.last_nfc_card_scanned_event_id) is None:
+        if (
+            last_nfc_card_scanned_event_id := self.last_nfc_card_scanned_event_id
+        ) is None:
             return None
         return self._api.bootstrap.events.get(last_nfc_card_scanned_event_id)
 
