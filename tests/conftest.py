@@ -878,7 +878,6 @@ def compare_objs(obj_type, expected, actual):
             if "clockBestWall" not in exp_thumb:
                 del act_thumbnails[index]["clockBestWall"]
         assert exp_thumbnails == act_thumbnails
-
         expected_keys = (expected.get("metadata") or {}).keys()
         actual_keys = (actual.get("metadata") or {}).keys()
         # delete all extra metadata keys, many of which are not modeled

@@ -998,6 +998,8 @@ class Camera(ProtectMotionDeviceModel):
 
     # not directly from UniFi
     last_ring_event_id: str | None = None
+    last_nfc_card_scanned_event_id: str | None = None
+    last_nfc_card_scanned: datetime | None = None
     last_smart_detect: datetime | None = None
     last_smart_audio_detect: datetime | None = None
     last_smart_detect_event_id: str | None = None
@@ -1018,6 +1020,8 @@ class Camera(ProtectMotionDeviceModel):
     def _get_excluded_changed_fields(cls) -> set[str]:
         return super()._get_excluded_changed_fields() | {
             "last_ring_event_id",
+            "last_nfc_card_scanned",
+            "last_nfc_card_scanned_event_id",
             "last_smart_detect",
             "last_smart_audio_detect",
             "last_smart_detect_event_id",
@@ -1087,6 +1091,8 @@ class Camera(ProtectMotionDeviceModel):
             data,
             (
                 "lastRingEventId",
+                "lastNfcCardScanned",
+                "lastNfcCardScannedEventId",
                 "lastSmartDetect",
                 "lastSmartAudioDetect",
                 "lastSmartDetectEventId",
@@ -1147,6 +1153,12 @@ class Camera(ProtectMotionDeviceModel):
         if (last_smart_detect_event_id := self.last_smart_detect_event_id) is None:
             return None
         return self._api.bootstrap.events.get(last_smart_detect_event_id)
+
+    @property
+    def last_nfc_card_scanned_event(self) -> Event | None:
+        if (last_nfc_card_scanned_event_id := self.last_nfc_card_scanned_event_id) is None:
+            return None
+        return self._api.bootstrap.events.get(last_nfc_card_scanned_event_id)
 
     @property
     def hdr_mode_display(self) -> Literal["auto", "off", "always"]:

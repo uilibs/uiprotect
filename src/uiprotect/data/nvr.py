@@ -135,6 +135,9 @@ class EventThumbnailAttribute(ProtectBaseObject):
     confidence: int
     val: str
 
+class NfcMetadata:
+    nfcId: str
+    userId: str
 
 class EventThumbnailAttributes(ProtectBaseObject):
     color: EventThumbnailAttribute | None = None
@@ -195,6 +198,8 @@ class EventMetadata(ProtectBaseObject):
     license_plate: LicensePlateMetadata | None = None
     # requires 2.11.13+
     detected_thumbnails: list[EventDetectedThumbnail] | None = None
+    # requires 5.1.34+
+    nfc: NfcMetadata | None = None
 
     _collapse_keys: ClassVar[SetStr] = {
         "lightId",

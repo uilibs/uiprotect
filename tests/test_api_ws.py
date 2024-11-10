@@ -295,6 +295,76 @@ async def test_ws_event_motion(
 
 @pytest.mark.asyncio()
 @patch("uiprotect.api.datetime", MockDatetime)
+async def test_ws_event_nfc_card_scanned(
+    protect_client_no_debug: ProtectApiClient,
+    now,
+    camera,
+    packet: WSPacket,
+):
+    protect_client = protect_client_no_debug
+
+    def get_camera():
+        return protect_client.bootstrap.cameras[camera["id"]]
+
+    camera_before = get_camera().copy()
+
+    expected_updated_id = "0441ecc6-f0fa-4b03-b071-7987c143138a"
+    expected_event_id = "6730b5af01029603e4003bdb"
+    expected_nfc_id = "66B2A649"
+    expected_user_id = "672b570000f79603e400049d"
+
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data["newUpdateId"] = expected_updated_id
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {
+        "id": expected_event_id,
+        "modelKey": "event",
+        "type": "nfcCardScanned",
+        "start": to_js_time(now - timedelta(seconds=30)),
+        "end": to_js_time(now),
+        "score": 0,
+        "smartDetectTypes": [],
+        "smartDetectEvents": [],
+        "camera": camera["id"],
+        "metadata": {
+            "nfc": {
+                "nfcId": expected_nfc_id,
+                "userId": expected_user_id
+            },
+            "ramDescription": "",
+            "ramClassifications": []
+        },
+        "thumbnail": f"e-{expected_event_id}",
+        "heatmap": f"e-{expected_event_id}",
+    }
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+
+    protect_client._process_ws_message(msg)
+
+    camera = get_camera()
+
+    event = camera.last_nfc_card_scanned_event
+    camera_before.last_nfc_card_scanned_event_id = None
+    camera.last_nfc_card_scanned_event_id = None
+
+    assert camera.dict_with_excludes() == camera_before.dict_with_excludes()
+    assert event.id == expected_event_id
+    assert event.type == EventType.NFC_CARD_SCANNED
+    assert event.metadata.nfc.get("nfcId") == expected_nfc_id
+    assert event.metadata.nfc.get("userId") == expected_user_id
+    assert event.thumbnail_id == f"e-{expected_event_id}"
+    assert event.heatmap_id == f"e-{expected_event_id}"
+    assert event.start == (now - timedelta(seconds=30))
+
+    for channel in camera.channels:
+        assert channel._api is not None
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.datetime", MockDatetime)
 async def test_ws_event_smart(
     protect_client_no_debug: ProtectApiClient,
     now,
