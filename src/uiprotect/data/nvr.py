@@ -10,13 +10,14 @@ from datetime import datetime, timedelta, tzinfo
 from functools import cache
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Optional
 from uuid import UUID
 
 import aiofiles
 import orjson
 from aiofiles import os as aos
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
+from pydantic.v1 import BaseModel
 from pydantic.v1.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized
@@ -136,7 +137,7 @@ class EventThumbnailAttribute(ProtectBaseObject):
     val: str
 
 
-class NfcMetadata:
+class NfcMetadata(BaseModel):
     nfcId: str
     userId: str
 
