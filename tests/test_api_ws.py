@@ -355,6 +355,8 @@ async def test_ws_event_nfc_card_scanned(
     assert event.thumbnail_id == f"e-{expected_event_id}"
     assert event.heatmap_id == f"e-{expected_event_id}"
     assert event.start == (now - timedelta(seconds=30))
+    assert event.end == now
+    assert camera.last_nfc_card_scanned == event.start
 
     for channel in camera.channels:
         assert channel._api is not None
