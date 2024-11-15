@@ -17,7 +17,6 @@ import aiofiles
 import orjson
 from aiofiles import os as aos
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
-from pydantic.v1 import BaseModel
 from pydantic.v1.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized
