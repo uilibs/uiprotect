@@ -350,8 +350,8 @@ async def test_ws_event_nfc_card_scanned(
     assert camera.dict_with_excludes() == camera_before.dict_with_excludes()
     assert event.id == expected_event_id
     assert event.type == EventType.NFC_CARD_SCANNED
-    assert event.metadata.nfc.get("nfcId") == expected_nfc_id
-    assert event.metadata.nfc.get("userId") == expected_user_id
+    assert event.metadata.nfc.nfc_id == expected_nfc_id
+    assert event.metadata.nfc.user_id == expected_user_id
     assert event.thumbnail_id == f"e-{expected_event_id}"
     assert event.heatmap_id == f"e-{expected_event_id}"
     assert event.start == (now - timedelta(seconds=30))

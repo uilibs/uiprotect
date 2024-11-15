@@ -137,9 +137,18 @@ class EventThumbnailAttribute(ProtectBaseObject):
     val: str
 
 
-class NfcMetadata(BaseModel):
-    nfcId: str
-    userId: str
+class NfcMetadata(ProtectBaseObject):
+    nfc_id: str
+    user_id: str
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {
+            **super()._get_unifi_remaps(),
+            "nfcId": "nfc_id",
+            "userId": "user_id",
+        }
 
 
 class EventThumbnailAttributes(ProtectBaseObject):
