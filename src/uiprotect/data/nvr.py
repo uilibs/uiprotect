@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, tzinfo
 from functools import cache
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 from uuid import UUID
 
 import aiofiles
