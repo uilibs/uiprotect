@@ -400,9 +400,7 @@ async def test_ws_event_fingerprint_identified(
         "smartDetectEvents": [],
         "camera": camera["id"],
         "metadata": {
-            "fingerprint": {
-                "ulpId": expected_ulp_id
-            },
+            "fingerprint": {"ulpId": expected_ulp_id},
             "ramDescription": "",
             "ramClassifications": [],
         },

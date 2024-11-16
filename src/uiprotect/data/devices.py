@@ -1171,7 +1171,8 @@ class Camera(ProtectMotionDeviceModel):
     @property
     def last_fingerprint_identified_event(self) -> Event | None:
         if (
-            last_fingerprint_identified_event_id := self.last_fingerprint_identified_event_id
+            last_fingerprint_identified_event_id
+            := self.last_fingerprint_identified_event_id
         ) is None:
             return None
         return self._api.bootstrap.events.get(last_fingerprint_identified_event_id)
