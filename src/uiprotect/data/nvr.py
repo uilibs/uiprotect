@@ -149,6 +149,7 @@ class NfcMetadata(ProtectBaseObject):
             "userId": "user_id",
         }
 
+
 class FingerprintMetadata(ProtectBaseObject):
     ulp_id: str | None = None
 
@@ -159,6 +160,7 @@ class FingerprintMetadata(ProtectBaseObject):
             **super()._get_unifi_remaps(),
             "ulpId": "ulp_id",
         }
+
 
 class EventThumbnailAttributes(ProtectBaseObject):
     color: EventThumbnailAttribute | None = None
