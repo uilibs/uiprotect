@@ -149,6 +149,16 @@ class NfcMetadata(ProtectBaseObject):
             "userId": "user_id",
         }
 
+class FingerprintMetadata(ProtectBaseObject):
+    ulp_id: str | None = None
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {
+            **super()._get_unifi_remaps(),
+            "ulpId": "ulp_id",
+        }
 
 class EventThumbnailAttributes(ProtectBaseObject):
     color: EventThumbnailAttribute | None = None
@@ -211,6 +221,7 @@ class EventMetadata(ProtectBaseObject):
     detected_thumbnails: list[EventDetectedThumbnail] | None = None
     # requires 5.1.34+
     nfc: NfcMetadata | None = None
+    fingerprint: FingerprintMetadata | None = None
 
     _collapse_keys: ClassVar[SetStr] = {
         "lightId",

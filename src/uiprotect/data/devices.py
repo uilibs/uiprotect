@@ -1000,6 +1000,8 @@ class Camera(ProtectMotionDeviceModel):
     last_ring_event_id: str | None = None
     last_nfc_card_scanned_event_id: str | None = None
     last_nfc_card_scanned: datetime | None = None
+    last_fingerprint_identified_event_id: str | None = None
+    last_fingerprint_identified: datetime | None = None
     last_smart_detect: datetime | None = None
     last_smart_audio_detect: datetime | None = None
     last_smart_detect_event_id: str | None = None
@@ -1022,6 +1024,8 @@ class Camera(ProtectMotionDeviceModel):
             "last_ring_event_id",
             "last_nfc_card_scanned",
             "last_nfc_card_scanned_event_id",
+            "last_fingerprint_identified",
+            "last_fingerprint_identified_event_id",
             "last_smart_detect",
             "last_smart_audio_detect",
             "last_smart_detect_event_id",
@@ -1090,9 +1094,11 @@ class Camera(ProtectMotionDeviceModel):
         pop_dict_tuple(
             data,
             (
-                "lastRingEventId",
+                "lastFingerprintIdentified",
+                "lastFingerprintIdentifiedEventId",
                 "lastNfcCardScanned",
                 "lastNfcCardScannedEventId",
+                "lastRingEventId",
                 "lastSmartDetect",
                 "lastSmartAudioDetect",
                 "lastSmartDetectEventId",
@@ -1161,6 +1167,14 @@ class Camera(ProtectMotionDeviceModel):
         ) is None:
             return None
         return self._api.bootstrap.events.get(last_nfc_card_scanned_event_id)
+
+    @property
+    def last_fingerprint_identified_event(self) -> Event | None:
+        if (
+            last_fingerprint_identified_event_id := self.last_fingerprint_identified_event_id
+        ) is None:
+            return None
+        return self._api.bootstrap.events.get(last_fingerprint_identified_event_id)
 
     @property
     def hdr_mode_display(self) -> Literal["auto", "off", "always"]:

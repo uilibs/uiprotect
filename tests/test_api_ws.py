@@ -347,7 +347,11 @@ async def test_ws_event_nfc_card_scanned(
     camera_before.last_nfc_card_scanned_event_id = None
     camera.last_nfc_card_scanned_event_id = None
 
-    assert camera.dict_with_excludes() == camera_before.dict_with_excludes()
+    assert camera.last_nfc_card_scanned == event.start
+    camera_before.last_nfc_card_scanned = None
+    camera.last_nfc_card_scanned = None
+
+    assert camera.dict() == camera_before.dict()
     assert event.id == expected_event_id
     assert event.type == EventType.NFC_CARD_SCANNED
     assert event.metadata.nfc.nfc_id == expected_nfc_id
@@ -356,7 +360,79 @@ async def test_ws_event_nfc_card_scanned(
     assert event.heatmap_id == f"e-{expected_event_id}"
     assert event.start == (now - timedelta(seconds=30))
     assert event.end == now
-    assert camera.last_nfc_card_scanned == event.start
+
+    for channel in camera.channels:
+        assert channel._api is not None
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.datetime", MockDatetime)
+async def test_ws_event_fingerprint_identified(
+    protect_client_no_debug: ProtectApiClient,
+    now,
+    camera,
+    packet: WSPacket,
+):
+    protect_client = protect_client_no_debug
+
+    def get_camera():
+        return protect_client.bootstrap.cameras[camera["id"]]
+
+    camera_before = get_camera().copy()
+
+    expected_updated_id = "0441ecc6-f0fa-4b03-b071-7987c143138a"
+    expected_event_id = "6730b5af01029603e4003bdb"
+    expected_ulp_id = "0ef32f12-f291-123d-ab12-30e373e12345"
+    expected_user_id = "672b570000f79603e400049d"
+
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data["newUpdateId"] = expected_updated_id
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {
+        "id": expected_event_id,
+        "modelKey": "event",
+        "type": "fingerprintIdentified",
+        "start": to_js_time(now - timedelta(seconds=30)),
+        "end": to_js_time(now),
+        "score": 0,
+        "smartDetectTypes": [],
+        "smartDetectEvents": [],
+        "camera": camera["id"],
+        "metadata": {
+            "fingerprint": {
+                "ulpId": expected_ulp_id
+            },
+            "ramDescription": "",
+            "ramClassifications": [],
+        },
+        "thumbnail": f"e-{expected_event_id}",
+        "heatmap": f"e-{expected_event_id}",
+    }
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+
+    protect_client._process_ws_message(msg)
+
+    camera = get_camera()
+
+    event = camera.last_fingerprint_identified_event
+    camera_before.last_fingerprint_identified_event_id = None
+    camera.last_fingerprint_identified_event_id = None
+
+    assert camera.last_fingerprint_identified == event.start
+    camera_before.last_fingerprint_identified = None
+    camera.last_fingerprint_identified = None
+
+    assert camera.dict() == camera_before.dict()
+    assert event.id == expected_event_id
+    assert event.type == EventType.FINGERPRINT_IDENTIFIED
+    assert event.metadata.fingerprint.ulp_id == expected_ulp_id
+    assert event.thumbnail_id == f"e-{expected_event_id}"
+    assert event.heatmap_id == f"e-{expected_event_id}"
+    assert event.start == (now - timedelta(seconds=30))
+    assert event.end == now
 
     for channel in camera.channels:
         assert channel._api is not None
