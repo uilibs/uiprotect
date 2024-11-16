@@ -383,7 +383,6 @@ async def test_ws_event_fingerprint_identified(
     expected_updated_id = "0441ecc6-f0fa-4b03-b071-7987c143138a"
     expected_event_id = "6730b5af01029603e4003bdb"
     expected_ulp_id = "0ef32f12-f291-123d-ab12-30e373e12345"
-    expected_user_id = "672b570000f79603e400049d"
 
     action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
     action_frame.data["newUpdateId"] = expected_updated_id
