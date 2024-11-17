@@ -98,6 +98,14 @@ CAMERA_EVENT_ATTR_MAP: dict[EventType, tuple[str, str]] = {
         "last_smart_audio_detect_event_id",
     ),
     EventType.RING: ("last_ring", "last_ring_event_id"),
+    EventType.NFC_CARD_SCANNED: (
+        "last_nfc_card_scanned",
+        "last_nfc_card_scanned_event_id",
+    ),
+    EventType.FINGERPRINT_IDENTIFIED: (
+        "last_fingerprint_identified",
+        "last_fingerprint_identified_event_id",
+    ),
 }
 
 

@@ -136,6 +136,32 @@ class EventThumbnailAttribute(ProtectBaseObject):
     val: str
 
 
+class NfcMetadata(ProtectBaseObject):
+    nfc_id: str
+    user_id: str
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {
+            **super()._get_unifi_remaps(),
+            "nfcId": "nfc_id",
+            "userId": "user_id",
+        }
+
+
+class FingerprintMetadata(ProtectBaseObject):
+    ulp_id: str | None = None
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {
+            **super()._get_unifi_remaps(),
+            "ulpId": "ulp_id",
+        }
+
+
 class EventThumbnailAttributes(ProtectBaseObject):
     color: EventThumbnailAttribute | None = None
     vehicle_type: EventThumbnailAttribute | None = None
@@ -195,6 +221,9 @@ class EventMetadata(ProtectBaseObject):
     license_plate: LicensePlateMetadata | None = None
     # requires 2.11.13+
     detected_thumbnails: list[EventDetectedThumbnail] | None = None
+    # requires 5.1.34+
+    nfc: NfcMetadata | None = None
+    fingerprint: FingerprintMetadata | None = None
 
     _collapse_keys: ClassVar[SetStr] = {
         "lightId",

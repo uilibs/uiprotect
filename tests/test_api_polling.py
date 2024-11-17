@@ -42,6 +42,10 @@ def _reset_events(camera: Camera) -> None:
     camera.last_motion = None
     camera.last_smart_detect = None
     camera.last_smart_detect_event_id = None
+    camera.last_fingerprint_identified_event_id = None
+    camera.last_fingerprint_identified = None
+    camera.last_nfc_card_scanned_event_id = None
+    camera.last_nfc_card_scanned = None
     camera.last_smart_detects = {}
     camera.last_smart_detect_event_ids = {}
 
@@ -194,3 +198,19 @@ async def test_process_events_smart(protect_client: ProtectApiClient, now, camer
     assert smart_event.heatmap_id == f"e-{expected_event_id}"
     assert smart_event.start == (now - timedelta(seconds=30))
     assert smart_event.end == now
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.datetime", MockDatetime)
+async def test_event_return_none(protect_client: ProtectApiClient, now, camera):
+    def get_camera():
+        return protect_client.bootstrap.cameras[camera["id"]]
+
+    camera = get_camera()
+
+    _reset_events(camera)
+
+    assert camera.last_smart_detect_event is None
+    assert camera.last_nfc_card_scanned_event is None
+    assert camera.last_motion_event is None
+    assert camera.last_fingerprint_identified_event is None

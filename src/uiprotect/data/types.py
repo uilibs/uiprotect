@@ -201,6 +201,8 @@ class EventType(str, ValuesEnumMixin, enum.Enum):
     POOR_CONNECTION = "poorConnection"
     STREAM_RECOVERY = "streamRecovery"
     MOTION = "motion"
+    NFC_CARD_SCANNED = "nfcCardScanned"
+    FINGERPRINT_IDENTIFIED = "fingerprintIdentified"
     RECORDING_DELETED = "recordingDeleted"
     SMART_AUDIO_DETECT = "smartAudioDetect"
     SMART_DETECT = "smartDetectZone"
@@ -274,6 +276,8 @@ class EventType(str, ValuesEnumMixin, enum.Enum):
     def device_events() -> list[str]:
         return [
             EventType.MOTION.value,
+            EventType.NFC_CARD_SCANNED.value,
+            EventType.FINGERPRINT_IDENTIFIED.value,
             EventType.RING.value,
             EventType.SMART_DETECT.value,
             EventType.SMART_AUDIO_DETECT.value,
