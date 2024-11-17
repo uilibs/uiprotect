@@ -336,12 +336,14 @@ async def test_ws_event_nfc_card_scanned(
         "heatmap": f"e-{expected_event_id}",
     }
 
+    camera = get_camera()
+
+    assert camera.last_nfc_card_scanned is None
+
     msg = MagicMock()
     msg.data = packet.pack_frames()
 
     protect_client._process_ws_message(msg)
-
-    camera = get_camera()
 
     event = camera.last_nfc_card_scanned_event
     camera_before.last_nfc_card_scanned_event_id = None
@@ -407,12 +409,16 @@ async def test_ws_event_fingerprint_identified(
         "heatmap": f"e-{expected_event_id}",
     }
 
+    camera = get_camera()
+
+    assert camera.last_fingerprint_identified is None
+
     msg = MagicMock()
     msg.data = packet.pack_frames()
 
     protect_client._process_ws_message(msg)
 
-    camera = get_camera()
+
 
     event = camera.last_fingerprint_identified_event
     camera_before.last_fingerprint_identified_event_id = None
