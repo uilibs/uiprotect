@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.5.0 (2024-11-17)
+
+### Feature
+
+
+- Add processing for nfc scan and fingerprint identified events (#275) ([`0a58b29`](https://github.com/uilibs/uiprotect/commit/0a58b29cef1b4ab67eb25a765c21fc9cb001d1a4))
+
+
 ## v6.4.0 (2024-11-04)
 
 ### Feature
