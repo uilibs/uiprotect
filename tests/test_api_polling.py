@@ -42,6 +42,10 @@ def _reset_events(camera: Camera) -> None:
     camera.last_motion = None
     camera.last_smart_detect = None
     camera.last_smart_detect_event_id = None
+    camera.last_fingerprint_identified_event_id = None
+    camera.last_fingerprint_identified = None
+    camera.last_nfc_card_scanned_event_id = None
+    camera.last_nfc_card_scanned = None
     camera.last_smart_detects = {}
     camera.last_smart_detect_event_ids = {}
 
