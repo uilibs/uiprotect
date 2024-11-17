@@ -210,7 +210,7 @@ async def test_event_return_none(protect_client: ProtectApiClient, now, camera):
 
     _reset_events(camera)
 
-    assert camera.last_smart_detect is None
-    assert camera.last_nfc_card_scanned is None
+    assert camera.last_smart_detect_event is None
+    assert camera.last_nfc_card_scanned_event is None
     assert camera.last_motion_event is None
     assert camera.last_fingerprint_identified_event is None

@@ -338,7 +338,7 @@ async def test_ws_event_nfc_card_scanned(
 
     camera = get_camera()
 
-    assert camera.last_nfc_card_scanned is None
+    assert camera.last_nfc_card_scanned_event is None
 
     msg = MagicMock()
     msg.data = packet.pack_frames()
@@ -411,7 +411,7 @@ async def test_ws_event_fingerprint_identified(
 
     camera = get_camera()
 
-    assert camera.last_fingerprint_identified is None
+    assert camera.last_fingerprint_identified_event is None
 
     msg = MagicMock()
     msg.data = packet.pack_frames()
