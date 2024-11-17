@@ -418,8 +418,6 @@ async def test_ws_event_fingerprint_identified(
 
     protect_client._process_ws_message(msg)
 
-
-
     event = camera.last_fingerprint_identified_event
     camera_before.last_fingerprint_identified_event_id = None
     camera.last_fingerprint_identified_event_id = None
