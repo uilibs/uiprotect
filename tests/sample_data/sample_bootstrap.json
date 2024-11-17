@@ -2000,11 +2000,13 @@
                 "videoModeMaxFps": [],
                 "hasMotionZones": true,
                 "hasLcdScreen": true,
+                "hasFingerprintSensor": true,
                 "mountPositions": [],
                 "smartDetectTypes": [
                     "person",
                     "vehicle"
                 ],
+                "supportNfc": true,
                 "motionAlgorithms": [
                     "enhanced"
                 ],

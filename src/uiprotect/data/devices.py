@@ -859,6 +859,9 @@ class CameraFeatureFlags(ProtectBaseObject):
     has_vertical_flip: bool | None = None
     # 3.0.22+
     flash_range: Any | None = None
+    # 4.73.71+
+    support_nfc: bool | None = None
+    has_fingerprint_sensor: bool | None = None
 
     focus: PTZRange
     pan: PTZRange
