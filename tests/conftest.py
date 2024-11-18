@@ -746,7 +746,7 @@ NEW_CAMERA_FEATURE_FLAGS = {
     "flashRange",
     # 4.73.71+
     "supportNfc",
-    "hasFingerprintSensor"
+    "hasFingerprintSensor",
 }
 
 NEW_ISP_SETTINGS = {
