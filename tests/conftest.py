@@ -744,6 +744,9 @@ NEW_CAMERA_FEATURE_FLAGS = {
     "hasVerticalFlip",
     # 3.0.22+
     "flashRange",
+    # 4.73.71+
+    "supportNfc",
+    "hasFingerprintSensor"
 }
 
 NEW_ISP_SETTINGS = {
