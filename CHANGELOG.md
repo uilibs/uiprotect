@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.6.0 (2024-11-18)
+
+### Feature
+
+
+- Add feature flags for nfc and fingerprint (#276) ([`e208d9e`](https://github.com/uilibs/uiprotect/commit/e208d9e2a73c9a665ef08e8e9341c183f23969aa))
+
+
 ## v6.5.0 (2024-11-17)
 
 ### Feature
