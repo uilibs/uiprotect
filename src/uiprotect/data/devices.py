@@ -83,18 +83,7 @@ if TYPE_CHECKING:
     from .nvr import Event, Liveview
 
 PRIVACY_ZONE_NAME = "pyufp_privacy_zone"
-LUX_MAPPING_VALUES = [
-    30,
-    25,
-    20,
-    15,
-    12,
-    10,
-    7,
-    5,
-    3,
-    1,
-]
+LUX_MAPPING_VALUES = [30, 25, 20, 15, 12, 10, 7, 5, 3, 1, 0]
 
 _LOGGER = logging.getLogger(__name__)
 
