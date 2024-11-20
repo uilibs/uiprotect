@@ -94,6 +94,7 @@ LUX_MAPPING_VALUES = [
     5,
     3,
     1,
+    0
 ]
 
 _LOGGER = logging.getLogger(__name__)
