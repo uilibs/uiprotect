@@ -1088,6 +1088,7 @@ async def test_camera_disable_co(camera_obj: Camera | None, status: bool):
 @pytest.mark.parametrize(
     ("value", "lux"),
     [
+        (0, 0),
         (1, 1),
         (2, 3),
         (3, 5),
@@ -1110,7 +1111,12 @@ async def test_camera_set_icr_custom_lux(
         pytest.skip("No camera_obj obj found")
 
     camera_obj.feature_flags.has_led_ir = True
-    camera_obj.isp_settings.icr_custom_value = 0
+    if (
+        value == 0
+    ):  # without this there is no change that gets send if the test value is 0
+        camera_obj.isp_settings.icr_custom_value = 1
+    else:
+        camera_obj.isp_settings.icr_custom_value = 0
 
     camera_obj.api.api_request.reset_mock()
 

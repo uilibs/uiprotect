@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.6.1 (2024-11-20)
+
+### Fix
+
+
+- Handle indexerror selecting value &#34;below 1 lux&#34; for icr_custom_value (#283) ([`41f5a3b`](https://github.com/uilibs/uiprotect/commit/41f5a3b4a5fe8999b742a0b245fef6056f5422a7))
+
+
 ## v6.6.0 (2024-11-18)
 
 ### Feature
