@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import Mock, patch, AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from pydantic.v1 import ValidationError
@@ -1347,7 +1347,10 @@ async def test_get_snapshot_read_live(camera_obj: Camera | None):
     snapshot = await camera_obj.get_snapshot()
 
     assert snapshot == b"snapshot_data"
-    camera_obj._api.get_camera_snapshot.assert_called_once_with(camera_obj.id, None, camera_obj.high_camera_channel.height, dt=None)
+    camera_obj._api.get_camera_snapshot.assert_called_once_with(
+        camera_obj.id, None, camera_obj.high_camera_channel.height, dt=None
+    )
+
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing test data")
 @pytest.mark.asyncio()
@@ -1360,7 +1363,10 @@ async def test_get_snapshot_read_live_no_perm(camera_obj: Camera | None):
     with patch.object(auth_user, "can", return_value=False):
         camera_obj.api.api_request.reset_mock()
 
-        with pytest.raises(NotAuthorized, match=f"Do not have permission to read live for camera: {camera_obj.id}"):
+        with pytest.raises(
+            NotAuthorized,
+            match=f"Do not have permission to read live for camera: {camera_obj.id}",
+        ):
             await camera_obj.get_snapshot()
 
 
@@ -1376,22 +1382,28 @@ async def test_get_snapshot_with_dt(camera_obj: Camera):
     snapshot = await camera_obj.get_snapshot(dt=now)
 
     assert snapshot == b"snapshot_data"
-    camera_obj._api.get_camera_snapshot.assert_called_once_with(camera_obj.id, None, camera_obj.high_camera_channel.height, dt=now)
+    camera_obj._api.get_camera_snapshot.assert_called_once_with(
+        camera_obj.id, None, camera_obj.high_camera_channel.height, dt=now
+    )
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing test data")
 @pytest.mark.asyncio()
 async def test_get_package_snapshot_read_live(camera_obj: Camera | None):
     camera_obj.api.api_request.reset_mock()
-    camera_obj.feature_flags.has_package_camera=True
+    camera_obj.feature_flags.has_package_camera = True
     camera_obj._api = MagicMock(spec=ProtectApiClient)
 
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
 
     snapshot = await camera_obj.get_package_snapshot()
 
     assert snapshot == b"snapshot_data"
-    camera_obj._api.get_package_camera_snapshot.assert_called_once_with(camera_obj.id, None, None, dt=None)
+    camera_obj._api.get_package_camera_snapshot.assert_called_once_with(
+        camera_obj.id, None, None, dt=None
+    )
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing test data")
@@ -1399,14 +1411,19 @@ async def test_get_package_snapshot_read_live(camera_obj: Camera | None):
 async def test_get_package_snapshot_read_live_no_perm(camera_obj: Camera | None):
     camera_obj._api = MagicMock(spec=ProtectApiClient)
     camera_obj.feature_flags.has_package_camera = True
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
 
     auth_user = camera_obj._api.bootstrap.auth_user
 
     with patch.object(auth_user, "can", return_value=False):
         camera_obj.api.api_request.reset_mock()
 
-        with pytest.raises(NotAuthorized, match=f"Do not have permission to read live for camera: {camera_obj.id}"):
+        with pytest.raises(
+            NotAuthorized,
+            match=f"Do not have permission to read live for camera: {camera_obj.id}",
+        ):
             await camera_obj.get_package_snapshot()
 
 
@@ -1416,12 +1433,15 @@ async def test_get_package_snapshot_with_dt(camera_obj: Camera):
     camera_obj.api.api_request.reset_mock()
     camera_obj.feature_flags.has_package_camera = True
     camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
 
     now = datetime.now(tz=timezone.utc)
 
     snapshot = await camera_obj.get_package_snapshot(dt=now)
 
     assert snapshot == b"snapshot_data"
-    camera_obj._api.get_package_camera_snapshot.assert_called_once_with(camera_obj.id, None, None, dt=now)
-
+    camera_obj._api.get_package_camera_snapshot.assert_called_once_with(
+        camera_obj.id, None, None, dt=now
+    )
