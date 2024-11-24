@@ -99,6 +99,12 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.head_ref || github.ref_name }}
+          token: ${{ secrets.BOT_ACCESS_TOKEN }}
+
+      - name: Setup Git
+        run: |
+          git config user.name "uiprotectbot"
+          git config user.email "uiprotect@koston.org"
 
       # Do a dry run of PSR
       - name: Test release
