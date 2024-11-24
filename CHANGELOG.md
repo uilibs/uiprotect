@@ -1,5 +1,19 @@
 # Changelog
 
+## v6.6.2 (2024-11-24)
+
+### Fix
+
+
+- Bot release token (#288) ([`1868448`](https://github.com/uilibs/uiprotect/commit/18684484c76d87d14820f484814097714e71f1a8))
+
+
+- Update release process to allow the bot to do releases (#287) ([`3f7c839`](https://github.com/uilibs/uiprotect/commit/3f7c8393227c9fa78212fa176186027bdb4e9c4d))
+
+
+- Allow get snapshot with liveonly permissions (#285) ([`b2cf95b`](https://github.com/uilibs/uiprotect/commit/b2cf95b45d3815a2c6c5fab962746e8d9d85388d))
+
+
 ## v6.6.1 (2024-11-20)
 
 ### Fix
