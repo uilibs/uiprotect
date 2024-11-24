@@ -2013,13 +2013,17 @@ class Camera(ProtectMotionDeviceModel):
 
         Datetime of screenshot is approximate. It may be +/- a few seconds.
         """
+        permission = (
+        PermissionNode.READ_LIVE if datetime is None else PermissionNode.READ_MEDIA
+        )
         if not self._api.bootstrap.auth_user.can(
             ModelType.CAMERA,
-            PermissionNode.READ_MEDIA,
+            permission,
             self,
         ):
+            action = "read live" if datetime is None else "read media"
             raise NotAuthorized(
-                f"Do not have permission to read media for camera: {self.id}",
+                f"Do not have permission to {action} for camera: {self.id}"
             )
 
         if height is None and width is None and self.high_camera_channel is not None:
