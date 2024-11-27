@@ -12,7 +12,7 @@ import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import partial
-from http import HTTPStatus
+from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
@@ -67,9 +67,7 @@ from .utils import (
 )
 from .websocket import Websocket, WebsocketState
 
-if sys.version_info[:2] < (3, 13):
-    from http import cookies
-
+if "partitioned" not in cookies.Morsel._reserved:  # type: ignore[attr-defined]
     # See: https://github.com/python/cpython/issues/112713
     cookies.Morsel._reserved["partitioned"] = "partitioned"  # type: ignore[attr-defined]
     cookies.Morsel._flags.add("partitioned")  # type: ignore[attr-defined]
