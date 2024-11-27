@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.6.3 (2024-11-27)
+
+### Fix
+
+
+- Improve partitioned cookie back-compat patching for python 3.13+ (#297) ([`a352283`](https://github.com/uilibs/uiprotect/commit/a3522837e283595905907a76671f022b8e680c1d))
+
+
 ## v6.6.2 (2024-11-24)
 
 ### Fix
