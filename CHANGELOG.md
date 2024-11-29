@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.6.4 (2024-11-29)
+
+### Fix
+
+
+- Update permission logic for get_snapshot method (#298) ([`207959b`](https://github.com/uilibs/uiprotect/commit/207959bf1598acd4ad9e1da1146058b8a18de99c))
+
+
 ## v6.6.3 (2024-11-27)
 
 ### Fix
