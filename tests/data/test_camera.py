@@ -1514,7 +1514,7 @@ async def test_get_package_snapshot_with_dt_no_read_media(camera_obj: Camera | N
             NotAuthorized,
             match=f"Do not have permission to read media for camera: {camera_obj.id}",
         ):
-            await camera_obj.get_snapshot(dt=datetime.now())
+            await camera_obj.get_package_snapshot(dt=datetime.now())
 
 
 @pytest.mark.asyncio
