@@ -23,7 +23,7 @@ from uiprotect.data import (
     VideoMode,
 )
 from uiprotect.data.devices import CameraZone, Hotplug, HotplugExtender
-from uiprotect.data.types import DEFAULT, SmartDetectObjectType, PermissionNode
+from uiprotect.data.types import DEFAULT, PermissionNode, SmartDetectObjectType
 from uiprotect.data.websocket import WSAction, WSSubscriptionMessage
 from uiprotect.exceptions import BadRequest, NotAuthorized
 from uiprotect.utils import to_js_time
@@ -1349,6 +1349,7 @@ async def test_get_snapshot_read_live_granted(camera_obj: Camera | None):
     with patch.object(auth_user, "can", side_effect=mock_can):
         snapshot = await camera_obj.get_snapshot()
         assert snapshot == b"snapshot_data"
+
 
 @pytest.mark.asyncio
 async def test_get_snapshot_read_media_granted(camera_obj: Camera | None):
