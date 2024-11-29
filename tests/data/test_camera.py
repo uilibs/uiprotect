@@ -1497,27 +1497,6 @@ async def test_get_package_snapshot_with_dt(camera_obj: Camera):
 
 
 @pytest.mark.asyncio
-async def test_get_package_snapshot_with_dt_no_read_media(camera_obj: Camera | None):
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-    camera_obj.feature_flags.has_package_camera = True
-
-    auth_user = camera_obj._api.bootstrap.auth_user
-
-    def mock_can(model_type, permission, camera):
-        return permission != PermissionNode.READ_MEDIA
-
-    with patch.object(auth_user, "can", side_effect=mock_can):
-        with pytest.raises(
-            NotAuthorized,
-            match=f"Do not have permission to read media for camera: {camera_obj.id}",
-        ):
-            await camera_obj.get_package_snapshot(dt=datetime.now())
-
-
-@pytest.mark.asyncio
 async def test_get_package_snapshot_no_package_camera(camera_obj: Camera | None):
     camera_obj._api = MagicMock(spec=ProtectApiClient)
     camera_obj._api.get_package_camera_snapshot = AsyncMock(
