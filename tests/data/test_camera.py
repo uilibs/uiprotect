@@ -1516,10 +1516,13 @@ async def test_get_package_snapshot_with_dt_no_read_media(camera_obj: Camera | N
         ):
             await camera_obj.get_snapshot(dt=datetime.now())
 
+
 @pytest.mark.asyncio
 async def test_get_package_snapshot_no_package_camera(camera_obj: Camera | None):
     camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
 
     # Simulate a device without a package camera
     camera_obj.feature_flags.has_package_camera = False
