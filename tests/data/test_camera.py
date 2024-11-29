@@ -1400,6 +1400,7 @@ async def test_get_snapshot_with_dt(camera_obj: Camera):
         camera_obj.id, None, camera_obj.high_camera_channel.height, dt=now
     )
 
+
 @pytest.mark.asyncio
 async def test_get_snapshot_with_dt_no_read_media(camera_obj: Camera | None):
     camera_obj._api = MagicMock(spec=ProtectApiClient)
@@ -1421,9 +1422,10 @@ async def test_get_snapshot_with_dt_no_read_media(camera_obj: Camera | None):
 @pytest.mark.asyncio
 async def test_get_package_snapshot_read_live_granted(camera_obj: Camera | None):
     camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
     camera_obj.feature_flags.has_package_camera = True
-
 
     auth_user = camera_obj._api.bootstrap.auth_user
 
@@ -1438,9 +1440,10 @@ async def test_get_package_snapshot_read_live_granted(camera_obj: Camera | None)
 @pytest.mark.asyncio
 async def test_get_package_snapshot_read_media_granted(camera_obj: Camera | None):
     camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
     camera_obj.feature_flags.has_package_camera = True
-
 
     auth_user = camera_obj._api.bootstrap.auth_user
 
@@ -1455,9 +1458,10 @@ async def test_get_package_snapshot_read_media_granted(camera_obj: Camera | None
 @pytest.mark.asyncio
 async def test_get_package_snapshot_no_permissions(camera_obj: Camera | None):
     camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
     camera_obj.feature_flags.has_package_camera = True
-
 
     auth_user = camera_obj._api.bootstrap.auth_user
 
@@ -1477,9 +1481,10 @@ async def test_get_package_snapshot_no_permissions(camera_obj: Camera | None):
 async def test_get_package_snapshot_with_dt(camera_obj: Camera):
     camera_obj.api.api_request.reset_mock()
     camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
     camera_obj.feature_flags.has_package_camera = True
-
 
     now = datetime.now(tz=timezone.utc)
 
@@ -1490,12 +1495,14 @@ async def test_get_package_snapshot_with_dt(camera_obj: Camera):
         camera_obj.id, None, None, dt=now
     )
 
+
 @pytest.mark.asyncio
 async def test_get_package_snapshot_with_dt_no_read_media(camera_obj: Camera | None):
     camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
     camera_obj.feature_flags.has_package_camera = True
-
 
     auth_user = camera_obj._api.bootstrap.auth_user
 
