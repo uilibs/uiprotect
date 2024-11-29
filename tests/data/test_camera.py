@@ -1343,7 +1343,7 @@ async def test_get_snapshot_read_live_granted(camera_obj: Camera | None):
 
     auth_user = camera_obj._api.bootstrap.auth_user
 
-    def mock_can(model_type, permission, camera):
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
         return permission == PermissionNode.READ_LIVE
 
     with patch.object(auth_user, "can", side_effect=mock_can):
@@ -1358,7 +1358,7 @@ async def test_get_snapshot_read_media_granted(camera_obj: Camera | None):
 
     auth_user = camera_obj._api.bootstrap.auth_user
 
-    def mock_can(model_type, permission, camera):
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
         return permission == PermissionNode.READ_MEDIA
 
     with patch.object(auth_user, "can", side_effect=mock_can):
@@ -1373,7 +1373,7 @@ async def test_get_snapshot_no_permissions(camera_obj: Camera | None):
 
     auth_user = camera_obj._api.bootstrap.auth_user
 
-    def mock_can(model_type, permission, camera):
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
         return False
 
     with patch.object(auth_user, "can", side_effect=mock_can):
@@ -1408,7 +1408,7 @@ async def test_get_snapshot_with_dt_no_read_media(camera_obj: Camera | None):
 
     auth_user = camera_obj._api.bootstrap.auth_user
 
-    def mock_can(model_type, permission, camera):
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
         return permission != PermissionNode.READ_MEDIA
 
     with patch.object(auth_user, "can", side_effect=mock_can):
@@ -1429,7 +1429,7 @@ async def test_get_package_snapshot_read_live_granted(camera_obj: Camera | None)
 
     auth_user = camera_obj._api.bootstrap.auth_user
 
-    def mock_can(model_type, permission, camera):
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
         return permission == PermissionNode.READ_LIVE
 
     with patch.object(auth_user, "can", side_effect=mock_can):
@@ -1447,7 +1447,7 @@ async def test_get_package_snapshot_read_media_granted(camera_obj: Camera | None
 
     auth_user = camera_obj._api.bootstrap.auth_user
 
-    def mock_can(model_type, permission, camera):
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
         return permission == PermissionNode.READ_MEDIA
 
     with patch.object(auth_user, "can", side_effect=mock_can):
@@ -1465,7 +1465,7 @@ async def test_get_package_snapshot_no_permissions(camera_obj: Camera | None):
 
     auth_user = camera_obj._api.bootstrap.auth_user
 
-    def mock_can(model_type, permission, camera):
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
         return False
 
     with patch.object(auth_user, "can", side_effect=mock_can):
@@ -1523,7 +1523,7 @@ async def test_get_package_snapshot_dt_no_read_media(camera_obj: Camera | None):
 
     auth_user = camera_obj._api.bootstrap.auth_user
 
-    def mock_can(model_type, permission, camera):
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
         return (
             permission != PermissionNode.READ_MEDIA
         )  # Simulate missing READ_MEDIA permission
