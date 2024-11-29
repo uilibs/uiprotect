@@ -2014,23 +2014,19 @@ class Camera(ProtectMotionDeviceModel):
         Datetime of screenshot is approximate. It may be +/- a few seconds.
         """
         # Use READ_LIVE if dt is None, otherwise READ_MEDIA
+        auth_user = self._api.bootstrap.auth_user
         if dt is None:
-            has_permission = self._api.bootstrap.auth_user.can(
-                ModelType.CAMERA, PermissionNode.READ_LIVE, self
-            ) or self._api.bootstrap.auth_user.can(
-                ModelType.CAMERA, PermissionNode.READ_MEDIA, self
-            )
-            if not has_permission:
+            if not (
+                auth_user.can(ModelType.CAMERA, PermissionNode.READ_LIVE, self)
+                or auth_user.can(ModelType.CAMERA, PermissionNode.READ_MEDIA, self)
+            ):
                 raise NotAuthorized(
                     f"Do not have permission to read live or media for camera: {self.id}"
                 )
-        else:
-            if not self._api.bootstrap.auth_user.can(
-                ModelType.CAMERA, PermissionNode.READ_MEDIA, self
-            ):
-                raise NotAuthorized(
-                    f"Do not have permission to read media for camera: {self.id}"
-                )
+        elif not auth_user.can(ModelType.CAMERA, PermissionNode.READ_MEDIA, self):
+            raise NotAuthorized(
+                f"Do not have permission to read media for camera: {self.id}"
+            )
 
         if height is None and width is None and self.high_camera_channel is not None:
             height = self.high_camera_channel.height
@@ -2051,24 +2047,20 @@ class Camera(ProtectMotionDeviceModel):
         if not self.feature_flags.has_package_camera:
             raise BadRequest("Device does not have package camera")
 
+        auth_user = self._api.bootstrap.auth_user
         # Use READ_LIVE if dt is None, otherwise READ_MEDIA
         if dt is None:
-            has_permission = self._api.bootstrap.auth_user.can(
-                ModelType.CAMERA, PermissionNode.READ_LIVE, self
-            ) or self._api.bootstrap.auth_user.can(
-                ModelType.CAMERA, PermissionNode.READ_MEDIA, self
-            )
-            if not has_permission:
+            if not (
+                auth_user.can(ModelType.CAMERA, PermissionNode.READ_LIVE, self)
+                or auth_user.can(ModelType.CAMERA, PermissionNode.READ_MEDIA, self)
+            ):
                 raise NotAuthorized(
                     f"Do not have permission to read live or media for camera: {self.id}"
                 )
-        else:
-            if not self._api.bootstrap.auth_user.can(
-                ModelType.CAMERA, PermissionNode.READ_MEDIA, self
-            ):
-                raise NotAuthorized(
-                    f"Do not have permission to read media for camera: {self.id}"
-                )
+        elif not auth_user.can(ModelType.CAMERA, PermissionNode.READ_MEDIA, self):
+            raise NotAuthorized(
+                f"Do not have permission to read media for camera: {self.id}"
+            )
 
         if height is None and width is None and self.package_camera_channel is not None:
             height = self.package_camera_channel.height
