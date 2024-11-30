@@ -383,6 +383,24 @@ class Bootstrap(ProtectBaseObject):
             changed_data={},
             old_obj=device,
         )
+    
+    def _process_keyring_update(
+        self,
+        action: dict[str, Any],
+        data: dict[str, Any],
+        ignore_stats: bool,
+    ) -> WSSubscriptionMessage | None:
+        self.api.update_keyrings()
+        return None
+    
+    def _process_ulpUser_update(
+        self,
+        action: dict[str, Any],
+        data: dict[str, Any],
+        ignore_stats: bool,
+    ) -> WSSubscriptionMessage | None:
+        self.api.update_ulpusers()
+        return None
 
     def _process_nvr_update(
         self,
@@ -552,6 +570,10 @@ class Bootstrap(ProtectBaseObject):
             if action_action == "update":
                 if model_type is ModelType.NVR:
                     return self._process_nvr_update(action, data, ignore_stats)
+                if model_type is ModelType.KEYRING:
+                    return self._process_keyring_update(action, data, ignore_stats)
+                if model_type is ModelType.ULP_USER:
+                    return self._process_ulpUser_update(action, data, ignore_stats)
                 if model_type in ModelType.bootstrap_models_types_and_event_set:
                     return self._process_device_update(
                         model_type, action, data, ignore_stats, is_ping_back

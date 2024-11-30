@@ -27,6 +27,8 @@ from aiohttp import CookieJar, client_exceptions
 from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
+from uiprotect.data.user import Keyring, UlpUser
+
 from ._compat import cached_property
 from .data import (
     NVR,
@@ -55,7 +57,7 @@ from .data import (
 )
 from .data.base import ProtectModelWithId
 from .data.devices import Chime
-from .data.types import IteratorCallback, Keyring, ProgressCallback, UlpUser
+from .data.types import IteratorCallback, ProgressCallback
 from .exceptions import BadRequest, NotAuthorized, NvrError
 from .utils import (
     decode_token_cookie,
@@ -780,6 +782,8 @@ class ProtectApiClient(BaseApiClient):
         self._ws_state_subscriptions = []
         self.ignore_unadopted = ignore_unadopted
         self._update_lock = asyncio.Lock()
+        self._update_lock_keyrings = asyncio.Lock()
+        self._update_lock_ulpusers = asyncio.Lock()
 
         if override_connection_host:
             self._connection_host = ip_from_host(self._host)
@@ -841,9 +845,22 @@ class ProtectApiClient(BaseApiClient):
             bootstrap = await self.get_bootstrap()
             self.__dict__.pop("bootstrap", None)
             self._bootstrap = bootstrap
-            self._keyrings = await self.get_keyrings()
-            self._ulpusers = await self.get_ulpusers()
+            await self.update_keyrings()
+            await self.update_ulpusers()
             return bootstrap
+        
+    async def update_keyrings(self) -> list[Keyring]:
+        async with self._update_lock_keyrings:
+            keyrings = await self.get_keyrings()
+            self._keyrings = keyrings
+            return keyrings
+        
+    async def update_ulpusers(self) -> list[UlpUser]:
+        async with self._update_lock_ulpusers:
+            ulpusers = await self.get_ulpusers()
+            self._ulpusers = ulpusers
+            return ulpusers
+
 
     async def poll_events(self) -> None:
         """Poll for events."""
