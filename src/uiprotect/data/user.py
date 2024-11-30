@@ -235,6 +235,7 @@ class User(ProtectModelWithId):
         self._perm_cache[perm_str] = False
         return False
 
+
 class Keyring(ProtectModelWithId):
     deviceType: str
     deviceId: str
@@ -242,6 +243,7 @@ class Keyring(ProtectModelWithId):
     registryId: str
     lastActivity: int
     ulpUser: str
+
 
 class UlpUser(ProtectModelWithId):
     ulpId: str

@@ -383,7 +383,7 @@ class Bootstrap(ProtectBaseObject):
             changed_data={},
             old_obj=device,
         )
-    
+
     def _process_keyring_update(
         self,
         action: dict[str, Any],
@@ -392,7 +392,7 @@ class Bootstrap(ProtectBaseObject):
     ) -> WSSubscriptionMessage | None:
         self.api.update_keyrings()
         return None
-    
+
     def _process_ulpUser_update(
         self,
         action: dict[str, Any],

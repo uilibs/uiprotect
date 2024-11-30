@@ -848,19 +848,18 @@ class ProtectApiClient(BaseApiClient):
             await self.update_keyrings()
             await self.update_ulpusers()
             return bootstrap
-        
+
     async def update_keyrings(self) -> list[Keyring]:
         async with self._update_lock_keyrings:
             keyrings = await self.get_keyrings()
             self._keyrings = keyrings
             return keyrings
-        
+
     async def update_ulpusers(self) -> list[UlpUser]:
         async with self._update_lock_ulpusers:
             ulpusers = await self.get_ulpusers()
             self._ulpusers = ulpusers
             return ulpusers
-
 
     async def poll_events(self) -> None:
         """Poll for events."""
