@@ -727,3 +727,39 @@ class Version(BaseVersion):
         if self.pre is not None and self.pre[0] == "b":
             super_str = super_str.replace("b", "-beta.")
         return super_str
+
+class Keyring(BaseModel):
+    deviceType: str
+    deviceId: str
+    registryType: str
+    registryId: str
+    lastActivity: int
+    ulpUser: str
+    id: str
+    modelKey: str
+
+    @staticmethod
+    def from_json(data: dict) -> Keyring:
+        return Keyring(**data)
+
+    @staticmethod
+    def list_from_json(data: list[dict]) -> list[Keyring]:
+        return [Keyring.from_json(item) for item in data]
+
+class UlpUser(BaseModel):
+    ulpId: str
+    firstName: str
+    lastName: str
+    fullName: str
+    avatar: str
+    status: str
+    id: str
+    modelKey: str
+
+    @staticmethod
+    def from_json(data: dict) -> UlpUser:
+        return UlpUser(**data)
+
+    @staticmethod
+    def list_from_json(data: list[dict]) -> list[UlpUser]:
+        return [UlpUser.from_json(item) for item in data]

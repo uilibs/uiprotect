@@ -55,7 +55,7 @@ from .data import (
 )
 from .data.base import ProtectModelWithId
 from .data.devices import Chime
-from .data.types import IteratorCallback, ProgressCallback
+from .data.types import IteratorCallback, Keyring, ProgressCallback, UlpUser
 from .exceptions import BadRequest, NotAuthorized, NvrError
 from .utils import (
     decode_token_cookie,
@@ -732,6 +732,8 @@ class ProtectApiClient(BaseApiClient):
     _ws_subscriptions: list[Callable[[WSSubscriptionMessage], None]]
     _ws_state_subscriptions: list[Callable[[WebsocketState], None]]
     _bootstrap: Bootstrap | None = None
+    _keyrings: list[Keyring] | None = None
+    _ulpusers: list[UlpUser] | None = None
     _last_update_dt: datetime | None = None
     _connection_host: IPv4Address | IPv6Address | str | None = None
 
@@ -792,6 +794,20 @@ class ProtectApiClient(BaseApiClient):
 
         return self._bootstrap
 
+    @cached_property
+    def keyrings(self) -> list[Keyring]:
+        if self._keyrings is None:
+            raise BadRequest("Client not initialized, run `update` first")
+
+        return self._keyrings
+
+    @cached_property
+    def ulp_users(self) -> list[Keyring]:
+        if self._ulpusers is None:
+            raise BadRequest("Client not initialized, run `update` first")
+
+        return self._ulpusers
+
     @property
     def connection_host(self) -> IPv4Address | IPv6Address | str:
         """Connection host to use for generating RTSP URLs"""
@@ -825,6 +841,8 @@ class ProtectApiClient(BaseApiClient):
             bootstrap = await self.get_bootstrap()
             self.__dict__.pop("bootstrap", None)
             self._bootstrap = bootstrap
+            self._keyrings = await self.get_keyrings()
+            self._ulpusers = await self.get_ulpusers()
             return bootstrap
 
     async def poll_events(self) -> None:
@@ -1174,6 +1192,16 @@ class ProtectApiClient(BaseApiClient):
         """
         data = await self.api_request_obj("bootstrap")
         return Bootstrap.from_unifi_dict(**data, api=self)
+
+    async def get_keyrings(self) -> list[Keyring]:
+        """Gets keyrings list from UFP instance"""
+        data = await self.api_request_list("keyrings")
+        return data
+
+    async def get_ulpusers(self) -> list[UlpUser]:
+        """Gets ulpusers list from UFP instance"""
+        data = await self.api_request_list("ulp-users")
+        return data
 
     async def get_devices_raw(self, model_type: ModelType) -> list[dict[str, Any]]:
         """Gets a raw device list given a model_type"""
