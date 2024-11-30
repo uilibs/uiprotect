@@ -728,6 +728,7 @@ class Version(BaseVersion):
             super_str = super_str.replace("b", "-beta.")
         return super_str
 
+
 class Keyring(BaseModel):
     deviceType: str
     deviceId: str
@@ -745,6 +746,7 @@ class Keyring(BaseModel):
     @staticmethod
     def list_from_json(data: list[dict]) -> list[Keyring]:
         return [Keyring.from_json(item) for item in data]
+
 
 class UlpUser(BaseModel):
     ulpId: str
