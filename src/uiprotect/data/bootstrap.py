@@ -34,7 +34,7 @@ from .devices import (
 )
 from .nvr import NVR, Event, Liveview
 from .types import EventType, FixSizeOrderedDict, ModelType
-from .user import Group, User
+from .user import Group, Keyring, UlpUser, User
 from .websocket import (
     WSAction,
     WSPacket,
@@ -188,6 +188,8 @@ class Bootstrap(ProtectBaseObject):
     # agreements
 
     # not directly from UniFi
+    keyrings: dict[str, Keyring]
+    ulp_users: dict[str, UlpUser]
     events: dict[str, Event] = FixSizeOrderedDict()
     capture_ws_stats: bool = False
     mac_lookup: dict[str, ProtectDeviceRef] = {}
@@ -390,7 +392,6 @@ class Bootstrap(ProtectBaseObject):
         data: dict[str, Any],
         ignore_stats: bool,
     ) -> WSSubscriptionMessage | None:
-        self.api.update_keyrings()
         return None
 
     def _process_ulpUser_update(
@@ -399,7 +400,6 @@ class Bootstrap(ProtectBaseObject):
         data: dict[str, Any],
         ignore_stats: bool,
     ) -> WSSubscriptionMessage | None:
-        self.api.update_ulpusers()
         return None
 
     def _process_nvr_update(
