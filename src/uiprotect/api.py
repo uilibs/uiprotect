@@ -1182,7 +1182,10 @@ class ProtectApiClient(BaseApiClient):
     async def get_keyrings(self) -> dict[str, Keyring]:
         """Gets keyrings from UFP instance"""
         data = await self.api_request_list("keyrings")
-        return {keyring["id"]: Keyring.from_unifi_dict(**keyring, api=self) for keyring in data}
+        return {
+            keyring["id"]: Keyring.from_unifi_dict(**keyring, api=self)
+            for keyring in data
+        }
 
     async def get_ulpusers(self) -> dict[str, UlpUser]:
         """Gets ulpusers from UFP instance"""
