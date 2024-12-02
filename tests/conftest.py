@@ -719,7 +719,7 @@ NEW_FIELDS = {
     "hasHttpsClientOTA",
     "isUCoreStacked",
     # 5.0.33+
-    "isThirdPartyCamera"
+    "isThirdPartyCamera",
 }
 
 NEW_CAMERA_FEATURE_FLAGS = {
