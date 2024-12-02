@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.6.5 (2024-12-02)
+
+### Fix
+
+
+- Add isthirdpartycamera field to camera model (#302) ([`828b510`](https://github.com/uilibs/uiprotect/commit/828b5109f225613f04066eafa1063e6ce715fe3a))
+
+
 ## v6.6.4 (2024-11-29)
 
 ### Fix
