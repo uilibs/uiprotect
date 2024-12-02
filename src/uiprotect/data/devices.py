@@ -975,8 +975,7 @@ class Camera(ProtectMotionDeviceModel):
     # requires 2.11.13+
     audio_settings: CameraAudioSettings | None = None
     # requires 5.0.33+
-    isThirdPartyCamera: bool | None = None
-
+    is_third_party_camera: bool | None = None
     # TODO: used for adopting
     # apMac read only
     # apRssi read only
