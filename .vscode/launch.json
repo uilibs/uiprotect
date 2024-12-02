@@ -5,40 +5,58 @@
             "name": "Run Subcommand: shell",
             "type": "debugpy",
             "request": "launch",
-            "module": "uiprotect",
+            "module": "poetry",
+            "justMyCode": false,
+            "env": {
+                "UFP_SSL_VERIFY": "false"
+            },
             "args": [
+                "run",
+                "python",
+                "-Xfrozen_modules=off",
+                "-m",
+                "uiprotect",
                 "-u",
                 "shell",
-            ]
+            ],
         },
         {
             "name": "Run Subcommand: generate-sample-data",
             "type": "debugpy",
             "request": "launch",
-            "module": "uiprotect",
+            "module": "poetry",
+            "justMyCode": false,
+            "env": {
+                "UFP_SSL_VERIFY": "false"
+            },
             "args": [
+                "run",
+                "python",
+                "-Xfrozen_modules=off",
+                "-m",
+                "uiprotect",
                 "generate-sample-data",
                 "-w",
                 "30",
                 "--actual",
+                "-o",
+                "sample_data"
             ],
-            "env": {
-                "UFP_SAMPLE_DIR": "${workspaceFolder}/test-data"
-            }
         },
         {
-            "name": "Python: Debug Tests",
+            "name": "Debug pytest",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
-            "purpose": [
-                "debug-test"
-            ],
-            "console": "integratedTerminal",
+            "module": "poetry",
             "justMyCode": false,
             "env": {
-                "PYTEST_ADDOPTS": "-n=0 --no-cov -vv"
-            }
-        }
+                "UFP_SSL_VERIFY": "false",
+                "PYTEST_ADDOPTS": "-n=0 --no-cov -vv",
+            },
+            "args": [
+                "run",
+                "pytest"
+            ],
+        },
     ]
 }

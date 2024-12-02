@@ -21,7 +21,7 @@
     "updateContentCommand": [
         "/bin/bash",
         "-c",
-        "sudo -E HOME=/root uv pip sync requirements.txt dev-requirements.txt"
+        "sudo -E HOME=/root poetry install"
     ],
     "postAttachCommand": [
         "/bin/bash",

@@ -21,7 +21,7 @@ RUN --mount=type=cache,mode=0755,id=apt-$TARGETPLATFORM,target=/var/lib/apt/list
     && apt-get install -yqq build-essential git
 
 RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
-    pip install --root-user-action=ignore -U pip uv
+    pip install --root-user-action=ignore -U pip uv poetry ipython termcolor
 
 FROM base as prod
 
@@ -42,13 +42,6 @@ VOLUME /data
 WORKDIR /data
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
 
-
-FROM builder as builder-dev
-
-
-RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
-    poetry install
-
 FROM base as dev
 
 # Python will not automatically write .pyc files
@@ -56,8 +49,8 @@ ENV PYTHONDONTWRITEBYTECODE 1
 # Enables Python development mode, see https://docs.python.org/3/library/devmode.html
 ENV PYTHONDEVMODE 1
 
-COPY --from=builder-dev /usr/local/bin/ /usr/local/bin/
-COPY --from=builder-dev /usr/local/lib/python3.12/ /usr/local/lib/python3.12/
+COPY --from=builder /usr/local/bin/ /usr/local/bin/
+COPY --from=builder /usr/local/lib/python3.12/ /usr/local/lib/python3.12/
 COPY ./.docker/docker-fix.sh /usr/local/bin/docker-fix
 COPY ./.docker/bashrc /root/.bashrc
 COPY ./.docker/bashrc /home/app/.bashrc
