@@ -974,6 +974,8 @@ class Camera(ProtectMotionDeviceModel):
     is_ptz: bool | None = None
     # requires 2.11.13+
     audio_settings: CameraAudioSettings | None = None
+    # requires 5.0.33+
+    isThirdPartyCamera: bool | None = None
 
     # TODO: used for adopting
     # apMac read only

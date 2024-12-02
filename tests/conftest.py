@@ -718,6 +718,8 @@ NEW_FIELDS = {
     "trackNo",
     "hasHttpsClientOTA",
     "isUCoreStacked",
+    # 5.0.33+
+    "isThirdPartyCamera"
 }
 
 NEW_CAMERA_FEATURE_FLAGS = {
@@ -793,6 +795,7 @@ def compare_objs(obj_type, expected, actual):
         expected["stats"].pop("battery", None)
         expected["recordingSettings"].pop("enablePirTimelapse", None)
         expected["featureFlags"].pop("hasBattery", None)
+        expected.pop("isThirdPartyCamera", None)
 
         # do not compare detect zones because float math sucks
         assert len(expected["motionZones"]) == len(actual["motionZones"])
