@@ -91,6 +91,7 @@
     "videoReconfigurationInProgress": false,
     "voltage": 27.3,
     "isPoorNetwork": false,
+    "isThirdPartyCamera": false,
     "wiredConnectionState": {
         "phyRate": null
     },
