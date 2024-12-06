@@ -13,7 +13,7 @@ from convertertools import pop_dict_set, pop_dict_tuple
 from pydantic.v1 import PrivateAttr, ValidationError
 
 from ..exceptions import ClientError
-from ..utils import normalize_mac, utc_now
+from ..utils import normalize_mac, to_snake_case, utc_now
 from .base import (
     RECENT_EVENT_MAX,
     ProtectBaseObject,
@@ -421,6 +421,7 @@ class Bootstrap(ProtectBaseObject):
             if keyring is None:
                 return None
             old_keyring = keyring.copy()
+            data = {to_snake_case(k): v for k, v in data.items()}
             keyring = keyring.update_from_dict(data)
             return WSSubscriptionMessage(
                 action=WSAction.UPDATE,
