@@ -412,10 +412,10 @@ class Bootstrap(ProtectBaseObject):
             if removed_obj is None:
                 return None
             return WSSubscriptionMessage(
-            action=WSAction.REMOVE,
-            new_update_id=self.last_update_id,
-            changed_data={},
-            old_obj=removed_obj,
+                action=WSAction.REMOVE,
+                new_update_id=self.last_update_id,
+                changed_data={},
+                old_obj=removed_obj,
             )
         if action["action"] == "update":
             new_obj = dict_from_bootstrap.get(action_id)
@@ -427,11 +427,11 @@ class Bootstrap(ProtectBaseObject):
             new_obj.update_from_dict(updated_data)
 
             return WSSubscriptionMessage(
-            action=WSAction.UPDATE,
-            new_update_id=self.last_update_id,
-            changed_data=updated_data,
-            new_obj=new_obj,
-            old_obj=old_obj,
+                action=WSAction.UPDATE,
+                new_update_id=self.last_update_id,
+                changed_data=updated_data,
+                new_obj=new_obj,
+                old_obj=old_obj,
             )
         return None
 
