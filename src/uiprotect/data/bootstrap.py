@@ -188,8 +188,8 @@ class Bootstrap(ProtectBaseObject):
     # agreements
 
     # not directly from UniFi
-    keyrings: dict[str, Keyring]
-    ulp_users: dict[str, UlpUser]
+    keyrings: dict[str, Keyring] | None = None
+    ulp_users: dict[str, UlpUser] | None = None
     events: dict[str, Event] = FixSizeOrderedDict()
     capture_ws_stats: bool = False
     mac_lookup: dict[str, ProtectDeviceRef] = {}
