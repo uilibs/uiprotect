@@ -154,12 +154,14 @@ def get_user_hash(host: str, username: str) -> str:
     session.update(username.encode("utf8"))
     return session.hexdigest()
 
+
 def dict_from_unifi_list(self, list) -> dict[str, Keyring]:
-        return_dict: dict[str, Keyring] = {}
-        for obj_dict in list:
-            obj = create_from_unifi_dict(obj_dict, api=self)
-            return_dict[obj.id] = obj
-        return return_dict
+    return_dict: dict[str, Keyring] = {}
+    for obj_dict in list:
+        obj = create_from_unifi_dict(obj_dict, api=self)
+        return_dict[obj.id] = obj
+    return return_dict
+
 
 class BaseApiClient:
     _host: str
