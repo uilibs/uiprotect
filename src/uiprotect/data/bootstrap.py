@@ -408,28 +408,30 @@ class Bootstrap(ProtectBaseObject):
                 new_obj=new_obj,
             )
         if action["action"] == "remove":
-            new_obj = dict_from_bootstrap.pop(action_id, None)
-            if new_obj is None:
+            removed_obj = dict_from_bootstrap.pop(action_id, None)
+            if removed_obj is None:
                 return None
             return WSSubscriptionMessage(
-                action=WSAction.REMOVE,
-                new_update_id=self.last_update_id,
-                changed_data={},
-                old_obj=new_obj,
+            action=WSAction.REMOVE,
+            new_update_id=self.last_update_id,
+            changed_data={},
+            old_obj=removed_obj,
             )
         if action["action"] == "update":
             new_obj = dict_from_bootstrap.get(action_id)
             if new_obj is None:
                 return None
+
             old_obj = new_obj.copy()
-            data = {to_snake_case(k): v for k, v in data.items()}
-            new_obj = new_obj.update_from_dict(data)
+            updated_data = {to_snake_case(k): v for k, v in data.items()}
+            new_obj.update_from_dict(updated_data)
+
             return WSSubscriptionMessage(
-                action=WSAction.UPDATE,
-                new_update_id=self.last_update_id,
-                changed_data=data,
-                new_obj=new_obj,
-                old_obj=old_obj,
+            action=WSAction.UPDATE,
+            new_update_id=self.last_update_id,
+            changed_data=updated_data,
+            new_obj=new_obj,
+            old_obj=old_obj,
             )
         return None
 
