@@ -833,7 +833,9 @@ class ProtectApiClient(BaseApiClient):
             bootstrap = await self.get_bootstrap()
             self.__dict__.pop("bootstrap", None)
             self._bootstrap = bootstrap
-            if (bootstrap.nvr.version >= Version("5.1.57")): # first version with NFC and Fingerprint support
+            if bootstrap.nvr.version >= Version(
+                "5.1.57"
+            ):  # first version with NFC and Fingerprint support
                 self._bootstrap.keyrings = dict_from_unifi_list(
                     self, await self.api_request_list("keyrings")
                 )
