@@ -155,9 +155,9 @@ def get_user_hash(host: str, username: str) -> str:
     return session.hexdigest()
 
 
-def dict_from_unifi_list(self, list) -> dict[str, Any]:
+def dict_from_unifi_list(self, unifi_list: list[dict[str, Any]]) -> dict[str, Any]:
     return_dict: dict[str, Any] = {}
-    for obj_dict in list:
+    for obj_dict in unifi_list:
         obj = create_from_unifi_dict(obj_dict, api=self)
         return_dict[obj.id] = obj
     return return_dict
@@ -833,16 +833,15 @@ class ProtectApiClient(BaseApiClient):
         """
         async with self._update_lock:
             bootstrap = await self.get_bootstrap()
-            self.__dict__.pop("bootstrap", None)
-            self._bootstrap = bootstrap
-
             if bootstrap.nvr.version >= NFC_FINGERPRINT_SUPPORT_VERSION:
-                self._bootstrap.keyrings = dict_from_unifi_list(
+                bootstrap.keyrings = dict_from_unifi_list(
                     self, await self.api_request_list("keyrings")
                 )
-                self._bootstrap.ulp_users = dict_from_unifi_list(
+                bootstrap.ulp_users = dict_from_unifi_list(
                     self, await self.api_request_list("ulp-users")
                 )
+            self.__dict__.pop("bootstrap", None)
+            self._bootstrap = bootstrap
             return bootstrap
 
     async def poll_events(self) -> None:
