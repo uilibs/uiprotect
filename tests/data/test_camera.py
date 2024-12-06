@@ -23,7 +23,7 @@ from uiprotect.data import (
     VideoMode,
 )
 from uiprotect.data.devices import CameraZone, Hotplug, HotplugExtender
-from uiprotect.data.types import DEFAULT, SmartDetectObjectType
+from uiprotect.data.types import DEFAULT, PermissionNode, SmartDetectObjectType
 from uiprotect.data.websocket import WSAction, WSSubscriptionMessage
 from uiprotect.exceptions import BadRequest, NotAuthorized
 from uiprotect.utils import to_js_time
@@ -1336,36 +1336,50 @@ async def test_camera_set_ptz_home(ptz_camera: Camera | None):
     )
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing test data")
-@pytest.mark.asyncio()
-async def test_get_snapshot_read_live(camera_obj: Camera | None):
-    camera_obj.api.api_request.reset_mock()
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-
-    camera_obj._api.get_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
-
-    snapshot = await camera_obj.get_snapshot()
-
-    assert snapshot == b"snapshot_data"
-    camera_obj._api.get_camera_snapshot.assert_called_once_with(
-        camera_obj.id, None, camera_obj.high_camera_channel.height, dt=None
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing test data")
-@pytest.mark.asyncio()
-async def test_get_snapshot_read_live_no_perm(camera_obj: Camera | None):
+@pytest.mark.asyncio
+async def test_get_snapshot_read_live_granted(camera_obj: Camera | None):
     camera_obj._api = MagicMock(spec=ProtectApiClient)
     camera_obj._api.get_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
 
     auth_user = camera_obj._api.bootstrap.auth_user
 
-    with patch.object(auth_user, "can", return_value=False):
-        camera_obj.api.api_request.reset_mock()
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
+        return permission == PermissionNode.READ_LIVE
 
+    with patch.object(auth_user, "can", side_effect=mock_can):
+        snapshot = await camera_obj.get_snapshot()
+        assert snapshot == b"snapshot_data"
+
+
+@pytest.mark.asyncio
+async def test_get_snapshot_read_media_granted(camera_obj: Camera | None):
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+
+    auth_user = camera_obj._api.bootstrap.auth_user
+
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
+        return permission == PermissionNode.READ_MEDIA
+
+    with patch.object(auth_user, "can", side_effect=mock_can):
+        snapshot = await camera_obj.get_snapshot()
+        assert snapshot == b"snapshot_data"
+
+
+@pytest.mark.asyncio
+async def test_get_snapshot_no_permissions(camera_obj: Camera | None):
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+
+    auth_user = camera_obj._api.bootstrap.auth_user
+
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
+        return False
+
+    with patch.object(auth_user, "can", side_effect=mock_can):
         with pytest.raises(
             NotAuthorized,
-            match=f"Do not have permission to read live for camera: {camera_obj.id}",
+            match=f"Do not have permission to read live or media for camera: {camera_obj.id}",
         ):
             await camera_obj.get_snapshot()
 
@@ -1387,42 +1401,77 @@ async def test_get_snapshot_with_dt(camera_obj: Camera):
     )
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing test data")
-@pytest.mark.asyncio()
-async def test_get_package_snapshot_read_live(camera_obj: Camera | None):
-    camera_obj.api.api_request.reset_mock()
-    camera_obj.feature_flags.has_package_camera = True
+@pytest.mark.asyncio
+async def test_get_snapshot_with_dt_no_read_media(camera_obj: Camera | None):
     camera_obj._api = MagicMock(spec=ProtectApiClient)
-
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-
-    snapshot = await camera_obj.get_package_snapshot()
-
-    assert snapshot == b"snapshot_data"
-    camera_obj._api.get_package_camera_snapshot.assert_called_once_with(
-        camera_obj.id, None, None, dt=None
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing test data")
-@pytest.mark.asyncio()
-async def test_get_package_snapshot_read_live_no_perm(camera_obj: Camera | None):
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj.feature_flags.has_package_camera = True
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
+    camera_obj._api.get_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
 
     auth_user = camera_obj._api.bootstrap.auth_user
 
-    with patch.object(auth_user, "can", return_value=False):
-        camera_obj.api.api_request.reset_mock()
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
+        return permission != PermissionNode.READ_MEDIA
 
+    with patch.object(auth_user, "can", side_effect=mock_can):
         with pytest.raises(
             NotAuthorized,
-            match=f"Do not have permission to read live for camera: {camera_obj.id}",
+            match=f"Do not have permission to read media for camera: {camera_obj.id}",
+        ):
+            await camera_obj.get_snapshot(dt=datetime.now())
+
+
+@pytest.mark.asyncio
+async def test_get_package_snapshot_read_live_granted(camera_obj: Camera | None):
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
+    camera_obj.feature_flags.has_package_camera = True
+
+    auth_user = camera_obj._api.bootstrap.auth_user
+
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
+        return permission == PermissionNode.READ_LIVE
+
+    with patch.object(auth_user, "can", side_effect=mock_can):
+        snapshot = await camera_obj.get_package_snapshot()
+        assert snapshot == b"snapshot_data"
+
+
+@pytest.mark.asyncio
+async def test_get_package_snapshot_read_media_granted(camera_obj: Camera | None):
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
+    camera_obj.feature_flags.has_package_camera = True
+
+    auth_user = camera_obj._api.bootstrap.auth_user
+
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
+        return permission == PermissionNode.READ_MEDIA
+
+    with patch.object(auth_user, "can", side_effect=mock_can):
+        snapshot = await camera_obj.get_package_snapshot()
+        assert snapshot == b"snapshot_data"
+
+
+@pytest.mark.asyncio
+async def test_get_package_snapshot_no_permissions(camera_obj: Camera | None):
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
+    camera_obj.feature_flags.has_package_camera = True
+
+    auth_user = camera_obj._api.bootstrap.auth_user
+
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
+        return False
+
+    with patch.object(auth_user, "can", side_effect=mock_can):
+        with pytest.raises(
+            NotAuthorized,
+            match=f"Do not have permission to read live or media for camera: {camera_obj.id}",
         ):
             await camera_obj.get_package_snapshot()
 
@@ -1431,11 +1480,11 @@ async def test_get_package_snapshot_read_live_no_perm(camera_obj: Camera | None)
 @pytest.mark.asyncio
 async def test_get_package_snapshot_with_dt(camera_obj: Camera):
     camera_obj.api.api_request.reset_mock()
-    camera_obj.feature_flags.has_package_camera = True
     camera_obj._api = MagicMock(spec=ProtectApiClient)
     camera_obj._api.get_package_camera_snapshot = AsyncMock(
         return_value=b"snapshot_data"
     )
+    camera_obj.feature_flags.has_package_camera = True
 
     now = datetime.now(tz=timezone.utc)
 
@@ -1445,3 +1494,43 @@ async def test_get_package_snapshot_with_dt(camera_obj: Camera):
     camera_obj._api.get_package_camera_snapshot.assert_called_once_with(
         camera_obj.id, None, None, dt=now
     )
+
+
+@pytest.mark.asyncio
+async def test_get_package_snapshot_no_package_camera(camera_obj: Camera | None):
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
+
+    # Simulate a device without a package camera
+    camera_obj.feature_flags.has_package_camera = False
+
+    with pytest.raises(
+        BadRequest,
+        match="Device does not have package camera",
+    ):
+        await camera_obj.get_package_snapshot()
+
+
+@pytest.mark.asyncio
+async def test_get_package_snapshot_dt_no_read_media(camera_obj: Camera | None):
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
+    camera_obj.feature_flags.has_package_camera = True
+
+    auth_user = camera_obj._api.bootstrap.auth_user
+
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
+        return (
+            permission != PermissionNode.READ_MEDIA
+        )  # Simulate missing READ_MEDIA permission
+
+    with patch.object(auth_user, "can", side_effect=mock_can):
+        with pytest.raises(
+            NotAuthorized,
+            match=f"Do not have permission to read media for camera: {camera_obj.id}",
+        ):
+            await camera_obj.get_package_snapshot(dt=datetime.now())

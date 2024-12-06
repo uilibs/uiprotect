@@ -718,6 +718,8 @@ NEW_FIELDS = {
     "trackNo",
     "hasHttpsClientOTA",
     "isUCoreStacked",
+    # 5.0.33+
+    "isThirdPartyCamera",
 }
 
 NEW_CAMERA_FEATURE_FLAGS = {

@@ -1,5 +1,21 @@
 # Changelog
 
+## v6.6.5 (2024-12-02)
+
+### Fix
+
+
+- Add isthirdpartycamera field to camera model (#302) ([`828b510`](https://github.com/uilibs/uiprotect/commit/828b5109f225613f04066eafa1063e6ce715fe3a))
+
+
+## v6.6.4 (2024-11-29)
+
+### Fix
+
+
+- Update permission logic for get_snapshot method (#298) ([`207959b`](https://github.com/uilibs/uiprotect/commit/207959bf1598acd4ad9e1da1146058b8a18de99c))
+
+
 ## v6.6.3 (2024-11-27)
 
 ### Fix
