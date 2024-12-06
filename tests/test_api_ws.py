@@ -737,6 +737,7 @@ async def test_ws_ignores_nvr_mac_and_guid(
     assert len(messages) == 1
     unsub()
 
+
 @patch("uiprotect.data.devices.utc_now")
 @pytest.mark.asyncio()
 async def test_ws_keyring_update(
@@ -760,13 +761,11 @@ async def test_ws_keyring_update(
         registry_type="test",
         registry_id="test",
         created_at=utc_now(),
-        updated_at=utc_now()
+        updated_at=utc_now(),
     )
 
     protect_client.bootstrap.keyrings = {}
     protect_client.bootstrap.keyrings[keyring.id] = keyring
-
-
 
     messages: list[WSSubscriptionMessage] = []
 
@@ -801,128 +800,126 @@ async def test_ws_keyring_update(
 
     unsub()
 
+
 @patch("uiprotect.data.devices.utc_now")
 @pytest.mark.asyncio()
 async def test_ws_keyring_remove(
-        mock_now,
-        protect_client_no_debug: ProtectApiClient,
-        now: datetime,
-        packet: WSPacket,
-    ):
-        mock_now.return_value = now
-        protect_client = protect_client_no_debug
+    mock_now,
+    protect_client_no_debug: ProtectApiClient,
+    now: datetime,
+    packet: WSPacket,
+):
+    mock_now.return_value = now
+    protect_client = protect_client_no_debug
 
-        keyring_id = "some_id"
-        ulp_user = "b45f9411-133d-400d-b92f-a434877123"
+    keyring_id = "some_id"
+    ulp_user = "b45f9411-133d-400d-b92f-a434877123"
 
-        keyring = Keyring(
-            id=keyring_id,
-            ulp_user=ulp_user,
-            device_type="test",
-            device_id="test",
-            registry_type="test",
-            registry_id="test",
-            created_at=utc_now(),
-            updated_at=utc_now()
-        )
+    keyring = Keyring(
+        id=keyring_id,
+        ulp_user=ulp_user,
+        device_type="test",
+        device_id="test",
+        registry_type="test",
+        registry_id="test",
+        created_at=utc_now(),
+        updated_at=utc_now(),
+    )
 
-        protect_client.bootstrap.keyrings = {}
-        protect_client.bootstrap.keyrings[keyring.id] = keyring
+    protect_client.bootstrap.keyrings = {}
+    protect_client.bootstrap.keyrings[keyring.id] = keyring
 
-        messages: list[WSSubscriptionMessage] = []
+    messages: list[WSSubscriptionMessage] = []
 
-        def capture_ws(message: WSSubscriptionMessage) -> None:
-            messages.append(message)
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
 
-        unsub = protect_client.subscribe_websocket(capture_ws)
+    unsub = protect_client.subscribe_websocket(capture_ws)
 
-        action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
-        action_frame.data = {
-            "action": "remove",
-            "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
-            "modelKey": "keyring",
-            "id": keyring_id,
-        }
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": "remove",
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": "keyring",
+        "id": keyring_id,
+    }
 
-        data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
-        data_frame.data = {}
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {}
 
-        msg = MagicMock()
-        msg.data = packet.pack_frames()
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
 
-        assert len(messages) == 0
+    assert len(messages) == 0
 
-        packet = WSPacket(msg.data)
+    packet = WSPacket(msg.data)
 
-        assert protect_client.bootstrap.keyrings.get(keyring_id) is not None
+    assert protect_client.bootstrap.keyrings.get(keyring_id) is not None
 
-        protect_client._process_ws_message(msg)
+    protect_client._process_ws_message(msg)
 
-        assert protect_client.bootstrap.keyrings.get(keyring_id) is None
+    assert protect_client.bootstrap.keyrings.get(keyring_id) is None
 
-        unsub()
+    unsub()
+
 
 @patch("uiprotect.data.devices.utc_now")
 @pytest.mark.asyncio()
 async def test_ws_keyring_add(
-            mock_now,
-            protect_client_no_debug: ProtectApiClient,
-            now: datetime,
-            packet: WSPacket,
-        ):
-            mock_now.return_value = now
-            protect_client = protect_client_no_debug
-            protect_client.bootstrap.keyrings = {}
+    mock_now,
+    protect_client_no_debug: ProtectApiClient,
+    now: datetime,
+    packet: WSPacket,
+):
+    mock_now.return_value = now
+    protect_client = protect_client_no_debug
+    protect_client.bootstrap.keyrings = {}
 
-            keyring_id = "some_id"
-            ulp_user = "b45f9411-133d-400d-b92f-a434877123"
+    keyring_id = "some_id"
+    ulp_user = "b45f9411-133d-400d-b92f-a434877123"
 
-            messages: list[WSSubscriptionMessage] = []
+    messages: list[WSSubscriptionMessage] = []
 
-            def capture_ws(message: WSSubscriptionMessage) -> None:
-                messages.append(message)
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
 
-            unsub = protect_client.subscribe_websocket(capture_ws)
+    unsub = protect_client.subscribe_websocket(capture_ws)
 
-            action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
-            action_frame.data = {
-                "action": "add",
-                "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
-                "modelKey": "keyring",
-                "id": keyring_id,
-            }
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": "add",
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": "keyring",
+        "id": keyring_id,
+    }
 
-            data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
-            data_frame.data = {
-                "id": keyring_id,
-                "modelKey": "keyring",
-                "deviceType": "camera",
-                "deviceId": "663d0aa400918803e4004847",
-                "registryType": "nfc",
-                "registryId": "046A5702E27548",
-                "lastActivity": None,
-                "metadata": {
-                    "nfc": {
-                        "isUACard": False
-                    }
-                },
-                "ulpUser": ulp_user,
-                "createdAt": to_js_time(now),
-                "updatedAt": to_js_time(now),
-            }
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {
+        "id": keyring_id,
+        "modelKey": "keyring",
+        "deviceType": "camera",
+        "deviceId": "663d0aa400918803e4004847",
+        "registryType": "nfc",
+        "registryId": "046A5702E27548",
+        "lastActivity": None,
+        "metadata": {"nfc": {"isUACard": False}},
+        "ulpUser": ulp_user,
+        "createdAt": to_js_time(now),
+        "updatedAt": to_js_time(now),
+    }
 
-            msg = MagicMock()
-            msg.data = packet.pack_frames()
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
 
-            assert len(messages) == 0
+    assert len(messages) == 0
 
-            packet = WSPacket(msg.data)
+    packet = WSPacket(msg.data)
 
-            assert keyring_id not in protect_client.bootstrap.keyrings
+    assert keyring_id not in protect_client.bootstrap.keyrings
 
-            protect_client._process_ws_message(msg)
+    protect_client._process_ws_message(msg)
 
-            assert keyring_id in protect_client.bootstrap.keyrings
-            assert protect_client.bootstrap.keyrings[keyring_id].ulp_user == ulp_user
+    assert keyring_id in protect_client.bootstrap.keyrings
+    assert protect_client.bootstrap.keyrings[keyring_id].ulp_user == ulp_user
 
-            unsub()
+    unsub()

@@ -392,7 +392,9 @@ class Bootstrap(ProtectBaseObject):
         data: dict[str, Any],
     ) -> WSSubscriptionMessage | None:
         if action["action"] == "add":
-            keyring = create_from_unifi_dict(data, api=self._api, model_type=ModelType.KEYRING)
+            keyring = create_from_unifi_dict(
+                data, api=self._api, model_type=ModelType.KEYRING
+            )
             if TYPE_CHECKING:
                 assert isinstance(keyring, Keyring)
             self.keyrings[keyring.id] = keyring
