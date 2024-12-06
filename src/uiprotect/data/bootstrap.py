@@ -396,7 +396,8 @@ class Bootstrap(ProtectBaseObject):
         dict_from_bootstrap: dict[str, ProtectModelWithId] = getattr(
             self, to_snake_case(model_type.devices_key)
         )
-        if action["action"] == "add":
+        action_type = action["action"]
+        if action_type == "add":
             new_obj = create_from_unifi_dict(data, api=self._api, model_type=model_type)
             if TYPE_CHECKING:
                 assert isinstance(new_obj, MODEL_TO_CLASS.get(model_type))
@@ -407,7 +408,7 @@ class Bootstrap(ProtectBaseObject):
                 changed_data=new_obj.dict(),
                 new_obj=new_obj,
             )
-        if action["action"] == "remove":
+        elif action_type == "remove":
             removed_obj = dict_from_bootstrap.pop(action_id, None)
             if removed_obj is None:
                 return None
@@ -417,7 +418,7 @@ class Bootstrap(ProtectBaseObject):
                 changed_data={},
                 old_obj=removed_obj,
             )
-        if action["action"] == "update":
+        elif action_type == "update":
             new_obj = dict_from_bootstrap.get(action_id)
             if new_obj is None:
                 return None
