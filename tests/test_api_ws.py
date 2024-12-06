@@ -866,14 +866,14 @@ async def test_ws_keyring_remove(
 @patch("uiprotect.data.devices.utc_now")
 @pytest.mark.asyncio()
 async def test_ws_keyring_add_nfc(
-            mock_now,
-            protect_client_no_debug: ProtectApiClient,
-            now: datetime,
-            packet: WSPacket,
-        ):
-            mock_now.return_value = now
-            protect_client = protect_client_no_debug
-            protect_client.bootstrap.keyrings = {}
+    mock_now,
+    protect_client_no_debug: ProtectApiClient,
+    now: datetime,
+    packet: WSPacket,
+):
+    mock_now.return_value = now
+    protect_client = protect_client_no_debug
+    protect_client.bootstrap.keyrings = {}
 
     keyring_id = "some_id"
     ulp_user = "b45f9411-133d-400d-b92f-a434877123"
@@ -893,24 +893,24 @@ async def test_ws_keyring_add_nfc(
         "id": keyring_id,
     }
 
-            data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
-            data_frame.data = {
-                "id": keyring_id,
-                "modelKey": "keyring",
-                "deviceType": "camera",
-                "deviceId": "663d0aa400918803e4006454",
-                "registryType": "nfc",
-                "registryId": "046A5702E27548",
-                "lastActivity": None,
-                "metadata": {
-                    "nfc": {
-                        "isUACard": False
-                    }
-                },
-                "ulpUser": ulp_user,
-                "createdAt": to_js_time(now),
-                "updatedAt": to_js_time(now),
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {
+        "id": keyring_id,
+        "modelKey": "keyring",
+        "deviceType": "camera",
+        "deviceId": "663d0aa400918803e4006454",
+        "registryType": "nfc",
+        "registryId": "046A5702E27548",
+        "lastActivity": None,
+        "metadata": {
+            "nfc": {
+                "isUACard": False
             }
+        },
+        "ulpUser": ulp_user,
+        "createdAt": to_js_time(now),
+        "updatedAt": to_js_time(now),
+    }
 
     msg = MagicMock()
     msg.data = packet.pack_frames()
@@ -926,7 +926,7 @@ async def test_ws_keyring_add_nfc(
     assert keyring_id in protect_client.bootstrap.keyrings
     assert protect_client.bootstrap.keyrings[keyring_id].ulp_user == ulp_user
 
-            unsub()
+    unsub()
 
 @patch("uiprotect.data.devices.utc_now")
 @pytest.mark.asyncio()
