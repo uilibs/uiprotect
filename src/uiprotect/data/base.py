@@ -495,6 +495,7 @@ class ProtectBaseObject(BaseModel):
         value: Any
 
         for key, item in data.items():
+            key = to_snake_case(key)
             if has_unifi_objs and key in unifi_objs and isinstance(item, dict):
                 if (unifi_obj := getattr(cls, key)) is not None:
                     value = unifi_obj.update_from_dict(item)
