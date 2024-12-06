@@ -21,7 +21,7 @@ from .base import (
     ProtectModel,
     ProtectModelWithId,
 )
-from .convert import create_from_unifi_dict
+from .convert import MODEL_TO_CLASS, create_from_unifi_dict
 from .devices import (
     Bridge,
     Camera,
@@ -386,49 +386,50 @@ class Bootstrap(ProtectBaseObject):
             old_obj=device,
         )
 
-    def _process_ws_keyring_message(
+    def _process_ws_keyring_or_ulp_user_message(
         self,
         action: dict[str, Any],
         data: dict[str, Any],
+        model_type: ModelType,
     ) -> WSSubscriptionMessage | None:
+        action_id = action["id"]
+        dict_from_bootstrap: dict[str, ProtectModelWithId] = getattr(self, model_type.devices_key)
         if action["action"] == "add":
-            keyring = create_from_unifi_dict(
-                data, api=self._api, model_type=ModelType.KEYRING
+            new_obj = create_from_unifi_dict(
+                data, api=self._api, model_type=model_type
             )
             if TYPE_CHECKING:
-                assert isinstance(keyring, Keyring)
-            self.keyrings[keyring.id] = keyring
+                assert isinstance(new_obj, MODEL_TO_CLASS.get(model_type))
+            dict_from_bootstrap[new_obj.id] = new_obj
             return WSSubscriptionMessage(
                 action=WSAction.ADD,
                 new_update_id=self.last_update_id,
-                changed_data=keyring.dict(),
-                new_obj=keyring,
+                changed_data=new_obj.dict(),
+                new_obj=new_obj,
             )
         if action["action"] == "remove":
-            keyring_id = action["id"]
-            keyring = self.keyrings.pop(keyring_id, None)
-            if keyring is None:
+            new_obj = dict_from_bootstrap.pop(action_id, None)
+            if new_obj is None:
                 return None
             return WSSubscriptionMessage(
                 action=WSAction.REMOVE,
                 new_update_id=self.last_update_id,
                 changed_data={},
-                old_obj=keyring,
+                old_obj=new_obj,
             )
         if action["action"] == "update":
-            keyring_id = action["id"]
-            keyring = self.keyrings.get(keyring_id)
-            if keyring is None:
+            new_obj = dict_from_bootstrap.get(action_id)
+            if new_obj is None:
                 return None
-            old_keyring = keyring.copy()
+            old_obj = new_obj.copy()
             data = {to_snake_case(k): v for k, v in data.items()}
-            keyring = keyring.update_from_dict(data)
+            new_obj = new_obj.update_from_dict(data)
             return WSSubscriptionMessage(
                 action=WSAction.UPDATE,
                 new_update_id=self.last_update_id,
                 changed_data=data,
-                new_obj=keyring,
-                old_obj=old_keyring,
+                new_obj=new_obj,
+                old_obj=old_obj,
             )
         return None
 
@@ -597,10 +598,8 @@ class Bootstrap(ProtectBaseObject):
         action_action: str = action["action"]
 
         try:
-            if model_type is ModelType.KEYRING:
-                return self._process_ws_keyring_message(action, data)
-            if model_type is ModelType.ULP_USER:
-                return self._process_ws_ulp_user_message(action, data)
+            if model_type in {ModelType.KEYRING, ModelType.ULP_USER}:
+                return self._process_ws_keyring_or_ulp_user_message(action, data, model_type)
             if action_action == "remove":
                 return self._process_remove_packet(model_type, action)
             if not data and not is_ping_back:
