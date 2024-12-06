@@ -436,13 +436,6 @@ class Bootstrap(ProtectBaseObject):
             )
         return None
 
-    def _process_ws_ulp_user_message(
-        self,
-        action: dict[str, Any],
-        data: dict[str, Any],
-    ) -> WSSubscriptionMessage | None:
-        return None
-
     def _process_nvr_update(
         self,
         action: dict[str, Any],
