@@ -237,18 +237,18 @@ class User(ProtectModelWithId):
 
 
 class Keyring(ProtectModelWithId):
-    deviceType: str
-    deviceId: str
-    registryType: str
-    registryId: str
-    lastActivity: int
-    ulpUser: str
+    device_type: str
+    device_id: str
+    registry_type: str
+    registry_id: str
+    last_activity: datetime | None = None
+    ulp_user: str
 
 
 class UlpUser(ProtectModelWithId):
-    ulpId: str
-    firstName: str
-    lastName: str
-    fullName: str
+    ulp_id: str
+    first_name: str
+    last_name: str
+    full_name: str
     avatar: str
     status: str

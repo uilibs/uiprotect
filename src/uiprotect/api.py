@@ -154,6 +154,12 @@ def get_user_hash(host: str, username: str) -> str:
     session.update(username.encode("utf8"))
     return session.hexdigest()
 
+def dict_from_unifi_list(self, list) -> dict[str, Keyring]:
+        return_dict: dict[str, Keyring] = {}
+        for obj_dict in list:
+            obj = create_from_unifi_dict(obj_dict, api=self)
+            return_dict[obj.id] = obj
+        return return_dict
 
 class BaseApiClient:
     _host: str
@@ -1181,16 +1187,11 @@ class ProtectApiClient(BaseApiClient):
 
     async def get_keyrings(self) -> dict[str, Keyring]:
         """Gets keyrings from UFP instance"""
-        data = await self.api_request_list("keyrings")
-        return {
-            keyring["id"]: Keyring.from_unifi_dict(**keyring, api=self)
-            for keyring in data
-        }
+        return dict_from_unifi_list(self, await self.api_request_list("keyrings"))
 
     async def get_ulpusers(self) -> dict[str, UlpUser]:
         """Gets ulpusers from UFP instance"""
-        data = await self.api_request_list("ulp-users")
-        return {ulpUser.id: ulpUser for ulpUser in data}
+        return dict_from_unifi_list(self, await self.api_request_list("ulp-users"))
 
     async def get_devices_raw(self, model_type: ModelType) -> list[dict[str, Any]]:
         """Gets a raw device list given a model_type"""

@@ -16,7 +16,7 @@ from .devices import (
 )
 from .nvr import NVR, Event, Liveview
 from .types import ModelType
-from .user import CloudAccount, Group, User, UserLocation
+from .user import CloudAccount, Group, Keyring, UlpUser, User, UserLocation
 
 if TYPE_CHECKING:
     from ..api import ProtectApiClient
@@ -38,6 +38,8 @@ MODEL_TO_CLASS: dict[str, type[ProtectModel]] = {
     ModelType.SENSOR: Sensor,
     ModelType.DOORLOCK: Doorlock,
     ModelType.CHIME: Chime,
+    ModelType.KEYRING: Keyring,
+    ModelType.ULP_USER: UlpUser,
 }
 
 
