@@ -393,11 +393,11 @@ class Bootstrap(ProtectBaseObject):
         model_type: ModelType,
     ) -> WSSubscriptionMessage | None:
         action_id = action["id"]
-        dict_from_bootstrap: dict[str, ProtectModelWithId] = getattr(self, model_type.devices_key)
+        dict_from_bootstrap: dict[str, ProtectModelWithId] = getattr(
+            self, model_type.devices_key
+        )
         if action["action"] == "add":
-            new_obj = create_from_unifi_dict(
-                data, api=self._api, model_type=model_type
-            )
+            new_obj = create_from_unifi_dict(data, api=self._api, model_type=model_type)
             if TYPE_CHECKING:
                 assert isinstance(new_obj, MODEL_TO_CLASS.get(model_type))
             dict_from_bootstrap[new_obj.id] = new_obj
@@ -599,7 +599,9 @@ class Bootstrap(ProtectBaseObject):
 
         try:
             if model_type in {ModelType.KEYRING, ModelType.ULP_USER}:
-                return self._process_ws_keyring_or_ulp_user_message(action, data, model_type)
+                return self._process_ws_keyring_or_ulp_user_message(
+                    action, data, model_type
+                )
             if action_action == "remove":
                 return self._process_remove_packet(model_type, action)
             if not data and not is_ping_back:
