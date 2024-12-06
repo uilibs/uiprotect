@@ -155,10 +155,10 @@ def get_user_hash(host: str, username: str) -> str:
     return session.hexdigest()
 
 
-def dict_from_unifi_list(self, unifi_list: list[dict[str, Any]]) -> dict[str, Any]:
+def dict_from_unifi_list(api: ProtectApiClient, unifi_list: list[dict[str, Any]]) -> dict[str, Any]:
     return_dict: dict[str, Any] = {}
     for obj_dict in unifi_list:
-        obj = create_from_unifi_dict(obj_dict, api=self)
+        obj = create_from_unifi_dict(obj_dict, api)
         return_dict[obj.id] = obj
     return return_dict
 
