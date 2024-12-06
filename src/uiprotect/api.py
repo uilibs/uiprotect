@@ -27,8 +27,6 @@ from aiohttp import CookieJar, client_exceptions
 from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
-from uiprotect.data.user import Keyring, UlpUser
-
 from ._compat import cached_property
 from .data import (
     NVR,
@@ -835,8 +833,8 @@ class ProtectApiClient(BaseApiClient):
             bootstrap = await self.get_bootstrap()
             self.__dict__.pop("bootstrap", None)
             self._bootstrap = bootstrap
-            self._bootstrap.keyrings = await self.get_keyrings()
-            self._bootstrap.ulp_users = await self.get_ulpusers()
+            self._bootstrap.keyrings = dict_from_unifi_list(self, await self.api_request_list("keyrings"))
+            self._bootstrap.ulp_users = dict_from_unifi_list(self, await self.api_request_list("ulp-users"))
             return bootstrap
 
     async def poll_events(self) -> None:
@@ -1186,14 +1184,6 @@ class ProtectApiClient(BaseApiClient):
         """
         data = await self.api_request_obj("bootstrap")
         return Bootstrap.from_unifi_dict(**data, api=self)
-
-    async def get_keyrings(self) -> dict[str, Keyring]:
-        """Gets keyrings from UFP instance"""
-        return dict_from_unifi_list(self, await self.api_request_list("keyrings"))
-
-    async def get_ulpusers(self) -> dict[str, UlpUser]:
-        """Gets ulpusers from UFP instance"""
-        return dict_from_unifi_list(self, await self.api_request_list("ulp-users"))
 
     async def get_devices_raw(self, model_type: ModelType) -> list[dict[str, Any]]:
         """Gets a raw device list given a model_type"""
