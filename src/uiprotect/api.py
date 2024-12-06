@@ -90,6 +90,8 @@ If your Protect instance has a lot of events, this request will take much longer
 _LOGGER = logging.getLogger(__name__)
 _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
 
+NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
+
 # TODO: Urls to still support
 # Backups
 # * GET /backups - list backends
@@ -833,9 +835,8 @@ class ProtectApiClient(BaseApiClient):
             bootstrap = await self.get_bootstrap()
             self.__dict__.pop("bootstrap", None)
             self._bootstrap = bootstrap
-            if bootstrap.nvr.version >= Version(
-                "5.1.57"
-            ):  # first version with NFC and Fingerprint support
+
+            if bootstrap.nvr.version >= NFC_FINGERPRINT_SUPPORT_VERSION:
                 self._bootstrap.keyrings = dict_from_unifi_list(
                     self, await self.api_request_list("keyrings")
                 )
