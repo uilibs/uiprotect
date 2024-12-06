@@ -394,7 +394,7 @@ class Bootstrap(ProtectBaseObject):
     ) -> WSSubscriptionMessage | None:
         action_id = action["id"]
         dict_from_bootstrap: dict[str, ProtectModelWithId] = getattr(
-            self, model_type.devices_key
+            self, to_snake_case(model_type.devices_key)
         )
         if action["action"] == "add":
             new_obj = create_from_unifi_dict(data, api=self._api, model_type=model_type)
