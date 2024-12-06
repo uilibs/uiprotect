@@ -983,6 +983,7 @@ async def test_ws_keyring_add_fingerprint(
 
     unsub()
 
+
 @patch("uiprotect.data.devices.utc_now")
 @pytest.mark.asyncio()
 async def test_ws_ulp_user_add(
@@ -1014,15 +1015,15 @@ async def test_ws_ulp_user_add(
 
     data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
     data_frame.data = {
-            "ulpId": some_ulp_id,
-            "firstName": "viewonly",
-            "lastName": "",
-            "fullName": "viewonly",
-            "avatar": "",
-            "status": "ACTIVE",
-            "id": some_id,
-            "modelKey": "ulpUser"
-        }
+        "ulpId": some_ulp_id,
+        "firstName": "viewonly",
+        "lastName": "",
+        "fullName": "viewonly",
+        "avatar": "",
+        "status": "ACTIVE",
+        "id": some_id,
+        "modelKey": "ulpUser",
+    }
 
     msg = MagicMock()
     msg.data = packet.pack_frames()
@@ -1038,6 +1039,7 @@ async def test_ws_ulp_user_add(
     assert some_id in protect_client.bootstrap.ulp_users
 
     unsub()
+
 
 @patch("uiprotect.data.devices.utc_now")
 @pytest.mark.asyncio()
@@ -1060,7 +1062,7 @@ async def test_ws_ulp_user_update(
         full_name="viewonly",
         avatar="",
         status="ACTIVE",
-        model_key="ulpUser"
+        model_key="ulpUser",
     )
 
     protect_client.bootstrap.ulp_users = {}
@@ -1082,9 +1084,7 @@ async def test_ws_ulp_user_update(
     }
 
     data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
-    data_frame.data = {
-            "status": "DEACTIVATED"
-        }
+    data_frame.data = {"status": "DEACTIVATED"}
 
     msg = MagicMock()
     msg.data = packet.pack_frames()
@@ -1123,7 +1123,7 @@ async def test_ws_ulp_user_remove(
         full_name="viewonly",
         avatar="",
         status="ACTIVE",
-        model_key="ulpUser"
+        model_key="ulpUser",
     )
 
     protect_client.bootstrap.ulp_users = {}
