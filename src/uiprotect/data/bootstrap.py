@@ -386,19 +386,53 @@ class Bootstrap(ProtectBaseObject):
             old_obj=device,
         )
 
-    def _process_keyring_update(
+    def _process_ws_keyring_message(
         self,
         action: dict[str, Any],
         data: dict[str, Any],
-        ignore_stats: bool,
     ) -> WSSubscriptionMessage | None:
+        if action["action"] == "add":
+            keyring = create_from_unifi_dict(data, api=self._api, model_type=ModelType.KEYRING)
+            if TYPE_CHECKING:
+                assert isinstance(keyring, Keyring)
+            self.keyrings[keyring.id] = keyring
+            return WSSubscriptionMessage(
+                action=WSAction.ADD,
+                new_update_id=self.last_update_id,
+                changed_data=keyring.dict(),
+                new_obj=keyring,
+            )
+        if action["action"] == "remove":
+            keyring_id = action["id"]
+            keyring = self.keyrings.pop(keyring_id, None)
+            if keyring is None:
+                return None
+            return WSSubscriptionMessage(
+                action=WSAction.REMOVE,
+                new_update_id=self.last_update_id,
+                changed_data={},
+                old_obj=keyring,
+            )
+        if action["action"] == "update":
+            keyring_id = action["id"]
+            keyring = self.keyrings.get(keyring_id)
+            if keyring is None:
+                return None
+            old_keyring = keyring.copy()
+            keyring = keyring.update_from_dict(data)
+            return WSSubscriptionMessage(
+                action=WSAction.UPDATE,
+                new_update_id=self.last_update_id,
+                changed_data=data,
+                new_obj=keyring,
+                old_obj=old_keyring,
+            )
         return None
 
-    def _process_ulpUser_update(
+    def _process_ws_ulp_user_message(
         self,
         action: dict[str, Any],
         data: dict[str, Any],
-        ignore_stats: bool,
     ) -> WSSubscriptionMessage | None:
         return None
 
@@ -558,22 +592,21 @@ class Bootstrap(ProtectBaseObject):
             return None
 
         action_action: str = action["action"]
-        if action_action == "remove":
-            return self._process_remove_packet(model_type, action)
-
-        if not data and not is_ping_back:
-            return None
 
         try:
+            if model_type is ModelType.KEYRING:
+                return self._process_ws_keyring_message(action, data)
+            if model_type is ModelType.ULP_USER:
+                return self._process_ws_ulp_user_message(action, data)
+            if action_action == "remove":
+                return self._process_remove_packet(model_type, action)
+            if not data and not is_ping_back:
+                return None
             if action_action == "add":
                 return self._process_add_packet(model_type, data)
             if action_action == "update":
                 if model_type is ModelType.NVR:
                     return self._process_nvr_update(action, data, ignore_stats)
-                if model_type is ModelType.KEYRING:
-                    return self._process_keyring_update(action, data, ignore_stats)
-                if model_type is ModelType.ULP_USER:
-                    return self._process_ulpUser_update(action, data, ignore_stats)
                 if model_type in ModelType.bootstrap_models_types_and_event_set:
                     return self._process_device_update(
                         model_type, action, data, ignore_stats, is_ping_back
