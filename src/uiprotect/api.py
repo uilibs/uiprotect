@@ -27,6 +27,8 @@ from aiohttp import CookieJar, client_exceptions
 from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
+from uiprotect.data.convert import dict_from_unifi_list
+
 from ._compat import cached_property
 from .data import (
     NVR,
@@ -153,17 +155,6 @@ def get_user_hash(host: str, username: str) -> str:
     session.update(host.encode("utf8"))
     session.update(username.encode("utf8"))
     return session.hexdigest()
-
-
-def dict_from_unifi_list(
-    api: ProtectApiClient, unifi_list: list[dict[str, ProtectModelWithId]]
-) -> dict[str, ProtectModelWithId]:
-    return_dict: dict[str, Any] = {}
-    for obj_dict in unifi_list:
-        obj = create_from_unifi_dict(obj_dict, api)
-        return_dict[obj.id] = obj
-    return return_dict
-
 
 class BaseApiClient:
     _host: str

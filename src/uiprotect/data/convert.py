@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from uiprotect.data.base import ProtectModelWithId
+
 from ..exceptions import DataDecodeError
 from .devices import (
     Bridge,
@@ -81,3 +83,13 @@ def create_from_unifi_dict(
         klass = get_klass_from_dict(data)
 
     return klass.from_unifi_dict(**data, api=api)
+
+
+def dict_from_unifi_list(
+    api: ProtectApiClient, unifi_list: list[dict[str, ProtectModelWithId]]
+) -> dict[str, ProtectModelWithId]:
+    return_dict: dict[str, Any] = {}
+    for obj_dict in unifi_list:
+        obj = create_from_unifi_dict(obj_dict, api)
+        return_dict[obj.id] = obj
+    return return_dict
