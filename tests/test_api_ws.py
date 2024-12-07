@@ -1207,6 +1207,7 @@ async def test_ws_ulp_user_remove_user_not_exist(
 
     unsub()
 
+
 @patch("uiprotect.data.devices.utc_now")
 @pytest.mark.asyncio()
 async def test_ws_ulp_user_update_user_not_exist(
@@ -1250,6 +1251,7 @@ async def test_ws_ulp_user_update_user_not_exist(
     protect_client._process_ws_message(msg)
 
     unsub()
+
 
 @patch("uiprotect.data.devices.utc_now")
 @pytest.mark.asyncio()
