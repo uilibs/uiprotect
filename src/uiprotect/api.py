@@ -156,6 +156,7 @@ def get_user_hash(host: str, username: str) -> str:
     session.update(username.encode("utf8"))
     return session.hexdigest()
 
+
 class BaseApiClient:
     _host: str
     _port: int
