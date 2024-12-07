@@ -91,7 +91,5 @@ def dict_from_unifi_list(
     return_dict: dict[str, Any] = {}
     for obj_dict in unifi_list:
         obj = create_from_unifi_dict(obj_dict, api)
-        if not isinstance(obj, ProtectModelWithId):
-            raise DataDecodeError("Object is not of type ProtectModelWithId")
         return_dict[cast(ProtectModelWithId, obj).id] = obj
     return return_dict

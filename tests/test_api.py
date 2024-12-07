@@ -335,7 +335,33 @@ async def test_force_update_with_nfc_fingerprint_version(
     ) as get_bootstrap_mock:
         with patch(
             "uiprotect.api.ProtectApiClient.api_request_list",
-            AsyncMock(return_value=[]),
+            AsyncMock(side_effect=lambda endpoint: {
+            "keyrings": [
+            {
+            'deviceType': 'camera',
+            'deviceId': 'new_device_id_1',
+            'registryType': 'fingerprint',
+            'registryId': 'new_registry_id_1',
+            'lastActivity': 1733432893331,
+            'metadata': {},
+            'ulpUser': 'new_ulp_user_id_1',
+            'id': 'new_keyring_id_1',
+            'modelKey': 'keyring'
+            }
+            ],
+            "ulp-users": [
+            {
+            'ulpId': 'new_ulp_id_1',
+            'firstName': 'localadmin',
+            'lastName': '',
+            'fullName': 'localadmin',
+            'avatar': '',
+            'status': 'ACTIVE',
+            'id': 'new_ulp_user_id_1',
+            'modelKey': 'ulpUser'
+            }
+            ]
+            }.get(endpoint, [])),
         ) as api_request_list_mock:
             await protect_client.update()
             assert get_bootstrap_mock.called
@@ -343,6 +369,8 @@ async def test_force_update_with_nfc_fingerprint_version(
             api_request_list_mock.assert_any_call("keyrings")
             api_request_list_mock.assert_any_call("ulp-users")
             assert api_request_list_mock.call_count == 2
+            assert protect_client.bootstrap.keyrings['new_keyring_id_1'].device_id == 'new_device_id_1'
+            assert protect_client.bootstrap.ulp_users['new_ulp_user_id_1'].full_name == 'localadmin'
 
     assert protect_client.bootstrap
     assert original_bootstrap != protect_client.bootstrap
