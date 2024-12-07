@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from uiprotect.data.base import ProtectModelWithId
 
@@ -68,7 +68,7 @@ def create_from_unifi_dict(
     api: ProtectApiClient | None = None,
     klass: type[ProtectModel] | None = None,
     model_type: ModelType | None = None,
-) -> ProtectModelWithId:
+) -> ProtectModel:
     """
     Helper method to read the `modelKey` from a UFP JSON dict and convert to currect Python class.
     Will raise `DataDecodeError` if the `modelKey` is for an unknown object.
@@ -91,5 +91,7 @@ def dict_from_unifi_list(
     return_dict: dict[str, Any] = {}
     for obj_dict in unifi_list:
         obj = create_from_unifi_dict(obj_dict, api)
-        return_dict[obj.id] = obj
+        if not isinstance(obj, ProtectModelWithId):
+            raise DataDecodeError("Object is not of type ProtectModelWithId")
+        return_dict[cast(ProtectModelWithId, obj).id] = obj
     return return_dict

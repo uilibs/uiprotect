@@ -6,7 +6,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aiohttp.client_exceptions import ServerDisconnectedError
 from convertertools import pop_dict_set, pop_dict_tuple
@@ -398,16 +398,17 @@ class Bootstrap(ProtectBaseObject):
         )
         action_type = action["action"]
         if action_type == "add":
-            new_obj = create_from_unifi_dict(data, api=self._api, model_type=model_type)
+            add_obj = create_from_unifi_dict(data, api=self._api, model_type=model_type)
             if TYPE_CHECKING:
                 model_class = MODEL_TO_CLASS.get(model_type)
-                assert model_class is not None and isinstance(new_obj, model_class)
-            dict_from_bootstrap[new_obj.id] = new_obj
+                assert model_class is not None and isinstance(add_obj, model_class)
+            add_obj = cast(ProtectModelWithId, add_obj)
+            dict_from_bootstrap[add_obj.id] = add_obj
             return WSSubscriptionMessage(
                 action=WSAction.ADD,
                 new_update_id=self.last_update_id,
-                changed_data=new_obj.dict(),
-                new_obj=new_obj,
+                changed_data=add_obj.dict(),
+                new_obj=add_obj,
             )
         elif action_type == "remove":
             removed_obj = dict_from_bootstrap.pop(action_id, None)
@@ -420,19 +421,19 @@ class Bootstrap(ProtectBaseObject):
                 old_obj=removed_obj,
             )
         elif action_type == "update":
-            new_obj = dict_from_bootstrap.get(action_id)
-            if new_obj is None:
+            updated_obj = dict_from_bootstrap.get(action_id)
+            if updated_obj is None:
                 return None
 
-            old_obj = new_obj.copy()
+            old_obj = updated_obj.copy()
             updated_data = {to_snake_case(k): v for k, v in data.items()}
-            new_obj.update_from_dict(updated_data)
+            updated_obj.update_from_dict(updated_data)
 
             return WSSubscriptionMessage(
                 action=WSAction.UPDATE,
                 new_update_id=self.last_update_id,
                 changed_data=updated_data,
-                new_obj=new_obj,
+                new_obj=updated_obj,
                 old_obj=old_obj,
             )
         return None
