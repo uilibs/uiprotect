@@ -303,15 +303,21 @@ async def test_force_update_with_old_Version(protect_client: ProtectApiClient):
     assert protect_client.bootstrap
     original_bootstrap = protect_client.bootstrap
     protect_client._bootstrap = None
-    with patch("uiprotect.api.ProtectApiClient.get_bootstrap", AsyncMock(return_value=AsyncMock(nvr=AsyncMock(version=OLD_VERSION)))) as mock:
+    with patch(
+        "uiprotect.api.ProtectApiClient.get_bootstrap",
+        AsyncMock(return_value=AsyncMock(nvr=AsyncMock(version=OLD_VERSION))),
+    ) as mock:
         await protect_client.update()
         assert mock.called
 
     assert protect_client.bootstrap
     assert original_bootstrap != protect_client.bootstrap
 
+
 @pytest.mark.asyncio()
-async def test_force_update_with_nfc_fingerprint_version(protect_client: ProtectApiClient):
+async def test_force_update_with_nfc_fingerprint_version(
+    protect_client: ProtectApiClient,
+):
     protect_client._bootstrap = None
 
     await protect_client.update()
@@ -321,12 +327,16 @@ async def test_force_update_with_nfc_fingerprint_version(protect_client: Protect
     protect_client._bootstrap = None
     with patch(
         "uiprotect.api.ProtectApiClient.get_bootstrap",
-        AsyncMock(return_value=AsyncMock(nvr=AsyncMock(version=NFC_FINGERPRINT_SUPPORT_VERSION))),
+        AsyncMock(
+            return_value=AsyncMock(
+                nvr=AsyncMock(version=NFC_FINGERPRINT_SUPPORT_VERSION)
+            )
+        ),
     ) as get_bootstrap_mock:
         with patch(
             "uiprotect.api.ProtectApiClient.api_request_list",
-            AsyncMock(return_value=[])
-            ) as api_request_list_mock:
+            AsyncMock(return_value=[]),
+        ) as api_request_list_mock:
             await protect_client.update()
             assert get_bootstrap_mock.called
             assert api_request_list_mock.called
@@ -803,22 +813,26 @@ async def test_get_event_smart_detect_track(protect_client: ProtectApiClient):
         require_auth=True,
         raise_exception=True,
     )
+
     @pytest.mark.asyncio()
     async def test_update_with_nfc_fingerprint_support_version(mocker):
-        mocker.patch("uiprotect.api.ProtectApiClient.api_request_obj", return_value={
-            "nvr": {"version": "5.1.57"},
-            "cameras": [],
-            "lights": [],
-            "sensors": [],
-            "doorlocks": [],
-            "chimes": [],
-            "viewers": [],
-            "bridges": [],
-            "liveviews": [],
-            "events": [],
-            "keyrings": [],
-            "ulp-users": [],
-        })
+        mocker.patch(
+            "uiprotect.api.ProtectApiClient.api_request_obj",
+            return_value={
+                "nvr": {"version": "5.1.57"},
+                "cameras": [],
+                "lights": [],
+                "sensors": [],
+                "doorlocks": [],
+                "chimes": [],
+                "viewers": [],
+                "bridges": [],
+                "liveviews": [],
+                "events": [],
+                "keyrings": [],
+                "ulp-users": [],
+            },
+        )
         mocker.patch("uiprotect.api.ProtectApiClient.api_request_list", return_value=[])
 
         client = ProtectApiClient(
@@ -837,21 +851,23 @@ async def test_get_event_smart_detect_track(protect_client: ProtectApiClient):
         assert client._bootstrap.keyrings == {}
         assert client._bootstrap.ulp_users == {}
 
-
     @pytest.mark.asyncio()
     async def test_update_with_old_version(mocker):
-        mocker.patch("uiprotect.api.ProtectApiClient.api_request_obj", return_value={
-            "nvr": {"version": "1.2.3"},
-            "cameras": [],
-            "lights": [],
-            "sensors": [],
-            "doorlocks": [],
-            "chimes": [],
-            "viewers": [],
-            "bridges": [],
-            "liveviews": [],
-            "events": [],
-        })
+        mocker.patch(
+            "uiprotect.api.ProtectApiClient.api_request_obj",
+            return_value={
+                "nvr": {"version": "1.2.3"},
+                "cameras": [],
+                "lights": [],
+                "sensors": [],
+                "doorlocks": [],
+                "chimes": [],
+                "viewers": [],
+                "bridges": [],
+                "liveviews": [],
+                "events": [],
+            },
+        )
 
         client = ProtectApiClient(
             "127.0.0.1",
