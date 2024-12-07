@@ -400,7 +400,8 @@ class Bootstrap(ProtectBaseObject):
         if action_type == "add":
             new_obj = create_from_unifi_dict(data, api=self._api, model_type=model_type)
             if TYPE_CHECKING:
-                assert isinstance(new_obj, MODEL_TO_CLASS.get(model_type))
+                model_class = MODEL_TO_CLASS.get(model_type)
+                assert model_class is not None and isinstance(new_obj, model_class)
             dict_from_bootstrap[new_obj.id] = new_obj
             return WSSubscriptionMessage(
                 action=WSAction.ADD,

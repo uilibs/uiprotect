@@ -68,7 +68,7 @@ def create_from_unifi_dict(
     api: ProtectApiClient | None = None,
     klass: type[ProtectModel] | None = None,
     model_type: ModelType | None = None,
-) -> ProtectModel:
+) -> ProtectModelWithId:
     """
     Helper method to read the `modelKey` from a UFP JSON dict and convert to currect Python class.
     Will raise `DataDecodeError` if the `modelKey` is for an unknown object.
