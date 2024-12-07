@@ -436,6 +436,7 @@ class Bootstrap(ProtectBaseObject):
                 new_obj=updated_obj,
                 old_obj=old_obj,
             )
+        _LOGGER.debug("Unexpected ws action for %s: %s", model_type, action_type                )
         return None
 
     def _process_nvr_update(
