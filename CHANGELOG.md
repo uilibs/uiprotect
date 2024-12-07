@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.7.0 (2024-12-07)
+
+### Feature
+
+
+- Add keyring and ulp-user (#299) ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
+
+
 ## v6.6.5 (2024-12-02)
 
 ### Fix
