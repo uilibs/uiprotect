@@ -38,9 +38,12 @@ from uiprotect.data import (
     ModelType,
     create_from_unifi_dict,
 )
-from uiprotect.data.types import VideoMode
+from uiprotect.data.types import Version, VideoMode
 from uiprotect.exceptions import BadRequest, NvrError
 from uiprotect.utils import to_js_time
+
+OLD_VERSION = Version("1.2.3")
+NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
 
 if TYPE_CHECKING:
     from uiprotect.data.base import ProtectAdoptableDeviceModel
@@ -292,7 +295,7 @@ def test_connection_host_override():
 
 
 @pytest.mark.asyncio()
-async def test_force_update(protect_client: ProtectApiClient):
+async def test_force_update_with_old_Version(protect_client: ProtectApiClient):
     protect_client._bootstrap = None
 
     await protect_client.update()
@@ -300,9 +303,82 @@ async def test_force_update(protect_client: ProtectApiClient):
     assert protect_client.bootstrap
     original_bootstrap = protect_client.bootstrap
     protect_client._bootstrap = None
-    with patch("uiprotect.api.ProtectApiClient.get_bootstrap", AsyncMock()) as mock:
+    with patch(
+        "uiprotect.api.ProtectApiClient.get_bootstrap",
+        AsyncMock(return_value=AsyncMock(nvr=AsyncMock(version=OLD_VERSION))),
+    ) as mock:
         await protect_client.update()
         assert mock.called
+
+    assert protect_client.bootstrap
+    assert original_bootstrap != protect_client.bootstrap
+
+
+@pytest.mark.asyncio()
+async def test_force_update_with_nfc_fingerprint_version(
+    protect_client: ProtectApiClient,
+):
+    protect_client._bootstrap = None
+
+    await protect_client.update()
+
+    assert protect_client.bootstrap
+    original_bootstrap = protect_client.bootstrap
+    protect_client._bootstrap = None
+    with patch(
+        "uiprotect.api.ProtectApiClient.get_bootstrap",
+        AsyncMock(
+            return_value=AsyncMock(
+                nvr=AsyncMock(version=NFC_FINGERPRINT_SUPPORT_VERSION)
+            )
+        ),
+    ) as get_bootstrap_mock:
+        with patch(
+            "uiprotect.api.ProtectApiClient.api_request_list",
+            AsyncMock(
+                side_effect=lambda endpoint: {
+                    "keyrings": [
+                        {
+                            "deviceType": "camera",
+                            "deviceId": "new_device_id_1",
+                            "registryType": "fingerprint",
+                            "registryId": "new_registry_id_1",
+                            "lastActivity": 1733432893331,
+                            "metadata": {},
+                            "ulpUser": "new_ulp_user_id_1",
+                            "id": "new_keyring_id_1",
+                            "modelKey": "keyring",
+                        }
+                    ],
+                    "ulp-users": [
+                        {
+                            "ulpId": "new_ulp_id_1",
+                            "firstName": "localadmin",
+                            "lastName": "",
+                            "fullName": "localadmin",
+                            "avatar": "",
+                            "status": "ACTIVE",
+                            "id": "new_ulp_user_id_1",
+                            "modelKey": "ulpUser",
+                        }
+                    ],
+                }.get(endpoint, [])
+            ),
+        ) as api_request_list_mock:
+            await protect_client.update()
+            assert get_bootstrap_mock.called
+            assert api_request_list_mock.called
+            api_request_list_mock.assert_any_call("keyrings")
+            api_request_list_mock.assert_any_call("ulp-users")
+            assert api_request_list_mock.call_count == 2
+            assert (
+                protect_client.bootstrap.keyrings["new_keyring_id_1"].device_id
+                == "new_device_id_1"
+            )
+            assert (
+                protect_client.bootstrap.ulp_users["new_ulp_user_id_1"].full_name
+                == "localadmin"
+            )
 
     assert protect_client.bootstrap
     assert original_bootstrap != protect_client.bootstrap

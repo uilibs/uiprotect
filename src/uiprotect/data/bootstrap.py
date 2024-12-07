@@ -6,14 +6,14 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aiohttp.client_exceptions import ServerDisconnectedError
 from convertertools import pop_dict_set, pop_dict_tuple
 from pydantic.v1 import PrivateAttr, ValidationError
 
 from ..exceptions import ClientError
-from ..utils import normalize_mac, utc_now
+from ..utils import normalize_mac, to_snake_case, utc_now
 from .base import (
     RECENT_EVENT_MAX,
     ProtectBaseObject,
@@ -21,7 +21,7 @@ from .base import (
     ProtectModel,
     ProtectModelWithId,
 )
-from .convert import create_from_unifi_dict
+from .convert import MODEL_TO_CLASS, create_from_unifi_dict
 from .devices import (
     Bridge,
     Camera,
@@ -34,7 +34,7 @@ from .devices import (
 )
 from .nvr import NVR, Event, Liveview
 from .types import EventType, FixSizeOrderedDict, ModelType
-from .user import Group, User
+from .user import Group, Keyring, UlpUser, User
 from .websocket import (
     WSAction,
     WSPacket,
@@ -188,6 +188,8 @@ class Bootstrap(ProtectBaseObject):
     # agreements
 
     # not directly from UniFi
+    keyrings: dict[str, Keyring] = {}
+    ulp_users: dict[str, UlpUser] = {}
     events: dict[str, Event] = FixSizeOrderedDict()
     capture_ws_stats: bool = False
     mac_lookup: dict[str, ProtectDeviceRef] = {}
@@ -384,6 +386,59 @@ class Bootstrap(ProtectBaseObject):
             old_obj=device,
         )
 
+    def _process_ws_keyring_or_ulp_user_message(
+        self,
+        action: dict[str, Any],
+        data: dict[str, Any],
+        model_type: ModelType,
+    ) -> WSSubscriptionMessage | None:
+        action_id = action["id"]
+        dict_from_bootstrap: dict[str, ProtectModelWithId] = getattr(
+            self, to_snake_case(model_type.devices_key)
+        )
+        action_type = action["action"]
+        if action_type == "add":
+            add_obj = create_from_unifi_dict(data, api=self._api, model_type=model_type)
+            if TYPE_CHECKING:
+                model_class = MODEL_TO_CLASS.get(model_type)
+                assert model_class is not None and isinstance(add_obj, model_class)
+            add_obj = cast(ProtectModelWithId, add_obj)
+            dict_from_bootstrap[add_obj.id] = add_obj
+            return WSSubscriptionMessage(
+                action=WSAction.ADD,
+                new_update_id=self.last_update_id,
+                changed_data=add_obj.dict(),
+                new_obj=add_obj,
+            )
+        elif action_type == "remove":
+            removed_obj = dict_from_bootstrap.pop(action_id, None)
+            if removed_obj is None:
+                return None
+            return WSSubscriptionMessage(
+                action=WSAction.REMOVE,
+                new_update_id=self.last_update_id,
+                changed_data={},
+                old_obj=removed_obj,
+            )
+        elif action_type == "update":
+            updated_obj = dict_from_bootstrap.get(action_id)
+            if updated_obj is None:
+                return None
+
+            old_obj = updated_obj.copy()
+            updated_data = {to_snake_case(k): v for k, v in data.items()}
+            updated_obj.update_from_dict(updated_data)
+
+            return WSSubscriptionMessage(
+                action=WSAction.UPDATE,
+                new_update_id=self.last_update_id,
+                changed_data=updated_data,
+                new_obj=updated_obj,
+                old_obj=old_obj,
+            )
+        _LOGGER.debug("Unexpected ws action for %s: %s", model_type, action_type)
+        return None
+
     def _process_nvr_update(
         self,
         action: dict[str, Any],
@@ -540,13 +595,16 @@ class Bootstrap(ProtectBaseObject):
             return None
 
         action_action: str = action["action"]
-        if action_action == "remove":
-            return self._process_remove_packet(model_type, action)
-
-        if not data and not is_ping_back:
-            return None
 
         try:
+            if model_type in {ModelType.KEYRING, ModelType.ULP_USER}:
+                return self._process_ws_keyring_or_ulp_user_message(
+                    action, data, model_type
+                )
+            if action_action == "remove":
+                return self._process_remove_packet(model_type, action)
+            if not data and not is_ping_back:
+                return None
             if action_action == "add":
                 return self._process_add_packet(model_type, data)
             if action_action == "update":

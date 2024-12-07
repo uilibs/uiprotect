@@ -1,0 +1,32 @@
+[
+    {
+        "ulpId": "73791632-9805-419c-8351-f3afaab8f064",
+        "firstName": "John Doe",
+        "lastName": "",
+        "fullName": "John Doe",
+        "avatar": "",
+        "status": "ACTIVE",
+        "id": "73791632-9805-419c-8351-f3afaab8f064",
+        "modelKey": "ulpUser"
+    },
+    {
+        "ulpId": "ddec43ea-1845-4a50-bdab-83bcd4b3c81d",
+        "firstName": "Jane Doe",
+        "lastName": "",
+        "fullName": "Jane Doe",
+        "avatar": "",
+        "status": "ACTIVE",
+        "id": "ddec43ea-1845-4a50-bdab-83bcd4b3c81d",
+        "modelKey": "ulpUser"
+    },
+    {
+        "ulpId": "0ef32f28-f654-404d-ab34-30e373e66436",
+        "firstName": "You Know Who",
+        "lastName": "",
+        "fullName": "You Know Who",
+        "avatar": "/proxy/users/public/avatar/1732954155_589f14b3-b137-4487-9823-db62bb793c19.jpg",
+        "status": "DEACTIVATED",
+        "id": "0ef32f28-f654-404d-ab34-30e373e66436",
+        "modelKey": "ulpUser"
+    }
+]

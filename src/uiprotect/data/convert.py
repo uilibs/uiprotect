@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
+
+from uiprotect.data.base import ProtectModelWithId
 
 from ..exceptions import DataDecodeError
 from .devices import (
@@ -16,7 +18,7 @@ from .devices import (
 )
 from .nvr import NVR, Event, Liveview
 from .types import ModelType
-from .user import CloudAccount, Group, User, UserLocation
+from .user import CloudAccount, Group, Keyring, UlpUser, User, UserLocation
 
 if TYPE_CHECKING:
     from ..api import ProtectApiClient
@@ -38,6 +40,8 @@ MODEL_TO_CLASS: dict[str, type[ProtectModel]] = {
     ModelType.SENSOR: Sensor,
     ModelType.DOORLOCK: Doorlock,
     ModelType.CHIME: Chime,
+    ModelType.KEYRING: Keyring,
+    ModelType.ULP_USER: UlpUser,
 }
 
 
@@ -79,3 +83,13 @@ def create_from_unifi_dict(
         klass = get_klass_from_dict(data)
 
     return klass.from_unifi_dict(**data, api=api)
+
+
+def dict_from_unifi_list(
+    api: ProtectApiClient, unifi_list: list[dict[str, ProtectModelWithId]]
+) -> dict[str, ProtectModelWithId]:
+    return_dict: dict[str, ProtectModelWithId] = {}
+    for obj_dict in unifi_list:
+        obj = cast(ProtectModelWithId, create_from_unifi_dict(obj_dict, api))
+        return_dict[obj.id] = obj
+    return return_dict

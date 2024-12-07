@@ -22,6 +22,7 @@ from uiprotect.data import EventType, WSPacket
 from uiprotect.data.base import ProtectModel
 from uiprotect.data.devices import EVENT_PING_INTERVAL, Camera
 from uiprotect.data.types import ModelType
+from uiprotect.data.user import Keyring, UlpUser
 from uiprotect.data.websocket import (
     WSAction,
     WSJSONPacketFrame,
@@ -734,4 +735,564 @@ async def test_ws_ignores_nvr_mac_and_guid(
     protect_client._process_ws_message(msg)
 
     assert len(messages) == 1
+    unsub()
+
+
+@patch("uiprotect.data.devices.utc_now")
+@pytest.mark.asyncio()
+async def test_ws_keyring_update(
+    mock_now,
+    protect_client_no_debug: ProtectApiClient,
+    now: datetime,
+    packet: WSPacket,
+):
+    mock_now.return_value = now
+    protect_client = protect_client_no_debug
+
+    keyring_id = "some_id"
+    old_ulp_user = "b45f9411-133d-400d-b92f-a434877123"
+    new_ulp_user = "b45f9411-133d-400d-b92f-a434877321"
+
+    keyring = Keyring(
+        id=keyring_id,
+        ulp_user=old_ulp_user,
+        device_type="test",
+        device_id="test",
+        registry_type="test",
+        registry_id="test",
+        created_at=utc_now(),
+        updated_at=utc_now(),
+    )
+
+    protect_client.bootstrap.keyrings = {}
+    protect_client.bootstrap.keyrings[keyring.id] = keyring
+
+    messages: list[WSSubscriptionMessage] = []
+
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
+
+    unsub = protect_client.subscribe_websocket(capture_ws)
+
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": "update",
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": "keyring",
+        "id": "some_id",
+    }
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {"ulpUser": new_ulp_user}
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+
+    assert len(messages) == 0
+
+    packet = WSPacket(msg.data)
+
+    assert protect_client.bootstrap.keyrings[keyring_id].ulp_user == old_ulp_user
+
+    protect_client._process_ws_message(msg)
+
+    assert protect_client.bootstrap.keyrings[keyring_id].ulp_user == new_ulp_user
+
+    unsub()
+
+
+@patch("uiprotect.data.devices.utc_now")
+@pytest.mark.asyncio()
+async def test_ws_keyring_remove(
+    mock_now,
+    protect_client_no_debug: ProtectApiClient,
+    now: datetime,
+    packet: WSPacket,
+):
+    mock_now.return_value = now
+    protect_client = protect_client_no_debug
+
+    keyring_id = "some_id"
+    ulp_user = "b45f9411-133d-400d-b92f-a434877123"
+
+    keyring = Keyring(
+        id=keyring_id,
+        ulp_user=ulp_user,
+        device_type="test",
+        device_id="test",
+        registry_type="test",
+        registry_id="test",
+        created_at=utc_now(),
+        updated_at=utc_now(),
+    )
+
+    protect_client.bootstrap.keyrings = {}
+    protect_client.bootstrap.keyrings[keyring.id] = keyring
+
+    messages: list[WSSubscriptionMessage] = []
+
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
+
+    unsub = protect_client.subscribe_websocket(capture_ws)
+
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": "remove",
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": "keyring",
+        "id": keyring_id,
+    }
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {}
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+
+    assert len(messages) == 0
+
+    packet = WSPacket(msg.data)
+
+    assert protect_client.bootstrap.keyrings.get(keyring_id) is not None
+
+    protect_client._process_ws_message(msg)
+
+    assert protect_client.bootstrap.keyrings.get(keyring_id) is None
+
+    unsub()
+
+
+@patch("uiprotect.data.devices.utc_now")
+@pytest.mark.asyncio()
+async def test_ws_keyring_add_nfc(
+    mock_now,
+    protect_client_no_debug: ProtectApiClient,
+    now: datetime,
+    packet: WSPacket,
+):
+    mock_now.return_value = now
+    protect_client = protect_client_no_debug
+    protect_client.bootstrap.keyrings = {}
+
+    keyring_id = "some_id"
+    ulp_user = "b45f9411-133d-400d-b92f-a434877123"
+
+    messages: list[WSSubscriptionMessage] = []
+
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
+
+    unsub = protect_client.subscribe_websocket(capture_ws)
+
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": "add",
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": "keyring",
+        "id": keyring_id,
+    }
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {
+        "id": keyring_id,
+        "modelKey": "keyring",
+        "deviceType": "camera",
+        "deviceId": "663d0aa400918803e4006454",
+        "registryType": "nfc",
+        "registryId": "046A5702E27548",
+        "lastActivity": None,
+        "metadata": {"nfc": {"isUACard": False}},
+        "ulpUser": ulp_user,
+        "createdAt": to_js_time(now),
+        "updatedAt": to_js_time(now),
+    }
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+
+    assert len(messages) == 0
+
+    packet = WSPacket(msg.data)
+
+    assert keyring_id not in protect_client.bootstrap.keyrings
+
+    protect_client._process_ws_message(msg)
+
+    assert keyring_id in protect_client.bootstrap.keyrings
+    assert protect_client.bootstrap.keyrings[keyring_id].ulp_user == ulp_user
+
+    unsub()
+
+
+@patch("uiprotect.data.devices.utc_now")
+@pytest.mark.asyncio()
+async def test_ws_keyring_add_fingerprint(
+    mock_now,
+    protect_client_no_debug: ProtectApiClient,
+    now: datetime,
+    packet: WSPacket,
+):
+    mock_now.return_value = now
+    protect_client = protect_client_no_debug
+    protect_client.bootstrap.keyrings = {}
+
+    keyring_id = "some_id"
+    ulp_user = "b45f9411-133d-400d-b92f-a434877123"
+
+    messages: list[WSSubscriptionMessage] = []
+
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
+
+    unsub = protect_client.subscribe_websocket(capture_ws)
+
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": "add",
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": "keyring",
+        "id": keyring_id,
+    }
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {
+        "id": keyring_id,
+        "modelKey": "keyring",
+        "deviceType": "camera",
+        "deviceId": "663d0aa400918803e4004578",
+        "registryType": "fingerprint",
+        "registryId": "2",
+        "lastActivity": None,
+        "ulpUser": ulp_user,
+    }
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+
+    assert len(messages) == 0
+
+    packet = WSPacket(msg.data)
+
+    assert keyring_id not in protect_client.bootstrap.keyrings
+
+    protect_client._process_ws_message(msg)
+
+    assert keyring_id in protect_client.bootstrap.keyrings
+    assert protect_client.bootstrap.keyrings[keyring_id].ulp_user == ulp_user
+
+    unsub()
+
+
+@patch("uiprotect.data.devices.utc_now")
+@pytest.mark.asyncio()
+async def test_ws_ulp_user_add(
+    mock_now,
+    protect_client_no_debug: ProtectApiClient,
+    now: datetime,
+    packet: WSPacket,
+):
+    mock_now.return_value = now
+    protect_client = protect_client_no_debug
+    protect_client.bootstrap.ulp_users = {}
+    some_id = "some_id"
+    some_ulp_id = "42313461-eaa0-45f6-b12d-a0783ed3d4s2"
+
+    messages: list[WSSubscriptionMessage] = []
+
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
+
+    unsub = protect_client.subscribe_websocket(capture_ws)
+
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": "add",
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": "ulpUser",
+        "id": some_id,
+    }
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {
+        "ulpId": some_ulp_id,
+        "firstName": "viewonly",
+        "lastName": "",
+        "fullName": "viewonly",
+        "avatar": "",
+        "status": "ACTIVE",
+        "id": some_id,
+        "modelKey": "ulpUser",
+    }
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+
+    assert len(messages) == 0
+
+    packet = WSPacket(msg.data)
+
+    assert some_id not in protect_client.bootstrap.ulp_users
+
+    protect_client._process_ws_message(msg)
+
+    assert some_id in protect_client.bootstrap.ulp_users
+
+    unsub()
+
+
+@patch("uiprotect.data.devices.utc_now")
+@pytest.mark.asyncio()
+async def test_ws_ulp_user_update(
+    mock_now,
+    protect_client_no_debug: ProtectApiClient,
+    now: datetime,
+    packet: WSPacket,
+):
+    mock_now.return_value = now
+    protect_client = protect_client_no_debug
+
+    some_ulp_id = "42313461-eaa0-45f6-b12d-a0783ed3d4s2"
+
+    ulp_usr = UlpUser(
+        id=some_ulp_id,
+        ulp_id=some_ulp_id,
+        first_name="viewonly",
+        last_name="",
+        full_name="viewonly",
+        avatar="",
+        status="ACTIVE",
+        model_key="ulpUser",
+    )
+
+    protect_client.bootstrap.ulp_users = {}
+    protect_client.bootstrap.ulp_users[ulp_usr.id] = ulp_usr
+
+    messages: list[WSSubscriptionMessage] = []
+
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
+
+    unsub = protect_client.subscribe_websocket(capture_ws)
+
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": "update",
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": "ulpUser",
+        "id": some_ulp_id,
+    }
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {"status": "DEACTIVATED"}
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+
+    assert len(messages) == 0
+
+    packet = WSPacket(msg.data)
+
+    assert protect_client.bootstrap.ulp_users[some_ulp_id].status == "ACTIVE"
+
+    protect_client._process_ws_message(msg)
+
+    assert protect_client.bootstrap.ulp_users[some_ulp_id].status == "DEACTIVATED"
+
+    unsub()
+
+
+@patch("uiprotect.data.devices.utc_now")
+@pytest.mark.asyncio()
+async def test_ws_ulp_user_remove(
+    mock_now,
+    protect_client_no_debug: ProtectApiClient,
+    now: datetime,
+    packet: WSPacket,
+):
+    mock_now.return_value = now
+    protect_client = protect_client_no_debug
+
+    some_ulp_id = "42313461-eaa0-45f6-b12d-a0783ed3d4s2"
+
+    ulp_usr = UlpUser(
+        id=some_ulp_id,
+        ulp_id=some_ulp_id,
+        first_name="viewonly",
+        last_name="",
+        full_name="viewonly",
+        avatar="",
+        status="ACTIVE",
+        model_key="ulpUser",
+    )
+
+    protect_client.bootstrap.ulp_users = {}
+    protect_client.bootstrap.ulp_users[ulp_usr.id] = ulp_usr
+
+    messages: list[WSSubscriptionMessage] = []
+
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
+
+    unsub = protect_client.subscribe_websocket(capture_ws)
+
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": "remove",
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": "ulpUser",
+        "id": some_ulp_id,
+    }
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {}
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+
+    assert len(messages) == 0
+
+    packet = WSPacket(msg.data)
+
+    assert some_ulp_id in protect_client.bootstrap.ulp_users
+
+    protect_client._process_ws_message(msg)
+
+    assert some_ulp_id not in protect_client.bootstrap.ulp_users
+
+    unsub()
+
+
+@patch("uiprotect.data.devices.utc_now")
+@pytest.mark.asyncio()
+async def test_ws_ulp_user_remove_user_not_exist(
+    mock_now,
+    protect_client_no_debug: ProtectApiClient,
+    now: datetime,
+    packet: WSPacket,
+):
+    mock_now.return_value = now
+    protect_client = protect_client_no_debug
+
+    some_ulp_id = "42313461-eaa0-45f6-b12d-a0783ed3d4s2"
+
+    protect_client.bootstrap.ulp_users = {}
+
+    messages: list[WSSubscriptionMessage] = []
+
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
+
+    unsub = protect_client.subscribe_websocket(capture_ws)
+
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": "remove",
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": "ulpUser",
+        "id": some_ulp_id,
+    }
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {}
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+
+    assert len(messages) == 0
+
+    packet = WSPacket(msg.data)
+
+    protect_client._process_ws_message(msg)
+
+    unsub()
+
+
+@patch("uiprotect.data.devices.utc_now")
+@pytest.mark.asyncio()
+async def test_ws_ulp_user_update_user_not_exist(
+    mock_now,
+    protect_client_no_debug: ProtectApiClient,
+    now: datetime,
+    packet: WSPacket,
+):
+    mock_now.return_value = now
+    protect_client = protect_client_no_debug
+
+    some_ulp_id = "42313461-eaa0-45f6-b12d-a0783ed3d4s2"
+
+    protect_client.bootstrap.ulp_users = {}
+
+    messages: list[WSSubscriptionMessage] = []
+
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
+
+    unsub = protect_client.subscribe_websocket(capture_ws)
+
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": "update",
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": "ulpUser",
+        "id": some_ulp_id,
+    }
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {"status": "DEACTIVATED"}
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+
+    assert len(messages) == 0
+
+    packet = WSPacket(msg.data)
+
+    protect_client._process_ws_message(msg)
+
+    unsub()
+
+
+@patch("uiprotect.data.devices.utc_now")
+@pytest.mark.asyncio()
+async def test_ws_ulp_user_unknown_action(
+    mock_now,
+    protect_client_no_debug: ProtectApiClient,
+    now: datetime,
+    packet: WSPacket,
+):
+    mock_now.return_value = now
+    protect_client = protect_client_no_debug
+
+    some_ulp_id = "42313461-eaa0-45f6-b12d-a0783ed3d4s2"
+
+    protect_client.bootstrap.ulp_users = {}
+
+    messages: list[WSSubscriptionMessage] = []
+
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
+
+    unsub = protect_client.subscribe_websocket(capture_ws)
+
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": "not_supported",
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": "ulpUser",
+        "id": some_ulp_id,
+    }
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {"status": "DEACTIVATED"}
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+
+    assert len(messages) == 0
+
+    packet = WSPacket(msg.data)
+
+    protect_client._process_ws_message(msg)
+
     unsub()

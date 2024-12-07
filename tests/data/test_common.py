@@ -311,6 +311,10 @@ def test_bootstrap(bootstrap: dict[str, Any]):
     if "deviceGroups" in bootstrap:
         del bootstrap["deviceGroups"]
 
+    # Remove additional keys from obj_dict
+    obj_dict.pop("keyrings", None)
+    obj_dict.pop("ulpUsers", None)
+
     for model_type in ModelType.bootstrap_models:
         key = model_type + "s"
         expected_data = bootstrap.pop(key)

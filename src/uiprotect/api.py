@@ -27,6 +27,9 @@ from aiohttp import CookieJar, client_exceptions
 from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
+from uiprotect.data.convert import dict_from_unifi_list
+from uiprotect.data.user import Keyring, UlpUser
+
 from ._compat import cached_property
 from .data import (
     NVR,
@@ -89,6 +92,8 @@ If your Protect instance has a lot of events, this request will take much longer
 
 _LOGGER = logging.getLogger(__name__)
 _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
+
+NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
 
 # TODO: Urls to still support
 # Backups
@@ -823,6 +828,17 @@ class ProtectApiClient(BaseApiClient):
         """
         async with self._update_lock:
             bootstrap = await self.get_bootstrap()
+            if bootstrap.nvr.version >= NFC_FINGERPRINT_SUPPORT_VERSION:
+                bootstrap.keyrings = cast(
+                    dict[str, Keyring],
+                    dict_from_unifi_list(self, await self.api_request_list("keyrings")),
+                )
+                bootstrap.ulp_users = cast(
+                    dict[str, UlpUser],
+                    dict_from_unifi_list(
+                        self, await self.api_request_list("ulp-users")
+                    ),
+                )
             self.__dict__.pop("bootstrap", None)
             self._bootstrap = bootstrap
             return bootstrap

@@ -1,0 +1,22 @@
+[
+    {
+        "deviceType": "camera",
+        "deviceId": "1c9a2db4df6efda47a3509be",
+        "registryType": "nfc",
+        "registryId": "64B2A621",
+        "lastActivity": 1732904108638,
+        "ulpUser": "73791632-9805-419c-8351-f3afaab8f064",
+        "id": "672b573764f79603e400031d",
+        "modelKey": "keyring"
+    },
+    {
+        "deviceType": "camera",
+        "deviceId": "1c9a2db4df6efda47a3509be",
+        "registryType": "fingerprint",
+        "registryId": "1",
+        "lastActivity": 1732904119477,
+        "ulpUser": "0ef32f28-f654-404d-ab34-30e373e66436",
+        "id": "672b573764f79603e44871d",
+        "modelKey": "keyring"
+    }
+]

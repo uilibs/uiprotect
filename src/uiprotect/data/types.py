@@ -105,6 +105,8 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
     CHIME = "chime"
     DEVICE_GROUP = "deviceGroup"
     RECORDING_SCHEDULE = "recordingSchedule"
+    ULP_USER = "ulpUser"
+    KEYRING = "keyring"
     UNKNOWN = "unknown"
 
     bootstrap_model_types: tuple[ModelType, ...]
