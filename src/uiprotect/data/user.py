@@ -281,6 +281,13 @@ class Keyrings(UlpUserKeyringBase[Keyring]):
         self._keyrings_by_registry_id: dict[str, Keyring] = {}
         self._keyrings_by_ulp_user: dict[str, Keyring] = {}
 
+    @classmethod
+    def from_list(cls, keyrings: list[Keyring]) -> Keyrings:
+        instance = cls()
+        for keyring in keyrings:
+            instance.add(keyring)
+        return instance
+
     def add(self, keyring: Keyring) -> None:
         self._keyrings_by_id[keyring.id] = keyring
         self._keyrings_by_registry_id[keyring.registry_id] = keyring
@@ -299,13 +306,6 @@ class Keyrings(UlpUserKeyringBase[Keyring]):
 
     def by_registry_id(self, ulp_id: str) -> Keyring | None:
         return self._keyrings_by_registry_id.get(ulp_id)
-
-    def replace_with_list(self, keyrings: list[Keyring]) -> None:
-        self._keyrings_by_id.clear()
-        self._keyrings_by_registry_id.clear()
-        self._keyrings_by_ulp_user.clear()
-        for keyring in keyrings:
-            self.add(keyring)
 
     def as_list(self) -> list[Keyring]:
         return list(self._keyrings_by_id.values())
@@ -330,6 +330,13 @@ class UlpUsers(UlpUserKeyringBase[UlpUser]):
         self._users_by_id: dict[str, UlpUser] = {}
         self._users_by_ulp_id: dict[str, UlpUser] = {}
 
+    @classmethod
+    def from_list(cls, users: list[UlpUser]) -> UlpUsers:
+        instance = cls()
+        for user in users:
+            instance.add(user)
+        return instance
+
     def add(self, user: UlpUser) -> None:
         self._users_by_id[user.id] = user
         self._users_by_ulp_id[user.ulp_id] = user
@@ -343,12 +350,6 @@ class UlpUsers(UlpUserKeyringBase[UlpUser]):
 
     def by_ulp_id(self, ulp_id: str) -> UlpUser | None:
         return self._users_by_ulp_id.get(ulp_id)
-
-    def replace_with_list(self, users: list[UlpUser]) -> None:
-        self._users_by_id.clear()
-        self._users_by_ulp_id.clear()
-        for user in users:
-            self.add(user)
 
     def as_list(self) -> list[UlpUser]:
         return list(self._users_by_ulp_id.values())
