@@ -411,17 +411,15 @@ class Bootstrap(ProtectBaseObject):
                 new_obj=add_obj,
             )
         elif action_type == "remove":
-            item = obj_from_bootstrap.by_id(action_id)
-            if item is None:
+            to_remove = obj_from_bootstrap.by_id(action_id)
+            if to_remove is None:
                 return None
-            removed_obj = obj_from_bootstrap.remove(item)
-            if removed_obj is None:
-                return None
+            obj_from_bootstrap.remove(to_remove)
             return WSSubscriptionMessage(
                 action=WSAction.REMOVE,
                 new_update_id=self.last_update_id,
                 changed_data={},
-                old_obj=removed_obj,
+                old_obj=to_remove,
             )
         elif action_type == "update":
             updated_obj = obj_from_bootstrap.by_id(action_id)
