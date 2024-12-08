@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from abc import abstractmethod
 from datetime import datetime
 from functools import cache
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 from pydantic.v1.fields import PrivateAttr
 
@@ -236,6 +237,31 @@ class User(ProtectModelWithId):
         return False
 
 
+T = TypeVar("T", bound="ProtectModelWithId")
+
+
+class UlpUserKeyringBase(Generic[T]):
+    @abstractmethod
+    def add(self, item: T) -> None:
+        """Add an item to the collection."""
+
+    @abstractmethod
+    def remove(self, item: T) -> None:
+        """Remove an item from the collection."""
+
+    @abstractmethod
+    def by_id(self, item_id: str) -> T | None:
+        """Retrieve an item by its ID."""
+
+    @abstractmethod
+    def by_ulp_id(self, item_id: str) -> T | None:
+        """Retrieve an item by its ULP ID."""
+
+    @abstractmethod
+    def as_list(self) -> list[T]:
+        """Return the collection as a list."""
+
+
 class Keyring(ProtectModelWithId):
     device_type: str
     device_id: str
@@ -245,6 +271,47 @@ class Keyring(ProtectModelWithId):
     ulp_user: str
 
 
+class Keyrings(UlpUserKeyringBase[Keyring]):
+    def __init__(self) -> None:
+        self._keyrings_by_id: dict[str, Keyring] = {}
+        self._keyrings_by_registry_id: dict[str, Keyring] = {}
+        self._keyrings_by_ulp_user: dict[str, Keyring] = {}
+
+    @classmethod
+    def from_list(cls, keyrings: list[Keyring]) -> Keyrings:
+        instance = cls()
+        for keyring in keyrings:
+            instance.add(keyring)
+        return instance
+
+    def add(self, keyring: Keyring) -> None:
+        self._keyrings_by_id[keyring.id] = keyring
+        self._keyrings_by_registry_id[keyring.registry_id] = keyring
+        self._keyrings_by_ulp_user[keyring.ulp_user] = keyring
+
+    def remove(self, keyring: Keyring) -> None:
+        self._keyrings_by_id.pop(keyring.id, None)
+        self._keyrings_by_registry_id.pop(keyring.registry_id, None)
+        self._keyrings_by_ulp_user.pop(keyring.ulp_user, None)
+
+    def by_id(self, keyring_id: str) -> Keyring | None:
+        return self._keyrings_by_id.get(keyring_id)
+
+    def by_ulp_id(self, ulp_id: str) -> Keyring | None:
+        return self._keyrings_by_ulp_user.get(ulp_id)
+
+    def by_registry_id(self, ulp_id: str) -> Keyring | None:
+        return self._keyrings_by_registry_id.get(ulp_id)
+
+    def as_list(self) -> list[Keyring]:
+        return list(self._keyrings_by_id.values())
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Keyrings):
+            return NotImplemented
+        return self._keyrings_by_id == other._keyrings_by_id
+
+
 class UlpUser(ProtectModelWithId):
     ulp_id: str
     first_name: str
@@ -252,3 +319,38 @@ class UlpUser(ProtectModelWithId):
     full_name: str
     avatar: str
     status: str
+
+
+class UlpUsers(UlpUserKeyringBase[UlpUser]):
+    def __init__(self) -> None:
+        self._users_by_id: dict[str, UlpUser] = {}
+        self._users_by_ulp_id: dict[str, UlpUser] = {}
+
+    @classmethod
+    def from_list(cls, users: list[UlpUser]) -> UlpUsers:
+        instance = cls()
+        for user in users:
+            instance.add(user)
+        return instance
+
+    def add(self, user: UlpUser) -> None:
+        self._users_by_id[user.id] = user
+        self._users_by_ulp_id[user.ulp_id] = user
+
+    def remove(self, user: UlpUser) -> None:
+        self._users_by_id.pop(user.id, None)
+        self._users_by_ulp_id.pop(user.ulp_id, None)
+
+    def by_id(self, user_id: str) -> UlpUser | None:
+        return self._users_by_id.get(user_id)
+
+    def by_ulp_id(self, ulp_id: str) -> UlpUser | None:
+        return self._users_by_ulp_id.get(ulp_id)
+
+    def as_list(self) -> list[UlpUser]:
+        return list(self._users_by_ulp_id.values())
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, UlpUsers):
+            return NotImplemented
+        return self._users_by_id == other._users_by_id

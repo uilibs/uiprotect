@@ -34,7 +34,7 @@ from .devices import (
 )
 from .nvr import NVR, Event, Liveview
 from .types import EventType, FixSizeOrderedDict, ModelType
-from .user import Group, Keyring, UlpUser, User
+from .user import Group, Keyrings, UlpUserKeyringBase, UlpUsers, User
 from .websocket import (
     WSAction,
     WSPacket,
@@ -188,8 +188,8 @@ class Bootstrap(ProtectBaseObject):
     # agreements
 
     # not directly from UniFi
-    keyrings: dict[str, Keyring] = {}
-    ulp_users: dict[str, UlpUser] = {}
+    keyrings: Keyrings = Keyrings()
+    ulp_users: UlpUsers = UlpUsers()
     events: dict[str, Event] = FixSizeOrderedDict()
     capture_ws_stats: bool = False
     mac_lookup: dict[str, ProtectDeviceRef] = {}
@@ -393,7 +393,7 @@ class Bootstrap(ProtectBaseObject):
         model_type: ModelType,
     ) -> WSSubscriptionMessage | None:
         action_id = action["id"]
-        dict_from_bootstrap: dict[str, ProtectModelWithId] = getattr(
+        obj_from_bootstrap: UlpUserKeyringBase[ProtectModelWithId] = getattr(
             self, to_snake_case(model_type.devices_key)
         )
         action_type = action["action"]
@@ -403,7 +403,7 @@ class Bootstrap(ProtectBaseObject):
                 model_class = MODEL_TO_CLASS.get(model_type)
                 assert model_class is not None and isinstance(add_obj, model_class)
             add_obj = cast(ProtectModelWithId, add_obj)
-            dict_from_bootstrap[add_obj.id] = add_obj
+            obj_from_bootstrap.add(add_obj)
             return WSSubscriptionMessage(
                 action=WSAction.ADD,
                 new_update_id=self.last_update_id,
@@ -411,17 +411,18 @@ class Bootstrap(ProtectBaseObject):
                 new_obj=add_obj,
             )
         elif action_type == "remove":
-            removed_obj = dict_from_bootstrap.pop(action_id, None)
-            if removed_obj is None:
+            to_remove = obj_from_bootstrap.by_id(action_id)
+            if to_remove is None:
                 return None
+            obj_from_bootstrap.remove(to_remove)
             return WSSubscriptionMessage(
                 action=WSAction.REMOVE,
                 new_update_id=self.last_update_id,
                 changed_data={},
-                old_obj=removed_obj,
+                old_obj=to_remove,
             )
         elif action_type == "update":
-            updated_obj = dict_from_bootstrap.get(action_id)
+            updated_obj = obj_from_bootstrap.by_id(action_id)
             if updated_obj is None:
                 return None
 
