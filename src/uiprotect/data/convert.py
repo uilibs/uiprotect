@@ -84,12 +84,7 @@ def create_from_unifi_dict(
 
     return klass.from_unifi_dict(**data, api=api)
 
-
-def dict_from_unifi_list(
+def list_from_unifi_list(
     api: ProtectApiClient, unifi_list: list[dict[str, ProtectModelWithId]]
-) -> dict[str, ProtectModelWithId]:
-    return_dict: dict[str, ProtectModelWithId] = {}
-    for obj_dict in unifi_list:
-        obj = cast(ProtectModelWithId, create_from_unifi_dict(obj_dict, api))
-        return_dict[obj.id] = obj
-    return return_dict
+) -> list[ProtectModelWithId]:
+    return [cast(ProtectModelWithId, create_from_unifi_dict(obj_dict, api)) for obj_dict in unifi_list]
