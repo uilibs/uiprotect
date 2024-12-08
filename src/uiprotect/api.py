@@ -837,7 +837,7 @@ class ProtectApiClient(BaseApiClient):
                                 self, await self.api_request_list("keyrings")
                             ),
                         )
-                    ),
+                    )
                 )
                 bootstrap.ulp_users = UlpUsers.from_list(
                     cast(
