@@ -258,10 +258,6 @@ class UlpUserKeyringBase(Generic[T]):
         """Retrieve an item by its ULP ID."""
 
     @abstractmethod
-    def replace_with_list(self, items: list[T]) -> None:
-        """Replace the current collection with a new list of items."""
-
-    @abstractmethod
     def as_list(self) -> list[T]:
         """Return the collection as a list."""
 
