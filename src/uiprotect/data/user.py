@@ -236,30 +236,32 @@ class User(ProtectModelWithId):
         self._perm_cache[perm_str] = False
         return False
 
+
 class UlpUserKeyringInterface(ABC):
-            @abstractmethod
-            def add(self, item: ProtectModelWithId):
-                pass
+    @abstractmethod
+    def add(self, item: ProtectModelWithId):
+        pass
 
-            @abstractmethod
-            def remove(self, item: ProtectModelWithId):
-                pass
+    @abstractmethod
+    def remove(self, item: ProtectModelWithId):
+        pass
 
-            @abstractmethod
-            def by_id(self, item_id: str) -> ProtectModelWithId | None:
-                pass
+    @abstractmethod
+    def by_id(self, item_id: str) -> ProtectModelWithId | None:
+        pass
 
-            @abstractmethod
-            def by_ulp_id(self, item_id: str) -> ProtectModelWithId | None:
-                pass
+    @abstractmethod
+    def by_ulp_id(self, item_id: str) -> ProtectModelWithId | None:
+        pass
 
-            @abstractmethod
-            def replace_with_list(self, items: list[ProtectModelWithId]):
-                pass
+    @abstractmethod
+    def replace_with_list(self, items: list[ProtectModelWithId]):
+        pass
 
-            @abstractmethod
-            def as_list(self) -> list[ProtectModelWithId]:
-                pass
+    @abstractmethod
+    def as_list(self) -> list[ProtectModelWithId]:
+        pass
+
 
 class Keyring(ProtectModelWithId):
     device_type: str
@@ -268,6 +270,7 @@ class Keyring(ProtectModelWithId):
     registry_id: str
     last_activity: datetime | None = None
     ulp_user: str
+
 
 class Keyrings(UlpUserKeyringInterface):
     def __init__(self):
@@ -307,9 +310,7 @@ class Keyrings(UlpUserKeyringInterface):
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Keyrings):
             return NotImplemented
-        return (
-            self.as_list == other.as_list
-        )
+        return self.as_list == other.as_list
 
 
 class UlpUser(ProtectModelWithId):
@@ -319,6 +320,7 @@ class UlpUser(ProtectModelWithId):
     full_name: str
     avatar: str
     status: str
+
 
 class UlpUsers(UlpUserKeyringInterface):
     def __init__(self):
@@ -351,7 +353,4 @@ class UlpUsers(UlpUserKeyringInterface):
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, UlpUser):
             return NotImplemented
-        return (
-            self.as_list == other.as_list
-        )
-
+        return self.as_list == other.as_list

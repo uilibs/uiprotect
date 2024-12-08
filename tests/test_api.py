@@ -365,12 +365,12 @@ async def test_force_update_with_nfc_fingerprint_version(
                 }.get(endpoint, [])
             ),
         ) as api_request_list_mock:
-                await protect_client.update()
-                assert get_bootstrap_mock.called
-                assert api_request_list_mock.called
-                api_request_list_mock.assert_any_call("keyrings")
-                api_request_list_mock.assert_any_call("ulp-users")
-                assert api_request_list_mock.call_count == 2
+            await protect_client.update()
+            assert get_bootstrap_mock.called
+            assert api_request_list_mock.called
+            api_request_list_mock.assert_any_call("keyrings")
+            api_request_list_mock.assert_any_call("ulp-users")
+            assert api_request_list_mock.call_count == 2
 
         assert protect_client.bootstrap
         assert original_bootstrap != protect_client.bootstrap
