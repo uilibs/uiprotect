@@ -310,7 +310,7 @@ class Keyrings(UlpUserKeyringBase):
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Keyrings):
             return NotImplemented
-        return self.as_list() == other.as_list()
+        return self._keyrings_by_id == other._keyrings_by_id
 
 
 class UlpUser(ProtectModelWithId):
@@ -353,4 +353,4 @@ class UlpUsers(UlpUserKeyringBase):
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, UlpUsers):
             return NotImplemented
-        return self.as_list() == other.as_list()
+        return self._users_by_id == other._users_by_id
