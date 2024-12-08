@@ -243,27 +243,27 @@ T = TypeVar("T", bound="ProtectModelWithId")
 class UlpUserKeyringBase(Generic[T]):
     @abstractmethod
     def add(self, item: T) -> None:
-        pass
+        """Add an item to the collection."""
 
     @abstractmethod
     def remove(self, item: T) -> None:
-        pass
+        """Remove an item from the collection."""
 
     @abstractmethod
     def by_id(self, item_id: str) -> T | None:
-        pass
+        """Retrieve an item by its ID."""
 
     @abstractmethod
     def by_ulp_id(self, item_id: str) -> T | None:
-        pass
+        """Retrieve an item by its ULP ID."""
 
     @abstractmethod
     def replace_with_list(self, items: list[T]) -> None:
-        pass
+        """Replace the current collection with a new list of items."""
 
     @abstractmethod
     def as_list(self) -> list[T]:
-        pass
+        """Return the collection as a list."""
 
 
 class Keyring(ProtectModelWithId):
