@@ -34,7 +34,7 @@ from .devices import (
 )
 from .nvr import NVR, Event, Liveview
 from .types import EventType, FixSizeOrderedDict, ModelType
-from .user import Group, Keyrings, UlpUserKeyringInterface, UlpUsers, User
+from .user import Group, Keyrings, UlpUserKeyringBase, UlpUsers, User
 from .websocket import (
     WSAction,
     WSPacket,
@@ -393,7 +393,7 @@ class Bootstrap(ProtectBaseObject):
         model_type: ModelType,
     ) -> WSSubscriptionMessage | None:
         action_id = action["id"]
-        obj_from_bootstrap: UlpUserKeyringInterface = getattr(
+        obj_from_bootstrap: UlpUserKeyringBase = getattr(
             self, to_snake_case(model_type.devices_key)
         )
         action_type = action["action"]

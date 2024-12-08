@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from datetime import datetime
 from functools import cache
 from typing import Any
@@ -237,7 +237,7 @@ class User(ProtectModelWithId):
         return False
 
 
-class UlpUserKeyringInterface(ABC):
+class UlpUserKeyringBase:
     @abstractmethod
     def add(self, item: ProtectModelWithId):
         pass
@@ -272,7 +272,7 @@ class Keyring(ProtectModelWithId):
     ulp_user: str
 
 
-class Keyrings(UlpUserKeyringInterface):
+class Keyrings(UlpUserKeyringBase):
     def __init__(self):
         self._keyrings_by_id = {}
         self._keyrings_by_registry_id = {}
@@ -322,7 +322,7 @@ class UlpUser(ProtectModelWithId):
     status: str
 
 
-class UlpUsers(UlpUserKeyringInterface):
+class UlpUsers(UlpUserKeyringBase):
     def __init__(self):
         self._users_by_id = {}
         self._users_by_ulp_id = {}
