@@ -393,9 +393,12 @@ class Bootstrap(ProtectBaseObject):
         model_type: ModelType,
     ) -> WSSubscriptionMessage | None:
         action_id = action["id"]
-        obj_from_bootstrap: UlpUserKeyringBase = getattr(
+        obj_from_bootstrap: UlpUserKeyringBase[ProtectModelWithId] = getattr(
             self, to_snake_case(model_type.devices_key)
         )
+        if obj_from_bootstrap is None:
+            _LOGGER.error("Failed to retrieve object from bootstrap for model type: %s", model_type)
+            return None
         action_type = action["action"]
         if action_type == "add":
             add_obj = create_from_unifi_dict(data, api=self._api, model_type=model_type)

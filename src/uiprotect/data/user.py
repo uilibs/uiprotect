@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from datetime import datetime
 from functools import cache
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 from pydantic.v1.fields import PrivateAttr
 
@@ -236,30 +236,31 @@ class User(ProtectModelWithId):
         self._perm_cache[perm_str] = False
         return False
 
+T = TypeVar('T', bound='ProtectModelWithId')
 
-class UlpUserKeyringBase:
+class UlpUserKeyringBase(Generic[T]):
     @abstractmethod
-    def add(self, item: ProtectModelWithId) -> None:
+    def add(self, item: T) -> None:
         pass
 
     @abstractmethod
-    def remove(self, item: ProtectModelWithId) -> None:
+    def remove(self, item: T) -> None:
         pass
 
     @abstractmethod
-    def by_id(self, item_id: str) -> ProtectModelWithId | None:
+    def by_id(self, item_id: str) -> T | None:
         pass
 
     @abstractmethod
-    def by_ulp_id(self, item_id: str) -> ProtectModelWithId | None:
+    def by_ulp_id(self, item_id: str) ->  T | None:
         pass
 
     @abstractmethod
-    def replace_with_list(self, items: list[ProtectModelWithId]) -> None:
+    def replace_with_list(self, items: list[T]) -> None:
         pass
 
     @abstractmethod
-    def as_list(self) -> list[ProtectModelWithId]:
+    def as_list(self) -> list[T]:
         pass
 
 
@@ -272,11 +273,11 @@ class Keyring(ProtectModelWithId):
     ulp_user: str
 
 
-class Keyrings(UlpUserKeyringBase):
-    def __init__(self):
-        self._keyrings_by_id = {}
-        self._keyrings_by_registry_id = {}
-        self._keyrings_by_ulp_user = {}
+class Keyrings(UlpUserKeyringBase[Keyring]):
+    def __init__(self) -> None:
+        self._keyrings_by_id: dict[str, Keyring] = {}
+        self._keyrings_by_registry_id: dict[str, Keyring] = {}
+        self._keyrings_by_ulp_user: dict[str, Keyring] = {}
 
     def add(self, keyring: Keyring) -> None:
         self._keyrings_by_id[keyring.id] = keyring
@@ -291,11 +292,8 @@ class Keyrings(UlpUserKeyringBase):
     def by_id(self, keyring_id: str) -> Keyring | None:
         return self._keyrings_by_id.get(keyring_id)
 
-    def by_registry_id(self, registry_id: str) -> Keyring | None:
-        return self._keyrings_by_registry_id.get(registry_id)
-
-    def by_ulp_id(self, ulp_user: str) -> Keyring | None:
-        return self._keyrings_by_ulp_user.get(ulp_user)
+    def by_ulp_id(self, ulp_id: str) -> Keyring | None:
+        return self._keyrings_by_ulp_user.get(ulp_id)
 
     def replace_with_list(self, keyrings: list[Keyring]) -> None:
         self._keyrings_by_id.clear()
@@ -322,10 +320,10 @@ class UlpUser(ProtectModelWithId):
     status: str
 
 
-class UlpUsers(UlpUserKeyringBase):
-    def __init__(self):
-        self._users_by_id = {}
-        self._users_by_ulp_id = {}
+class UlpUsers(UlpUserKeyringBase[UlpUser]):
+    def __init__(self) -> None:
+        self._users_by_id: dict[str, UlpUser] = {}
+        self._users_by_ulp_id: dict[str, UlpUser] = {}
 
     def add(self, user: UlpUser) -> None:
         self._users_by_id[user.id] = user
