@@ -234,3 +234,31 @@ def test_ulp_users_equality():
     users3.add(user3)
 
     assert users1 != users3
+
+def test_ulp_users_as_list():
+        users = UlpUsers()
+        user1 = UlpUser(
+            id="1",
+            ulp_id="ulp1",
+            first_name="John",
+            last_name="Doe",
+            full_name="John Doe",
+            avatar="avatar_url",
+            status="active",
+        )
+        user2 = UlpUser(
+            id="2",
+            ulp_id="ulp2",
+            first_name="Jane",
+            last_name="Doe",
+            full_name="Jane Doe",
+            avatar="avatar_url",
+            status="inactive",
+        )
+        users.add(user1)
+        users.add(user2)
+        user_list = users.as_list()
+        assert len(user_list) == 2
+        assert user1 in user_list
+        assert user2 in user_list
+
