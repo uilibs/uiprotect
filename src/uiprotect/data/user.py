@@ -239,11 +239,11 @@ class User(ProtectModelWithId):
 
 class UlpUserKeyringBase:
     @abstractmethod
-    def add(self, item: ProtectModelWithId):
+    def add(self, item: ProtectModelWithId) -> None:
         pass
 
     @abstractmethod
-    def remove(self, item: ProtectModelWithId):
+    def remove(self, item: ProtectModelWithId) -> None:
         pass
 
     @abstractmethod
@@ -255,7 +255,7 @@ class UlpUserKeyringBase:
         pass
 
     @abstractmethod
-    def replace_with_list(self, items: list[ProtectModelWithId]):
+    def replace_with_list(self, items: list[ProtectModelWithId]) -> None:
         pass
 
     @abstractmethod
@@ -278,12 +278,12 @@ class Keyrings(UlpUserKeyringBase):
         self._keyrings_by_registry_id = {}
         self._keyrings_by_ulp_user = {}
 
-    def add(self, keyring: Keyring):
+    def add(self, keyring: Keyring) -> None:
         self._keyrings_by_id[keyring.id] = keyring
         self._keyrings_by_registry_id[keyring.registry_id] = keyring
         self._keyrings_by_ulp_user[keyring.ulp_user] = keyring
 
-    def remove(self, keyring: Keyring):
+    def remove(self, keyring: Keyring) -> None:
         self._keyrings_by_id.pop(keyring.id, None)
         self._keyrings_by_registry_id.pop(keyring.registry_id, None)
         self._keyrings_by_ulp_user.pop(keyring.ulp_user, None)
@@ -297,7 +297,7 @@ class Keyrings(UlpUserKeyringBase):
     def by_ulp_id(self, ulp_user: str) -> Keyring | None:
         return self._keyrings_by_ulp_user.get(ulp_user)
 
-    def replace_with_list(self, keyrings: list[Keyring]):
+    def replace_with_list(self, keyrings: list[Keyring]) -> None:
         self._keyrings_by_id.clear()
         self._keyrings_by_registry_id.clear()
         self._keyrings_by_ulp_user.clear()
@@ -327,11 +327,11 @@ class UlpUsers(UlpUserKeyringBase):
         self._users_by_id = {}
         self._users_by_ulp_id = {}
 
-    def add(self, user: UlpUser):
+    def add(self, user: UlpUser) -> None:
         self._users_by_id[user.id] = user
         self._users_by_ulp_id[user.ulp_id] = user
 
-    def remove(self, user: UlpUser):
+    def remove(self, user: UlpUser) -> None:
         self._users_by_id.pop(user.id, None)
         self._users_by_ulp_id.pop(user.ulp_id, None)
 
@@ -341,7 +341,7 @@ class UlpUsers(UlpUserKeyringBase):
     def by_ulp_id(self, ulp_id: str) -> UlpUser | None:
         return self._users_by_ulp_id.get(ulp_id)
 
-    def replace_with_list(self, users: list[UlpUser]):
+    def replace_with_list(self, users: list[UlpUser]) -> None:
         self._users_by_id.clear()
         self._users_by_ulp_id.clear()
         for user in users:
