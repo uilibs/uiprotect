@@ -297,6 +297,9 @@ class Keyrings(UlpUserKeyringBase[Keyring]):
     def by_ulp_id(self, ulp_id: str) -> Keyring | None:
         return self._keyrings_by_ulp_user.get(ulp_id)
 
+    def by_registry_id(self, ulp_id: str) -> Keyring | None:
+        return self._keyrings_by_registry_id.get(ulp_id)
+
     def replace_with_list(self, keyrings: list[Keyring]) -> None:
         self._keyrings_by_id.clear()
         self._keyrings_by_registry_id.clear()
