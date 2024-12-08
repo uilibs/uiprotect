@@ -236,7 +236,9 @@ class User(ProtectModelWithId):
         self._perm_cache[perm_str] = False
         return False
 
-T = TypeVar('T', bound='ProtectModelWithId')
+
+T = TypeVar("T", bound="ProtectModelWithId")
+
 
 class UlpUserKeyringBase(Generic[T]):
     @abstractmethod
@@ -252,7 +254,7 @@ class UlpUserKeyringBase(Generic[T]):
         pass
 
     @abstractmethod
-    def by_ulp_id(self, item_id: str) ->  T | None:
+    def by_ulp_id(self, item_id: str) -> T | None:
         pass
 
     @abstractmethod

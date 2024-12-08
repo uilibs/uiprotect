@@ -397,7 +397,10 @@ class Bootstrap(ProtectBaseObject):
             self, to_snake_case(model_type.devices_key)
         )
         if obj_from_bootstrap is None:
-            _LOGGER.error("Failed to retrieve object from bootstrap for model type: %s", model_type)
+            _LOGGER.error(
+                "Failed to retrieve object from bootstrap for model type: %s",
+                model_type,
+            )
             return None
         action_type = action["action"]
         if action_type == "add":
