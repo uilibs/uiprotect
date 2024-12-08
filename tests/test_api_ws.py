@@ -22,7 +22,7 @@ from uiprotect.data import EventType, WSPacket
 from uiprotect.data.base import ProtectModel
 from uiprotect.data.devices import EVENT_PING_INTERVAL, Camera
 from uiprotect.data.types import ModelType
-from uiprotect.data.user import Keyring, UlpUser
+from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
 from uiprotect.data.websocket import (
     WSAction,
     WSJSONPacketFrame,
@@ -764,8 +764,8 @@ async def test_ws_keyring_update(
         updated_at=utc_now(),
     )
 
-    protect_client.bootstrap.keyrings = {}
-    protect_client.bootstrap.keyrings[keyring.id] = keyring
+    protect_client.bootstrap.keyrings = Keyrings()
+    protect_client.bootstrap.keyrings.add(keyring)
 
     messages: list[WSSubscriptionMessage] = []
 
@@ -792,11 +792,11 @@ async def test_ws_keyring_update(
 
     packet = WSPacket(msg.data)
 
-    assert protect_client.bootstrap.keyrings[keyring_id].ulp_user == old_ulp_user
+    assert protect_client.bootstrap.keyrings.by_id(keyring_id).ulp_user == old_ulp_user
 
     protect_client._process_ws_message(msg)
 
-    assert protect_client.bootstrap.keyrings[keyring_id].ulp_user == new_ulp_user
+    assert protect_client.bootstrap.keyrings.by_id(keyring_id).ulp_user == new_ulp_user
 
     unsub()
 
@@ -826,8 +826,8 @@ async def test_ws_keyring_remove(
         updated_at=utc_now(),
     )
 
-    protect_client.bootstrap.keyrings = {}
-    protect_client.bootstrap.keyrings[keyring.id] = keyring
+    protect_client.bootstrap.keyrings = Keyrings()
+    protect_client.bootstrap.keyrings.add(keyring)
 
     messages: list[WSSubscriptionMessage] = []
 
@@ -854,11 +854,11 @@ async def test_ws_keyring_remove(
 
     packet = WSPacket(msg.data)
 
-    assert protect_client.bootstrap.keyrings.get(keyring_id) is not None
+    assert protect_client.bootstrap.keyrings.by_id(keyring_id) is not None
 
     protect_client._process_ws_message(msg)
 
-    assert protect_client.bootstrap.keyrings.get(keyring_id) is None
+    assert protect_client.bootstrap.keyrings.by_id(keyring_id) is None
 
     unsub()
 
@@ -873,7 +873,7 @@ async def test_ws_keyring_add_nfc(
 ):
     mock_now.return_value = now
     protect_client = protect_client_no_debug
-    protect_client.bootstrap.keyrings = {}
+    protect_client.bootstrap.keyrings = Keyrings()
 
     keyring_id = "some_id"
     ulp_user = "b45f9411-133d-400d-b92f-a434877123"
@@ -915,12 +915,12 @@ async def test_ws_keyring_add_nfc(
 
     packet = WSPacket(msg.data)
 
-    assert keyring_id not in protect_client.bootstrap.keyrings
+    assert keyring_id not in protect_client.bootstrap.keyrings.as_list()
 
     protect_client._process_ws_message(msg)
 
-    assert keyring_id in protect_client.bootstrap.keyrings
-    assert protect_client.bootstrap.keyrings[keyring_id].ulp_user == ulp_user
+    assert protect_client.bootstrap.keyrings.by_id(keyring_id) is not None
+    assert protect_client.bootstrap.keyrings.by_id(keyring_id).ulp_user == ulp_user
 
     unsub()
 
@@ -935,7 +935,7 @@ async def test_ws_keyring_add_fingerprint(
 ):
     mock_now.return_value = now
     protect_client = protect_client_no_debug
-    protect_client.bootstrap.keyrings = {}
+    protect_client.bootstrap.keyrings = Keyrings()
 
     keyring_id = "some_id"
     ulp_user = "b45f9411-133d-400d-b92f-a434877123"
@@ -974,12 +974,12 @@ async def test_ws_keyring_add_fingerprint(
 
     packet = WSPacket(msg.data)
 
-    assert keyring_id not in protect_client.bootstrap.keyrings
+    assert protect_client.bootstrap.keyrings.by_id(keyring_id) is None
 
     protect_client._process_ws_message(msg)
 
-    assert keyring_id in protect_client.bootstrap.keyrings
-    assert protect_client.bootstrap.keyrings[keyring_id].ulp_user == ulp_user
+    assert protect_client.bootstrap.keyrings.by_id(keyring_id) is not None
+    assert protect_client.bootstrap.keyrings.by_id(keyring_id).ulp_user == ulp_user
 
     unsub()
 
@@ -994,7 +994,7 @@ async def test_ws_ulp_user_add(
 ):
     mock_now.return_value = now
     protect_client = protect_client_no_debug
-    protect_client.bootstrap.ulp_users = {}
+    protect_client.bootstrap.ulp_users = UlpUsers()
     some_id = "some_id"
     some_ulp_id = "42313461-eaa0-45f6-b12d-a0783ed3d4s2"
 
@@ -1032,11 +1032,11 @@ async def test_ws_ulp_user_add(
 
     packet = WSPacket(msg.data)
 
-    assert some_id not in protect_client.bootstrap.ulp_users
+    assert protect_client.bootstrap.ulp_users.by_id(some_id) is None
 
     protect_client._process_ws_message(msg)
 
-    assert some_id in protect_client.bootstrap.ulp_users
+    assert protect_client.bootstrap.ulp_users.by_id(some_id) is not None
 
     unsub()
 
@@ -1065,8 +1065,8 @@ async def test_ws_ulp_user_update(
         model_key="ulpUser",
     )
 
-    protect_client.bootstrap.ulp_users = {}
-    protect_client.bootstrap.ulp_users[ulp_usr.id] = ulp_usr
+    protect_client.bootstrap.ulp_users = UlpUsers()
+    protect_client.bootstrap.ulp_users.add(ulp_usr)
 
     messages: list[WSSubscriptionMessage] = []
 
@@ -1093,11 +1093,11 @@ async def test_ws_ulp_user_update(
 
     packet = WSPacket(msg.data)
 
-    assert protect_client.bootstrap.ulp_users[some_ulp_id].status == "ACTIVE"
+    assert protect_client.bootstrap.ulp_users.by_id(some_ulp_id).status == "ACTIVE"
 
     protect_client._process_ws_message(msg)
 
-    assert protect_client.bootstrap.ulp_users[some_ulp_id].status == "DEACTIVATED"
+    assert protect_client.bootstrap.ulp_users.by_id(some_ulp_id).status == "DEACTIVATED"
 
     unsub()
 
@@ -1126,8 +1126,8 @@ async def test_ws_ulp_user_remove(
         model_key="ulpUser",
     )
 
-    protect_client.bootstrap.ulp_users = {}
-    protect_client.bootstrap.ulp_users[ulp_usr.id] = ulp_usr
+    protect_client.bootstrap.ulp_users = UlpUsers()
+    protect_client.bootstrap.ulp_users.add(ulp_usr)
 
     messages: list[WSSubscriptionMessage] = []
 
@@ -1154,11 +1154,11 @@ async def test_ws_ulp_user_remove(
 
     packet = WSPacket(msg.data)
 
-    assert some_ulp_id in protect_client.bootstrap.ulp_users
+    assert protect_client.bootstrap.ulp_users.by_id(some_ulp_id) is not None
 
     protect_client._process_ws_message(msg)
 
-    assert some_ulp_id not in protect_client.bootstrap.ulp_users
+    assert protect_client.bootstrap.ulp_users.by_id(some_ulp_id) is None
 
     unsub()
 
@@ -1176,7 +1176,7 @@ async def test_ws_ulp_user_remove_user_not_exist(
 
     some_ulp_id = "42313461-eaa0-45f6-b12d-a0783ed3d4s2"
 
-    protect_client.bootstrap.ulp_users = {}
+    protect_client.bootstrap.ulp_users = UlpUsers()
 
     messages: list[WSSubscriptionMessage] = []
 
@@ -1221,7 +1221,7 @@ async def test_ws_ulp_user_update_user_not_exist(
 
     some_ulp_id = "42313461-eaa0-45f6-b12d-a0783ed3d4s2"
 
-    protect_client.bootstrap.ulp_users = {}
+    protect_client.bootstrap.ulp_users = UlpUsers()
 
     messages: list[WSSubscriptionMessage] = []
 
@@ -1266,7 +1266,7 @@ async def test_ws_ulp_user_unknown_action(
 
     some_ulp_id = "42313461-eaa0-45f6-b12d-a0783ed3d4s2"
 
-    protect_client.bootstrap.ulp_users = {}
+    protect_client.bootstrap.ulp_users = UlpUsers()
 
     messages: list[WSSubscriptionMessage] = []
 
