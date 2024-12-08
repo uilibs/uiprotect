@@ -81,6 +81,7 @@ def test_keyrings_add_and_remove():
     assert keyrings.by_registry_id("reg_id1") is None
     assert keyrings.by_ulp_id("ulp1") is None
 
+
 def test_keyrings_equality():
     keyrings1 = Keyrings()
     keyring1 = Keyring(
@@ -206,60 +207,60 @@ def test_ulp_users_as_list():
     assert user1 in user_list
     assert user2 in user_list
 
-def test_keyrings_from_list():
-        keyring1 = Keyring(
-            id="1",
-            device_type="type1",
-            device_id="device1",
-            registry_type="reg_type1",
-            registry_id="reg_id1",
-            last_activity=datetime.now(),
-            ulp_user="ulp1",
-        )
-        keyring2 = Keyring(
-            id="2",
-            device_type="type2",
-            device_id="device2",
-            registry_type="reg_type2",
-            registry_id="reg_id2",
-            last_activity=datetime.now(),
-            ulp_user="ulp2",
-        )
-        keyrings_list = [keyring1, keyring2]
-        keyrings = Keyrings.from_list(keyrings_list)
 
-        assert keyrings.by_id("1") == keyring1
-        assert keyrings.by_id("2") == keyring2
-        assert keyrings.by_registry_id("reg_id1") == keyring1
-        assert keyrings.by_registry_id("reg_id2") == keyring2
-        assert keyrings.by_ulp_id("ulp1") == keyring1
-        assert keyrings.by_ulp_id("ulp2") == keyring2
+def test_keyrings_from_list():
+    keyring1 = Keyring(
+        id="1",
+        device_type="type1",
+        device_id="device1",
+        registry_type="reg_type1",
+        registry_id="reg_id1",
+        last_activity=datetime.now(),
+        ulp_user="ulp1",
+    )
+    keyring2 = Keyring(
+        id="2",
+        device_type="type2",
+        device_id="device2",
+        registry_type="reg_type2",
+        registry_id="reg_id2",
+        last_activity=datetime.now(),
+        ulp_user="ulp2",
+    )
+    keyrings_list = [keyring1, keyring2]
+    keyrings = Keyrings.from_list(keyrings_list)
+
+    assert keyrings.by_id("1") == keyring1
+    assert keyrings.by_id("2") == keyring2
+    assert keyrings.by_registry_id("reg_id1") == keyring1
+    assert keyrings.by_registry_id("reg_id2") == keyring2
+    assert keyrings.by_ulp_id("ulp1") == keyring1
+    assert keyrings.by_ulp_id("ulp2") == keyring2
+
 
 def test_ulp_users_from_list():
-            user1 = UlpUser(
-                id="1",
-                ulp_id="ulp1",
-                first_name="John",
-                last_name="Doe",
-                full_name="John Doe",
-                avatar="avatar_url",
-                status="active",
-            )
-            user2 = UlpUser(
-                id="2",
-                ulp_id="ulp2",
-                first_name="Jane",
-                last_name="Doe",
-                full_name="Jane Doe",
-                avatar="avatar_url",
-                status="inactive",
-            )
-            users_list = [user1, user2]
-            users = UlpUsers.from_list(users_list)
+    user1 = UlpUser(
+        id="1",
+        ulp_id="ulp1",
+        first_name="John",
+        last_name="Doe",
+        full_name="John Doe",
+        avatar="avatar_url",
+        status="active",
+    )
+    user2 = UlpUser(
+        id="2",
+        ulp_id="ulp2",
+        first_name="Jane",
+        last_name="Doe",
+        full_name="Jane Doe",
+        avatar="avatar_url",
+        status="inactive",
+    )
+    users_list = [user1, user2]
+    users = UlpUsers.from_list(users_list)
 
-            assert users.by_id("1") == user1
-            assert users.by_id("2") == user2
-            assert users.by_ulp_id("ulp1") == user1
-            assert users.by_ulp_id("ulp2") == user2
-
-
+    assert users.by_id("1") == user1
+    assert users.by_id("2") == user2
+    assert users.by_ulp_id("ulp1") == user1
+    assert users.by_ulp_id("ulp2") == user2

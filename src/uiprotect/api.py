@@ -829,13 +829,16 @@ class ProtectApiClient(BaseApiClient):
         async with self._update_lock:
             bootstrap = await self.get_bootstrap()
             if bootstrap.nvr.version >= NFC_FINGERPRINT_SUPPORT_VERSION:
-                bootstrap.keyrings = Keyrings.from_list(cast(
-                        list[Keyring],
-                        list_from_unifi_list(
-                            self, await self.api_request_list("keyrings")
+                bootstrap.keyrings = (
+                    Keyrings.from_list(
+                        cast(
+                            list[Keyring],
+                            list_from_unifi_list(
+                                self, await self.api_request_list("keyrings")
+                            ),
                         )
-                    )
-                ),
+                    ),
+                )
                 bootstrap.ulp_users = UlpUsers.from_list(
                     cast(
                         list[UlpUser],
