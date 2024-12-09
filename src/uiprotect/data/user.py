@@ -13,7 +13,7 @@ from pydantic.v1.fields import PrivateAttr
 from .base import ProtectBaseObject, ProtectModel, ProtectModelWithId
 from .types import ModelType, PermissionNode
 
-if sys.version_info > (3, 10):
+if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
