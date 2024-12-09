@@ -27,8 +27,8 @@ from aiohttp import CookieJar, client_exceptions
 from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
-from uiprotect.data.convert import dict_from_unifi_list
-from uiprotect.data.user import Keyring, UlpUser
+from uiprotect.data.convert import list_from_unifi_list
+from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
 
 from ._compat import cached_property
 from .data import (
@@ -829,15 +829,21 @@ class ProtectApiClient(BaseApiClient):
         async with self._update_lock:
             bootstrap = await self.get_bootstrap()
             if bootstrap.nvr.version >= NFC_FINGERPRINT_SUPPORT_VERSION:
-                bootstrap.keyrings = cast(
-                    dict[str, Keyring],
-                    dict_from_unifi_list(self, await self.api_request_list("keyrings")),
+                bootstrap.keyrings = Keyrings.from_list(
+                    cast(
+                        list[Keyring],
+                        list_from_unifi_list(
+                            self, await self.api_request_list("keyrings")
+                        ),
+                    )
                 )
-                bootstrap.ulp_users = cast(
-                    dict[str, UlpUser],
-                    dict_from_unifi_list(
-                        self, await self.api_request_list("ulp-users")
-                    ),
+                bootstrap.ulp_users = UlpUsers.from_list(
+                    cast(
+                        list[UlpUser],
+                        list_from_unifi_list(
+                            self, await self.api_request_list("ulp-users")
+                        ),
+                    )
                 )
             self.__dict__.pop("bootstrap", None)
             self._bootstrap = bootstrap
