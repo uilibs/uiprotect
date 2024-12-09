@@ -300,8 +300,8 @@ class Keyrings(UlpUserKeyringBase[Keyring]):
     def by_ulp_id(self, ulp_id: str) -> Keyring | None:
         return self._keyrings_by_ulp_user.get(ulp_id)
 
-    def by_registry_id(self, ulp_id: str) -> Keyring | None:
-        return self._keyrings_by_registry_id.get(ulp_id)
+    def by_registry_id(self, registry_id: str) -> Keyring | None:
+        return self._keyrings_by_registry_id.get(registry_id)
 
     def as_list(self) -> list[Keyring]:
         return list(self._keyrings_by_id.values())
