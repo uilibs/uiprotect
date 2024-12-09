@@ -1,5 +1,19 @@
 # Changelog
 
+## v6.8.0 (2024-12-09)
+
+### Fix
+
+
+- Import of self for python 3.10 (#314) ([`fe7fc3a`](https://github.com/uilibs/uiprotect/commit/fe7fc3ad42d1166625b2d0cb3d1f8447b273a1a6))
+
+
+### Feature
+
+
+- Refactor keyrings and ulpusers to add internal indices (#313) ([`705df32`](https://github.com/uilibs/uiprotect/commit/705df32514254b754ebea1ebbc659f669b7ffa10))
+
+
 ## v6.7.0 (2024-12-07)
 
 ### Feature
