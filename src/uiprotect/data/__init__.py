@@ -66,6 +66,7 @@ from .types import (
     StateType,
     StorageType,
     Version,
+    VideoExportType,
     VideoMode,
     WDRLevel,
 )
@@ -145,6 +146,7 @@ __all__ = [
     "UserLocation",
     "Version",
     "VideoMode",
+    "VideoExportType",
     "Viewer",
     "WDRLevel",
     "WSAction",
