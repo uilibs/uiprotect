@@ -47,6 +47,7 @@ yarl = ">=1.9"
 typer = ">=0.12.3"
 convertertools = ">=0.5.0"
 propcache = ">=0.0.0"
+pydantic-extra-types = ">=2.10.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7,<9"

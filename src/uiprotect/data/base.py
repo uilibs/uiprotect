@@ -1,9 +1,10 @@
 """UniFi Protect Data."""
 
 from __future__ import annotations
-
+from inspect import isclass
 import asyncio
 import logging
+import typing
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import cache
@@ -13,7 +14,7 @@ from uuid import UUID
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
 from pydantic import BaseModel, ConfigDict
-from pydantic.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
+from pydantic.fields import PrivateAttr
 
 from .._compat import cached_property
 from ..exceptions import BadRequest, ClientError, NotAuthorized
@@ -32,6 +33,7 @@ from .types import (
     PermissionNode,
     ProtectWSPayloadFormat,
     StateType,
+    convert_generics,
 )
 from .websocket import (
     WSJSONPacketFrame,
@@ -93,14 +95,8 @@ class ProtectBaseObject(BaseModel):
     * Provides `.unifi_dict` to convert object back into UFP JSON
     """
 
-    _api: ProtectApiClient = PrivateAttr(None)
-    # TODO[pydantic]: The following keys were removed: `copy_on_model_validation`.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-config for more information.
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        validate_assignment=True,
-        copy_on_model_validation="shallow",
-    )
+    _api: ProtectApiClient = PrivateAttr(None)  # type: ignore[assignment]
+    model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
 
     def __init__(self, api: ProtectApiClient | None = None, **data: Any) -> None:
         """
@@ -135,6 +131,8 @@ class ProtectBaseObject(BaseModel):
         if api is not None:
             data["api"] = api
         data = cls.unifi_dict_to_dict(data)
+        import pprint
+        pprint.pprint(['from_unifi_dict', cls, data])
 
         if is_debug():
             data.pop("api", None)
@@ -221,18 +219,25 @@ class ProtectBaseObject(BaseModel):
         lists: dict[str, type[ProtectBaseObject]] = {}
         dicts: dict[str, type[ProtectBaseObject]] = {}
 
-        for name, field in cls.__fields__.items():
+        for name, field in cls.model_fields.items():
             try:
-                if _is_protect_base_object(field.type_):
-                    if field.shape == SHAPE_LIST:
-                        lists[name] = field.type_
-                    elif field.shape == SHAPE_DICT:
-                        dicts[name] = field.type_
+                type_ = convert_generics(field.annotation)
+                import pprint
+                pprint.pprint(['XXfield', name, field, type_])
+                if type_ is not None and isclass(type_) and _is_protect_base_object(type_):
+                    shape = typing.get_origin(field.annotation)
+                    if shape and isclass(shape) and issubclass(shape, list):
+                        lists[name] = type_
+                    elif shape and isclass(shape) and issubclass(shape, dict):
+                        dicts[name] = type_
                     else:
-                        objs[name] = field.type_
+                        objs[name] = type_
             except TypeError:
+                _LOGGER.exception("Error detecting ProtectModel objects")
                 pass
 
+        import pprint
+        pprint.pprint(['Final', objs,lists,dicts])
         return _ProtectModelObjects(
             objs, bool(objs), lists, bool(lists), dicts, bool(dicts)
         )
@@ -315,8 +320,8 @@ class ProtectBaseObject(BaseModel):
 
         remaps = cls._get_unifi_remaps()
         # convert to snake_case and remove extra fields
-        _fields = cls.__fields__
-        for key in list(data):
+        _fields = cls.model_fields
+        for key in data.copy():
             if key in remaps:
                 # remap keys that will not be converted correctly by snake_case convert
                 remapped_key = remaps[key]
@@ -347,6 +352,8 @@ class ProtectBaseObject(BaseModel):
             unifi_dicts,
             has_unifi_dicts,
         ) = cls._get_protect_model()
+        import pprint
+        pprint.pprint([cls, unifi_objs, has_unifi_objs, unifi_lists, has_unifi_lists, unifi_dicts, has_unifi_dicts])
         for key, value in data.items():
             if has_unifi_objs and key in unifi_objs:
                 data[key] = cls._clean_protect_obj(value, unifi_objs[key], api)

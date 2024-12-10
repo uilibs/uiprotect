@@ -2,18 +2,24 @@ from __future__ import annotations
 
 import enum
 from collections.abc import Callable, Coroutine
-from functools import cache
-from typing import Any, Literal, Optional, TypeVar, Union
+from functools import cache, lru_cache
+from typing import Annotated, Any, Literal, Optional, TypeVar, Union
 
 from packaging.version import Version as BaseVersion
-from pydantic import BaseModel, ConstrainedInt
-from pydantic.types import ConstrainedFloat, ConstrainedStr
-from pydantic_extra_types.color import Color
+from pydantic import BaseModel, Field
+from pydantic.types import StringConstraints
+from pydantic.v1.typing import convert_generics as _pydantic_convert_generics
+from pydantic_extra_types.color import Color as BaseColor
 
 from .._compat import cached_property
 
 KT = TypeVar("KT")
 VT = TypeVar("VT")
+
+
+@lru_cache
+def convert_generics(type_: Any) -> Any:
+    return _pydantic_convert_generics(type_)
 
 
 DEFAULT = "DEFAULT_VALUE"
@@ -626,58 +632,27 @@ class LensType(str, enum.Enum):
     DLSR_17 = "m43"
 
 
-class DoorbellText(ConstrainedStr):
-    max_length = 30
+DoorbellText = Annotated[str, StringConstraints(max_length=30)]
 
+ICRCustomValue = Annotated[int, Field(ge=0, le=10)]
 
-class ICRCustomValue(ConstrainedInt):
-    ge = 0
-    le = 10
+ICRLuxValue = Annotated[int, Field(ge=1, le=30)]
 
+LEDLevel = Annotated[int, Field(ge=0, le=6)]
 
-class ICRLuxValue(ConstrainedInt):
-    ge = 1
-    le = 30
+PercentInt = Annotated[int, Field(ge=0, le=100)]
 
+TwoByteInt = Annotated[int, Field(ge=1, le=255)]
 
-class LEDLevel(ConstrainedInt):
-    ge = 0
-    le = 6
+PercentFloat = Annotated[float, Field(ge=0, le=100)]
 
+WDRLevel = Annotated[int, Field(ge=0, le=3)]
 
-class PercentInt(ConstrainedInt):
-    ge = 0
-    le = 100
+ICRSensitivity = Annotated[int, Field(ge=0, le=3)]
 
+Percent = Annotated[float, Field(ge=0, le=1)]
 
-class TwoByteInt(ConstrainedInt):
-    ge = 1
-    le = 255
-
-
-class PercentFloat(ConstrainedFloat):
-    ge = 0
-    le = 100
-
-
-class WDRLevel(ConstrainedInt):
-    ge = 0
-    le = 3
-
-
-class ICRSensitivity(ConstrainedInt):
-    ge = 0
-    le = 3
-
-
-class Percent(ConstrainedFloat):
-    ge = 0
-    le = 1
-
-
-class RepeatTimes(ConstrainedInt):
-    ge = 1
-    le = 6
+RepeatTimes = Annotated[int, Field(ge=1, le=6)]
 
 
 class PTZPositionDegree(BaseModel):
