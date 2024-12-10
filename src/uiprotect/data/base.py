@@ -132,9 +132,6 @@ class ProtectBaseObject(BaseModel):
         if api is not None:
             data["api"] = api
         data = cls.unifi_dict_to_dict(data)
-        import pprint
-
-        pprint.pprint(["from_unifi_dict", cls, data])
 
         if is_debug():
             data.pop("api", None)
@@ -348,19 +345,6 @@ class ProtectBaseObject(BaseModel):
             unifi_dicts,
             has_unifi_dicts,
         ) = cls._get_protect_model()
-        import pprint
-
-        pprint.pprint(
-            [
-                cls,
-                unifi_objs,
-                has_unifi_objs,
-                unifi_lists,
-                has_unifi_lists,
-                unifi_dicts,
-                has_unifi_dicts,
-            ]
-        )
         for key, value in data.items():
             if has_unifi_objs and key in unifi_objs:
                 data[key] = cls._clean_protect_obj(value, unifi_objs[key], api)
@@ -595,7 +579,7 @@ class UpdateSynchronization:
 class ProtectModelWithId(ProtectModel):
     id: str
 
-    _update_sync: UpdateSynchronization = PrivateAttr(None) # type: ignore[assignment]
+    _update_sync: UpdateSynchronization = PrivateAttr(None)  # type: ignore[assignment]
 
     def __init__(self, **data: Any) -> None:
         update_sync = data.pop("update_sync", None)
