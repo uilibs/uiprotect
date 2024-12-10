@@ -853,7 +853,7 @@ class ProtectDeviceModel(ProtectModelWithId):
 
 
 class WiredConnectionState(ProtectBaseObject):
-    phy_rate: float | None = None
+    phy_rate: int | None = None
 
 
 class WirelessConnectionState(ProtectBaseObject):

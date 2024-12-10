@@ -771,7 +771,7 @@ class PTZRange(ProtectBaseObject):
 
 
 class PTZZoomRange(PTZRange):
-    ratio: float
+    ratio: int
 
     def to_native_value(self, zoom_value: float, is_relative: bool = False) -> float:
         """Convert zoom values to step values."""
@@ -1118,7 +1118,7 @@ class Camera(ProtectMotionDeviceModel):
                 updated["lcd_message"] = {"reset_at": utc_now() - timedelta(seconds=10)}
             # otherwise, pass full LCD message to prevent issues
             elif self.lcd_message is not None:
-                updated["lcd_message"] = self.lcd_message.dict()
+                updated["lcd_message"] = self.lcd_message.model_dump()
 
             # if reset_at is not passed in, it will default to reset in 1 minute
             if lcd_message is not None and "reset_at" not in lcd_message:
