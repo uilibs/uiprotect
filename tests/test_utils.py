@@ -7,7 +7,6 @@ from unittest.mock import Mock
 from uuid import UUID
 
 import pytest
-from pydantic.config import BaseConfig
 from pydantic.fields import FieldInfo
 
 from uiprotect.utils import (
@@ -130,9 +129,8 @@ def test_to_snake_case():
             "00000000-0000-00 0- 000-000000000000",
             FieldInfo(
                 name="id",
-                type_=UUID,
+                annotation=UUID,
                 class_validators=None,
-                model_config=BaseConfig,
             ),
             UUID("00000000-0000-0000-0000-000000000000"),
         ),
@@ -140,9 +138,8 @@ def test_to_snake_case():
             "00000000-0000-0000-0000-000000000000",
             FieldInfo(
                 name="id",
-                type_=UUID,
+                annotation=UUID,
                 class_validators=None,
-                model_config=BaseConfig,
             ),
             UUID("00000000-0000-0000-0000-000000000000"),
         ),
@@ -150,9 +147,8 @@ def test_to_snake_case():
             UUID("00000000-0000-0000-0000-000000000000"),
             FieldInfo(
                 name="id",
-                type_=UUID,
+                annotation=UUID,
                 class_validators=None,
-                model_config=BaseConfig,
             ),
             UUID("00000000-0000-0000-0000-000000000000"),
         ),
