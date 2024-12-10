@@ -1042,11 +1042,11 @@ def compare_objs(obj_type, expected, actual):
 
 @pytest.fixture()
 def _disable_camera_validation():
-    Camera.__config__.validate_assignment = False
+    Camera.model_config["validate_assignment"] = False
 
     yield
 
-    Camera.__config__.validate_assignment = True
+    Camera.model_config["validate_assignment"] = True
 
 
 class MockTalkback:
