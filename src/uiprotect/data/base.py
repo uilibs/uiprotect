@@ -595,7 +595,7 @@ class UpdateSynchronization:
 class ProtectModelWithId(ProtectModel):
     id: str
 
-    _update_sync: UpdateSynchronization = PrivateAttr(None) # type: ignore[assignment]
+    _update_sync: UpdateSynchronization = PrivateAttr(None)  # type: ignore[assignment]
 
     def __init__(self, **data: Any) -> None:
         update_sync = data.pop("update_sync", None)
