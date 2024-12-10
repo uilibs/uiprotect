@@ -14,7 +14,7 @@ from pydantic.v1.fields import SHAPE_DICT as SHAPE_DICT_V1  # noqa: F401
 from pydantic.v1.fields import SHAPE_LIST as SHAPE_LIST_V1  # noqa: F401
 from pydantic.v1.fields import SHAPE_SET as SHAPE_SET_V1  # noqa: F401
 from pydantic.v1.fields import ModelField as ModelFieldV1
-from pydantic_extra_types.color import Color as BaseColor
+from pydantic_extra_types.color import Color  # noqa: F401
 
 from .._compat import cached_property
 
@@ -703,15 +703,6 @@ class PTZPreset(BaseModel):
 
 
 CoordType = Union[Percent, int, float]
-
-
-# TODO: fix when upgrading to pydantic v2
-class Color(BaseColor):
-    def __eq__(self, o: object) -> bool:
-        if isinstance(o, Color):
-            return self.as_hex() == o.as_hex()
-
-        return super().__eq__(o)
 
 
 class Version(BaseVersion):
