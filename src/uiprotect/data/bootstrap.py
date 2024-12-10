@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from aiohttp.client_exceptions import ServerDisconnectedError
 from convertertools import pop_dict_set, pop_dict_tuple
-from pydantic.v1 import PrivateAttr, ValidationError
+from pydantic import PrivateAttr, ValidationError
 
 from ..exceptions import ClientError
 from ..utils import normalize_mac, to_snake_case, utc_now

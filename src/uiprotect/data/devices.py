@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
-from pydantic.v1.fields import PrivateAttr
+from pydantic.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized, StreamError
 from ..stream import TalkbackStream

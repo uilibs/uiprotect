@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Any, NamedTuple, TypeVar
 from uuid import UUID
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
-from pydantic.v1 import BaseModel
-from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
+from pydantic import BaseModel
+from pydantic.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
 
 from .._compat import cached_property
 from ..exceptions import BadRequest, ClientError, NotAuthorized

@@ -8,7 +8,7 @@ from datetime import datetime
 from functools import cache
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from pydantic.v1.fields import PrivateAttr
+from pydantic.fields import PrivateAttr
 
 from .base import ProtectBaseObject, ProtectModel, ProtectModelWithId
 from .types import ModelType, PermissionNode

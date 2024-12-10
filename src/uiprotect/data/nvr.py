@@ -17,7 +17,7 @@ import aiofiles
 import orjson
 from aiofiles import os as aos
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
-from pydantic.v1.fields import PrivateAttr
+from pydantic.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized
 from ..utils import RELEASE_CACHE, convert_to_datetime
@@ -61,7 +61,7 @@ from .types import (
 from .user import User, UserLocation
 
 if TYPE_CHECKING:
-    from pydantic.v1.typing import SetStr
+    from pydantic.typing import SetStr
 
 
 _LOGGER = logging.getLogger(__name__)

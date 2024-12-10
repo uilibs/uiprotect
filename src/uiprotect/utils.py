@@ -29,8 +29,8 @@ from uuid import UUID
 
 import jwt
 from aiohttp import ClientResponse
-from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, SHAPE_SET, ModelField
-from pydantic.v1.utils import to_camel
+from pydantic.fields import SHAPE_DICT, SHAPE_LIST, SHAPE_SET, ModelField
+from pydantic.utils import to_camel
 
 from .data.types import (
     Color,

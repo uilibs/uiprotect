@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
-from pydantic.v1 import ValidationError
+from pydantic import ValidationError
 
 from tests.conftest import TEST_CAMERA_EXISTS
 from uiprotect import ProtectApiClient

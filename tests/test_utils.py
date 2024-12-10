@@ -7,8 +7,8 @@ from unittest.mock import Mock
 from uuid import UUID
 
 import pytest
-from pydantic.v1.config import BaseConfig
-from pydantic.v1.fields import ModelField
+from pydantic.config import BaseConfig
+from pydantic.fields import ModelField
 
 from uiprotect.utils import (
     convert_to_datetime,

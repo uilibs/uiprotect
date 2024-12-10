@@ -6,9 +6,9 @@ from functools import cache
 from typing import Any, Literal, Optional, TypeVar, Union
 
 from packaging.version import Version as BaseVersion
-from pydantic.v1 import BaseModel, ConstrainedInt
-from pydantic.v1.color import Color as BaseColor
-from pydantic.v1.types import ConstrainedFloat, ConstrainedStr
+from pydantic import BaseModel, ConstrainedInt
+from pydantic.color import Color as BaseColor
+from pydantic.types import ConstrainedFloat, ConstrainedStr
 
 from .._compat import cached_property
 
