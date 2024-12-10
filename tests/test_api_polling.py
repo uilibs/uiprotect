@@ -12,6 +12,8 @@ from tests.conftest import MockDatetime
 from uiprotect.data import Camera, EventType
 from uiprotect.utils import to_js_time
 
+from .common import assert_equal_dump
+
 if TYPE_CHECKING:
     from uiprotect import ProtectApiClient
 
@@ -32,7 +34,7 @@ async def test_process_events_none(protect_client: ProtectApiClient, camera):
     await protect_client.update()
 
     assert protect_client.bootstrap.unifi_dict() == bootstrap_before
-    assert get_camera() == camera_before
+    assert_equal_dump(get_camera(), camera_before)
 
 
 def _reset_events(camera: Camera) -> None:
