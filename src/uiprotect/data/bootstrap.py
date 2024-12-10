@@ -362,7 +362,7 @@ class Bootstrap(ProtectBaseObject):
         return WSSubscriptionMessage(
             action=WSAction.ADD,
             new_update_id=self.last_update_id,
-            changed_data=obj.dict(),
+            changed_data=obj.model_dump(),
             new_obj=obj,
         )
 
@@ -407,7 +407,7 @@ class Bootstrap(ProtectBaseObject):
             return WSSubscriptionMessage(
                 action=WSAction.ADD,
                 new_update_id=self.last_update_id,
-                changed_data=add_obj.dict(),
+                changed_data=add_obj.model_dump(),
                 new_obj=add_obj,
             )
         elif action_type == "remove":

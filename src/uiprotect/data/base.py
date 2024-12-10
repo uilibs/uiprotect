@@ -437,7 +437,7 @@ class ProtectBaseObject(BaseModel):
             excluded_fields = self._get_excluded_fields()
             if exclude is not None:
                 excluded_fields = excluded_fields.copy() | exclude
-            data = self.dict(exclude=excluded_fields)
+            data = self.model_dump(exclude=excluded_fields)
             use_obj = True
 
         (
@@ -490,7 +490,7 @@ class ProtectBaseObject(BaseModel):
             has_unifi_dicts,
         ) = cls._get_protect_model()
         api = cls._api
-        _fields = cls.__fields__
+        _fields = cls.model_fields
         unifi_obj: ProtectBaseObject | None
         value: Any
 
@@ -517,10 +517,10 @@ class ProtectBaseObject(BaseModel):
     def dict_with_excludes(self) -> dict[str, Any]:
         """Returns a dict of the current object without any UFP objects converted to dicts."""
         excludes = self.__class__._get_excluded_changed_fields()
-        return self.dict(exclude=excludes)
+        return self.model_dump(exclude=excludes)
 
     def get_changed(self, data_before_changes: dict[str, Any]) -> dict[str, Any]:
-        return dict_diff(data_before_changes, self.dict())
+        return dict_diff(data_before_changes, self.model_dump())
 
     @property
     def api(self) -> ProtectApiClient:
