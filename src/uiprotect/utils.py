@@ -302,9 +302,7 @@ def serialize_dict(data: dict[str, Any], levels: int = -1) -> dict[str, Any]:
 
 def serialize_coord(coord: CoordType) -> int | float:
     """Serializes UFP zone coordinate"""
-    from uiprotect.data import Percent
-
-    if not isinstance(coord, Percent):
+    if not isinstance(coord, float):
         return coord
 
     if math.isclose(coord, 0) or math.isclose(coord, 1):
