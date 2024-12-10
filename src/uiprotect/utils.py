@@ -30,7 +30,6 @@ from uuid import UUID
 import jwt
 from aiohttp import ClientResponse
 from pydantic.fields import FieldInfo
-from pydantic.utils import to_camel
 
 from .data.types import (
     SHAPE_DICT_V1,
@@ -90,6 +89,11 @@ IP_TYPES = {
     Union[IPv6Address, IPv4Address],
     Union[IPv6Address, IPv4Address, None],
 }
+
+
+@lru_cache
+def to_camel(string: str) -> str:
+    return "".join(word.capitalize() for word in string.split("_"))
 
 
 def set_debug() -> None:
