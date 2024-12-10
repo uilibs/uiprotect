@@ -7,8 +7,13 @@ from typing import Annotated, Any, Literal, Optional, TypeVar, Union
 
 from packaging.version import Version as BaseVersion
 from pydantic import BaseModel, Field
+from pydantic.fields import FieldInfo
 from pydantic.types import StringConstraints
-from pydantic.v1.typing import convert_generics as _pydantic_convert_generics
+from pydantic.v1.config import BaseConfig as BaseConfigV1
+from pydantic.v1.fields import SHAPE_DICT as SHAPE_DICT_V1  # noqa: F401
+from pydantic.v1.fields import SHAPE_LIST as SHAPE_LIST_V1  # noqa: F401
+from pydantic.v1.fields import SHAPE_SET as SHAPE_SET_V1  # noqa: F401
+from pydantic.v1.fields import ModelField as ModelFieldV1
 from pydantic_extra_types.color import Color as BaseColor
 
 from .._compat import cached_property
@@ -17,9 +22,20 @@ KT = TypeVar("KT")
 VT = TypeVar("VT")
 
 
+class _BaseConfigV1(BaseConfigV1):
+    arbitrary_types_allowed = True
+    validate_assignment = True
+
+
 @lru_cache
-def convert_generics(type_: Any) -> Any:
-    return _pydantic_convert_generics(type_)
+def extract_type_shape(field: FieldInfo) -> tuple[Any, int]:
+    """Extract the type from a type hint."""
+    type_ = field.annotation
+    assert type_ is not None
+    v1_field = ModelFieldV1(
+        name="", type_=type_, class_validators=None, model_config=_BaseConfigV1
+    )
+    return v1_field.type_, v1_field.shape
 
 
 DEFAULT = "DEFAULT_VALUE"

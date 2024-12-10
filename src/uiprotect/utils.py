@@ -10,7 +10,6 @@ import re
 import socket
 import sys
 import time
-import typing
 import zoneinfo
 from collections import Counter
 from collections.abc import Callable, Coroutine, Iterable
@@ -34,12 +33,15 @@ from pydantic.fields import FieldInfo
 from pydantic.utils import to_camel
 
 from .data.types import (
+    SHAPE_DICT_V1,
+    SHAPE_LIST_V1,
+    SHAPE_SET_V1,
     Color,
     SmartDetectAudioType,
     SmartDetectObjectType,
     Version,
     VideoMode,
-    convert_generics,
+    extract_type_shape,
 )
 from .exceptions import NvrError
 
@@ -204,23 +206,22 @@ def to_camel_case(name: str) -> str:
 
 
 _EMPTY_UUID = UUID("0" * 32)
-_SHAPE_TYPES = {dict, list, set}
+_SHAPE_TYPES = {SHAPE_DICT_V1, SHAPE_SET_V1, SHAPE_LIST_V1}
 
 
 def convert_unifi_data(value: Any, field: FieldInfo) -> Any:
     """Converts value from UFP data into pydantic field class"""
-    type_ = t[0] if (t := typing.get_args(field.annotation)) else field.annotation
-    shape = typing.get_origin(field.annotation)
+    type_, shape = extract_type_shape(field)
 
-    if type_ is Any or type_ is None:
+    if type_ is Any:
         return value
 
     if shape in _SHAPE_TYPES:
-        if issubclass(shape, list) and isinstance(value, list):
+        if shape == SHAPE_LIST_V1 and isinstance(value, list):
             return [convert_unifi_data(v, field) for v in value]
-        if issubclass(shape, set) and isinstance(value, list):
+        if shape == SHAPE_SET_V1 and isinstance(value, list):
             return {convert_unifi_data(v, field) for v in value}
-        if issubclass(shape, dict) and isinstance(value, dict):
+        if shape == SHAPE_DICT_V1 and isinstance(value, dict):
             return {k: convert_unifi_data(v, field) for k, v in value.items()}
 
     if value is not None:

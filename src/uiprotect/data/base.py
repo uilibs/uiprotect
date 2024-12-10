@@ -1,10 +1,9 @@
 """UniFi Protect Data."""
 
 from __future__ import annotations
-from inspect import isclass
+
 import asyncio
 import logging
-import typing
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import cache
@@ -28,12 +27,14 @@ from ..utils import (
     to_snake_case,
 )
 from .types import (
+    SHAPE_DICT_V1,
+    SHAPE_LIST_V1,
     ModelType,
     PercentFloat,
     PermissionNode,
     ProtectWSPayloadFormat,
     StateType,
-    convert_generics,
+    extract_type_shape,
 )
 from .websocket import (
     WSJSONPacketFrame,
@@ -64,9 +65,9 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @cache
-def _is_protect_base_object(cls: type) -> bool:
+def _is_protect_base_object(cls: type[Any] | None) -> bool:
     """A cached version of `issubclass(cls, ProtectBaseObject)` to speed up the check."""
-    return issubclass(cls, ProtectBaseObject)
+    return cls is not None and issubclass(cls, ProtectBaseObject)
 
 
 class _ProtectModelObjects(NamedTuple):
@@ -132,7 +133,8 @@ class ProtectBaseObject(BaseModel):
             data["api"] = api
         data = cls.unifi_dict_to_dict(data)
         import pprint
-        pprint.pprint(['from_unifi_dict', cls, data])
+
+        pprint.pprint(["from_unifi_dict", cls, data])
 
         if is_debug():
             data.pop("api", None)
@@ -221,23 +223,17 @@ class ProtectBaseObject(BaseModel):
 
         for name, field in cls.model_fields.items():
             try:
-                type_ = convert_generics(field.annotation)
-                import pprint
-                pprint.pprint(['XXfield', name, field, type_])
-                if type_ is not None and isclass(type_) and _is_protect_base_object(type_):
-                    shape = typing.get_origin(field.annotation)
-                    if shape and isclass(shape) and issubclass(shape, list):
+                type_, shape = extract_type_shape(field)
+                if _is_protect_base_object(type_):
+                    if shape == SHAPE_LIST_V1:
                         lists[name] = type_
-                    elif shape and isclass(shape) and issubclass(shape, dict):
+                    elif shape == SHAPE_DICT_V1:
                         dicts[name] = type_
                     else:
                         objs[name] = type_
             except TypeError:
-                _LOGGER.exception("Error detecting ProtectModel objects")
                 pass
 
-        import pprint
-        pprint.pprint(['Final', objs,lists,dicts])
         return _ProtectModelObjects(
             objs, bool(objs), lists, bool(lists), dicts, bool(dicts)
         )
@@ -353,7 +349,18 @@ class ProtectBaseObject(BaseModel):
             has_unifi_dicts,
         ) = cls._get_protect_model()
         import pprint
-        pprint.pprint([cls, unifi_objs, has_unifi_objs, unifi_lists, has_unifi_lists, unifi_dicts, has_unifi_dicts])
+
+        pprint.pprint(
+            [
+                cls,
+                unifi_objs,
+                has_unifi_objs,
+                unifi_lists,
+                has_unifi_lists,
+                unifi_dicts,
+                has_unifi_dicts,
+            ]
+        )
         for key, value in data.items():
             if has_unifi_objs and key in unifi_objs:
                 data[key] = cls._clean_protect_obj(value, unifi_objs[key], api)
