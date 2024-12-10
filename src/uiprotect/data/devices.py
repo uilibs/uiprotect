@@ -921,7 +921,7 @@ class Camera(ProtectMotionDeviceModel):
     is_recording: bool
     is_motion_detected: bool
     is_smart_detected: bool
-    phy_rate: float | None = None
+    phy_rate: int | None = None
     hdr_mode: bool
     # Recording Quality -> High Frame
     video_mode: VideoMode

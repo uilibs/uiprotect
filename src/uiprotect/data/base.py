@@ -866,7 +866,7 @@ class BluetoothConnectionState(WirelessConnectionState):
 
 
 class WifiConnectionState(WirelessConnectionState):
-    phy_rate: float | None = None
+    phy_rate: int | None = None
     channel: int | None = None
     frequency: int | None = None
     ssid: str | None = None
