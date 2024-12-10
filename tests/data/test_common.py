@@ -47,6 +47,8 @@ from uiprotect.data.user import CloudAccount
 from uiprotect.exceptions import BadRequest, NotAuthorized, StreamError
 from uiprotect.utils import set_debug, set_no_debug, utc_now
 
+from ..common import assert_equal_dump
+
 if TYPE_CHECKING:
     from pytest_benchmark.fixture import BenchmarkFixture
 
@@ -131,7 +133,7 @@ def compare_devices(data):
 
     set_no_debug()
     obj_construct = create_from_unifi_dict(deepcopy(data))
-    assert obj == obj_construct
+    assert_equal_dump(obj, obj_construct)
     set_debug()
 
 
@@ -329,7 +331,7 @@ def test_bootstrap(bootstrap: dict[str, Any]):
     compare_objs(ModelType.NVR.value, bootstrap.pop("nvr"), obj_dict.pop("nvr"))
 
     assert bootstrap == obj_dict
-    assert obj == obj_construct
+    assert_equal_dump(obj, obj_construct)
 
 
 def test_unifi_dict_exclude(bootstrap: dict[str, Any]):
@@ -358,7 +360,7 @@ def test_bootstrap_device_not_adopted(bootstrap, protect_client: ProtectApiClien
 
     expected_count = sum(1 if c["isAdopted"] else 0 for c in bootstrap["cameras"])
     assert len(obj.cameras) == expected_count
-    assert obj.cameras == obj_construct.cameras
+    assert_equal_dump(obj.cameras, obj_construct.cameras)
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -371,7 +373,7 @@ def test_bootstrap_device_not_adopted_no_api(bootstrap):
     set_debug()
 
     assert len(obj.cameras) == len(bootstrap["cameras"])
-    assert obj.cameras == obj_construct.cameras
+    assert_equal_dump(obj.cameras, obj_construct.cameras)
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -388,7 +390,7 @@ def test_bootstrap_device_not_adopted_enabled(
     set_debug()
 
     assert len(obj.cameras) == len(bootstrap["cameras"])
-    assert obj.cameras == obj_construct.cameras
+    assert_equal_dump(obj.cameras, obj_construct.cameras)
 
 
 @pytest.mark.benchmark(group="construct")

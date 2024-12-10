@@ -773,6 +773,8 @@ OLD_FIELDS = {
     "pirSettings",
 }
 
+pytest.register_assert_rewrite("tests.common")
+
 
 def compare_objs(obj_type, expected, actual):
     expected = deepcopy(expected)

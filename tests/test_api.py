@@ -42,6 +42,8 @@ from uiprotect.data.types import Version, VideoMode
 from uiprotect.exceptions import BadRequest, NvrError
 from uiprotect.utils import to_js_time
 
+from .common import assert_equal_dump
+
 OLD_VERSION = Version("1.2.3")
 NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
 
@@ -533,7 +535,7 @@ async def test_get_device_not_adopted_enabled(protect_client: ProtectApiClient, 
     protect_client.api_request_obj = AsyncMock(return_value=camera)  # type: ignore[method-assign]
 
     obj = create_from_unifi_dict(camera)
-    assert obj == await protect_client.get_camera("test_id")
+    assert_equal_dump(obj, await protect_client.get_camera("test_id"))
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -541,7 +543,7 @@ async def test_get_device_not_adopted_enabled(protect_client: ProtectApiClient, 
 async def test_get_camera(protect_client: ProtectApiClient, camera):
     obj = create_from_unifi_dict(camera)
 
-    assert obj == await protect_client.get_camera("test_id")
+    assert_equal_dump(obj, await protect_client.get_camera("test_id"))
 
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
@@ -549,7 +551,7 @@ async def test_get_camera(protect_client: ProtectApiClient, camera):
 async def test_get_light(protect_client: ProtectApiClient, light):
     obj = create_from_unifi_dict(light)
 
-    assert obj == await protect_client.get_light("test_id")
+    assert_equal_dump(obj, await protect_client.get_light("test_id"))
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
@@ -557,7 +559,7 @@ async def test_get_light(protect_client: ProtectApiClient, light):
 async def test_get_sensor(protect_client: ProtectApiClient, sensor):
     obj = create_from_unifi_dict(sensor)
 
-    assert obj == await protect_client.get_sensor("test_id")
+    assert_equal_dump(obj, await protect_client.get_sensor("test_id"))
 
 
 @pytest.mark.skipif(not TEST_VIEWPORT_EXISTS, reason="Missing testdata")
@@ -565,7 +567,7 @@ async def test_get_sensor(protect_client: ProtectApiClient, sensor):
 async def test_get_viewer(protect_client: ProtectApiClient, viewport):
     obj = create_from_unifi_dict(viewport)
 
-    assert obj == await protect_client.get_viewer("test_id")
+    assert_equal_dump(obj, await protect_client.get_viewer("test_id"))
 
 
 @pytest.mark.skipif(not TEST_BRIDGE_EXISTS, reason="Missing testdata")
@@ -573,7 +575,7 @@ async def test_get_viewer(protect_client: ProtectApiClient, viewport):
 async def test_get_bridge(protect_client: ProtectApiClient, bridge):
     obj = create_from_unifi_dict(bridge)
 
-    assert obj == await protect_client.get_bridge("test_id")
+    assert_equal_dump(obj, await protect_client.get_bridge("test_id"))
 
 
 @pytest.mark.skipif(not TEST_LIVEVIEW_EXISTS, reason="Missing testdata")
@@ -581,7 +583,7 @@ async def test_get_bridge(protect_client: ProtectApiClient, bridge):
 async def test_get_liveview(protect_client: ProtectApiClient, liveview):
     obj = create_from_unifi_dict(liveview)
 
-    assert obj == await protect_client.get_liveview("test_id")
+    assert_equal_dump(obj, (await protect_client.get_liveview("test_id")))
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -620,7 +622,7 @@ async def test_get_devices_not_adopted_enabled(
 async def test_get_cameras(protect_client: ProtectApiClient, cameras):
     objs = [create_from_unifi_dict(d) for d in cameras]
 
-    assert objs == await protect_client.get_cameras()
+    assert_equal_dump(objs, await protect_client.get_cameras())
 
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
@@ -628,7 +630,7 @@ async def test_get_cameras(protect_client: ProtectApiClient, cameras):
 async def test_get_lights(protect_client: ProtectApiClient, lights):
     objs = [create_from_unifi_dict(d) for d in lights]
 
-    assert objs == await protect_client.get_lights()
+    assert_equal_dump(objs, await protect_client.get_lights())
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
@@ -636,7 +638,7 @@ async def test_get_lights(protect_client: ProtectApiClient, lights):
 async def test_get_sensors(protect_client: ProtectApiClient, sensors):
     objs = [create_from_unifi_dict(d) for d in sensors]
 
-    assert objs == await protect_client.get_sensors()
+    assert_equal_dump(objs, await protect_client.get_sensors())
 
 
 @pytest.mark.skipif(not TEST_VIEWPORT_EXISTS, reason="Missing testdata")
@@ -644,7 +646,7 @@ async def test_get_sensors(protect_client: ProtectApiClient, sensors):
 async def test_get_viewers(protect_client: ProtectApiClient, viewports):
     objs = [create_from_unifi_dict(d) for d in viewports]
 
-    assert objs == await protect_client.get_viewers()
+    assert_equal_dump(objs, await protect_client.get_viewers())
 
 
 @pytest.mark.skipif(not TEST_BRIDGE_EXISTS, reason="Missing testdata")
@@ -652,7 +654,7 @@ async def test_get_viewers(protect_client: ProtectApiClient, viewports):
 async def test_get_bridges(protect_client: ProtectApiClient, bridges):
     objs = [create_from_unifi_dict(d) for d in bridges]
 
-    assert objs == await protect_client.get_bridges()
+    assert_equal_dump(objs, await protect_client.get_bridges())
 
 
 @pytest.mark.skipif(not TEST_LIVEVIEW_EXISTS, reason="Missing testdata")
@@ -660,7 +662,7 @@ async def test_get_bridges(protect_client: ProtectApiClient, bridges):
 async def test_get_liveviews(protect_client: ProtectApiClient, liveviews):
     objs = [create_from_unifi_dict(d) for d in liveviews]
 
-    assert objs == await protect_client.get_liveviews()
+    assert_equal_dump(objs, await protect_client.get_liveviews())
 
 
 @pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
