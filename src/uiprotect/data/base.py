@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, NamedTuple, TypeVar
 from uuid import UUID
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from pydantic.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
 
 from .._compat import cached_property
@@ -94,11 +94,13 @@ class ProtectBaseObject(BaseModel):
     """
 
     _api: ProtectApiClient = PrivateAttr(None)
-
-    class Config:
-        arbitrary_types_allowed = True
-        validate_assignment = True
-        copy_on_model_validation = "shallow"
+    # TODO[pydantic]: The following keys were removed: `copy_on_model_validation`.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-config for more information.
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        validate_assignment=True,
+        copy_on_model_validation="shallow",
+    )
 
     def __init__(self, api: ProtectApiClient | None = None, **data: Any) -> None:
         """
@@ -540,7 +542,7 @@ class ProtectModel(ProtectBaseObject):
     automatically decoding a `modelKey` object into the correct UFP object and type
     """
 
-    model: ModelType | None
+    model: ModelType | None = None
 
     @classmethod
     @cache
@@ -794,15 +796,15 @@ class ProtectModelWithId(ProtectModel):
 
 
 class ProtectDeviceModel(ProtectModelWithId):
-    name: str | None
+    name: str | None = None
     type: str
     mac: str
-    host: IPv4Address | str | None
-    up_since: datetime | None
-    uptime: timedelta | None
-    last_seen: datetime | None
-    hardware_revision: str | None
-    firmware_version: str | None
+    host: IPv4Address | str | None = None
+    up_since: datetime | None = None
+    uptime: timedelta | None = None
+    last_seen: datetime | None = None
+    hardware_revision: str | None = None
+    firmware_version: str | None = None
     is_updating: bool
     is_ssh_enabled: bool
 
@@ -853,12 +855,12 @@ class ProtectDeviceModel(ProtectModelWithId):
 
 
 class WiredConnectionState(ProtectBaseObject):
-    phy_rate: float | None
+    phy_rate: float | None = None
 
 
 class WirelessConnectionState(ProtectBaseObject):
-    signal_quality: int | None
-    signal_strength: int | None
+    signal_quality: int | None = None
+    signal_strength: int | None = None
 
 
 class BluetoothConnectionState(WirelessConnectionState):
@@ -866,10 +868,10 @@ class BluetoothConnectionState(WirelessConnectionState):
 
 
 class WifiConnectionState(WirelessConnectionState):
-    phy_rate: float | None
-    channel: int | None
-    frequency: int | None
-    ssid: str | None
+    phy_rate: float | None = None
+    channel: int | None = None
+    frequency: int | None = None
+    ssid: str | None = None
     bssid: str | None = None
     tx_rate: float | None = None
     # requires 2.7.5+
@@ -881,10 +883,10 @@ class WifiConnectionState(WirelessConnectionState):
 
 class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     state: StateType
-    connection_host: IPv4Address | str | None
-    connected_since: datetime | None
-    latest_firmware_version: str | None
-    firmware_build: str | None
+    connection_host: IPv4Address | str | None = None
+    connected_since: datetime | None = None
+    latest_firmware_version: str | None = None
+    firmware_build: str | None = None
     is_adopting: bool
     is_adopted: bool
     is_adopted_by_other: bool
@@ -894,7 +896,7 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     is_attempting_to_connect: bool
     is_connected: bool
     # requires 1.21+
-    market_name: str | None
+    market_name: str | None = None
     # requires 2.7.5+
     fw_update_state: str | None = None
     # requires 2.8.14+
@@ -909,8 +911,8 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     wired_connection_state: WiredConnectionState | None = None
     wifi_connection_state: WifiConnectionState | None = None
     bluetooth_connection_state: BluetoothConnectionState | None = None
-    bridge_id: str | None
-    is_downloading_firmware: bool | None
+    bridge_id: str | None = None
+    is_downloading_firmware: bool | None = None
 
     # TODO:
     # bridgeCandidates
@@ -1051,7 +1053,7 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
 
 
 class ProtectMotionDeviceModel(ProtectAdoptableDeviceModel):
-    last_motion: datetime | None
+    last_motion: datetime | None = None
     is_dark: bool
 
     # not directly from UniFi

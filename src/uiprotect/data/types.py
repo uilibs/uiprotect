@@ -7,8 +7,8 @@ from typing import Any, Literal, Optional, TypeVar, Union
 
 from packaging.version import Version as BaseVersion
 from pydantic import BaseModel, ConstrainedInt
-from pydantic.color import Color as BaseColor
 from pydantic.types import ConstrainedFloat, ConstrainedStr
+from pydantic_extra_types.color import Color
 
 from .._compat import cached_property
 

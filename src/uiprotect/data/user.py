@@ -23,7 +23,7 @@ class Permission(ProtectBaseObject):
     raw_permission: str
     model: ModelType
     nodes: set[PermissionNode]
-    obj_ids: set[str] | None
+    obj_ids: set[str] | None = None
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -79,8 +79,8 @@ class Group(ProtectModelWithId):
 
 class UserLocation(ProtectModel):
     is_away: bool
-    latitude: float | None
-    longitude: float | None
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 class CloudAccount(ProtectModelWithId):
@@ -89,7 +89,7 @@ class CloudAccount(ProtectModelWithId):
     email: str
     user_id: str
     name: str
-    location: UserLocation | None
+    location: UserLocation | None = None
     profile_img: str | None = None
 
     @classmethod
@@ -123,21 +123,21 @@ class UserFeatureFlags(ProtectBaseObject):
 
 class User(ProtectModelWithId):
     permissions: list[Permission]
-    last_login_ip: str | None
-    last_login_time: datetime | None
+    last_login_ip: str | None = None
+    last_login_time: datetime | None = None
     is_owner: bool
     enable_notifications: bool
     has_accepted_invite: bool
     all_permissions: list[Permission]
     scopes: list[str] | None = None
-    location: UserLocation | None
+    location: UserLocation | None = None
     name: str
     first_name: str
     last_name: str
-    email: str | None
+    email: str | None = None
     local_username: str
     group_ids: list[str]
-    cloud_account: CloudAccount | None
+    cloud_account: CloudAccount | None = None
     feature_flags: UserFeatureFlags
 
     # TODO:
