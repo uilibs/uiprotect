@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.0.0 (2024-12-11)
+
+### Breaking
+
+
+- Remove pydantic v1 shims (#322) ([`44063a0`](https://github.com/uilibs/uiprotect/commit/44063a050d831893e7e8eded35ff292401511414))
+
+
 ## v6.8.0 (2024-12-09)
 
 ### Fix
