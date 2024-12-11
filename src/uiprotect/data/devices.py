@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
-from pydantic.v1.fields import PrivateAttr
+from pydantic.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized, StreamError
 from ..stream import TalkbackStream
@@ -123,7 +123,7 @@ class Light(ProtectMotionDeviceModel):
     light_device_settings: LightDeviceSettings
     light_on_settings: LightOnSettings
     light_mode_settings: LightModeSettings
-    camera_id: str | None
+    camera_id: str | None = None
     is_camera_paired: bool
 
     @classmethod
@@ -245,15 +245,15 @@ class CameraChannel(ProtectBaseObject):
     name: str  # read only
     enabled: bool  # read only
     is_rtsp_enabled: bool
-    rtsp_alias: str | None  # read only
+    rtsp_alias: str | None = None  # read only
     width: int
     height: int
     fps: int
     bitrate: int
     min_bitrate: int  # read only
     max_bitrate: int  # read only
-    min_client_adaptive_bit_rate: int | None  # read only
-    min_motion_adaptive_bit_rate: int | None  # read only
+    min_client_adaptive_bit_rate: int | None = None  # read only
+    min_motion_adaptive_bit_rate: int | None = None  # read only
     fps_values: list[int]  # read only
     idr_interval: int
     # 3.0.22+
@@ -325,8 +325,8 @@ class ISPSettings(ProtectBaseObject):
     d_zoom_stream_id: int
     focus_mode: FocusMode | None = None
     focus_position: int
-    touch_focus_x: int | None
-    touch_focus_y: int | None
+    touch_focus_x: int | None = None
+    touch_focus_y: int | None = None
     zoom_position: PercentInt
     mount_position: MountPosition | None = None
     # requires 2.8.14+
@@ -545,8 +545,8 @@ class TalkbackSettings(ProtectBaseObject):
     type_in: str
     bind_addr: IPv4Address
     bind_port: int
-    filter_addr: str | None  # can be used to restrict sender address
-    filter_port: int | None  # can be used to restrict sender port
+    filter_addr: str | None = None  # can be used to restrict sender address
+    filter_port: int | None = None  # can be used to restrict sender port
     channels: int  # 1 or 2
     sampling_rate: int  # 8000, 11025, 22050, 44100, 48000
     bits_per_sample: int
@@ -554,22 +554,22 @@ class TalkbackSettings(ProtectBaseObject):
 
 
 class WifiStats(ProtectBaseObject):
-    channel: int | None
-    frequency: int | None
-    link_speed_mbps: str | None
+    channel: int | None = None
+    frequency: int | None = None
+    link_speed_mbps: str | None = None
     signal_quality: PercentInt
     signal_strength: int
 
 
 class VideoStats(ProtectBaseObject):
-    recording_start: datetime | None
-    recording_end: datetime | None
-    recording_start_lq: datetime | None
-    recording_end_lq: datetime | None
-    timelapse_start: datetime | None
-    timelapse_end: datetime | None
-    timelapse_start_lq: datetime | None
-    timelapse_end_lq: datetime | None
+    recording_start: datetime | None = None
+    recording_end: datetime | None = None
+    recording_start_lq: datetime | None = None
+    recording_end_lq: datetime | None = None
+    timelapse_start: datetime | None = None
+    timelapse_end: datetime | None = None
+    timelapse_start_lq: datetime | None = None
+    timelapse_end_lq: datetime | None = None
 
     @classmethod
     @cache
@@ -601,8 +601,8 @@ class VideoStats(ProtectBaseObject):
 
 
 class StorageStats(ProtectBaseObject):
-    used: int | None  # bytes
-    rate: float | None  # bytes / millisecond
+    used: int | None = None  # bytes
+    rate: float | None = None  # bytes / millisecond
 
     @property
     def rate_per_second(self) -> float | None:
@@ -633,7 +633,7 @@ class CameraStats(ProtectBaseObject):
     tx_bytes: int
     wifi: WifiStats
     video: VideoStats
-    storage: StorageStats | None
+    storage: StorageStats | None = None
     wifi_quality: PercentInt
     wifi_strength: int
 
@@ -708,7 +708,7 @@ class SmartMotionZone(MotionZone):
 
 
 class PrivacyMaskCapability(ProtectBaseObject):
-    max_masks: int | None
+    max_masks: int | None = None
     rectangle_only: bool
 
 
@@ -735,9 +735,9 @@ class Hotplug(ProtectBaseObject):
 
 
 class PTZRangeSingle(ProtectBaseObject):
-    max: float | None
-    min: float | None
-    step: float | None
+    max: float | None = None
+    min: float | None = None
+    step: float | None = None
 
 
 class PTZRange(ProtectBaseObject):
@@ -771,7 +771,7 @@ class PTZRange(ProtectBaseObject):
 
 
 class PTZZoomRange(PTZRange):
-    ratio: float
+    ratio: int
 
     def to_native_value(self, zoom_value: float, is_relative: bool = False) -> float:
         """Convert zoom values to step values."""
@@ -921,13 +921,13 @@ class Camera(ProtectMotionDeviceModel):
     is_recording: bool
     is_motion_detected: bool
     is_smart_detected: bool
-    phy_rate: float | None
+    phy_rate: int | None = None
     hdr_mode: bool
     # Recording Quality -> High Frame
     video_mode: VideoMode
     is_probing_for_wifi: bool
     chime_duration: timedelta
-    last_ring: datetime | None
+    last_ring: datetime | None = None
     is_live_heatmap_enabled: bool
     video_reconfiguration_in_progress: bool
     channels: list[CameraChannel]
@@ -943,7 +943,7 @@ class Camera(ProtectMotionDeviceModel):
     smart_detect_zones: list[SmartMotionZone]
     stats: CameraStats
     feature_flags: CameraFeatureFlags
-    lcd_message: LCDMessage | None
+    lcd_message: LCDMessage | None = None
     lenses: list[CameraLenses]
     platform: str
     has_speaker: bool
@@ -951,10 +951,10 @@ class Camera(ProtectMotionDeviceModel):
     audio_bitrate: int
     can_manage: bool
     is_managed: bool
-    voltage: float | None
+    voltage: float | None = None
     # requires 1.21+
-    is_poor_network: bool | None
-    is_wireless_uplink_enabled: bool | None
+    is_poor_network: bool | None = None
+    is_wireless_uplink_enabled: bool | None = None
     # requires 2.6.13+
     homekit_settings: CameraHomekitSettings | None = None
     # requires 2.6.17+
@@ -1118,7 +1118,7 @@ class Camera(ProtectMotionDeviceModel):
                 updated["lcd_message"] = {"reset_at": utc_now() - timedelta(seconds=10)}
             # otherwise, pass full LCD message to prevent issues
             elif self.lcd_message is not None:
-                updated["lcd_message"] = self.lcd_message.dict()
+                updated["lcd_message"] = self.lcd_message.model_dump()
 
             # if reset_at is not passed in, it will default to reset in 1 minute
             if lcd_message is not None and "reset_at" not in lcd_message:
@@ -2771,8 +2771,8 @@ class SensorThresholdSettings(SensorSettingsBase):
     margin: float  # read only
     # "safe" thresholds for alerting
     # anything below/above will trigger alert
-    low_threshold: float | None
-    high_threshold: float | None
+    low_threshold: float | None = None
+    high_threshold: float | None = None
 
 
 class SensorSensitivitySettings(SensorSettingsBase):
@@ -2780,12 +2780,12 @@ class SensorSensitivitySettings(SensorSettingsBase):
 
 
 class SensorBatteryStatus(ProtectBaseObject):
-    percentage: PercentInt | None
+    percentage: PercentInt | None = None
     is_low: bool
 
 
 class SensorStat(ProtectBaseObject):
-    value: float | None
+    value: float | None = None
     status: SensorStatusType
 
 
@@ -2797,20 +2797,20 @@ class SensorStats(ProtectBaseObject):
 
 class Sensor(ProtectAdoptableDeviceModel):
     alarm_settings: SensorSettingsBase
-    alarm_triggered_at: datetime | None
+    alarm_triggered_at: datetime | None = None
     battery_status: SensorBatteryStatus
-    camera_id: str | None
+    camera_id: str | None = None
     humidity_settings: SensorThresholdSettings
     is_motion_detected: bool
     is_opened: bool
-    leak_detected_at: datetime | None
+    leak_detected_at: datetime | None = None
     led_settings: SensorSettingsBase
     light_settings: SensorThresholdSettings
-    motion_detected_at: datetime | None
+    motion_detected_at: datetime | None = None
     motion_settings: SensorSensitivitySettings
-    open_status_changed_at: datetime | None
+    open_status_changed_at: datetime | None = None
     stats: SensorStats
-    tampering_detected_at: datetime | None
+    tampering_detected_at: datetime | None = None
     temperature_settings: SensorThresholdSettings
     mount_type: MountType
 
@@ -3104,13 +3104,13 @@ class Sensor(ProtectAdoptableDeviceModel):
 
 
 class Doorlock(ProtectAdoptableDeviceModel):
-    credentials: str | None
+    credentials: str | None = None
     lock_status: LockStatusType
     enable_homekit: bool
     auto_close_time: timedelta
     led_settings: SensorSettingsBase
     battery_status: SensorBatteryStatus
-    camera_id: str | None
+    camera_id: str | None = None
     has_homekit: bool
     private_token: str
 
@@ -3247,7 +3247,7 @@ class ChimeTrack(ProtectBaseObject):
 class Chime(ProtectAdoptableDeviceModel):
     volume: PercentInt
     is_probing_for_wifi: bool
-    last_ring: datetime | None
+    last_ring: datetime | None = None
     is_wireless_uplink_enabled: bool
     camera_ids: list[str]
     # requires 2.6.17+

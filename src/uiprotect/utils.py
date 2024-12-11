@@ -29,15 +29,18 @@ from uuid import UUID
 
 import jwt
 from aiohttp import ClientResponse
-from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, SHAPE_SET, ModelField
-from pydantic.v1.utils import to_camel
+from pydantic.fields import FieldInfo
 
 from .data.types import (
+    SHAPE_DICT_V1,
+    SHAPE_LIST_V1,
+    SHAPE_SET_V1,
     Color,
     SmartDetectAudioType,
     SmartDetectObjectType,
     Version,
     VideoMode,
+    extract_type_shape,
 )
 from .exceptions import NvrError
 
@@ -86,6 +89,11 @@ IP_TYPES = {
     Union[IPv6Address, IPv4Address],
     Union[IPv6Address, IPv4Address, None],
 }
+
+
+@lru_cache
+def to_camel(string: str) -> str:
+    return "".join(word.capitalize() for word in string.split("_"))
 
 
 def set_debug() -> None:
@@ -202,22 +210,22 @@ def to_camel_case(name: str) -> str:
 
 
 _EMPTY_UUID = UUID("0" * 32)
-_SHAPE_TYPES = {SHAPE_DICT, SHAPE_LIST, SHAPE_SET}
+_SHAPE_TYPES = {SHAPE_DICT_V1, SHAPE_SET_V1, SHAPE_LIST_V1}
 
 
-def convert_unifi_data(value: Any, field: ModelField) -> Any:
+def convert_unifi_data(value: Any, field: FieldInfo) -> Any:
     """Converts value from UFP data into pydantic field class"""
-    type_ = field.type_
+    type_, shape = extract_type_shape(field.annotation)  # type: ignore[arg-type]
 
     if type_ is Any:
         return value
 
-    if (shape := field.shape) in _SHAPE_TYPES:
-        if shape == SHAPE_LIST and isinstance(value, list):
+    if shape in _SHAPE_TYPES:
+        if shape == SHAPE_LIST_V1 and isinstance(value, list):
             return [convert_unifi_data(v, field) for v in value]
-        if shape == SHAPE_SET and isinstance(value, list):
+        if shape == SHAPE_SET_V1 and isinstance(value, list):
             return {convert_unifi_data(v, field) for v in value}
-        if shape == SHAPE_DICT and isinstance(value, dict):
+        if shape == SHAPE_DICT_V1 and isinstance(value, dict):
             return {k: convert_unifi_data(v, field) for k, v in value.items()}
 
     if value is not None:
@@ -298,9 +306,7 @@ def serialize_dict(data: dict[str, Any], levels: int = -1) -> dict[str, Any]:
 
 def serialize_coord(coord: CoordType) -> int | float:
     """Serializes UFP zone coordinate"""
-    from uiprotect.data import Percent
-
-    if not isinstance(coord, Percent):
+    if not isinstance(coord, float):
         return coord
 
     if math.isclose(coord, 0) or math.isclose(coord, 1):

@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Any, NamedTuple, TypeVar
 from uuid import UUID
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
-from pydantic.v1 import BaseModel
-from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
+from pydantic import BaseModel, ConfigDict
+from pydantic.fields import PrivateAttr
 
 from .._compat import cached_property
 from ..exceptions import BadRequest, ClientError, NotAuthorized
@@ -27,11 +27,14 @@ from ..utils import (
     to_snake_case,
 )
 from .types import (
+    SHAPE_DICT_V1,
+    SHAPE_LIST_V1,
     ModelType,
     PercentFloat,
     PermissionNode,
     ProtectWSPayloadFormat,
     StateType,
+    extract_type_shape,
 )
 from .websocket import (
     WSJSONPacketFrame,
@@ -62,7 +65,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @cache
-def _is_protect_base_object(cls: type) -> bool:
+def _is_protect_base_object(cls: type[Any]) -> bool:
     """A cached version of `issubclass(cls, ProtectBaseObject)` to speed up the check."""
     return issubclass(cls, ProtectBaseObject)
 
@@ -93,12 +96,8 @@ class ProtectBaseObject(BaseModel):
     * Provides `.unifi_dict` to convert object back into UFP JSON
     """
 
-    _api: ProtectApiClient = PrivateAttr(None)
-
-    class Config:
-        arbitrary_types_allowed = True
-        validate_assignment = True
-        copy_on_model_validation = "shallow"
+    _api: ProtectApiClient = PrivateAttr(None)  # type: ignore[assignment]
+    model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
 
     def __init__(self, api: ProtectApiClient | None = None, **data: Any) -> None:
         """
@@ -219,15 +218,16 @@ class ProtectBaseObject(BaseModel):
         lists: dict[str, type[ProtectBaseObject]] = {}
         dicts: dict[str, type[ProtectBaseObject]] = {}
 
-        for name, field in cls.__fields__.items():
+        for name, field in cls.model_fields.items():
             try:
-                if _is_protect_base_object(field.type_):
-                    if field.shape == SHAPE_LIST:
-                        lists[name] = field.type_
-                    elif field.shape == SHAPE_DICT:
-                        dicts[name] = field.type_
+                type_, shape = extract_type_shape(field.annotation)  # type: ignore[arg-type]
+                if _is_protect_base_object(type_):
+                    if shape == SHAPE_LIST_V1:
+                        lists[name] = type_
+                    elif shape == SHAPE_DICT_V1:
+                        dicts[name] = type_
                     else:
-                        objs[name] = field.type_
+                        objs[name] = type_
             except TypeError:
                 pass
 
@@ -313,8 +313,8 @@ class ProtectBaseObject(BaseModel):
 
         remaps = cls._get_unifi_remaps()
         # convert to snake_case and remove extra fields
-        _fields = cls.__fields__
-        for key in list(data):
+        _fields = cls.model_fields
+        for key in data.copy():
             if key in remaps:
                 # remap keys that will not be converted correctly by snake_case convert
                 remapped_key = remaps[key]
@@ -437,7 +437,7 @@ class ProtectBaseObject(BaseModel):
             excluded_fields = self._get_excluded_fields()
             if exclude is not None:
                 excluded_fields = excluded_fields.copy() | exclude
-            data = self.dict(exclude=excluded_fields)
+            data = self.model_dump(exclude=excluded_fields)
             use_obj = True
 
         (
@@ -490,7 +490,7 @@ class ProtectBaseObject(BaseModel):
             has_unifi_dicts,
         ) = cls._get_protect_model()
         api = cls._api
-        _fields = cls.__fields__
+        _fields = cls.model_fields
         unifi_obj: ProtectBaseObject | None
         value: Any
 
@@ -517,10 +517,10 @@ class ProtectBaseObject(BaseModel):
     def dict_with_excludes(self) -> dict[str, Any]:
         """Returns a dict of the current object without any UFP objects converted to dicts."""
         excludes = self.__class__._get_excluded_changed_fields()
-        return self.dict(exclude=excludes)
+        return self.model_dump(exclude=excludes)
 
     def get_changed(self, data_before_changes: dict[str, Any]) -> dict[str, Any]:
-        return dict_diff(data_before_changes, self.dict())
+        return dict_diff(data_before_changes, self.model_dump())
 
     @property
     def api(self) -> ProtectApiClient:
@@ -540,7 +540,7 @@ class ProtectModel(ProtectBaseObject):
     automatically decoding a `modelKey` object into the correct UFP object and type
     """
 
-    model: ModelType | None
+    model: ModelType | None = None
 
     @classmethod
     @cache
@@ -579,7 +579,7 @@ class UpdateSynchronization:
 class ProtectModelWithId(ProtectModel):
     id: str
 
-    _update_sync: UpdateSynchronization = PrivateAttr(None)
+    _update_sync: UpdateSynchronization = PrivateAttr(None)  # type: ignore[assignment]
 
     def __init__(self, **data: Any) -> None:
         update_sync = data.pop("update_sync", None)
@@ -794,15 +794,15 @@ class ProtectModelWithId(ProtectModel):
 
 
 class ProtectDeviceModel(ProtectModelWithId):
-    name: str | None
+    name: str | None = None
     type: str
     mac: str
-    host: IPv4Address | str | None
-    up_since: datetime | None
-    uptime: timedelta | None
-    last_seen: datetime | None
-    hardware_revision: str | None
-    firmware_version: str | None
+    host: IPv4Address | str | None = None
+    up_since: datetime | None = None
+    uptime: timedelta | None = None
+    last_seen: datetime | None = None
+    hardware_revision: str | None = None
+    firmware_version: str | None = None
     is_updating: bool
     is_ssh_enabled: bool
 
@@ -853,12 +853,12 @@ class ProtectDeviceModel(ProtectModelWithId):
 
 
 class WiredConnectionState(ProtectBaseObject):
-    phy_rate: float | None
+    phy_rate: int | None = None
 
 
 class WirelessConnectionState(ProtectBaseObject):
-    signal_quality: int | None
-    signal_strength: int | None
+    signal_quality: int | None = None
+    signal_strength: int | None = None
 
 
 class BluetoothConnectionState(WirelessConnectionState):
@@ -866,10 +866,10 @@ class BluetoothConnectionState(WirelessConnectionState):
 
 
 class WifiConnectionState(WirelessConnectionState):
-    phy_rate: float | None
-    channel: int | None
-    frequency: int | None
-    ssid: str | None
+    phy_rate: int | None = None
+    channel: int | None = None
+    frequency: int | None = None
+    ssid: str | None = None
     bssid: str | None = None
     tx_rate: float | None = None
     # requires 2.7.5+
@@ -881,10 +881,10 @@ class WifiConnectionState(WirelessConnectionState):
 
 class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     state: StateType
-    connection_host: IPv4Address | str | None
-    connected_since: datetime | None
-    latest_firmware_version: str | None
-    firmware_build: str | None
+    connection_host: IPv4Address | str | None = None
+    connected_since: datetime | None = None
+    latest_firmware_version: str | None = None
+    firmware_build: str | None = None
     is_adopting: bool
     is_adopted: bool
     is_adopted_by_other: bool
@@ -894,7 +894,7 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     is_attempting_to_connect: bool
     is_connected: bool
     # requires 1.21+
-    market_name: str | None
+    market_name: str | None = None
     # requires 2.7.5+
     fw_update_state: str | None = None
     # requires 2.8.14+
@@ -909,8 +909,8 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     wired_connection_state: WiredConnectionState | None = None
     wifi_connection_state: WifiConnectionState | None = None
     bluetooth_connection_state: BluetoothConnectionState | None = None
-    bridge_id: str | None
-    is_downloading_firmware: bool | None
+    bridge_id: str | None = None
+    is_downloading_firmware: bool | None = None
 
     # TODO:
     # bridgeCandidates
@@ -1051,7 +1051,7 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
 
 
 class ProtectMotionDeviceModel(ProtectAdoptableDeviceModel):
-    last_motion: datetime | None
+    last_motion: datetime | None = None
     is_dark: bool
 
     # not directly from UniFi

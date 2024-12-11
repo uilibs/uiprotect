@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-from pydantic.v1 import ValidationError
+from pydantic import ValidationError
 
 from tests.conftest import TEST_CAMERA_EXISTS, TEST_CHIME_EXISTS
 from uiprotect.data import RingSetting

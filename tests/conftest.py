@@ -773,6 +773,8 @@ OLD_FIELDS = {
     "pirSettings",
 }
 
+pytest.register_assert_rewrite("tests.common")
+
 
 def compare_objs(obj_type, expected, actual):
     expected = deepcopy(expected)
@@ -1042,11 +1044,11 @@ def compare_objs(obj_type, expected, actual):
 
 @pytest.fixture()
 def _disable_camera_validation():
-    Camera.__config__.validate_assignment = False
+    Camera.model_config["validate_assignment"] = False
 
     yield
 
-    Camera.__config__.validate_assignment = True
+    Camera.model_config["validate_assignment"] = True
 
 
 class MockTalkback:

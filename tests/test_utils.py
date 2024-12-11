@@ -7,8 +7,7 @@ from unittest.mock import Mock
 from uuid import UUID
 
 import pytest
-from pydantic.v1.config import BaseConfig
-from pydantic.v1.fields import ModelField
+from pydantic.fields import FieldInfo
 
 from uiprotect.utils import (
     convert_to_datetime,
@@ -128,37 +127,34 @@ def test_to_snake_case():
     [
         (
             "00000000-0000-00 0- 000-000000000000",
-            ModelField(
+            FieldInfo(
                 name="id",
-                type_=UUID,
+                annotation=UUID,
                 class_validators=None,
-                model_config=BaseConfig,
             ),
             UUID("00000000-0000-0000-0000-000000000000"),
         ),
         (
             "00000000-0000-0000-0000-000000000000",
-            ModelField(
+            FieldInfo(
                 name="id",
-                type_=UUID,
+                annotation=UUID,
                 class_validators=None,
-                model_config=BaseConfig,
             ),
             UUID("00000000-0000-0000-0000-000000000000"),
         ),
         (
             UUID("00000000-0000-0000-0000-000000000000"),
-            ModelField(
+            FieldInfo(
                 name="id",
-                type_=UUID,
+                annotation=UUID,
                 class_validators=None,
-                model_config=BaseConfig,
             ),
             UUID("00000000-0000-0000-0000-000000000000"),
         ),
     ],
 )
-def test_convert_unifi_data(value: Any, field: ModelField, output: Any):
+def test_convert_unifi_data(value: Any, field: FieldInfo, output: Any):
     assert convert_unifi_data(value, field) == output
 
 

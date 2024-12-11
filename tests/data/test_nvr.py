@@ -6,7 +6,7 @@ from datetime import timedelta
 from ipaddress import IPv4Address, IPv6Address
 
 import pytest
-from pydantic.v1 import ValidationError
+from pydantic import ValidationError
 
 from uiprotect.data import (
     NVR,
