@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.0.1 (2024-12-11)
+
+### Fix
+
+
+- Treat no access to keyrings/users as empty (#323) ([`c068aca`](https://github.com/uilibs/uiprotect/commit/c068aca46f37f71f52c077b1ab4821bb54d4b26e))
+
+
 ## v7.0.0 (2024-12-11)
 
 ### Breaking
