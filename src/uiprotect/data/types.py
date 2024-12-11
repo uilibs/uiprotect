@@ -29,7 +29,8 @@ class _BaseConfigV1(BaseConfigV1):
 @lru_cache(maxsize=512)
 def extract_type_shape(annotation: type[Any] | None) -> tuple[Any, int]:
     """Extract the type from a type hint."""
-    assert annotation is not None
+    if annotation is None:
+        raise ValueError("Type annotation cannot be None")
     v1_field = ModelFieldV1(
         name="", type_=annotation, class_validators=None, model_config=_BaseConfigV1
     )
