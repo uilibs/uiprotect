@@ -700,6 +700,9 @@ class BaseApiClient:
         _LOGGER.debug("Websocket state changed: %s", state)
 
 
+ALLOWED_FAILURE_CODES_USERS_KEYRINGS = {403, 404}
+
+
 class ProtectApiClient(BaseApiClient):
     """
     Main UFP API Client
@@ -832,14 +835,14 @@ class ProtectApiClient(BaseApiClient):
                 try:
                     keyrings = await self.api_request_list("keyrings")
                 except ClientResponseError as err:
-                    if err.status != (403, 404):
+                    if err.status not in ALLOWED_FAILURE_CODES_USERS_KEYRINGS:
                         raise
                     _LOGGER.debug("No access to keyrings %s, skipping", err.status)
                     keyrings = []
                 try:
                     ulp_users = await self.api_request_list("ulp-users")
                 except ClientResponseError as err:
-                    if err.status != (403, 404):
+                    if err.status not in ALLOWED_FAILURE_CODES_USERS_KEYRINGS:
                         raise
                     _LOGGER.debug("No access to ulp-users %s, skipping", err.status)
                     ulp_users = []
