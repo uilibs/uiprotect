@@ -215,7 +215,7 @@ _SHAPE_TYPES = {SHAPE_DICT_V1, SHAPE_SET_V1, SHAPE_LIST_V1}
 
 def convert_unifi_data(value: Any, field: FieldInfo) -> Any:
     """Converts value from UFP data into pydantic field class"""
-    type_, shape = extract_type_shape(field)
+    type_, shape = extract_type_shape(field.annotation)  # type: ignore[arg-type]
 
     if type_ is Any:
         return value

@@ -7,7 +7,6 @@ from typing import Annotated, Any, Literal, Optional, TypeVar, Union
 
 from packaging.version import Version as BaseVersion
 from pydantic import BaseModel, Field
-from pydantic.fields import FieldInfo
 from pydantic.types import StringConstraints
 from pydantic.v1.config import BaseConfig as BaseConfigV1
 from pydantic.v1.fields import SHAPE_DICT as SHAPE_DICT_V1  # noqa: F401
@@ -27,13 +26,12 @@ class _BaseConfigV1(BaseConfigV1):
     validate_assignment = True
 
 
-@lru_cache
-def extract_type_shape(field: FieldInfo) -> tuple[Any, int]:
+@lru_cache(maxsize=512)
+def extract_type_shape(annotation: type[Any] | None) -> tuple[Any, int]:
     """Extract the type from a type hint."""
-    type_ = field.annotation
-    assert type_ is not None
+    assert annotation is not None
     v1_field = ModelFieldV1(
-        name="", type_=type_, class_validators=None, model_config=_BaseConfigV1
+        name="", type_=annotation, class_validators=None, model_config=_BaseConfigV1
     )
     return v1_field.type_, v1_field.shape
 

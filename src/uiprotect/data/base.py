@@ -65,9 +65,9 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @cache
-def _is_protect_base_object(cls: type[Any] | None) -> bool:
+def _is_protect_base_object(cls: type[Any]) -> bool:
     """A cached version of `issubclass(cls, ProtectBaseObject)` to speed up the check."""
-    return cls is not None and issubclass(cls, ProtectBaseObject)
+    return issubclass(cls, ProtectBaseObject)
 
 
 class _ProtectModelObjects(NamedTuple):
@@ -220,7 +220,7 @@ class ProtectBaseObject(BaseModel):
 
         for name, field in cls.model_fields.items():
             try:
-                type_, shape = extract_type_shape(field)
+                type_, shape = extract_type_shape(field.annotation)  # type: ignore[arg-type]
                 if _is_protect_base_object(type_):
                     if shape == SHAPE_LIST_V1:
                         lists[name] = type_
