@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import hashlib
+import http
 import logging
 import re
 import sys
@@ -700,7 +701,10 @@ class BaseApiClient:
         _LOGGER.debug("Websocket state changed: %s", state)
 
 
-ALLOWED_FAILURE_CODES_USERS_KEYRINGS = {403, 404}
+ALLOWED_FAILURE_CODES_USERS_KEYRINGS = {
+    http.HTTPStatus.UNAUTHORIZED.value,
+    http.HTTPStatus.NOT_FOUND.value,
+}
 
 
 class ProtectApiClient(BaseApiClient):
