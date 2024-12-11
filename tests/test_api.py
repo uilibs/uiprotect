@@ -7,10 +7,9 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from ipaddress import IPv4Address
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from aiohttp import ClientResponseError
 from PIL import Image
 
 from tests.conftest import (
@@ -40,7 +39,7 @@ from uiprotect.data import (
     create_from_unifi_dict,
 )
 from uiprotect.data.types import Version, VideoMode
-from uiprotect.exceptions import BadRequest, NvrError
+from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
 from uiprotect.utils import to_js_time
 
 from .common import assert_equal_dump
@@ -379,11 +378,8 @@ async def test_force_update_with_nfc_fingerprint_version(
     assert len(protect_client.bootstrap.ulp_users)
 
 
-@pytest.mark.parametrize("status_code", [404, 403])
 @pytest.mark.asyncio()
-async def test_force_update_no_user_keyring_access(
-    protect_client: ProtectApiClient, status_code: int
-):
+async def test_force_update_no_user_keyring_access(protect_client: ProtectApiClient):
     protect_client._bootstrap = None
 
     await protect_client.update()
@@ -400,7 +396,7 @@ async def test_force_update_no_user_keyring_access(
         ) as get_bootstrap_mock,
         patch(
             "uiprotect.api.ProtectApiClient.api_request_list",
-            side_effect=ClientResponseError(Mock(), (), code=status_code),
+            side_effect=NotAuthorized,
         ) as api_request_list_mock,
     ):
         await protect_client.update()
@@ -427,7 +423,7 @@ async def test_force_update_user_keyring_internal_error(
     assert protect_client.bootstrap
     protect_client._bootstrap = None
     with (
-        pytest.raises(ClientResponseError),
+        pytest.raises(BadRequest),
         patch(
             "uiprotect.api.ProtectApiClient.get_bootstrap",
             return_value=AsyncMock(
@@ -436,7 +432,7 @@ async def test_force_update_user_keyring_internal_error(
         ),
         patch(
             "uiprotect.api.ProtectApiClient.api_request_list",
-            side_effect=ClientResponseError(Mock(), (), code=500),
+            side_effect=BadRequest,
         ),
     ):
         await protect_client.update()

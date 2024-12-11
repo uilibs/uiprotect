@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import hashlib
-import http
 import logging
 import re
 import sys
@@ -24,7 +23,7 @@ import aiofiles
 import aiohttp
 import orjson
 from aiofiles import os as aos
-from aiohttp import ClientResponseError, CookieJar, client_exceptions
+from aiohttp import CookieJar, client_exceptions
 from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
@@ -701,12 +700,6 @@ class BaseApiClient:
         _LOGGER.debug("Websocket state changed: %s", state)
 
 
-ALLOWED_FAILURE_CODES_USERS_KEYRINGS = {
-    http.HTTPStatus.FORBIDDEN.value,
-    http.HTTPStatus.NOT_FOUND.value,
-}
-
-
 class ProtectApiClient(BaseApiClient):
     """
     Main UFP API Client
@@ -838,17 +831,13 @@ class ProtectApiClient(BaseApiClient):
             if bootstrap.nvr.version >= NFC_FINGERPRINT_SUPPORT_VERSION:
                 try:
                     keyrings = await self.api_request_list("keyrings")
-                except ClientResponseError as err:
-                    if err.status not in ALLOWED_FAILURE_CODES_USERS_KEYRINGS:
-                        raise
-                    _LOGGER.debug("No access to keyrings %s, skipping", err.status)
+                except NotAuthorized as err:
+                    _LOGGER.debug("No access to keyrings %s, skipping", err)
                     keyrings = []
                 try:
                     ulp_users = await self.api_request_list("ulp-users")
-                except ClientResponseError as err:
-                    if err.status not in ALLOWED_FAILURE_CODES_USERS_KEYRINGS:
-                        raise
-                    _LOGGER.debug("No access to ulp-users %s, skipping", err.status)
+                except NotAuthorized as err:
+                    _LOGGER.debug("No access to ulp-users %s, skipping", err)
                     ulp_users = []
                 bootstrap.keyrings = Keyrings.from_list(
                     cast(list[Keyring], list_from_unifi_list(self, keyrings))
