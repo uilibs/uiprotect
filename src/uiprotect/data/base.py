@@ -137,10 +137,12 @@ class ProtectBaseObject(BaseModel):
             data.pop("api", None)
             return cls(api=api, **data)
 
-        return cls.construct(**data)
+        return cls.model_construct(**data)
 
     @classmethod
-    def construct(cls, _fields_set: set[str] | None = None, **values: Any) -> Self:
+    def model_construct(
+        cls, _fields_set: set[str] | None = None, **values: Any
+    ) -> Self:
         api: ProtectApiClient | None = values.pop("api", None)
         (
             unifi_objs,
@@ -152,19 +154,21 @@ class ProtectBaseObject(BaseModel):
         ) = cls._get_protect_model()
         for key, value in values.items():
             if has_unifi_objs and key in unifi_objs and isinstance(value, dict):
-                values[key] = unifi_objs[key].construct(**value)
+                values[key] = unifi_objs[key].model_construct(**value)
             elif has_unifi_lists and key in unifi_lists and isinstance(value, list):
                 values[key] = [
-                    unifi_lists[key].construct(**v) if isinstance(v, dict) else v
+                    unifi_lists[key].model_construct(**v) if isinstance(v, dict) else v
                     for v in value
                 ]
             elif has_unifi_dicts and key in unifi_dicts and isinstance(value, dict):
                 values[key] = {
-                    k: unifi_dicts[key].construct(**v) if isinstance(v, dict) else v
+                    k: unifi_dicts[key].model_construct(**v)
+                    if isinstance(v, dict)
+                    else v
                     for k, v in value.items()
                 }
 
-        obj = super().construct(_fields_set=_fields_set, **values)
+        obj = super().model_construct(_fields_set=_fields_set, **values)
         if api is not None:
             obj._api = api
 
@@ -369,7 +373,7 @@ class ProtectBaseObject(BaseModel):
         if isinstance(value, ProtectBaseObject):
             value = value.unifi_dict()
         elif isinstance(value, dict):
-            value = klass.construct({}).unifi_dict(data=value)  # type: ignore[arg-type]
+            value = klass.model_construct({}).unifi_dict(data=value)  # type: ignore[arg-type]
 
         return value
 
@@ -390,7 +394,7 @@ class ProtectBaseObject(BaseModel):
         return [
             item.unifi_dict()
             if isinstance(item, ProtectBaseObject)
-            else klass.construct({}).unifi_dict(data=item)  # type: ignore[arg-type]
+            else klass.model_construct({}).unifi_dict(data=item)  # type: ignore[arg-type]
             for item in value
         ]
 
@@ -587,9 +591,11 @@ class ProtectModelWithId(ProtectModel):
         self._update_sync = update_sync or UpdateSynchronization()
 
     @classmethod
-    def construct(cls, _fields_set: set[str] | None = None, **values: Any) -> Self:
+    def model_construct(
+        cls, _fields_set: set[str] | None = None, **values: Any
+    ) -> Self:
         update_sync = values.pop("update_sync", None)
-        obj = super().construct(_fields_set=_fields_set, **values)
+        obj = super().model_construct(_fields_set=_fields_set, **values)
         obj._update_sync = update_sync or UpdateSynchronization()
         return obj
 

@@ -426,7 +426,7 @@ class Bootstrap(ProtectBaseObject):
             if updated_obj is None:
                 return None
 
-            old_obj = updated_obj.copy()
+            old_obj = updated_obj.model_copy()
             updated_data = {to_snake_case(k): v for k, v in data.items()}
             updated_obj.update_from_dict(updated_data)
 
@@ -461,7 +461,7 @@ class Bootstrap(ProtectBaseObject):
         if not (data := self.nvr.unifi_dict_to_dict(data)):
             return None
 
-        old_nvr = self.nvr.copy()
+        old_nvr = self.nvr.model_copy()
         self.nvr = self.nvr.update_from_dict(data)
 
         return WSSubscriptionMessage(
@@ -517,7 +517,7 @@ class Bootstrap(ProtectBaseObject):
             # nothing left to process
             return None
 
-        old_obj = obj.copy()
+        old_obj = obj.model_copy()
         obj = obj.update_from_dict(data)
 
         if model_type is ModelType.EVENT:
