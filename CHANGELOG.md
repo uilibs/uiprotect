@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.0.2 (2024-12-11)
+
+### Fix
+
+
+- Migrate more deprecated pydantic calls (#324) ([`50ef161`](https://github.com/uilibs/uiprotect/commit/50ef1616429ea013fcb82155beb7510fa0ea156c))
+
+
 ## v7.0.1 (2024-12-11)
 
 ### Fix
