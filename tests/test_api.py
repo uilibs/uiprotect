@@ -39,7 +39,7 @@ from uiprotect.data import (
     create_from_unifi_dict,
 )
 from uiprotect.data.types import Version, VideoMode
-from uiprotect.exceptions import BadRequest, NvrError
+from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
 from uiprotect.utils import to_js_time
 
 from .common import assert_equal_dump
@@ -327,55 +327,115 @@ async def test_force_update_with_nfc_fingerprint_version(
     assert protect_client.bootstrap
     original_bootstrap = protect_client.bootstrap
     protect_client._bootstrap = None
-    with patch(
-        "uiprotect.api.ProtectApiClient.get_bootstrap",
-        AsyncMock(
+    with (
+        patch(
+            "uiprotect.api.ProtectApiClient.get_bootstrap",
             return_value=AsyncMock(
                 nvr=AsyncMock(version=NFC_FINGERPRINT_SUPPORT_VERSION)
-            )
-        ),
-    ) as get_bootstrap_mock:
-        with patch(
-            "uiprotect.api.ProtectApiClient.api_request_list",
-            AsyncMock(
-                side_effect=lambda endpoint: {
-                    "keyrings": [
-                        {
-                            "deviceType": "camera",
-                            "deviceId": "new_device_id_1",
-                            "registryType": "fingerprint",
-                            "registryId": "new_registry_id_1",
-                            "lastActivity": 1733432893331,
-                            "metadata": {},
-                            "ulpUser": "new_ulp_user_id_1",
-                            "id": "new_keyring_id_1",
-                            "modelKey": "keyring",
-                        }
-                    ],
-                    "ulp-users": [
-                        {
-                            "ulpId": "new_ulp_id_1",
-                            "firstName": "localadmin",
-                            "lastName": "",
-                            "fullName": "localadmin",
-                            "avatar": "",
-                            "status": "ACTIVE",
-                            "id": "new_ulp_user_id_1",
-                            "modelKey": "ulpUser",
-                        }
-                    ],
-                }.get(endpoint, [])
             ),
-        ) as api_request_list_mock:
-            await protect_client.update()
-            assert get_bootstrap_mock.called
-            assert api_request_list_mock.called
-            api_request_list_mock.assert_any_call("keyrings")
-            api_request_list_mock.assert_any_call("ulp-users")
-            assert api_request_list_mock.call_count == 2
+        ) as get_bootstrap_mock,
+        patch(
+            "uiprotect.api.ProtectApiClient.api_request_list",
+            side_effect=lambda endpoint: {
+                "keyrings": [
+                    {
+                        "deviceType": "camera",
+                        "deviceId": "new_device_id_1",
+                        "registryType": "fingerprint",
+                        "registryId": "new_registry_id_1",
+                        "lastActivity": 1733432893331,
+                        "metadata": {},
+                        "ulpUser": "new_ulp_user_id_1",
+                        "id": "new_keyring_id_1",
+                        "modelKey": "keyring",
+                    }
+                ],
+                "ulp-users": [
+                    {
+                        "ulpId": "new_ulp_id_1",
+                        "firstName": "localadmin",
+                        "lastName": "",
+                        "fullName": "localadmin",
+                        "avatar": "",
+                        "status": "ACTIVE",
+                        "id": "new_ulp_user_id_1",
+                        "modelKey": "ulpUser",
+                    }
+                ],
+            }.get(endpoint, []),
+        ) as api_request_list_mock,
+    ):
+        await protect_client.update()
+        assert get_bootstrap_mock.called
+        assert api_request_list_mock.called
+        api_request_list_mock.assert_any_call("keyrings")
+        api_request_list_mock.assert_any_call("ulp-users")
+        assert api_request_list_mock.call_count == 2
 
-        assert protect_client.bootstrap
-        assert original_bootstrap != protect_client.bootstrap
+    assert protect_client.bootstrap
+    assert original_bootstrap != protect_client.bootstrap
+    assert len(protect_client.bootstrap.keyrings)
+    assert len(protect_client.bootstrap.ulp_users)
+
+
+@pytest.mark.asyncio()
+async def test_force_update_no_user_keyring_access(protect_client: ProtectApiClient):
+    protect_client._bootstrap = None
+
+    await protect_client.update()
+
+    assert protect_client.bootstrap
+    original_bootstrap = protect_client.bootstrap
+    protect_client._bootstrap = None
+    with (
+        patch(
+            "uiprotect.api.ProtectApiClient.get_bootstrap",
+            return_value=AsyncMock(
+                nvr=AsyncMock(version=NFC_FINGERPRINT_SUPPORT_VERSION)
+            ),
+        ) as get_bootstrap_mock,
+        patch(
+            "uiprotect.api.ProtectApiClient.api_request_list",
+            side_effect=NotAuthorized,
+        ) as api_request_list_mock,
+    ):
+        await protect_client.update()
+        assert get_bootstrap_mock.called
+        assert api_request_list_mock.called
+        api_request_list_mock.assert_any_call("keyrings")
+        api_request_list_mock.assert_any_call("ulp-users")
+        assert api_request_list_mock.call_count == 2
+
+    assert protect_client.bootstrap
+    assert original_bootstrap != protect_client.bootstrap
+    assert not len(protect_client.bootstrap.keyrings)
+    assert not len(protect_client.bootstrap.ulp_users)
+
+
+@pytest.mark.asyncio()
+async def test_force_update_user_keyring_internal_error(
+    protect_client: ProtectApiClient,
+):
+    protect_client._bootstrap = None
+
+    await protect_client.update()
+
+    assert protect_client.bootstrap
+    protect_client._bootstrap = None
+    with (
+        pytest.raises(BadRequest),
+        patch(
+            "uiprotect.api.ProtectApiClient.get_bootstrap",
+            return_value=AsyncMock(
+                nvr=AsyncMock(version=NFC_FINGERPRINT_SUPPORT_VERSION)
+            ),
+        ),
+        patch(
+            "uiprotect.api.ProtectApiClient.api_request_list",
+            side_effect=BadRequest,
+        ),
+    ):
+        await protect_client.update()
 
 
 @pytest.mark.asyncio()

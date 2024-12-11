@@ -252,6 +252,9 @@ class UlpUserKeyringBase(Generic[T]):
     def __init__(self) -> None:
         self._id_to_item: dict[str, T] = {}
 
+    def __len__(self) -> int:
+        return len(self._id_to_item)
+
     @classmethod
     def from_list(cls, items: list[T]) -> Self:
         instance = cls()
