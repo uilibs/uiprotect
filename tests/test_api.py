@@ -379,9 +379,10 @@ async def test_force_update_with_nfc_fingerprint_version(
     assert len(protect_client.bootstrap.ulp_users)
 
 
+@pytest.mark.parametrize("status_code", [404, 403])
 @pytest.mark.asyncio()
 async def test_force_update_no_user_keyring_access(
-    protect_client: ProtectApiClient,
+    protect_client: ProtectApiClient, status_code: int
 ):
     protect_client._bootstrap = None
 
@@ -399,7 +400,7 @@ async def test_force_update_no_user_keyring_access(
         ) as get_bootstrap_mock,
         patch(
             "uiprotect.api.ProtectApiClient.api_request_list",
-            side_effect=ClientResponseError(Mock(), (), code=403),
+            side_effect=ClientResponseError(Mock(), (), code=status_code),
         ) as api_request_list_mock,
     ):
         await protect_client.update()

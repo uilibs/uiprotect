@@ -702,7 +702,7 @@ class BaseApiClient:
 
 
 ALLOWED_FAILURE_CODES_USERS_KEYRINGS = {
-    http.HTTPStatus.UNAUTHORIZED.value,
+    http.HTTPStatus.FORBIDDEN.value,
     http.HTTPStatus.NOT_FOUND.value,
 }
 
