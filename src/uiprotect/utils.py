@@ -572,7 +572,7 @@ def local_datetime(dt: datetime | None = None) -> datetime:
 def log_event(event: Event) -> None:
     from uiprotect.data import EventType
 
-    _LOGGER.debug("event WS msg: %s", event.dict())
+    _LOGGER.debug("event WS msg: %s", event.model_dump())
     if "smart" not in event.type.value:
         return
 
