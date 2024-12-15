@@ -1571,7 +1571,7 @@ class ProtectApiClient(BaseApiClient):
             params=params,
         )
         if r.status != 200:
-          await self._raise_for_status(r, True)
+            await self._raise_for_status(r, True)
 
         if output_file is not None:
             async with aiofiles.open(output_file, "wb") as output:
