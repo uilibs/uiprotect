@@ -1562,6 +1562,7 @@ class ProtectApiClient(BaseApiClient):
                 raise_exception=False,
             )
 
+        _LOGGER.debug("Requesting camera video: %s%s %s", self.api_path, path, params)
         r = await self.request(
             "get",
             f"{self.api_path}{path}",
@@ -1569,6 +1570,9 @@ class ProtectApiClient(BaseApiClient):
             timeout=0,
             params=params,
         )
+        if r.status != 200:
+          await self._raise_for_status(r, True)
+
         if output_file is not None:
             async with aiofiles.open(output_file, "wb") as output:
 
