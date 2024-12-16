@@ -3385,6 +3385,7 @@ class Chime(ProtectAdoptableDeviceModel):
 
         await self.queue_update(callback)
 
+
 class AiPort(Camera):
     paired_cameras: list[str]
 
