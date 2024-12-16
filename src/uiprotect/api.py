@@ -57,7 +57,7 @@ from .data import (
     create_from_unifi_dict,
 )
 from .data.base import ProtectModelWithId
-from .data.devices import Chime
+from .data.devices import AiPort, Chime
 from .data.types import IteratorCallback, ProgressCallback
 from .exceptions import BadRequest, NotAuthorized, NvrError
 from .utils import (
@@ -1268,6 +1268,14 @@ class ProtectApiClient(BaseApiClient):
         """
         return cast(list[Chime], await self.get_devices(ModelType.CHIME, Chime))
 
+    async def get_aiports(self) -> list[AiPort]:
+        """
+        Gets the list of aiports straight from the NVR.
+
+        The websocket is connected and running, you likely just want to use `self.bootstrap.aiports`
+        """
+        return cast(list[AiPort], await self.get_devices(ModelType.AIPORT, AiPort))
+
     async def get_viewers(self) -> list[Viewer]:
         """
         Gets the list of viewers straight from the NVR.
@@ -1385,6 +1393,14 @@ class ProtectApiClient(BaseApiClient):
         The websocket is connected and running, you likely just want to use `self.bootstrap.chimes[device_id]`
         """
         return cast(Chime, await self.get_device(ModelType.CHIME, device_id, Chime))
+
+    async def get_aiport(self, device_id: str) -> AiPort:
+        """
+        Gets a AiPort straight from the NVR.
+
+        The websocket is connected and running, you likely just want to use `self.bootstrap.aiport[device_id]`
+        """
+        return cast(AiPort, await self.get_device(ModelType.AIPORT, device_id, AiPort))
 
     async def get_viewer(self, device_id: str) -> Viewer:
         """

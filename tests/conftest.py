@@ -781,7 +781,7 @@ def compare_objs(obj_type, expected, actual):
     actual = deepcopy(actual)
 
     # TODO: fields not supported yet
-    if obj_type == ModelType.CAMERA.value:
+    if obj_type in (ModelType.CAMERA.value, ModelType.AIPORT.value):
         # fields does not always exist (G4 Instant)
         expected.pop("apMac", None)
         # field no longer exists on newer cameras
