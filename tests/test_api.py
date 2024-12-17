@@ -961,3 +961,11 @@ async def test_get_chime_not_adopted_enabled(protect_client: ProtectApiClient, c
 
     obj = create_from_unifi_dict(chime)
     assert_equal_dump(obj, await protect_client.get_chime("test_id"))
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_aiports(protect_client: ProtectApiClient, aiports):
+    objs = [create_from_unifi_dict(d) for d in aiports]
+
+    assert_equal_dump(objs, await protect_client.get_aiports())
+

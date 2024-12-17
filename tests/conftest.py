@@ -581,6 +581,14 @@ def viewports():
 
 
 @pytest.fixture()
+def aiports():
+    if not TEST_AIPORT_EXISTS:
+        return []
+
+    return [read_json_file("sample_aiport")]
+
+
+@pytest.fixture()
 def lights():
     if not TEST_LIGHT_EXISTS:
         return []
