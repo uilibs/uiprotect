@@ -11,7 +11,9 @@ from ..data import AiPort
 
 app = typer.Typer(rich_markup_mode="rich")
 
-ARG_DEVICE_ID = typer.Argument(None, help="ID of AiPort device to select for subcommands")
+ARG_DEVICE_ID = typer.Argument(
+    None, help="ID of AiPort device to select for subcommands"
+)
 
 
 @dataclass
