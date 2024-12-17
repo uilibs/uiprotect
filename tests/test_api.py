@@ -912,6 +912,7 @@ async def test_get_aiport(protect_client: ProtectApiClient, aiport):
 
     assert_equal_dump(obj, await protect_client.get_aiport("test_id"))
 
+
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
 async def test_get_aiport_not_adopted(protect_client: ProtectApiClient, aiport):

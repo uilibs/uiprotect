@@ -89,6 +89,7 @@ def read_camera_json_file():
 
     return camera
 
+
 def read_aiport_json_file():
     # tests expect global recording settings to be off
     aiport = read_json_file("sample_aiport")
@@ -477,6 +478,7 @@ async def aiport_obj_fixture(protect_client: ProtectApiClient):
 
     return next(iter(protect_client.bootstrap.aiports.values()))
 
+
 @pytest_asyncio.fixture
 async def liveview_obj(protect_client: ProtectApiClient):
     if not TEST_LIVEVIEW_EXISTS:
@@ -521,12 +523,14 @@ def camera():
 
     return read_camera_json_file()
 
+
 @pytest.fixture()
 def aiport():
     if not TEST_CAMERA_EXISTS:
         return None
 
     return read_aiport_json_file()
+
 
 @pytest.fixture()
 def sensor():
