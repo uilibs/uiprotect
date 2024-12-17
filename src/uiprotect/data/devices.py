@@ -3388,10 +3388,3 @@ class Chime(ProtectAdoptableDeviceModel):
 
 class AiPort(Camera):
     paired_cameras: list[str]
-
-    @property
-    def paired_cameras(self) -> list[Camera]:
-        """Paired Cameras for AiPort"""
-        if len(self.paired_cameras) == 0:
-            return []
-        return [self._api.bootstrap.cameras[c] for c in self.paired_cameras]

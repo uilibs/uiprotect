@@ -903,3 +903,60 @@ async def test_get_event_smart_detect_track(protect_client: ProtectApiClient):
         require_auth=True,
         raise_exception=True,
     )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_aiport(protect_client: ProtectApiClient, aiport):
+    obj = create_from_unifi_dict(aiport)
+
+    assert_equal_dump(obj, await protect_client.get_aiport("test_id"))
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_aiport_not_adopted(protect_client: ProtectApiClient, aiport):
+    aiport["isAdopted"] = False
+    protect_client.api_request_obj = AsyncMock(return_value=aiport)
+
+    with pytest.raises(NvrError):
+        await protect_client.get_aiport("test_id")
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_aiport_not_adopted_enabled(protect_client: ProtectApiClient, aiport):
+    aiport["isAdopted"] = False
+    protect_client.ignore_unadopted = False
+    protect_client.api_request_obj = AsyncMock(return_value=aiport)
+
+    obj = create_from_unifi_dict(aiport)
+    assert_equal_dump(obj, await protect_client.get_aiport("test_id"))
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_chime(protect_client: ProtectApiClient, chime):
+    obj = create_from_unifi_dict(chime)
+
+    assert_equal_dump(obj, await protect_client.get_chime("test_id"))
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_chime_not_adopted(protect_client: ProtectApiClient, chime):
+    chime["isAdopted"] = False
+    protect_client.api_request_obj = AsyncMock(return_value=chime)
+
+    with pytest.raises(NvrError):
+        await protect_client.get_chime("test_id")
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_chime_not_adopted_enabled(protect_client: ProtectApiClient, chime):
+    chime["isAdopted"] = False
+    protect_client.ignore_unadopted = False
+    protect_client.api_request_obj = AsyncMock(return_value=chime)
+
+    obj = create_from_unifi_dict(chime)
+    assert_equal_dump(obj, await protect_client.get_chime("test_id"))
