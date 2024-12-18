@@ -124,6 +124,7 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
     DOORLOCK = "doorlock"
     SCHEDULE = "schedule"
     CHIME = "chime"
+    AIPORT = "aiport"
     DEVICE_GROUP = "deviceGroup"
     RECORDING_SCHEDULE = "recordingSchedule"
     ULP_USER = "ulpUser"
@@ -173,6 +174,7 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
             ModelType.SENSOR,
             ModelType.DOORLOCK,
             ModelType.CHIME,
+            ModelType.AIPORT,
         )
 
     @classmethod

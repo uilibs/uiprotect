@@ -10,6 +10,7 @@ from .base import (
 from .bootstrap import Bootstrap
 from .convert import create_from_unifi_dict
 from .devices import (
+    AiPort,
     Bridge,
     Camera,
     CameraChannel,
@@ -85,6 +86,7 @@ __all__ = [
     "DEFAULT_TYPE",
     "NVR",
     "WS_HEADER_SIZE",
+    "AiPort",
     "AnalyticsOption",
     "AudioStyle",
     "Bootstrap",

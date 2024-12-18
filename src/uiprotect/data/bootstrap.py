@@ -23,6 +23,7 @@ from .base import (
 )
 from .convert import MODEL_TO_CLASS, create_from_unifi_dict
 from .devices import (
+    AiPort,
     Bridge,
     Camera,
     Chime,
@@ -181,6 +182,7 @@ class Bootstrap(ProtectBaseObject):
     sensors: dict[str, Sensor]
     doorlocks: dict[str, Doorlock]
     chimes: dict[str, Chime]
+    aiports: dict[str, AiPort]
     last_update_id: str
 
     # TODO:

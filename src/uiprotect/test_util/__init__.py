@@ -131,6 +131,7 @@ class SampleDataGenerator:
             "sensor": len(bootstrap["sensors"]),
             "doorlock": len(bootstrap["doorlocks"]),
             "chime": len(bootstrap["chimes"]),
+            "aiport": len(bootstrap["aiports"]),
         }
 
         self.log("Generating event data...")
@@ -283,6 +284,7 @@ class SampleDataGenerator:
             self.generate_sensor_data(),
             self.generate_lock_data(),
             self.generate_chime_data(),
+            self.generate_aiport_data(),
             self.generate_bridge_data(),
             self.generate_liveview_data(),
         )
@@ -468,6 +470,21 @@ class SampleDataGenerator:
 
         obj = await self.client.api_request_obj(f"chimes/{device_id}")
         await self.write_json_file("sample_chime", obj)
+
+    async def generate_aiport_data(self) -> None:
+        objs = await self.client.api_request_list("aiports")
+        device_id: str | None = None
+        for obj_dict in objs:
+            device_id = obj_dict["id"]
+            if is_online(obj_dict):
+                break
+
+        if device_id is None:
+            self.log("No aiport found. Skipping aiport endpoints...")
+            return
+
+        obj = await self.client.api_request_obj(f"aiports/{device_id}")
+        await self.write_json_file("sample_aiport", obj)
 
     async def generate_bridge_data(self) -> None:
         objs = await self.client.api_request_list("bridges")
