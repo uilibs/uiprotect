@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.1.0 (2024-12-18)
+
+### Feature
+
+
+- Add aiport support (#330) ([`ba459ff`](https://github.com/uilibs/uiprotect/commit/ba459ff1619957123f71fcf48da7042e3e086ddd))
+
+
 ## v7.0.2 (2024-12-11)
 
 ### Fix
