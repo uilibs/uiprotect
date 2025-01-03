@@ -128,6 +128,7 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
     DEVICE_GROUP = "deviceGroup"
     RECORDING_SCHEDULE = "recordingSchedule"
     ULP_USER = "ulpUser"
+    RINGTONE = "ringtone"
     KEYRING = "keyring"
     UNKNOWN = "unknown"
 

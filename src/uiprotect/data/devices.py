@@ -3388,3 +3388,11 @@ class Chime(ProtectAdoptableDeviceModel):
 
 class AiPort(Camera):
     paired_cameras: list[str]
+
+class Ringtone(ProtectBaseObject):
+    id: str
+    name: str
+    size: int
+    is_default: bool
+    nvr_mac: str
+    model_key: str

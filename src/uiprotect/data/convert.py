@@ -14,6 +14,7 @@ from .devices import (
     Chime,
     Doorlock,
     Light,
+    Ringtone,
     Sensor,
     Viewer,
 )
@@ -44,6 +45,7 @@ MODEL_TO_CLASS: dict[str, type[ProtectModel]] = {
     ModelType.AIPORT: AiPort,
     ModelType.KEYRING: Keyring,
     ModelType.ULP_USER: UlpUser,
+    ModelType.RINGTONE: Ringtone,
 }
 
 
