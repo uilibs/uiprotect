@@ -1806,10 +1806,12 @@ class ProtectApiClient(BaseApiClient):
         *,
         volume: int | None = None,
         repeat_times: int | None = None,
+        ringtone_id: str | None = None,
+        track_no: int | None = None,
     ) -> None:
         """Plays chime tones on a chime"""
         data: dict[str, Any] | None = None
-        if volume or repeat_times:
+        if volume or repeat_times or ringtone_id or track_no:
             chime = self.bootstrap.chimes.get(device_id)
             if chime is None:
                 raise BadRequest("Invalid chime ID %s", device_id)
@@ -1817,8 +1819,11 @@ class ProtectApiClient(BaseApiClient):
             data = {
                 "volume": volume or chime.volume,
                 "repeatTimes": repeat_times or chime.repeat_times,
-                "trackNo": chime.track_no,
+                "trackNo": track_no or chime.track_no,
             }
+            if ringtone_id:
+                data["ringtoneId"] = ringtone_id
+                data.pop("trackNo", None)
 
         await self.api_request(
             f"chimes/{device_id}/play-speaker",

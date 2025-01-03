@@ -969,3 +969,99 @@ async def test_get_aiports(protect_client: ProtectApiClient, aiports):
     objs = [create_from_unifi_dict(d) for d in aiports]
 
     assert_equal_dump(objs, await protect_client.get_aiports())
+
+
+@pytest.mark.asyncio()
+async def test_play_speaker(protect_client: ProtectApiClient):
+    """Test play_speaker with default parameters."""
+    device_id = "cf1a330397c08f919d02bd7c"
+    protect_client.api_request = AsyncMock()
+
+    await protect_client.play_speaker(device_id)
+
+    protect_client.api_request.assert_called_with(
+        f"chimes/{device_id}/play-speaker",
+        method="post",
+        json=None,
+    )
+
+
+@pytest.mark.asyncio()
+async def test_play_speaker_with_volume(protect_client: ProtectApiClient):
+    """Test play_speaker with volume parameter."""
+    device_id = "cf1a330397c08f919d02bd7c"
+    volume = 5
+    chime = protect_client.bootstrap.chimes[device_id]
+    protect_client.api_request = AsyncMock()
+
+    await protect_client.play_speaker(device_id, volume=volume)
+
+    protect_client.api_request.assert_called_with(
+        f"chimes/{device_id}/play-speaker",
+        method="post",
+        json={
+            "volume": volume,
+            "repeatTimes": chime.repeat_times,
+            "trackNo": chime.track_no,
+        },
+    )
+
+
+@pytest.mark.asyncio()
+async def test_play_speaker_with_ringtone_id(protect_client: ProtectApiClient):
+    """Test play_speaker with ringtone_id parameter."""
+    device_id = "cf1a330397c08f919d02bd7c"
+    ringtone_id = "ringtone_1"
+    chime = protect_client.bootstrap.chimes[device_id]
+    protect_client.api_request = AsyncMock()
+
+    await protect_client.play_speaker(device_id, ringtone_id=ringtone_id)
+
+    protect_client.api_request.assert_called_with(
+        f"chimes/{device_id}/play-speaker",
+        method="post",
+        json={
+            "volume": chime.volume,
+            "repeatTimes": chime.repeat_times,
+            "ringtoneId": ringtone_id,
+        },
+    )
+
+
+@pytest.mark.asyncio()
+async def test_play_speaker_invalid_chime_id(protect_client: ProtectApiClient):
+    """Test play_speaker with invalid chime ID."""
+    device_id = "invalid_id"
+    protect_client.api_request = AsyncMock()
+
+    with pytest.raises(BadRequest):
+        await protect_client.play_speaker(device_id, volume=5)
+
+
+@pytest.mark.asyncio()
+async def test_play_speaker_with_all_parameters(protect_client: ProtectApiClient):
+    """Test play_speaker with all parameters."""
+    device_id = "cf1a330397c08f919d02bd7c"
+    volume = 5
+    repeat_times = 3
+    ringtone_id = "ringtone_1"
+    track_no = 2
+    protect_client.api_request = AsyncMock()
+
+    await protect_client.play_speaker(
+        device_id,
+        volume=volume,
+        repeat_times=repeat_times,
+        ringtone_id=ringtone_id,
+        track_no=track_no,
+    )
+
+    protect_client.api_request.assert_called_with(
+        f"chimes/{device_id}/play-speaker",
+        method="post",
+        json={
+            "volume": volume,
+            "repeatTimes": repeat_times,
+            "ringtoneId": ringtone_id,
+        },
+    )
