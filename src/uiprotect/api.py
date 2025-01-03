@@ -1835,15 +1835,15 @@ class ProtectApiClient(BaseApiClient):
         """Plays chime tones on a chime"""
         await self.api_request(f"chimes/{device_id}/play-buzzer", method="post")
 
-    async def set_light_isLedForceOn(
+    async def set_light_is_led_force_on(
         self, device_id: str, is_led_force_on: bool
-    ) -> None:
-        """Sets isLedForceOn for light"""  # workaround because forceOn doesnt work via websocket
-        await self.api_request(
-            f"lights/{device_id}",
-            method="patch",
-            json={"lightOnSettings": {"isLedForceOn": is_led_force_on}},
-        )
+        ) -> None:
+            """Sets isLedForceOn for light""" # workaround because forceOn doesnt work via websocket
+            await self.api_request(
+                f"lights/{device_id}",
+                method="patch",
+                json={"lightOnSettings": {"isLedForceOn": is_led_force_on}},
+            )
 
     async def clear_tamper_sensor(self, device_id: str) -> None:
         """Clears tamper status for sensor"""
