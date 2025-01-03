@@ -1068,8 +1068,8 @@ async def test_play_speaker_with_all_parameters(protect_client: ProtectApiClient
 
 
 @pytest.mark.asyncio()
-async def test_set_light_isLedForceOn(protect_client: ProtectApiClient):
-    """Test set_light_isLedForceOn with valid parameters."""
+async def test_set_light_is_led_force_on(protect_client: ProtectApiClient):
+    """Test set_light_is_led_force_on with valid parameters."""
     device_id = "test_light_id"
     is_led_force_on = True
     protect_client.api_request = AsyncMock()
@@ -1084,8 +1084,8 @@ async def test_set_light_isLedForceOn(protect_client: ProtectApiClient):
 
 
 @pytest.mark.asyncio()
-async def test_set_light_isLedForceOn_false(protect_client: ProtectApiClient):
-    """Test set_light_isLedForceOn with is_led_force_on set to False."""
+async def test_set_light_is_led_force_on_false(protect_client: ProtectApiClient):
+    """Test set_light_is_led_force_on with is_led_force_on set to False."""
     device_id = "test_light_id"
     is_led_force_on = False
     protect_client.api_request = AsyncMock()
@@ -1100,10 +1100,10 @@ async def test_set_light_isLedForceOn_false(protect_client: ProtectApiClient):
 
 
 @pytest.mark.asyncio()
-async def test_set_light_isLedForceOn_invalid_device_id(
+async def test_set_light_is_led_force_on_invalid_device_id(
     protect_client: ProtectApiClient,
 ):
-    """Test set_light_isLedForceOn with invalid device ID."""
+    """Test set_light_is_led_force_on with invalid device ID."""
     device_id = "invalid_id"
     is_led_force_on = True
     protect_client.api_request = AsyncMock(side_effect=BadRequest)
