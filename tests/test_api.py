@@ -1066,6 +1066,7 @@ async def test_play_speaker_with_all_parameters(protect_client: ProtectApiClient
         },
     )
 
+
 @pytest.mark.asyncio()
 async def test_set_light_isLedForceOn(protect_client: ProtectApiClient):
     """Test set_light_isLedForceOn with valid parameters."""
@@ -1097,9 +1098,10 @@ async def test_set_light_isLedForceOn_false(protect_client: ProtectApiClient):
         json={"lightOnSettings": {"isLedForceOn": is_led_force_on}},
     )
 
-
     @pytest.mark.asyncio()
-    async def test_set_light_isLedForceOn_invalid_device_id(protect_client: ProtectApiClient):
+    async def test_set_light_isLedForceOn_invalid_device_id(
+        protect_client: ProtectApiClient,
+    ):
         """Test set_light_isLedForceOn with invalid device ID."""
         device_id = "invalid_id"
         is_led_force_on = True
@@ -1107,4 +1109,3 @@ async def test_set_light_isLedForceOn_false(protect_client: ProtectApiClient):
 
         with pytest.raises(BadRequest):
             await protect_client.set_light_isLedForceOn(device_id, is_led_force_on)
-
