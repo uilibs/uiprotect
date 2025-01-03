@@ -1074,7 +1074,7 @@ async def test_set_light_isLedForceOn(protect_client: ProtectApiClient):
     is_led_force_on = True
     protect_client.api_request = AsyncMock()
 
-    await protect_client.set_light_isLedForceOn(device_id, is_led_force_on)
+    await protect_client.set_light_is_led_force_on(device_id, is_led_force_on)
 
     protect_client.api_request.assert_called_with(
         f"lights/{device_id}",
@@ -1090,7 +1090,7 @@ async def test_set_light_isLedForceOn_false(protect_client: ProtectApiClient):
     is_led_force_on = False
     protect_client.api_request = AsyncMock()
 
-    await protect_client.set_light_isLedForceOn(device_id, is_led_force_on)
+    await protect_client.set_light_is_led_force_on(device_id, is_led_force_on)
 
     protect_client.api_request.assert_called_with(
         f"lights/{device_id}",
@@ -1108,4 +1108,4 @@ async def test_set_light_isLedForceOn_false(protect_client: ProtectApiClient):
         protect_client.api_request = AsyncMock(side_effect=BadRequest)
 
         with pytest.raises(BadRequest):
-            await protect_client.set_light_isLedForceOn(device_id, is_led_force_on)
+            await protect_client.set_light_is_led_force_on(device_id, is_led_force_on)
