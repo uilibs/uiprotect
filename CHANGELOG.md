@@ -1,5 +1,17 @@
 # Changelog
 
+## v7.2.0 (2025-01-03)
+
+### Feature
+
+
+- Add set_light_is_led_force_on method (#347) ([`5488b1d`](https://github.com/uilibs/uiprotect/commit/5488b1d7accb3d0f3a3df05101b8bc87ef67f25b))
+
+
+### Unknown
+
+
+
 ## v7.1.0 (2024-12-18)
 
 ### Feature
