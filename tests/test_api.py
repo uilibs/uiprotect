@@ -1098,14 +1098,14 @@ async def test_set_light_isLedForceOn_false(protect_client: ProtectApiClient):
         json={"lightOnSettings": {"isLedForceOn": is_led_force_on}},
     )
 
-    @pytest.mark.asyncio()
-    async def test_set_light_isLedForceOn_invalid_device_id(
-        protect_client: ProtectApiClient,
-    ):
-        """Test set_light_isLedForceOn with invalid device ID."""
-        device_id = "invalid_id"
-        is_led_force_on = True
-        protect_client.api_request = AsyncMock(side_effect=BadRequest)
+@pytest.mark.asyncio()
+async def test_set_light_isLedForceOn_invalid_device_id(
+    protect_client: ProtectApiClient,
+):
+    """Test set_light_isLedForceOn with invalid device ID."""
+    device_id = "invalid_id"
+    is_led_force_on = True
+    protect_client.api_request = AsyncMock(side_effect=BadRequest)
 
-        with pytest.raises(BadRequest):
-            await protect_client.set_light_is_led_force_on(device_id, is_led_force_on)
+    with pytest.raises(BadRequest):
+        await protect_client.set_light_is_led_force_on(device_id, is_led_force_on)
