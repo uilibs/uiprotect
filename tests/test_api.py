@@ -1098,6 +1098,7 @@ async def test_set_light_isLedForceOn_false(protect_client: ProtectApiClient):
         json={"lightOnSettings": {"isLedForceOn": is_led_force_on}},
     )
 
+
 @pytest.mark.asyncio()
 async def test_set_light_isLedForceOn_invalid_device_id(
     protect_client: ProtectApiClient,
