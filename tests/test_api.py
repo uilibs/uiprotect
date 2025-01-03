@@ -970,6 +970,7 @@ async def test_get_aiports(protect_client: ProtectApiClient, aiports):
 
     assert_equal_dump(objs, await protect_client.get_aiports())
 
+
 @pytest.mark.asyncio()
 async def test_play_speaker(protect_client: ProtectApiClient):
     """Test play_speaker with default parameters."""
@@ -1064,4 +1065,3 @@ async def test_play_speaker_with_all_parameters(protect_client: ProtectApiClient
             "ringtoneId": ringtone_id,
         },
     )
-

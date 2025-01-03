@@ -3389,6 +3389,7 @@ class Chime(ProtectAdoptableDeviceModel):
 class AiPort(Camera):
     paired_cameras: list[str]
 
+
 class Ringtone(ProtectBaseObject):
     id: str
     name: str
