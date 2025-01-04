@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.3.0 (2025-01-04)
+
+### Feature
+
+
+- Add none option to autoexposuremode enum ([`04ad788`](https://github.com/uilibs/uiprotect/commit/04ad78889d12a49d2ec415186bc9c8de46903ae9))
+
+
 ## v7.2.0 (2025-01-03)
 
 ### Feature
