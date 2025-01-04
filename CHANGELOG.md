@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.4.0 (2025-01-04)
+
+### Feature
+
+
+- Add missing ispsettings enum values (#349) ([`e593606`](https://github.com/uilibs/uiprotect/commit/e593606debb26c5c7f596037f1739a1881e8d8c8))
+
+
 ## v7.3.0 (2025-01-04)
 
 ### Feature
