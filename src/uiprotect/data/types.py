@@ -524,6 +524,7 @@ class SleepStateType(str, ValuesEnumMixin, enum.Enum):
 class AutoExposureMode(str, ValuesEnumMixin, enum.Enum):
     MANUAL = "manual"
     AUTO = "auto"
+    NONE = "none"
     SHUTTER = "shutter"
     FLICK50 = "flick50"
     FLICK60 = "flick60"
