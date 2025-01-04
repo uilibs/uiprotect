@@ -534,6 +534,7 @@ class AutoExposureMode(str, ValuesEnumMixin, enum.Enum):
 class FocusMode(str, ValuesEnumMixin, enum.Enum):
     MANUAL = "manual"
     AUTO = "auto"
+    NONE = "none"
     ZTRIG = "ztrig"
     TOUCH = "touch"
 
@@ -638,6 +639,7 @@ class PermissionNode(str, UnknownValuesEnumMixin, enum.Enum):
 
 @enum.unique
 class HDRMode(str, UnknownValuesEnumMixin, enum.Enum):
+    NONE = "none"
     NORMAL = "normal"
     ALWAYS_ON = "superHdr"
 
@@ -653,21 +655,21 @@ class LensType(str, enum.Enum):
 
 DoorbellText = Annotated[str, StringConstraints(max_length=30)]
 
-ICRCustomValue = Annotated[int, Field(ge=0, le=10)]
+ICRCustomValue = Annotated[int, Field(ge=0, le=11)]
 
 ICRLuxValue = Annotated[int, Field(ge=1, le=30)]
 
 LEDLevel = Annotated[int, Field(ge=0, le=6)]
 
-PercentInt = Annotated[int, Field(ge=0, le=100)]
+PercentInt = Annotated[int, Field(ge=0, le=101)]
 
-TwoByteInt = Annotated[int, Field(ge=1, le=255)]
+TwoByteInt = Annotated[int, Field(ge=1, le=256)]
 
 PercentFloat = Annotated[float, Field(ge=0, le=100)]
 
-WDRLevel = Annotated[int, Field(ge=0, le=3)]
+WDRLevel = Annotated[int, Field(ge=0, le=4)]
 
-ICRSensitivity = Annotated[int, Field(ge=0, le=3)]
+ICRSensitivity = Annotated[int, Field(ge=0, le=4)]
 
 Percent = Annotated[float, Field(ge=0, le=1)]
 
