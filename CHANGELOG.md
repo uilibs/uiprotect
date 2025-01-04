@@ -1,5 +1,33 @@
 # Changelog
 
+## v7.4.0 (2025-01-04)
+
+### Feature
+
+
+- Add missing ispsettings enum values (#349) ([`e593606`](https://github.com/uilibs/uiprotect/commit/e593606debb26c5c7f596037f1739a1881e8d8c8))
+
+
+## v7.3.0 (2025-01-04)
+
+### Feature
+
+
+- Add none option to autoexposuremode enum ([`04ad788`](https://github.com/uilibs/uiprotect/commit/04ad78889d12a49d2ec415186bc9c8de46903ae9))
+
+
+## v7.2.0 (2025-01-03)
+
+### Feature
+
+
+- Add set_light_is_led_force_on method (#347) ([`5488b1d`](https://github.com/uilibs/uiprotect/commit/5488b1d7accb3d0f3a3df05101b8bc87ef67f25b))
+
+
+### Unknown
+
+
+
 ## v7.1.0 (2024-12-18)
 
 ### Feature

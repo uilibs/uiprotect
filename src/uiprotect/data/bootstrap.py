@@ -30,6 +30,7 @@ from .devices import (
     Doorlock,
     Light,
     ProtectAdoptableDeviceModel,
+    Ringtone,
     Sensor,
     Viewer,
 )
@@ -183,6 +184,7 @@ class Bootstrap(ProtectBaseObject):
     doorlocks: dict[str, Doorlock]
     chimes: dict[str, Chime]
     aiports: dict[str, AiPort]
+    ringtones: list[Ringtone]
     last_update_id: str
 
     # TODO:

@@ -343,7 +343,7 @@ async def test_camera_set_camera_zoom(camera_obj: Camera | None, level: int):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize("level", [-1, 0, 3, 4])
+@pytest.mark.parametrize("level", [-1, 0, 3, 5])
 @pytest.mark.asyncio()
 async def test_camera_set_wdr_level(camera_obj: Camera | None, level: int):
     if camera_obj is None:
@@ -354,7 +354,7 @@ async def test_camera_set_wdr_level(camera_obj: Camera | None, level: int):
     camera_obj.feature_flags.has_hdr = False
     camera_obj.isp_settings.wdr = 2
 
-    if level in {-1, 4}:
+    if level in {-1, 5}:
         with pytest.raises(ValidationError):
             await camera_obj.set_wdr_level(level)
         assert not camera_obj.api.api_request.called
