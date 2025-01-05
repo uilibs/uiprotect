@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import logging
 from copy import deepcopy
 from datetime import timedelta
 from ipaddress import IPv4Address
@@ -332,6 +333,17 @@ def test_bootstrap(bootstrap: dict[str, Any]):
 
     assert bootstrap == obj_dict
     assert_equal_dump(obj, obj_construct)
+
+
+def test_bootstrap_aiports_missing(bootstrap: dict[str, Any]):
+    deepcopied_bootstrap_1 = deepcopy(bootstrap)
+    deepcopied_bootstrap_1.pop("aiports", None)
+
+    logger = logging.getLogger("uiprotect.data.bootstrap")
+    with patch.object(logger, 'error') as mock_log_error:
+        obj = Bootstrap.from_unifi_dict(**deepcopied_bootstrap_1)
+        mock_log_error.assert_called_once_with("Missing key in bootstrap: aiports. This may be fixed by updating Protect.")
+        assert obj.aiports == {}
 
 
 def test_unifi_dict_exclude(bootstrap: dict[str, Any]):
