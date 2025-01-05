@@ -220,7 +220,9 @@ class Bootstrap(ProtectBaseObject):
             items: dict[str, ProtectModel] = {}
             if key not in data:
                 data[key] = {}
-                _LOGGER.error(f"Missing key in bootstrap: {key}. This may be fixed by updating Protect.")
+                _LOGGER.error(
+                    f"Missing key in bootstrap: {key}. This may be fixed by updating Protect."
+                )
                 continue
             for item in data[key]:
                 if (
