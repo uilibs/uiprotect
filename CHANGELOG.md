@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.4.1 (2025-01-05)
+
+### Fix
+
+
+- Handle missing keys in bootstrap data and log an error (#350) ([`e06cd7b`](https://github.com/uilibs/uiprotect/commit/e06cd7b2811e2fa292917aec924dfeadc6c43644))
+
+
 ## v7.4.0 (2025-01-04)
 
 ### Feature
