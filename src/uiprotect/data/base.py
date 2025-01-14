@@ -721,9 +721,9 @@ class ProtectModelWithId(ProtectModel):
             updated,
         )
 
-        assert (
-            self._update_sync.lock.locked()
-        ), "save_device_changes should only be called when the update lock is held"
+        assert self._update_sync.lock.locked(), (
+            "save_device_changes should only be called when the update lock is held"
+        )
         read_only_fields = self.__class__._get_read_only_fields()
 
         if self.model is None:
