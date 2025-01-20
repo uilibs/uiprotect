@@ -448,27 +448,40 @@ files = [
 
 [[package]]
 name = "convertertools"
-version = "0.5.0"
+version = "0.6.1"
 description = "Tools for converting python data types"
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "convertertools-0.5.0-cp311-cp311-macosx_14_0_arm64.whl", hash = "sha256:b723a3486f6250d5d738a31591776cbb20378177030a29f0e4fda56d7b99e795"},
-    {file = "convertertools-0.5.0-cp311-cp311-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:fbf4a533608c525dfbbd9b931e290dd679a74a2d6630f0f2e04d1fa44b33f3b0"},
-    {file = "convertertools-0.5.0-cp311-cp311-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8069e4c6bc908b370bfdb9129af5011d40c0704bda265a8f56345001d0478e6b"},
-    {file = "convertertools-0.5.0-cp311-cp311-musllinux_1_2_i686.whl", hash = "sha256:cfea4d24a8e988db79b2213124dafdd3d12dc3209c7d1d4d7205a21631bb8888"},
-    {file = "convertertools-0.5.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:e89fbb97f5f2945e11da457c5888f50ca006f9930a3d8d3a932091403cbea36b"},
-    {file = "convertertools-0.5.0-cp311-cp311-win32.whl", hash = "sha256:03e2816ea8bd481e0816d27b55a37ba90c01ae9df105d654a1a0e213c6fe425a"},
-    {file = "convertertools-0.5.0-cp311-cp311-win_amd64.whl", hash = "sha256:1b7e7dfd3daae6c44e9376297adc9920bd75791ad8de32ebb2f70dcee263e460"},
-    {file = "convertertools-0.5.0-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:4a8630056eb0d1250177fec1176b1bf9cf6e92eec7973cb78f238b802cc2003c"},
-    {file = "convertertools-0.5.0-cp312-cp312-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:e259aca6b4b9b7a30df25be2d2dafd7985c98fd6ce5f8eb5a43874e5ee1b6016"},
-    {file = "convertertools-0.5.0-cp312-cp312-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:24fd3d2c71beb77502ceaab9bb99c3d28b18f071e3856e7c39a62c631173fc7e"},
-    {file = "convertertools-0.5.0-cp312-cp312-manylinux_2_36_x86_64.whl", hash = "sha256:021ff984d888b110040ea86a12ff8d02aa29a6f1b603bf88cd42b990f16e5f4e"},
-    {file = "convertertools-0.5.0-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:723e34b5859c2f7bb1892fe6be71e4d98a89cedd3f9e219b4cb70eb0d94a869a"},
-    {file = "convertertools-0.5.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:714dd41ef8bdcba5a9a20c3dc55d604b83b80b603da9ed9ca379893634792eca"},
-    {file = "convertertools-0.5.0-cp312-cp312-win32.whl", hash = "sha256:cefe9f4be7c600f1e27c1354e8dfd192bcd59f058f99ab93ca1c49abffbae687"},
-    {file = "convertertools-0.5.0-cp312-cp312-win_amd64.whl", hash = "sha256:4ac2ae852cc6c3e0e3d75fe80276fdecd1889155141364a5c75128c9ff249c29"},
-    {file = "convertertools-0.5.0.tar.gz", hash = "sha256:477812a307adf368805da5ee2cbc2fe984ed305d76164fe3fbc2a9f9baf4c3f0"},
+    {file = "convertertools-0.6.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:87aaeaa74daec3177f95f2c3f534df0edf43fc38867b96578ab816853305e5b2"},
+    {file = "convertertools-0.6.1-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c25a93a21e942fa9b3c3c5342e9d1a0cca251893b2b61f5aad4ce59a6a8b80ef"},
+    {file = "convertertools-0.6.1-cp311-cp311-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:ce08545ac3f783d160ecbde3f68547c195afed152582edf7c7a0f4e02db7642b"},
+    {file = "convertertools-0.6.1-cp311-cp311-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f265b887293e4d67f536f0bc43a1204dbf4c164d21009cc2d869772f2fea3afb"},
+    {file = "convertertools-0.6.1-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:1bbb3fd1ea5a8c85724535f2b29fc0ab171880d54c9d788191e33db1dd90a91c"},
+    {file = "convertertools-0.6.1-cp311-cp311-musllinux_1_2_i686.whl", hash = "sha256:de26d5942a677bea8c5f0409b7b87675c17d53a3449597d19a2d4eda7794e68d"},
+    {file = "convertertools-0.6.1-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:40bf3a8520d117198045232ad0015031fe1b4a79c517915d3df2dff6c78be02a"},
+    {file = "convertertools-0.6.1-cp311-cp311-win32.whl", hash = "sha256:b9b517492fe0cf700ffab967117c2cca6711aede9732c8f23949ded07f2cce94"},
+    {file = "convertertools-0.6.1-cp311-cp311-win_amd64.whl", hash = "sha256:499d071c4a9f1a638691e596deb99784251d1e050f2c98899cc21f5e4c3d30ad"},
+    {file = "convertertools-0.6.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:0a0fc0a16113607f97b02b942ad6773b895c951dc79f69cc200904d41da6536b"},
+    {file = "convertertools-0.6.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c0ce67b4438f54f516dd8d12d10eaf605934ef8a2a5486f4683ec66df03a4147"},
+    {file = "convertertools-0.6.1-cp312-cp312-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:5cda31260055587affdd66054d4510961bbcf1a53c940aa7e9deef95613a59cd"},
+    {file = "convertertools-0.6.1-cp312-cp312-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:df407127435c33eff5a5b918b441e9a7d3fb48cb9be7411c10e02fd3b22f6861"},
+    {file = "convertertools-0.6.1-cp312-cp312-manylinux_2_36_x86_64.whl", hash = "sha256:338561199b4d00522962cc86fd99dbbcf9392d08afd6c0ab2ea4a36c701dd93a"},
+    {file = "convertertools-0.6.1-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:6f5da7b90dfb678307879cae48d40ad6d86b21fb13a24e430a0920d8fb9096e7"},
+    {file = "convertertools-0.6.1-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:d729ba6bc323cb67ad57da72e950f9b16116fdc3484fdd38af966765b5edca0f"},
+    {file = "convertertools-0.6.1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:bb2476742ebe2f0f79e9af79e0e6206850f7a14fda3e1fc9498b975657141f38"},
+    {file = "convertertools-0.6.1-cp312-cp312-win32.whl", hash = "sha256:d4e3ed285171df36c9cc4e001e25e598a11d04f0c89a65256728148705a771a1"},
+    {file = "convertertools-0.6.1-cp312-cp312-win_amd64.whl", hash = "sha256:25429fbfc27a60b81696e28a6d38859e68a7908fdf62b42e9abb1d385748c02d"},
+    {file = "convertertools-0.6.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:deabe0d00c6042965edf3fe12c1688a30c1729ddec89c24d7ea83ddee304e147"},
+    {file = "convertertools-0.6.1-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c2d2ff75d2c79f69fe50c9da5eac7252e61fe38728370969eac120b6e397fceb"},
+    {file = "convertertools-0.6.1-cp313-cp313-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:e9a1595de0d6ab8ad85aa53f7123a93474a40769df2509672c59e672ada3a72e"},
+    {file = "convertertools-0.6.1-cp313-cp313-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f84fe5bc42fdb49a46e9d3bf712d874a521f58d44a2df9548d135a3e581c34d9"},
+    {file = "convertertools-0.6.1-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:b96f3e9e50c0e0c1475cecdcdf62f1f7cad6d255e9aa1a70631b198d08dc98e7"},
+    {file = "convertertools-0.6.1-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:5d9f02ca1f89bb79ebd07b04cdadccbb0c23e0ec475a31cd0e255c7c390fa754"},
+    {file = "convertertools-0.6.1-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:8d7ee0201c186c1bd80d3d8056a36271a2851761ff91c10d3ab6e725e9e77d1e"},
+    {file = "convertertools-0.6.1-cp313-cp313-win32.whl", hash = "sha256:6664f4b48ede7267907c2e0f751038b399f7cc917d57838588ef288b27f2b645"},
+    {file = "convertertools-0.6.1-cp313-cp313-win_amd64.whl", hash = "sha256:eaa306cc868ddf177e915cf86dacdbda618b863f14130625e50ea2da4b6f1098"},
+    {file = "convertertools-0.6.1.tar.gz", hash = "sha256:6ce77b0c5dfbe450f1f72baf3feb007a5bd96b5c1c1f1f1a6159893a7c6ce29b"},
 ]
 
 [[package]]
