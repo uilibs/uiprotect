@@ -241,6 +241,8 @@ def convert_unifi_data(value: Any, field: FieldInfo) -> Any:
             # 00000000-0000-00 0- 000-000000000000
             if type_ is UUID and value == _BAD_UUID:
                 return _EMPTY_UUID
+            if (type_ is IPv4Address) and value == '':
+                return None
             return type_(value)
         if _is_enum_type(type_):
             if _is_from_string_enum(type_):

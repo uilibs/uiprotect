@@ -250,8 +250,8 @@ class CameraChannel(ProtectBaseObject):
     height: int
     fps: int
     bitrate: int
-    min_bitrate: int  # read only
-    max_bitrate: int  # read only
+    min_bitrate: int | None = None  # read only
+    max_bitrate: int | None = None  # read only
     min_client_adaptive_bit_rate: int | None = None  # read only
     min_motion_adaptive_bit_rate: int | None = None  # read only
     fps_values: list[int]  # read only
@@ -543,7 +543,7 @@ class LCDMessage(ProtectBaseObject):
 class TalkbackSettings(ProtectBaseObject):
     type_fmt: AudioCodecs
     type_in: str
-    bind_addr: IPv4Address
+    bind_addr: IPv4Address | None = None
     bind_port: int
     filter_addr: str | None = None  # can be used to restrict sender address
     filter_port: int | None = None  # can be used to restrict sender port
@@ -945,7 +945,7 @@ class Camera(ProtectMotionDeviceModel):
     feature_flags: CameraFeatureFlags
     lcd_message: LCDMessage | None = None
     lenses: list[CameraLenses]
-    platform: str
+    platform: str | None = None
     has_speaker: bool
     has_wifi: bool
     audio_bitrate: int
