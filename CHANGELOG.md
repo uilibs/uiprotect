@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.5.0 (2025-01-24)
+
+### Feature
+
+
+- Update data models to allow none for optional fields to support access devices (#365) ([`c6102e4`](https://github.com/uilibs/uiprotect/commit/c6102e4c94899ceebe75d4daddc15981d2368cb3))
+
+
 ## v7.4.1 (2025-01-05)
 
 ### Fix
