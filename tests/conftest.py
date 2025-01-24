@@ -873,8 +873,11 @@ def compare_objs(obj_type, expected, actual):
             act_settings.pop("smartDetectPostPadding", None)
         if "smartDetectPrePadding" not in exp_settings:
             act_settings.pop("smartDetectPrePadding", None)
-        if "talkbackSettings" in expected and expected["talkbackSettings"].get("bindAddr") == '':
-            actual["talkbackSettings"]["bindAddr"] = ''
+        if (
+            "talkbackSettings" in expected
+            and expected["talkbackSettings"].get("bindAddr") == ""
+        ):
+            actual["talkbackSettings"]["bindAddr"] = ""
 
         if "createAccessEvent" not in expected["recordingSettings"]:
             actual["recordingSettings"].pop("createAccessEvent", None)
