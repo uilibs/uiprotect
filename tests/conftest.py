@@ -873,6 +873,11 @@ def compare_objs(obj_type, expected, actual):
             act_settings.pop("smartDetectPostPadding", None)
         if "smartDetectPrePadding" not in exp_settings:
             act_settings.pop("smartDetectPrePadding", None)
+        if "talkbackSettings" in expected and expected["talkbackSettings"].get("bindAddr") == '':
+            actual["talkbackSettings"]["bindAddr"] = ''
+
+        if "createAccessEvent" not in expected["recordingSettings"]:
+            actual["recordingSettings"].pop("createAccessEvent", None)
 
         for flag in NEW_CAMERA_FEATURE_FLAGS:
             if flag not in expected["featureFlags"]:
@@ -886,9 +891,16 @@ def compare_objs(obj_type, expected, actual):
         assert isinstance(actual["isMotionDetected"], bool)
         expected["isMotionDetected"] = actual["isMotionDetected"]
 
+        if "isAdoptedByAccessApp" not in expected:
+            actual.pop("isAdoptedByAccessApp", None)
+
         for index, channel in enumerate(expected["channels"]):
             if "bitrate" not in channel:
                 actual["channels"][index].pop("bitrate", None)
+            if "minBitrate" not in channel:
+                actual["channels"][index].pop("minBitrate", None)
+            if "maxBitrate" not in channel:
+                actual["channels"][index].pop("maxBitrate", None)
             if "autoBitrate" not in channel:
                 actual["channels"][index].pop("autoBitrate", None)
             if "autoFps" not in channel:

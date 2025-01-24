@@ -390,6 +390,8 @@ class RecordingSettings(ProtectBaseObject):
     retention_duration: datetime | None = None
     smart_detect_post_padding: timedelta | None = None
     smart_detect_pre_padding: timedelta | None = None
+    #requires 5.2.39+
+    create_access_event: bool | None = None
 
     @classmethod
     @cache
@@ -978,6 +980,8 @@ class Camera(ProtectMotionDeviceModel):
     is_third_party_camera: bool | None = None
     # requires 5.1.78+
     is_paired_with_ai_port: bool | None = None
+    #requires 5.2.39+
+    is_adopted_by_access_app: bool | None = None
     # TODO: used for adopting
     # apMac read only
     # apRssi read only
