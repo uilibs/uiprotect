@@ -248,7 +248,7 @@ class CameraChannel(ProtectBaseObject):
     rtsp_alias: str | None = None  # read only
     width: int
     height: int
-    fps: int
+    fps: int | None = None  # read only
     bitrate: int
     min_bitrate: int | None = None  # read only
     max_bitrate: int | None = None  # read only
@@ -296,7 +296,7 @@ class CameraChannel(ProtectBaseObject):
 
     @property
     def is_package(self) -> bool:
-        return self.fps <= 2
+        return self.fps is not None and self.fps <= 2
 
 
 class ISPSettings(ProtectBaseObject):
