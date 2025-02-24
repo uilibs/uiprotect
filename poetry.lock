@@ -1164,13 +1164,13 @@ dev = ["click", "codecov", "mkdocs-gen-files", "mkdocs-git-authors-plugin", "mkd
 
 [[package]]
 name = "mkdocs-include-markdown-plugin"
-version = "7.1.2"
+version = "7.1.4"
 description = "Mkdocs Markdown includer plugin."
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "mkdocs_include_markdown_plugin-7.1.2-py3-none-any.whl", hash = "sha256:ff1175d1b4f83dea6a38e200d6f0c3db10308975bf60c197d31172671753dbc4"},
-    {file = "mkdocs_include_markdown_plugin-7.1.2.tar.gz", hash = "sha256:1b393157b1aa231b0e6c59ba80f52b723f4b7827bb7a1264b505334f8542aaf1"},
+    {file = "mkdocs_include_markdown_plugin-7.1.4-py3-none-any.whl", hash = "sha256:9c7046490ef89f7645d10a8b5db9f36ed0d5b8730c8dc55d4ded8e285f6c0baa"},
+    {file = "mkdocs_include_markdown_plugin-7.1.4.tar.gz", hash = "sha256:0aacae5b328b015569f13e55f8aaa35998ece3f9a41dcd5dc105825fc1aa89b0"},
 ]
 
 [package.dependencies]
