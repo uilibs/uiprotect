@@ -307,8 +307,6 @@ def test_bootstrap(bootstrap: dict[str, Any]):
     obj_dict = obj.unifi_dict()
 
     # TODO: fields that still need implemented
-    if "deviceGroups" in bootstrap:  # added in 2.0-beta
-        del bootstrap["deviceGroups"]
     bootstrap.pop("schedules", None)
     bootstrap.pop("agreements", None)
     bootstrap.pop("deviceGroups", None)
