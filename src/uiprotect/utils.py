@@ -154,7 +154,7 @@ def to_ms(duration: timedelta | None) -> int | None:
     if duration is None:
         return None
 
-    return int(round(duration.total_seconds() * 1000))
+    return round(duration.total_seconds() * 1000)
 
 
 def utc_now() -> datetime:

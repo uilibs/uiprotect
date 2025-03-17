@@ -307,12 +307,9 @@ def test_bootstrap(bootstrap: dict[str, Any]):
     obj_dict = obj.unifi_dict()
 
     # TODO: fields that still need implemented
-    if "deviceGroups" in bootstrap:  # added in 2.0-beta
-        del bootstrap["deviceGroups"]
     bootstrap.pop("schedules", None)
     bootstrap.pop("agreements", None)
-    if "deviceGroups" in bootstrap:
-        del bootstrap["deviceGroups"]
+    bootstrap.pop("deviceGroups", None)
 
     # Remove additional keys from obj_dict
     obj_dict.pop("keyrings", None)

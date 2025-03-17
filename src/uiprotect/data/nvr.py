@@ -321,10 +321,12 @@ class Event(ProtectModelWithId):
     @classmethod
     @cache
     def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
-        return {
-            key: convert_to_datetime
-            for key in ("start", "end", "timestamp", "deletedAt")
-        } | super().unifi_dict_conversions()
+        return (
+            dict.fromkeys(
+                ("start", "end", "timestamp", "deletedAt"), convert_to_datetime
+            )
+            | super().unifi_dict_conversions()
+        )
 
     def unifi_dict(
         self,

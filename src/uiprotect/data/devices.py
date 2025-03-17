@@ -587,19 +587,22 @@ class VideoStats(ProtectBaseObject):
     @classmethod
     @cache
     def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
-        return {
-            key: convert_to_datetime
-            for key in (
-                "recordingStart",
-                "recordingEnd",
-                "recordingStartLQ",
-                "recordingEndLQ",
-                "timelapseStart",
-                "timelapseEnd",
-                "timelapseStartLQ",
-                "timelapseEndLQ",
+        return (
+            dict.fromkeys(
+                (
+                    "recordingStart",
+                    "recordingEnd",
+                    "recordingStartLQ",
+                    "recordingEndLQ",
+                    "timelapseStart",
+                    "timelapseEnd",
+                    "timelapseStartLQ",
+                    "timelapseEndLQ",
+                ),
+                convert_to_datetime,
             )
-        } | super().unifi_dict_conversions()
+            | super().unifi_dict_conversions()
+        )
 
 
 class StorageStats(ProtectBaseObject):
