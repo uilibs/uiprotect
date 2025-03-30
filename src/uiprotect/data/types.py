@@ -679,7 +679,7 @@ RepeatTimes = Annotated[int, Field(ge=1, le=6)]
 class PTZPositionDegree(BaseModel):
     pan: float
     tilt: float
-    zoom: int
+    zoom: float
 
 
 class PTZPositionSteps(BaseModel):
