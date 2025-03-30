@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.5.2 (2025-03-30)
+
+### Bug fixes
+
+
+- Support non-integer zoom levels (#421) ([`a4976cc`](https://github.com/uilibs/uiprotect/commit/a4976cc50784e246526faa2fe494b51e1f77d8d9))
+
+
 ## v7.5.1 (2025-02-04)
 
 ### Bug fixes
