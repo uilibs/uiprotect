@@ -652,6 +652,7 @@ class BaseApiClient:
         """Set cookie."""
         cookie = SimpleCookie()
         cookie.load(cookie_value)
+        self._cookies = cookie
 
     def is_authenticated(self) -> bool:
         """Check to see if we are already authenticated."""
