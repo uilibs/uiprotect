@@ -171,6 +171,7 @@ class BaseApiClient:
     _last_token_cookie_decode: dict[str, Any] | None = None
     _session: aiohttp.ClientSession | None = None
     _loaded_session: bool = False
+    _cookies: SimpleCookie | None = None
     _cookiename = "TOKEN"
 
     headers: dict[str, str] | None = None
@@ -264,7 +265,7 @@ class BaseApiClient:
         if force:
             if self._session is not None:
                 self._session.cookie_jar.clear()
-            self.set_header("cookie", None)
+            self._cookies = None
             self.set_header("x-csrf-token", None)
             self._is_authenticated = False
 
@@ -345,6 +346,7 @@ class BaseApiClient:
                 req_context = session.request(
                     method,
                     request_url,
+                    cookies=self._cookies,
                     headers=headers,
                     **kwargs,
                 )
@@ -530,7 +532,7 @@ class BaseApiClient:
 
             if self._session is not None:
                 self._session.cookie_jar.clear()
-                self.set_header("cookie", None)
+                self._cookies = None
 
             auth = {
                 "username": self._username,
@@ -541,7 +543,7 @@ class BaseApiClient:
             response = await self.request("post", url=url, json=auth)
             if response.status != 200:
                 await self._raise_for_status(response, True)
-            self.set_header("cookie", response.headers.get("set-cookie", ""))
+            self._set_cookie(response.headers.get("set-cookie", ""))
             self._is_authenticated = True
             _LOGGER.debug("Authenticated successfully!")
 
@@ -641,10 +643,15 @@ class BaseApiClient:
         self._last_token_cookie = cookie[cookie_name]
         self._last_token_cookie_decode = None
         self._is_authenticated = True
-        self.set_header("cookie", cookie_value)
+        self._set_cookie(cookie_value)
         if session.get("csrf"):
             self.set_header("x-csrf-token", session["csrf"])
         return cookie
+
+    def _set_cookie(self, cookie_value: str) -> None:
+        """Set cookie."""
+        cookie = SimpleCookie()
+        cookie.load(cookie_value)
 
     def is_authenticated(self) -> bool:
         """Check to see if we are already authenticated."""
