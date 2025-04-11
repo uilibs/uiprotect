@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.5.3 (2025-04-11)
+
+### Bug fixes
+
+
+- Pydantic deprecationwarning (#444) ([`0aeb912`](https://github.com/uilibs/uiprotect/commit/0aeb912134fdc203e4fca358b408acada781043c))
+
+
 ## v7.5.2 (2025-03-30)
 
 ### Bug fixes
