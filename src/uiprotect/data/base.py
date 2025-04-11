@@ -8,7 +8,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import cache
 from ipaddress import IPv4Address
-from typing import TYPE_CHECKING, Any, NamedTuple, TypeVar
+from typing import TYPE_CHECKING, Any, NamedTuple
 from uuid import UUID
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
@@ -53,7 +53,6 @@ if TYPE_CHECKING:
     from ..data.user import User
 
 
-ProtectObject = TypeVar("ProtectObject", bound="ProtectBaseObject")
 RECENT_EVENT_MAX = timedelta(seconds=30)
 EVENT_PING_INTERVAL = timedelta(seconds=3)
 EVENT_PING_INTERVAL_SECONDS = EVENT_PING_INTERVAL.total_seconds()
@@ -478,7 +477,7 @@ class ProtectBaseObject(BaseModel):
 
         return new_data
 
-    def update_from_dict(cls: ProtectObject, data: dict[str, Any]) -> ProtectObject:
+    def update_from_dict(self, data: dict[str, Any]) -> Self:
         """
         Updates current object from a cleaned UFP JSON dict.
 
@@ -492,15 +491,15 @@ class ProtectBaseObject(BaseModel):
             has_unifi_lists,
             unifi_dicts,
             has_unifi_dicts,
-        ) = cls._get_protect_model()
-        api = cls._api
-        _fields = cls.model_fields
+        ) = self._get_protect_model()
+        api = self._api
+        _fields = self.model_fields
         unifi_obj: ProtectBaseObject | None
         value: Any
 
         for key, item in data.items():
             if has_unifi_objs and key in unifi_objs and isinstance(item, dict):
-                if (unifi_obj := getattr(cls, key)) is not None:
+                if (unifi_obj := getattr(self, key)) is not None:
                     value = unifi_obj.update_from_dict(item)
                 else:
                     value = unifi_objs[key](**item, api=api)
@@ -514,9 +513,9 @@ class ProtectBaseObject(BaseModel):
             else:
                 value = convert_unifi_data(item, _fields[key])
 
-            setattr(cls, key, value)
+            setattr(self, key, value)
 
-        return cls
+        return self
 
     def dict_with_excludes(self) -> dict[str, Any]:
         """Returns a dict of the current object without any UFP objects converted to dicts."""
