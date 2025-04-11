@@ -493,7 +493,7 @@ class ProtectBaseObject(BaseModel):
             has_unifi_dicts,
         ) = self._get_protect_model()
         api = self._api
-        _fields = self.model_fields
+        _fields = self.__class__.model_fields
         unifi_obj: ProtectBaseObject | None
         value: Any
 
