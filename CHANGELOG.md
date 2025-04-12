@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.5.4 (2025-04-12)
+
+### Bug fixes
+
+
+- Add spdx license identifier (#445) ([`85722f6`](https://github.com/uilibs/uiprotect/commit/85722f680d8b727646a165ab13ffa9f8888f5697))
+
+
 ## v7.5.3 (2025-04-11)
 
 ### Bug fixes
