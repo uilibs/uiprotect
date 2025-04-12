@@ -1,6 +1,7 @@
 [tool.poetry]
 name = "uiprotect"
 version = "7.5.3"
+license = "MIT"
 description = "Python API for Unifi Protect (Unofficial)"
 authors = ["UI Protect Maintainers <ui@koston.org>"]
 readme = "README.md"
@@ -16,7 +17,6 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "License :: OSI Approved :: MIT License"
 ]
 packages = [
     { include = "uiprotect", from = "src" },
