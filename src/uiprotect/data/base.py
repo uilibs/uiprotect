@@ -858,7 +858,7 @@ class ProtectDeviceModel(ProtectModelWithId):
 
 
 class WiredConnectionState(ProtectBaseObject):
-    phy_rate: int | None = None
+    phy_rate: float | None = None
 
 
 class WirelessConnectionState(ProtectBaseObject):
@@ -871,7 +871,7 @@ class BluetoothConnectionState(WirelessConnectionState):
 
 
 class WifiConnectionState(WirelessConnectionState):
-    phy_rate: int | None = None
+    phy_rate: float | None = None
     channel: int | None = None
     frequency: int | None = None
     ssid: str | None = None
