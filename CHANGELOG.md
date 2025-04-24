@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.5.5 (2025-04-24)
+
+### Bug fixes
+
+
+- Change phy_rate to float (#458) ([`54f60fe`](https://github.com/uilibs/uiprotect/commit/54f60fec70ba5bb75b4efea43a40be70f56e2aeb))
+
+
 ## v7.5.4 (2025-04-12)
 
 ### Bug fixes
