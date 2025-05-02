@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.5.6 (2025-05-02)
+
+### Bug fixes
+
+
+- Update poetry to v2 (#462) ([`ccd89ed`](https://github.com/uilibs/uiprotect/commit/ccd89ed61d19298ba317b2f5a38c449dd3436935))
+
+
 ## v7.5.5 (2025-04-24)
 
 ### Bug fixes
