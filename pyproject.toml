@@ -1,12 +1,23 @@
-[tool.poetry]
+[project]
 name = "uiprotect"
 version = "7.5.5"
 license = "MIT"
 description = "Python API for Unifi Protect (Unofficial)"
-authors = ["UI Protect Maintainers <ui@koston.org>"]
+authors = [{ name = "UI Protect Maintainers", email = "ui@koston.org" }]
 readme = "README.md"
-repository = "https://github.com/uilibs/uiprotect"
-documentation = "https://uiprotect.readthedocs.io"
+requires-python = ">=3.10"
+dynamic = ["classifiers", "dependencies"]
+
+[project.urls]
+"Repository" = "https://github.com/uilibs/uiprotect"
+"Documentation" = "https://uiprotect.readthedocs.io"
+"Bug Tracker" = "https://github.com/uilibs/uiprotect/issues"
+"Changelog" = "https://github.com/uilibs/uiprotect/blob/main/CHANGELOG.md"
+
+[project.scripts]
+uiprotect = "uiprotect.cli:app"
+
+[tool.poetry]
 classifiers = [
     "Intended Audience :: Developers",
     "Natural Language :: English",
@@ -14,20 +25,10 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Build Tools",
     "Development Status :: 5 - Production/Stable",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
 ]
 packages = [
     { include = "uiprotect", from = "src" },
 ]
-
-[tool.poetry.urls]
-"Bug Tracker" = "https://github.com/uilibs/uiprotect/issues"
-"Changelog" = "https://github.com/uilibs/uiprotect/blob/main/CHANGELOG.md"
-
-[tool.poetry.scripts]
-uiprotect = "uiprotect.cli:app"
 
 [tool.poetry.dependencies]
 python = ">=3.10"
@@ -81,7 +82,7 @@ mkdocstrings = ">=0.25.1,<0.30.0"
 mkdocstrings-python = "^1.10.3"
 
 [tool.semantic_release]
-version_toml = ["pyproject.toml:tool.poetry.version"]
+version_toml = ["pyproject.toml:project.version"]
 version_variables = [
     "src/uiprotect/__init__.py:__version__",
     "docs/conf.py:release",
@@ -205,5 +206,5 @@ module = "docs.*"
 ignore_errors = true
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core>=2.1.0"]
 build-backend = "poetry.core.masonry.api"
