@@ -18,6 +18,12 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+CODEC_TO_ENCODER = {
+    "aac": "aac",
+    "opus": "libopus",
+    "vorbis": "libvorbis",
+}
+
 
 class FfmpegCommand:
     ffmpeg_path: Path | None
@@ -130,6 +136,11 @@ class TalkbackStream(FfmpegCommand):
         if len(input_args) > 0:
             input_args += " "
 
+        codec = camera.talkback_settings.type_fmt.value
+        encoder = CODEC_TO_ENCODER.get(codec)
+        if encoder is None:
+            raise ValueError(f"Unsupported codec: {codec}")
+
         # vn = no video
         # acodec = audio codec to encode output in (aac)
         # ac = number of output channels (1)
@@ -138,7 +149,7 @@ class TalkbackStream(FfmpegCommand):
         cmd = (
             "-loglevel info -hide_banner "
             f'{input_args}-i "{content_url}" -vn '
-            f"-acodec {camera.talkback_settings.type_fmt.value} -ac {camera.talkback_settings.channels} "
+            f"-acodec {encoder} -ac {camera.talkback_settings.channels} "
             f"-ar {camera.talkback_settings.sampling_rate} -b:a {camera.talkback_settings.sampling_rate} -map 0:a "
             f'-f adts "udp://{camera.host}:{camera.talkback_settings.bind_port}?bitrate={camera.talkback_settings.sampling_rate}"'
         )
