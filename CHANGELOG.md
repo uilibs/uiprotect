@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.6.0 (2025-05-07)
+
+### Features
+
+
+- Add codec mapping for audio encoding in talkbackstream (#469) ([`eae52d4`](https://github.com/uilibs/uiprotect/commit/eae52d464eff2a4a4011b760b547ce5ea666e917))
+
+
 ## v7.5.6 (2025-05-02)
 
 ### Bug fixes
