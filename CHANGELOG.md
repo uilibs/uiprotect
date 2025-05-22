@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.8.0 (2025-05-22)
+
+### Features
+
+
+- Add option to force on flood light for light devices (#154) ([`c7c5331`](https://github.com/uilibs/uiprotect/commit/c7c533178722aa49e51fe1d2f8e35f63918f3007))
+
+
 ## v7.7.0 (2025-05-22)
 
 ### Features
