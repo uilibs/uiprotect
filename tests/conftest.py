@@ -21,7 +21,7 @@ import pytest_asyncio
 
 from tests.sample_data.constants import CONSTANTS
 from uiprotect import ProtectApiClient
-from uiprotect.data import Camera, ModelType
+from uiprotect.data import NVR, Camera, ModelType
 from uiprotect.data.devices import PTZRange, PTZZoomRange
 from uiprotect.data.nvr import Event
 from uiprotect.data.types import EventType
@@ -1106,8 +1106,6 @@ def _disable_camera_validation():
 
 @pytest.fixture()
 def _disable_nvr_validation():
-    from uiprotect.data import NVR
-
     original_validate_assignment = NVR.model_config.get("validate_assignment", True)
     NVR.model_config["validate_assignment"] = False
 
