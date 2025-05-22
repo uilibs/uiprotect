@@ -23,12 +23,14 @@ from .base import (
 )
 from .convert import MODEL_TO_CLASS, create_from_unifi_dict
 from .devices import (
+    AiPort,
     Bridge,
     Camera,
     Chime,
     Doorlock,
     Light,
     ProtectAdoptableDeviceModel,
+    Ringtone,
     Sensor,
     Viewer,
 )
@@ -181,6 +183,8 @@ class Bootstrap(ProtectBaseObject):
     sensors: dict[str, Sensor]
     doorlocks: dict[str, Doorlock]
     chimes: dict[str, Chime]
+    aiports: dict[str, AiPort]
+    ringtones: list[Ringtone]
     last_update_id: str
 
     # TODO:
@@ -214,6 +218,12 @@ class Bootstrap(ProtectBaseObject):
         for model_type in ModelType.bootstrap_models_types_set:
             key = model_type.devices_key  # type: ignore[attr-defined]
             items: dict[str, ProtectModel] = {}
+            if key not in data:
+                data[key] = {}
+                _LOGGER.error(
+                    f"Missing key in bootstrap: {key}. This may be fixed by updating Protect."
+                )
+                continue
             for item in data[key]:
                 if (
                     api is not None

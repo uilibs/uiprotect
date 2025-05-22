@@ -154,7 +154,7 @@ def to_ms(duration: timedelta | None) -> int | None:
     if duration is None:
         return None
 
-    return int(round(duration.total_seconds() * 1000))
+    return round(duration.total_seconds() * 1000)
 
 
 def utc_now() -> datetime:
@@ -241,6 +241,8 @@ def convert_unifi_data(value: Any, field: FieldInfo) -> Any:
             # 00000000-0000-00 0- 000-000000000000
             if type_ is UUID and value == _BAD_UUID:
                 return _EMPTY_UUID
+            if (type_ is IPv4Address) and value == "":
+                return None
             return type_(value)
         if _is_enum_type(type_):
             if _is_from_string_enum(type_):

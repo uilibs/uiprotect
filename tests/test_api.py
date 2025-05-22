@@ -903,3 +903,210 @@ async def test_get_event_smart_detect_track(protect_client: ProtectApiClient):
         require_auth=True,
         raise_exception=True,
     )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_aiport(protect_client: ProtectApiClient, aiport):
+    obj = create_from_unifi_dict(aiport)
+
+    assert_equal_dump(obj, await protect_client.get_aiport("test_id"))
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_aiport_not_adopted(protect_client: ProtectApiClient, aiport):
+    aiport["isAdopted"] = False
+    protect_client.api_request_obj = AsyncMock(return_value=aiport)
+
+    with pytest.raises(NvrError):
+        await protect_client.get_aiport("test_id")
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_aiport_not_adopted_enabled(protect_client: ProtectApiClient, aiport):
+    aiport["isAdopted"] = False
+    protect_client.ignore_unadopted = False
+    protect_client.api_request_obj = AsyncMock(return_value=aiport)
+
+    obj = create_from_unifi_dict(aiport)
+    assert_equal_dump(obj, await protect_client.get_aiport("test_id"))
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_chime(protect_client: ProtectApiClient, chime):
+    obj = create_from_unifi_dict(chime)
+
+    assert_equal_dump(obj, await protect_client.get_chime("test_id"))
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_chime_not_adopted(protect_client: ProtectApiClient, chime):
+    chime["isAdopted"] = False
+    protect_client.api_request_obj = AsyncMock(return_value=chime)
+
+    with pytest.raises(NvrError):
+        await protect_client.get_chime("test_id")
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_chime_not_adopted_enabled(protect_client: ProtectApiClient, chime):
+    chime["isAdopted"] = False
+    protect_client.ignore_unadopted = False
+    protect_client.api_request_obj = AsyncMock(return_value=chime)
+
+    obj = create_from_unifi_dict(chime)
+    assert_equal_dump(obj, await protect_client.get_chime("test_id"))
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_aiports(protect_client: ProtectApiClient, aiports):
+    objs = [create_from_unifi_dict(d) for d in aiports]
+
+    assert_equal_dump(objs, await protect_client.get_aiports())
+
+
+@pytest.mark.asyncio()
+async def test_play_speaker(protect_client: ProtectApiClient):
+    """Test play_speaker with default parameters."""
+    device_id = "cf1a330397c08f919d02bd7c"
+    protect_client.api_request = AsyncMock()
+
+    await protect_client.play_speaker(device_id)
+
+    protect_client.api_request.assert_called_with(
+        f"chimes/{device_id}/play-speaker",
+        method="post",
+        json=None,
+    )
+
+
+@pytest.mark.asyncio()
+async def test_play_speaker_with_volume(protect_client: ProtectApiClient):
+    """Test play_speaker with volume parameter."""
+    device_id = "cf1a330397c08f919d02bd7c"
+    volume = 5
+    chime = protect_client.bootstrap.chimes[device_id]
+    protect_client.api_request = AsyncMock()
+
+    await protect_client.play_speaker(device_id, volume=volume)
+
+    protect_client.api_request.assert_called_with(
+        f"chimes/{device_id}/play-speaker",
+        method="post",
+        json={
+            "volume": volume,
+            "repeatTimes": chime.repeat_times,
+            "trackNo": chime.track_no,
+        },
+    )
+
+
+@pytest.mark.asyncio()
+async def test_play_speaker_with_ringtone_id(protect_client: ProtectApiClient):
+    """Test play_speaker with ringtone_id parameter."""
+    device_id = "cf1a330397c08f919d02bd7c"
+    ringtone_id = "ringtone_1"
+    chime = protect_client.bootstrap.chimes[device_id]
+    protect_client.api_request = AsyncMock()
+
+    await protect_client.play_speaker(device_id, ringtone_id=ringtone_id)
+
+    protect_client.api_request.assert_called_with(
+        f"chimes/{device_id}/play-speaker",
+        method="post",
+        json={
+            "volume": chime.volume,
+            "repeatTimes": chime.repeat_times,
+            "ringtoneId": ringtone_id,
+        },
+    )
+
+
+@pytest.mark.asyncio()
+async def test_play_speaker_invalid_chime_id(protect_client: ProtectApiClient):
+    """Test play_speaker with invalid chime ID."""
+    device_id = "invalid_id"
+    protect_client.api_request = AsyncMock()
+
+    with pytest.raises(BadRequest):
+        await protect_client.play_speaker(device_id, volume=5)
+
+
+@pytest.mark.asyncio()
+async def test_play_speaker_with_all_parameters(protect_client: ProtectApiClient):
+    """Test play_speaker with all parameters."""
+    device_id = "cf1a330397c08f919d02bd7c"
+    volume = 5
+    repeat_times = 3
+    ringtone_id = "ringtone_1"
+    track_no = 2
+    protect_client.api_request = AsyncMock()
+
+    await protect_client.play_speaker(
+        device_id,
+        volume=volume,
+        repeat_times=repeat_times,
+        ringtone_id=ringtone_id,
+        track_no=track_no,
+    )
+
+    protect_client.api_request.assert_called_with(
+        f"chimes/{device_id}/play-speaker",
+        method="post",
+        json={
+            "volume": volume,
+            "repeatTimes": repeat_times,
+            "ringtoneId": ringtone_id,
+        },
+    )
+
+
+@pytest.mark.asyncio()
+async def test_set_light_is_led_force_on(protect_client: ProtectApiClient):
+    """Test set_light_is_led_force_on with valid parameters."""
+    device_id = "test_light_id"
+    is_led_force_on = True
+    protect_client.api_request = AsyncMock()
+
+    await protect_client.set_light_is_led_force_on(device_id, is_led_force_on)
+
+    protect_client.api_request.assert_called_with(
+        f"lights/{device_id}",
+        method="patch",
+        json={"lightOnSettings": {"isLedForceOn": is_led_force_on}},
+    )
+
+
+@pytest.mark.asyncio()
+async def test_set_light_is_led_force_on_false(protect_client: ProtectApiClient):
+    """Test set_light_is_led_force_on with is_led_force_on set to False."""
+    device_id = "test_light_id"
+    is_led_force_on = False
+    protect_client.api_request = AsyncMock()
+
+    await protect_client.set_light_is_led_force_on(device_id, is_led_force_on)
+
+    protect_client.api_request.assert_called_with(
+        f"lights/{device_id}",
+        method="patch",
+        json={"lightOnSettings": {"isLedForceOn": is_led_force_on}},
+    )
+
+
+@pytest.mark.asyncio()
+async def test_set_light_is_led_force_on_invalid_device_id(
+    protect_client: ProtectApiClient,
+):
+    """Test set_light_is_led_force_on with invalid device ID."""
+    device_id = "invalid_id"
+    is_led_force_on = True
+    protect_client.api_request = AsyncMock(side_effect=BadRequest)
+
+    with pytest.raises(BadRequest):
+        await protect_client.set_light_is_led_force_on(device_id, is_led_force_on)

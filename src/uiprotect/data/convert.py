@@ -8,6 +8,7 @@ from uiprotect.data.base import ProtectModelWithId
 
 from ..exceptions import DataDecodeError
 from .devices import (
+    AiPort,
     Bridge,
     Camera,
     Chime,
@@ -40,6 +41,7 @@ MODEL_TO_CLASS: dict[str, type[ProtectModel]] = {
     ModelType.SENSOR: Sensor,
     ModelType.DOORLOCK: Doorlock,
     ModelType.CHIME: Chime,
+    ModelType.AIPORT: AiPort,
     ModelType.KEYRING: Keyring,
     ModelType.ULP_USER: UlpUser,
 }

@@ -17,6 +17,7 @@ from ..data import Version, WSPacket
 from ..test_util import SampleDataGenerator
 from ..utils import RELEASE_CACHE, get_local_timezone, run_async
 from ..utils import profile_ws as profile_ws_job
+from .aiports import app as aiports_app
 from .base import CliContext, OutputFormatEnum
 from .cameras import app as camera_app
 from .chimes import app as chime_app
@@ -128,6 +129,7 @@ app.add_typer(doorlock_app, name="doorlocks")
 app.add_typer(light_app, name="lights")
 app.add_typer(sensor_app, name="sensors")
 app.add_typer(viewer_app, name="viewers")
+app.add_typer(aiports_app, name="aiports")
 
 if backup_app is not None:
     app.add_typer(backup_app, name="backup")

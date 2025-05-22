@@ -248,10 +248,10 @@ class CameraChannel(ProtectBaseObject):
     rtsp_alias: str | None = None  # read only
     width: int
     height: int
-    fps: int
+    fps: int | None = None  # read only
     bitrate: int
-    min_bitrate: int  # read only
-    max_bitrate: int  # read only
+    min_bitrate: int | None = None  # read only
+    max_bitrate: int | None = None  # read only
     min_client_adaptive_bit_rate: int | None = None  # read only
     min_motion_adaptive_bit_rate: int | None = None  # read only
     fps_values: list[int]  # read only
@@ -296,7 +296,7 @@ class CameraChannel(ProtectBaseObject):
 
     @property
     def is_package(self) -> bool:
-        return self.fps <= 2
+        return self.fps is not None and self.fps <= 2
 
 
 class ISPSettings(ProtectBaseObject):
@@ -390,6 +390,8 @@ class RecordingSettings(ProtectBaseObject):
     retention_duration: datetime | None = None
     smart_detect_post_padding: timedelta | None = None
     smart_detect_pre_padding: timedelta | None = None
+    # requires 5.2.39+
+    create_access_event: bool | None = None
 
     @classmethod
     @cache
@@ -543,7 +545,7 @@ class LCDMessage(ProtectBaseObject):
 class TalkbackSettings(ProtectBaseObject):
     type_fmt: AudioCodecs
     type_in: str
-    bind_addr: IPv4Address
+    bind_addr: IPv4Address | None = None
     bind_port: int
     filter_addr: str | None = None  # can be used to restrict sender address
     filter_port: int | None = None  # can be used to restrict sender port
@@ -585,19 +587,22 @@ class VideoStats(ProtectBaseObject):
     @classmethod
     @cache
     def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
-        return {
-            key: convert_to_datetime
-            for key in (
-                "recordingStart",
-                "recordingEnd",
-                "recordingStartLQ",
-                "recordingEndLQ",
-                "timelapseStart",
-                "timelapseEnd",
-                "timelapseStartLQ",
-                "timelapseEndLQ",
+        return (
+            dict.fromkeys(
+                (
+                    "recordingStart",
+                    "recordingEnd",
+                    "recordingStartLQ",
+                    "recordingEndLQ",
+                    "timelapseStart",
+                    "timelapseEnd",
+                    "timelapseStartLQ",
+                    "timelapseEndLQ",
+                ),
+                convert_to_datetime,
             )
-        } | super().unifi_dict_conversions()
+            | super().unifi_dict_conversions()
+        )
 
 
 class StorageStats(ProtectBaseObject):
@@ -921,7 +926,7 @@ class Camera(ProtectMotionDeviceModel):
     is_recording: bool
     is_motion_detected: bool
     is_smart_detected: bool
-    phy_rate: int | None = None
+    phy_rate: float | None = None
     hdr_mode: bool
     # Recording Quality -> High Frame
     video_mode: VideoMode
@@ -945,7 +950,7 @@ class Camera(ProtectMotionDeviceModel):
     feature_flags: CameraFeatureFlags
     lcd_message: LCDMessage | None = None
     lenses: list[CameraLenses]
-    platform: str
+    platform: str | None = None
     has_speaker: bool
     has_wifi: bool
     audio_bitrate: int
@@ -976,6 +981,10 @@ class Camera(ProtectMotionDeviceModel):
     audio_settings: CameraAudioSettings | None = None
     # requires 5.0.33+
     is_third_party_camera: bool | None = None
+    # requires 5.1.78+
+    is_paired_with_ai_port: bool | None = None
+    # requires 5.2.39+
+    is_adopted_by_access_app: bool | None = None
     # TODO: used for adopting
     # apMac read only
     # apRssi read only
@@ -3382,3 +3391,16 @@ class Chime(ProtectAdoptableDeviceModel):
                 raise BadRequest("Camera %s is not paired with chime", camera.id)
 
         await self.queue_update(callback)
+
+
+class AiPort(Camera):
+    paired_cameras: list[str]
+
+
+class Ringtone(ProtectBaseObject):
+    id: str
+    name: str
+    size: int
+    is_default: bool
+    nvr_mac: str
+    model_key: str
