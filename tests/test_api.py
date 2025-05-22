@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from copy import deepcopy
 from datetime import datetime, timedelta
 from io import BytesIO
@@ -839,6 +840,88 @@ async def test_get_camera_video(protect_client: ProtectApiClient, now, tmp_binar
     tmp_binary_file.close()
 
     validate_video_file(tmp_binary_file.name, CONSTANTS["camera_video_length"])
+
+
+@pytest.mark.asyncio()
+async def test_get_camera_video_http_error(
+    protect_client: ProtectApiClient, now: datetime
+) -> None:
+    """Test get_camera_video with HTTP error response."""
+    camera = next(iter(protect_client.bootstrap.cameras.values()))
+    start = now - timedelta(seconds=CONSTANTS["camera_video_length"])
+
+    # Test the simple path (no output_file) which uses api_request_raw
+    protect_client.api_request_raw = AsyncMock(
+        side_effect=NotAuthorized("Access denied")
+    )
+
+    with pytest.raises(NotAuthorized):
+        await protect_client.get_camera_video(camera.id, start, now)
+
+
+@pytest.mark.asyncio()
+async def test_get_camera_video_logging(
+    protect_client: ProtectApiClient, now: datetime, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test get_camera_video debug logging."""
+    caplog.set_level(logging.DEBUG, logger="uiprotect.api")
+
+    camera = next(iter(protect_client.bootstrap.cameras.values()))
+    start = now - timedelta(seconds=CONSTANTS["camera_video_length"])
+
+    # Create a simple async context manager class for the file mock
+    class MockAsyncFile:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        async def write(self, data):
+            pass
+
+    # Mock the response
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.close = AsyncMock()
+
+    # Create a mock content with iter_chunked method
+    class MockContent:
+        def iter_chunked(self, chunk_size):
+            return MockAsyncIterator()
+
+    class MockAsyncIterator:
+        def __init__(self):
+            self.items = [b"test_chunk"]
+            self.index = 0
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if self.index >= len(self.items):
+                raise StopAsyncIteration
+            item = self.items[self.index]
+            self.index += 1
+            return item
+
+    mock_response.content = MockContent()
+
+    # Mock aiofiles.open to return our mock file
+    with patch("aiofiles.open", return_value=MockAsyncFile()):
+        protect_client.request = AsyncMock(return_value=mock_response)
+
+        await protect_client.get_camera_video(
+            camera.id,
+            start,
+            now,
+            output_file="/tmp/test.mp4",  # noqa: S108
+        )
+
+    # Check that debug log was written
+    assert any(
+        "Requesting camera video:" in record.message for record in caplog.records
+    )
 
 
 @pytest.mark.skipif(not TEST_THUMBNAIL_EXISTS, reason="Missing testdata")
