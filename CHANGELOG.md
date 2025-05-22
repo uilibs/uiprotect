@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.6.1 (2025-05-22)
+
+### Bug fixes
+
+
+- Add error handling and logging to get_camera_video() (#326) ([`0080f5b`](https://github.com/uilibs/uiprotect/commit/0080f5b5bc6df4661dd4fea0ae2d70ff78099294))
+
+
 ## v7.6.0 (2025-05-07)
 
 ### Features
