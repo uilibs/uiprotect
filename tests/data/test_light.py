@@ -55,7 +55,24 @@ async def test_light_set_paired_camera(light_obj: Light, camera_obj: Camera):
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("status", [True, False])
 @pytest.mark.asyncio()
-async def test_light_set_status_light(light_obj: Light, status: bool):
+async def test_light_set_flood_light(light_obj: Light, status: bool) -> None:
+    light_obj.api.api_request.reset_mock()
+
+    light_obj.light_on_settings.is_led_force_on = not status
+
+    await light_obj.set_flood_light(status)
+
+    light_obj.api.api_request.assert_called_with(
+        f"lights/{light_obj.id}",
+        method="patch",
+        json={"lightOnSettings": {"isLedForceOn": status}},
+    )
+
+
+@pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("status", [True, False])
+@pytest.mark.asyncio()
+async def test_light_set_status_light(light_obj: Light, status: bool) -> None:
     light_obj.api.api_request.reset_mock()
 
     light_obj.light_device_settings.is_indicator_enabled = not status
