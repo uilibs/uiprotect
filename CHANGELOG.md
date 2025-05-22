@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.7.0 (2025-05-22)
+
+### Features
+
+
+- Support face detection (#479) ([`7f77238`](https://github.com/uilibs/uiprotect/commit/7f772388b7e2a280c2195ec71e6ab936d873abec))
+
+
 ## v7.6.1 (2025-05-22)
 
 ### Bug fixes
