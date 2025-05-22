@@ -929,6 +929,12 @@ async def test_multiple_updates(user_obj: User, camera_obj: Camera):
     camera_obj.id = "test_id_1"
     camera_obj.recording_settings.enable_motion_detection = False
     camera_obj.smart_detect_settings.object_types = []
+    camera_obj.feature_flags.smart_detect_types = [
+        SmartDetectObjectType.PERSON,
+        SmartDetectObjectType.VEHICLE,
+        SmartDetectObjectType.FACE,
+    ]
+    camera_obj.use_global = False
     api.bootstrap.cameras[camera_obj.id] = camera_obj
 
     await asyncio.gather(
@@ -943,7 +949,7 @@ async def test_multiple_updates(user_obj: User, camera_obj: Camera):
         method="patch",
         json={
             "recordingSettings": {"enableMotionDetection": True},
-            "smartDetectSettings": {"objectTypes": ["person", "vehicle", "face"]},
+            "smartDetectSettings": {"objectTypes": ["face", "person", "vehicle"]},
         },
     )
 

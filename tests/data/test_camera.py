@@ -717,7 +717,11 @@ async def test_camera_set_face_detection(camera_obj: Camera, status: bool) -> No
 
     camera_obj.feature_flags.has_smart_detect = True
     camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.FACE]
-    camera_obj.smart_detect_settings.object_types = []
+    # Set initial state to opposite of what we're testing
+    camera_obj.smart_detect_settings.object_types = (
+        [SmartDetectObjectType.FACE] if not status else []
+    )
+    camera_obj.use_global = False
 
     await camera_obj.set_face_detection(status)
 
@@ -1602,9 +1606,17 @@ def test_camera_is_face_currently_detected(camera_obj: Camera) -> None:
     camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.FACE]
     camera_obj.smart_detect_settings.object_types = [SmartDetectObjectType.FACE]
     camera_obj.is_smart_detected = True
-    camera_obj.last_smart_detect_event = Mock()
-    camera_obj.last_smart_detect_event.smart_detect_types = [SmartDetectObjectType.FACE]
-    assert camera_obj.is_face_currently_detected is True
+    camera_obj.recording_settings.mode = RecordingMode.ALWAYS
+
+    # Mock an ongoing face detection event
+    mock_event = Mock()
+    mock_event.smart_detect_types = [SmartDetectObjectType.FACE]
+    mock_event.end = None  # Event is ongoing
+
+    with patch.object(
+        camera_obj, "get_last_smart_detect_event", return_value=mock_event
+    ):
+        assert camera_obj.is_face_currently_detected is True
 
     # Test when face is not currently detected
     camera_obj.is_smart_detected = False
