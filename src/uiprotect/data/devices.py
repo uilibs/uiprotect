@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
-from pydantic.v1.fields import PrivateAttr
+from pydantic.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized, StreamError
 from ..stream import TalkbackStream
@@ -83,18 +83,7 @@ if TYPE_CHECKING:
     from .nvr import Event, Liveview
 
 PRIVACY_ZONE_NAME = "pyufp_privacy_zone"
-LUX_MAPPING_VALUES = [
-    30,
-    25,
-    20,
-    15,
-    12,
-    10,
-    7,
-    5,
-    3,
-    1,
-]
+LUX_MAPPING_VALUES = [30, 25, 20, 15, 12, 10, 7, 5, 3, 1, 0]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -134,7 +123,7 @@ class Light(ProtectMotionDeviceModel):
     light_device_settings: LightDeviceSettings
     light_on_settings: LightOnSettings
     light_mode_settings: LightModeSettings
-    camera_id: str | None
+    camera_id: str | None = None
     is_camera_paired: bool
 
     @classmethod
@@ -264,15 +253,15 @@ class CameraChannel(ProtectBaseObject):
     name: str  # read only
     enabled: bool  # read only
     is_rtsp_enabled: bool
-    rtsp_alias: str | None  # read only
+    rtsp_alias: str | None = None  # read only
     width: int
     height: int
-    fps: int
+    fps: int | None = None  # read only
     bitrate: int
-    min_bitrate: int  # read only
-    max_bitrate: int  # read only
-    min_client_adaptive_bit_rate: int | None  # read only
-    min_motion_adaptive_bit_rate: int | None  # read only
+    min_bitrate: int | None = None  # read only
+    max_bitrate: int | None = None  # read only
+    min_client_adaptive_bit_rate: int | None = None  # read only
+    min_motion_adaptive_bit_rate: int | None = None  # read only
     fps_values: list[int]  # read only
     idr_interval: int
     # 3.0.22+
@@ -281,6 +270,7 @@ class CameraChannel(ProtectBaseObject):
 
     _rtsp_url: str | None = PrivateAttr(None)
     _rtsps_url: str | None = PrivateAttr(None)
+    _rtsps_no_srtp_url: str | None = PrivateAttr(None)
 
     @property
     def rtsp_url(self) -> str | None:
@@ -303,8 +293,18 @@ class CameraChannel(ProtectBaseObject):
         return self._rtsps_url
 
     @property
+    def rtsps_no_srtp_url(self) -> str | None:
+        if not self.is_rtsp_enabled or self.rtsp_alias is None:
+            return None
+
+        if self._rtsps_no_srtp_url is not None:
+            return self._rtsps_no_srtp_url
+        self._rtsps_no_srtp_url = f"rtsps://{self._api.connection_host}:{self._api.bootstrap.nvr.ports.rtsps}/{self.rtsp_alias}"
+        return self._rtsps_no_srtp_url
+
+    @property
     def is_package(self) -> bool:
-        return self.fps <= 2
+        return self.fps is not None and self.fps <= 2
 
 
 class ISPSettings(ProtectBaseObject):
@@ -333,8 +333,8 @@ class ISPSettings(ProtectBaseObject):
     d_zoom_stream_id: int
     focus_mode: FocusMode | None = None
     focus_position: int
-    touch_focus_x: int | None
-    touch_focus_y: int | None
+    touch_focus_x: int | None = None
+    touch_focus_y: int | None = None
     zoom_position: PercentInt
     mount_position: MountPosition | None = None
     # requires 2.8.14+
@@ -398,6 +398,8 @@ class RecordingSettings(ProtectBaseObject):
     retention_duration: datetime | None = None
     smart_detect_post_padding: timedelta | None = None
     smart_detect_pre_padding: timedelta | None = None
+    # requires 5.2.39+
+    create_access_event: bool | None = None
 
     @classmethod
     @cache
@@ -551,10 +553,10 @@ class LCDMessage(ProtectBaseObject):
 class TalkbackSettings(ProtectBaseObject):
     type_fmt: AudioCodecs
     type_in: str
-    bind_addr: IPv4Address
+    bind_addr: IPv4Address | None = None
     bind_port: int
-    filter_addr: str | None  # can be used to restrict sender address
-    filter_port: int | None  # can be used to restrict sender port
+    filter_addr: str | None = None  # can be used to restrict sender address
+    filter_port: int | None = None  # can be used to restrict sender port
     channels: int  # 1 or 2
     sampling_rate: int  # 8000, 11025, 22050, 44100, 48000
     bits_per_sample: int
@@ -562,22 +564,22 @@ class TalkbackSettings(ProtectBaseObject):
 
 
 class WifiStats(ProtectBaseObject):
-    channel: int | None
-    frequency: int | None
-    link_speed_mbps: str | None
+    channel: int | None = None
+    frequency: int | None = None
+    link_speed_mbps: str | None = None
     signal_quality: PercentInt
     signal_strength: int
 
 
 class VideoStats(ProtectBaseObject):
-    recording_start: datetime | None
-    recording_end: datetime | None
-    recording_start_lq: datetime | None
-    recording_end_lq: datetime | None
-    timelapse_start: datetime | None
-    timelapse_end: datetime | None
-    timelapse_start_lq: datetime | None
-    timelapse_end_lq: datetime | None
+    recording_start: datetime | None = None
+    recording_end: datetime | None = None
+    recording_start_lq: datetime | None = None
+    recording_end_lq: datetime | None = None
+    timelapse_start: datetime | None = None
+    timelapse_end: datetime | None = None
+    timelapse_start_lq: datetime | None = None
+    timelapse_end_lq: datetime | None = None
 
     @classmethod
     @cache
@@ -593,24 +595,27 @@ class VideoStats(ProtectBaseObject):
     @classmethod
     @cache
     def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
-        return {
-            key: convert_to_datetime
-            for key in (
-                "recordingStart",
-                "recordingEnd",
-                "recordingStartLQ",
-                "recordingEndLQ",
-                "timelapseStart",
-                "timelapseEnd",
-                "timelapseStartLQ",
-                "timelapseEndLQ",
+        return (
+            dict.fromkeys(
+                (
+                    "recordingStart",
+                    "recordingEnd",
+                    "recordingStartLQ",
+                    "recordingEndLQ",
+                    "timelapseStart",
+                    "timelapseEnd",
+                    "timelapseStartLQ",
+                    "timelapseEndLQ",
+                ),
+                convert_to_datetime,
             )
-        } | super().unifi_dict_conversions()
+            | super().unifi_dict_conversions()
+        )
 
 
 class StorageStats(ProtectBaseObject):
-    used: int | None  # bytes
-    rate: float | None  # bytes / millisecond
+    used: int | None = None  # bytes
+    rate: float | None = None  # bytes / millisecond
 
     @property
     def rate_per_second(self) -> float | None:
@@ -641,7 +646,7 @@ class CameraStats(ProtectBaseObject):
     tx_bytes: int
     wifi: WifiStats
     video: VideoStats
-    storage: StorageStats | None
+    storage: StorageStats | None = None
     wifi_quality: PercentInt
     wifi_strength: int
 
@@ -716,7 +721,7 @@ class SmartMotionZone(MotionZone):
 
 
 class PrivacyMaskCapability(ProtectBaseObject):
-    max_masks: int | None
+    max_masks: int | None = None
     rectangle_only: bool
 
 
@@ -743,9 +748,9 @@ class Hotplug(ProtectBaseObject):
 
 
 class PTZRangeSingle(ProtectBaseObject):
-    max: float | None
-    min: float | None
-    step: float | None
+    max: float | None = None
+    min: float | None = None
+    step: float | None = None
 
 
 class PTZRange(ProtectBaseObject):
@@ -779,7 +784,7 @@ class PTZRange(ProtectBaseObject):
 
 
 class PTZZoomRange(PTZRange):
-    ratio: float
+    ratio: int
 
     def to_native_value(self, zoom_value: float, is_relative: bool = False) -> float:
         """Convert zoom values to step values."""
@@ -856,6 +861,9 @@ class CameraFeatureFlags(ProtectBaseObject):
     has_vertical_flip: bool | None = None
     # 3.0.22+
     flash_range: Any | None = None
+    # 4.73.71+
+    support_nfc: bool | None = None
+    has_fingerprint_sensor: bool | None = None
 
     focus: PTZRange
     pan: PTZRange
@@ -926,13 +934,13 @@ class Camera(ProtectMotionDeviceModel):
     is_recording: bool
     is_motion_detected: bool
     is_smart_detected: bool
-    phy_rate: float | None
+    phy_rate: float | None = None
     hdr_mode: bool
     # Recording Quality -> High Frame
     video_mode: VideoMode
     is_probing_for_wifi: bool
     chime_duration: timedelta
-    last_ring: datetime | None
+    last_ring: datetime | None = None
     is_live_heatmap_enabled: bool
     video_reconfiguration_in_progress: bool
     channels: list[CameraChannel]
@@ -948,18 +956,18 @@ class Camera(ProtectMotionDeviceModel):
     smart_detect_zones: list[SmartMotionZone]
     stats: CameraStats
     feature_flags: CameraFeatureFlags
-    lcd_message: LCDMessage | None
+    lcd_message: LCDMessage | None = None
     lenses: list[CameraLenses]
-    platform: str
+    platform: str | None = None
     has_speaker: bool
     has_wifi: bool
     audio_bitrate: int
     can_manage: bool
     is_managed: bool
-    voltage: float | None
+    voltage: float | None = None
     # requires 1.21+
-    is_poor_network: bool | None
-    is_wireless_uplink_enabled: bool | None
+    is_poor_network: bool | None = None
+    is_wireless_uplink_enabled: bool | None = None
     # requires 2.6.13+
     homekit_settings: CameraHomekitSettings | None = None
     # requires 2.6.17+
@@ -979,7 +987,12 @@ class Camera(ProtectMotionDeviceModel):
     is_ptz: bool | None = None
     # requires 2.11.13+
     audio_settings: CameraAudioSettings | None = None
-
+    # requires 5.0.33+
+    is_third_party_camera: bool | None = None
+    # requires 5.1.78+
+    is_paired_with_ai_port: bool | None = None
+    # requires 5.2.39+
+    is_adopted_by_access_app: bool | None = None
     # TODO: used for adopting
     # apMac read only
     # apRssi read only
@@ -995,6 +1008,10 @@ class Camera(ProtectMotionDeviceModel):
 
     # not directly from UniFi
     last_ring_event_id: str | None = None
+    last_nfc_card_scanned_event_id: str | None = None
+    last_nfc_card_scanned: datetime | None = None
+    last_fingerprint_identified_event_id: str | None = None
+    last_fingerprint_identified: datetime | None = None
     last_smart_detect: datetime | None = None
     last_smart_audio_detect: datetime | None = None
     last_smart_detect_event_id: str | None = None
@@ -1015,6 +1032,10 @@ class Camera(ProtectMotionDeviceModel):
     def _get_excluded_changed_fields(cls) -> set[str]:
         return super()._get_excluded_changed_fields() | {
             "last_ring_event_id",
+            "last_nfc_card_scanned",
+            "last_nfc_card_scanned_event_id",
+            "last_fingerprint_identified",
+            "last_fingerprint_identified_event_id",
             "last_smart_detect",
             "last_smart_audio_detect",
             "last_smart_detect_event_id",
@@ -1083,6 +1104,10 @@ class Camera(ProtectMotionDeviceModel):
         pop_dict_tuple(
             data,
             (
+                "lastFingerprintIdentified",
+                "lastFingerprintIdentifiedEventId",
+                "lastNfcCardScanned",
+                "lastNfcCardScannedEventId",
                 "lastRingEventId",
                 "lastSmartDetect",
                 "lastSmartAudioDetect",
@@ -1110,7 +1135,7 @@ class Camera(ProtectMotionDeviceModel):
                 updated["lcd_message"] = {"reset_at": utc_now() - timedelta(seconds=10)}
             # otherwise, pass full LCD message to prevent issues
             elif self.lcd_message is not None:
-                updated["lcd_message"] = self.lcd_message.dict()
+                updated["lcd_message"] = self.lcd_message.model_dump()
 
             # if reset_at is not passed in, it will default to reset in 1 minute
             if lcd_message is not None and "reset_at" not in lcd_message:
@@ -1144,6 +1169,23 @@ class Camera(ProtectMotionDeviceModel):
         if (last_smart_detect_event_id := self.last_smart_detect_event_id) is None:
             return None
         return self._api.bootstrap.events.get(last_smart_detect_event_id)
+
+    @property
+    def last_nfc_card_scanned_event(self) -> Event | None:
+        if (
+            last_nfc_card_scanned_event_id := self.last_nfc_card_scanned_event_id
+        ) is None:
+            return None
+        return self._api.bootstrap.events.get(last_nfc_card_scanned_event_id)
+
+    @property
+    def last_fingerprint_identified_event(self) -> Event | None:
+        if (
+            last_fingerprint_identified_event_id
+            := self.last_fingerprint_identified_event_id
+        ) is None:
+            return None
+        return self._api.bootstrap.events.get(last_fingerprint_identified_event_id)
 
     @property
     def hdr_mode_display(self) -> Literal["auto", "off", "always"]:
@@ -1407,6 +1449,40 @@ class Camera(ProtectMotionDeviceModel):
     async def set_vehicle_detection(self, enabled: bool) -> None:
         """Toggles vehicle smart detection. Requires camera to have smart detection"""
         return await self._set_object_detect(SmartDetectObjectType.VEHICLE, enabled)
+
+    # endregion
+    # region Face
+
+    @property
+    def can_detect_face(self) -> bool:
+        return SmartDetectObjectType.FACE in self.feature_flags.smart_detect_types
+
+    @property
+    def is_face_detection_on(self) -> bool:
+        """Is Face Detection available and enabled?"""
+        return self._is_smart_enabled(SmartDetectObjectType.FACE)
+
+    @property
+    def last_face_detect_event(self) -> Event | None:
+        """Get the last face smart detection event."""
+        return self.get_last_smart_detect_event(SmartDetectObjectType.FACE)
+
+    @property
+    def last_face_detect(self) -> datetime | None:
+        """Get the last face smart detection event."""
+        return self.last_smart_detects.get(SmartDetectObjectType.FACE)
+
+    @property
+    def is_face_currently_detected(self) -> bool:
+        """Is face currently being detected"""
+        return self._is_smart_detected(SmartDetectObjectType.FACE)
+
+    async def set_face_detection(self, enabled: bool) -> None:
+        """Toggles face smart detection. Requires camera to have smart detection"""
+        return await self._set_object_detect(
+            SmartDetectObjectType.FACE,
+            enabled,
+        )
 
     # endregion
     # region License Plate
@@ -1989,13 +2065,19 @@ class Camera(ProtectMotionDeviceModel):
 
         Datetime of screenshot is approximate. It may be +/- a few seconds.
         """
-        if not self._api.bootstrap.auth_user.can(
-            ModelType.CAMERA,
-            PermissionNode.READ_MEDIA,
-            self,
-        ):
+        # Use READ_LIVE if dt is None, otherwise READ_MEDIA
+        auth_user = self._api.bootstrap.auth_user
+        if dt is None:
+            if not (
+                auth_user.can(ModelType.CAMERA, PermissionNode.READ_LIVE, self)
+                or auth_user.can(ModelType.CAMERA, PermissionNode.READ_MEDIA, self)
+            ):
+                raise NotAuthorized(
+                    f"Do not have permission to read live or media for camera: {self.id}"
+                )
+        elif not auth_user.can(ModelType.CAMERA, PermissionNode.READ_MEDIA, self):
             raise NotAuthorized(
-                f"Do not have permission to read media for camera: {self.id}",
+                f"Do not have permission to read media for camera: {self.id}"
             )
 
         if height is None and width is None and self.high_camera_channel is not None:
@@ -2017,13 +2099,19 @@ class Camera(ProtectMotionDeviceModel):
         if not self.feature_flags.has_package_camera:
             raise BadRequest("Device does not have package camera")
 
-        if not self._api.bootstrap.auth_user.can(
-            ModelType.CAMERA,
-            PermissionNode.READ_MEDIA,
-            self,
-        ):
+        auth_user = self._api.bootstrap.auth_user
+        # Use READ_LIVE if dt is None, otherwise READ_MEDIA
+        if dt is None:
+            if not (
+                auth_user.can(ModelType.CAMERA, PermissionNode.READ_LIVE, self)
+                or auth_user.can(ModelType.CAMERA, PermissionNode.READ_MEDIA, self)
+            ):
+                raise NotAuthorized(
+                    f"Do not have permission to read live or media for camera: {self.id}"
+                )
+        elif not auth_user.can(ModelType.CAMERA, PermissionNode.READ_MEDIA, self):
             raise NotAuthorized(
-                f"Do not have permission to read media for camera: {self.id}",
+                f"Do not have permission to read media for camera: {self.id}"
             )
 
         if height is None and width is None and self.package_camera_channel is not None:
@@ -2734,8 +2822,8 @@ class SensorThresholdSettings(SensorSettingsBase):
     margin: float  # read only
     # "safe" thresholds for alerting
     # anything below/above will trigger alert
-    low_threshold: float | None
-    high_threshold: float | None
+    low_threshold: float | None = None
+    high_threshold: float | None = None
 
 
 class SensorSensitivitySettings(SensorSettingsBase):
@@ -2743,12 +2831,12 @@ class SensorSensitivitySettings(SensorSettingsBase):
 
 
 class SensorBatteryStatus(ProtectBaseObject):
-    percentage: PercentInt | None
+    percentage: PercentInt | None = None
     is_low: bool
 
 
 class SensorStat(ProtectBaseObject):
-    value: float | None
+    value: float | None = None
     status: SensorStatusType
 
 
@@ -2760,20 +2848,20 @@ class SensorStats(ProtectBaseObject):
 
 class Sensor(ProtectAdoptableDeviceModel):
     alarm_settings: SensorSettingsBase
-    alarm_triggered_at: datetime | None
+    alarm_triggered_at: datetime | None = None
     battery_status: SensorBatteryStatus
-    camera_id: str | None
+    camera_id: str | None = None
     humidity_settings: SensorThresholdSettings
     is_motion_detected: bool
     is_opened: bool
-    leak_detected_at: datetime | None
+    leak_detected_at: datetime | None = None
     led_settings: SensorSettingsBase
     light_settings: SensorThresholdSettings
-    motion_detected_at: datetime | None
+    motion_detected_at: datetime | None = None
     motion_settings: SensorSensitivitySettings
-    open_status_changed_at: datetime | None
+    open_status_changed_at: datetime | None = None
     stats: SensorStats
-    tampering_detected_at: datetime | None
+    tampering_detected_at: datetime | None = None
     temperature_settings: SensorThresholdSettings
     mount_type: MountType
 
@@ -3067,13 +3155,13 @@ class Sensor(ProtectAdoptableDeviceModel):
 
 
 class Doorlock(ProtectAdoptableDeviceModel):
-    credentials: str | None
+    credentials: str | None = None
     lock_status: LockStatusType
     enable_homekit: bool
     auto_close_time: timedelta
     led_settings: SensorSettingsBase
     battery_status: SensorBatteryStatus
-    camera_id: str | None
+    camera_id: str | None = None
     has_homekit: bool
     private_token: str
 
@@ -3210,7 +3298,7 @@ class ChimeTrack(ProtectBaseObject):
 class Chime(ProtectAdoptableDeviceModel):
     volume: PercentInt
     is_probing_for_wifi: bool
-    last_ring: datetime | None
+    last_ring: datetime | None = None
     is_wireless_uplink_enabled: bool
     camera_ids: list[str]
     # requires 2.6.17+
@@ -3345,3 +3433,16 @@ class Chime(ProtectAdoptableDeviceModel):
                 raise BadRequest("Camera %s is not paired with chime", camera.id)
 
         await self.queue_update(callback)
+
+
+class AiPort(Camera):
+    paired_cameras: list[str]
+
+
+class Ringtone(ProtectBaseObject):
+    id: str
+    name: str
+    size: int
+    is_default: bool
+    nvr_mac: str
+    model_key: str

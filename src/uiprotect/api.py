@@ -11,13 +11,13 @@ import sys
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
-from functools import cached_property, partial
-from http import HTTPStatus
+from functools import partial
+from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
 from typing import Any, Literal, cast
-from urllib.parse import urljoin
+from urllib.parse import SplitResult
 
 import aiofiles
 import aiohttp
@@ -27,6 +27,10 @@ from aiohttp import CookieJar, client_exceptions
 from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
+from uiprotect.data.convert import list_from_unifi_list
+from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
+
+from ._compat import cached_property
 from .data import (
     NVR,
     Bootstrap,
@@ -53,7 +57,7 @@ from .data import (
     create_from_unifi_dict,
 )
 from .data.base import ProtectModelWithId
-from .data.devices import Chime
+from .data.devices import AiPort, Chime
 from .data.types import IteratorCallback, ProgressCallback
 from .exceptions import BadRequest, NotAuthorized, NvrError
 from .utils import (
@@ -66,9 +70,7 @@ from .utils import (
 )
 from .websocket import Websocket, WebsocketState
 
-if sys.version_info[:2] < (3, 13):
-    from http import cookies
-
+if "partitioned" not in cookies.Morsel._reserved:  # type: ignore[attr-defined]
     # See: https://github.com/python/cpython/issues/112713
     cookies.Morsel._reserved["partitioned"] = "partitioned"  # type: ignore[attr-defined]
     cookies.Morsel._flags.add("partitioned")  # type: ignore[attr-defined]
@@ -90,6 +92,8 @@ If your Protect instance has a lot of events, this request will take much longer
 
 _LOGGER = logging.getLogger(__name__)
 _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
+
+NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
 
 # TODO: Urls to still support
 # Backups
@@ -327,7 +331,9 @@ class BaseApiClient:
         if require_auth:
             await self.ensure_authenticated()
 
-        request_url = self._url.joinpath(url[1:])
+        request_url = self._url.join(
+            URL(SplitResult("", "", url, "", ""), encoded=True)
+        )
         headers = kwargs.get("headers") or self.headers
         _LOGGER.debug("Request url: %s", request_url)
         if not self._verify_ssl:
@@ -387,10 +393,9 @@ class BaseApiClient:
         **kwargs: Any,
     ) -> bytes | None:
         """Make a request to UniFi Protect API"""
-        url = urljoin(self.api_path, url)
         response = await self.request(
             method,
-            url,
+            f"{self.api_path}{url}",
             require_auth=require_auth,
             auto_close=False,
             **kwargs,
@@ -823,6 +828,23 @@ class ProtectApiClient(BaseApiClient):
         """
         async with self._update_lock:
             bootstrap = await self.get_bootstrap()
+            if bootstrap.nvr.version >= NFC_FINGERPRINT_SUPPORT_VERSION:
+                try:
+                    keyrings = await self.api_request_list("keyrings")
+                except NotAuthorized as err:
+                    _LOGGER.debug("No access to keyrings %s, skipping", err)
+                    keyrings = []
+                try:
+                    ulp_users = await self.api_request_list("ulp-users")
+                except NotAuthorized as err:
+                    _LOGGER.debug("No access to ulp-users %s, skipping", err)
+                    ulp_users = []
+                bootstrap.keyrings = Keyrings.from_list(
+                    cast(list[Keyring], list_from_unifi_list(self, keyrings))
+                )
+                bootstrap.ulp_users = UlpUsers.from_list(
+                    cast(list[UlpUser], list_from_unifi_list(self, ulp_users))
+                )
             self.__dict__.pop("bootstrap", None)
             self._bootstrap = bootstrap
             return bootstrap
@@ -1246,6 +1268,14 @@ class ProtectApiClient(BaseApiClient):
         """
         return cast(list[Chime], await self.get_devices(ModelType.CHIME, Chime))
 
+    async def get_aiports(self) -> list[AiPort]:
+        """
+        Gets the list of aiports straight from the NVR.
+
+        The websocket is connected and running, you likely just want to use `self.bootstrap.aiports`
+        """
+        return cast(list[AiPort], await self.get_devices(ModelType.AIPORT, AiPort))
+
     async def get_viewers(self) -> list[Viewer]:
         """
         Gets the list of viewers straight from the NVR.
@@ -1363,6 +1393,14 @@ class ProtectApiClient(BaseApiClient):
         The websocket is connected and running, you likely just want to use `self.bootstrap.chimes[device_id]`
         """
         return cast(Chime, await self.get_device(ModelType.CHIME, device_id, Chime))
+
+    async def get_aiport(self, device_id: str) -> AiPort:
+        """
+        Gets a AiPort straight from the NVR.
+
+        The websocket is connected and running, you likely just want to use `self.bootstrap.aiport[device_id]`
+        """
+        return cast(AiPort, await self.get_device(ModelType.AIPORT, device_id, AiPort))
 
     async def get_viewer(self, device_id: str) -> Viewer:
         """
@@ -1540,13 +1578,17 @@ class ProtectApiClient(BaseApiClient):
                 raise_exception=False,
             )
 
+        _LOGGER.debug("Requesting camera video: %s%s %s", self.api_path, path, params)
         r = await self.request(
             "get",
-            urljoin(self.api_path, path),
+            f"{self.api_path}{path}",
             auto_close=False,
             timeout=0,
             params=params,
         )
+        if r.status != 200:
+            await self._raise_for_status(r, True)
+
         if output_file is not None:
             async with aiofiles.open(output_file, "wb") as output:
 
@@ -1768,10 +1810,12 @@ class ProtectApiClient(BaseApiClient):
         *,
         volume: int | None = None,
         repeat_times: int | None = None,
+        ringtone_id: str | None = None,
+        track_no: int | None = None,
     ) -> None:
         """Plays chime tones on a chime"""
         data: dict[str, Any] | None = None
-        if volume or repeat_times:
+        if volume or repeat_times or ringtone_id or track_no:
             chime = self.bootstrap.chimes.get(device_id)
             if chime is None:
                 raise BadRequest("Invalid chime ID %s", device_id)
@@ -1779,8 +1823,11 @@ class ProtectApiClient(BaseApiClient):
             data = {
                 "volume": volume or chime.volume,
                 "repeatTimes": repeat_times or chime.repeat_times,
-                "trackNo": chime.track_no,
+                "trackNo": track_no or chime.track_no,
             }
+            if ringtone_id:
+                data["ringtoneId"] = ringtone_id
+                data.pop("trackNo", None)
 
         await self.api_request(
             f"chimes/{device_id}/play-speaker",
@@ -1791,6 +1838,16 @@ class ProtectApiClient(BaseApiClient):
     async def play_buzzer(self, device_id: str) -> None:
         """Plays chime tones on a chime"""
         await self.api_request(f"chimes/{device_id}/play-buzzer", method="post")
+
+    async def set_light_is_led_force_on(
+        self, device_id: str, is_led_force_on: bool
+    ) -> None:
+        """Sets isLedForceOn for light."""  # workaround because forceOn doesnt work via websocket
+        await self.api_request(
+            f"lights/{device_id}",
+            method="patch",
+            json={"lightOnSettings": {"isLedForceOn": is_led_force_on}},
+        )
 
     async def clear_tamper_sensor(self, device_id: str) -> None:
         """Clears tamper status for sensor"""

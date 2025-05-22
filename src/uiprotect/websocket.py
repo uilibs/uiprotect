@@ -10,6 +10,7 @@ from enum import Enum
 from http import HTTPStatus
 from typing import Any, Optional
 
+import aiohttp
 from aiohttp import (
     ClientError,
     ClientSession,
@@ -125,7 +126,10 @@ class Websocket:
         # catch any and all errors for Websocket so we can clean up correctly
         try:
             self._ws_connection = await session.ws_connect(
-                url, ssl=self.verify, headers=self._headers, timeout=self.timeout
+                url,
+                ssl=self.verify,
+                headers=self._headers,
+                timeout=aiohttp.ClientWSTimeout(ws_close=self.timeout),
             )
             while True:
                 msg = await self._ws_connection.receive(self.receive_timeout)

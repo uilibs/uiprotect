@@ -6,15 +6,16 @@ import asyncio
 import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta
-from functools import cache, cached_property
+from functools import cache
 from ipaddress import IPv4Address
-from typing import TYPE_CHECKING, Any, NamedTuple, TypeVar
+from typing import TYPE_CHECKING, Any, NamedTuple
 from uuid import UUID
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
-from pydantic.v1 import BaseModel
-from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
+from pydantic import BaseModel, ConfigDict
+from pydantic.fields import PrivateAttr
 
+from .._compat import cached_property
 from ..exceptions import BadRequest, ClientError, NotAuthorized
 from ..utils import (
     asyncio_timeout,
@@ -26,11 +27,14 @@ from ..utils import (
     to_snake_case,
 )
 from .types import (
+    SHAPE_DICT_V1,
+    SHAPE_LIST_V1,
     ModelType,
     PercentFloat,
     PermissionNode,
     ProtectWSPayloadFormat,
     StateType,
+    extract_type_shape,
 )
 from .websocket import (
     WSJSONPacketFrame,
@@ -49,7 +53,6 @@ if TYPE_CHECKING:
     from ..data.user import User
 
 
-ProtectObject = TypeVar("ProtectObject", bound="ProtectBaseObject")
 RECENT_EVENT_MAX = timedelta(seconds=30)
 EVENT_PING_INTERVAL = timedelta(seconds=3)
 EVENT_PING_INTERVAL_SECONDS = EVENT_PING_INTERVAL.total_seconds()
@@ -61,7 +64,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @cache
-def _is_protect_base_object(cls: type) -> bool:
+def _is_protect_base_object(cls: type[Any]) -> bool:
     """A cached version of `issubclass(cls, ProtectBaseObject)` to speed up the check."""
     return issubclass(cls, ProtectBaseObject)
 
@@ -92,12 +95,8 @@ class ProtectBaseObject(BaseModel):
     * Provides `.unifi_dict` to convert object back into UFP JSON
     """
 
-    _api: ProtectApiClient = PrivateAttr(None)
-
-    class Config:
-        arbitrary_types_allowed = True
-        validate_assignment = True
-        copy_on_model_validation = "shallow"
+    _api: ProtectApiClient = PrivateAttr(None)  # type: ignore[assignment]
+    model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
 
     def __init__(self, api: ProtectApiClient | None = None, **data: Any) -> None:
         """
@@ -137,10 +136,12 @@ class ProtectBaseObject(BaseModel):
             data.pop("api", None)
             return cls(api=api, **data)
 
-        return cls.construct(**data)
+        return cls.model_construct(**data)
 
     @classmethod
-    def construct(cls, _fields_set: set[str] | None = None, **values: Any) -> Self:
+    def model_construct(
+        cls, _fields_set: set[str] | None = None, **values: Any
+    ) -> Self:
         api: ProtectApiClient | None = values.pop("api", None)
         (
             unifi_objs,
@@ -152,19 +153,21 @@ class ProtectBaseObject(BaseModel):
         ) = cls._get_protect_model()
         for key, value in values.items():
             if has_unifi_objs and key in unifi_objs and isinstance(value, dict):
-                values[key] = unifi_objs[key].construct(**value)
+                values[key] = unifi_objs[key].model_construct(**value)
             elif has_unifi_lists and key in unifi_lists and isinstance(value, list):
                 values[key] = [
-                    unifi_lists[key].construct(**v) if isinstance(v, dict) else v
+                    unifi_lists[key].model_construct(**v) if isinstance(v, dict) else v
                     for v in value
                 ]
             elif has_unifi_dicts and key in unifi_dicts and isinstance(value, dict):
                 values[key] = {
-                    k: unifi_dicts[key].construct(**v) if isinstance(v, dict) else v
+                    k: unifi_dicts[key].model_construct(**v)
+                    if isinstance(v, dict)
+                    else v
                     for k, v in value.items()
                 }
 
-        obj = super().construct(_fields_set=_fields_set, **values)
+        obj = super().model_construct(_fields_set=_fields_set, **values)
         if api is not None:
             obj._api = api
 
@@ -218,15 +221,16 @@ class ProtectBaseObject(BaseModel):
         lists: dict[str, type[ProtectBaseObject]] = {}
         dicts: dict[str, type[ProtectBaseObject]] = {}
 
-        for name, field in cls.__fields__.items():
+        for name, field in cls.model_fields.items():
             try:
-                if _is_protect_base_object(field.type_):
-                    if field.shape == SHAPE_LIST:
-                        lists[name] = field.type_
-                    elif field.shape == SHAPE_DICT:
-                        dicts[name] = field.type_
+                type_, shape = extract_type_shape(field.annotation)  # type: ignore[arg-type]
+                if _is_protect_base_object(type_):
+                    if shape == SHAPE_LIST_V1:
+                        lists[name] = type_
+                    elif shape == SHAPE_DICT_V1:
+                        dicts[name] = type_
                     else:
-                        objs[name] = field.type_
+                        objs[name] = type_
             except TypeError:
                 pass
 
@@ -312,8 +316,8 @@ class ProtectBaseObject(BaseModel):
 
         remaps = cls._get_unifi_remaps()
         # convert to snake_case and remove extra fields
-        _fields = cls.__fields__
-        for key in list(data):
+        _fields = cls.model_fields
+        for key in data.copy():
             if key in remaps:
                 # remap keys that will not be converted correctly by snake_case convert
                 remapped_key = remaps[key]
@@ -368,7 +372,7 @@ class ProtectBaseObject(BaseModel):
         if isinstance(value, ProtectBaseObject):
             value = value.unifi_dict()
         elif isinstance(value, dict):
-            value = klass.construct({}).unifi_dict(data=value)  # type: ignore[arg-type]
+            value = klass.model_construct({}).unifi_dict(data=value)  # type: ignore[arg-type]
 
         return value
 
@@ -389,7 +393,7 @@ class ProtectBaseObject(BaseModel):
         return [
             item.unifi_dict()
             if isinstance(item, ProtectBaseObject)
-            else klass.construct({}).unifi_dict(data=item)  # type: ignore[arg-type]
+            else klass.model_construct({}).unifi_dict(data=item)  # type: ignore[arg-type]
             for item in value
         ]
 
@@ -436,7 +440,7 @@ class ProtectBaseObject(BaseModel):
             excluded_fields = self._get_excluded_fields()
             if exclude is not None:
                 excluded_fields = excluded_fields.copy() | exclude
-            data = self.dict(exclude=excluded_fields)
+            data = self.model_dump(exclude=excluded_fields)
             use_obj = True
 
         (
@@ -473,7 +477,7 @@ class ProtectBaseObject(BaseModel):
 
         return new_data
 
-    def update_from_dict(cls: ProtectObject, data: dict[str, Any]) -> ProtectObject:
+    def update_from_dict(self, data: dict[str, Any]) -> Self:
         """
         Updates current object from a cleaned UFP JSON dict.
 
@@ -487,15 +491,15 @@ class ProtectBaseObject(BaseModel):
             has_unifi_lists,
             unifi_dicts,
             has_unifi_dicts,
-        ) = cls._get_protect_model()
-        api = cls._api
-        _fields = cls.__fields__
+        ) = self._get_protect_model()
+        api = self._api
+        _fields = self.__class__.model_fields
         unifi_obj: ProtectBaseObject | None
         value: Any
 
         for key, item in data.items():
             if has_unifi_objs and key in unifi_objs and isinstance(item, dict):
-                if (unifi_obj := getattr(cls, key)) is not None:
+                if (unifi_obj := getattr(self, key)) is not None:
                     value = unifi_obj.update_from_dict(item)
                 else:
                     value = unifi_objs[key](**item, api=api)
@@ -509,17 +513,17 @@ class ProtectBaseObject(BaseModel):
             else:
                 value = convert_unifi_data(item, _fields[key])
 
-            setattr(cls, key, value)
+            setattr(self, key, value)
 
-        return cls
+        return self
 
     def dict_with_excludes(self) -> dict[str, Any]:
         """Returns a dict of the current object without any UFP objects converted to dicts."""
         excludes = self.__class__._get_excluded_changed_fields()
-        return self.dict(exclude=excludes)
+        return self.model_dump(exclude=excludes)
 
     def get_changed(self, data_before_changes: dict[str, Any]) -> dict[str, Any]:
-        return dict_diff(data_before_changes, self.dict())
+        return dict_diff(data_before_changes, self.model_dump())
 
     @property
     def api(self) -> ProtectApiClient:
@@ -539,7 +543,7 @@ class ProtectModel(ProtectBaseObject):
     automatically decoding a `modelKey` object into the correct UFP object and type
     """
 
-    model: ModelType | None
+    model: ModelType | None = None
 
     @classmethod
     @cache
@@ -578,7 +582,7 @@ class UpdateSynchronization:
 class ProtectModelWithId(ProtectModel):
     id: str
 
-    _update_sync: UpdateSynchronization = PrivateAttr(None)
+    _update_sync: UpdateSynchronization = PrivateAttr(None)  # type: ignore[assignment]
 
     def __init__(self, **data: Any) -> None:
         update_sync = data.pop("update_sync", None)
@@ -586,9 +590,11 @@ class ProtectModelWithId(ProtectModel):
         self._update_sync = update_sync or UpdateSynchronization()
 
     @classmethod
-    def construct(cls, _fields_set: set[str] | None = None, **values: Any) -> Self:
+    def model_construct(
+        cls, _fields_set: set[str] | None = None, **values: Any
+    ) -> Self:
         update_sync = values.pop("update_sync", None)
-        obj = super().construct(_fields_set=_fields_set, **values)
+        obj = super().model_construct(_fields_set=_fields_set, **values)
         obj._update_sync = update_sync or UpdateSynchronization()
         return obj
 
@@ -714,9 +720,9 @@ class ProtectModelWithId(ProtectModel):
             updated,
         )
 
-        assert (
-            self._update_sync.lock.locked()
-        ), "save_device_changes should only be called when the update lock is held"
+        assert self._update_sync.lock.locked(), (
+            "save_device_changes should only be called when the update lock is held"
+        )
         read_only_fields = self.__class__._get_read_only_fields()
 
         if self.model is None:
@@ -793,15 +799,15 @@ class ProtectModelWithId(ProtectModel):
 
 
 class ProtectDeviceModel(ProtectModelWithId):
-    name: str | None
+    name: str | None = None
     type: str
     mac: str
-    host: IPv4Address | str | None
-    up_since: datetime | None
-    uptime: timedelta | None
-    last_seen: datetime | None
-    hardware_revision: str | None
-    firmware_version: str | None
+    host: IPv4Address | str | None = None
+    up_since: datetime | None = None
+    uptime: timedelta | None = None
+    last_seen: datetime | None = None
+    hardware_revision: str | None = None
+    firmware_version: str | None = None
     is_updating: bool
     is_ssh_enabled: bool
 
@@ -852,12 +858,12 @@ class ProtectDeviceModel(ProtectModelWithId):
 
 
 class WiredConnectionState(ProtectBaseObject):
-    phy_rate: float | None
+    phy_rate: float | None = None
 
 
 class WirelessConnectionState(ProtectBaseObject):
-    signal_quality: int | None
-    signal_strength: int | None
+    signal_quality: int | None = None
+    signal_strength: int | None = None
 
 
 class BluetoothConnectionState(WirelessConnectionState):
@@ -865,10 +871,10 @@ class BluetoothConnectionState(WirelessConnectionState):
 
 
 class WifiConnectionState(WirelessConnectionState):
-    phy_rate: float | None
-    channel: int | None
-    frequency: int | None
-    ssid: str | None
+    phy_rate: float | None = None
+    channel: int | None = None
+    frequency: int | None = None
+    ssid: str | None = None
     bssid: str | None = None
     tx_rate: float | None = None
     # requires 2.7.5+
@@ -880,10 +886,10 @@ class WifiConnectionState(WirelessConnectionState):
 
 class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     state: StateType
-    connection_host: IPv4Address | str | None
-    connected_since: datetime | None
-    latest_firmware_version: str | None
-    firmware_build: str | None
+    connection_host: IPv4Address | str | None = None
+    connected_since: datetime | None = None
+    latest_firmware_version: str | None = None
+    firmware_build: str | None = None
     is_adopting: bool
     is_adopted: bool
     is_adopted_by_other: bool
@@ -893,7 +899,7 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     is_attempting_to_connect: bool
     is_connected: bool
     # requires 1.21+
-    market_name: str | None
+    market_name: str | None = None
     # requires 2.7.5+
     fw_update_state: str | None = None
     # requires 2.8.14+
@@ -908,8 +914,8 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     wired_connection_state: WiredConnectionState | None = None
     wifi_connection_state: WifiConnectionState | None = None
     bluetooth_connection_state: BluetoothConnectionState | None = None
-    bridge_id: str | None
-    is_downloading_firmware: bool | None
+    bridge_id: str | None = None
+    is_downloading_firmware: bool | None = None
 
     # TODO:
     # bridgeCandidates
@@ -1050,7 +1056,7 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
 
 
 class ProtectMotionDeviceModel(ProtectAdoptableDeviceModel):
-    last_motion: datetime | None
+    last_motion: datetime | None = None
     is_dark: bool
 
     # not directly from UniFi

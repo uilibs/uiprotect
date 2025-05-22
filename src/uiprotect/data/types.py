@@ -2,16 +2,39 @@ from __future__ import annotations
 
 import enum
 from collections.abc import Callable, Coroutine
-from functools import cache, cached_property
-from typing import Any, Literal, Optional, TypeVar, Union
+from functools import cache, lru_cache
+from typing import Annotated, Any, Literal, Optional, TypeVar, Union
 
 from packaging.version import Version as BaseVersion
-from pydantic.v1 import BaseModel, ConstrainedInt
-from pydantic.v1.color import Color as BaseColor
-from pydantic.v1.types import ConstrainedFloat, ConstrainedStr
+from pydantic import BaseModel, Field
+from pydantic.types import StringConstraints
+from pydantic.v1.config import BaseConfig as BaseConfigV1
+from pydantic.v1.fields import SHAPE_DICT as SHAPE_DICT_V1  # noqa: F401
+from pydantic.v1.fields import SHAPE_LIST as SHAPE_LIST_V1  # noqa: F401
+from pydantic.v1.fields import SHAPE_SET as SHAPE_SET_V1  # noqa: F401
+from pydantic.v1.fields import ModelField as ModelFieldV1
+from pydantic_extra_types.color import Color  # noqa: F401
+
+from .._compat import cached_property
 
 KT = TypeVar("KT")
 VT = TypeVar("VT")
+
+
+class _BaseConfigV1(BaseConfigV1):
+    arbitrary_types_allowed = True
+    validate_assignment = True
+
+
+@lru_cache(maxsize=512)
+def extract_type_shape(annotation: type[Any] | None) -> tuple[Any, int]:
+    """Extract the type from a type hint."""
+    if annotation is None:
+        raise ValueError("Type annotation cannot be None")
+    v1_field = ModelFieldV1(
+        name="", type_=annotation, class_validators=None, model_config=_BaseConfigV1
+    )
+    return v1_field.type_, v1_field.shape
 
 
 DEFAULT = "DEFAULT_VALUE"
@@ -101,8 +124,12 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
     DOORLOCK = "doorlock"
     SCHEDULE = "schedule"
     CHIME = "chime"
+    AIPORT = "aiport"
     DEVICE_GROUP = "deviceGroup"
     RECORDING_SCHEDULE = "recordingSchedule"
+    ULP_USER = "ulpUser"
+    RINGTONE = "ringtone"
+    KEYRING = "keyring"
     UNKNOWN = "unknown"
 
     bootstrap_model_types: tuple[ModelType, ...]
@@ -148,6 +175,7 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
             ModelType.SENSOR,
             ModelType.DOORLOCK,
             ModelType.CHIME,
+            ModelType.AIPORT,
         )
 
     @classmethod
@@ -199,6 +227,8 @@ class EventType(str, ValuesEnumMixin, enum.Enum):
     POOR_CONNECTION = "poorConnection"
     STREAM_RECOVERY = "streamRecovery"
     MOTION = "motion"
+    NFC_CARD_SCANNED = "nfcCardScanned"
+    FINGERPRINT_IDENTIFIED = "fingerprintIdentified"
     RECORDING_DELETED = "recordingDeleted"
     SMART_AUDIO_DETECT = "smartAudioDetect"
     SMART_DETECT = "smartDetectZone"
@@ -272,8 +302,12 @@ class EventType(str, ValuesEnumMixin, enum.Enum):
     def device_events() -> list[str]:
         return [
             EventType.MOTION.value,
+            EventType.NFC_CARD_SCANNED.value,
+            EventType.FINGERPRINT_IDENTIFIED.value,
             EventType.RING.value,
             EventType.SMART_DETECT.value,
+            EventType.SMART_AUDIO_DETECT.value,
+            EventType.SMART_DETECT_LINE.value,
         ]
 
     @staticmethod
@@ -490,6 +524,7 @@ class SleepStateType(str, ValuesEnumMixin, enum.Enum):
 class AutoExposureMode(str, ValuesEnumMixin, enum.Enum):
     MANUAL = "manual"
     AUTO = "auto"
+    NONE = "none"
     SHUTTER = "shutter"
     FLICK50 = "flick50"
     FLICK60 = "flick60"
@@ -499,6 +534,7 @@ class AutoExposureMode(str, ValuesEnumMixin, enum.Enum):
 class FocusMode(str, ValuesEnumMixin, enum.Enum):
     MANUAL = "manual"
     AUTO = "auto"
+    NONE = "none"
     ZTRIG = "ztrig"
     TOUCH = "touch"
 
@@ -603,6 +639,7 @@ class PermissionNode(str, UnknownValuesEnumMixin, enum.Enum):
 
 @enum.unique
 class HDRMode(str, UnknownValuesEnumMixin, enum.Enum):
+    NONE = "none"
     NORMAL = "normal"
     ALWAYS_ON = "superHdr"
 
@@ -616,64 +653,33 @@ class LensType(str, enum.Enum):
     DLSR_17 = "m43"
 
 
-class DoorbellText(ConstrainedStr):
-    max_length = 30
+DoorbellText = Annotated[str, StringConstraints(max_length=30)]
 
+ICRCustomValue = Annotated[int, Field(ge=0, le=11)]
 
-class ICRCustomValue(ConstrainedInt):
-    ge = 0
-    le = 10
+ICRLuxValue = Annotated[int, Field(ge=1, le=30)]
 
+LEDLevel = Annotated[int, Field(ge=0, le=6)]
 
-class ICRLuxValue(ConstrainedInt):
-    ge = 1
-    le = 30
+PercentInt = Annotated[int, Field(ge=0, le=101)]
 
+TwoByteInt = Annotated[int, Field(ge=1, le=256)]
 
-class LEDLevel(ConstrainedInt):
-    ge = 0
-    le = 6
+PercentFloat = Annotated[float, Field(ge=0, le=100)]
 
+WDRLevel = Annotated[int, Field(ge=0, le=4)]
 
-class PercentInt(ConstrainedInt):
-    ge = 0
-    le = 100
+ICRSensitivity = Annotated[int, Field(ge=0, le=4)]
 
+Percent = Annotated[float, Field(ge=0, le=1)]
 
-class TwoByteInt(ConstrainedInt):
-    ge = 1
-    le = 255
-
-
-class PercentFloat(ConstrainedFloat):
-    ge = 0
-    le = 100
-
-
-class WDRLevel(ConstrainedInt):
-    ge = 0
-    le = 3
-
-
-class ICRSensitivity(ConstrainedInt):
-    ge = 0
-    le = 3
-
-
-class Percent(ConstrainedFloat):
-    ge = 0
-    le = 1
-
-
-class RepeatTimes(ConstrainedInt):
-    ge = 1
-    le = 6
+RepeatTimes = Annotated[int, Field(ge=1, le=6)]
 
 
 class PTZPositionDegree(BaseModel):
     pan: float
     tilt: float
-    zoom: int
+    zoom: float
 
 
 class PTZPositionSteps(BaseModel):
@@ -702,15 +708,6 @@ class PTZPreset(BaseModel):
 
 
 CoordType = Union[Percent, int, float]
-
-
-# TODO: fix when upgrading to pydantic v2
-class Color(BaseColor):
-    def __eq__(self, o: object) -> bool:
-        if isinstance(o, Color):
-            return self.as_hex() == o.as_hex()
-
-        return super().__eq__(o)
 
 
 class Version(BaseVersion):

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
-from pydantic.v1 import ValidationError
+from pydantic import ValidationError
 
 from tests.conftest import TEST_CAMERA_EXISTS
+from uiprotect import ProtectApiClient
 from uiprotect.data import (
     Camera,
     ChimeType,
@@ -22,9 +23,9 @@ from uiprotect.data import (
     VideoMode,
 )
 from uiprotect.data.devices import CameraZone, Hotplug, HotplugExtender
-from uiprotect.data.types import DEFAULT, SmartDetectObjectType
+from uiprotect.data.types import DEFAULT, PermissionNode, SmartDetectObjectType
 from uiprotect.data.websocket import WSAction, WSSubscriptionMessage
-from uiprotect.exceptions import BadRequest
+from uiprotect.exceptions import BadRequest, NotAuthorized
 from uiprotect.utils import to_js_time
 
 
@@ -342,7 +343,7 @@ async def test_camera_set_camera_zoom(camera_obj: Camera | None, level: int):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize("level", [-1, 0, 3, 4])
+@pytest.mark.parametrize("level", [-1, 0, 3, 5])
 @pytest.mark.asyncio()
 async def test_camera_set_wdr_level(camera_obj: Camera | None, level: int):
     if camera_obj is None:
@@ -353,7 +354,7 @@ async def test_camera_set_wdr_level(camera_obj: Camera | None, level: int):
     camera_obj.feature_flags.has_hdr = False
     camera_obj.isp_settings.wdr = 2
 
-    if level in {-1, 4}:
+    if level in {-1, 5}:
         with pytest.raises(ValidationError):
             await camera_obj.set_wdr_level(level)
         assert not camera_obj.api.api_request.called
@@ -692,6 +693,43 @@ async def test_camera_set_smart_detect_types(camera_obj: Camera | None):
         f"cameras/{camera_obj.id}",
         method="patch",
         json={"smartDetectSettings": {"objectTypes": ["person"]}},
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_set_face_detection_no_smart(camera_obj: Camera) -> None:
+    camera_obj.api.api_request.reset_mock()
+
+    camera_obj.feature_flags.has_smart_detect = False
+
+    with pytest.raises(BadRequest):
+        await camera_obj.set_face_detection(True)
+
+    assert not camera_obj.api.api_request.called
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("status", [True, False])
+@pytest.mark.asyncio()
+async def test_camera_set_face_detection(camera_obj: Camera, status: bool) -> None:
+    camera_obj.api.api_request.reset_mock()
+
+    camera_obj.feature_flags.has_smart_detect = True
+    camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.FACE]
+    # Set initial state to opposite of what we're testing
+    camera_obj.smart_detect_settings.object_types = (
+        [SmartDetectObjectType.FACE] if not status else []
+    )
+    camera_obj.use_global = False
+
+    await camera_obj.set_face_detection(status)
+
+    expected_types = ["face"] if status else []
+    camera_obj.api.api_request.assert_called_with(
+        f"cameras/{camera_obj.id}",
+        method="patch",
+        json={"smartDetectSettings": {"objectTypes": expected_types}},
     )
 
 
@@ -1088,6 +1126,7 @@ async def test_camera_disable_co(camera_obj: Camera | None, status: bool):
 @pytest.mark.parametrize(
     ("value", "lux"),
     [
+        (0, 0),
         (1, 1),
         (2, 3),
         (3, 5),
@@ -1110,7 +1149,12 @@ async def test_camera_set_icr_custom_lux(
         pytest.skip("No camera_obj obj found")
 
     camera_obj.feature_flags.has_led_ir = True
-    camera_obj.isp_settings.icr_custom_value = 0
+    if (
+        value == 0
+    ):  # without this there is no change that gets send if the test value is 0
+        camera_obj.isp_settings.icr_custom_value = 1
+    else:
+        camera_obj.isp_settings.icr_custom_value = 0
 
     camera_obj.api.api_request.reset_mock()
 
@@ -1327,3 +1371,260 @@ async def test_camera_set_ptz_home(ptz_camera: Camera | None):
         require_auth=True,
         raise_exception=True,
     )
+
+
+@pytest.mark.asyncio
+async def test_get_snapshot_read_live_granted(camera_obj: Camera | None):
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+
+    auth_user = camera_obj._api.bootstrap.auth_user
+
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
+        return permission == PermissionNode.READ_LIVE
+
+    with patch.object(auth_user, "can", side_effect=mock_can):
+        snapshot = await camera_obj.get_snapshot()
+        assert snapshot == b"snapshot_data"
+
+
+@pytest.mark.asyncio
+async def test_get_snapshot_read_media_granted(camera_obj: Camera | None):
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+
+    auth_user = camera_obj._api.bootstrap.auth_user
+
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
+        return permission == PermissionNode.READ_MEDIA
+
+    with patch.object(auth_user, "can", side_effect=mock_can):
+        snapshot = await camera_obj.get_snapshot()
+        assert snapshot == b"snapshot_data"
+
+
+@pytest.mark.asyncio
+async def test_get_snapshot_no_permissions(camera_obj: Camera | None):
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+
+    auth_user = camera_obj._api.bootstrap.auth_user
+
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
+        return False
+
+    with patch.object(auth_user, "can", side_effect=mock_can):
+        with pytest.raises(
+            NotAuthorized,
+            match=f"Do not have permission to read live or media for camera: {camera_obj.id}",
+        ):
+            await camera_obj.get_snapshot()
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing test data")
+@pytest.mark.asyncio
+async def test_get_snapshot_with_dt(camera_obj: Camera):
+    camera_obj.api.api_request.reset_mock()
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+
+    now = datetime.now(tz=timezone.utc)
+
+    snapshot = await camera_obj.get_snapshot(dt=now)
+
+    assert snapshot == b"snapshot_data"
+    camera_obj._api.get_camera_snapshot.assert_called_once_with(
+        camera_obj.id, None, camera_obj.high_camera_channel.height, dt=now
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_snapshot_with_dt_no_read_media(camera_obj: Camera | None):
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+
+    auth_user = camera_obj._api.bootstrap.auth_user
+
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
+        return permission != PermissionNode.READ_MEDIA
+
+    with patch.object(auth_user, "can", side_effect=mock_can):
+        with pytest.raises(
+            NotAuthorized,
+            match=f"Do not have permission to read media for camera: {camera_obj.id}",
+        ):
+            await camera_obj.get_snapshot(dt=datetime.now())
+
+
+@pytest.mark.asyncio
+async def test_get_package_snapshot_read_live_granted(camera_obj: Camera | None):
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
+    camera_obj.feature_flags.has_package_camera = True
+
+    auth_user = camera_obj._api.bootstrap.auth_user
+
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
+        return permission == PermissionNode.READ_LIVE
+
+    with patch.object(auth_user, "can", side_effect=mock_can):
+        snapshot = await camera_obj.get_package_snapshot()
+        assert snapshot == b"snapshot_data"
+
+
+@pytest.mark.asyncio
+async def test_get_package_snapshot_read_media_granted(camera_obj: Camera | None):
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
+    camera_obj.feature_flags.has_package_camera = True
+
+    auth_user = camera_obj._api.bootstrap.auth_user
+
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
+        return permission == PermissionNode.READ_MEDIA
+
+    with patch.object(auth_user, "can", side_effect=mock_can):
+        snapshot = await camera_obj.get_package_snapshot()
+        assert snapshot == b"snapshot_data"
+
+
+@pytest.mark.asyncio
+async def test_get_package_snapshot_no_permissions(camera_obj: Camera | None):
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
+    camera_obj.feature_flags.has_package_camera = True
+
+    auth_user = camera_obj._api.bootstrap.auth_user
+
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
+        return False
+
+    with patch.object(auth_user, "can", side_effect=mock_can):
+        with pytest.raises(
+            NotAuthorized,
+            match=f"Do not have permission to read live or media for camera: {camera_obj.id}",
+        ):
+            await camera_obj.get_package_snapshot()
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing test data")
+@pytest.mark.asyncio
+async def test_get_package_snapshot_with_dt(camera_obj: Camera):
+    camera_obj.api.api_request.reset_mock()
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
+    camera_obj.feature_flags.has_package_camera = True
+
+    now = datetime.now(tz=timezone.utc)
+
+    snapshot = await camera_obj.get_package_snapshot(dt=now)
+
+    assert snapshot == b"snapshot_data"
+    camera_obj._api.get_package_camera_snapshot.assert_called_once_with(
+        camera_obj.id, None, None, dt=now
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_package_snapshot_no_package_camera(camera_obj: Camera | None):
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
+
+    # Simulate a device without a package camera
+    camera_obj.feature_flags.has_package_camera = False
+
+    with pytest.raises(
+        BadRequest,
+        match="Device does not have package camera",
+    ):
+        await camera_obj.get_package_snapshot()
+
+
+@pytest.mark.asyncio
+async def test_get_package_snapshot_dt_no_read_media(camera_obj: Camera | None):
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_package_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
+    camera_obj.feature_flags.has_package_camera = True
+
+    auth_user = camera_obj._api.bootstrap.auth_user
+
+    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
+        return (
+            permission != PermissionNode.READ_MEDIA
+        )  # Simulate missing READ_MEDIA permission
+
+    with patch.object(auth_user, "can", side_effect=mock_can):
+        with pytest.raises(
+            NotAuthorized,
+            match=f"Do not have permission to read media for camera: {camera_obj.id}",
+        ):
+            await camera_obj.get_package_snapshot(dt=datetime.now())
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_camera_can_detect_face(camera_obj: Camera) -> None:
+    # Test when face detection is supported
+    camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.FACE]
+    assert camera_obj.can_detect_face is True
+
+    # Test when face detection is not supported
+    camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.PERSON]
+    assert camera_obj.can_detect_face is False
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_camera_is_face_detection_on(camera_obj: Camera) -> None:
+    # Test when face detection is enabled
+    camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.FACE]
+    camera_obj.smart_detect_settings.object_types = [SmartDetectObjectType.FACE]
+    assert camera_obj.is_face_detection_on is True
+
+    # Test when face detection is disabled
+    camera_obj.smart_detect_settings.object_types = []
+    assert camera_obj.is_face_detection_on is False
+
+    # Test when face detection is not supported
+    camera_obj.feature_flags.smart_detect_types = []
+    assert camera_obj.is_face_detection_on is False
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_camera_is_face_currently_detected(camera_obj: Camera) -> None:
+    # Set up camera to support face detection
+    camera_obj.feature_flags.can_optical_zoom = True
+    camera_obj.smart_detect_settings.object_types = [SmartDetectObjectType.FACE]
+
+    # Test when face is currently detected
+    camera_obj.is_smart_detected = True
+    camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.FACE] = "test_event_id"
+
+    # Create mock event that's ongoing (end=None) with face detection
+    mock_event = Mock()
+    mock_event.end = None
+    mock_event.smart_detect_types = [SmartDetectObjectType.FACE]
+
+    with patch.object(camera_obj.api.bootstrap.events, "get", return_value=mock_event):
+        assert camera_obj.is_face_currently_detected is True
+
+    # Test when face is not currently detected (no event)
+    camera_obj.last_smart_detect_event_ids.pop(SmartDetectObjectType.FACE, None)
+    assert camera_obj.is_face_currently_detected is False
+
+    # Test when face is not currently detected (event ended)
+    camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.FACE] = "test_event_id"
+    mock_event.end = datetime.now()
+
+    with patch.object(camera_obj.api.bootstrap.events, "get", return_value=mock_event):
+        assert camera_obj.is_face_currently_detected is False

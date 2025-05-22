@@ -91,6 +91,7 @@
     "videoReconfigurationInProgress": false,
     "voltage": 27.3,
     "isPoorNetwork": false,
+    "isThirdPartyCamera": false,
     "wiredConnectionState": {
         "phyRate": null
     },
@@ -468,11 +469,13 @@
         "videoModeMaxFps": [],
         "hasMotionZones": true,
         "hasLcdScreen": true,
+        "hasFingerprintSensor": true,
         "mountPositions": [],
         "smartDetectTypes": [
             "person",
             "vehicle"
         ],
+        "supportNfc": true,
         "motionAlgorithms": [
             "enhanced"
         ],
@@ -577,5 +580,6 @@
     "isManaged": true,
     "marketName": "G4 Doorbell Pro",
     "modelKey": "camera",
+    "isPairedWithAiPort": false,
     "guid": "00000000-0000-00 0- 000-000000000000"
 }

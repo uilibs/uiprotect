@@ -7,7 +7,7 @@ from typing import Any, Optional, TypeVar
 
 import orjson
 import typer
-from pydantic.v1 import ValidationError
+from pydantic import ValidationError
 
 from ..api import ProtectApiClient
 from ..data import NVR, ProtectAdoptableDeviceModel, ProtectBaseObject

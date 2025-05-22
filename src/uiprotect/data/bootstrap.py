@@ -6,14 +6,14 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aiohttp.client_exceptions import ServerDisconnectedError
 from convertertools import pop_dict_set, pop_dict_tuple
-from pydantic.v1 import PrivateAttr, ValidationError
+from pydantic import PrivateAttr, ValidationError
 
 from ..exceptions import ClientError
-from ..utils import normalize_mac, utc_now
+from ..utils import normalize_mac, to_snake_case, utc_now
 from .base import (
     RECENT_EVENT_MAX,
     ProtectBaseObject,
@@ -21,20 +21,22 @@ from .base import (
     ProtectModel,
     ProtectModelWithId,
 )
-from .convert import create_from_unifi_dict
+from .convert import MODEL_TO_CLASS, create_from_unifi_dict
 from .devices import (
+    AiPort,
     Bridge,
     Camera,
     Chime,
     Doorlock,
     Light,
     ProtectAdoptableDeviceModel,
+    Ringtone,
     Sensor,
     Viewer,
 )
 from .nvr import NVR, Event, Liveview
 from .types import EventType, FixSizeOrderedDict, ModelType
-from .user import Group, User
+from .user import Group, Keyrings, UlpUserKeyringBase, UlpUsers, User
 from .websocket import (
     WSAction,
     WSPacket,
@@ -98,6 +100,14 @@ CAMERA_EVENT_ATTR_MAP: dict[EventType, tuple[str, str]] = {
         "last_smart_audio_detect_event_id",
     ),
     EventType.RING: ("last_ring", "last_ring_event_id"),
+    EventType.NFC_CARD_SCANNED: (
+        "last_nfc_card_scanned",
+        "last_nfc_card_scanned_event_id",
+    ),
+    EventType.FINGERPRINT_IDENTIFIED: (
+        "last_fingerprint_identified",
+        "last_fingerprint_identified_event_id",
+    ),
 }
 
 
@@ -173,6 +183,8 @@ class Bootstrap(ProtectBaseObject):
     sensors: dict[str, Sensor]
     doorlocks: dict[str, Doorlock]
     chimes: dict[str, Chime]
+    aiports: dict[str, AiPort]
+    ringtones: list[Ringtone]
     last_update_id: str
 
     # TODO:
@@ -180,6 +192,8 @@ class Bootstrap(ProtectBaseObject):
     # agreements
 
     # not directly from UniFi
+    keyrings: Keyrings = Keyrings()
+    ulp_users: UlpUsers = UlpUsers()
     events: dict[str, Event] = FixSizeOrderedDict()
     capture_ws_stats: bool = False
     mac_lookup: dict[str, ProtectDeviceRef] = {}
@@ -204,6 +218,12 @@ class Bootstrap(ProtectBaseObject):
         for model_type in ModelType.bootstrap_models_types_set:
             key = model_type.devices_key  # type: ignore[attr-defined]
             items: dict[str, ProtectModel] = {}
+            if key not in data:
+                data[key] = {}
+                _LOGGER.error(
+                    f"Missing key in bootstrap: {key}. This may be fixed by updating Protect."
+                )
+                continue
             for item in data[key]:
                 if (
                     api is not None
@@ -352,7 +372,7 @@ class Bootstrap(ProtectBaseObject):
         return WSSubscriptionMessage(
             action=WSAction.ADD,
             new_update_id=self.last_update_id,
-            changed_data=obj.dict(),
+            changed_data=obj.model_dump(),
             new_obj=obj,
         )
 
@@ -376,6 +396,60 @@ class Bootstrap(ProtectBaseObject):
             old_obj=device,
         )
 
+    def _process_ws_keyring_or_ulp_user_message(
+        self,
+        action: dict[str, Any],
+        data: dict[str, Any],
+        model_type: ModelType,
+    ) -> WSSubscriptionMessage | None:
+        action_id = action["id"]
+        obj_from_bootstrap: UlpUserKeyringBase[ProtectModelWithId] = getattr(
+            self, to_snake_case(model_type.devices_key)
+        )
+        action_type = action["action"]
+        if action_type == "add":
+            add_obj = create_from_unifi_dict(data, api=self._api, model_type=model_type)
+            if TYPE_CHECKING:
+                model_class = MODEL_TO_CLASS.get(model_type)
+                assert model_class is not None and isinstance(add_obj, model_class)
+            add_obj = cast(ProtectModelWithId, add_obj)
+            obj_from_bootstrap.add(add_obj)
+            return WSSubscriptionMessage(
+                action=WSAction.ADD,
+                new_update_id=self.last_update_id,
+                changed_data=add_obj.model_dump(),
+                new_obj=add_obj,
+            )
+        elif action_type == "remove":
+            to_remove = obj_from_bootstrap.by_id(action_id)
+            if to_remove is None:
+                return None
+            obj_from_bootstrap.remove(to_remove)
+            return WSSubscriptionMessage(
+                action=WSAction.REMOVE,
+                new_update_id=self.last_update_id,
+                changed_data={},
+                old_obj=to_remove,
+            )
+        elif action_type == "update":
+            updated_obj = obj_from_bootstrap.by_id(action_id)
+            if updated_obj is None:
+                return None
+
+            old_obj = updated_obj.model_copy()
+            updated_data = {to_snake_case(k): v for k, v in data.items()}
+            updated_obj.update_from_dict(updated_data)
+
+            return WSSubscriptionMessage(
+                action=WSAction.UPDATE,
+                new_update_id=self.last_update_id,
+                changed_data=updated_data,
+                new_obj=updated_obj,
+                old_obj=old_obj,
+            )
+        _LOGGER.debug("Unexpected ws action for %s: %s", model_type, action_type)
+        return None
+
     def _process_nvr_update(
         self,
         action: dict[str, Any],
@@ -397,7 +471,7 @@ class Bootstrap(ProtectBaseObject):
         if not (data := self.nvr.unifi_dict_to_dict(data)):
             return None
 
-        old_nvr = self.nvr.copy()
+        old_nvr = self.nvr.model_copy()
         self.nvr = self.nvr.update_from_dict(data)
 
         return WSSubscriptionMessage(
@@ -453,7 +527,7 @@ class Bootstrap(ProtectBaseObject):
             # nothing left to process
             return None
 
-        old_obj = obj.copy()
+        old_obj = obj.model_copy()
         obj = obj.update_from_dict(data)
 
         if model_type is ModelType.EVENT:
@@ -532,13 +606,16 @@ class Bootstrap(ProtectBaseObject):
             return None
 
         action_action: str = action["action"]
-        if action_action == "remove":
-            return self._process_remove_packet(model_type, action)
-
-        if not data and not is_ping_back:
-            return None
 
         try:
+            if model_type in {ModelType.KEYRING, ModelType.ULP_USER}:
+                return self._process_ws_keyring_or_ulp_user_message(
+                    action, data, model_type
+                )
+            if action_action == "remove":
+                return self._process_remove_packet(model_type, action)
+            if not data and not is_ping_back:
+                return None
             if action_action == "add":
                 return self._process_add_packet(model_type, data)
             if action_action == "update":

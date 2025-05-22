@@ -21,7 +21,7 @@ import pytest_asyncio
 
 from tests.sample_data.constants import CONSTANTS
 from uiprotect import ProtectApiClient
-from uiprotect.data import Camera, ModelType
+from uiprotect.data import NVR, Camera, ModelType
 from uiprotect.data.devices import PTZRange, PTZZoomRange
 from uiprotect.data.nvr import Event
 from uiprotect.data.types import EventType
@@ -53,6 +53,7 @@ TEST_BRIDGE_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_bridge.json").exists()
 TEST_LIVEVIEW_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_liveview.json").exists()
 TEST_DOORLOCK_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_doorlock.json").exists()
 TEST_CHIME_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_chime.json").exists()
+TEST_AIPORT_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_aiport.json").exists()
 
 ANY_NONE = [[None], None, []]
 
@@ -87,6 +88,15 @@ def read_camera_json_file():
         camera["useGlobal"] = False
 
     return camera
+
+
+def read_aiport_json_file():
+    # tests expect global recording settings to be off
+    aiport = read_json_file("sample_aiport")
+    if aiport.get("useGlobal"):
+        aiport["useGlobal"] = False
+
+    return aiport
 
 
 def get_now():
@@ -149,6 +159,8 @@ async def mock_api_request(url: str, *args, **kwargs):
         return [read_json_file("sample_doorlock")]
     if url == "chimes":
         return [read_json_file("sample_chime")]
+    if url == "aiports":
+        return [read_json_file("sample_aiport")]
     if url.endswith("ptz/preset"):
         return {
             "id": "test-id",
@@ -187,6 +199,8 @@ async def mock_api_request(url: str, *args, **kwargs):
         return read_json_file("sample_doorlock")
     if url.startswith("chimes"):
         return read_json_file("sample_chime")
+    if url.startswith("aiports"):
+        return read_json_file("sample_aiport")
     if "smartDetectTrack" in url:
         return read_json_file("sample_event_smart_track")
 
@@ -457,6 +471,14 @@ async def chime_obj_fixture(protect_client: ProtectApiClient):
     return next(iter(protect_client.bootstrap.chimes.values()))
 
 
+@pytest_asyncio.fixture(name="aiport_obj")
+async def aiport_obj_fixture(protect_client: ProtectApiClient):
+    if not TEST_AIPORT_EXISTS:
+        return None
+
+    return next(iter(protect_client.bootstrap.aiports.values()))
+
+
 @pytest_asyncio.fixture
 async def liveview_obj(protect_client: ProtectApiClient):
     if not TEST_LIVEVIEW_EXISTS:
@@ -500,6 +522,14 @@ def camera():
         return None
 
     return read_camera_json_file()
+
+
+@pytest.fixture()
+def aiport():
+    if not TEST_CAMERA_EXISTS:
+        return None
+
+    return read_aiport_json_file()
 
 
 @pytest.fixture()
@@ -548,6 +578,14 @@ def viewports():
         return []
 
     return [read_json_file("sample_viewport")]
+
+
+@pytest.fixture()
+def aiports():
+    if not TEST_AIPORT_EXISTS:
+        return []
+
+    return [read_json_file("sample_aiport")]
 
 
 @pytest.fixture()
@@ -718,6 +756,8 @@ NEW_FIELDS = {
     "trackNo",
     "hasHttpsClientOTA",
     "isUCoreStacked",
+    # 5.0.33+
+    "isThirdPartyCamera",
 }
 
 NEW_CAMERA_FEATURE_FLAGS = {
@@ -744,6 +784,9 @@ NEW_CAMERA_FEATURE_FLAGS = {
     "hasVerticalFlip",
     # 3.0.22+
     "flashRange",
+    # 4.73.71+
+    "supportNfc",
+    "hasFingerprintSensor",
 }
 
 NEW_ISP_SETTINGS = {
@@ -768,13 +811,15 @@ OLD_FIELDS = {
     "pirSettings",
 }
 
+pytest.register_assert_rewrite("tests.common")
+
 
 def compare_objs(obj_type, expected, actual):
     expected = deepcopy(expected)
     actual = deepcopy(actual)
 
     # TODO: fields not supported yet
-    if obj_type == ModelType.CAMERA.value:
+    if obj_type in (ModelType.CAMERA.value, ModelType.AIPORT.value):
         # fields does not always exist (G4 Instant)
         expected.pop("apMac", None)
         # field no longer exists on newer cameras
@@ -828,6 +873,14 @@ def compare_objs(obj_type, expected, actual):
             act_settings.pop("smartDetectPostPadding", None)
         if "smartDetectPrePadding" not in exp_settings:
             act_settings.pop("smartDetectPrePadding", None)
+        if (
+            "talkbackSettings" in expected
+            and expected["talkbackSettings"].get("bindAddr") == ""
+        ):
+            actual["talkbackSettings"]["bindAddr"] = ""
+
+        if "createAccessEvent" not in expected["recordingSettings"]:
+            actual["recordingSettings"].pop("createAccessEvent", None)
 
         for flag in NEW_CAMERA_FEATURE_FLAGS:
             if flag not in expected["featureFlags"]:
@@ -841,9 +894,16 @@ def compare_objs(obj_type, expected, actual):
         assert isinstance(actual["isMotionDetected"], bool)
         expected["isMotionDetected"] = actual["isMotionDetected"]
 
+        if "isAdoptedByAccessApp" not in expected:
+            actual.pop("isAdoptedByAccessApp", None)
+
         for index, channel in enumerate(expected["channels"]):
             if "bitrate" not in channel:
                 actual["channels"][index].pop("bitrate", None)
+            if "minBitrate" not in channel:
+                actual["channels"][index].pop("minBitrate", None)
+            if "maxBitrate" not in channel:
+                actual["channels"][index].pop("maxBitrate", None)
             if "autoBitrate" not in channel:
                 actual["channels"][index].pop("autoBitrate", None)
             if "autoFps" not in channel:
@@ -878,7 +938,6 @@ def compare_objs(obj_type, expected, actual):
             if "clockBestWall" not in exp_thumb:
                 del act_thumbnails[index]["clockBestWall"]
         assert exp_thumbnails == act_thumbnails
-
         expected_keys = (expected.get("metadata") or {}).keys()
         actual_keys = (actual.get("metadata") or {}).keys()
         # delete all extra metadata keys, many of which are not modeled
@@ -1038,11 +1097,21 @@ def compare_objs(obj_type, expected, actual):
 
 @pytest.fixture()
 def _disable_camera_validation():
-    Camera.__config__.validate_assignment = False
+    Camera.model_config["validate_assignment"] = False
 
     yield
 
-    Camera.__config__.validate_assignment = True
+    Camera.model_config["validate_assignment"] = True
+
+
+@pytest.fixture()
+def _disable_nvr_validation():
+    original_validate_assignment = NVR.model_config.get("validate_assignment", True)
+    NVR.model_config["validate_assignment"] = False
+
+    yield
+
+    NVR.model_config["validate_assignment"] = original_validate_assignment
 
 
 class MockTalkback:

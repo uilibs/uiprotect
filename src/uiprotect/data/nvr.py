@@ -17,7 +17,7 @@ import aiofiles
 import orjson
 from aiofiles import os as aos
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
-from pydantic.v1.fields import PrivateAttr
+from pydantic.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized
 from ..utils import RELEASE_CACHE, convert_to_datetime
@@ -61,7 +61,7 @@ from .types import (
 from .user import User, UserLocation
 
 if TYPE_CHECKING:
-    from pydantic.v1.typing import SetStr
+    from pydantic.typing import SetStr
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -136,6 +136,32 @@ class EventThumbnailAttribute(ProtectBaseObject):
     val: str
 
 
+class NfcMetadata(ProtectBaseObject):
+    nfc_id: str
+    user_id: str
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {
+            **super()._get_unifi_remaps(),
+            "nfcId": "nfc_id",
+            "userId": "user_id",
+        }
+
+
+class FingerprintMetadata(ProtectBaseObject):
+    ulp_id: str | None = None
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {
+            **super()._get_unifi_remaps(),
+            "ulpId": "ulp_id",
+        }
+
+
 class EventThumbnailAttributes(ProtectBaseObject):
     color: EventThumbnailAttribute | None = None
     vehicle_type: EventThumbnailAttribute | None = None
@@ -155,7 +181,7 @@ class EventDetectedThumbnail(ProtectBaseObject):
     type: str
     cropped_id: str
     attributes: EventThumbnailAttributes | None = None
-    name: str | None
+    name: str | None = None
 
     @classmethod
     @cache
@@ -173,28 +199,31 @@ class EventDetectedThumbnail(ProtectBaseObject):
 
 
 class EventMetadata(ProtectBaseObject):
-    client_platform: str | None
-    reason: str | None
-    app_update: str | None
-    light_id: str | None
-    light_name: str | None
-    type: str | None
-    sensor_id: str | None
-    sensor_name: str | None
-    sensor_type: SensorType | None
-    doorlock_id: str | None
-    doorlock_name: str | None
-    from_value: str | None
-    to_value: str | None
-    mount_type: MountType | None
-    status: SensorStatusType | None
-    alarm_type: str | None
-    device_id: str | None
-    mac: str | None
+    client_platform: str | None = None
+    reason: str | None = None
+    app_update: str | None = None
+    light_id: str | None = None
+    light_name: str | None = None
+    type: str | None = None
+    sensor_id: str | None = None
+    sensor_name: str | None = None
+    sensor_type: SensorType | None = None
+    doorlock_id: str | None = None
+    doorlock_name: str | None = None
+    from_value: str | None = None
+    to_value: str | None = None
+    mount_type: MountType | None = None
+    status: SensorStatusType | None = None
+    alarm_type: str | None = None
+    device_id: str | None = None
+    mac: str | None = None
     # require 2.7.5+
     license_plate: LicensePlateMetadata | None = None
     # requires 2.11.13+
     detected_thumbnails: list[EventDetectedThumbnail] | None = None
+    # requires 5.1.34+
+    nfc: NfcMetadata | None = None
+    fingerprint: FingerprintMetadata | None = None
 
     _collapse_keys: ClassVar[SetStr] = {
         "lightId",
@@ -252,16 +281,16 @@ class EventMetadata(ProtectBaseObject):
 class Event(ProtectModelWithId):
     type: EventType
     start: datetime
-    end: datetime | None
+    end: datetime | None = None
     score: int
-    heatmap_id: str | None
-    camera_id: str | None
+    heatmap_id: str | None = None
+    camera_id: str | None = None
     smart_detect_types: list[SmartDetectObjectType]
     smart_detect_event_ids: list[str]
-    thumbnail_id: str | None
-    user_id: str | None
-    timestamp: datetime | None
-    metadata: EventMetadata | None
+    thumbnail_id: str | None = None
+    user_id: str | None = None
+    timestamp: datetime | None = None
+    metadata: EventMetadata | None = None
     # requires 2.7.5+
     deleted_at: datetime | None = None
     deletion_type: Literal["manual", "automatic"] | None = None
@@ -292,10 +321,12 @@ class Event(ProtectModelWithId):
     @classmethod
     @cache
     def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
-        return {
-            key: convert_to_datetime
-            for key in ("start", "end", "timestamp", "deletedAt")
-        } | super().unifi_dict_conversions()
+        return (
+            dict.fromkeys(
+                ("start", "end", "timestamp", "deletedAt"), convert_to_datetime
+            )
+            | super().unifi_dict_conversions()
+        )
 
     def unifi_dict(
         self,
@@ -522,9 +553,9 @@ class CPUInfo(ProtectBaseObject):
 
 
 class MemoryInfo(ProtectBaseObject):
-    available: int | None
-    free: int | None
-    total: int | None
+    available: int | None = None
+    free: int | None = None
+    total: int | None = None
 
 
 class StorageDevice(ProtectBaseObject):
@@ -839,8 +870,8 @@ class StorageDistribution(ProtectBaseObject):
 
 class StorageStats(ProtectBaseObject):
     utilization: float
-    capacity: timedelta | None
-    remaining_capacity: timedelta | None
+    capacity: timedelta | None = None
+    remaining_capacity: timedelta | None = None
     recording_space: StorageSpace
     storage_distribution: StorageDistribution
 
@@ -887,7 +918,7 @@ class NVR(ProtectDeviceModel):
     ucore_version: str
     hardware_platform: str
     ports: PortConfig
-    last_update_at: datetime | None
+    last_update_at: datetime | None = None
     is_station: bool
     enable_automatic_backups: bool
     enable_stats_reporting: bool
@@ -898,14 +929,14 @@ class NVR(ProtectDeviceModel):
     host_type: int
     host_shortname: str
     is_hardware: bool
-    is_wireless_uplink_enabled: bool | None
+    is_wireless_uplink_enabled: bool | None = None
     time_format: Literal["12h", "24h"]
     temperature_unit: Literal["C", "F"]
-    recording_retention_duration: timedelta | None
+    recording_retention_duration: timedelta | None = None
     enable_crash_reporting: bool
     disable_audio: bool
     analytics_data: AnalyticsOption
-    anonymous_device_id: UUID | None
+    anonymous_device_id: UUID | None = None
     camera_utilization: int
     is_recycling: bool
     disable_auto_link: bool
@@ -1329,6 +1360,11 @@ class NVR(ProtectDeviceModel):
         detection events)?
         """
         return self._is_smart_enabled(SmartDetectObjectType.VEHICLE)
+
+    @property
+    def is_global_face_detection_on(self) -> bool:
+        """Is Face Detection available and enabled?"""
+        return self._is_smart_enabled(SmartDetectObjectType.FACE)
 
     @property
     def is_global_license_plate_detection_on(self) -> bool:

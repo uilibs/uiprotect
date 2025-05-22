@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from copy import deepcopy
 from datetime import datetime, timedelta
 from io import BytesIO
@@ -38,9 +39,14 @@ from uiprotect.data import (
     ModelType,
     create_from_unifi_dict,
 )
-from uiprotect.data.types import VideoMode
-from uiprotect.exceptions import BadRequest, NvrError
+from uiprotect.data.types import Version, VideoMode
+from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
 from uiprotect.utils import to_js_time
+
+from .common import assert_equal_dump
+
+OLD_VERSION = Version("1.2.3")
+NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
 
 if TYPE_CHECKING:
     from uiprotect.data.base import ProtectAdoptableDeviceModel
@@ -66,6 +72,9 @@ async def check_camera(camera: Camera):
     if camera.last_smart_detect_event is not None:
         await check_motion_event(camera.last_smart_detect_event)
 
+    assert camera.last_nfc_card_scanned is None
+    assert camera.last_fingerprint_identified is None
+
     for channel in camera.channels:
         assert channel._api is not None
 
@@ -81,14 +90,19 @@ async def check_camera(camera: Camera):
 
     for channel in camera.channels:
         if channel.is_rtsp_enabled:
-            assert (
-                channel.rtsp_url
-                == f"rtsp://{camera.api.connection_host}:7447/{channel.rtsp_alias}"
-            )
-            assert (
-                channel.rtsps_url
-                == f"rtsps://{camera.api.connection_host}:7441/{channel.rtsp_alias}?enableSrtp"
-            )
+            for _ in range(2):
+                assert (
+                    channel.rtsp_url
+                    == f"rtsp://{camera.api.connection_host}:7447/{channel.rtsp_alias}"
+                )
+                assert (
+                    channel.rtsps_url
+                    == f"rtsps://{camera.api.connection_host}:7441/{channel.rtsp_alias}?enableSrtp"
+                )
+                assert (
+                    channel.rtsps_no_srtp_url
+                    == f"rtsps://{camera.api.connection_host}:7441/{channel.rtsp_alias}"
+                )
 
     if VideoMode.HIGH_FPS in camera.feature_flags.video_modes:
         assert camera.feature_flags.has_highfps
@@ -284,7 +298,7 @@ def test_connection_host_override():
 
 
 @pytest.mark.asyncio()
-async def test_force_update(protect_client: ProtectApiClient):
+async def test_force_update_with_old_Version(protect_client: ProtectApiClient):
     protect_client._bootstrap = None
 
     await protect_client.update()
@@ -292,12 +306,137 @@ async def test_force_update(protect_client: ProtectApiClient):
     assert protect_client.bootstrap
     original_bootstrap = protect_client.bootstrap
     protect_client._bootstrap = None
-    with patch("uiprotect.api.ProtectApiClient.get_bootstrap", AsyncMock()) as mock:
+    with patch(
+        "uiprotect.api.ProtectApiClient.get_bootstrap",
+        AsyncMock(return_value=AsyncMock(nvr=AsyncMock(version=OLD_VERSION))),
+    ) as mock:
         await protect_client.update()
         assert mock.called
 
     assert protect_client.bootstrap
     assert original_bootstrap != protect_client.bootstrap
+
+
+@pytest.mark.asyncio()
+async def test_force_update_with_nfc_fingerprint_version(
+    protect_client: ProtectApiClient,
+):
+    protect_client._bootstrap = None
+
+    await protect_client.update()
+
+    assert protect_client.bootstrap
+    original_bootstrap = protect_client.bootstrap
+    protect_client._bootstrap = None
+    with (
+        patch(
+            "uiprotect.api.ProtectApiClient.get_bootstrap",
+            return_value=AsyncMock(
+                nvr=AsyncMock(version=NFC_FINGERPRINT_SUPPORT_VERSION)
+            ),
+        ) as get_bootstrap_mock,
+        patch(
+            "uiprotect.api.ProtectApiClient.api_request_list",
+            side_effect=lambda endpoint: {
+                "keyrings": [
+                    {
+                        "deviceType": "camera",
+                        "deviceId": "new_device_id_1",
+                        "registryType": "fingerprint",
+                        "registryId": "new_registry_id_1",
+                        "lastActivity": 1733432893331,
+                        "metadata": {},
+                        "ulpUser": "new_ulp_user_id_1",
+                        "id": "new_keyring_id_1",
+                        "modelKey": "keyring",
+                    }
+                ],
+                "ulp-users": [
+                    {
+                        "ulpId": "new_ulp_id_1",
+                        "firstName": "localadmin",
+                        "lastName": "",
+                        "fullName": "localadmin",
+                        "avatar": "",
+                        "status": "ACTIVE",
+                        "id": "new_ulp_user_id_1",
+                        "modelKey": "ulpUser",
+                    }
+                ],
+            }.get(endpoint, []),
+        ) as api_request_list_mock,
+    ):
+        await protect_client.update()
+        assert get_bootstrap_mock.called
+        assert api_request_list_mock.called
+        api_request_list_mock.assert_any_call("keyrings")
+        api_request_list_mock.assert_any_call("ulp-users")
+        assert api_request_list_mock.call_count == 2
+
+    assert protect_client.bootstrap
+    assert original_bootstrap != protect_client.bootstrap
+    assert len(protect_client.bootstrap.keyrings)
+    assert len(protect_client.bootstrap.ulp_users)
+
+
+@pytest.mark.asyncio()
+async def test_force_update_no_user_keyring_access(protect_client: ProtectApiClient):
+    protect_client._bootstrap = None
+
+    await protect_client.update()
+
+    assert protect_client.bootstrap
+    original_bootstrap = protect_client.bootstrap
+    protect_client._bootstrap = None
+    with (
+        patch(
+            "uiprotect.api.ProtectApiClient.get_bootstrap",
+            return_value=AsyncMock(
+                nvr=AsyncMock(version=NFC_FINGERPRINT_SUPPORT_VERSION)
+            ),
+        ) as get_bootstrap_mock,
+        patch(
+            "uiprotect.api.ProtectApiClient.api_request_list",
+            side_effect=NotAuthorized,
+        ) as api_request_list_mock,
+    ):
+        await protect_client.update()
+        assert get_bootstrap_mock.called
+        assert api_request_list_mock.called
+        api_request_list_mock.assert_any_call("keyrings")
+        api_request_list_mock.assert_any_call("ulp-users")
+        assert api_request_list_mock.call_count == 2
+
+    assert protect_client.bootstrap
+    assert original_bootstrap != protect_client.bootstrap
+    assert not len(protect_client.bootstrap.keyrings)
+    assert not len(protect_client.bootstrap.ulp_users)
+
+
+@pytest.mark.asyncio()
+async def test_force_update_user_keyring_internal_error(
+    protect_client: ProtectApiClient,
+):
+    protect_client._bootstrap = None
+
+    await protect_client.update()
+
+    assert protect_client.bootstrap
+    protect_client._bootstrap = None
+    with (
+        pytest.raises(BadRequest),
+        patch(
+            "uiprotect.api.ProtectApiClient.get_bootstrap",
+            return_value=AsyncMock(
+                nvr=AsyncMock(version=NFC_FINGERPRINT_SUPPORT_VERSION)
+            ),
+        ),
+        patch(
+            "uiprotect.api.ProtectApiClient.api_request_list",
+            side_effect=BadRequest,
+        ),
+    ):
+        await protect_client.update()
 
 
 @pytest.mark.asyncio()
@@ -457,7 +596,7 @@ async def test_get_device_not_adopted_enabled(protect_client: ProtectApiClient, 
     protect_client.api_request_obj = AsyncMock(return_value=camera)  # type: ignore[method-assign]
 
     obj = create_from_unifi_dict(camera)
-    assert obj == await protect_client.get_camera("test_id")
+    assert_equal_dump(obj, await protect_client.get_camera("test_id"))
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -465,7 +604,7 @@ async def test_get_device_not_adopted_enabled(protect_client: ProtectApiClient, 
 async def test_get_camera(protect_client: ProtectApiClient, camera):
     obj = create_from_unifi_dict(camera)
 
-    assert obj == await protect_client.get_camera("test_id")
+    assert_equal_dump(obj, await protect_client.get_camera("test_id"))
 
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
@@ -473,7 +612,7 @@ async def test_get_camera(protect_client: ProtectApiClient, camera):
 async def test_get_light(protect_client: ProtectApiClient, light):
     obj = create_from_unifi_dict(light)
 
-    assert obj == await protect_client.get_light("test_id")
+    assert_equal_dump(obj, await protect_client.get_light("test_id"))
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
@@ -481,7 +620,7 @@ async def test_get_light(protect_client: ProtectApiClient, light):
 async def test_get_sensor(protect_client: ProtectApiClient, sensor):
     obj = create_from_unifi_dict(sensor)
 
-    assert obj == await protect_client.get_sensor("test_id")
+    assert_equal_dump(obj, await protect_client.get_sensor("test_id"))
 
 
 @pytest.mark.skipif(not TEST_VIEWPORT_EXISTS, reason="Missing testdata")
@@ -489,7 +628,7 @@ async def test_get_sensor(protect_client: ProtectApiClient, sensor):
 async def test_get_viewer(protect_client: ProtectApiClient, viewport):
     obj = create_from_unifi_dict(viewport)
 
-    assert obj == await protect_client.get_viewer("test_id")
+    assert_equal_dump(obj, await protect_client.get_viewer("test_id"))
 
 
 @pytest.mark.skipif(not TEST_BRIDGE_EXISTS, reason="Missing testdata")
@@ -497,7 +636,7 @@ async def test_get_viewer(protect_client: ProtectApiClient, viewport):
 async def test_get_bridge(protect_client: ProtectApiClient, bridge):
     obj = create_from_unifi_dict(bridge)
 
-    assert obj == await protect_client.get_bridge("test_id")
+    assert_equal_dump(obj, await protect_client.get_bridge("test_id"))
 
 
 @pytest.mark.skipif(not TEST_LIVEVIEW_EXISTS, reason="Missing testdata")
@@ -505,7 +644,7 @@ async def test_get_bridge(protect_client: ProtectApiClient, bridge):
 async def test_get_liveview(protect_client: ProtectApiClient, liveview):
     obj = create_from_unifi_dict(liveview)
 
-    assert obj == await protect_client.get_liveview("test_id")
+    assert_equal_dump(obj, (await protect_client.get_liveview("test_id")))
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -544,7 +683,7 @@ async def test_get_devices_not_adopted_enabled(
 async def test_get_cameras(protect_client: ProtectApiClient, cameras):
     objs = [create_from_unifi_dict(d) for d in cameras]
 
-    assert objs == await protect_client.get_cameras()
+    assert_equal_dump(objs, await protect_client.get_cameras())
 
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
@@ -552,7 +691,7 @@ async def test_get_cameras(protect_client: ProtectApiClient, cameras):
 async def test_get_lights(protect_client: ProtectApiClient, lights):
     objs = [create_from_unifi_dict(d) for d in lights]
 
-    assert objs == await protect_client.get_lights()
+    assert_equal_dump(objs, await protect_client.get_lights())
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
@@ -560,7 +699,7 @@ async def test_get_lights(protect_client: ProtectApiClient, lights):
 async def test_get_sensors(protect_client: ProtectApiClient, sensors):
     objs = [create_from_unifi_dict(d) for d in sensors]
 
-    assert objs == await protect_client.get_sensors()
+    assert_equal_dump(objs, await protect_client.get_sensors())
 
 
 @pytest.mark.skipif(not TEST_VIEWPORT_EXISTS, reason="Missing testdata")
@@ -568,7 +707,7 @@ async def test_get_sensors(protect_client: ProtectApiClient, sensors):
 async def test_get_viewers(protect_client: ProtectApiClient, viewports):
     objs = [create_from_unifi_dict(d) for d in viewports]
 
-    assert objs == await protect_client.get_viewers()
+    assert_equal_dump(objs, await protect_client.get_viewers())
 
 
 @pytest.mark.skipif(not TEST_BRIDGE_EXISTS, reason="Missing testdata")
@@ -576,7 +715,7 @@ async def test_get_viewers(protect_client: ProtectApiClient, viewports):
 async def test_get_bridges(protect_client: ProtectApiClient, bridges):
     objs = [create_from_unifi_dict(d) for d in bridges]
 
-    assert objs == await protect_client.get_bridges()
+    assert_equal_dump(objs, await protect_client.get_bridges())
 
 
 @pytest.mark.skipif(not TEST_LIVEVIEW_EXISTS, reason="Missing testdata")
@@ -584,7 +723,7 @@ async def test_get_bridges(protect_client: ProtectApiClient, bridges):
 async def test_get_liveviews(protect_client: ProtectApiClient, liveviews):
     objs = [create_from_unifi_dict(d) for d in liveviews]
 
-    assert objs == await protect_client.get_liveviews()
+    assert_equal_dump(objs, await protect_client.get_liveviews())
 
 
 @pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
@@ -703,6 +842,88 @@ async def test_get_camera_video(protect_client: ProtectApiClient, now, tmp_binar
     validate_video_file(tmp_binary_file.name, CONSTANTS["camera_video_length"])
 
 
+@pytest.mark.asyncio()
+async def test_get_camera_video_http_error(
+    protect_client: ProtectApiClient, now: datetime
+) -> None:
+    """Test get_camera_video with HTTP error response."""
+    camera = next(iter(protect_client.bootstrap.cameras.values()))
+    start = now - timedelta(seconds=CONSTANTS["camera_video_length"])
+
+    # Test the simple path (no output_file) which uses api_request_raw
+    protect_client.api_request_raw = AsyncMock(
+        side_effect=NotAuthorized("Access denied")
+    )
+
+    with pytest.raises(NotAuthorized):
+        await protect_client.get_camera_video(camera.id, start, now)
+
+
+@pytest.mark.asyncio()
+async def test_get_camera_video_logging(
+    protect_client: ProtectApiClient, now: datetime, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test get_camera_video debug logging."""
+    caplog.set_level(logging.DEBUG, logger="uiprotect.api")
+
+    camera = next(iter(protect_client.bootstrap.cameras.values()))
+    start = now - timedelta(seconds=CONSTANTS["camera_video_length"])
+
+    # Create a simple async context manager class for the file mock
+    class MockAsyncFile:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        async def write(self, data):
+            pass
+
+    # Mock the response
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.close = AsyncMock()
+
+    # Create a mock content with iter_chunked method
+    class MockContent:
+        def iter_chunked(self, chunk_size):
+            return MockAsyncIterator()
+
+    class MockAsyncIterator:
+        def __init__(self):
+            self.items = [b"test_chunk"]
+            self.index = 0
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if self.index >= len(self.items):
+                raise StopAsyncIteration
+            item = self.items[self.index]
+            self.index += 1
+            return item
+
+    mock_response.content = MockContent()
+
+    # Mock aiofiles.open to return our mock file
+    with patch("aiofiles.open", return_value=MockAsyncFile()):
+        protect_client.request = AsyncMock(return_value=mock_response)
+
+        await protect_client.get_camera_video(
+            camera.id,
+            start,
+            now,
+            output_file="/tmp/test.mp4",  # noqa: S108
+        )
+
+    # Check that debug log was written
+    assert any(
+        "Requesting camera video:" in record.message for record in caplog.records
+    )
+
+
 @pytest.mark.skipif(not TEST_THUMBNAIL_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
 async def test_get_event_thumbnail(protect_client: ProtectApiClient):
@@ -765,3 +986,210 @@ async def test_get_event_smart_detect_track(protect_client: ProtectApiClient):
         require_auth=True,
         raise_exception=True,
     )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_aiport(protect_client: ProtectApiClient, aiport):
+    obj = create_from_unifi_dict(aiport)
+
+    assert_equal_dump(obj, await protect_client.get_aiport("test_id"))
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_aiport_not_adopted(protect_client: ProtectApiClient, aiport):
+    aiport["isAdopted"] = False
+    protect_client.api_request_obj = AsyncMock(return_value=aiport)
+
+    with pytest.raises(NvrError):
+        await protect_client.get_aiport("test_id")
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_aiport_not_adopted_enabled(protect_client: ProtectApiClient, aiport):
+    aiport["isAdopted"] = False
+    protect_client.ignore_unadopted = False
+    protect_client.api_request_obj = AsyncMock(return_value=aiport)
+
+    obj = create_from_unifi_dict(aiport)
+    assert_equal_dump(obj, await protect_client.get_aiport("test_id"))
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_chime(protect_client: ProtectApiClient, chime):
+    obj = create_from_unifi_dict(chime)
+
+    assert_equal_dump(obj, await protect_client.get_chime("test_id"))
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_chime_not_adopted(protect_client: ProtectApiClient, chime):
+    chime["isAdopted"] = False
+    protect_client.api_request_obj = AsyncMock(return_value=chime)
+
+    with pytest.raises(NvrError):
+        await protect_client.get_chime("test_id")
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_chime_not_adopted_enabled(protect_client: ProtectApiClient, chime):
+    chime["isAdopted"] = False
+    protect_client.ignore_unadopted = False
+    protect_client.api_request_obj = AsyncMock(return_value=chime)
+
+    obj = create_from_unifi_dict(chime)
+    assert_equal_dump(obj, await protect_client.get_chime("test_id"))
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_aiports(protect_client: ProtectApiClient, aiports):
+    objs = [create_from_unifi_dict(d) for d in aiports]
+
+    assert_equal_dump(objs, await protect_client.get_aiports())
+
+
+@pytest.mark.asyncio()
+async def test_play_speaker(protect_client: ProtectApiClient):
+    """Test play_speaker with default parameters."""
+    device_id = "cf1a330397c08f919d02bd7c"
+    protect_client.api_request = AsyncMock()
+
+    await protect_client.play_speaker(device_id)
+
+    protect_client.api_request.assert_called_with(
+        f"chimes/{device_id}/play-speaker",
+        method="post",
+        json=None,
+    )
+
+
+@pytest.mark.asyncio()
+async def test_play_speaker_with_volume(protect_client: ProtectApiClient):
+    """Test play_speaker with volume parameter."""
+    device_id = "cf1a330397c08f919d02bd7c"
+    volume = 5
+    chime = protect_client.bootstrap.chimes[device_id]
+    protect_client.api_request = AsyncMock()
+
+    await protect_client.play_speaker(device_id, volume=volume)
+
+    protect_client.api_request.assert_called_with(
+        f"chimes/{device_id}/play-speaker",
+        method="post",
+        json={
+            "volume": volume,
+            "repeatTimes": chime.repeat_times,
+            "trackNo": chime.track_no,
+        },
+    )
+
+
+@pytest.mark.asyncio()
+async def test_play_speaker_with_ringtone_id(protect_client: ProtectApiClient):
+    """Test play_speaker with ringtone_id parameter."""
+    device_id = "cf1a330397c08f919d02bd7c"
+    ringtone_id = "ringtone_1"
+    chime = protect_client.bootstrap.chimes[device_id]
+    protect_client.api_request = AsyncMock()
+
+    await protect_client.play_speaker(device_id, ringtone_id=ringtone_id)
+
+    protect_client.api_request.assert_called_with(
+        f"chimes/{device_id}/play-speaker",
+        method="post",
+        json={
+            "volume": chime.volume,
+            "repeatTimes": chime.repeat_times,
+            "ringtoneId": ringtone_id,
+        },
+    )
+
+
+@pytest.mark.asyncio()
+async def test_play_speaker_invalid_chime_id(protect_client: ProtectApiClient):
+    """Test play_speaker with invalid chime ID."""
+    device_id = "invalid_id"
+    protect_client.api_request = AsyncMock()
+
+    with pytest.raises(BadRequest):
+        await protect_client.play_speaker(device_id, volume=5)
+
+
+@pytest.mark.asyncio()
+async def test_play_speaker_with_all_parameters(protect_client: ProtectApiClient):
+    """Test play_speaker with all parameters."""
+    device_id = "cf1a330397c08f919d02bd7c"
+    volume = 5
+    repeat_times = 3
+    ringtone_id = "ringtone_1"
+    track_no = 2
+    protect_client.api_request = AsyncMock()
+
+    await protect_client.play_speaker(
+        device_id,
+        volume=volume,
+        repeat_times=repeat_times,
+        ringtone_id=ringtone_id,
+        track_no=track_no,
+    )
+
+    protect_client.api_request.assert_called_with(
+        f"chimes/{device_id}/play-speaker",
+        method="post",
+        json={
+            "volume": volume,
+            "repeatTimes": repeat_times,
+            "ringtoneId": ringtone_id,
+        },
+    )
+
+
+@pytest.mark.asyncio()
+async def test_set_light_is_led_force_on(protect_client: ProtectApiClient):
+    """Test set_light_is_led_force_on with valid parameters."""
+    device_id = "test_light_id"
+    is_led_force_on = True
+    protect_client.api_request = AsyncMock()
+
+    await protect_client.set_light_is_led_force_on(device_id, is_led_force_on)
+
+    protect_client.api_request.assert_called_with(
+        f"lights/{device_id}",
+        method="patch",
+        json={"lightOnSettings": {"isLedForceOn": is_led_force_on}},
+    )
+
+
+@pytest.mark.asyncio()
+async def test_set_light_is_led_force_on_false(protect_client: ProtectApiClient):
+    """Test set_light_is_led_force_on with is_led_force_on set to False."""
+    device_id = "test_light_id"
+    is_led_force_on = False
+    protect_client.api_request = AsyncMock()
+
+    await protect_client.set_light_is_led_force_on(device_id, is_led_force_on)
+
+    protect_client.api_request.assert_called_with(
+        f"lights/{device_id}",
+        method="patch",
+        json={"lightOnSettings": {"isLedForceOn": is_led_force_on}},
+    )
+
+
+@pytest.mark.asyncio()
+async def test_set_light_is_led_force_on_invalid_device_id(
+    protect_client: ProtectApiClient,
+):
+    """Test set_light_is_led_force_on with invalid device ID."""
+    device_id = "invalid_id"
+    is_led_force_on = True
+    protect_client.api_request = AsyncMock(side_effect=BadRequest)
+
+    with pytest.raises(BadRequest):
+        await protect_client.set_light_is_led_force_on(device_id, is_led_force_on)

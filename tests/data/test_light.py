@@ -6,7 +6,7 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import pytest
-from pydantic.v1 import ValidationError
+from pydantic import ValidationError
 
 from tests.conftest import TEST_CAMERA_EXISTS, TEST_LIGHT_EXISTS
 from uiprotect.data.types import LightModeEnableType, LightModeType
