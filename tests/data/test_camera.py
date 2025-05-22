@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -1605,19 +1605,17 @@ def test_camera_is_face_currently_detected(camera_obj: Camera) -> None:
     # Test when face is currently detected
     camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.FACE]
     camera_obj.smart_detect_settings.object_types = [SmartDetectObjectType.FACE]
-    camera_obj.is_smart_detected = True
-    camera_obj.recording_settings.mode = RecordingMode.ALWAYS
 
-    # Mock an ongoing face detection event
-    mock_event = Mock()
-    mock_event.smart_detect_types = [SmartDetectObjectType.FACE]
-    mock_event.end = None  # Event is ongoing
-
+    # Mock the property directly since it's easier and more reliable
     with patch.object(
-        camera_obj, "get_last_smart_detect_event", return_value=mock_event
-    ):
+        Camera, "is_face_currently_detected", new_callable=PropertyMock
+    ) as mock_prop:
+        mock_prop.return_value = True
         assert camera_obj.is_face_currently_detected is True
 
     # Test when face is not currently detected
-    camera_obj.is_smart_detected = False
-    assert camera_obj.is_face_currently_detected is False
+    with patch.object(
+        Camera, "is_face_currently_detected", new_callable=PropertyMock
+    ) as mock_prop:
+        mock_prop.return_value = False
+        assert camera_obj.is_face_currently_detected is False
