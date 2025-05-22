@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -1602,20 +1602,29 @@ def test_camera_is_face_detection_on(camera_obj: Camera) -> None:
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 def test_camera_is_face_currently_detected(camera_obj: Camera) -> None:
-    # Test when face is currently detected
-    camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.FACE]
+    # Set up camera to support face detection
+    camera_obj.feature_flags.can_optical_zoom = True
     camera_obj.smart_detect_settings.object_types = [SmartDetectObjectType.FACE]
 
-    # Mock the property directly since it's easier and more reliable
-    with patch.object(
-        Camera, "is_face_currently_detected", new_callable=PropertyMock
-    ) as mock_prop:
-        mock_prop.return_value = True
+    # Test when face is currently detected
+    camera_obj.is_smart_detected = True
+    camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.FACE] = "test_event_id"
+
+    # Create mock event that's ongoing (end=None) with face detection
+    mock_event = Mock()
+    mock_event.end = None
+    mock_event.smart_detect_types = [SmartDetectObjectType.FACE]
+
+    with patch.object(camera_obj.api.bootstrap.events, "get", return_value=mock_event):
         assert camera_obj.is_face_currently_detected is True
 
-    # Test when face is not currently detected
-    with patch.object(
-        Camera, "is_face_currently_detected", new_callable=PropertyMock
-    ) as mock_prop:
-        mock_prop.return_value = False
+    # Test when face is not currently detected (no event)
+    camera_obj.last_smart_detect_event_ids.pop(SmartDetectObjectType.FACE, None)
+    assert camera_obj.is_face_currently_detected is False
+
+    # Test when face is not currently detected (event ended)
+    camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.FACE] = "test_event_id"
+    mock_event.end = datetime.now()
+
+    with patch.object(camera_obj.api.bootstrap.events, "get", return_value=mock_event):
         assert camera_obj.is_face_currently_detected is False
