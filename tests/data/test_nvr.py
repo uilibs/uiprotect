@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from ipaddress import IPv4Address, IPv6Address
+from unittest.mock import Mock
 
 import pytest
 from pydantic import ValidationError
@@ -264,46 +265,37 @@ async def test_nvr_set_license_plate_recognition_no_smart(nvr_obj: NVR):
     assert not nvr_obj.api.api_request.called
 
 
+@pytest.mark.usefixtures("_disable_nvr_validation")
 def test_nvr_is_global_face_detection_on(nvr_obj: NVR) -> None:
-    from unittest.mock import Mock
+    # Create mock global camera settings if they don't exist
+    if nvr_obj.global_camera_settings is None:
+        nvr_obj.global_camera_settings = Mock()
+        nvr_obj.global_camera_settings.recording_settings = Mock()
+        nvr_obj.global_camera_settings.smart_detect_settings = Mock()
 
-    # Temporarily disable validation for NVR model
-    original_validate_assignment = NVR.model_config.get("validate_assignment", True)
-    NVR.model_config["validate_assignment"] = False
+    # Test when global face detection is enabled
+    nvr_obj.global_camera_settings.recording_settings.mode = RecordingMode.ALWAYS
+    nvr_obj.global_camera_settings.smart_detect_settings.object_types = [
+        SmartDetectObjectType.FACE
+    ]
+    assert nvr_obj.is_global_face_detection_on is True
 
-    try:
-        # Create mock global camera settings if they don't exist
-        if nvr_obj.global_camera_settings is None:
-            nvr_obj.global_camera_settings = Mock()
-            nvr_obj.global_camera_settings.recording_settings = Mock()
-            nvr_obj.global_camera_settings.smart_detect_settings = Mock()
+    # Test when global face detection is disabled
+    nvr_obj.global_camera_settings.smart_detect_settings.object_types = []
+    assert nvr_obj.is_global_face_detection_on is False
 
-        # Test when global face detection is enabled
-        nvr_obj.global_camera_settings.recording_settings.mode = RecordingMode.ALWAYS
-        nvr_obj.global_camera_settings.smart_detect_settings.object_types = [
-            SmartDetectObjectType.FACE
-        ]
-        assert nvr_obj.is_global_face_detection_on is True
+    # Test when global recording is disabled
+    nvr_obj.global_camera_settings.recording_settings.mode = RecordingMode.NEVER
+    nvr_obj.global_camera_settings.smart_detect_settings.object_types = [
+        SmartDetectObjectType.FACE
+    ]
+    assert nvr_obj.is_global_face_detection_on is False
 
-        # Test when global face detection is disabled
-        nvr_obj.global_camera_settings.smart_detect_settings.object_types = []
-        assert nvr_obj.is_global_face_detection_on is False
-
-        # Test when global recording is disabled
-        nvr_obj.global_camera_settings.recording_settings.mode = RecordingMode.NEVER
-        nvr_obj.global_camera_settings.smart_detect_settings.object_types = [
-            SmartDetectObjectType.FACE
-        ]
-        assert nvr_obj.is_global_face_detection_on is False
-
-        # Test with mixed object types
-        nvr_obj.global_camera_settings.recording_settings.mode = RecordingMode.ALWAYS
-        nvr_obj.global_camera_settings.smart_detect_settings.object_types = [
-            SmartDetectObjectType.PERSON,
-            SmartDetectObjectType.FACE,
-            SmartDetectObjectType.VEHICLE,
-        ]
-        assert nvr_obj.is_global_face_detection_on is True
-    finally:
-        # Restore original validation setting
-        NVR.model_config["validate_assignment"] = original_validate_assignment
+    # Test with mixed object types
+    nvr_obj.global_camera_settings.recording_settings.mode = RecordingMode.ALWAYS
+    nvr_obj.global_camera_settings.smart_detect_settings.object_types = [
+        SmartDetectObjectType.PERSON,
+        SmartDetectObjectType.FACE,
+        SmartDetectObjectType.VEHICLE,
+    ]
+    assert nvr_obj.is_global_face_detection_on is True

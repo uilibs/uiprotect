@@ -1104,6 +1104,18 @@ def _disable_camera_validation():
     Camera.model_config["validate_assignment"] = True
 
 
+@pytest.fixture()
+def _disable_nvr_validation():
+    from uiprotect.data import NVR
+
+    original_validate_assignment = NVR.model_config.get("validate_assignment", True)
+    NVR.model_config["validate_assignment"] = False
+
+    yield
+
+    NVR.model_config["validate_assignment"] = original_validate_assignment
+
+
 class MockTalkback:
     is_error: bool = False
     stdout: list[str] = []
