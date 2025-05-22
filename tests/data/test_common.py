@@ -215,6 +215,7 @@ def test_camera_smart_events(camera_obj: Camera):
             score=100,
             smart_detect_types=[
                 SmartDetectObjectType.PERSON,
+                SmartDetectObjectType.FACE,
                 SmartDetectObjectType.VEHICLE,
             ],
             smart_detect_event_ids=[],
@@ -236,6 +237,7 @@ def test_camera_smart_events(camera_obj: Camera):
 
     assert camera_obj.last_smart_detect == now - timedelta(seconds=5)
     assert camera_obj.last_person_detect == now - timedelta(seconds=10)
+    assert camera_obj.last_face_detect == now - timedelta(seconds=10)
     assert camera_obj.last_vehicle_detect == now - timedelta(seconds=10)
     assert camera_obj.last_package_detect == now - timedelta(seconds=15)
     assert camera_obj.last_license_plate_detect == now - timedelta(seconds=5)
@@ -244,6 +246,8 @@ def test_camera_smart_events(camera_obj: Camera):
     assert camera_obj.last_smart_detect_event.id == "test_event_3"
     assert camera_obj.last_person_detect_event is not None
     assert camera_obj.last_person_detect_event.id == "test_event_1"
+    assert camera_obj.last_face_detect_event is not None
+    assert camera_obj.last_face_detect_event.id == "test_event_1"
     assert camera_obj.last_vehicle_detect_event is not None
     assert camera_obj.last_vehicle_detect_event.id == "test_event_1"
     assert camera_obj.last_package_detect_event is not None
@@ -925,12 +929,19 @@ async def test_multiple_updates(user_obj: User, camera_obj: Camera):
     camera_obj.id = "test_id_1"
     camera_obj.recording_settings.enable_motion_detection = False
     camera_obj.smart_detect_settings.object_types = []
+    camera_obj.feature_flags.smart_detect_types = [
+        SmartDetectObjectType.PERSON,
+        SmartDetectObjectType.VEHICLE,
+        SmartDetectObjectType.FACE,
+    ]
+    camera_obj.use_global = False
     api.bootstrap.cameras[camera_obj.id] = camera_obj
 
     await asyncio.gather(
         camera_obj.set_motion_detection(True),
         camera_obj.set_person_detection(True),
         camera_obj.set_vehicle_detection(True),
+        camera_obj.set_face_detection(True),
     )
 
     camera_obj.api.api_request.assert_called_with(  # type: ignore[attr-defined]
@@ -938,7 +949,7 @@ async def test_multiple_updates(user_obj: User, camera_obj: Camera):
         method="patch",
         json={
             "recordingSettings": {"enableMotionDetection": True},
-            "smartDetectSettings": {"objectTypes": ["person", "vehicle"]},
+            "smartDetectSettings": {"objectTypes": ["face", "person", "vehicle"]},
         },
     )
 

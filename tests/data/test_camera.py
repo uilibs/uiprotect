@@ -698,6 +698,43 @@ async def test_camera_set_smart_detect_types(camera_obj: Camera | None):
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
+async def test_camera_set_face_detection_no_smart(camera_obj: Camera) -> None:
+    camera_obj.api.api_request.reset_mock()
+
+    camera_obj.feature_flags.has_smart_detect = False
+
+    with pytest.raises(BadRequest):
+        await camera_obj.set_face_detection(True)
+
+    assert not camera_obj.api.api_request.called
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("status", [True, False])
+@pytest.mark.asyncio()
+async def test_camera_set_face_detection(camera_obj: Camera, status: bool) -> None:
+    camera_obj.api.api_request.reset_mock()
+
+    camera_obj.feature_flags.has_smart_detect = True
+    camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.FACE]
+    # Set initial state to opposite of what we're testing
+    camera_obj.smart_detect_settings.object_types = (
+        [SmartDetectObjectType.FACE] if not status else []
+    )
+    camera_obj.use_global = False
+
+    await camera_obj.set_face_detection(status)
+
+    expected_types = ["face"] if status else []
+    camera_obj.api.api_request.assert_called_with(
+        f"cameras/{camera_obj.id}",
+        method="patch",
+        json={"smartDetectSettings": {"objectTypes": expected_types}},
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
 async def test_camera_set_lcd_text_no_lcd(camera_obj: Camera | None):
     if camera_obj is None:
         pytest.skip("No camera_obj obj found")
@@ -1534,3 +1571,60 @@ async def test_get_package_snapshot_dt_no_read_media(camera_obj: Camera | None):
             match=f"Do not have permission to read media for camera: {camera_obj.id}",
         ):
             await camera_obj.get_package_snapshot(dt=datetime.now())
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_camera_can_detect_face(camera_obj: Camera) -> None:
+    # Test when face detection is supported
+    camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.FACE]
+    assert camera_obj.can_detect_face is True
+
+    # Test when face detection is not supported
+    camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.PERSON]
+    assert camera_obj.can_detect_face is False
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_camera_is_face_detection_on(camera_obj: Camera) -> None:
+    # Test when face detection is enabled
+    camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.FACE]
+    camera_obj.smart_detect_settings.object_types = [SmartDetectObjectType.FACE]
+    assert camera_obj.is_face_detection_on is True
+
+    # Test when face detection is disabled
+    camera_obj.smart_detect_settings.object_types = []
+    assert camera_obj.is_face_detection_on is False
+
+    # Test when face detection is not supported
+    camera_obj.feature_flags.smart_detect_types = []
+    assert camera_obj.is_face_detection_on is False
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_camera_is_face_currently_detected(camera_obj: Camera) -> None:
+    # Set up camera to support face detection
+    camera_obj.feature_flags.can_optical_zoom = True
+    camera_obj.smart_detect_settings.object_types = [SmartDetectObjectType.FACE]
+
+    # Test when face is currently detected
+    camera_obj.is_smart_detected = True
+    camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.FACE] = "test_event_id"
+
+    # Create mock event that's ongoing (end=None) with face detection
+    mock_event = Mock()
+    mock_event.end = None
+    mock_event.smart_detect_types = [SmartDetectObjectType.FACE]
+
+    with patch.object(camera_obj.api.bootstrap.events, "get", return_value=mock_event):
+        assert camera_obj.is_face_currently_detected is True
+
+    # Test when face is not currently detected (no event)
+    camera_obj.last_smart_detect_event_ids.pop(SmartDetectObjectType.FACE, None)
+    assert camera_obj.is_face_currently_detected is False
+
+    # Test when face is not currently detected (event ended)
+    camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.FACE] = "test_event_id"
+    mock_event.end = datetime.now()
+
+    with patch.object(camera_obj.api.bootstrap.events, "get", return_value=mock_event):
+        assert camera_obj.is_face_currently_detected is False
