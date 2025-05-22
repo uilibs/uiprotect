@@ -15,6 +15,7 @@ from uiprotect.data import (
     DoorbellMessageType,
 )
 from uiprotect.data.nvr import NVRSmartDetection
+from uiprotect.data.types import SmartDetectObjectType
 from uiprotect.exceptions import BadRequest
 from uiprotect.utils import to_ms
 
@@ -260,3 +261,32 @@ async def test_nvr_set_license_plate_recognition_no_smart(nvr_obj: NVR):
         await nvr_obj.set_license_plate_recognition(True)
 
     assert not nvr_obj.api.api_request.called
+
+
+def test_nvr_is_global_face_detection_on(nvr_obj: NVR) -> None:
+    # Test when global face detection is enabled
+    nvr_obj.is_global_recording_enabled = True
+    nvr_obj.global_camera_settings.smart_detect_settings.object_types = [
+        SmartDetectObjectType.FACE
+    ]
+    assert nvr_obj.is_global_face_detection_on is True
+
+    # Test when global face detection is disabled
+    nvr_obj.global_camera_settings.smart_detect_settings.object_types = []
+    assert nvr_obj.is_global_face_detection_on is False
+
+    # Test when global recording is disabled
+    nvr_obj.is_global_recording_enabled = False
+    nvr_obj.global_camera_settings.smart_detect_settings.object_types = [
+        SmartDetectObjectType.FACE
+    ]
+    assert nvr_obj.is_global_face_detection_on is False
+
+    # Test with mixed object types
+    nvr_obj.is_global_recording_enabled = True
+    nvr_obj.global_camera_settings.smart_detect_settings.object_types = [
+        SmartDetectObjectType.PERSON,
+        SmartDetectObjectType.FACE,
+        SmartDetectObjectType.VEHICLE,
+    ]
+    assert nvr_obj.is_global_face_detection_on is True

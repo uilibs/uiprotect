@@ -935,6 +935,7 @@ async def test_multiple_updates(user_obj: User, camera_obj: Camera):
         camera_obj.set_motion_detection(True),
         camera_obj.set_person_detection(True),
         camera_obj.set_vehicle_detection(True),
+        camera_obj.set_face_detection(True),
     )
 
     camera_obj.api.api_request.assert_called_with(  # type: ignore[attr-defined]
@@ -942,7 +943,7 @@ async def test_multiple_updates(user_obj: User, camera_obj: Camera):
         method="patch",
         json={
             "recordingSettings": {"enableMotionDetection": True},
-            "smartDetectSettings": {"objectTypes": ["person", "vehicle"]},
+            "smartDetectSettings": {"objectTypes": ["person", "vehicle", "face"]},
         },
     )
 
