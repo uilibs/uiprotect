@@ -1363,7 +1363,7 @@ class NVR(ProtectDeviceModel):
 
     @property
     def is_global_face_detection_on(self) -> bool:
-        """Is Face Detection available and enabled (camera will produce face detection events)?"""
+        """Is Face Detection available and enabled?"""
         return self._is_smart_enabled(SmartDetectObjectType.FACE)
 
     @property
