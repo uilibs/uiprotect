@@ -215,6 +215,7 @@ def test_camera_smart_events(camera_obj: Camera):
             score=100,
             smart_detect_types=[
                 SmartDetectObjectType.PERSON,
+                SmartDetectObjectType.FACE,
                 SmartDetectObjectType.VEHICLE,
             ],
             smart_detect_event_ids=[],
@@ -236,6 +237,7 @@ def test_camera_smart_events(camera_obj: Camera):
 
     assert camera_obj.last_smart_detect == now - timedelta(seconds=5)
     assert camera_obj.last_person_detect == now - timedelta(seconds=10)
+    assert camera_obj.last_face_detect == now - timedelta(seconds=10)
     assert camera_obj.last_vehicle_detect == now - timedelta(seconds=10)
     assert camera_obj.last_package_detect == now - timedelta(seconds=15)
     assert camera_obj.last_license_plate_detect == now - timedelta(seconds=5)
@@ -244,6 +246,8 @@ def test_camera_smart_events(camera_obj: Camera):
     assert camera_obj.last_smart_detect_event.id == "test_event_3"
     assert camera_obj.last_person_detect_event is not None
     assert camera_obj.last_person_detect_event.id == "test_event_1"
+    assert camera_obj.last_face_detect_event is not None
+    assert camera_obj.last_face_detect_event.id == "test_event_1"
     assert camera_obj.last_vehicle_detect_event is not None
     assert camera_obj.last_vehicle_detect_event.id == "test_event_1"
     assert camera_obj.last_package_detect_event is not None

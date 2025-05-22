@@ -1443,6 +1443,40 @@ class Camera(ProtectMotionDeviceModel):
         return await self._set_object_detect(SmartDetectObjectType.VEHICLE, enabled)
 
     # endregion
+    # region Face
+
+    @property
+    def can_detect_face(self) -> bool:
+        return SmartDetectObjectType.FACE in self.feature_flags.smart_detect_types
+
+    @property
+    def is_face_detection_on(self) -> bool:
+        """Is Face Detection available and enabled (camera will produce face detection events)?"""
+        return self._is_smart_enabled(SmartDetectObjectType.FACE)
+
+    @property
+    def last_face_detect_event(self) -> Event | None:
+        """Get the last face smart detection event."""
+        return self.get_last_smart_detect_event(SmartDetectObjectType.FACE)
+
+    @property
+    def last_face_detect(self) -> datetime | None:
+        """Get the last face smart detection event."""
+        return self.last_smart_detects.get(SmartDetectObjectType.FACE)
+
+    @property
+    def is_face_currently_detected(self) -> bool:
+        """Is face currently being detected"""
+        return self._is_smart_detected(SmartDetectObjectType.FACE)
+
+    async def set_face_detection(self, enabled: bool) -> None:
+        """Toggles face smart detection. Requires camera to have smart detection"""
+        return await self._set_object_detect(
+            SmartDetectObjectType.FACE,
+            enabled,
+        )
+
+    # endregion
     # region License Plate
 
     @property

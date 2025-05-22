@@ -1362,6 +1362,11 @@ class NVR(ProtectDeviceModel):
         return self._is_smart_enabled(SmartDetectObjectType.VEHICLE)
 
     @property
+    def is_global_face_detection_on(self) -> bool:
+        """Is Face Detection available and enabled (camera will produce face detection events)?"""
+        return self._is_smart_enabled(SmartDetectObjectType.FACE)
+
+    @property
     def is_global_license_plate_detection_on(self) -> bool:
         """
         Is License Plate Detection available and enabled (camera will produce face license
