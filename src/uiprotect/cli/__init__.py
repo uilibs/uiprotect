@@ -320,3 +320,23 @@ def release_versions(ctx: typer.Context) -> None:
 
     Path(RELEASE_CACHE).write_bytes(output)
     typer.echo(output.decode("utf-8"))
+
+
+@app.command()
+def create_api_key(
+    ctx: typer.Context,
+    name: str = typer.Argument(..., help="Name for the API key"),
+) -> None:
+    """
+    Create a new API key for the current user.
+    """
+    protect = cast(ProtectApiClient, ctx.obj.protect)
+
+    async def callback() -> str:
+        api_key = await protect.create_api_key(name)
+        await protect.close_session()
+        return api_key
+
+    _setup_logger()
+    result = run_async(callback())
+    typer.echo(result)

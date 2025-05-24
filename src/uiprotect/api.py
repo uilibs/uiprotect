@@ -2062,7 +2062,7 @@ class ProtectApiClient(BaseApiClient):
 
         response = await self.api_request(
             api_path="/proxy/users/api/v2",
-            url=f"/user/{self.bootstrap.auth_user_id}/keys",
+            url=f"/user/{self._last_token_cookie_decode.get('userId')}/keys",
             method="post",
             json={"name": name},
         )
