@@ -2043,7 +2043,6 @@ class ProtectApiClient(BaseApiClient):
         )
         return PTZPreset(**preset)
 
-
     async def create_api_key(self, name: str) -> str:
         """
         Create an API key with the given name and return the full API key.
@@ -2067,8 +2066,11 @@ class ProtectApiClient(BaseApiClient):
             json={"name": name},
         )
 
-        if not response or "data" not in response or "full_api_key" not in response["data"]:
+        if (
+            not response
+            or "data" not in response
+            or "full_api_key" not in response["data"]
+        ):
             raise BadRequest("Failed to create API key")
 
         return response["data"]["full_api_key"]
-

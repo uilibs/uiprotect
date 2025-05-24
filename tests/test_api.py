@@ -1197,9 +1197,9 @@ async def test_set_light_is_led_force_on_invalid_device_id(
 
 @pytest.mark.asyncio()
 async def test_create_api_key_success(protect_client: ProtectApiClient):
-    protect_client.api_request = AsyncMock(return_value={
-        "data": {"full_api_key": "test_api_key"}
-    })
+    protect_client.api_request = AsyncMock(
+        return_value={"data": {"full_api_key": "test_api_key"}}
+    )
     result = await protect_client.create_api_key("test")
     assert result == "test_api_key"
     protect_client.api_request.assert_called_with(
@@ -1221,5 +1221,3 @@ async def test_create_api_key_failure(protect_client: ProtectApiClient):
     protect_client.api_request = AsyncMock(return_value={})
     with pytest.raises(BadRequest, match="Failed to create API key"):
         await protect_client.create_api_key("test")
-
-
