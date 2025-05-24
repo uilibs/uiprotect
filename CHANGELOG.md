@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.9.0 (2025-05-24)
+
+### Features
+
+
+- Add create api key functionality and corresponding tests (#482) ([`3b74740`](https://github.com/uilibs/uiprotect/commit/3b74740cfe256f29970710426165cdb415a15a86))
+
+
 ## v7.8.0 (2025-05-22)
 
 ### Features
