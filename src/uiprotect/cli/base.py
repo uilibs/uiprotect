@@ -223,7 +223,6 @@ def init_common_commands(
     device_commands: dict[str, Callable[..., Any]] = {}
 
     deviceless_commands["list-ids"] = app.command()(list_ids)
-    device_commands["protect-url"] = app.command()(protect_url)
     device_commands["is-wired"] = app.command()(is_wired)
     device_commands["is-wifi"] = app.command()(is_wifi)
     device_commands["is-bluetooth"] = app.command()(is_bluetooth)

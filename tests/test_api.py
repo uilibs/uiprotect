@@ -1193,3 +1193,45 @@ async def test_set_light_is_led_force_on_invalid_device_id(
 
     with pytest.raises(BadRequest):
         await protect_client.set_light_is_led_force_on(device_id, is_led_force_on)
+
+
+@pytest.mark.asyncio()
+async def test_create_api_key_success(protect_client: ProtectApiClient):
+    protect_client.api_request = AsyncMock(
+        return_value={"data": {"full_api_key": "test_api_key"}}
+    )
+    protect_client._last_token_cookie_decode = {"userId": "test_user_id"}
+    result = await protect_client.create_api_key("test")
+    assert result == "test_api_key"
+    protect_client.api_request.assert_called_with(
+        api_path="/proxy/users/api/v2",
+        url="/user/test_user_id/keys",
+        method="post",
+        json={"name": "test"},
+    )
+
+
+@pytest.mark.asyncio()
+async def test_create_api_key_empty_name(protect_client: ProtectApiClient):
+    protect_client._last_token_cookie_decode = {"userId": "test_user_id"}
+    with pytest.raises(BadRequest, match="API key name cannot be empty"):
+        await protect_client.create_api_key("")
+
+
+@pytest.mark.asyncio()
+async def test_create_api_key_failure(protect_client: ProtectApiClient):
+    protect_client.api_request = AsyncMock(return_value={})
+    protect_client._last_token_cookie_decode = {"userId": "test_user_id"}
+    with pytest.raises(BadRequest, match="Failed to create API key"):
+        await protect_client.create_api_key("test")
+
+
+@pytest.mark.asyncio()
+async def test_create_api_key_no_user_id(protect_client: ProtectApiClient):
+    protect_client._last_token_cookie_decode = None
+    with pytest.raises(BadRequest, match="User ID not available for API key creation"):
+        await protect_client.create_api_key("test")
+
+    protect_client._last_token_cookie_decode = {}
+    with pytest.raises(BadRequest, match="User ID not available for API key creation"):
+        await protect_client.create_api_key("test")
