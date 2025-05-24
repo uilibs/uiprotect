@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.9.2 (2025-05-24)
+
+### Bug fixes
+
+
+- Docker builds (#484) ([`f458c4a`](https://github.com/uilibs/uiprotect/commit/f458c4a35aeea78a601ff92719114449412f2a1d))
+
+
 ## v7.9.1 (2025-05-24)
 
 ### Bug fixes
