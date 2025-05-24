@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bookworm as base
+FROM python:3.13-slim-bookworm AS base
 
 LABEL org.opencontainers.image.source https://github.com/uilibs/uiprotect
 
@@ -14,26 +14,41 @@ RUN --mount=type=cache,mode=0755,id=apt-$TARGETPLATFORM,target=/var/lib/apt/list
     && apt-get install -yqq ffmpeg
 
 
-FROM base as builder
+FROM base AS builder
 
 RUN --mount=type=cache,mode=0755,id=apt-$TARGETPLATFORM,target=/var/lib/apt/lists \
     apt-get update -qq \
     && apt-get install -yqq build-essential git
 
 RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
-    pip install --root-user-action=ignore -U pip uv
+    pip install --root-user-action=ignore -U pip uv poetry
 
-FROM base as prod
+FROM builder AS prod-builder
 
 ARG UIPROTECT_VERSION
 
-COPY --from=builder /usr/local/bin/ /usr/local/bin/
-COPY --from=builder /usr/local/lib/python3.12/ /usr/local/lib/python3.12/
-RUN --mount=source=.,target=/tmp/uiprotect,type=bind,readwrite \
-    --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
-    SETUPTOOLS_SCM_PRETEND_VERSION=${UIPROTECT_VERSION} uv pip install -U "/tmp/uiprotect[tz]" \
-    && cp /tmp/uiprotect/.docker/entrypoint.sh /usr/local/bin/entrypoint \
-    && chmod +x /usr/local/bin/entrypoint \
+WORKDIR /tmp/build
+COPY pyproject.toml poetry.lock ./
+RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
+    poetry config virtualenvs.create false \
+    && poetry install --only main --no-root --no-interaction --no-ansi
+
+COPY . .
+RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
+    SETUPTOOLS_SCM_PRETEND_VERSION=${UIPROTECT_VERSION} poetry build -f wheel
+
+FROM base AS prod
+
+ARG UIPROTECT_VERSION
+
+COPY --from=builder /usr/local/bin/uv /usr/local/bin/
+COPY --from=prod-builder /tmp/build/dist/*.whl /tmp/
+RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
+    uv pip install -U /tmp/*.whl \
+    && rm /tmp/*.whl
+
+COPY .docker/entrypoint.sh /usr/local/bin/entrypoint
+RUN chmod +x /usr/local/bin/entrypoint \
     && mkdir /data \
     && chown app:app /data
 
@@ -43,13 +58,15 @@ WORKDIR /data
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
 
 
-FROM builder as builder-dev
+FROM builder AS builder-dev
 
-
+WORKDIR /workspaces/uiprotect
+COPY pyproject.toml poetry.lock ./
 RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
-    poetry install
+    poetry config virtualenvs.create false \
+    && poetry install --with dev --no-root --no-interaction --no-ansi
 
-FROM base as dev
+FROM base AS dev
 
 # Python will not automatically write .pyc files
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -57,7 +74,7 @@ ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONDEVMODE 1
 
 COPY --from=builder-dev /usr/local/bin/ /usr/local/bin/
-COPY --from=builder-dev /usr/local/lib/python3.12/ /usr/local/lib/python3.12/
+COPY --from=builder-dev /usr/local/lib/python3.13/ /usr/local/lib/python3.13/
 COPY ./.docker/docker-fix.sh /usr/local/bin/docker-fix
 COPY ./.docker/bashrc /root/.bashrc
 COPY ./.docker/bashrc /home/app/.bashrc
