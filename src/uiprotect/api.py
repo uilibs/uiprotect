@@ -389,6 +389,7 @@ class BaseApiClient:
         url: str,
         method: str = "get",
         require_auth: bool = True,
+        raise_exception: bool = True,
         api_path: str | None = None,
         **kwargs: Any,
     ) -> bytes | None:
