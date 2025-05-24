@@ -390,12 +390,15 @@ class BaseApiClient:
         method: str = "get",
         require_auth: bool = True,
         raise_exception: bool = True,
+        api_path: str | None = None,
         **kwargs: Any,
     ) -> bytes | None:
-        """Make a request to UniFi Protect API"""
+        """Make a API request"""
+        path = api_path if api_path is not None else self.api_path
+
         response = await self.request(
             method,
-            f"{self.api_path}{url}",
+            f"{path}{url}",
             require_auth=require_auth,
             auto_close=False,
             **kwargs,
@@ -449,6 +452,7 @@ class BaseApiClient:
         method: str = "get",
         require_auth: bool = True,
         raise_exception: bool = True,
+        api_path: str | None = None,
         **kwargs: Any,
     ) -> list[Any] | dict[str, Any] | None:
         data = await self.api_request_raw(
@@ -456,6 +460,7 @@ class BaseApiClient:
             method=method,
             require_auth=require_auth,
             raise_exception=raise_exception,
+            api_path=api_path,
             **kwargs,
         )
 
@@ -2038,3 +2043,31 @@ class ProtectApiClient(BaseApiClient):
             method="post",
         )
         return PTZPreset(**preset)
+
+    async def create_api_key(self, name: str) -> str:
+        """Create an API key with the given name and return the full API key."""
+        if not name:
+            raise BadRequest("API key name cannot be empty")
+
+        user_id = None
+        if self._last_token_cookie_decode is not None:
+            user_id = self._last_token_cookie_decode.get("userId")
+        if not user_id:
+            raise BadRequest("User ID not available for API key creation")
+
+        response = await self.api_request(
+            api_path="/proxy/users/api/v2",
+            url=f"/user/{user_id}/keys",
+            method="post",
+            json={"name": name},
+        )
+
+        if (
+            not isinstance(response, dict)
+            or "data" not in response
+            or not isinstance(response["data"], dict)
+            or "full_api_key" not in response["data"]
+        ):
+            raise BadRequest("Failed to create API key")
+
+        return response["data"]["full_api_key"]
