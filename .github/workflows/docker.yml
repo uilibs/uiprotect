@@ -48,7 +48,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          poetry install
+          poetry install --no-root
 
       - name: Get current version (rebuild)
         if: ${{ inputs.rebuild == 'yes' }}
@@ -61,7 +61,7 @@ jobs:
       - name: Get current version (no rebuild)
         if: ${{ inputs.rebuild != 'yes' }}
         run: |
-          UIPROTECT_VERSION=v$(python -c 'from importlib.metadata import version; print(version("uiprotect"))')
+          UIPROTECT_VERSION=v$(poetry version -s)
 
           echo "UIPROTECT_VERSION=$UIPROTECT_VERSION" >> $GITHUB_ENV
           echo "DOCKER_TAGS=ghcr.io/uilibs/uiprotect:dev,ghcr.io/uilibs/uiprotect:$(echo $UIPROTECT_VERSION | tr "+" -)" >> $GITHUB_ENV
