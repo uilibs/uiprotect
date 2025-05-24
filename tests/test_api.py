@@ -1224,3 +1224,14 @@ async def test_create_api_key_failure(protect_client: ProtectApiClient):
     protect_client._last_token_cookie_decode = {"userId": "test_user_id"}
     with pytest.raises(BadRequest, match="Failed to create API key"):
         await protect_client.create_api_key("test")
+
+
+@pytest.mark.asyncio()
+async def test_create_api_key_no_user_id(protect_client: ProtectApiClient):
+    protect_client._last_token_cookie_decode = None
+    with pytest.raises(BadRequest, match="User ID not available for API key creation"):
+        await protect_client.create_api_key("test")
+
+    protect_client._last_token_cookie_decode = {}
+    with pytest.raises(BadRequest, match="User ID not available for API key creation"):
+        await protect_client.create_api_key("test")

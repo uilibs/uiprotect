@@ -2045,31 +2045,27 @@ class ProtectApiClient(BaseApiClient):
         return PTZPreset(**preset)
 
     async def create_api_key(self, name: str) -> str:
-        """
-        Create an API key with the given name and return the full API key.
-
-        Args:
-        ----
-            name: The name for the API key.
-
-        Returns:
-        -------
-            The full API key as a string.
-
-        """
+        """Create an API key with the given name and return the full API key."""
         if not name:
             raise BadRequest("API key name cannot be empty")
 
+        user_id = None
+        if self._last_token_cookie_decode is not None:
+            user_id = self._last_token_cookie_decode.get("userId")
+        if not user_id:
+            raise BadRequest("User ID not available for API key creation")
+
         response = await self.api_request(
             api_path="/proxy/users/api/v2",
-            url=f"/user/{self._last_token_cookie_decode.get('userId')}/keys",
+            url=f"/user/{user_id}/keys",
             method="post",
             json={"name": name},
         )
 
         if (
-            not response
+            not isinstance(response, dict)
             or "data" not in response
+            or not isinstance(response["data"], dict)
             or "full_api_key" not in response["data"]
         ):
             raise BadRequest("Failed to create API key")
