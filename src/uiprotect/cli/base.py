@@ -216,6 +216,24 @@ def adopt(ctx: typer.Context, name: Optional[str] = typer.Argument(None)) -> Non
     run(ctx, obj.adopt(name))
 
 
+def create_api_key(ctx: typer.Context, name: str) -> None:
+    """
+    Creates an API key with the given name and prints the full API key.
+    """
+    if not name:
+        typer.secho("API key name cannot be empty", fg="red")
+        raise typer.Exit(1)
+
+    protect_client: ProtectApiClient = ctx.obj.protect
+
+    try:
+        full_api_key = run(ctx, protect_client.create_api_key(name))
+        typer.secho(f"API key created successfully: {full_api_key}", fg="green")
+    except Exception as err:
+        typer.secho(f"Failed to create API key: {err}", fg="red")
+        raise typer.Exit(1)
+
+
 def init_common_commands(
     app: typer.Typer,
 ) -> tuple[dict[str, Callable[..., Any]], dict[str, Callable[..., Any]]]:
@@ -223,7 +241,7 @@ def init_common_commands(
     device_commands: dict[str, Callable[..., Any]] = {}
 
     deviceless_commands["list-ids"] = app.command()(list_ids)
-    device_commands["protect-url"] = app.command()(protect_url)
+    deviceless_commands["create-api-key"] = app.command()(create_api_key)
     device_commands["is-wired"] = app.command()(is_wired)
     device_commands["is-wifi"] = app.command()(is_wifi)
     device_commands["is-bluetooth"] = app.command()(is_bluetooth)
