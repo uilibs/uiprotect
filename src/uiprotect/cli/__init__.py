@@ -327,9 +327,7 @@ def create_api_key(
     ctx: typer.Context,
     name: str = typer.Argument(..., help="Name for the API key"),
 ) -> None:
-    """
-    Create a new API key for the current user.
-    """
+    """Create a new API key for the current user."""
     protect = cast(ProtectApiClient, ctx.obj.protect)
 
     async def callback() -> str:
