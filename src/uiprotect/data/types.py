@@ -435,6 +435,7 @@ class VideoMode(str, ValuesEnumMixin, enum.Enum):
     HOMEKIT = "homekit"
     SPORT = "sport"
     SLOW_SHUTTER = "slowShutter"
+    LPR_NONE_REFLEX = "lprNoneReflex"
     # should only be for unadopted devices
     UNKNOWN = "unknown"
 
