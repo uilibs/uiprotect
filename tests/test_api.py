@@ -1362,6 +1362,6 @@ async def test_read_auth_config_no_session():
         "test",
         verify_ssl=False,
     )
-    with patch("aiofiles.open", return_value=AsyncMockOpen(b'{}')):
+    with patch("aiofiles.open", return_value=AsyncMockOpen(b"{}")):
         result = await client._read_auth_config()
         assert result is None
