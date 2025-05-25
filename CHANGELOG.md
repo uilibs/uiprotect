@@ -1,5 +1,17 @@
 # Changelog
 
+## v7.10.0 (2025-05-25)
+
+### Features
+
+
+- Add lpr_none_reflex to videomode enum (#486) ([`9ab42a0`](https://github.com/uilibs/uiprotect/commit/9ab42a0970c7ba7534996e142dc80a0f20210dc8))
+
+
+### Unknown
+
+
+
 ## v7.9.2 (2025-05-24)
 
 ### Bug fixes
