@@ -615,6 +615,7 @@ class BaseApiClient:
 
     async def _read_auth_config(self) -> SimpleCookie | None:
         """Read auth cookie from config."""
+        config: dict[str, Any] = {}
         try:
             async with aiofiles.open(self.config_file, "rb") as f:
                 config_data = await f.read()

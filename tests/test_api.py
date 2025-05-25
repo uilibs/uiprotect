@@ -1295,3 +1295,73 @@ async def test_api_request_raw_with_default_api_path() -> None:
         require_auth=True,
         auto_close=False,
     )
+
+
+@pytest.mark.asyncio
+async def test_read_auth_config_file_not_found():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test",
+        "test",
+        verify_ssl=False,
+    )
+    with patch("aiofiles.open", side_effect=FileNotFoundError):
+        result = await client._read_auth_config()
+        assert result is None
+
+
+class AsyncMockOpen:
+    def __init__(self, read_data: bytes):
+        self._read_data = read_data
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        pass
+
+    async def read(self):
+        return self._read_data
+
+
+@pytest.mark.asyncio
+async def test_read_auth_config_empty_file():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test",
+        "test",
+        verify_ssl=False,
+    )
+    with patch("aiofiles.open", return_value=AsyncMockOpen(b"")):
+        result = await client._read_auth_config()
+        assert result is None
+
+
+@pytest.mark.asyncio
+async def test_read_auth_config_invalid_json():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test",
+        "test",
+        verify_ssl=False,
+    )
+    with patch("aiofiles.open", return_value=AsyncMockOpen(b"{invalid json")):
+        result = await client._read_auth_config()
+        assert result is None
+
+
+@pytest.mark.asyncio
+async def test_read_auth_config_no_session():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test",
+        "test",
+        verify_ssl=False,
+    )
+    with patch("aiofiles.open", return_value=AsyncMockOpen(b"{}")):
+        result = await client._read_auth_config()
+        assert result is None
