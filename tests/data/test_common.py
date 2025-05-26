@@ -46,7 +46,7 @@ from uiprotect.data.devices import LCDMessage, TalkbackSettings
 from uiprotect.data.types import AudioCodecs, RecordingType, ResolutionStorageType
 from uiprotect.data.user import CloudAccount
 from uiprotect.exceptions import BadRequest, NotAuthorized, StreamError
-from uiprotect.stream import CODEC_TO_ENCODER, TalkbackStream
+from uiprotect.stream import TalkbackStream
 from uiprotect.utils import set_debug, set_no_debug, utc_now
 
 from ..common import assert_equal_dump

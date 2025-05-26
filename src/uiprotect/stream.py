@@ -19,9 +19,9 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 CODEC_TO_ENCODER = {
-    "aac":   {"encoder": "aac",      "format": "adts"},
-    "opus":  {"encoder": "libopus",  "format": "rtp"},
-    "vorbis":{"encoder": "libvorbis","format": "ogg"},
+    "aac": {"encoder": "aac", "format": "adts"},
+    "opus": {"encoder": "libopus", "format": "rtp"},
+    "vorbis": {"encoder": "libvorbis", "format": "ogg"},
 }
 
 
