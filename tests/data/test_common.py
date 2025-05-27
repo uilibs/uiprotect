@@ -46,7 +46,7 @@ from uiprotect.data.devices import LCDMessage, TalkbackSettings
 from uiprotect.data.types import AudioCodecs, RecordingType, ResolutionStorageType
 from uiprotect.data.user import CloudAccount
 from uiprotect.exceptions import BadRequest, NotAuthorized, StreamError
-from uiprotect.stream import CODEC_TO_ENCODER, TalkbackStream
+from uiprotect.stream import TalkbackStream
 from uiprotect.utils import set_debug, set_no_debug, utc_now
 
 from ..common import assert_equal_dump
@@ -1129,7 +1129,7 @@ async def test_ffmpeg_call_with_codec_mapping(mock_subprocess_exec, camera_obj: 
     assert ffmpeg_path == talkback_stream.ffmpeg_path
 
     assert "-acodec" in ffmpeg_args
-    assert CODEC_TO_ENCODER["opus"] in ffmpeg_args
+    assert "libopus" in ffmpeg_args
     assert "-ac" in ffmpeg_args
     assert "1" in ffmpeg_args
     assert "-ar" in ffmpeg_args
@@ -1137,7 +1137,7 @@ async def test_ffmpeg_call_with_codec_mapping(mock_subprocess_exec, camera_obj: 
     assert "-b:a" in ffmpeg_args
     assert "22050" in ffmpeg_args
     assert "-f" in ffmpeg_args
-    assert "adts" in ffmpeg_args
+    assert "rtp" in ffmpeg_args
     assert f"udp://{camera_obj.host}:12345?bitrate=22050" in ffmpeg_args
 
 

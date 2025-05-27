@@ -19,9 +19,9 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 CODEC_TO_ENCODER = {
-    "aac": "aac",
-    "opus": "libopus",
-    "vorbis": "libvorbis",
+    "aac": {"encoder": "aac", "format": "adts"},
+    "opus": {"encoder": "libopus", "format": "rtp"},
+    "vorbis": {"encoder": "libvorbis", "format": "ogg"},
 }
 
 
@@ -149,9 +149,9 @@ class TalkbackStream(FfmpegCommand):
         cmd = (
             "-loglevel info -hide_banner "
             f'{input_args}-i "{content_url}" -vn '
-            f"-acodec {encoder} -ac {camera.talkback_settings.channels} "
+            f"-acodec {encoder['encoder']} -ac {camera.talkback_settings.channels} "
             f"-ar {camera.talkback_settings.sampling_rate} -b:a {camera.talkback_settings.sampling_rate} -map 0:a "
-            f'-f adts "udp://{camera.host}:{camera.talkback_settings.bind_port}?bitrate={camera.talkback_settings.sampling_rate}"'
+            f'-f {encoder["format"]} "udp://{camera.host}:{camera.talkback_settings.bind_port}?bitrate={camera.talkback_settings.sampling_rate}"'
         )
 
         super().__init__(cmd, ffmpeg_path)
