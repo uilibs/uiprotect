@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.10.1 (2025-05-27)
+
+### Bug fixes
+
+
+- Update codec_to_encoder for correct codec format in talkbackstream (#493) ([`dfba227`](https://github.com/uilibs/uiprotect/commit/dfba227a2845c855c275234f5363f42d72eab4f5))
+
+
 ## v7.10.0 (2025-05-25)
 
 ### Features
