@@ -1,133 +1,23 @@
 {
-    "name": "uiprotect",
+    "name": "uiprotect-dev",
     "build": {
         "dockerfile": "../Dockerfile",
-        "context": "..",
-        "target": "dev"
+        "context": ".."
     },
-    "updateRemoteUserUID": true,
-    "containerUser": "app",
-    "mounts": [
-        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.cache,target=/home/app/.cache,type=bind,consistency=cached"
-    ],
-    "initializeCommand": {
-        "mkdir-posix": "mkdir -p $HOME/.cache $HOME/.cache $HOME/.cache || true"
-    },
-    "onCreateCommand": [
-        "/bin/bash",
-        "-c",
-        "sudo -E HOME=/root uv pip install -e '.[dev]' && /usr/local/bin/uiprotect --install-completion bash && docker-fix"
-    ],
-    "updateContentCommand": [
-        "/bin/bash",
-        "-c",
-        "sudo -E HOME=/root uv pip sync requirements.txt dev-requirements.txt"
-    ],
-    "postAttachCommand": [
-        "/bin/bash",
-        "-c",
-        "test -f /.codespaces && echo -e '\\e[1;31mYou will not be able to connect to a UniFi Protect instance inside of Codespaces.' || true"
-    ],
-    "features": {
-        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
-    },
-    "hostRequirements": {
-        "cpus": 2,
-        "memory": "8gb",
-        "storage": "32gb"
-    },
+    "remoteUser": "app",
+    "features": {},
+    "postCreateCommand": "poetry install --with dev --no-interaction --no-ansi && poetry run uiprotect --install-completion bash || true",
     "customizations": {
         "vscode": {
-            "extensions": [
-                "eamodio.gitlens",
-                "github.codespaces",
-                "github.vscode-github-actions",
-                "gitHub.vscode-pull-request-github",
-                "jasonnutter.vscode-codeowners",
-                "mikestead.dotenv",
-                "ms-azuretools.vscode-docker",
-                "ms-vsliveshare.vsliveshare",
-                "streetsidesoftware.code-spell-checker",
-                "tamasfe.even-better-toml",
-                "ryanluker.vscode-coverage-gutters",
-                "charliermarsh.ruff",
-                "ms-python.black-formatter",
-                "ms-python.isort",
-                "ms-python.mypy-type-checker",
-                "ms-python.python",
-                "ms-python.debugpy",
-                "ms-python.vscode-pylance",
-                "njpwerner.autodocstring",
-                "samuelcolvin.jinjahtml"
-            ],
             "settings": {
-                "editor.formatOnSave": true,
-                "editor.formatOnSaveTimeout": 3000,
-                "editor.insertSpaces": true,
-                "files.insertFinalNewline": true,
-                "files.trimTrailingWhitespace": true,
-                "[toml]": {
-                    "editor.formatOnSave": false
-                },
-                "[python]": {
-                    "editor.defaultFormatter": "ms-python.black-formatter",
-                    "editor.codeActionsOnSave": {
-                        "source.organizeImports": true,
-                        "source.fixAll": true
-                    }
-                },
-                "python.envFile": "${workspaceFolder}/.env",
-                "python.defaultInterpreterPath": "/usr/local/bin/python",
-                "python.pythonPath": "/usr/local/bin/python",
-                "python.formatting.provider": "none",
-                "python.linting.enabled": true,
-                "black.args": [
-                    "--config=/workspaces/uiprotect/pyproject.toml"
-                ],
-                "isort.args": [
-                    "--settings-path=/workspaces/uiprotect/pyproject.toml"
-                ],
-                "mypy-type-checker.interpreter": [
-                    "/usr/local/bin/python"
-                ],
-                "mypy-type-checker.args": [
-                    "--config-file=/workspaces/uiprotect/pyproject.toml"
-                ],
-                "mypy-type-checker.severity": {
-                    "error": "Error",
-                    "note": "Warning"
-                },
-                "ruff.lint.args": [
-                    "--preview",
-                    "--config=/workspaces/uiprotect/pyproject.toml"
-                ],
-                "ruff.fixAll": true,
-                "ruff.organizeImports": false,
-                "coverage-gutters.xmlname": "coverage.xml",
-                "coverage-gutters.customizable.status-bar-toggler-watchCoverageAndVisibleEditors-enabled": true,
-                "coverage-gutters.showLineCoverage": true,
-                "python.testing.promptToConfigure": false,
-                "python.testing.pytestEnabled": true,
-                "python.testing.unittestEnabled": false,
-                "python.testing.nosetestsEnabled": false,
-                "python.testing.pytestArgs": [
-                    "--cov-report=xml",
-                    "--color=no"
-                ],
-                "cSpell.allowCompoundWords": true,
-                "cSpell.dictionaries": [
-                    "en_US",
-                    "en-gb",
-                    "companies",
-                    "softwareTerms",
-                    "misc",
-                    "python",
-                    "html",
-                    "bash",
-                    "fonts",
-                    "filetypes"
-                ]
-            }
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "python.defaultInterpreterPath": "/usr/local/bin/python3"
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-azuretools.vscode-docker"
+            ]
         }
     }
 }
