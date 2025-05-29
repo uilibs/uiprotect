@@ -21,9 +21,6 @@ packages = [
     { include = "uiprotect", from = "src" },
 ]
 
-[tool.poetry.scripts]
-pytest = "pytest:main"
-
 [tool.poetry.dependencies]
 python = ">=3.10"
 rich = ">=10"
@@ -43,7 +40,6 @@ typer = ">=0.12.3"
 convertertools = ">=0.5.0"
 propcache = ">=0.0.0"
 pydantic-extra-types = ">=2.10.1"
-pytest = "^8.3.5"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7,<9"

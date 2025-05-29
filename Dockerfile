@@ -30,6 +30,7 @@ COPY . .
 RUN poetry install --no-interaction --no-ansi
 
 RUN if [ -f /workspaces/uiprotect/src/uiprotect/cli/app.py ] || [ -f /workspaces/uiprotect/src/uiprotect/cli.py ]; then \
+      mkdir -p /home/app/.bash_completions && \
       poetry run uiprotect --install-completion bash > /home/app/.bash_completions/uiprotect.sh || true; \
     fi
 
