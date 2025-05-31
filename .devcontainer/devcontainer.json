@@ -5,7 +5,7 @@
         "context": ".."
     },
     "features": {},
-    "postCreateCommand": "poetry install --with dev --no-interaction --no-ansi && poetry run uiprotect --install-completion bash || true",
+    "postCreateCommand": "bash -c 'poetry install --with dev --no-interaction --no-ansi'",
     "remoteUser": "root",
     "customizations": {
         "vscode": {

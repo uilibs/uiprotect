@@ -5,7 +5,10 @@ RUN apt-get update && apt-get install -y \
     git \
     ffmpeg \
     build-essential \
+    bash \
  && rm -rf /var/lib/apt/lists/*
+
+SHELL ["/bin/bash", "-c"]
 
 RUN curl -sSL https://install.python-poetry.org | POETRY_VERSION=2.1.3 python3 -
 
