@@ -4764,7 +4764,7 @@
                 "minMotionEventTrigger": 1000,
                 "endMotionEventDelay": 3000,
                 "suppressIlluminationSurge": false,
-                "mode": "always",
+                "mode": "adaptive",
                 "geofencing": "off",
                 "motionAlgorithm": "enhanced",
                 "enablePirTimelapse": false,

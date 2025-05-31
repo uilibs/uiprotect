@@ -448,6 +448,7 @@ class AudioStyle(str, UnknownValuesEnumMixin, enum.Enum):
 
 @enum.unique
 class RecordingMode(str, ValuesEnumMixin, enum.Enum):
+    ADAPTIVE = "adaptive"
     ALWAYS = "always"
     NEVER = "never"
     SCHEDULE = "schedule"
