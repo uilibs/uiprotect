@@ -4,9 +4,9 @@
         "dockerfile": "../Dockerfile",
         "context": ".."
     },
-    "remoteUser": "app",
     "features": {},
     "postCreateCommand": "poetry install --with dev --no-interaction --no-ansi && poetry run uiprotect --install-completion bash || true",
+    "remoteUser": "root",
     "customizations": {
         "vscode": {
             "settings": {

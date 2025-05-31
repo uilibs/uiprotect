@@ -1,14 +1,23 @@
-[tool.poetry]
+[project]
 name = "uiprotect"
 version = "7.10.1"
-description = "Python API for Unifi Protect (Unofficial)"
-authors = ["UI Protect Maintainers <ui@koston.org>"]
 license = "MIT"
+description = "Python API for Unifi Protect (Unofficial)"
+authors = [{ name = "UI Protect Maintainers", email = "ui@koston.org" }]
 readme = "README.md"
-repository = "https://github.com/uilibs/uiprotect"
-documentation = "https://uiprotect.readthedocs.io"
-homepage = "https://github.com/uilibs/uiprotect"
-keywords = []
+requires-python = ">=3.10"
+dynamic = ["classifiers", "dependencies"]
+
+[project.urls]
+"Repository" = "https://github.com/uilibs/uiprotect"
+"Documentation" = "https://uiprotect.readthedocs.io"
+"Bug Tracker" = "https://github.com/uilibs/uiprotect/issues"
+"Changelog" = "https://github.com/uilibs/uiprotect/blob/main/CHANGELOG.md"
+
+[project.scripts]
+uiprotect = "uiprotect.cli:app"
+
+[tool.poetry]
 classifiers = [
     "Intended Audience :: Developers",
     "Natural Language :: English",
@@ -71,10 +80,6 @@ mkdocs-git-revision-date-localized-plugin = "^1.4.7"
 mkdocs-include-markdown-plugin = ">=6.1.1,<8.0.0"
 mkdocstrings = ">=0.25.1,<0.30.0"
 mkdocstrings-python = "^1.16.11"
-
-[build-system]
-requires = ["poetry-core>=2.1.0"]
-build-backend = "poetry.core.masonry.api"
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
@@ -199,3 +204,7 @@ allow_untyped_defs = true
 [[tool.mypy.overrides]]
 module = "docs.*"
 ignore_errors = true
+
+[build-system]
+requires = ["poetry-core>=2.1.0"]
+build-backend = "poetry.core.masonry.api"

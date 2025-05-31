@@ -1,43 +1,25 @@
-# syntax=docker/dockerfile:1
-FROM python:3.13-slim-bookworm
+FROM python:3.12-slim
 
-LABEL org.opencontainers.image.source=https://github.com/uilibs/uiprotect
+# System-abhängige Abhängigkeiten installieren
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    ffmpeg \
+    build-essential \
+ && rm -rf /var/lib/apt/lists/*
 
-RUN addgroup --system --gid 1000 app \
-    && adduser --system --shell /bin/bash --uid 1000 --home /home/app --ingroup app app
+# Poetry installieren (Version 2.1.3)
+RUN curl -sSL https://install.python-poetry.org | POETRY_VERSION=2.1.3 python3 -
 
-RUN apt-get update -qq \
-    && apt-get install -yqq --no-install-recommends \
-        ffmpeg \
-        git \
-        curl \
-        build-essential \
-        vim \
-        procps \
-        jq \
-        sudo \
-    && rm -rf /var/lib/apt/lists/*
+# Poetry zu PATH hinzufügen
+ENV PATH="/root/.local/bin:${PATH}"
 
-ENV POETRY_HOME=/usr/local
-RUN curl -sSL https://install.python-poetry.org | python3 - --version 1.8.2
+# Arbeitsverzeichnis erstellen und setzen
+WORKDIR /workspace
 
-WORKDIR /workspaces/uiprotect
-COPY pyproject.toml poetry.lock ./
-RUN poetry config virtualenvs.create false
+# Virtuelle Umgebungen deaktivieren, Poetry wird die Umgebungen verwalten
+ENV POETRY_VIRTUALENVS_CREATE=false
 
-COPY . .
-
-RUN poetry install --no-interaction --no-ansi
-
-RUN if [ -f /workspaces/uiprotect/src/uiprotect/cli/app.py ] || [ -f /workspaces/uiprotect/src/uiprotect/cli.py ]; then \
-      mkdir -p /home/app/.bash_completions && \
-      poetry run uiprotect --install-completion bash > /home/app/.bash_completions/uiprotect.sh || true; \
-    fi
-
-RUN chown -R app:app /workspaces/uiprotect /home/app
-USER app
-ENV PATH="/home/app/.local/bin:$PATH"
-ENV PYTHONPATH=/workspaces/uiprotect
-WORKDIR /workspaces/uiprotect
-
-CMD ["bash"]
+# Installiere Projekt-Abhängigkeiten, falls pyproject.toml vorhanden ist
+COPY pyproject.toml poetry.lock* ./
+RUN poetry install --no-root || true
