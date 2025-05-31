@@ -4,6 +4,7 @@
         "dockerfile": "../Dockerfile",
         "context": ".."
     },
+    "updateRemoteUserUID": true,
     "features": {},
     "postCreateCommand": "bash -c 'poetry install --with dev --no-interaction --no-ansi'",
     "remoteUser": "root",
