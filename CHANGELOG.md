@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.11.0 (2025-05-31)
+
+### Features
+
+
+- Add adaptive mode to recordingmode enum (#501) ([`4b4155a`](https://github.com/uilibs/uiprotect/commit/4b4155aec2f74076669648194231136774f27198))
+
+
 ## v7.10.1 (2025-05-27)
 
 ### Bug fixes
