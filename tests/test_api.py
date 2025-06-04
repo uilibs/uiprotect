@@ -1437,19 +1437,27 @@ async def test_update_api_key_config_invalid_json(monkeypatch, caplog):
         "test",
         verify_ssl=False,
     )
+
     class MockFile:
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, exc_type, exc, tb):
             pass
+
         async def read(self):
             return b"{invalid json"
+
         async def write(self, data):
             pass
+
     with patch("aiofiles.open", return_value=MockFile()):
         caplog.set_level("WARNING")
         await client.update_api_key_in_config("testkey")
-        assert any("Invalid config file, ignoring." in r.message for r in caplog.records)
+        assert any(
+            "Invalid config file, ignoring." in r.message for r in caplog.records
+        )
+
 
 @pytest.mark.asyncio
 async def test_update_api_key_config_file_not_found():
@@ -1464,6 +1472,7 @@ async def test_update_api_key_config_file_not_found():
     mock_file = AsyncMockFile()
 
     call_count = {"count": 0}
+
     def open_side_effect(*args, **kwargs):
         call_count["count"] += 1
         if call_count["count"] == 1:
