@@ -10,6 +10,7 @@ from ipaddress import IPv4Address
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
+import orjson
 import pytest
 from PIL import Image
 
@@ -1365,3 +1366,60 @@ async def test_read_auth_config_no_session():
     with patch("aiofiles.open", return_value=AsyncMockOpen(b"{}")):
         result = await client._read_auth_config()
         assert result is None
+
+class AsyncMockFile:
+    def __init__(self):
+        self.content = b""
+        self.written = False
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        pass
+
+    async def write(self, data):
+        self.content = data
+        self.written = True
+
+    async def read(self):
+        return self.content
+
+@pytest.mark.asyncio
+async def test_update_api_key_config(tmp_path):
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test",
+        "test",
+        verify_ssl=False,
+    )
+    api_key = "testkey"
+    mock_file = AsyncMockFile()
+
+    with patch("aiofiles.open", return_value=mock_file) as mock_open, \
+         patch("aiofiles.os.makedirs", return_value=None) as mock_makedirs:
+        await client.update_api_key_in_config(api_key)
+        assert mock_file.written
+        config = orjson.loads(mock_file.content)
+        assert config["hosts"]["127.0.0.1"]["apikey"] == api_key
+        mock_makedirs.assert_called()
+        mock_open.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_load_api_key():
+
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test",
+        "test",
+        verify_ssl=False,
+    )
+    api_key = "testkey"
+    config = {"hosts": {"127.0.0.1": {"apikey": api_key}}}
+    with patch("aiofiles.open", return_value=AsyncMockOpen(orjson.dumps(config))):
+        result = await client._read_api_key_config()
+        assert result is None
+        assert client._api_key == api_key

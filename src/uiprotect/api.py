@@ -163,6 +163,7 @@ class BaseApiClient:
     _port: int
     _username: str
     _password: str
+    _api_key: str | None = None
     _verify_ssl: bool
     _ws_timeout: int
 
@@ -189,6 +190,7 @@ class BaseApiClient:
         port: int,
         username: str,
         password: str,
+        api_key: str | None = None,
         verify_ssl: bool = True,
         session: aiohttp.ClientSession | None = None,
         ws_timeout: int = 30,
@@ -201,6 +203,7 @@ class BaseApiClient:
         self._host = host
         self._port = port
 
+        self._api_key = api_key
         self._username = username
         self._password = password
         self._verify_ssl = verify_ssl
@@ -519,6 +522,7 @@ class BaseApiClient:
     async def ensure_authenticated(self) -> None:
         """Ensure we are authenticated."""
         await self._load_session()
+        await self._load_api_key()
         if self.is_authenticated() is False:
             await self.authenticate()
 
@@ -601,6 +605,29 @@ class BaseApiClient:
         async with aiofiles.open(self.config_file, "wb") as f:
             await f.write(orjson.dumps(config, option=orjson.OPT_INDENT_2))
 
+    async def update_api_key_in_config(self, api_key: str | None) -> None:
+        await aos.makedirs(self.config_dir, exist_ok=True)
+
+        config: dict[str, Any] = {}
+        try:
+            async with aiofiles.open(self.config_file, "rb") as f:
+                config_data = await f.read()
+                if config_data:
+                    try:
+                        config = orjson.loads(config_data)
+                    except Exception:
+                        _LOGGER.warning("Invalid config file, ignoring.")
+        except FileNotFoundError:
+            pass
+
+        config["hosts"] = config.get("hosts", {})
+        config["hosts"][self._host] = {
+            "apikey": api_key,
+        }
+
+        async with aiofiles.open(self.config_file, "wb") as f:
+            await f.write(orjson.dumps(config, option=orjson.OPT_INDENT_2))
+
     async def _load_session(self) -> None:
         if self._session is None:
             await self.get_session()
@@ -651,6 +678,30 @@ class BaseApiClient:
         if session.get("csrf"):
             self.set_header("x-csrf-token", session["csrf"])
         return cookie
+
+    async def _load_api_key(self) -> None:
+        if self._api_key is None:
+            self._read_api_key_config()
+
+    async def _read_api_key_config(self) -> None:
+        """Read API key from config."""
+        config: dict[str, Any] = {}
+        try:
+            async with aiofiles.open(self.config_file, "rb") as f:
+                config_data = await f.read()
+                if config_data:
+                    try:
+                        config = orjson.loads(config_data)
+                    except Exception:
+                        _LOGGER.warning("Invalid config file, ignoring.")
+                        return
+        except FileNotFoundError:
+            _LOGGER.debug("no config file, not loading API key")
+            return
+
+        self._api_key = config.get("hosts", {}).get(self._host, {}).get("apikey")
+        if self._api_key is not None:
+            _LOGGER.debug("Successfully loaded API key from config")
 
     def is_authenticated(self) -> bool:
         """Check to see if we are already authenticated."""
