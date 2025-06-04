@@ -1388,7 +1388,7 @@ class AsyncMockFile:
 
 
 @pytest.mark.asyncio
-async def test_update_api_key_config(tmp_path):
+async def test_update_api_key_config():
     client = ProtectApiClient(
         "127.0.0.1",
         0,
@@ -1426,3 +1426,57 @@ async def test_load_api_key():
         result = await client._read_api_key_config()
         assert result is None
         assert client._api_key == api_key
+
+
+@pytest.mark.asyncio
+async def test_update_api_key_config_invalid_json(monkeypatch, caplog):
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test",
+        "test",
+        verify_ssl=False,
+    )
+    class MockFile:
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+        async def read(self):
+            return b"{invalid json"
+        async def write(self, data):
+            pass
+    with patch("aiofiles.open", return_value=MockFile()):
+        caplog.set_level("WARNING")
+        await client.update_api_key_in_config("testkey")
+        assert any("Invalid config file, ignoring." in r.message for r in caplog.records)
+
+@pytest.mark.asyncio
+async def test_update_api_key_config_file_not_found():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test",
+        "test",
+        verify_ssl=False,
+    )
+    api_key = "testkey"
+    mock_file = AsyncMockFile()
+
+    call_count = {"count": 0}
+    def open_side_effect(*args, **kwargs):
+        call_count["count"] += 1
+        if call_count["count"] == 1:
+            raise FileNotFoundError
+        return mock_file
+
+    with (
+        patch("aiofiles.open", side_effect=open_side_effect) as mock_open,
+        patch("aiofiles.os.makedirs", return_value=None) as mock_makedirs,
+    ):
+        await client.update_api_key_in_config(api_key)
+        assert mock_file.written
+        config = orjson.loads(mock_file.content)
+        assert config["hosts"]["127.0.0.1"]["apikey"] == api_key
+        mock_makedirs.assert_called()
+        mock_open.assert_called()
