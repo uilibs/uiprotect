@@ -681,7 +681,7 @@ class BaseApiClient:
 
     async def _load_api_key(self) -> None:
         if self._api_key is None:
-            self._read_api_key_config()
+            await self._read_api_key_config()
 
     async def _read_api_key_config(self) -> None:
         """Read API key from config."""
