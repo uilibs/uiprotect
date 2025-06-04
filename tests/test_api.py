@@ -1367,6 +1367,7 @@ async def test_read_auth_config_no_session():
         result = await client._read_auth_config()
         assert result is None
 
+
 class AsyncMockFile:
     def __init__(self):
         self.content = b""
@@ -1385,6 +1386,7 @@ class AsyncMockFile:
     async def read(self):
         return self.content
 
+
 @pytest.mark.asyncio
 async def test_update_api_key_config(tmp_path):
     client = ProtectApiClient(
@@ -1397,8 +1399,10 @@ async def test_update_api_key_config(tmp_path):
     api_key = "testkey"
     mock_file = AsyncMockFile()
 
-    with patch("aiofiles.open", return_value=mock_file) as mock_open, \
-         patch("aiofiles.os.makedirs", return_value=None) as mock_makedirs:
+    with (
+        patch("aiofiles.open", return_value=mock_file) as mock_open,
+        patch("aiofiles.os.makedirs", return_value=None) as mock_makedirs,
+    ):
         await client.update_api_key_in_config(api_key)
         assert mock_file.written
         config = orjson.loads(mock_file.content)
@@ -1409,7 +1413,6 @@ async def test_update_api_key_config(tmp_path):
 
 @pytest.mark.asyncio
 async def test_load_api_key():
-
     client = ProtectApiClient(
         "127.0.0.1",
         0,
