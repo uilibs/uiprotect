@@ -1490,6 +1490,7 @@ async def test_update_api_key_config_file_not_found():
         mock_makedirs.assert_called()
         mock_open.assert_called()
 
+
 @pytest.mark.asyncio
 async def test_read_api_key_config_invalid_json_logs_warning(caplog):
     client = ProtectApiClient(
@@ -1499,18 +1500,23 @@ async def test_read_api_key_config_invalid_json_logs_warning(caplog):
         "test",
         verify_ssl=False,
     )
+
     class MockFile:
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, exc_type, exc, tb):
             pass
+
         async def read(self):
             return b"{invalid json"
+
     with patch("aiofiles.open", return_value=MockFile()):
         caplog.set_level("WARNING", logger="uiprotect.api")
         await client._read_api_key_config()
-        assert any("Invalid config file, ignoring." in r.message for r in caplog.records)
-
+        assert any(
+            "Invalid config file, ignoring." in r.message for r in caplog.records
+        )
 
 
 @pytest.mark.asyncio
@@ -1525,4 +1531,6 @@ async def test_read_api_key_config_file_not_found_logs_debug(caplog):
     with patch("aiofiles.open", side_effect=FileNotFoundError):
         caplog.set_level("DEBUG", logger="uiprotect.api")
         await client._read_api_key_config()
-        assert any("no config file, not loading API key" in r.message for r in caplog.records)
+        assert any(
+            "no config file, not loading API key" in r.message for r in caplog.records
+        )
