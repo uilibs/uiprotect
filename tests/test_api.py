@@ -1534,3 +1534,24 @@ async def test_read_api_key_config_file_not_found_logs_debug(caplog):
         assert any(
             "no config file, not loading API key" in r.message for r in caplog.records
         )
+
+
+@pytest.mark.asyncio
+def test_ensure_authenticated_loads_api_key(monkeypatch):
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test",
+        "test",
+        verify_ssl=False,
+    )
+    async def fake_read_api_key_config():
+        client._api_key = "loaded-key"
+    monkeypatch.setattr(client, "_read_api_key_config", fake_read_api_key_config)
+    client._api_key = None
+    async def fake_authenticate():
+        pass
+    monkeypatch.setattr(client, "authenticate", fake_authenticate)
+    import asyncio
+    asyncio.get_event_loop().run_until_complete(client.ensure_authenticated())
+    assert client._api_key == "loaded-key"
