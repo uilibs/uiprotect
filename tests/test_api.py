@@ -1545,13 +1545,18 @@ def test_ensure_authenticated_loads_api_key(monkeypatch):
         "test",
         verify_ssl=False,
     )
+
     async def fake_read_api_key_config():
         client._api_key = "loaded-key"
+
     monkeypatch.setattr(client, "_read_api_key_config", fake_read_api_key_config)
     client._api_key = None
+
     async def fake_authenticate():
         pass
+
     monkeypatch.setattr(client, "authenticate", fake_authenticate)
     import asyncio
+
     asyncio.get_event_loop().run_until_complete(client.ensure_authenticated())
     assert client._api_key == "loaded-key"
