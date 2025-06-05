@@ -10,6 +10,7 @@ from ipaddress import IPv4Address
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
+import orjson
 import pytest
 from PIL import Image
 
@@ -1365,3 +1366,197 @@ async def test_read_auth_config_no_session():
     with patch("aiofiles.open", return_value=AsyncMockOpen(b"{}")):
         result = await client._read_auth_config()
         assert result is None
+
+
+class AsyncMockFile:
+    def __init__(self):
+        self.content = b""
+        self.written = False
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        pass
+
+    async def write(self, data):
+        self.content = data
+        self.written = True
+
+    async def read(self):
+        return self.content
+
+
+@pytest.mark.asyncio
+async def test_update_api_key_config():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test",
+        "test",
+        verify_ssl=False,
+    )
+    api_key = "testkey"
+    mock_file = AsyncMockFile()
+
+    with (
+        patch("aiofiles.open", return_value=mock_file) as mock_open,
+        patch("aiofiles.os.makedirs", return_value=None) as mock_makedirs,
+    ):
+        await client.update_api_key_in_config(api_key)
+        assert mock_file.written
+        config = orjson.loads(mock_file.content)
+        assert config["hosts"]["127.0.0.1"]["apikey"] == api_key
+        mock_makedirs.assert_called()
+        mock_open.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_load_api_key():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test",
+        "test",
+        verify_ssl=False,
+    )
+    api_key = "testkey"
+    config = {"hosts": {"127.0.0.1": {"apikey": api_key}}}
+    with patch("aiofiles.open", return_value=AsyncMockOpen(orjson.dumps(config))):
+        result = await client._read_api_key_config()
+        assert result is None
+        assert client._api_key == api_key
+
+
+@pytest.mark.asyncio
+async def test_update_api_key_config_invalid_json(monkeypatch, caplog):
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test",
+        "test",
+        verify_ssl=False,
+    )
+
+    class MockFile:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+        async def read(self):
+            return b"{invalid json"
+
+        async def write(self, data):
+            pass
+
+    with patch("aiofiles.open", return_value=MockFile()):
+        caplog.set_level("WARNING", logger="uiprotect.api")
+        await client.update_api_key_in_config("testkey")
+        assert any(
+            "Invalid config file, ignoring." in r.message for r in caplog.records
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_api_key_config_file_not_found():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test",
+        "test",
+        verify_ssl=False,
+    )
+    api_key = "testkey"
+    mock_file = AsyncMockFile()
+
+    call_count = {"count": 0}
+
+    def open_side_effect(*args, **kwargs):
+        call_count["count"] += 1
+        if call_count["count"] == 1:
+            raise FileNotFoundError
+        return mock_file
+
+    with (
+        patch("aiofiles.open", side_effect=open_side_effect) as mock_open,
+        patch("aiofiles.os.makedirs", return_value=None) as mock_makedirs,
+    ):
+        await client.update_api_key_in_config(api_key)
+        assert mock_file.written
+        config = orjson.loads(mock_file.content)
+        assert config["hosts"]["127.0.0.1"]["apikey"] == api_key
+        mock_makedirs.assert_called()
+        mock_open.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_read_api_key_config_invalid_json_logs_warning(caplog):
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test",
+        "test",
+        verify_ssl=False,
+    )
+
+    class MockFile:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+        async def read(self):
+            return b"{invalid json"
+
+    with patch("aiofiles.open", return_value=MockFile()):
+        caplog.set_level("WARNING", logger="uiprotect.api")
+        await client._read_api_key_config()
+        assert any(
+            "Invalid config file, ignoring." in r.message for r in caplog.records
+        )
+
+
+@pytest.mark.asyncio
+async def test_read_api_key_config_file_not_found_logs_debug(caplog):
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test",
+        "test",
+        verify_ssl=False,
+    )
+    with patch("aiofiles.open", side_effect=FileNotFoundError):
+        caplog.set_level("DEBUG", logger="uiprotect.api")
+        await client._read_api_key_config()
+        assert any(
+            "no config file, not loading API key" in r.message for r in caplog.records
+        )
+
+
+@pytest.mark.asyncio
+def test_ensure_authenticated_loads_api_key(monkeypatch):
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test",
+        "test",
+        verify_ssl=False,
+    )
+
+    async def fake_read_api_key_config():
+        client._api_key = "loaded-key"
+
+    monkeypatch.setattr(client, "_read_api_key_config", fake_read_api_key_config)
+    client._api_key = None
+
+    async def fake_authenticate():
+        pass
+
+    monkeypatch.setattr(client, "authenticate", fake_authenticate)
+    import asyncio
+
+    asyncio.get_event_loop().run_until_complete(client.ensure_authenticated())
+    assert client._api_key == "loaded-key"
