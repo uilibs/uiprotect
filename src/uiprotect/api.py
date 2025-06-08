@@ -163,6 +163,7 @@ class BaseApiClient:
     _port: int
     _username: str
     _password: str
+    _api_key: str | None = None
     _verify_ssl: bool
     _ws_timeout: int
 
@@ -189,6 +190,7 @@ class BaseApiClient:
         port: int,
         username: str,
         password: str,
+        api_key: str | None = None,
         verify_ssl: bool = True,
         session: aiohttp.ClientSession | None = None,
         ws_timeout: int = 30,
@@ -203,6 +205,7 @@ class BaseApiClient:
 
         self._username = username
         self._password = password
+        self._api_key = api_key
         self._verify_ssl = verify_ssl
         self._ws_timeout = ws_timeout
         self._ws_receive_timeout = ws_receive_timeout
@@ -727,6 +730,7 @@ class ProtectApiClient(BaseApiClient):
         port: UFP HTTPS port
         username: UFP username
         password: UFP password
+        api_key: API key for UFP
         verify_ssl: Verify HTTPS certificate (default: `True`)
         session: Optional aiohttp session to use (default: generate one)
         override_connection_host: Use `host` as your `connection_host` for RTSP stream instead of using the one provided by UniFi Protect.
@@ -754,6 +758,7 @@ class ProtectApiClient(BaseApiClient):
         port: int,
         username: str,
         password: str,
+        api_key: str | None = None,
         verify_ssl: bool = True,
         session: aiohttp.ClientSession | None = None,
         ws_timeout: int = 30,
@@ -773,6 +778,7 @@ class ProtectApiClient(BaseApiClient):
             port=port,
             username=username,
             password=password,
+            api_key=api_key,
             verify_ssl=verify_ssl,
             session=session,
             ws_timeout=ws_timeout,

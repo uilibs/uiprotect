@@ -1365,3 +1365,16 @@ async def test_read_auth_config_no_session():
     with patch("aiofiles.open", return_value=AsyncMockOpen(b"{}")):
         result = await client._read_auth_config()
         assert result is None
+
+
+def test_api_key_init():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+    assert hasattr(client, "_api_key")
+    assert client._api_key == "my_key"
