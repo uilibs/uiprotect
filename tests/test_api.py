@@ -1451,3 +1451,20 @@ async def test_api_request_raw_public_api_requires_api_key():
             "/v1/meta/info",
             public_api=True,
         )
+
+  
+@pytest.mark.asyncio()
+async def test_get_meta_info_invalid_response_type():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+    # Mock api_request to return a non-dict value
+    client.api_request = AsyncMock(return_value=None)
+    with pytest.raises(NvrError, match="Failed to retrieve meta info from public API"):
+        await client.get_meta_info()
+

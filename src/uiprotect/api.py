@@ -340,7 +340,7 @@ class BaseApiClient:
         request_url = self._url.join(
             URL(SplitResult("", "", url, "", ""), encoded=True)
         )
-        headers = kwargs.get("headers") or self.headers
+        headers = kwargs.get("headers") or self.headers or {}
         if require_auth and public_api:
             if self._api_key is None:
                 raise NotAuthorized("API key is required for public API requests")
