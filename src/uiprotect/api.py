@@ -28,6 +28,7 @@ from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
 from uiprotect.data.convert import list_from_unifi_list
+from uiprotect.data.nvr import MetaInfo
 from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
 
 from ._compat import cached_property
@@ -156,10 +157,6 @@ def get_user_hash(host: str, username: str) -> str:
     session.update(host.encode("utf8"))
     session.update(username.encode("utf8"))
     return session.hexdigest()
-
-
-class MetaInfo(ProtectBaseObject):
-    applicationVersion: str
 
 
 class BaseApiClient:
