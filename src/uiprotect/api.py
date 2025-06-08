@@ -56,7 +56,7 @@ from .data import (
     WSSubscriptionMessage,
     create_from_unifi_dict,
 )
-from .data.base import ProtectModelWithId, ProtectBaseObject
+from .data.base import ProtectBaseObject, ProtectModelWithId
 from .data.devices import AiPort, Chime
 from .data.types import IteratorCallback, ProgressCallback
 from .exceptions import BadRequest, NotAuthorized, NvrError
@@ -159,7 +159,8 @@ def get_user_hash(host: str, username: str) -> str:
 
 
 class MetaInfo(ProtectBaseObject):
-        applicationVersion: str
+    applicationVersion: str
+
 
 class BaseApiClient:
     _host: str
@@ -413,7 +414,7 @@ class BaseApiClient:
             path = api_path
         elif public_api:
             path = self.public_api_path
-            
+
         response = await self.request(
             method,
             f"{path}{url}",
@@ -1612,7 +1613,9 @@ class ProtectApiClient(BaseApiClient):
                 raise_exception=False,
             )
 
-        _LOGGER.debug("Requesting camera video: %s%s %s", self.private_api_path, path, params)
+        _LOGGER.debug(
+            "Requesting camera video: %s%s %s", self.private_api_path, path, params
+        )
         r = await self.request(
             "get",
             f"{self.private_api_path}{path}",

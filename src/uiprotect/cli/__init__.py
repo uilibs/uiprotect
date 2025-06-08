@@ -350,6 +350,7 @@ def create_api_key(
     result = run_async(callback())
     typer.echo(result)
 
+
 @app.command()
 def get_meta_info(ctx: typer.Context) -> None:
     """Get metadata about the current UniFi Protect instance."""
@@ -364,4 +365,3 @@ def get_meta_info(ctx: typer.Context) -> None:
 
     result = run_async(callback())
     typer.echo(result.model_dump_json())
-    
