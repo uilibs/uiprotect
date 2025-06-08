@@ -169,7 +169,7 @@ async def check_bootstrap(bootstrap: Bootstrap):
 
 
 def test_base_url(protect_client: ProtectApiClient):
-    arg = f"{protect_client.ws_path}?lastUpdateId={protect_client.bootstrap.last_update_id}"
+    arg = f"{protect_client.private_ws_path}?lastUpdateId={protect_client.bootstrap.last_update_id}"
 
     assert protect_client.base_url == "https://127.0.0.1:0"
     assert protect_client.ws_url == f"wss://127.0.0.1:0{arg}"
@@ -484,6 +484,7 @@ async def test_get_events_raw_default(protect_client: ProtectApiClient, now: dat
         method="get",
         require_auth=True,
         raise_exception=True,
+        public_api=False,
         params={
             "orderDirection": "ASC",
             "withoutDescriptions": "false",
@@ -506,6 +507,7 @@ async def test_get_events_raw_limit(protect_client: ProtectApiClient):
         method="get",
         require_auth=True,
         raise_exception=True,
+        public_api=False,
         params={"orderDirection": "ASC", "withoutDescriptions": "false", "limit": 10},
     )
 
@@ -522,6 +524,7 @@ async def test_get_events_raw_types(protect_client: ProtectApiClient):
         method="get",
         require_auth=True,
         raise_exception=True,
+        public_api=False,
         params={
             "orderDirection": "ASC",
             "withoutDescriptions": "false",
@@ -985,6 +988,7 @@ async def test_get_event_smart_detect_track(protect_client: ProtectApiClient):
         method="get",
         require_auth=True,
         raise_exception=True,
+        public_api=False,
     )
 
 
@@ -1264,6 +1268,7 @@ async def test_api_request_raw_with_custom_api_path() -> None:
         "/custom/api/path/test/endpoint",
         require_auth=True,
         auto_close=False,
+        public_api=False,
     )
 
 
@@ -1291,9 +1296,10 @@ async def test_api_request_raw_with_default_api_path() -> None:
     assert result == b"test_response"
     client.request.assert_called_with(
         "get",
-        f"{client.api_path}/test/endpoint",
+        f"{client.private_api_path}/test/endpoint",
         require_auth=True,
         auto_close=False,
+        public_api=False,
     )
 
 

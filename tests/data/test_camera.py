@@ -1324,6 +1324,7 @@ async def test_camera_create_ptz_preset(ptz_camera: Camera | None):
         method="post",
         require_auth=True,
         raise_exception=True,
+        public_api=False,
         json={"name": "Test"},
     )
 
@@ -1370,6 +1371,7 @@ async def test_camera_set_ptz_home(ptz_camera: Camera | None):
         method="post",
         require_auth=True,
         raise_exception=True,
+        public_api=False,
     )
 
 
