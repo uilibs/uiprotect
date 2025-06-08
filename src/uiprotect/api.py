@@ -57,7 +57,7 @@ from .data import (
     WSSubscriptionMessage,
     create_from_unifi_dict,
 )
-from .data.base import ProtectBaseObject, ProtectModelWithId
+from .data.base import ProtectModelWithId
 from .data.devices import AiPort, Chime
 from .data.types import IteratorCallback, ProgressCallback
 from .exceptions import BadRequest, NotAuthorized, NvrError
