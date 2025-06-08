@@ -1384,3 +1384,19 @@ def test_api_key_init():
     )
     assert hasattr(client, "_api_key")
     assert client._api_key == "my_key"
+
+
+@pytest.mark.asyncio()
+async def test_get_meta_info_calls_public_api():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+    client.api_request = AsyncMock(return_value={"applicationVersion": "1.0.0"})
+    result = await client.get_meta_info()
+    assert result.applicationVersion == "1.0.0"
+    client.api_request.assert_called_with(url="/v1/meta/info", public_api=True)

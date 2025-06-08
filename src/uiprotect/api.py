@@ -56,7 +56,7 @@ from .data import (
     WSSubscriptionMessage,
     create_from_unifi_dict,
 )
-from .data.base import ProtectModelWithId
+from .data.base import ProtectModelWithId, ProtectBaseObject
 from .data.devices import AiPort, Chime
 from .data.types import IteratorCallback, ProgressCallback
 from .exceptions import BadRequest, NotAuthorized, NvrError
@@ -2098,3 +2098,14 @@ class ProtectApiClient(BaseApiClient):
             raise BadRequest("Failed to create API key")
 
         return response["data"]["full_api_key"]
+    
+    class MetaInfo(ProtectBaseObject):
+        applicationVersion: str
+
+    async def get_meta_info(self) -> MetaInfo:
+        """Get metadata about the NVR."""
+        data = await self.api_request(
+            url="/v1/meta/info",
+            public_api=True,
+        )
+        return self.MetaInfo(**data)
