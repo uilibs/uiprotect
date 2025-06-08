@@ -158,6 +158,9 @@ def get_user_hash(host: str, username: str) -> str:
     return session.hexdigest()
 
 
+class MetaInfo(ProtectBaseObject):
+        applicationVersion: str
+
 class BaseApiClient:
     _host: str
     _port: int
@@ -178,7 +181,7 @@ class BaseApiClient:
     _private_websocket: Websocket | None = None
 
     private_api_path: str = "/proxy/protect/api/"
-    public_api_path: str = "/proxy/protect/"
+    public_api_path: str = "/proxy/protect/integration"
     private_ws_path: str = "/proxy/protect/ws/updates"
 
     cache_dir: Path
@@ -343,7 +346,8 @@ class BaseApiClient:
         if require_auth and public_api:
             if self._api_key is None:
                 raise NotAuthorized("API key is required for public API requests")
-            headers.append("X-API-KEY", self.api_key)
+            headers.clear()
+            headers["X-API-KEY"] = self._api_key
         _LOGGER.debug("Request url: %s", request_url)
         if not self._verify_ssl:
             kwargs["ssl"] = False
@@ -404,14 +408,12 @@ class BaseApiClient:
         **kwargs: Any,
     ) -> bytes | None:
         """Make a API request"""
+        path = self.private_api_path
         if api_path is not None:
             path = api_path
-        else:
-            if public_api:
-                path = self.public_api_path
-            else:
-                path = self.private_api_path
-
+        elif public_api:
+            path = self.public_api_path
+            
         response = await self.request(
             method,
             f"{path}{url}",
@@ -2098,9 +2100,6 @@ class ProtectApiClient(BaseApiClient):
             raise BadRequest("Failed to create API key")
 
         return response["data"]["full_api_key"]
-    
-    class MetaInfo(ProtectBaseObject):
-        applicationVersion: str
 
     async def get_meta_info(self) -> MetaInfo:
         """Get metadata about the NVR."""
@@ -2108,4 +2107,4 @@ class ProtectApiClient(BaseApiClient):
             url="/v1/meta/info",
             public_api=True,
         )
-        return self.MetaInfo(**data)
+        return MetaInfo(**data)
