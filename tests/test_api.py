@@ -1444,7 +1444,9 @@ async def test_api_request_raw_public_api_requires_api_key():
     )
     # Patch get_session to avoid aiohttp session creation
     client.get_session = AsyncMock()
-    with pytest.raises(NotAuthorized, match="API key is required for public API requests"):
+    with pytest.raises(
+        NotAuthorized, match="API key is required for public API requests"
+    ):
         await client.api_request_raw(
             "/v1/meta/info",
             public_api=True,
