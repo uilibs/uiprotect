@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.12.0 (2025-06-08)
+
+### Features
+
+
+- Add optional api key to protectapiclient initialization (#510) ([`86e8b54`](https://github.com/uilibs/uiprotect/commit/86e8b54bb662aaf07587452c2a92bf3718756910))
+
+
 ## v7.11.0 (2025-05-31)
 
 ### Features
