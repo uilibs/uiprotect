@@ -1400,3 +1400,52 @@ async def test_get_meta_info_calls_public_api():
     result = await client.get_meta_info()
     assert result.applicationVersion == "1.0.0"
     client.api_request.assert_called_with(url="/v1/meta/info", public_api=True)
+
+
+@pytest.mark.asyncio()
+async def test_api_request_raw_public_api_sets_path_and_header():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.read = AsyncMock(return_value=b"public_response")
+    mock_response.close = AsyncMock()
+    client.request = AsyncMock(return_value=mock_response)
+
+    result = await client.api_request_raw(
+        "/v1/meta/info",
+        public_api=True,
+    )
+    assert result == b"public_response"
+    client.request.assert_called_with(
+        "get",
+        f"{client.public_api_path}/v1/meta/info",
+        require_auth=True,
+        auto_close=False,
+        public_api=True,
+    )
+
+
+@pytest.mark.asyncio()
+async def test_api_request_raw_public_api_requires_api_key():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key=None,
+        verify_ssl=False,
+    )
+    # Patch get_session to avoid aiohttp session creation
+    client.get_session = AsyncMock()
+    with pytest.raises(NotAuthorized, match="API key is required for public API requests"):
+        await client.api_request_raw(
+            "/v1/meta/info",
+            public_api=True,
+        )

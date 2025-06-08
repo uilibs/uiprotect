@@ -344,8 +344,7 @@ class BaseApiClient:
         if require_auth and public_api:
             if self._api_key is None:
                 raise NotAuthorized("API key is required for public API requests")
-            headers.clear()
-            headers["X-API-KEY"] = self._api_key
+            headers = {"X-API-KEY": self._api_key}
         _LOGGER.debug("Request url: %s", request_url)
         if not self._verify_ssl:
             kwargs["ssl"] = False
@@ -2107,4 +2106,6 @@ class ProtectApiClient(BaseApiClient):
             url="/v1/meta/info",
             public_api=True,
         )
+        if not isinstance(data, dict):
+            raise NvrError("Failed to retrieve meta info from public API")
         return MetaInfo(**data)
