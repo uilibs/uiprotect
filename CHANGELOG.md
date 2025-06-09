@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.13.0 (2025-06-09)
+
+### Features
+
+
+- Add get_meta_info using public api (#511) ([`f30b50a`](https://github.com/uilibs/uiprotect/commit/f30b50a45bb551816bc2284d45d30611ee0d95e4))
+
+
 ## v7.12.0 (2025-06-08)
 
 ### Features
