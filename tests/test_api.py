@@ -7,7 +7,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from io import BytesIO
 from ipaddress import IPv4Address
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -1467,3 +1467,60 @@ async def test_get_meta_info_invalid_response_type():
     client.api_request = AsyncMock(return_value=None)
     with pytest.raises(NvrError, match="Failed to retrieve meta info from public API"):
         await client.get_meta_info()
+
+
+@pytest.mark.asyncio()
+async def test_public_api_sets_x_api_key_header() -> None:
+    """Test that X-API-KEY header is set when using public API."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="test_api_key_123",
+        verify_ssl=False,
+        store_sessions=False,  # Disable session storage to avoid auth cookie updates
+    )
+
+    # Create a mock session and response
+    mock_session = AsyncMock()
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.content_type = "application/json"
+    mock_response.read = AsyncMock(return_value=b'{"test": "data"}')
+    mock_response.release = AsyncMock()
+    mock_response.close = AsyncMock()
+    mock_response.url = "https://127.0.0.1:0/proxy/protect/integration/v1/test"
+    mock_response.cookies = {}  # Empty cookies to avoid cookie processing
+
+    # Track headers passed to session.request
+    actual_headers: dict[str, str] | None = None
+
+    # Create async context manager for the request
+    class MockRequestContext:
+        async def __aenter__(self) -> AsyncMock:
+            return mock_response
+
+        async def __aexit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: Any,
+        ) -> None:
+            return None
+
+    def mock_session_request(
+        method: str, url: str, headers: dict[str, str] | None = None, **kwargs: Any
+    ) -> MockRequestContext:
+        nonlocal actual_headers
+        actual_headers = headers
+        return MockRequestContext()
+
+    mock_session.request = mock_session_request
+    client.get_session = AsyncMock(return_value=mock_session)
+
+    # Make a public API request
+    await client.api_request_raw("/v1/test", public_api=True)
+
+    # Verify the X-API-KEY header was set
+    assert actual_headers == {"X-API-KEY": "test_api_key_123"}
