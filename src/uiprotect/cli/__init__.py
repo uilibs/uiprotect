@@ -11,7 +11,7 @@ import orjson
 import typer
 from rich.progress import track
 
-from uiprotect.api import ProtectApiClient
+from uiprotect.api import MetaInfo, ProtectApiClient
 
 from ..data import Version, WSPacket
 from ..test_util import SampleDataGenerator
@@ -59,6 +59,15 @@ OPTION_PASSWORD = typer.Option(
     prompt=True,
     hide_input=True,
     envvar="UFP_PASSWORD",
+)
+OPTION_API_KEY = typer.Option(
+    ...,
+    "--api-key",
+    "-k",
+    help="UniFi Protect API key",
+    prompt=True,
+    hide_input=True,
+    envvar="UFP_API_KEY",
 )
 OPTION_ADDRESS = typer.Option(
     ...,
@@ -140,6 +149,7 @@ def main(
     ctx: typer.Context,
     username: str = OPTION_USERNAME,
     password: str = OPTION_PASSWORD,
+    api_key: str = OPTION_API_KEY,
     address: str = OPTION_ADDRESS,
     port: int = OPTION_PORT,
     verify: bool = OPTION_VERIFY,
@@ -155,6 +165,7 @@ def main(
         port,
         username,
         password,
+        api_key,
         verify_ssl=verify,
         ignore_unadopted=not include_unadopted,
     )
@@ -338,3 +349,19 @@ def create_api_key(
     _setup_logger()
     result = run_async(callback())
     typer.echo(result)
+
+
+@app.command()
+def get_meta_info(ctx: typer.Context) -> None:
+    """Get metadata about the current UniFi Protect instance."""
+    protect = cast(ProtectApiClient, ctx.obj.protect)
+
+    async def callback() -> MetaInfo:
+        meta = await protect.get_meta_info()
+        await protect.close_session()
+        return meta
+
+    _setup_logger()
+
+    result = run_async(callback())
+    typer.echo(result.model_dump_json())

@@ -28,6 +28,7 @@ from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
 from uiprotect.data.convert import list_from_unifi_list
+from uiprotect.data.nvr import MetaInfo
 from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
 
 from ._compat import cached_property
@@ -175,10 +176,11 @@ class BaseApiClient:
     _cookiename = "TOKEN"
 
     headers: dict[str, str] | None = None
-    _websocket: Websocket | None = None
+    _private_websocket: Websocket | None = None
 
-    api_path: str = "/proxy/protect/api/"
-    ws_path: str = "/proxy/protect/ws/updates"
+    private_api_path: str = "/proxy/protect/api/"
+    public_api_path: str = "/proxy/protect/integration"
+    private_ws_path: str = "/proxy/protect/ws/updates"
 
     cache_dir: Path
     config_dir: Path
@@ -229,10 +231,10 @@ class BaseApiClient:
         """Updates the url after changing _host or _port."""
         if self._port != 443:
             self._url = URL(f"https://{self._host}:{self._port}")
-            self._ws_url = URL(f"wss://{self._host}:{self._port}{self.ws_path}")
+            self._ws_url = URL(f"wss://{self._host}:{self._port}{self.private_ws_path}")
         else:
             self._url = URL(f"https://{self._host}")
-            self._ws_url = URL(f"wss://{self._host}{self.ws_path}")
+            self._ws_url = URL(f"wss://{self._host}{self.private_ws_path}")
 
         self.base_url = str(self._url)
 
@@ -276,8 +278,8 @@ class BaseApiClient:
 
     def _get_websocket(self) -> Websocket:
         """Gets or creates current Websocket."""
-        if self._websocket is None:
-            self._websocket = Websocket(
+        if self._private_websocket is None:
+            self._private_websocket = Websocket(
                 self._get_websocket_url,
                 self._auth_websocket,
                 self._update_bootstrap_soon,
@@ -288,7 +290,7 @@ class BaseApiClient:
                 timeout=self._ws_timeout,
                 receive_timeout=self._ws_receive_timeout,
             )
-        return self._websocket
+        return self._private_websocket
 
     def _update_bootstrap_soon(self) -> None:
         """Update bootstrap soon."""
@@ -328,16 +330,21 @@ class BaseApiClient:
         url: str,
         require_auth: bool = False,
         auto_close: bool = True,
+        public_api: bool = False,
         **kwargs: Any,
     ) -> aiohttp.ClientResponse:
         """Make a request to UniFi Protect"""
-        if require_auth:
+        if require_auth and not public_api:
             await self.ensure_authenticated()
 
         request_url = self._url.join(
             URL(SplitResult("", "", url, "", ""), encoded=True)
         )
-        headers = kwargs.get("headers") or self.headers
+        headers = kwargs.get("headers") or self.headers or {}
+        if require_auth and public_api:
+            if self._api_key is None:
+                raise NotAuthorized("API key is required for public API requests")
+            headers = {"X-API-KEY": self._api_key}
         _LOGGER.debug("Request url: %s", request_url)
         if not self._verify_ssl:
             kwargs["ssl"] = False
@@ -394,16 +401,22 @@ class BaseApiClient:
         require_auth: bool = True,
         raise_exception: bool = True,
         api_path: str | None = None,
+        public_api: bool = False,
         **kwargs: Any,
     ) -> bytes | None:
         """Make a API request"""
-        path = api_path if api_path is not None else self.api_path
+        path = self.private_api_path
+        if api_path is not None:
+            path = api_path
+        elif public_api:
+            path = self.public_api_path
 
         response = await self.request(
             method,
             f"{path}{url}",
             require_auth=require_auth,
             auto_close=False,
+            public_api=public_api,
             **kwargs,
         )
 
@@ -456,6 +469,7 @@ class BaseApiClient:
         require_auth: bool = True,
         raise_exception: bool = True,
         api_path: str | None = None,
+        public_api: bool = False,
         **kwargs: Any,
     ) -> list[Any] | dict[str, Any] | None:
         data = await self.api_request_raw(
@@ -464,6 +478,7 @@ class BaseApiClient:
             require_auth=require_auth,
             raise_exception=raise_exception,
             api_path=api_path,
+            public_api=public_api,
             **kwargs,
         )
 
@@ -483,6 +498,7 @@ class BaseApiClient:
         method: str = "get",
         require_auth: bool = True,
         raise_exception: bool = True,
+        public_api: bool = False,
         **kwargs: Any,
     ) -> dict[str, Any]:
         data = await self.api_request(
@@ -490,6 +506,7 @@ class BaseApiClient:
             method=method,
             require_auth=require_auth,
             raise_exception=raise_exception,
+            public_api=public_api,
             **kwargs,
         )
 
@@ -504,6 +521,7 @@ class BaseApiClient:
         method: str = "get",
         require_auth: bool = True,
         raise_exception: bool = True,
+        public_api: bool = False,
         **kwargs: Any,
     ) -> list[Any]:
         data = await self.api_request(
@@ -511,6 +529,7 @@ class BaseApiClient:
             method=method,
             require_auth=require_auth,
             raise_exception=raise_exception,
+            public_api=public_api,
             **kwargs,
         )
 
@@ -689,11 +708,11 @@ class BaseApiClient:
 
     async def async_disconnect_ws(self) -> None:
         """Disconnect from Websocket."""
-        if self._websocket:
+        if self._private_websocket:
             websocket = self._get_websocket()
             websocket.stop()
             await websocket.wait_closed()
-            self._websocket = None
+            self._private_websocket = None
 
     def _process_ws_message(self, msg: aiohttp.WSMessage) -> None:
         raise NotImplementedError
@@ -1590,10 +1609,12 @@ class ProtectApiClient(BaseApiClient):
                 raise_exception=False,
             )
 
-        _LOGGER.debug("Requesting camera video: %s%s %s", self.api_path, path, params)
+        _LOGGER.debug(
+            "Requesting camera video: %s%s %s", self.private_api_path, path, params
+        )
         r = await self.request(
             "get",
-            f"{self.api_path}{path}",
+            f"{self.private_api_path}{path}",
             auto_close=False,
             timeout=0,
             params=params,
@@ -2078,3 +2099,13 @@ class ProtectApiClient(BaseApiClient):
             raise BadRequest("Failed to create API key")
 
         return response["data"]["full_api_key"]
+
+    async def get_meta_info(self) -> MetaInfo:
+        """Get metadata about the NVR."""
+        data = await self.api_request(
+            url="/v1/meta/info",
+            public_api=True,
+        )
+        if not isinstance(data, dict):
+            raise NvrError("Failed to retrieve meta info from public API")
+        return MetaInfo(**data)

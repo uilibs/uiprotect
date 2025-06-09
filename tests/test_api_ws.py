@@ -631,9 +631,9 @@ async def test_check_ws_connected(
 ):
     caplog.set_level(logging.DEBUG)
     unsub = protect_client_ws.subscribe_websocket(lambda _: None)
-    while not protect_client_ws._websocket.is_connected:
+    while not protect_client_ws._private_websocket.is_connected:
         await asyncio.sleep(0.01)
-    assert protect_client_ws._websocket.is_connected
+    assert protect_client_ws._private_websocket.is_connected
     unsub()
 
 
@@ -642,7 +642,7 @@ async def test_check_ws_connected_state_callback(
     protect_client_ws: ProtectApiClient,
     caplog: pytest.LogCaptureFixture,
 ):
-    websocket = protect_client_ws._websocket
+    websocket = protect_client_ws._private_websocket
     assert not websocket.is_connected
 
     caplog.set_level(logging.DEBUG)
@@ -674,7 +674,7 @@ async def test_check_ws_no_ws_initial(
     caplog.set_level(logging.DEBUG)
 
     await protect_client.async_disconnect_ws()
-    assert not protect_client._websocket
+    assert not protect_client._private_websocket
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")

@@ -71,6 +71,10 @@ DELETE_KEYS_THUMB = {"color", "vehicleType"}
 DELETE_KEYS_EVENT = {"deletedAt", "category", "subCategory"}
 
 
+class MetaInfo(ProtectBaseObject):
+    applicationVersion: str
+
+
 class NVRLocation(UserLocation):
     is_geofencing_enabled: bool
     radius: int
