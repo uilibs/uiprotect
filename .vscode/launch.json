@@ -27,18 +27,29 @@
             }
         },
         {
-            "name": "Python: Debug Tests",
+            "name": "Debug Tests (pytest/poetry)",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
-            "purpose": [
-                "debug-test"
-            ],
-            "console": "integratedTerminal",
+            "module": "pytest",
             "justMyCode": false,
-            "env": {
-                "PYTEST_ADDOPTS": "-n=0 --no-cov -vv"
-            }
+            "console": "integratedTerminal",
+            "args": [
+                "-v"
+            ],
+            "python": "/usr/local/bin/python3",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Python: Debug Test File",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "justMyCode": false,
+            "console": "integratedTerminal",
+            "args": [
+                "${file}"
+            ],
+            "cwd": "${workspaceFolder}"
         }
     ]
 }
