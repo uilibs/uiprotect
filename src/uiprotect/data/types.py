@@ -436,6 +436,7 @@ class VideoMode(str, ValuesEnumMixin, enum.Enum):
     SPORT = "sport"
     SLOW_SHUTTER = "slowShutter"
     LPR_NONE_REFLEX = "lprNoneReflex"
+    LPR_REFLEX = "lprReflex"
     # should only be for unadopted devices
     UNKNOWN = "unknown"
 
