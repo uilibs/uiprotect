@@ -3544,7 +3544,7 @@
             "lastRing": null,
             "isLiveHeatmapEnabled": false,
             "useGlobal": false,
-            "anonymousDeviceId": "7b4e5226-215f-44d1-bbf4-cdfe64599cdb",
+            "anonymousDeviceId": "",
             "eventStats": {
                 "motion": {
                     "today": 1,

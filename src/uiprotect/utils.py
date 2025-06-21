@@ -237,10 +237,13 @@ def convert_unifi_data(value: Any, field: FieldInfo) -> Any:
             # cannot do this check too soon because some types cannot be used in isinstance
             if isinstance(value, type_):
                 return value
-            # handle edge case for improperly formatted UUIDs
-            # 00000000-0000-00 0- 000-000000000000
-            if type_ is UUID and value == _BAD_UUID:
-                return _EMPTY_UUID
+            if type_ is UUID:
+                if not value:
+                    return None
+                # handle edge case for improperly formatted UUIDs
+                # 00000000-0000-00 0- 000-000000000000
+                if value == _BAD_UUID:
+                    return _EMPTY_UUID
             if (type_ is IPv4Address) and value == "":
                 return None
             return type_(value)

@@ -1092,6 +1092,9 @@ def compare_objs(obj_type, expected, actual):
     for key in OLD_FIELDS.intersection(expected.keys()):
         del expected[key]
 
+    if "anonymousDeviceId" in expected and not expected["anonymousDeviceId"]:
+        expected["anonymousDeviceId"] = None
+
     assert expected == actual
 
 
