@@ -238,7 +238,7 @@ def convert_unifi_data(value: Any, field: FieldInfo) -> Any:
             if isinstance(value, type_):
                 return value
             if type_ is UUID:
-                if value == "" or value is None:
+                if not value:
                     return None
                 # handle edge case for improperly formatted UUIDs
                 # 00000000-0000-00 0- 000-000000000000
