@@ -4,7 +4,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.progress import Progress
@@ -43,13 +42,13 @@ ALL_COMMANDS: dict[str, Callable[..., None]] = {}
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
-    event_id: Optional[str] = ARG_EVENT_ID,
-    start: Optional[datetime] = OPTION_START,
-    end: Optional[datetime] = OPTION_END,
-    limit: Optional[int] = OPTION_LIMIT,
-    offset: Optional[int] = OPTION_OFFSET,
-    types: Optional[list[d.EventType]] = OPTION_TYPES,
-    smart_types: Optional[list[d.SmartDetectObjectType]] = OPTION_SMART_TYPES,
+    event_id: str | None = ARG_EVENT_ID,
+    start: datetime | None = OPTION_START,
+    end: datetime | None = OPTION_END,
+    limit: int | None = OPTION_LIMIT,
+    offset: int | None = OPTION_OFFSET,
+    types: list[d.EventType] | None = OPTION_TYPES,
+    smart_types: list[d.SmartDetectObjectType] | None = OPTION_SMART_TYPES,
 ) -> None:
     """
     Events CLI.

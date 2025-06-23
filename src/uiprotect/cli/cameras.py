@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, cast
+from typing import cast
 
 import typer
 from rich.progress import Progress
@@ -27,7 +27,7 @@ ALL_COMMANDS, DEVICE_COMMANDS = base.init_common_commands(app)
 
 
 @app.callback(invoke_without_command=True)
-def main(ctx: typer.Context, device_id: Optional[str] = ARG_DEVICE_ID) -> None:
+def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
     """
     Camera device CLI.
 
@@ -74,7 +74,7 @@ def timelapse_url(ctx: typer.Context) -> None:
 @app.command()
 def privacy_mode(
     ctx: typer.Context,
-    enabled: Optional[bool] = typer.Argument(None),
+    enabled: bool | None = typer.Argument(None),
 ) -> None:
     """
     Returns/sets library managed privacy mode.
@@ -91,7 +91,7 @@ def privacy_mode(
 
 
 @app.command()
-def chime_type(ctx: typer.Context, value: Optional[d.ChimeType] = None) -> None:
+def chime_type(ctx: typer.Context, value: d.ChimeType | None = None) -> None:
     """Returns/sets the current chime type if the camera has a chime."""
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
@@ -137,9 +137,9 @@ def stream_urls(ctx: typer.Context) -> None:
 def save_snapshot(
     ctx: typer.Context,
     output_path: Path = typer.Argument(..., help="JPEG format"),
-    width: Optional[int] = typer.Option(None, "-w", "--width"),
-    height: Optional[int] = typer.Option(None, "-h", "--height"),
-    dt: Optional[datetime] = typer.Option(None, "-t", "--timestamp"),
+    width: int | None = typer.Option(None, "-w", "--width"),
+    height: int | None = typer.Option(None, "-h", "--height"),
+    dt: datetime | None = typer.Option(None, "-t", "--timestamp"),
     package: bool = typer.Option(False, "-p", "--package", help="Get package camera"),
 ) -> None:
     """
@@ -188,7 +188,7 @@ def save_video(
         max=3,
         help="0 = High, 1 = Medium, 2 = Low, 3 = Package",
     ),
-    fps: Optional[int] = typer.Option(
+    fps: int | None = typer.Option(
         None,
         "--fps",
         min=1,
@@ -245,7 +245,7 @@ def save_video(
 def play_audio(
     ctx: typer.Context,
     url: str = typer.Argument(..., help="ffmpeg playable URL"),
-    ffmpeg_path: Optional[Path] = typer.Option(
+    ffmpeg_path: Path | None = typer.Option(
         None,
         "--ffmpeg-path",
         help="Path to ffmpeg executable",
@@ -542,15 +542,15 @@ def set_osd_bitrate(ctx: typer.Context, enabled: bool) -> None:
 @app.command()
 def set_lcd_text(
     ctx: typer.Context,
-    text_type: Optional[d.DoorbellMessageType] = typer.Argument(
+    text_type: d.DoorbellMessageType | None = typer.Argument(
         None,
         help="No value sets it back to the global default doorbell message.",
     ),
-    text: Optional[str] = typer.Argument(
+    text: str | None = typer.Argument(
         None,
         help="Only for CUSTOM_MESSAGE text type",
     ),
-    reset_at: Optional[datetime] = typer.Option(
+    reset_at: datetime | None = typer.Option(
         None,
         "-r",
         "--reset-time",
