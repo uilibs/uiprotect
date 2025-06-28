@@ -7,7 +7,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from io import BytesIO
 from ipaddress import IPv4Address
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -169,7 +169,7 @@ async def check_bootstrap(bootstrap: Bootstrap):
 
 
 def test_base_url(protect_client: ProtectApiClient):
-    arg = f"{protect_client.ws_path}?lastUpdateId={protect_client.bootstrap.last_update_id}"
+    arg = f"{protect_client.private_ws_path}?lastUpdateId={protect_client.bootstrap.last_update_id}"
 
     assert protect_client.base_url == "https://127.0.0.1:0"
     assert protect_client.ws_url == f"wss://127.0.0.1:0{arg}"
@@ -484,6 +484,7 @@ async def test_get_events_raw_default(protect_client: ProtectApiClient, now: dat
         method="get",
         require_auth=True,
         raise_exception=True,
+        public_api=False,
         params={
             "orderDirection": "ASC",
             "withoutDescriptions": "false",
@@ -506,6 +507,7 @@ async def test_get_events_raw_limit(protect_client: ProtectApiClient):
         method="get",
         require_auth=True,
         raise_exception=True,
+        public_api=False,
         params={"orderDirection": "ASC", "withoutDescriptions": "false", "limit": 10},
     )
 
@@ -522,6 +524,7 @@ async def test_get_events_raw_types(protect_client: ProtectApiClient):
         method="get",
         require_auth=True,
         raise_exception=True,
+        public_api=False,
         params={
             "orderDirection": "ASC",
             "withoutDescriptions": "false",
@@ -985,6 +988,7 @@ async def test_get_event_smart_detect_track(protect_client: ProtectApiClient):
         method="get",
         require_auth=True,
         raise_exception=True,
+        public_api=False,
     )
 
 
@@ -1264,6 +1268,7 @@ async def test_api_request_raw_with_custom_api_path() -> None:
         "/custom/api/path/test/endpoint",
         require_auth=True,
         auto_close=False,
+        public_api=False,
     )
 
 
@@ -1291,9 +1296,10 @@ async def test_api_request_raw_with_default_api_path() -> None:
     assert result == b"test_response"
     client.request.assert_called_with(
         "get",
-        f"{client.api_path}/test/endpoint",
+        f"{client.private_api_path}/test/endpoint",
         require_auth=True,
         auto_close=False,
+        public_api=False,
     )
 
 
@@ -1365,3 +1371,156 @@ async def test_read_auth_config_no_session():
     with patch("aiofiles.open", return_value=AsyncMockOpen(b"{}")):
         result = await client._read_auth_config()
         assert result is None
+
+
+def test_api_key_init():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+    assert hasattr(client, "_api_key")
+    assert client._api_key == "my_key"
+
+
+@pytest.mark.asyncio()
+async def test_get_meta_info_calls_public_api():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+    client.api_request = AsyncMock(return_value={"applicationVersion": "1.0.0"})
+    result = await client.get_meta_info()
+    assert result.applicationVersion == "1.0.0"
+    client.api_request.assert_called_with(url="/v1/meta/info", public_api=True)
+
+
+@pytest.mark.asyncio()
+async def test_api_request_raw_public_api_sets_path_and_header():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.read = AsyncMock(return_value=b"public_response")
+    mock_response.close = AsyncMock()
+    client.request = AsyncMock(return_value=mock_response)
+
+    result = await client.api_request_raw(
+        "/v1/meta/info",
+        public_api=True,
+    )
+    assert result == b"public_response"
+    client.request.assert_called_with(
+        "get",
+        f"{client.public_api_path}/v1/meta/info",
+        require_auth=True,
+        auto_close=False,
+        public_api=True,
+    )
+
+
+@pytest.mark.asyncio()
+async def test_api_request_raw_public_api_requires_api_key():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key=None,
+        verify_ssl=False,
+    )
+    # Patch get_session to avoid aiohttp session creation
+    client.get_session = AsyncMock()
+    with pytest.raises(
+        NotAuthorized, match="API key is required for public API requests"
+    ):
+        await client.api_request_raw(
+            "/v1/meta/info",
+            public_api=True,
+        )
+
+
+@pytest.mark.asyncio()
+async def test_get_meta_info_invalid_response_type():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+    # Mock api_request to return a non-dict value
+    client.api_request = AsyncMock(return_value=None)
+    with pytest.raises(NvrError, match="Failed to retrieve meta info from public API"):
+        await client.get_meta_info()
+
+
+@pytest.mark.asyncio()
+async def test_public_api_sets_x_api_key_header() -> None:
+    """Test that X-API-KEY header is set when using public API."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="test_api_key_123",
+        verify_ssl=False,
+        store_sessions=False,  # Disable session storage to avoid auth cookie updates
+    )
+
+    # Create a mock session and response
+    mock_session = AsyncMock()
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.content_type = "application/json"
+    mock_response.read = AsyncMock(return_value=b'{"test": "data"}')
+    mock_response.release = AsyncMock()
+    mock_response.close = AsyncMock()
+    mock_response.url = "https://127.0.0.1:0/proxy/protect/integration/v1/test"
+    mock_response.cookies = {}  # Empty cookies to avoid cookie processing
+
+    # Track headers passed to session.request
+    actual_headers: dict[str, str] | None = None
+
+    # Create async context manager for the request
+    class MockRequestContext:
+        async def __aenter__(self) -> AsyncMock:
+            return mock_response
+
+        async def __aexit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: Any,
+        ) -> None:
+            return None
+
+    def mock_session_request(
+        method: str, url: str, headers: dict[str, str] | None = None, **kwargs: Any
+    ) -> MockRequestContext:
+        nonlocal actual_headers
+        actual_headers = headers
+        return MockRequestContext()
+
+    mock_session.request = mock_session_request
+    client.get_session = AsyncMock(return_value=mock_session)
+
+    # Make a public API request
+    await client.api_request_raw("/v1/test", public_api=True)
+
+    # Verify the X-API-KEY header was set
+    assert actual_headers == {"X-API-KEY": "test_api_key_123"}

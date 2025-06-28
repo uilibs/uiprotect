@@ -1,5 +1,37 @@
 # Changelog
 
+## v7.14.0 (2025-06-18)
+
+### Features
+
+
+- Add lpr_reflex to videomode enum (#519) ([`bc86bf1`](https://github.com/uilibs/uiprotect/commit/bc86bf15e4437c8ba2d29ed3e4bb7b49c8f09bba))
+
+
+## v7.13.0 (2025-06-09)
+
+### Features
+
+
+- Add get_meta_info using public api (#511) ([`f30b50a`](https://github.com/uilibs/uiprotect/commit/f30b50a45bb551816bc2284d45d30611ee0d95e4))
+
+
+## v7.12.0 (2025-06-08)
+
+### Features
+
+
+- Add optional api key to protectapiclient initialization (#510) ([`86e8b54`](https://github.com/uilibs/uiprotect/commit/86e8b54bb662aaf07587452c2a92bf3718756910))
+
+
+## v7.11.0 (2025-05-31)
+
+### Features
+
+
+- Add adaptive mode to recordingmode enum (#501) ([`4b4155a`](https://github.com/uilibs/uiprotect/commit/4b4155aec2f74076669648194231136774f27198))
+
+
 ## v7.10.1 (2025-05-27)
 
 ### Bug fixes
