@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import aiofiles
 import aiofiles.os as aos
@@ -396,9 +396,9 @@ def _setup_logger(verbose: bool) -> None:
 @app.callback()
 def main(
     ctx: typer.Context,
-    start: Optional[str] = OPTION_START,
-    end: Optional[str] = OPTION_END,
-    output_folder: Optional[Path] = OPTION_OUTPUT,
+    start: str | None = OPTION_START,
+    end: str | None = OPTION_END,
+    output_folder: Path | None = OPTION_OUTPUT,
     thumbnail_format: str = OPTION_THUMBNAIL_FORMAT,
     gif_format: str = OPTION_GIF_FORMAT,
     event_format: str = OPTION_EVENT_FORMAT,
