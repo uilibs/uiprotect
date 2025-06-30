@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 from collections.abc import Callable, Coroutine
 from functools import cache, lru_cache
-from typing import Annotated, Any, Literal, Optional, TypeVar, Union
+from typing import Annotated, Any, Literal, TypeVar, Union
 
 from packaging.version import Version as BaseVersion
 from pydantic import BaseModel, Field
@@ -50,7 +50,7 @@ EventCategories = Literal[
 ]
 
 ProgressCallback = Callable[[int, int, int], Coroutine[Any, Any, None]]
-IteratorCallback = Callable[[int, Optional[bytes]], Coroutine[Any, Any, None]]
+IteratorCallback = Callable[[int, bytes | None], Coroutine[Any, Any, None]]
 
 
 class FixSizeOrderedDict(dict[KT, VT]):
