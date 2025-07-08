@@ -13,9 +13,9 @@ from rich.progress import track
 
 from uiprotect.api import MetaInfo, ProtectApiClient
 
-from ..data import Version, WSPacket
+from ..data import WSPacket
 from ..test_util import SampleDataGenerator
-from ..utils import RELEASE_CACHE, get_local_timezone, run_async
+from ..utils import get_local_timezone, run_async
 from ..utils import profile_ws as profile_ws_job
 from .aiports import app as aiports_app
 from .base import CliContext, OutputFormatEnum
