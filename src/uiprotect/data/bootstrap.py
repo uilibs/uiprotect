@@ -680,5 +680,5 @@ class Bootstrap(ProtectBaseObject):
         _LOGGER.debug("Successfully refresh model: %s %s", model_type, device_id)
 
     async def get_is_prerelease(self) -> bool:
-        """Get if current version of Protect is a prerelease version."""
-        return await self.nvr.get_is_prerelease()
+        """[DEPRECATED] Always returns False. Will be removed after HA 2025.8.0."""
+        return False

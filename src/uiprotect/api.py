@@ -82,10 +82,7 @@ TOKEN_COOKIE_MAX_EXP_SECONDS = 60
 DEVICE_UPDATE_INTERVAL = 900
 # retry timeout for thumbnails/heatmaps
 RETRY_TIMEOUT = 10
-PROTECT_APT_URLS = [
-    "https://apt.artifacts.ui.com/dists/stretch/release/binary-arm64/Packages",
-    "https://apt.artifacts.ui.com/dists/bullseye/release/binary-arm64/Packages",
-]
+
 TYPES_BUG_MESSAGE = """There is currently a bug in UniFi Protect that makes `start` / `end` not work if `types` is not provided. This means uiprotect has to iterate over all of the events matching the filters provided to return values.
 
 If your Protect instance has a lot of events, this request will take much longer then expected. It is recommended adding additional filters to speed the request up."""
@@ -1912,17 +1909,6 @@ class ProtectApiClient(BaseApiClient):
             client_exceptions.ClientError,
         ) as err:
             raise NvrError(f"Error packages from {url}: {err}") from err
-
-        return versions
-
-    async def get_release_versions(self) -> set[Version]:
-        """Get all release versions for UniFi Protect"""
-        versions: set[Version] = set()
-        for url in PROTECT_APT_URLS:
-            try:
-                versions |= await self._get_versions_from_api(url)
-            except NvrError:
-                _LOGGER.warning("Failed to retrieve release versions from online.")
 
         return versions
 

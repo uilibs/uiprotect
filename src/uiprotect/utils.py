@@ -74,8 +74,6 @@ SNAKE_CASE_MATCH_3 = re.compile("([a-z0-9])([A-Z])")
 
 _LOGGER = logging.getLogger(__name__)
 
-RELEASE_CACHE = Path(__file__).parent / "release_cache.json"
-
 _CREATE_TYPES = {IPv6Address, IPv4Address, UUID, Color, Decimal, Path, Version}
 _BAD_UUID = "00000000-0000-00 0- 000-000000000000"
 

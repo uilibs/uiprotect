@@ -13,9 +13,9 @@ from rich.progress import track
 
 from uiprotect.api import MetaInfo, ProtectApiClient
 
-from ..data import Version, WSPacket
+from ..data import WSPacket
 from ..test_util import SampleDataGenerator
-from ..utils import RELEASE_CACHE, get_local_timezone, run_async
+from ..utils import get_local_timezone, run_async
 from ..utils import profile_ws as profile_ws_job
 from .aiports import app as aiports_app
 from .base import CliContext, OutputFormatEnum
@@ -312,25 +312,6 @@ def decode_ws_msg(
     response = {"action": packet.action_frame.data, "data": packet.data_frame.data}
 
     typer.echo(orjson.dumps(response).decode("utf-8"))
-
-
-@app.command()
-def release_versions(ctx: typer.Context) -> None:
-    """Updates the release version cache on disk."""
-    protect = cast(ProtectApiClient, ctx.obj.protect)
-
-    async def callback() -> set[Version]:
-        versions = await protect.get_release_versions()
-        await protect.close_session()
-        return versions
-
-    _setup_logger()
-
-    versions = run_async(callback())
-    output = orjson.dumps(sorted([str(v) for v in versions]))
-
-    Path(RELEASE_CACHE).write_bytes(output)
-    typer.echo(output.decode("utf-8"))
 
 
 @app.command()

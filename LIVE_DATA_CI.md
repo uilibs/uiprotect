@@ -83,7 +83,6 @@ Next step is to create an "environment" for your workflow to run it with the sec
 1. Go to "Settings -> Environments -> New Environment" and name it your Github username.
 2. Change "Deployment Branches" to "Selected Branches" and add `master`
 3. Under "Environment Secrets" add the following secrets:
-
    - `UFP_ADDRESS`: IP or host name to your UFP instance
    - `UFP_PORT`: Port for your UFP instance
    - `UFP_SSL_VERIFY`: True or False. Whether or not to verify SSL certs for instance
