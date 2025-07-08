@@ -214,10 +214,9 @@ async def test_get_is_prerelease_returns_false(protect_client: ProtectApiClient)
     protect_client._bootstrap = None
 
     await protect_client.update()
-    
+
     assert await protect_client.bootstrap.get_is_prerelease() is False
     assert await protect_client.bootstrap.nvr.get_is_prerelease() is False
-
 
 
 @pytest.mark.asyncio()
