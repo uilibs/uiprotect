@@ -315,25 +315,6 @@ def decode_ws_msg(
 
 
 @app.command()
-def release_versions(ctx: typer.Context) -> None:
-    """Updates the release version cache on disk."""
-    protect = cast(ProtectApiClient, ctx.obj.protect)
-
-    async def callback() -> set[Version]:
-        versions = await protect.get_release_versions()
-        await protect.close_session()
-        return versions
-
-    _setup_logger()
-
-    versions = run_async(callback())
-    output = orjson.dumps(sorted([str(v) for v in versions]))
-
-    Path(RELEASE_CACHE).write_bytes(output)
-    typer.echo(output.decode("utf-8"))
-
-
-@app.command()
 def create_api_key(
     ctx: typer.Context,
     name: str = typer.Argument(..., help="Name for the API key"),

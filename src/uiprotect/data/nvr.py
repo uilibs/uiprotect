@@ -1217,29 +1217,9 @@ class NVR(ProtectDeviceModel):
         return versions
 
     async def get_is_prerelease(self) -> bool:
-        """Get if current version of Protect is a prerelease version."""
-        # only EA versions have `-beta` in versions
-        if self.version.is_prerelease:
-            return True
 
-        # 2.6.14 is an EA version that looks like a release version
-        cache_file_path = self._api.cache_dir / "release_cache.json"
-        versions = await self._read_cache_file(
-            cache_file_path,
-        ) or await self._read_cache_file(RELEASE_CACHE)
-        if versions is None or self.version not in versions:
-            versions = await self._api.get_release_versions()
-            try:
-                _LOGGER.debug("Fetching releases from APT repos...")
-                tmp = self._api.cache_dir / "release_cache.tmp.json"
-                await aos.makedirs(self._api.cache_dir, exist_ok=True)
-                async with aiofiles.open(tmp, "wb") as cache_file:
-                    await cache_file.write(orjson.dumps([str(v) for v in versions]))
-                await aos.rename(tmp, cache_file_path)
-            except Exception:
-                _LOGGER.warning("Failed write cache file.")
-
-        return self.version not in versions
+        """[DEPRECATED] Always returns False. Will be removed after HA 2025.8.0."""
+        return False
 
     async def set_smart_detections(self, value: bool) -> None:
         """Set if smart detections are enabled."""
