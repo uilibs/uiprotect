@@ -1,5 +1,19 @@
 # Changelog
 
+## v7.14.2 (2025-07-08)
+
+### Bug fixes
+
+
+- Add note about switching to the new public api ([`eb478d2`](https://github.com/uilibs/uiprotect/commit/eb478d2c981fe4c8faa3ad6fa18c47cbc9a7760e))
+
+
+### Refactoring
+
+
+- Removes release version retrieval return false for compatibility ([`e646655`](https://github.com/uilibs/uiprotect/commit/e6466558819c414395112fb1858bc5dd28a39c90))
+
+
 ## v7.14.1 (2025-06-21)
 
 ### Bug fixes
