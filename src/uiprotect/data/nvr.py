@@ -15,12 +15,11 @@ from uuid import UUID
 
 import aiofiles
 import orjson
-from aiofiles import os as aos
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
 from pydantic.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized
-from ..utils import RELEASE_CACHE, convert_to_datetime
+from ..utils import convert_to_datetime
 from .base import (
     ProtectBaseObject,
     ProtectDeviceModel,
@@ -1217,7 +1216,6 @@ class NVR(ProtectDeviceModel):
         return versions
 
     async def get_is_prerelease(self) -> bool:
-
         """[DEPRECATED] Always returns False. Will be removed after HA 2025.8.0."""
         return False
 
