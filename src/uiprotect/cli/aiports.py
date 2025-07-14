@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import typer
 
@@ -26,7 +25,7 @@ ALL_COMMANDS, DEVICE_COMMANDS = base.init_common_commands(app)
 
 
 @app.callback(invoke_without_command=True)
-def main(ctx: typer.Context, device_id: Optional[str] = ARG_DEVICE_ID) -> None:
+def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
     """
     AiPort device CLI.
 
