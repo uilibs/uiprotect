@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.15.0 (2025-07-19)
+
+### Features
+
+
+- Add public api session without cookie and update tests ([`89416ef`](https://github.com/uilibs/uiprotect/commit/89416ef8fe06048677254b95eb0913e6f0106161))
+
+
 ## v7.14.2 (2025-07-08)
 
 ### Bug fixes
