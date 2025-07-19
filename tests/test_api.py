@@ -1528,7 +1528,7 @@ async def test_public_api_sets_x_api_key_header() -> None:
         return MockRequestContext()
 
     mock_session.request = mock_session_request
-    client.get_session = AsyncMock(return_value=mock_session)
+    client.get_public_api_session = AsyncMock(return_value=mock_session)
 
     # Make a public API request
     await client.api_request_raw("/v1/test", public_api=True)
