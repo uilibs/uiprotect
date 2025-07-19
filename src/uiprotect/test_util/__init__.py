@@ -142,6 +142,7 @@ class SampleDataGenerator:
 
         if close_session:
             await self.client.close_session()
+            await self.client.close_public_api_session()
 
         await self.write_json_file("sample_constants", self.constants, anonymize=False)
 

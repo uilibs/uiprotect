@@ -173,6 +173,7 @@ def main(
     async def update() -> None:
         protect._bootstrap = await protect.get_bootstrap()
         await protect.close_session()
+        await protect.close_public_api_session()
 
     run_async(update())
     ctx.obj = CliContext(protect=protect, output_format=output_format)
@@ -286,6 +287,7 @@ def profile_ws(
         unsub()
         await protect.async_disconnect_ws()
         await protect.close_session()
+        await protect.close_public_api_session()
 
     _setup_logger()
 
@@ -325,6 +327,7 @@ def create_api_key(
     async def callback() -> str:
         api_key = await protect.create_api_key(name)
         await protect.close_session()
+        await protect.close_public_api_session()
         return api_key
 
     _setup_logger()
@@ -340,6 +343,7 @@ def get_meta_info(ctx: typer.Context) -> None:
     async def callback() -> MetaInfo:
         meta = await protect.get_meta_info()
         await protect.close_session()
+        await protect.close_public_api_session()
         return meta
 
     _setup_logger()

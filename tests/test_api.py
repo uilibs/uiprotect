@@ -10,6 +10,7 @@ from ipaddress import IPv4Address
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, patch
 
+import aiohttp
 import pytest
 from PIL import Image
 
@@ -1528,10 +1529,108 @@ async def test_public_api_sets_x_api_key_header() -> None:
         return MockRequestContext()
 
     mock_session.request = mock_session_request
-    client.get_session = AsyncMock(return_value=mock_session)
+    client.get_public_api_session = AsyncMock(return_value=mock_session)
 
     # Make a public API request
     await client.api_request_raw("/v1/test", public_api=True)
 
     # Verify the X-API-KEY header was set
     assert actual_headers == {"X-API-KEY": "test_api_key_123"}
+
+
+@pytest.mark.asyncio
+async def test_get_public_api_session_creates_and_reuses_session():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        verify_ssl=False,
+    )
+    session1 = await client.get_public_api_session()
+    assert isinstance(session1, aiohttp.ClientSession)
+    session2 = await client.get_public_api_session()
+    assert session1 is session2
+    await session1.close()
+    session3 = await client.get_public_api_session()
+    assert session3 is not session1
+    assert isinstance(session3, aiohttp.ClientSession)
+    await session3.close()
+
+
+@pytest.mark.asyncio
+async def test_public_api_session_constructor_assignment():
+    import aiohttp
+
+    async with aiohttp.ClientSession() as session:
+        client = ProtectApiClient(
+            "127.0.0.1",
+            0,
+            "user",
+            "pass",
+            public_api_session=session,
+            verify_ssl=False,
+        )
+        assert client._public_api_session is session
+
+
+@pytest.mark.asyncio()
+async def test_request_uses_get_session_for_private_api():
+    """Test that request uses get_session (not get_public_api_session) for private API calls."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        verify_ssl=False,
+    )
+    # Patch get_session to return a mock session
+    mock_session = AsyncMock()
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.content_type = "application/json"
+    mock_response.read = AsyncMock(return_value=b"{}")
+    mock_response.release = AsyncMock()
+    mock_response.close = AsyncMock()
+    mock_response.headers = {}
+    mock_response.cookies = {}
+
+    # __aenter__ returns the response
+    class MockRequestContext:
+        async def __aenter__(self):
+            return mock_response
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    mock_session.request = lambda *args, **kwargs: MockRequestContext()
+    client.get_session = AsyncMock(return_value=mock_session)
+    client.ensure_authenticated = AsyncMock()
+    # Should use get_session, not get_public_api_session
+    client.get_public_api_session = AsyncMock()
+    # Call request with public_api=False
+    result = await client.request("get", "/test/endpoint", public_api=False)
+    assert result is mock_response
+    client.get_session.assert_awaited()
+    client.get_public_api_session.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_close_public_api_session():
+    async with aiohttp.ClientSession() as session:
+        client = ProtectApiClient(
+            "127.0.0.1",
+            0,
+            "user",
+            "pass",
+            public_api_session=session,
+            verify_ssl=False,
+        )
+        # Should be the same session
+        assert client._public_api_session is session
+        # Close the session
+        await client.close_public_api_session()
+        # Should be None after closing
+        assert client._public_api_session is None
+        # Should be idempotent (no error if called again)
+        await client.close_public_api_session()
