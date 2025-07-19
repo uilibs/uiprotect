@@ -1064,6 +1064,7 @@ async def _events(
     finally:
         _LOGGER.debug("Cleaning up Protect connection/database...")
         await ctx.protect.close_session()
+        await ctx.protect.close_public_api_session()
         await ctx.db_engine.dispose()
 
 

@@ -292,6 +292,7 @@ async def setup_client(
 async def cleanup_client(client: ProtectApiClient):
     await client.async_disconnect_ws()
     await client.close_session()
+    await client.close_public_api_session()
 
 
 @pytest_asyncio.fixture(name="protect_client")

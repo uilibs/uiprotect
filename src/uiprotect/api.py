@@ -320,6 +320,12 @@ class BaseApiClient:
             self._session = None
             self._loaded_session = False
 
+    async def close_public_api_session(self) -> None:
+        """Closing and deletes public API client session"""
+        if self._public_api_session is not None:
+            await self._public_api_session.close()
+            self._public_api_session = None
+
     async def _cancel_update_task(self) -> None:
         if self._update_task:
             self._update_task.cancel()
