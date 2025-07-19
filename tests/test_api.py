@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -11,7 +12,6 @@ from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, patch
 
 import aiohttp
-import asyncio
 import pytest
 from PIL import Image
 
@@ -1549,14 +1549,20 @@ def test_get_public_api_session_creates_and_reuses_session():
         verify_ssl=False,
     )
     # Should create a new session
-    session1 = asyncio.get_event_loop().run_until_complete(client.get_public_api_session())
+    session1 = asyncio.get_event_loop().run_until_complete(
+        client.get_public_api_session()
+    )
     assert isinstance(session1, aiohttp.ClientSession)
     # Should reuse the same session if not closed
-    session2 = asyncio.get_event_loop().run_until_complete(client.get_public_api_session())
+    session2 = asyncio.get_event_loop().run_until_complete(
+        client.get_public_api_session()
+    )
     assert session1 is session2
     # Close and check new session is created
     asyncio.get_event_loop().run_until_complete(session1.close())
-    session3 = asyncio.get_event_loop().run_until_complete(client.get_public_api_session())
+    session3 = asyncio.get_event_loop().run_until_complete(
+        client.get_public_api_session()
+    )
     assert session3 is not session1
     assert isinstance(session3, aiohttp.ClientSession)
     asyncio.get_event_loop().run_until_complete(session3.close())
