@@ -10,6 +10,8 @@ from ipaddress import IPv4Address
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, patch
 
+import aiohttp
+import asyncio
 import pytest
 from PIL import Image
 
@@ -1535,3 +1537,26 @@ async def test_public_api_sets_x_api_key_header() -> None:
 
     # Verify the X-API-KEY header was set
     assert actual_headers == {"X-API-KEY": "test_api_key_123"}
+
+
+@pytest.mark.asyncio
+def test_get_public_api_session_creates_and_reuses_session():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        verify_ssl=False,
+    )
+    # Should create a new session
+    session1 = asyncio.get_event_loop().run_until_complete(client.get_public_api_session())
+    assert isinstance(session1, aiohttp.ClientSession)
+    # Should reuse the same session if not closed
+    session2 = asyncio.get_event_loop().run_until_complete(client.get_public_api_session())
+    assert session1 is session2
+    # Close and check new session is created
+    asyncio.get_event_loop().run_until_complete(session1.close())
+    session3 = asyncio.get_event_loop().run_until_complete(client.get_public_api_session())
+    assert session3 is not session1
+    assert isinstance(session3, aiohttp.ClientSession)
+    asyncio.get_event_loop().run_until_complete(session3.close())
