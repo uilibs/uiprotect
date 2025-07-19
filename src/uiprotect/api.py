@@ -265,7 +265,7 @@ class BaseApiClient:
             self._session = aiohttp.ClientSession(cookie_jar=CookieJar(unsafe=True))
 
         return self._session
-    
+
     async def get_public_api_session(self) -> aiohttp.ClientSession:
         """Gets or creates current public API client session"""
         if self._public_api_session is None or self._public_api_session.closed:
@@ -360,7 +360,7 @@ class BaseApiClient:
         if not self._verify_ssl:
             kwargs["ssl"] = False
 
-        if (public_api):
+        if public_api:
             session = await self.get_public_api_session()
         else:
             session = await self.get_session()
