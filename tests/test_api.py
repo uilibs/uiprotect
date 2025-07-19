@@ -1541,7 +1541,6 @@ async def test_public_api_sets_x_api_key_header() -> None:
 
 @pytest.mark.asyncio
 async def test_get_public_api_session_creates_and_reuses_session():
-    loop = asyncio.get_running_loop()
     client = ProtectApiClient(
         "127.0.0.1",
         0,
