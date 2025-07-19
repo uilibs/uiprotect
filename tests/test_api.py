@@ -1540,7 +1540,8 @@ async def test_public_api_sets_x_api_key_header() -> None:
 
 
 @pytest.mark.asyncio
-def test_get_public_api_session_creates_and_reuses_session():
+async def test_get_public_api_session_creates_and_reuses_session():
+    loop = asyncio.get_running_loop()
     client = ProtectApiClient(
         "127.0.0.1",
         0,
@@ -1548,25 +1549,15 @@ def test_get_public_api_session_creates_and_reuses_session():
         "pass",
         verify_ssl=False,
     )
-    # Should create a new session
-    session1 = asyncio.get_event_loop().run_until_complete(
-        client.get_public_api_session()
-    )
+    session1 = await client.get_public_api_session()
     assert isinstance(session1, aiohttp.ClientSession)
-    # Should reuse the same session if not closed
-    session2 = asyncio.get_event_loop().run_until_complete(
-        client.get_public_api_session()
-    )
+    session2 = await client.get_public_api_session()
     assert session1 is session2
-    # Close and check new session is created
-    asyncio.get_event_loop().run_until_complete(session1.close())
-    session3 = asyncio.get_event_loop().run_until_complete(
-        client.get_public_api_session()
-    )
+    await session1.close()
+    session3 = await client.get_public_api_session()
     assert session3 is not session1
     assert isinstance(session3, aiohttp.ClientSession)
-
-    asyncio.get_event_loop().run_until_complete(session3.close())
+    await session3.close()
 
 
 @pytest.mark.asyncio
@@ -1624,3 +1615,24 @@ async def test_request_uses_get_session_for_private_api():
     assert result is mock_response
     client.get_session.assert_awaited()
     client.get_public_api_session.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_close_public_api_session():
+    async with aiohttp.ClientSession() as session:
+        client = ProtectApiClient(
+            "127.0.0.1",
+            0,
+            "user",
+            "pass",
+            public_api_session=session,
+            verify_ssl=False,
+        )
+        # Should be the same session
+        assert client._public_api_session is session
+        # Close the session
+        await client.close_public_api_session()
+        # Should be None after closing
+        assert client._public_api_session is None
+        # Should be idempotent (no error if called again)
+        await client.close_public_api_session()
