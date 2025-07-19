@@ -1572,6 +1572,7 @@ def test_get_public_api_session_creates_and_reuses_session():
 @pytest.mark.asyncio
 async def test_public_api_session_constructor_assignment():
     import aiohttp
+
     async with aiohttp.ClientSession() as session:
         client = ProtectApiClient(
             "127.0.0.1",
@@ -1582,6 +1583,7 @@ async def test_public_api_session_constructor_assignment():
             verify_ssl=False,
         )
         assert client._public_api_session is session
+
 
 @pytest.mark.asyncio()
 async def test_request_uses_get_session_for_private_api():
@@ -1603,12 +1605,15 @@ async def test_request_uses_get_session_for_private_api():
     mock_response.close = AsyncMock()
     mock_response.headers = {}
     mock_response.cookies = {}
+
     # __aenter__ returns the response
     class MockRequestContext:
         async def __aenter__(self):
             return mock_response
+
         async def __aexit__(self, exc_type, exc_val, exc_tb):
             pass
+
     mock_session.request = lambda *args, **kwargs: MockRequestContext()
     client.get_session = AsyncMock(return_value=mock_session)
     client.ensure_authenticated = AsyncMock()
