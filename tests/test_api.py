@@ -20,6 +20,7 @@ from tests.conftest import (
     TEST_HEATMAP_EXISTS,
     TEST_LIGHT_EXISTS,
     TEST_LIVEVIEW_EXISTS,
+    TEST_PUBLIC_API_SNAPSHOT_EXISTS,
     TEST_SENSOR_EXISTS,
     TEST_SMART_TRACK_EXISTS,
     TEST_SNAPSHOT_EXISTS,
@@ -84,6 +85,11 @@ async def check_camera(camera: Camera):
     img = Image.open(BytesIO(data))
     assert img.format in {"PNG", "JPEG"}
 
+    pub_data = await camera.get_public_api_snapshot()
+    assert pub_data is not None
+    pub_img = Image.open(BytesIO(pub_data))
+    assert pub_img.format in {"PNG", "JPEG"}
+
     camera.last_ring_event  # noqa: B018
 
     assert camera.timelapse_url == f"https://127.0.0.1:0/protect/timelapse/{camera.id}"
@@ -121,6 +127,7 @@ def check_device(device: ProtectAdoptableDeviceModel):
 
 
 async def check_bootstrap(bootstrap: Bootstrap):
+    bootstrap.api._api_key = "test_api_key"
     assert bootstrap.auth_user
     assert (
         bootstrap.nvr.protect_url
@@ -756,6 +763,24 @@ async def test_get_camera_snapshot(protect_client: ProtectApiClient, now):
             "force": "true",
         },
         raise_exception=False,
+    )
+
+    img = Image.open(BytesIO(data))
+    assert img.format in {"PNG", "JPEG"}
+
+
+@pytest.mark.skipif(not TEST_PUBLIC_API_SNAPSHOT_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_public_api_camera_snapshot(protect_client: ProtectApiClient, now):
+    data = await protect_client.get_public_api_camera_snapshot("test_id")
+    assert data is not None
+
+    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
+        public_api=True,
+        url="v1/cameras/test_id/snapshot",
+        params={
+            "highQuality": "true",
+        },
     )
 
     img = Image.open(BytesIO(data))
