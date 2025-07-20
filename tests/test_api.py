@@ -777,9 +777,9 @@ async def test_get_public_api_camera_snapshot(protect_client: ProtectApiClient, 
 
     protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
         public_api=True,
-        url="v1/cameras/test_id/snapshot",
+        url="/v1/cameras/test_id/snapshot",
         params={
-            "highQuality": "true",
+            "highQuality": True,
         },
     )
 
