@@ -1,5 +1,16 @@
 # Changelog
 
+## v7.15.1 (2025-07-20)
+
+### Bug fixes
+
+
+- Update create_api_key to use 'self' instead of userid ([`755a1b7`](https://github.com/uilibs/uiprotect/commit/755a1b7273d4a97434564f88dbb2502aef61c173))
+
+
+- Update create_api_key to use 'self' instead of userid and remove related tests ([`755a1b7`](https://github.com/uilibs/uiprotect/commit/755a1b7273d4a97434564f88dbb2502aef61c173))
+
+
 ## v7.15.0 (2025-07-19)
 
 ### Features
