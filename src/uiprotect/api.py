@@ -1527,6 +1527,7 @@ class ProtectApiClient(BaseApiClient):
         """Gets snapshot for a camera using public api."""
         return await self.api_request_raw(
             public_api=True,
+            raise_exception=False,
             url=f"/v1/cameras/{camera_id}/snapshot",
             params={"highQuality": highQuality},
         )
