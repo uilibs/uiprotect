@@ -1523,9 +1523,7 @@ class ProtectApiClient(BaseApiClient):
             self, 
             camera_id: str
             ) -> bytes | None:
-        """
-        Gets snapshot for a camera using public api.
-        """
+        """Gets snapshot for a camera using public api."""
         params: dict[str, Any] = {}
         params["highQuality"] = "true"
 

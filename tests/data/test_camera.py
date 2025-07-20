@@ -1424,9 +1424,7 @@ async def test_get_snapshot_no_permissions(camera_obj: Camera | None):
 
 @pytest.mark.asyncio
 async def test_get_public_api_snapshot_no_api_key(camera_obj: Camera):
-    """
-    Test that get_public_api_snapshot fails with NotAuthorized if no API key is set in the API client.
-    """
+    """Test that get_public_api_snapshot fails with NotAuthorized if no API key is set in the API client."""
     camera_obj._api = MagicMock(spec=ProtectApiClient)
     camera_obj._api._api_key = None
     from uiprotect.exceptions import NotAuthorized
