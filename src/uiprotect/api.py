@@ -2091,7 +2091,7 @@ class ProtectApiClient(BaseApiClient):
 
         response = await self.api_request(
             api_path="/proxy/users/api/v2",
-            url=f"/user/self/keys",
+            url="/user/self/keys",
             method="post",
             json={"name": name},
         )
