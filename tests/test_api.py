@@ -10,6 +10,7 @@ from ipaddress import IPv4Address
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, patch
 
+import aiohttp
 import pytest
 from PIL import Image
 
@@ -19,6 +20,7 @@ from tests.conftest import (
     TEST_HEATMAP_EXISTS,
     TEST_LIGHT_EXISTS,
     TEST_LIVEVIEW_EXISTS,
+    TEST_PUBLIC_API_SNAPSHOT_EXISTS,
     TEST_SENSOR_EXISTS,
     TEST_SMART_TRACK_EXISTS,
     TEST_SNAPSHOT_EXISTS,
@@ -83,6 +85,11 @@ async def check_camera(camera: Camera):
     img = Image.open(BytesIO(data))
     assert img.format in {"PNG", "JPEG"}
 
+    pub_data = await camera.get_public_api_snapshot()
+    assert pub_data is not None
+    pub_img = Image.open(BytesIO(pub_data))
+    assert pub_img.format in {"PNG", "JPEG"}
+
     camera.last_ring_event  # noqa: B018
 
     assert camera.timelapse_url == f"https://127.0.0.1:0/protect/timelapse/{camera.id}"
@@ -120,6 +127,7 @@ def check_device(device: ProtectAdoptableDeviceModel):
 
 
 async def check_bootstrap(bootstrap: Bootstrap):
+    bootstrap.api._api_key = "test_api_key"
     assert bootstrap.auth_user
     assert (
         bootstrap.nvr.protect_url
@@ -761,6 +769,24 @@ async def test_get_camera_snapshot(protect_client: ProtectApiClient, now):
     assert img.format in {"PNG", "JPEG"}
 
 
+@pytest.mark.skipif(not TEST_PUBLIC_API_SNAPSHOT_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_public_api_camera_snapshot(protect_client: ProtectApiClient, now):
+    data = await protect_client.get_public_api_camera_snapshot("test_id")
+    assert data is not None
+
+    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
+        public_api=True,
+        url="v1/cameras/test_id/snapshot",
+        params={
+            "highQuality": "true",
+        },
+    )
+
+    img = Image.open(BytesIO(data))
+    assert img.format in {"PNG", "JPEG"}
+
+
 @pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
 @patch("uiprotect.utils.datetime", MockDatetime)
 @patch("uiprotect.api.time.time", get_time)
@@ -1215,12 +1241,11 @@ async def test_create_api_key_success(protect_client: ProtectApiClient):
     protect_client.api_request = AsyncMock(
         return_value={"data": {"full_api_key": "test_api_key"}}
     )
-    protect_client._last_token_cookie_decode = {"userId": "test_user_id"}
     result = await protect_client.create_api_key("test")
     assert result == "test_api_key"
     protect_client.api_request.assert_called_with(
         api_path="/proxy/users/api/v2",
-        url="/user/test_user_id/keys",
+        url="/user/self/keys",
         method="post",
         json={"name": "test"},
     )
@@ -1238,17 +1263,6 @@ async def test_create_api_key_failure(protect_client: ProtectApiClient):
     protect_client.api_request = AsyncMock(return_value={})
     protect_client._last_token_cookie_decode = {"userId": "test_user_id"}
     with pytest.raises(BadRequest, match="Failed to create API key"):
-        await protect_client.create_api_key("test")
-
-
-@pytest.mark.asyncio()
-async def test_create_api_key_no_user_id(protect_client: ProtectApiClient):
-    protect_client._last_token_cookie_decode = None
-    with pytest.raises(BadRequest, match="User ID not available for API key creation"):
-        await protect_client.create_api_key("test")
-
-    protect_client._last_token_cookie_decode = {}
-    with pytest.raises(BadRequest, match="User ID not available for API key creation"):
         await protect_client.create_api_key("test")
 
 
@@ -1528,10 +1542,108 @@ async def test_public_api_sets_x_api_key_header() -> None:
         return MockRequestContext()
 
     mock_session.request = mock_session_request
-    client.get_session = AsyncMock(return_value=mock_session)
+    client.get_public_api_session = AsyncMock(return_value=mock_session)
 
     # Make a public API request
     await client.api_request_raw("/v1/test", public_api=True)
 
     # Verify the X-API-KEY header was set
     assert actual_headers == {"X-API-KEY": "test_api_key_123"}
+
+
+@pytest.mark.asyncio
+async def test_get_public_api_session_creates_and_reuses_session():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        verify_ssl=False,
+    )
+    session1 = await client.get_public_api_session()
+    assert isinstance(session1, aiohttp.ClientSession)
+    session2 = await client.get_public_api_session()
+    assert session1 is session2
+    await session1.close()
+    session3 = await client.get_public_api_session()
+    assert session3 is not session1
+    assert isinstance(session3, aiohttp.ClientSession)
+    await session3.close()
+
+
+@pytest.mark.asyncio
+async def test_public_api_session_constructor_assignment():
+    import aiohttp
+
+    async with aiohttp.ClientSession() as session:
+        client = ProtectApiClient(
+            "127.0.0.1",
+            0,
+            "user",
+            "pass",
+            public_api_session=session,
+            verify_ssl=False,
+        )
+        assert client._public_api_session is session
+
+
+@pytest.mark.asyncio()
+async def test_request_uses_get_session_for_private_api():
+    """Test that request uses get_session (not get_public_api_session) for private API calls."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        verify_ssl=False,
+    )
+    # Patch get_session to return a mock session
+    mock_session = AsyncMock()
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.content_type = "application/json"
+    mock_response.read = AsyncMock(return_value=b"{}")
+    mock_response.release = AsyncMock()
+    mock_response.close = AsyncMock()
+    mock_response.headers = {}
+    mock_response.cookies = {}
+
+    # __aenter__ returns the response
+    class MockRequestContext:
+        async def __aenter__(self):
+            return mock_response
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    mock_session.request = lambda *args, **kwargs: MockRequestContext()
+    client.get_session = AsyncMock(return_value=mock_session)
+    client.ensure_authenticated = AsyncMock()
+    # Should use get_session, not get_public_api_session
+    client.get_public_api_session = AsyncMock()
+    # Call request with public_api=False
+    result = await client.request("get", "/test/endpoint", public_api=False)
+    assert result is mock_response
+    client.get_session.assert_awaited()
+    client.get_public_api_session.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_close_public_api_session():
+    async with aiohttp.ClientSession() as session:
+        client = ProtectApiClient(
+            "127.0.0.1",
+            0,
+            "user",
+            "pass",
+            public_api_session=session,
+            verify_ssl=False,
+        )
+        # Should be the same session
+        assert client._public_api_session is session
+        # Close the session
+        await client.close_public_api_session()
+        # Should be None after closing
+        assert client._public_api_session is None
+        # Should be idempotent (no error if called again)
+        await client.close_public_api_session()

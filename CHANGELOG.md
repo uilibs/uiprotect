@@ -1,5 +1,35 @@
 # Changelog
 
+## v7.16.0 (2025-07-20)
+
+### Features
+
+
+- Add public api camera snapshot ([`baba0e3`](https://github.com/uilibs/uiprotect/commit/baba0e3ed72dde13fe7113960907b54b87eafcc9))
+
+
+- Add public api camera snapshot retrieval and related tests ([`baba0e3`](https://github.com/uilibs/uiprotect/commit/baba0e3ed72dde13fe7113960907b54b87eafcc9))
+
+
+## v7.15.1 (2025-07-20)
+
+### Bug fixes
+
+
+- Update create_api_key to use 'self' instead of userid ([`755a1b7`](https://github.com/uilibs/uiprotect/commit/755a1b7273d4a97434564f88dbb2502aef61c173))
+
+
+- Update create_api_key to use 'self' instead of userid and remove related tests ([`755a1b7`](https://github.com/uilibs/uiprotect/commit/755a1b7273d4a97434564f88dbb2502aef61c173))
+
+
+## v7.15.0 (2025-07-19)
+
+### Features
+
+
+- Add public api session without cookie and update tests ([`89416ef`](https://github.com/uilibs/uiprotect/commit/89416ef8fe06048677254b95eb0913e6f0106161))
+
+
 ## v7.14.2 (2025-07-08)
 
 ### Bug fixes

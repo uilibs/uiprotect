@@ -38,6 +38,9 @@ LENGTH_CMD = "ffprobe -v error -show_entries format=duration -of default=noprint
 
 TEST_CAMERA_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_camera.json").exists()
 TEST_SNAPSHOT_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_camera_snapshot.png").exists()
+TEST_PUBLIC_API_SNAPSHOT_EXISTS = (
+    SAMPLE_DATA_DIRECTORY / "sample_public_api_camera_snapshot.png"
+).exists()
 TEST_VIDEO_EXISTS = (
     SAMPLE_DATA_DIRECTORY / "sample_camera_video.mp4"
 ).exists() or "camera_video_length" not in CONSTANTS
@@ -129,6 +132,8 @@ async def mock_api_request_raw(url: str, *args, **kwargs):
         return read_binary_file("sample_camera_thumbnail")
     if url.startswith("cameras/"):
         return read_binary_file("sample_camera_snapshot")
+    if url.startswith("v1/cameras/"):
+        return read_binary_file("sample_public_api_camera_snapshot")
     if url.startswith("heatmaps/") or url.endswith("heatmap"):
         return read_binary_file("sample_camera_heatmap")
     if url == "video/export":
@@ -292,6 +297,7 @@ async def setup_client(
 async def cleanup_client(client: ProtectApiClient):
     await client.async_disconnect_ws()
     await client.close_session()
+    await client.close_public_api_session()
 
 
 @pytest_asyncio.fixture(name="protect_client")

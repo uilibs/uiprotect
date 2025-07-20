@@ -169,6 +169,7 @@ class BaseApiClient:
     _last_token_cookie: Morsel[str] | None = None
     _last_token_cookie_decode: dict[str, Any] | None = None
     _session: aiohttp.ClientSession | None = None
+    _public_api_session: aiohttp.ClientSession | None = None
     _loaded_session: bool = False
     _cookiename = "TOKEN"
 
@@ -192,6 +193,7 @@ class BaseApiClient:
         api_key: str | None = None,
         verify_ssl: bool = True,
         session: aiohttp.ClientSession | None = None,
+        public_api_session: aiohttp.ClientSession | None = None,
         ws_timeout: int = 30,
         cache_dir: Path | None = None,
         config_dir: Path | None = None,
@@ -217,6 +219,9 @@ class BaseApiClient:
 
         if session is not None:
             self._session = session
+
+        if public_api_session is not None:
+            self._public_api_session = public_api_session
 
         self._update_url()
 
@@ -260,6 +265,15 @@ class BaseApiClient:
             self._session = aiohttp.ClientSession(cookie_jar=CookieJar(unsafe=True))
 
         return self._session
+
+    async def get_public_api_session(self) -> aiohttp.ClientSession:
+        """Gets or creates current public API client session"""
+        if self._public_api_session is None or self._public_api_session.closed:
+            if self._public_api_session is not None and self._public_api_session.closed:
+                _LOGGER.debug("Public API session was closed, creating a new one")
+            self._public_api_session = aiohttp.ClientSession()
+
+        return self._public_api_session
 
     async def _auth_websocket(self, force: bool) -> dict[str, str] | None:
         """Authenticate for Websocket."""
@@ -306,6 +320,12 @@ class BaseApiClient:
             self._session = None
             self._loaded_session = False
 
+    async def close_public_api_session(self) -> None:
+        """Closing and deletes public API client session"""
+        if self._public_api_session is not None:
+            await self._public_api_session.close()
+            self._public_api_session = None
+
     async def _cancel_update_task(self) -> None:
         if self._update_task:
             self._update_task.cancel()
@@ -345,7 +365,11 @@ class BaseApiClient:
         _LOGGER.debug("Request url: %s", request_url)
         if not self._verify_ssl:
             kwargs["ssl"] = False
-        session = await self.get_session()
+
+        if public_api:
+            session = await self.get_public_api_session()
+        else:
+            session = await self.get_session()
 
         for attempt in range(2):
             try:
@@ -777,6 +801,7 @@ class ProtectApiClient(BaseApiClient):
         api_key: str | None = None,
         verify_ssl: bool = True,
         session: aiohttp.ClientSession | None = None,
+        public_api_session: aiohttp.ClientSession | None = None,
         ws_timeout: int = 30,
         cache_dir: Path | None = None,
         config_dir: Path | None = None,
@@ -797,6 +822,7 @@ class ProtectApiClient(BaseApiClient):
             api_key=api_key,
             verify_ssl=verify_ssl,
             session=session,
+            public_api_session=public_api_session,
             ws_timeout=ws_timeout,
             ws_receive_timeout=ws_receive_timeout,
             cache_dir=cache_dir,
@@ -1493,6 +1519,14 @@ class ProtectApiClient(BaseApiClient):
             raise_exception=False,
         )
 
+    async def get_public_api_camera_snapshot(self, camera_id: str) -> bytes | None:
+        """Gets snapshot for a camera using public api."""
+        return await self.api_request_raw(
+            public_api=True,
+            url=f"v1/cameras/{camera_id}/snapshot",
+            params={"highQuality": "true"},
+        )
+
     async def get_package_camera_snapshot(
         self,
         camera_id: str,
@@ -2063,15 +2097,9 @@ class ProtectApiClient(BaseApiClient):
         if not name:
             raise BadRequest("API key name cannot be empty")
 
-        user_id = None
-        if self._last_token_cookie_decode is not None:
-            user_id = self._last_token_cookie_decode.get("userId")
-        if not user_id:
-            raise BadRequest("User ID not available for API key creation")
-
         response = await self.api_request(
             api_path="/proxy/users/api/v2",
-            url=f"/user/{user_id}/keys",
+            url="/user/self/keys",
             method="post",
             json={"name": name},
         )
