@@ -1520,10 +1520,10 @@ class ProtectApiClient(BaseApiClient):
         )
 
     async def get_public_api_camera_snapshot(
-            self, 
-            camera_id: str,
-            highQuality: bool = True,
-        ) -> bytes | None:
+        self,
+        camera_id: str,
+        highQuality: bool = True,
+    ) -> bytes | None:
         """Gets snapshot for a camera using public api."""
         return await self.api_request_raw(
             public_api=True,
