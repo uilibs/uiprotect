@@ -5,7 +5,7 @@ import base64
 import logging
 import sys
 from pathlib import Path
-from typing import Optional, cast
+from typing import cast
 
 import orjson
 import typer
@@ -234,7 +234,7 @@ def generate_sample_data(
     ctx: typer.Context,
     anonymize: bool = OPTION_ANON,
     wait_time: int = OPTION_WAIT,
-    output_folder: Optional[Path] = OPTION_OUTPUT,
+    output_folder: Path | None = OPTION_OUTPUT,
     do_zip: bool = OPTION_ZIP,
 ) -> None:
     """Generates sample data for UniFi Protect instance."""
@@ -270,7 +270,7 @@ def generate_sample_data(
 def profile_ws(
     ctx: typer.Context,
     wait_time: int = OPTION_WAIT,
-    output_path: Optional[Path] = OPTION_OUTPUT,
+    output_path: Path | None = OPTION_OUTPUT,
 ) -> None:
     """Profiles Websocket messages for UniFi Protect instance."""
     protect = cast(ProtectApiClient, ctx.obj.protect)
@@ -297,7 +297,7 @@ def profile_ws(
 @app.command()
 def decode_ws_msg(
     ws_file: typer.FileBinaryRead = OPTION_WS_FILE,
-    ws_data: Optional[str] = ARG_WS_DATA,
+    ws_data: str | None = ARG_WS_DATA,
 ) -> None:
     """Decodes a base64 encoded UniFi Protect Websocket binary message."""
     if ws_file is None and ws_data is None:  # type: ignore[unreachable]
