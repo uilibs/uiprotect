@@ -325,7 +325,7 @@ class SampleDataGenerator:
             snapshot = await self.client.get_camera_snapshot(obj["id"], width, height)
             await self.write_image_file(filename, snapshot)
 
-        #public api snapshot
+        # public api snapshot
         pub_filename = "sample_camera_public_api_snapshot"
         if self.anonymize:
             self.log(f"Writing {pub_filename}...")
