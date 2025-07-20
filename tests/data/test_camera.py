@@ -1422,6 +1422,17 @@ async def test_get_snapshot_no_permissions(camera_obj: Camera | None):
         ):
             await camera_obj.get_snapshot()
 
+@pytest.mark.asyncio
+async def test_get_public_api_snapshot_no_api_key(camera_obj: Camera):
+    """
+    Test that get_public_api_snapshot fails with NotAuthorized if no API key is set in the API client.
+    """
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api._api_key = None
+    from uiprotect.exceptions import NotAuthorized
+    # get_public_api_snapshot should raise NotAuthorized if api_key is missing
+    with pytest.raises(NotAuthorized, match="Cannot get public API snapshot without an API key."):
+        await camera_obj.get_public_api_snapshot()
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing test data")
 @pytest.mark.asyncio
