@@ -1,5 +1,16 @@
 # Changelog
 
+## v7.16.0 (2025-07-20)
+
+### Features
+
+
+- Add public api camera snapshot ([`baba0e3`](https://github.com/uilibs/uiprotect/commit/baba0e3ed72dde13fe7113960907b54b87eafcc9))
+
+
+- Add public api camera snapshot retrieval and related tests ([`baba0e3`](https://github.com/uilibs/uiprotect/commit/baba0e3ed72dde13fe7113960907b54b87eafcc9))
+
+
 ## v7.15.1 (2025-07-20)
 
 ### Bug fixes
