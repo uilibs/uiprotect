@@ -2089,15 +2089,9 @@ class ProtectApiClient(BaseApiClient):
         if not name:
             raise BadRequest("API key name cannot be empty")
 
-        user_id = None
-        if self._last_token_cookie_decode is not None:
-            user_id = self._last_token_cookie_decode.get("userId")
-        if not user_id:
-            raise BadRequest("User ID not available for API key creation")
-
         response = await self.api_request(
             api_path="/proxy/users/api/v2",
-            url=f"/user/{user_id}/keys",
+            url=f"/user/self/keys",
             method="post",
             json={"name": name},
         )
