@@ -1518,11 +1518,8 @@ class ProtectApiClient(BaseApiClient):
             params=params,
             raise_exception=False,
         )
-    
-    async def get_public_api_camera_snapshot(
-            self, 
-            camera_id: str
-            ) -> bytes | None:
+
+    async def get_public_api_camera_snapshot(self, camera_id: str) -> bytes | None:
         """
         Gets snapshot for a camera using public api.
         """
@@ -1534,7 +1531,6 @@ class ProtectApiClient(BaseApiClient):
             url=f"v1/cameras/{camera_id}/snapshot",
             params=params,
         )
-
 
     async def get_package_camera_snapshot(
         self,
