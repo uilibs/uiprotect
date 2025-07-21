@@ -790,8 +790,12 @@ async def test_get_public_api_camera_snapshot(protect_client: ProtectApiClient, 
 
 @pytest.mark.skipif(not TEST_PUBLIC_API_SNAPSHOT_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_get_public_api_camera_snapshot_hq_true(protect_client: ProtectApiClient, now):
-    data = await protect_client.get_public_api_camera_snapshot("test_id", high_quality=True)
+async def test_get_public_api_camera_snapshot_hq_true(
+    protect_client: ProtectApiClient, now
+):
+    data = await protect_client.get_public_api_camera_snapshot(
+        "test_id", high_quality=True
+    )
     assert data is not None
 
     protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]

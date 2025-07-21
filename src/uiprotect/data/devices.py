@@ -2088,17 +2088,18 @@ class Camera(ProtectMotionDeviceModel):
         return await self._api.get_camera_snapshot(self.id, width, height, dt=dt)
 
     async def get_public_api_snapshot(
-            self,
-            high_quality: bool | None = None
-            ) -> bytes | None:
+        self, high_quality: bool | None = None
+    ) -> bytes | None:
         """Gets snapshot for camera using public API."""
         if self._api._api_key is None:
             raise NotAuthorized("Cannot get public API snapshot without an API key.")
-        
+
         if high_quality is None:
             high_quality = self.feature_flags.support_full_hd_snapshot
-        
-        return await self._api.get_public_api_camera_snapshot(camera_id=self.id, high_quality=high_quality)
+
+        return await self._api.get_public_api_camera_snapshot(
+            camera_id=self.id, high_quality=high_quality
+        )
 
     async def get_package_snapshot(
         self,
