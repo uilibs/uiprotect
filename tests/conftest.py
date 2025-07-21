@@ -794,7 +794,7 @@ NEW_CAMERA_FEATURE_FLAGS = {
     "supportNfc",
     "hasFingerprintSensor",
     # 6.0.0+
-    "supportFullHdSnapshot"
+    "supportFullHdSnapshot",
 }
 
 NEW_ISP_SETTINGS = {
