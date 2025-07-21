@@ -864,6 +864,8 @@ class CameraFeatureFlags(ProtectBaseObject):
     # 4.73.71+
     support_nfc: bool | None = None
     has_fingerprint_sensor: bool | None = None
+    # 6.0.0+
+    support_full_hd_snapshot: bool | None = None
 
     focus: PTZRange
     pan: PTZRange
