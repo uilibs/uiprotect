@@ -1529,7 +1529,7 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
             raise_exception=False,
             url=f"/v1/cameras/{camera_id}/snapshot",
-            params={"highQuality": high_quality},
+            params={"highQuality": str(high_quality).lower()},
         )
 
     async def get_package_camera_snapshot(
