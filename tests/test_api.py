@@ -780,7 +780,7 @@ async def test_get_public_api_camera_snapshot(protect_client: ProtectApiClient, 
         raise_exception=False,
         url="/v1/cameras/test_id/snapshot",
         params={
-            "highQuality": False,
+            "highQuality": "false",
         },
     )
 
@@ -803,7 +803,7 @@ async def test_get_public_api_camera_snapshot_hq_true(
         raise_exception=False,
         url="/v1/cameras/test_id/snapshot",
         params={
-            "highQuality": True,
+            "highQuality": "true",
         },
     )
 
