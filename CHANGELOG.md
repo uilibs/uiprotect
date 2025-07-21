@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.18.1 (2025-07-21)
+
+### Bug fixes
+
+
+- Ensure highquality parameter is a string in camera pub api snapshot requests ([`57db9e0`](https://github.com/uilibs/uiprotect/commit/57db9e0bdf65b161fcb9d4d7aaf39f8bd8fd4c77))
+
+
 ## v7.18.0 (2025-07-21)
 
 ### Features
