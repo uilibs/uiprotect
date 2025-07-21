@@ -1437,6 +1437,37 @@ async def test_get_public_api_snapshot_no_api_key(camera_obj: Camera):
         await camera_obj.get_public_api_snapshot()
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("high_quality", [False, True])
+async def test_get_public_api_snapshot_hq(camera_obj: Camera, high_quality: bool):
+    """Test that get_public_api_snapshot returns the correct snapshot quality."""
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj._api.get_public_api_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+
+    snapshot = await camera_obj.get_public_api_snapshot(high_quality=high_quality)
+
+    assert snapshot == b"snapshot_data"
+    camera_obj._api.get_public_api_camera_snapshot.assert_called_once_with(
+        camera_id=camera_obj.id, high_quality=high_quality
+    )
+
+
+@pytest.mark.parametrize("high_quality", [False, True])
+@pytest.mark.asyncio
+async def test_get_public_api_snapshot_default_quality(camera_obj: Camera, high_quality: bool):
+    """Test get_public_api_snapshot without high_quality argument uses feature flag."""
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj.feature_flags.support_full_hd_snapshot = high_quality
+    camera_obj._api.get_public_api_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
+
+    snapshot = await camera_obj.get_public_api_snapshot()
+
+    assert snapshot == b"snapshot_data"
+    camera_obj._api.get_public_api_camera_snapshot.assert_called_once_with(
+        camera_id=camera_obj.id, high_quality=high_quality
+    )
+
+
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing test data")
 @pytest.mark.asyncio
 async def test_get_snapshot_with_dt(camera_obj: Camera):
