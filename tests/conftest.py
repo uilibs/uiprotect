@@ -132,7 +132,7 @@ async def mock_api_request_raw(url: str, *args, **kwargs):
         return read_binary_file("sample_camera_thumbnail")
     if url.startswith("cameras/"):
         return read_binary_file("sample_camera_snapshot")
-    if url.startswith("v1/cameras/"):
+    if url.startswith("/v1/cameras/"):
         return read_binary_file("sample_public_api_camera_snapshot")
     if url.startswith("heatmaps/") or url.endswith("heatmap"):
         return read_binary_file("sample_camera_heatmap")

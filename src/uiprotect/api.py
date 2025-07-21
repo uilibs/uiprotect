@@ -1519,12 +1519,17 @@ class ProtectApiClient(BaseApiClient):
             raise_exception=False,
         )
 
-    async def get_public_api_camera_snapshot(self, camera_id: str) -> bytes | None:
+    async def get_public_api_camera_snapshot(
+        self,
+        camera_id: str,
+        high_quality: bool = False,
+    ) -> bytes | None:
         """Gets snapshot for a camera using public api."""
         return await self.api_request_raw(
             public_api=True,
-            url=f"v1/cameras/{camera_id}/snapshot",
-            params={"highQuality": "true"},
+            raise_exception=False,
+            url=f"/v1/cameras/{camera_id}/snapshot",
+            params={"highQuality": high_quality},
         )
 
     async def get_package_camera_snapshot(
