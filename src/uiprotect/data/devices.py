@@ -2095,7 +2095,7 @@ class Camera(ProtectMotionDeviceModel):
             raise NotAuthorized("Cannot get public API snapshot without an API key.")
 
         if high_quality is None:
-            high_quality = self.feature_flags.support_full_hd_snapshot
+            high_quality = self.feature_flags.support_full_hd_snapshot or False
 
         return await self._api.get_public_api_camera_snapshot(
             camera_id=self.id, high_quality=high_quality
