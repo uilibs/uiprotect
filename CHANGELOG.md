@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.18.0 (2025-07-21)
+
+### Features
+
+
+- Update public api camera snapshot method to accept highquality parameter ([`3df7b70`](https://github.com/uilibs/uiprotect/commit/3df7b7067e8555a405202e49bfe75982c2d9bc71))
+
+
 ## v7.17.0 (2025-07-21)
 
 ### Features
