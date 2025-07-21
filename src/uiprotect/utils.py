@@ -700,3 +700,8 @@ def make_required_getter(ufp_required_field: str) -> Callable[[T], bool]:
 @lru_cache
 def timedelta_total_seconds(td: timedelta) -> float:
     return td.total_seconds()
+
+
+def pybool_to_json_bool(value: bool) -> str:
+    """Convert a Python bool to a JSON boolean string ('true'/'false')."""
+    return "true" if value else "false"

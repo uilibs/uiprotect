@@ -65,6 +65,7 @@ from .utils import (
     decode_token_cookie,
     get_response_reason,
     ip_from_host,
+    pybool_to_json_bool,
     set_debug,
     to_js_time,
     utc_now,
@@ -1529,7 +1530,7 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
             raise_exception=False,
             url=f"/v1/cameras/{camera_id}/snapshot",
-            params={"highQuality": str(high_quality).lower()},
+            params={"highQuality": pybool_to_json_bool(high_quality)},
         )
 
     async def get_package_camera_snapshot(
