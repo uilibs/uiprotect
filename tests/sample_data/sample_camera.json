@@ -534,7 +534,8 @@
                 "step": null
             }
         },
-        "hasSmartDetect": true
+        "hasSmartDetect": true,
+        "supportFullHdSnapshot": false
     },
     "pirSettings": {
         "pirSensitivity": 100,

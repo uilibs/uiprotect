@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.17.0 (2025-07-21)
+
+### Features
+
+
+- Add support for full hd snapshot feature flag ([`3059e84`](https://github.com/uilibs/uiprotect/commit/3059e84a6d5d6c034b1fb32a897d954aebf661cf))
+
+
 ## v7.16.0 (2025-07-20)
 
 ### Features

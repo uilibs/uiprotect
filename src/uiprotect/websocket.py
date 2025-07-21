@@ -8,7 +8,7 @@ import logging
 from collections.abc import Awaitable, Callable, Coroutine
 from enum import Enum
 from http import HTTPStatus
-from typing import Any, Optional
+from typing import Any
 
 import aiohttp
 from aiohttp import (
@@ -24,7 +24,7 @@ from yarl import URL
 from .exceptions import NotAuthorized, NvrError
 
 _LOGGER = logging.getLogger(__name__)
-AuthCallbackType = Callable[..., Coroutine[Any, Any, Optional[dict[str, str]]]]
+AuthCallbackType = Callable[..., Coroutine[Any, Any, dict[str, str] | None]]
 GetSessionCallbackType = Callable[[], Awaitable[ClientSession]]
 UpdateBootstrapCallbackType = Callable[[], None]
 _CLOSE_MESSAGE_TYPES = {WSMsgType.CLOSE, WSMsgType.CLOSING, WSMsgType.CLOSED}
