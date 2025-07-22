@@ -1696,6 +1696,7 @@ def test_set_api_key_empty_raises():
         verify_ssl=False,
     )
     import pytest
+
     with pytest.raises(BadRequest, match="API key cannot be empty"):
         client.set_api_key("")
 
