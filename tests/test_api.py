@@ -1671,3 +1671,54 @@ async def test_close_public_api_session():
         assert client._public_api_session is None
         # Should be idempotent (no error if called again)
         await client.close_public_api_session()
+
+
+def test_set_api_key_sets_value():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key=None,
+        verify_ssl=False,
+    )
+    client.set_api_key("test_key")
+    assert client._api_key == "test_key"
+
+
+def test_set_api_key_empty_raises():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key=None,
+        verify_ssl=False,
+    )
+    import pytest
+    with pytest.raises(BadRequest, match="API key cannot be empty"):
+        client.set_api_key("")
+
+
+def test_is_api_key_set_true():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+    assert client.is_api_key_set() is True
+
+
+def test_is_api_key_set_false():
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key=None,
+        verify_ssl=False,
+    )
+    assert client.is_api_key_set() is False
