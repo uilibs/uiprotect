@@ -2119,6 +2119,17 @@ class ProtectApiClient(BaseApiClient):
             raise BadRequest("Failed to create API key")
 
         return response["data"]["full_api_key"]
+    
+    def set_api_key(self, api_key: str) -> None:
+        """Set the API key for the NVR."""
+        if not api_key:
+            raise BadRequest("API key cannot be empty")
+         
+        self._api_key = api_key
+
+    def is_api_key_set(self) -> bool:
+        """Check if the API key is set."""
+        return bool(self._api_key)
 
     async def get_meta_info(self) -> MetaInfo:
         """Get metadata about the NVR."""
