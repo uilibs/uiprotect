@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.19.0 (2025-07-22)
+
+### Features
+
+
+- Add methods to set and check api key for nvr ([`166751f`](https://github.com/uilibs/uiprotect/commit/166751fbf403def10763df2294006a96fe49e7db))
+
+
 ## v7.18.1 (2025-07-21)
 
 ### Bug fixes
