@@ -5,7 +5,7 @@ import base64
 import logging
 import sys
 from pathlib import Path
-from typing import Optional, cast
+from typing import cast
 
 import orjson
 import typer
@@ -13,9 +13,9 @@ from rich.progress import track
 
 from uiprotect.api import MetaInfo, ProtectApiClient
 
-from ..data import Version, WSPacket
+from ..data import WSPacket
 from ..test_util import SampleDataGenerator
-from ..utils import RELEASE_CACHE, get_local_timezone, run_async
+from ..utils import get_local_timezone, run_async
 from ..utils import profile_ws as profile_ws_job
 from .aiports import app as aiports_app
 from .base import CliContext, OutputFormatEnum
@@ -173,6 +173,7 @@ def main(
     async def update() -> None:
         protect._bootstrap = await protect.get_bootstrap()
         await protect.close_session()
+        await protect.close_public_api_session()
 
     run_async(update())
     ctx.obj = CliContext(protect=protect, output_format=output_format)
@@ -233,7 +234,7 @@ def generate_sample_data(
     ctx: typer.Context,
     anonymize: bool = OPTION_ANON,
     wait_time: int = OPTION_WAIT,
-    output_folder: Optional[Path] = OPTION_OUTPUT,
+    output_folder: Path | None = OPTION_OUTPUT,
     do_zip: bool = OPTION_ZIP,
 ) -> None:
     """Generates sample data for UniFi Protect instance."""
@@ -269,7 +270,7 @@ def generate_sample_data(
 def profile_ws(
     ctx: typer.Context,
     wait_time: int = OPTION_WAIT,
-    output_path: Optional[Path] = OPTION_OUTPUT,
+    output_path: Path | None = OPTION_OUTPUT,
 ) -> None:
     """Profiles Websocket messages for UniFi Protect instance."""
     protect = cast(ProtectApiClient, ctx.obj.protect)
@@ -286,6 +287,7 @@ def profile_ws(
         unsub()
         await protect.async_disconnect_ws()
         await protect.close_session()
+        await protect.close_public_api_session()
 
     _setup_logger()
 
@@ -295,7 +297,7 @@ def profile_ws(
 @app.command()
 def decode_ws_msg(
     ws_file: typer.FileBinaryRead = OPTION_WS_FILE,
-    ws_data: Optional[str] = ARG_WS_DATA,
+    ws_data: str | None = ARG_WS_DATA,
 ) -> None:
     """Decodes a base64 encoded UniFi Protect Websocket binary message."""
     if ws_file is None and ws_data is None:  # type: ignore[unreachable]
@@ -315,25 +317,6 @@ def decode_ws_msg(
 
 
 @app.command()
-def release_versions(ctx: typer.Context) -> None:
-    """Updates the release version cache on disk."""
-    protect = cast(ProtectApiClient, ctx.obj.protect)
-
-    async def callback() -> set[Version]:
-        versions = await protect.get_release_versions()
-        await protect.close_session()
-        return versions
-
-    _setup_logger()
-
-    versions = run_async(callback())
-    output = orjson.dumps(sorted([str(v) for v in versions]))
-
-    Path(RELEASE_CACHE).write_bytes(output)
-    typer.echo(output.decode("utf-8"))
-
-
-@app.command()
 def create_api_key(
     ctx: typer.Context,
     name: str = typer.Argument(..., help="Name for the API key"),
@@ -344,6 +327,7 @@ def create_api_key(
     async def callback() -> str:
         api_key = await protect.create_api_key(name)
         await protect.close_session()
+        await protect.close_public_api_session()
         return api_key
 
     _setup_logger()
@@ -359,6 +343,7 @@ def get_meta_info(ctx: typer.Context) -> None:
     async def callback() -> MetaInfo:
         meta = await protect.get_meta_info()
         await protect.close_session()
+        await protect.close_public_api_session()
         return meta
 
     _setup_logger()

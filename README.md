@@ -198,6 +198,8 @@ unsub()
 
 ## TODO / Planned / Not Implemented
 
+Switching from Protect Private API to the New Public API
+
 Generally any feature missing from the library is planned to be done eventually / nice to have with the following exceptions
 
 ### UniFi OS Features

@@ -142,6 +142,7 @@ class SampleDataGenerator:
 
         if close_session:
             await self.client.close_session()
+            await self.client.close_public_api_session()
 
         await self.write_json_file("sample_constants", self.constants, anonymize=False)
 
@@ -323,6 +324,15 @@ class SampleDataGenerator:
         else:
             snapshot = await self.client.get_camera_snapshot(obj["id"], width, height)
             await self.write_image_file(filename, snapshot)
+
+        # public api snapshot
+        pub_filename = "sample_camera_public_api_snapshot"
+        if self.anonymize:
+            self.log(f"Writing {pub_filename}...")
+            placeholder_image(self.output_folder / f"{pub_filename}.png", width, height)
+        else:
+            pub_snapshot = await self.client.get_public_api_camera_snapshot(obj["id"])
+            await self.write_image_file(pub_filename, pub_snapshot)
 
     async def generate_motion_data(
         self,

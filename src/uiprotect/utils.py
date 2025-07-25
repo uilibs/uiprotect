@@ -74,8 +74,6 @@ SNAKE_CASE_MATCH_3 = re.compile("([a-z0-9])([A-Z])")
 
 _LOGGER = logging.getLogger(__name__)
 
-RELEASE_CACHE = Path(__file__).parent / "release_cache.json"
-
 _CREATE_TYPES = {IPv6Address, IPv4Address, UUID, Color, Decimal, Path, Version}
 _BAD_UUID = "00000000-0000-00 0- 000-000000000000"
 
@@ -237,10 +235,13 @@ def convert_unifi_data(value: Any, field: FieldInfo) -> Any:
             # cannot do this check too soon because some types cannot be used in isinstance
             if isinstance(value, type_):
                 return value
-            # handle edge case for improperly formatted UUIDs
-            # 00000000-0000-00 0- 000-000000000000
-            if type_ is UUID and value == _BAD_UUID:
-                return _EMPTY_UUID
+            if type_ is UUID:
+                if not value:
+                    return None
+                # handle edge case for improperly formatted UUIDs
+                # 00000000-0000-00 0- 000-000000000000
+                if value == _BAD_UUID:
+                    return _EMPTY_UUID
             if (type_ is IPv4Address) and value == "":
                 return None
             return type_(value)
@@ -699,3 +700,8 @@ def make_required_getter(ufp_required_field: str) -> Callable[[T], bool]:
 @lru_cache
 def timedelta_total_seconds(td: timedelta) -> float:
     return td.total_seconds()
+
+
+def pybool_to_json_bool(value: bool) -> str:
+    """Convert a Python bool to a JSON boolean string ('true'/'false')."""
+    return "true" if value else "false"

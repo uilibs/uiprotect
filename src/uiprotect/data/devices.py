@@ -864,6 +864,8 @@ class CameraFeatureFlags(ProtectBaseObject):
     # 4.73.71+
     support_nfc: bool | None = None
     has_fingerprint_sensor: bool | None = None
+    # 6.0.0+
+    support_full_hd_snapshot: bool | None = None
 
     focus: PTZRange
     pan: PTZRange
@@ -2084,6 +2086,20 @@ class Camera(ProtectMotionDeviceModel):
             height = self.high_camera_channel.height
 
         return await self._api.get_camera_snapshot(self.id, width, height, dt=dt)
+
+    async def get_public_api_snapshot(
+        self, high_quality: bool | None = None
+    ) -> bytes | None:
+        """Gets snapshot for camera using public API."""
+        if self._api._api_key is None:
+            raise NotAuthorized("Cannot get public API snapshot without an API key.")
+
+        if high_quality is None:
+            high_quality = self.feature_flags.support_full_hd_snapshot or False
+
+        return await self._api.get_public_api_camera_snapshot(
+            camera_id=self.id, high_quality=high_quality
+        )
 
     async def get_package_snapshot(
         self,

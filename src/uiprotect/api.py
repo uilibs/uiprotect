@@ -65,6 +65,7 @@ from .utils import (
     decode_token_cookie,
     get_response_reason,
     ip_from_host,
+    pybool_to_json_bool,
     set_debug,
     to_js_time,
     utc_now,
@@ -82,10 +83,7 @@ TOKEN_COOKIE_MAX_EXP_SECONDS = 60
 DEVICE_UPDATE_INTERVAL = 900
 # retry timeout for thumbnails/heatmaps
 RETRY_TIMEOUT = 10
-PROTECT_APT_URLS = [
-    "https://apt.artifacts.ui.com/dists/stretch/release/binary-arm64/Packages",
-    "https://apt.artifacts.ui.com/dists/bullseye/release/binary-arm64/Packages",
-]
+
 TYPES_BUG_MESSAGE = """There is currently a bug in UniFi Protect that makes `start` / `end` not work if `types` is not provided. This means uiprotect has to iterate over all of the events matching the filters provided to return values.
 
 If your Protect instance has a lot of events, this request will take much longer then expected. It is recommended adding additional filters to speed the request up."""
@@ -172,6 +170,7 @@ class BaseApiClient:
     _last_token_cookie: Morsel[str] | None = None
     _last_token_cookie_decode: dict[str, Any] | None = None
     _session: aiohttp.ClientSession | None = None
+    _public_api_session: aiohttp.ClientSession | None = None
     _loaded_session: bool = False
     _cookiename = "TOKEN"
 
@@ -195,6 +194,7 @@ class BaseApiClient:
         api_key: str | None = None,
         verify_ssl: bool = True,
         session: aiohttp.ClientSession | None = None,
+        public_api_session: aiohttp.ClientSession | None = None,
         ws_timeout: int = 30,
         cache_dir: Path | None = None,
         config_dir: Path | None = None,
@@ -220,6 +220,9 @@ class BaseApiClient:
 
         if session is not None:
             self._session = session
+
+        if public_api_session is not None:
+            self._public_api_session = public_api_session
 
         self._update_url()
 
@@ -263,6 +266,15 @@ class BaseApiClient:
             self._session = aiohttp.ClientSession(cookie_jar=CookieJar(unsafe=True))
 
         return self._session
+
+    async def get_public_api_session(self) -> aiohttp.ClientSession:
+        """Gets or creates current public API client session"""
+        if self._public_api_session is None or self._public_api_session.closed:
+            if self._public_api_session is not None and self._public_api_session.closed:
+                _LOGGER.debug("Public API session was closed, creating a new one")
+            self._public_api_session = aiohttp.ClientSession()
+
+        return self._public_api_session
 
     async def _auth_websocket(self, force: bool) -> dict[str, str] | None:
         """Authenticate for Websocket."""
@@ -309,6 +321,12 @@ class BaseApiClient:
             self._session = None
             self._loaded_session = False
 
+    async def close_public_api_session(self) -> None:
+        """Closing and deletes public API client session"""
+        if self._public_api_session is not None:
+            await self._public_api_session.close()
+            self._public_api_session = None
+
     async def _cancel_update_task(self) -> None:
         if self._update_task:
             self._update_task.cancel()
@@ -348,7 +366,11 @@ class BaseApiClient:
         _LOGGER.debug("Request url: %s", request_url)
         if not self._verify_ssl:
             kwargs["ssl"] = False
-        session = await self.get_session()
+
+        if public_api:
+            session = await self.get_public_api_session()
+        else:
+            session = await self.get_session()
 
         for attempt in range(2):
             try:
@@ -780,6 +802,7 @@ class ProtectApiClient(BaseApiClient):
         api_key: str | None = None,
         verify_ssl: bool = True,
         session: aiohttp.ClientSession | None = None,
+        public_api_session: aiohttp.ClientSession | None = None,
         ws_timeout: int = 30,
         cache_dir: Path | None = None,
         config_dir: Path | None = None,
@@ -800,6 +823,7 @@ class ProtectApiClient(BaseApiClient):
             api_key=api_key,
             verify_ssl=verify_ssl,
             session=session,
+            public_api_session=public_api_session,
             ws_timeout=ws_timeout,
             ws_receive_timeout=ws_receive_timeout,
             cache_dir=cache_dir,
@@ -1496,6 +1520,19 @@ class ProtectApiClient(BaseApiClient):
             raise_exception=False,
         )
 
+    async def get_public_api_camera_snapshot(
+        self,
+        camera_id: str,
+        high_quality: bool = False,
+    ) -> bytes | None:
+        """Gets snapshot for a camera using public api."""
+        return await self.api_request_raw(
+            public_api=True,
+            raise_exception=False,
+            url=f"/v1/cameras/{camera_id}/snapshot",
+            params={"highQuality": pybool_to_json_bool(high_quality)},
+        )
+
     async def get_package_camera_snapshot(
         self,
         camera_id: str,
@@ -1915,17 +1952,6 @@ class ProtectApiClient(BaseApiClient):
 
         return versions
 
-    async def get_release_versions(self) -> set[Version]:
-        """Get all release versions for UniFi Protect"""
-        versions: set[Version] = set()
-        for url in PROTECT_APT_URLS:
-            try:
-                versions |= await self._get_versions_from_api(url)
-            except NvrError:
-                _LOGGER.warning("Failed to retrieve release versions from online.")
-
-        return versions
-
     async def relative_move_ptz_camera(
         self,
         device_id: str,
@@ -2077,15 +2103,9 @@ class ProtectApiClient(BaseApiClient):
         if not name:
             raise BadRequest("API key name cannot be empty")
 
-        user_id = None
-        if self._last_token_cookie_decode is not None:
-            user_id = self._last_token_cookie_decode.get("userId")
-        if not user_id:
-            raise BadRequest("User ID not available for API key creation")
-
         response = await self.api_request(
             api_path="/proxy/users/api/v2",
-            url=f"/user/{user_id}/keys",
+            url="/user/self/keys",
             method="post",
             json={"name": name},
         )
@@ -2099,6 +2119,17 @@ class ProtectApiClient(BaseApiClient):
             raise BadRequest("Failed to create API key")
 
         return response["data"]["full_api_key"]
+
+    def set_api_key(self, api_key: str) -> None:
+        """Set the API key for the NVR."""
+        if not api_key:
+            raise BadRequest("API key cannot be empty")
+
+        self._api_key = api_key
+
+    def is_api_key_set(self) -> bool:
+        """Check if the API key is set."""
+        return bool(self._api_key)
 
     async def get_meta_info(self) -> MetaInfo:
         """Get metadata about the NVR."""

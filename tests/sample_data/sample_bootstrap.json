@@ -365,6 +365,7 @@
                 "wifiStrength": 0
             },
             "featureFlags": {
+                "supportFullHdSnapshot": false,
                 "canAdjustIrLedLevel": false,
                 "canMagicZoom": false,
                 "canOpticalZoom": false,
@@ -752,6 +753,7 @@
               "wifiStrength": 0
             },
             "featureFlags": {
+              "supportFullHdSnapshot": true,
               "canAdjustIrLedLevel": false,
               "canMagicZoom": false,
               "canOpticalZoom": false,
@@ -1288,6 +1290,7 @@
                 "wifiStrength": -71
             },
             "featureFlags": {
+                "supportFullHdSnapshot": false,
                 "canAdjustIrLedLevel": false,
                 "canMagicZoom": false,
                 "canOpticalZoom": false,
@@ -1781,6 +1784,7 @@
                 "wifiStrength": 0
             },
             "featureFlags": {
+                "supportFullHdSnapshot": false,
                 "canAdjustIrLedLevel": false,
                 "canMagicZoom": false,
                 "canOpticalZoom": false,
@@ -2347,6 +2351,7 @@
                 "wifiStrength": -52
             },
             "featureFlags": {
+                "supportFullHdSnapshot": true,
                 "canAdjustIrLedLevel": false,
                 "canMagicZoom": false,
                 "canOpticalZoom": false,
@@ -2862,6 +2867,7 @@
                 "wifiStrength": 0
             },
             "featureFlags": {
+                "supportFullHdSnapshot": true,
                 "canAdjustIrLedLevel": false,
                 "canMagicZoom": false,
                 "canOpticalZoom": false,
@@ -3369,6 +3375,7 @@
                 "wifiStrength": -62
             },
             "featureFlags": {
+                "supportFullHdSnapshot": true,
                 "canAdjustIrLedLevel": false,
                 "canMagicZoom": false,
                 "canOpticalZoom": false,
@@ -3544,7 +3551,7 @@
             "lastRing": null,
             "isLiveHeatmapEnabled": false,
             "useGlobal": false,
-            "anonymousDeviceId": "7b4e5226-215f-44d1-bbf4-cdfe64599cdb",
+            "anonymousDeviceId": "",
             "eventStats": {
                 "motion": {
                     "today": 1,
@@ -3874,6 +3881,7 @@
                 "wifiStrength": 0
             },
             "featureFlags": {
+                "supportFullHdSnapshot": true,
                 "canAdjustIrLedLevel": true,
                 "canMagicZoom": false,
                 "canOpticalZoom": true,
@@ -4375,6 +4383,7 @@
                 "wifiStrength": 0
             },
             "featureFlags": {
+                "supportFullHdSnapshot": true,
                 "canAdjustIrLedLevel": true,
                 "canMagicZoom": false,
                 "canOpticalZoom": true,
@@ -4884,6 +4893,7 @@
                 "wifiStrength": 0
             },
             "featureFlags": {
+                "supportFullHdSnapshot": true,
                 "canAdjustIrLedLevel": true,
                 "canMagicZoom": false,
                 "canOpticalZoom": true,
@@ -5389,6 +5399,7 @@
                 "wifiStrength": 0
             },
             "featureFlags": {
+                "supportFullHdSnapshot": true,
                 "canAdjustIrLedLevel": true,
                 "canMagicZoom": false,
                 "canOpticalZoom": true,
@@ -5882,6 +5893,7 @@
                 "wifiStrength": -45
             },
             "featureFlags": {
+                "supportFullHdSnapshot": true,
                 "canAdjustIrLedLevel": false,
                 "canMagicZoom": false,
                 "canOpticalZoom": false,
@@ -8152,6 +8164,7 @@
                 "storage": {}
             },
             "featureFlags": {
+                "supportFullHdSnapshot": true,
                 "canAdjustIrLedLevel": false,
                 "canMagicZoom": false,
                 "canOpticalZoom": false,
