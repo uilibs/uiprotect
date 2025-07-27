@@ -1898,6 +1898,32 @@ async def test_get_camera_rtsps_streams_none_response():
 
 
 @pytest.mark.asyncio
+async def test_get_camera_rtsps_streams_invalid_json():
+    """Test getting RTSPS streams with invalid JSON response."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="test_key",
+        verify_ssl=False,
+    )
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=b"invalid json")
+    ) as mock_request:
+        result = await client.get_camera_rtsps_streams("camera123")
+
+        mock_request.assert_called_once_with(
+            public_api=True,
+            url="/v1/cameras/camera123/rtsps-stream",
+            method="GET",
+        )
+
+        assert result is None
+
+
+@pytest.mark.asyncio
 async def test_delete_camera_rtsps_streams_success():
     """Test deleting RTSPS streams successfully."""
     client = ProtectApiClient(
@@ -2171,6 +2197,26 @@ def test_rtsps_streams_edge_cases():
 
     available_qualities = streams.get_available_stream_qualities()
     assert set(available_qualities) == {"high", "medium", "low", "ultra"}
+
+
+def test_rtsps_streams_none_pydantic_extra():
+    """Test RTSPSStreams when __pydantic_extra__ is None."""
+    from uiprotect.api import RTSPSStreams
+
+    # Create an RTSPSStreams instance and manually set __pydantic_extra__ to None
+    # This simulates edge cases where pydantic might not initialize extra fields
+    streams = RTSPSStreams()
+    
+    # Manually set __pydantic_extra__ to None to test the None check
+    streams.__pydantic_extra__ = None
+    
+    # All methods should return empty lists when __pydantic_extra__ is None
+    assert streams.get_available_stream_qualities() == []
+    assert streams.get_active_stream_qualities() == []
+    assert streams.get_inactive_stream_qualities() == []
+    
+    # get_stream_url should still work (uses getattr, not __pydantic_extra__)
+    assert streams.get_stream_url("any") is None
 
 
 @pytest.mark.asyncio
