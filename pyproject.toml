@@ -163,7 +163,7 @@ select = [
     "W",   # pycodestyle
     "UP",  # pyupgrade
     "I",   # isort
-    "PERF",# performance
+    "PERF", # performance
     "RUF", # ruff specific
     "SIM", # simplify
 ]
