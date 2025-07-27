@@ -2142,22 +2142,32 @@ def test_rtsps_streams_empty():
 
 
 def test_rtsps_streams_edge_cases():
-    """Test RTSPSStreams edge cases and invalid URLs."""
+    """Test RTSPSStreams edge cases and string validation."""
     from uiprotect.api import RTSPSStreams
 
-    # Test with empty strings and invalid URLs
+    # Test with empty strings and various URL formats
     streams = RTSPSStreams(
         high="rtsps://valid.com/stream",
-        medium="",  # empty string - should be inactive
-        low="http://invalid.com/stream",  # not RTSPS - should be inactive
-        ultra="invalid_url",  # invalid format - should be inactive
+        medium="",  # empty string - still a string, so active
+        low="http://invalid.com/stream",  # still a string, so active
+        ultra="invalid_url",  # still a string, so active
     )
 
+    # All string values are considered active (including empty strings)
     active_qualities = streams.get_active_stream_qualities()
-    assert active_qualities == ["high"]  # only valid RTSPS URL
+    assert set(active_qualities) == {"high", "medium", "low", "ultra"}
 
-    inactive_qualities = streams.get_inactive_stream_qualities()
-    assert set(inactive_qualities) == {"medium", "low", "ultra"}
+    # Test with None values (should be inactive)
+    streams_with_none = RTSPSStreams(
+        high="rtsps://valid.com/stream",
+        medium=None,  # None value - inactive
+    )
+
+    active_qualities = streams_with_none.get_active_stream_qualities()
+    assert active_qualities == ["high"]
+
+    inactive_qualities = streams_with_none.get_inactive_stream_qualities()
+    assert inactive_qualities == ["medium"]
 
     available_qualities = streams.get_available_stream_qualities()
     assert set(available_qualities) == {"high", "medium", "low", "ultra"}

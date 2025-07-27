@@ -163,34 +163,29 @@ class RTSPSStreams(ProtectBaseObject):
 
     model_config = {"extra": "allow"}
 
-    def __init__(self, api: ProtectApiClient | None = None, **data: Any) -> None:
-        """Initialize with stream data."""
-        super().__init__(api=api, **data)
-
     def get_stream_url(self, quality: str) -> str | None:
         """Get stream URL for a specific quality level."""
         return getattr(self, quality, None)
 
     def get_available_stream_qualities(self) -> list[str]:
         """Get list of available RTSPS stream quality levels (including inactive ones with null values)."""
-        return list(self.__pydantic_extra__.keys()) if self.__pydantic_extra__ else []
+        return list(self.__pydantic_extra__.keys())
 
     def get_active_stream_qualities(self) -> list[str]:
         """Get list of currently active RTSPS stream quality levels (only those with stream URLs)."""
-        if not self.__pydantic_extra__:
-            return []
-
         return [
             key
             for key, value in self.__pydantic_extra__.items()
-            if isinstance(value, str) and value is not None and "rtsps://" in value
+            if isinstance(value, str) and value is not None
         ]
 
     def get_inactive_stream_qualities(self) -> list[str]:
         """Get list of inactive RTSPS stream quality levels (supported but not currently active)."""
-        available = set(self.get_available_stream_qualities())
-        active = set(self.get_active_stream_qualities())
-        return list(available - active)
+        return [
+            key
+            for key, value in self.__pydantic_extra__.items()
+            if not (isinstance(value, str) and value is not None)
+        ]
 
 
 class BaseApiClient:
