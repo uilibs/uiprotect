@@ -27,10 +27,10 @@ from aiohttp import CookieJar, client_exceptions
 from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
+from uiprotect.data.base import ProtectBaseObject
 from uiprotect.data.convert import list_from_unifi_list
 from uiprotect.data.nvr import MetaInfo
 from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
-from uiprotect.data.base import ProtectBaseObject
 
 from ._compat import cached_property
 from .data import (
@@ -160,34 +160,38 @@ def get_user_hash(host: str, username: str) -> str:
 
 class RTSPSStreams(ProtectBaseObject):
     """RTSPS stream URLs for a camera."""
-    
+
     model_config = {"extra": "allow"}
-    
+
     def __init__(self, **data: Any) -> None:
         # Allow any quality level as attribute
         super().__init__(**data)
-    
+
     def get_stream_url(self, quality: str) -> str | None:
         """Get stream URL for a specific quality level."""
         return getattr(self, quality, None)
-    
+
     def get_available_qualities(self) -> list[str]:
         """Get list of available quality levels."""
         # Use model_fields_set to get the fields that were actually set
         # Exclude internal Pydantic fields
-        excluded_fields = {'_api'}
+        excluded_fields = {"_api"}
         qualities = []
-        
+
         # Check both __dict__ and model_fields_set for Pydantic compatibility
-        if hasattr(self, 'model_fields_set'):
+        if hasattr(self, "model_fields_set"):
             qualities.extend(self.model_fields_set)
-        
+
         # Also check __dict__ for dynamically set attributes
         for key, value in self.__dict__.items():
-            if not key.startswith('_') and key not in excluded_fields and value is not None:
+            if (
+                not key.startswith("_")
+                and key not in excluded_fields
+                and value is not None
+            ):
                 if key not in qualities:
                     qualities.append(key)
-        
+
         return qualities
 
 
@@ -1580,7 +1584,7 @@ class ProtectApiClient(BaseApiClient):
         """Creates RTSPS streams for a camera using public API."""
         if isinstance(qualities, str):
             qualities = [qualities]
-        
+
         data = {"qualities": qualities}
         response = await self.api_request_raw(
             public_api=True,
@@ -1588,10 +1592,10 @@ class ProtectApiClient(BaseApiClient):
             method="POST",
             json=data,
         )
-        
+
         if response is None:
             return None
-        
+
         try:
             response_json = orjson.loads(response)
             return RTSPSStreams(**response_json)
@@ -1608,10 +1612,10 @@ class ProtectApiClient(BaseApiClient):
             url=f"/v1/cameras/{camera_id}/rtsps-stream",
             method="GET",
         )
-        
+
         if response is None:
             return None
-        
+
         try:
             response_json = orjson.loads(response)
             return RTSPSStreams(**response_json)
@@ -1626,17 +1630,17 @@ class ProtectApiClient(BaseApiClient):
         """Deletes RTSPS streams for a camera using public API."""
         if isinstance(qualities, str):
             qualities = [qualities]
-        
+
         # Build query parameters for qualities
         params = [("qualities", quality) for quality in qualities]
-        
+
         response = await self.api_request_raw(
             public_api=True,
             url=f"/v1/cameras/{camera_id}/rtsps-stream",
             method="DELETE",
             params=params,
         )
-        
+
         return response is not None
 
     async def get_package_camera_snapshot(

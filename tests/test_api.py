@@ -1736,19 +1736,25 @@ async def test_create_camera_rtsps_streams_with_list_qualities():
         api_key="test_key",
         verify_ssl=False,
     )
-    
-    mock_response = b'{"high": "rtsps://example.com/high", "medium": "rtsps://example.com/medium"}'
-    
-    with patch.object(client, "api_request_raw", new=AsyncMock(return_value=mock_response)) as mock_request:
-        result = await client.create_camera_rtsps_streams("camera123", ["high", "medium"])
-        
+
+    mock_response = (
+        b'{"high": "rtsps://example.com/high", "medium": "rtsps://example.com/medium"}'
+    )
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=mock_response)
+    ) as mock_request:
+        result = await client.create_camera_rtsps_streams(
+            "camera123", ["high", "medium"]
+        )
+
         mock_request.assert_called_once_with(
             public_api=True,
             url="/v1/cameras/camera123/rtsps-stream",
             method="POST",
             json={"qualities": ["high", "medium"]},
         )
-        
+
         assert result is not None
         assert result.get_stream_url("high") == "rtsps://example.com/high"
         assert result.get_stream_url("medium") == "rtsps://example.com/medium"
@@ -1765,19 +1771,21 @@ async def test_create_camera_rtsps_streams_with_string_quality():
         api_key="test_key",
         verify_ssl=False,
     )
-    
+
     mock_response = b'{"high": "rtsps://example.com/high"}'
-    
-    with patch.object(client, "api_request_raw", new=AsyncMock(return_value=mock_response)) as mock_request:
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=mock_response)
+    ) as mock_request:
         result = await client.create_camera_rtsps_streams("camera123", "high")
-        
+
         mock_request.assert_called_once_with(
             public_api=True,
             url="/v1/cameras/camera123/rtsps-stream",
             method="POST",
             json={"qualities": ["high"]},
         )
-        
+
         assert result is not None
         assert result.get_stream_url("high") == "rtsps://example.com/high"
 
@@ -1793,17 +1801,19 @@ async def test_create_camera_rtsps_streams_none_response():
         api_key="test_key",
         verify_ssl=False,
     )
-    
-    with patch.object(client, "api_request_raw", new=AsyncMock(return_value=None)) as mock_request:
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=None)
+    ) as mock_request:
         result = await client.create_camera_rtsps_streams("camera123", ["high"])
-        
+
         mock_request.assert_called_once_with(
             public_api=True,
             url="/v1/cameras/camera123/rtsps-stream",
             method="POST",
             json={"qualities": ["high"]},
         )
-        
+
         assert result is None
 
 
@@ -1818,10 +1828,12 @@ async def test_create_camera_rtsps_streams_invalid_json():
         api_key="test_key",
         verify_ssl=False,
     )
-    
-    with patch.object(client, "api_request_raw", new=AsyncMock(return_value=b"invalid json")) as mock_request:
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=b"invalid json")
+    ) as mock_request:
         result = await client.create_camera_rtsps_streams("camera123", ["high"])
-        
+
         mock_request.assert_called_once()
         assert result is None
 
@@ -1837,18 +1849,22 @@ async def test_get_camera_rtsps_streams():
         api_key="test_key",
         verify_ssl=False,
     )
-    
-    mock_response = b'{"high": "rtsps://example.com/high", "medium": "rtsps://example.com/medium"}'
-    
-    with patch.object(client, "api_request_raw", new=AsyncMock(return_value=mock_response)) as mock_request:
+
+    mock_response = (
+        b'{"high": "rtsps://example.com/high", "medium": "rtsps://example.com/medium"}'
+    )
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=mock_response)
+    ) as mock_request:
         result = await client.get_camera_rtsps_streams("camera123")
-        
+
         mock_request.assert_called_once_with(
             public_api=True,
             url="/v1/cameras/camera123/rtsps-stream",
             method="GET",
         )
-        
+
         assert result is not None
         assert result.get_stream_url("high") == "rtsps://example.com/high"
         assert result.get_stream_url("medium") == "rtsps://example.com/medium"
@@ -1866,16 +1882,18 @@ async def test_get_camera_rtsps_streams_none_response():
         api_key="test_key",
         verify_ssl=False,
     )
-    
-    with patch.object(client, "api_request_raw", new=AsyncMock(return_value=None)) as mock_request:
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=None)
+    ) as mock_request:
         result = await client.get_camera_rtsps_streams("camera123")
-        
+
         mock_request.assert_called_once_with(
             public_api=True,
             url="/v1/cameras/camera123/rtsps-stream",
             method="GET",
         )
-        
+
         assert result is None
 
 
@@ -1890,17 +1908,21 @@ async def test_delete_camera_rtsps_streams_success():
         api_key="test_key",
         verify_ssl=False,
     )
-    
-    with patch.object(client, "api_request_raw", new=AsyncMock(return_value=b"")) as mock_request:
-        result = await client.delete_camera_rtsps_streams("camera123", ["high", "medium"])
-        
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=b"")
+    ) as mock_request:
+        result = await client.delete_camera_rtsps_streams(
+            "camera123", ["high", "medium"]
+        )
+
         mock_request.assert_called_once_with(
             public_api=True,
             url="/v1/cameras/camera123/rtsps-stream",
             method="DELETE",
             params=[("qualities", "high"), ("qualities", "medium")],
         )
-        
+
         assert result is True
 
 
@@ -1915,17 +1937,19 @@ async def test_delete_camera_rtsps_streams_single_quality():
         api_key="test_key",
         verify_ssl=False,
     )
-    
-    with patch.object(client, "api_request_raw", new=AsyncMock(return_value=b"")) as mock_request:
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=b"")
+    ) as mock_request:
         result = await client.delete_camera_rtsps_streams("camera123", "high")
-        
+
         mock_request.assert_called_once_with(
             public_api=True,
             url="/v1/cameras/camera123/rtsps-stream",
             method="DELETE",
             params=[("qualities", "high")],
         )
-        
+
         assert result is True
 
 
@@ -1940,44 +1964,46 @@ async def test_delete_camera_rtsps_streams_failure():
         api_key="test_key",
         verify_ssl=False,
     )
-    
-    with patch.object(client, "api_request_raw", new=AsyncMock(return_value=None)) as mock_request:
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=None)
+    ) as mock_request:
         result = await client.delete_camera_rtsps_streams("camera123", ["high"])
-        
+
         mock_request.assert_called_once_with(
             public_api=True,
             url="/v1/cameras/camera123/rtsps-stream",
             method="DELETE",
             params=[("qualities", "high")],
         )
-        
+
         assert result is False
 
 
 def test_rtsps_streams_class():
     """Test RTSPSStreams class functionality."""
     from uiprotect.api import RTSPSStreams
-    
+
     # Test with multiple qualities
     streams = RTSPSStreams(
         high="rtsps://example.com/high",
         medium="rtsps://example.com/medium",
-        low="rtsps://example.com/low"
+        low="rtsps://example.com/low",
     )
-    
+
     assert streams.get_stream_url("high") == "rtsps://example.com/high"
     assert streams.get_stream_url("medium") == "rtsps://example.com/medium"
     assert streams.get_stream_url("low") == "rtsps://example.com/low"
     assert streams.get_stream_url("nonexistent") is None
-    
+
     available_qualities = streams.get_available_qualities()
     assert set(available_qualities) == {"high", "medium", "low"}
-    
+
     # Test with single quality
     single_stream = RTSPSStreams(ultra="rtsps://example.com/ultra")
     assert single_stream.get_stream_url("ultra") == "rtsps://example.com/ultra"
     assert set(single_stream.get_available_qualities()) == {"ultra"}
-    
+
     # Test with empty streams
     empty_stream = RTSPSStreams()
     assert empty_stream.get_stream_url("any") is None
@@ -1989,8 +2015,7 @@ async def test_camera_create_rtsps_streams():
     """Test Camera.create_rtsps_streams method."""
     from uiprotect.api import RTSPSStreams
     from uiprotect.data import Camera
-    from uiprotect.exceptions import NotAuthorized
-    
+
     # Mock camera and API
     camera = AsyncMock(spec=Camera)
     camera.id = "test_camera_id"
@@ -1999,16 +2024,19 @@ async def test_camera_create_rtsps_streams():
     camera._api.create_camera_rtsps_streams = AsyncMock(
         return_value=RTSPSStreams(high="rtsps://example.com/high")
     )
-    
+
     # Bind the actual method to the mock
     from uiprotect.data.devices import Camera
+
     camera.create_rtsps_streams = Camera.create_rtsps_streams.__get__(camera, Camera)
-    
+
     # Test successful creation
     result = await camera.create_rtsps_streams(["high"])
     assert result is not None
     assert result.get_stream_url("high") == "rtsps://example.com/high"
-    camera._api.create_camera_rtsps_streams.assert_called_once_with("test_camera_id", ["high"])
+    camera._api.create_camera_rtsps_streams.assert_called_once_with(
+        "test_camera_id", ["high"]
+    )
 
 
 @pytest.mark.asyncio
@@ -2016,19 +2044,22 @@ async def test_camera_create_rtsps_streams_no_api_key():
     """Test Camera.create_rtsps_streams method without API key."""
     from uiprotect.data import Camera
     from uiprotect.exceptions import NotAuthorized
-    
+
     # Mock camera and API without key
     camera = AsyncMock(spec=Camera)
     camera.id = "test_camera_id"
     camera._api = AsyncMock()
     camera._api._api_key = None
-    
+
     # Bind the actual method to the mock
     from uiprotect.data.devices import Camera
+
     camera.create_rtsps_streams = Camera.create_rtsps_streams.__get__(camera, Camera)
-    
+
     # Test that it raises NotAuthorized
-    with pytest.raises(NotAuthorized, match="Cannot create RTSPS streams without an API key"):
+    with pytest.raises(
+        NotAuthorized, match="Cannot create RTSPS streams without an API key"
+    ):
         await camera.create_rtsps_streams(["high"])
 
 
@@ -2037,7 +2068,7 @@ async def test_camera_get_rtsps_streams():
     """Test Camera.get_rtsps_streams method."""
     from uiprotect.api import RTSPSStreams
     from uiprotect.data import Camera
-    
+
     # Mock camera and API
     camera = AsyncMock(spec=Camera)
     camera.id = "test_camera_id"
@@ -2045,15 +2076,15 @@ async def test_camera_get_rtsps_streams():
     camera._api._api_key = "test_api_key"
     camera._api.get_camera_rtsps_streams = AsyncMock(
         return_value=RTSPSStreams(
-            high="rtsps://example.com/high",
-            medium="rtsps://example.com/medium"
+            high="rtsps://example.com/high", medium="rtsps://example.com/medium"
         )
     )
-    
+
     # Bind the actual method to the mock
     from uiprotect.data.devices import Camera
+
     camera.get_rtsps_streams = Camera.get_rtsps_streams.__get__(camera, Camera)
-    
+
     # Test successful retrieval
     result = await camera.get_rtsps_streams()
     assert result is not None
@@ -2067,19 +2098,22 @@ async def test_camera_get_rtsps_streams_no_api_key():
     """Test Camera.get_rtsps_streams method without API key."""
     from uiprotect.data import Camera
     from uiprotect.exceptions import NotAuthorized
-    
+
     # Mock camera and API without key
     camera = AsyncMock(spec=Camera)
     camera.id = "test_camera_id"
     camera._api = AsyncMock()
     camera._api._api_key = None
-    
+
     # Bind the actual method to the mock
     from uiprotect.data.devices import Camera
+
     camera.get_rtsps_streams = Camera.get_rtsps_streams.__get__(camera, Camera)
-    
+
     # Test that it raises NotAuthorized
-    with pytest.raises(NotAuthorized, match="Cannot get RTSPS streams without an API key"):
+    with pytest.raises(
+        NotAuthorized, match="Cannot get RTSPS streams without an API key"
+    ):
         await camera.get_rtsps_streams()
 
 
@@ -2087,22 +2121,25 @@ async def test_camera_get_rtsps_streams_no_api_key():
 async def test_camera_delete_rtsps_streams():
     """Test Camera.delete_rtsps_streams method."""
     from uiprotect.data import Camera
-    
+
     # Mock camera and API
     camera = AsyncMock(spec=Camera)
     camera.id = "test_camera_id"
     camera._api = AsyncMock()
     camera._api._api_key = "test_api_key"
     camera._api.delete_camera_rtsps_streams = AsyncMock(return_value=True)
-    
+
     # Bind the actual method to the mock
     from uiprotect.data.devices import Camera
+
     camera.delete_rtsps_streams = Camera.delete_rtsps_streams.__get__(camera, Camera)
-    
+
     # Test successful deletion
     result = await camera.delete_rtsps_streams(["high", "medium"])
     assert result is True
-    camera._api.delete_camera_rtsps_streams.assert_called_once_with("test_camera_id", ["high", "medium"])
+    camera._api.delete_camera_rtsps_streams.assert_called_once_with(
+        "test_camera_id", ["high", "medium"]
+    )
 
 
 @pytest.mark.asyncio
@@ -2110,17 +2147,20 @@ async def test_camera_delete_rtsps_streams_no_api_key():
     """Test Camera.delete_rtsps_streams method without API key."""
     from uiprotect.data import Camera
     from uiprotect.exceptions import NotAuthorized
-    
+
     # Mock camera and API without key
     camera = AsyncMock(spec=Camera)
     camera.id = "test_camera_id"
     camera._api = AsyncMock()
     camera._api._api_key = None
-    
+
     # Bind the actual method to the mock
     from uiprotect.data.devices import Camera
+
     camera.delete_rtsps_streams = Camera.delete_rtsps_streams.__get__(camera, Camera)
-    
+
     # Test that it raises NotAuthorized
-    with pytest.raises(NotAuthorized, match="Cannot delete RTSPS streams without an API key"):
+    with pytest.raises(
+        NotAuthorized, match="Cannot delete RTSPS streams without an API key"
+    ):
         await camera.delete_rtsps_streams(["high"])

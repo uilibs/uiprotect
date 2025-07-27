@@ -584,22 +584,25 @@ def create_rtsps_streams(
 ) -> None:
     """
     Creates RTSPS streams for camera.
-    
+
     Available qualities are typically: high, medium, low, ultra.
     Requires API key authentication and public API access.
     """
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
-    
+
     async def create_streams() -> None:
         try:
             result = await obj.create_rtsps_streams(qualities)
             if result is None:
                 typer.secho("Failed to create RTSPS streams", fg="red")
                 raise typer.Exit(1)
-            
+
             if ctx.obj.output_format == base.OutputFormatEnum.JSON:
-                stream_data = {quality: result.get_stream_url(quality) for quality in result.get_available_qualities()}
+                stream_data = {
+                    quality: result.get_stream_url(quality)
+                    for quality in result.get_available_qualities()
+                }
                 base.json_output(stream_data)
             else:
                 for quality in result.get_available_qualities():
@@ -608,7 +611,7 @@ def create_rtsps_streams(
         except Exception as e:
             typer.secho(f"Error creating RTSPS streams: {e}", fg="red")
             raise typer.Exit(1)
-    
+
     base.run(ctx, create_streams())
 
 
@@ -616,21 +619,24 @@ def create_rtsps_streams(
 def get_rtsps_streams(ctx: typer.Context) -> None:
     """
     Gets existing RTSPS streams for camera.
-    
+
     Requires API key authentication and public API access.
     """
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
-    
+
     async def get_streams() -> None:
         try:
             result = await obj.get_rtsps_streams()
             if result is None:
                 typer.secho("No RTSPS streams found or failed to retrieve", fg="yellow")
                 return
-            
+
             if ctx.obj.output_format == base.OutputFormatEnum.JSON:
-                stream_data = {quality: result.get_stream_url(quality) for quality in result.get_available_qualities()}
+                stream_data = {
+                    quality: result.get_stream_url(quality)
+                    for quality in result.get_available_qualities()
+                }
                 base.json_output(stream_data)
             else:
                 available_qualities = result.get_available_qualities()
@@ -643,7 +649,7 @@ def get_rtsps_streams(ctx: typer.Context) -> None:
         except Exception as e:
             typer.secho(f"Error getting RTSPS streams: {e}", fg="red")
             raise typer.Exit(1)
-    
+
     base.run(ctx, get_streams())
 
 
@@ -657,22 +663,27 @@ def delete_rtsps_streams(
 ) -> None:
     """
     Deletes RTSPS streams for camera.
-    
+
     Requires API key authentication and public API access.
     """
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
-    
+
     async def delete_streams() -> None:
         try:
             result = await obj.delete_rtsps_streams(qualities)
             if result:
-                typer.secho(f"Successfully deleted RTSPS streams: {', '.join(qualities)}", fg="green")
+                typer.secho(
+                    f"Successfully deleted RTSPS streams: {', '.join(qualities)}",
+                    fg="green",
+                )
             else:
-                typer.secho(f"Failed to delete RTSPS streams: {', '.join(qualities)}", fg="red")
+                typer.secho(
+                    f"Failed to delete RTSPS streams: {', '.join(qualities)}", fg="red"
+                )
                 raise typer.Exit(1)
         except Exception as e:
             typer.secho(f"Error deleting RTSPS streams: {e}", fg="red")
             raise typer.Exit(1)
-    
+
     base.run(ctx, delete_streams())
