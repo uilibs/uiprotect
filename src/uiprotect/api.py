@@ -30,6 +30,7 @@ from yarl import URL
 from uiprotect.data.convert import list_from_unifi_list
 from uiprotect.data.nvr import MetaInfo
 from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
+from uiprotect.data.base import ProtectBaseObject
 
 from ._compat import cached_property
 from .data import (
@@ -155,6 +156,39 @@ def get_user_hash(host: str, username: str) -> str:
     session.update(host.encode("utf8"))
     session.update(username.encode("utf8"))
     return session.hexdigest()
+
+
+class RTSPSStreams(ProtectBaseObject):
+    """RTSPS stream URLs for a camera."""
+    
+    model_config = {"extra": "allow"}
+    
+    def __init__(self, **data: Any) -> None:
+        # Allow any quality level as attribute
+        super().__init__(**data)
+    
+    def get_stream_url(self, quality: str) -> str | None:
+        """Get stream URL for a specific quality level."""
+        return getattr(self, quality, None)
+    
+    def get_available_qualities(self) -> list[str]:
+        """Get list of available quality levels."""
+        # Use model_fields_set to get the fields that were actually set
+        # Exclude internal Pydantic fields
+        excluded_fields = {'_api'}
+        qualities = []
+        
+        # Check both __dict__ and model_fields_set for Pydantic compatibility
+        if hasattr(self, 'model_fields_set'):
+            qualities.extend(self.model_fields_set)
+        
+        # Also check __dict__ for dynamically set attributes
+        for key, value in self.__dict__.items():
+            if not key.startswith('_') and key not in excluded_fields and value is not None:
+                if key not in qualities:
+                    qualities.append(key)
+        
+        return qualities
 
 
 class BaseApiClient:
@@ -443,7 +477,8 @@ class BaseApiClient:
         )
 
         try:
-            if response.status != 200:
+            # Check for successful status codes (2xx range)
+            if not (200 <= response.status < 300):
                 await self._raise_for_status(response, raise_exception)
                 return None
 
@@ -465,6 +500,10 @@ class BaseApiClient:
         reason = await get_response_reason(response)
         msg = "Request failed: %s - Status: %s - Reason: %s"
         status = response.status
+
+        # Success status codes (2xx) should not raise exceptions
+        if 200 <= status < 300:
+            return
 
         if raise_exception:
             if status in {
@@ -1532,6 +1571,73 @@ class ProtectApiClient(BaseApiClient):
             url=f"/v1/cameras/{camera_id}/snapshot",
             params={"highQuality": pybool_to_json_bool(high_quality)},
         )
+
+    async def create_camera_rtsps_streams(
+        self,
+        camera_id: str,
+        qualities: list[str] | str,
+    ) -> RTSPSStreams | None:
+        """Creates RTSPS streams for a camera using public API."""
+        if isinstance(qualities, str):
+            qualities = [qualities]
+        
+        data = {"qualities": qualities}
+        response = await self.api_request_raw(
+            public_api=True,
+            url=f"/v1/cameras/{camera_id}/rtsps-stream",
+            method="POST",
+            json=data,
+        )
+        
+        if response is None:
+            return None
+        
+        try:
+            response_json = orjson.loads(response)
+            return RTSPSStreams(**response_json)
+        except (orjson.JSONDecodeError, TypeError):
+            return None
+
+    async def get_camera_rtsps_streams(
+        self,
+        camera_id: str,
+    ) -> RTSPSStreams | None:
+        """Gets existing RTSPS streams for a camera using public API."""
+        response = await self.api_request_raw(
+            public_api=True,
+            url=f"/v1/cameras/{camera_id}/rtsps-stream",
+            method="GET",
+        )
+        
+        if response is None:
+            return None
+        
+        try:
+            response_json = orjson.loads(response)
+            return RTSPSStreams(**response_json)
+        except (orjson.JSONDecodeError, TypeError):
+            return None
+
+    async def delete_camera_rtsps_streams(
+        self,
+        camera_id: str,
+        qualities: list[str] | str,
+    ) -> bool:
+        """Deletes RTSPS streams for a camera using public API."""
+        if isinstance(qualities, str):
+            qualities = [qualities]
+        
+        # Build query parameters for qualities
+        params = [("qualities", quality) for quality in qualities]
+        
+        response = await self.api_request_raw(
+            public_api=True,
+            url=f"/v1/cameras/{camera_id}/rtsps-stream",
+            method="DELETE",
+            params=params,
+        )
+        
+        return response is not None
 
     async def get_package_camera_snapshot(
         self,
