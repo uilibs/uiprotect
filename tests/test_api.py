@@ -558,10 +558,11 @@ async def test_get_events_raw_types(protect_client: ProtectApiClient):
 @pytest.mark.timeout(CONSTANTS["event_count"] * 0.1)  # type: ignore[misc]
 @pytest.mark.asyncio()
 async def test_get_events(protect_client: ProtectApiClient, raw_events):
-    expected_events = []
-    for event in raw_events:
-        if event["score"] >= 50 and event["type"] in EventType.device_events():
-            expected_events.append(event)
+    expected_events = [
+        event
+        for event in raw_events
+        if event["score"] >= 50 and event["type"] in EventType.device_events()
+    ]
 
     protect_client._minimum_score = 50
 
