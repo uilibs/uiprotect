@@ -420,7 +420,7 @@ class Bootstrap(ProtectBaseObject):
                 changed_data=add_obj.model_dump(),
                 new_obj=add_obj,
             )
-        elif action_type == "remove":
+        if action_type == "remove":
             to_remove = obj_from_bootstrap.by_id(action_id)
             if to_remove is None:
                 return None
@@ -431,7 +431,7 @@ class Bootstrap(ProtectBaseObject):
                 changed_data={},
                 old_obj=to_remove,
             )
-        elif action_type == "update":
+        if action_type == "update":
             updated_obj = obj_from_bootstrap.by_id(action_id)
             if updated_obj is None:
                 return None

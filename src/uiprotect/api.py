@@ -472,10 +472,10 @@ class BaseApiClient:
                 HTTPStatus.FORBIDDEN.value,
             }:
                 raise NotAuthorized(msg % (url, status, reason))
-            elif status == HTTPStatus.TOO_MANY_REQUESTS.value:
+            if status == HTTPStatus.TOO_MANY_REQUESTS.value:
                 _LOGGER.debug("Too many requests - Login is rate limited: %s", response)
                 raise NvrError(msg % (url, status, reason))
-            elif (
+            if (
                 status >= HTTPStatus.BAD_REQUEST.value
                 and status < HTTPStatus.INTERNAL_SERVER_ERROR.value
             ):

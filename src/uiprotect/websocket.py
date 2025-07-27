@@ -137,7 +137,7 @@ class Websocket:
                 if msg_type is WSMsgType.ERROR:
                     _LOGGER.exception("Error from Websocket: %s", msg.data)
                     break
-                elif msg_type in _CLOSE_MESSAGE_TYPES:
+                if msg_type in _CLOSE_MESSAGE_TYPES:
                     _LOGGER.debug("Websocket closed: %s", msg)
                     break
 
