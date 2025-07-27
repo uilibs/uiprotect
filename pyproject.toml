@@ -164,6 +164,7 @@ select = [
     "UP",  # pyupgrade
     "I",   # isort
     "PERF", # performance
+    "RET", # return rules
     "RUF", # ruff specific
     "SIM", # simplify
 ]
