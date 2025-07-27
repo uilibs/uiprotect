@@ -27,6 +27,7 @@ from aiohttp import CookieJar, client_exceptions
 from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
+from uiprotect.data.base import ProtectBaseObject
 from uiprotect.data.convert import list_from_unifi_list
 from uiprotect.data.nvr import MetaInfo
 from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
@@ -155,6 +156,46 @@ def get_user_hash(host: str, username: str) -> str:
     session.update(host.encode("utf8"))
     session.update(username.encode("utf8"))
     return session.hexdigest()
+
+
+class RTSPSStreams(ProtectBaseObject):
+    """RTSPS stream URLs for a camera."""
+
+    model_config = {"extra": "allow"}
+    # Intentionally no variables like 'high', 'medium', 'low' are defined here.
+    # The API naming appears inconsistent - what's called "quality" might actually be "channels".
+    # Besides standard qualities (high/medium/low), there are special cases like "package" for doorbells
+    # and unclear implementation for 180° cameras with dual sensors. Dynamic handling via __pydantic_extra__ is safer.
+
+    def get_stream_url(self, quality: str) -> str | None:
+        """Get stream URL for a specific quality level."""
+        return getattr(self, quality, None)
+
+    def get_available_stream_qualities(self) -> list[str]:
+        """Get list of available RTSPS stream quality levels (including inactive ones with null values)."""
+        if self.__pydantic_extra__ is None:
+            return []
+        return list(self.__pydantic_extra__.keys())
+
+    def get_active_stream_qualities(self) -> list[str]:
+        """Get list of currently active RTSPS stream quality levels (only those with stream URLs)."""
+        if self.__pydantic_extra__ is None:
+            return []
+        return [
+            key
+            for key, value in self.__pydantic_extra__.items()
+            if isinstance(value, str) and value is not None
+        ]
+
+    def get_inactive_stream_qualities(self) -> list[str]:
+        """Get list of inactive RTSPS stream quality levels (supported but not currently active)."""
+        if self.__pydantic_extra__ is None:
+            return []
+        return [
+            key
+            for key, value in self.__pydantic_extra__.items()
+            if not (isinstance(value, str) and value is not None)
+        ]
 
 
 class BaseApiClient:
@@ -443,7 +484,8 @@ class BaseApiClient:
         )
 
         try:
-            if response.status != 200:
+            # Check for successful status codes (2xx range)
+            if not (200 <= response.status < 300):
                 await self._raise_for_status(response, raise_exception)
                 return None
 
@@ -465,6 +507,10 @@ class BaseApiClient:
         reason = await get_response_reason(response)
         msg = "Request failed: %s - Status: %s - Reason: %s"
         status = response.status
+
+        # Success status codes (2xx) should not raise exceptions
+        if 200 <= status < 300:
+            return
 
         if raise_exception:
             if status in {
@@ -1532,6 +1578,83 @@ class ProtectApiClient(BaseApiClient):
             url=f"/v1/cameras/{camera_id}/snapshot",
             params={"highQuality": pybool_to_json_bool(high_quality)},
         )
+
+    async def create_camera_rtsps_streams(
+        self,
+        camera_id: str,
+        qualities: list[str] | str,
+    ) -> RTSPSStreams | None:
+        """Creates RTSPS streams for a camera using public API."""
+        if isinstance(qualities, str):
+            qualities = [qualities]
+
+        data = {"qualities": qualities}
+        response = await self.api_request_raw(
+            public_api=True,
+            url=f"/v1/cameras/{camera_id}/rtsps-stream",
+            method="POST",
+            json=data,
+        )
+
+        if response is None:
+            return None
+
+        try:
+            response_json = orjson.loads(response)
+            return RTSPSStreams(**response_json)
+        except (orjson.JSONDecodeError, TypeError) as ex:
+            _LOGGER.error(
+                "Could not decode JSON response for create RTSPS streams (camera %s): %s",
+                camera_id,
+                ex,
+            )
+            return None
+
+    async def get_camera_rtsps_streams(
+        self,
+        camera_id: str,
+    ) -> RTSPSStreams | None:
+        """Gets existing RTSPS streams for a camera using public API."""
+        response = await self.api_request_raw(
+            public_api=True,
+            url=f"/v1/cameras/{camera_id}/rtsps-stream",
+            method="GET",
+        )
+
+        if response is None:
+            return None
+
+        try:
+            response_json = orjson.loads(response)
+            return RTSPSStreams(**response_json)
+        except (orjson.JSONDecodeError, TypeError) as ex:
+            _LOGGER.error(
+                "Could not decode JSON response for get RTSPS streams (camera %s): %s",
+                camera_id,
+                ex,
+            )
+            return None
+
+    async def delete_camera_rtsps_streams(
+        self,
+        camera_id: str,
+        qualities: list[str] | str,
+    ) -> bool:
+        """Deletes RTSPS streams for a camera using public API."""
+        if isinstance(qualities, str):
+            qualities = [qualities]
+
+        # Build query parameters for qualities
+        params = [("qualities", quality) for quality in qualities]
+
+        response = await self.api_request_raw(
+            public_api=True,
+            url=f"/v1/cameras/{camera_id}/rtsps-stream",
+            method="DELETE",
+            params=params,
+        )
+
+        return response is not None
 
     async def get_package_camera_snapshot(
         self,

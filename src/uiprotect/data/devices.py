@@ -80,6 +80,7 @@ from .types import (
 from .user import User
 
 if TYPE_CHECKING:
+    from ..api import RTSPSStreams
     from .nvr import Event, Liveview
 
 PRIVACY_ZONE_NAME = "pyufp_privacy_zone"
@@ -2101,6 +2102,29 @@ class Camera(ProtectMotionDeviceModel):
         return await self._api.get_public_api_camera_snapshot(
             camera_id=self.id, high_quality=high_quality
         )
+
+    async def create_rtsps_streams(
+        self, qualities: list[str] | str
+    ) -> RTSPSStreams | None:
+        """Creates RTSPS streams for camera using public API."""
+        if self._api._api_key is None:
+            raise NotAuthorized("Cannot create RTSPS streams without an API key.")
+
+        return await self._api.create_camera_rtsps_streams(self.id, qualities)
+
+    async def get_rtsps_streams(self) -> RTSPSStreams | None:
+        """Gets existing RTSPS streams for camera using public API."""
+        if self._api._api_key is None:
+            raise NotAuthorized("Cannot get RTSPS streams without an API key.")
+
+        return await self._api.get_camera_rtsps_streams(self.id)
+
+    async def delete_rtsps_streams(self, qualities: list[str] | str) -> bool:
+        """Deletes RTSPS streams for camera using public API."""
+        if self._api._api_key is None:
+            raise NotAuthorized("Cannot delete RTSPS streams without an API key.")
+
+        return await self._api.delete_camera_rtsps_streams(self.id, qualities)
 
     async def get_package_snapshot(
         self,

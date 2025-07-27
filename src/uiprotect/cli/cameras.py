@@ -572,3 +572,118 @@ def set_lcd_text(
     obj: d.Camera = ctx.obj.device
 
     base.run(ctx, obj.set_lcd_text(text_type, text, reset_at))
+
+
+@app.command()
+def create_rtsps_streams(
+    ctx: typer.Context,
+    qualities: list[str] = typer.Argument(
+        ...,
+        help="List of stream qualities to create (e.g., high medium low)",
+    ),
+) -> None:
+    """
+    Creates RTSPS streams for camera.
+
+    Available qualities are typically: high, medium, low, ultra.
+    Requires API key authentication and public API access.
+    """
+    base.require_device_id(ctx)
+    obj: d.Camera = ctx.obj.device
+
+    async def create_streams() -> None:
+        try:
+            result = await obj.create_rtsps_streams(qualities)
+            if result is None:
+                typer.secho("Failed to create RTSPS streams", fg="red")
+                raise typer.Exit(1)
+
+            if ctx.obj.output_format == base.OutputFormatEnum.JSON:
+                stream_data = {
+                    quality: result.get_stream_url(quality)
+                    for quality in result.get_available_stream_qualities()
+                }
+                base.json_output(stream_data)
+            else:
+                for quality in result.get_available_stream_qualities():
+                    url = result.get_stream_url(quality)
+                    typer.echo(f"{quality:10}\t{url}")
+        except Exception as e:
+            typer.secho(f"Error creating RTSPS streams: {e}", fg="red")
+            raise typer.Exit(1) from e
+
+    base.run(ctx, create_streams())
+
+
+@app.command()
+def get_rtsps_streams(ctx: typer.Context) -> None:
+    """
+    Gets existing RTSPS streams for camera.
+
+    Requires API key authentication and public API access.
+    """
+    base.require_device_id(ctx)
+    obj: d.Camera = ctx.obj.device
+
+    async def get_streams() -> None:
+        try:
+            result = await obj.get_rtsps_streams()
+            if result is None:
+                typer.secho("No RTSPS streams found or failed to retrieve", fg="yellow")
+                return
+
+            if ctx.obj.output_format == base.OutputFormatEnum.JSON:
+                stream_data = {
+                    quality: result.get_stream_url(quality)
+                    for quality in result.get_available_stream_qualities()
+                }
+                base.json_output(stream_data)
+            else:
+                available_qualities = result.get_available_stream_qualities()
+                if not available_qualities:
+                    typer.echo("No RTSPS streams available")
+                else:
+                    for quality in available_qualities:
+                        url = result.get_stream_url(quality)
+                        typer.echo(f"{quality:10}\t{url}")
+        except Exception as e:
+            typer.secho(f"Error getting RTSPS streams: {e}", fg="red")
+            raise typer.Exit(1) from e
+
+    base.run(ctx, get_streams())
+
+
+@app.command()
+def delete_rtsps_streams(
+    ctx: typer.Context,
+    qualities: list[str] = typer.Argument(
+        ...,
+        help="List of stream qualities to delete (e.g., high medium low)",
+    ),
+) -> None:
+    """
+    Deletes RTSPS streams for camera.
+
+    Requires API key authentication and public API access.
+    """
+    base.require_device_id(ctx)
+    obj: d.Camera = ctx.obj.device
+
+    async def delete_streams() -> None:
+        try:
+            result = await obj.delete_rtsps_streams(qualities)
+            if result:
+                typer.secho(
+                    f"Successfully deleted RTSPS streams: {', '.join(qualities)}",
+                    fg="green",
+                )
+            else:
+                typer.secho(
+                    f"Failed to delete RTSPS streams: {', '.join(qualities)}", fg="red"
+                )
+                raise typer.Exit(1)
+        except Exception as e:
+            typer.secho(f"Error deleting RTSPS streams: {e}", fg="red")
+            raise typer.Exit(1) from e
+
+    base.run(ctx, delete_streams())

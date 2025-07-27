@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from ipaddress import IPv4Address
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import aiohttp
 import pytest
@@ -1724,3 +1724,775 @@ def test_is_api_key_set_false():
         verify_ssl=False,
     )
     assert client.is_api_key_set() is False
+
+
+@pytest.mark.asyncio
+async def test_create_camera_rtsps_streams_with_list_qualities():
+    """Test creating RTSPS streams with a list of qualities."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="test_key",
+        verify_ssl=False,
+    )
+
+    mock_response = (
+        b'{"high": "rtsps://example.com/high", "medium": "rtsps://example.com/medium"}'
+    )
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=mock_response)
+    ) as mock_request:
+        result = await client.create_camera_rtsps_streams(
+            "camera123", ["high", "medium"]
+        )
+
+        mock_request.assert_called_once_with(
+            public_api=True,
+            url="/v1/cameras/camera123/rtsps-stream",
+            method="POST",
+            json={"qualities": ["high", "medium"]},
+        )
+
+        assert result is not None
+        assert result.get_stream_url("high") == "rtsps://example.com/high"
+        assert result.get_stream_url("medium") == "rtsps://example.com/medium"
+
+
+@pytest.mark.asyncio
+async def test_create_camera_rtsps_streams_with_string_quality():
+    """Test creating RTSPS streams with a single quality string."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="test_key",
+        verify_ssl=False,
+    )
+
+    mock_response = b'{"high": "rtsps://example.com/high"}'
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=mock_response)
+    ) as mock_request:
+        result = await client.create_camera_rtsps_streams("camera123", "high")
+
+        mock_request.assert_called_once_with(
+            public_api=True,
+            url="/v1/cameras/camera123/rtsps-stream",
+            method="POST",
+            json={"qualities": ["high"]},
+        )
+
+        assert result is not None
+        assert result.get_stream_url("high") == "rtsps://example.com/high"
+
+
+@pytest.mark.asyncio
+async def test_create_camera_rtsps_streams_none_response():
+    """Test creating RTSPS streams with None response."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="test_key",
+        verify_ssl=False,
+    )
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=None)
+    ) as mock_request:
+        result = await client.create_camera_rtsps_streams("camera123", ["high"])
+
+        mock_request.assert_called_once_with(
+            public_api=True,
+            url="/v1/cameras/camera123/rtsps-stream",
+            method="POST",
+            json={"qualities": ["high"]},
+        )
+
+        assert result is None
+
+
+@pytest.mark.asyncio
+async def test_create_camera_rtsps_streams_invalid_json():
+    """Test creating RTSPS streams with invalid JSON response."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="test_key",
+        verify_ssl=False,
+    )
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=b"invalid json")
+    ) as mock_request:
+        result = await client.create_camera_rtsps_streams("camera123", ["high"])
+
+        mock_request.assert_called_once()
+        assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_camera_rtsps_streams():
+    """Test getting existing RTSPS streams."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="test_key",
+        verify_ssl=False,
+    )
+
+    mock_response = (
+        b'{"high": "rtsps://example.com/high", "medium": "rtsps://example.com/medium"}'
+    )
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=mock_response)
+    ) as mock_request:
+        result = await client.get_camera_rtsps_streams("camera123")
+
+        mock_request.assert_called_once_with(
+            public_api=True,
+            url="/v1/cameras/camera123/rtsps-stream",
+            method="GET",
+        )
+
+        assert result is not None
+        assert result.get_stream_url("high") == "rtsps://example.com/high"
+        assert result.get_stream_url("medium") == "rtsps://example.com/medium"
+        assert set(result.get_available_stream_qualities()) == {"high", "medium"}
+
+
+@pytest.mark.asyncio
+async def test_get_camera_rtsps_streams_none_response():
+    """Test getting RTSPS streams with None response."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="test_key",
+        verify_ssl=False,
+    )
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=None)
+    ) as mock_request:
+        result = await client.get_camera_rtsps_streams("camera123")
+
+        mock_request.assert_called_once_with(
+            public_api=True,
+            url="/v1/cameras/camera123/rtsps-stream",
+            method="GET",
+        )
+
+        assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_camera_rtsps_streams_invalid_json():
+    """Test getting RTSPS streams with invalid JSON response."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="test_key",
+        verify_ssl=False,
+    )
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=b"invalid json")
+    ) as mock_request:
+        result = await client.get_camera_rtsps_streams("camera123")
+
+        mock_request.assert_called_once_with(
+            public_api=True,
+            url="/v1/cameras/camera123/rtsps-stream",
+            method="GET",
+        )
+
+        assert result is None
+
+
+@pytest.mark.asyncio
+async def test_delete_camera_rtsps_streams_success():
+    """Test deleting RTSPS streams successfully."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="test_key",
+        verify_ssl=False,
+    )
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=b"")
+    ) as mock_request:
+        result = await client.delete_camera_rtsps_streams(
+            "camera123", ["high", "medium"]
+        )
+
+        mock_request.assert_called_once_with(
+            public_api=True,
+            url="/v1/cameras/camera123/rtsps-stream",
+            method="DELETE",
+            params=[("qualities", "high"), ("qualities", "medium")],
+        )
+
+        assert result is True
+
+
+@pytest.mark.asyncio
+async def test_delete_camera_rtsps_streams_single_quality():
+    """Test deleting RTSPS streams with single quality."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="test_key",
+        verify_ssl=False,
+    )
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=b"")
+    ) as mock_request:
+        result = await client.delete_camera_rtsps_streams("camera123", "high")
+
+        mock_request.assert_called_once_with(
+            public_api=True,
+            url="/v1/cameras/camera123/rtsps-stream",
+            method="DELETE",
+            params=[("qualities", "high")],
+        )
+
+        assert result is True
+
+
+@pytest.mark.asyncio
+async def test_delete_camera_rtsps_streams_failure():
+    """Test deleting RTSPS streams with failure."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="test_key",
+        verify_ssl=False,
+    )
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=None)
+    ) as mock_request:
+        result = await client.delete_camera_rtsps_streams("camera123", ["high"])
+
+        mock_request.assert_called_once_with(
+            public_api=True,
+            url="/v1/cameras/camera123/rtsps-stream",
+            method="DELETE",
+            params=[("qualities", "high")],
+        )
+
+        assert result is False
+
+
+def test_rtsps_streams_class():
+    """Test RTSPSStreams class functionality."""
+    from uiprotect.api import RTSPSStreams
+
+    # Test with multiple qualities
+    streams = RTSPSStreams(
+        high="rtsps://example.com/high",
+        medium="rtsps://example.com/medium",
+        low="rtsps://example.com/low",
+    )
+
+    assert streams.get_stream_url("high") == "rtsps://example.com/high"
+    assert streams.get_stream_url("medium") == "rtsps://example.com/medium"
+    assert streams.get_stream_url("low") == "rtsps://example.com/low"
+    assert streams.get_stream_url("nonexistent") is None
+
+    available_qualities = streams.get_available_stream_qualities()
+    assert set(available_qualities) == {"high", "medium", "low"}
+
+    # Test with single quality
+    single_stream = RTSPSStreams(ultra="rtsps://example.com/ultra")
+    assert single_stream.get_stream_url("ultra") == "rtsps://example.com/ultra"
+    assert set(single_stream.get_available_stream_qualities()) == {"ultra"}
+
+    # Test with empty streams
+    empty_stream = RTSPSStreams()
+    assert empty_stream.get_stream_url("any") is None
+    assert empty_stream.get_available_stream_qualities() == []
+
+
+def test_rtsps_streams_active_inactive():
+    """Test RTSPSStreams active/inactive stream quality detection."""
+    from uiprotect.api import RTSPSStreams
+
+    # Test with mixed active and inactive streams
+    streams = RTSPSStreams(
+        high="rtsps://example.com/high",
+        medium=None,  # inactive
+        low="rtsps://example.com/low",
+        ultra=None,  # inactive
+    )
+
+    # All available qualities (active + inactive)
+    available = streams.get_available_stream_qualities()
+    assert set(available) == {"high", "medium", "low", "ultra"}
+
+    # Only active streams (with URLs)
+    active = streams.get_active_stream_qualities()
+    assert set(active) == {"high", "low"}
+
+    # Only inactive streams (without URLs)
+    inactive = streams.get_inactive_stream_qualities()
+    assert set(inactive) == {"medium", "ultra"}
+
+
+def test_rtsps_streams_all_active():
+    """Test RTSPSStreams when all streams are active."""
+    from uiprotect.api import RTSPSStreams
+
+    streams = RTSPSStreams(
+        high="rtsps://example.com/high",
+        medium="rtsps://example.com/medium",
+    )
+
+    assert set(streams.get_available_stream_qualities()) == {"high", "medium"}
+    assert set(streams.get_active_stream_qualities()) == {"high", "medium"}
+    assert streams.get_inactive_stream_qualities() == []
+
+
+def test_rtsps_streams_all_inactive():
+    """Test RTSPSStreams when all streams are inactive."""
+    from uiprotect.api import RTSPSStreams
+
+    streams = RTSPSStreams(
+        high=None,
+        medium=None,
+    )
+
+    assert set(streams.get_available_stream_qualities()) == {"high", "medium"}
+    assert streams.get_active_stream_qualities() == []
+    assert set(streams.get_inactive_stream_qualities()) == {"high", "medium"}
+
+
+def test_rtsps_streams_active_inactive_qualities():
+    """Test RTSPSStreams active and inactive quality methods."""
+    from uiprotect.api import RTSPSStreams
+
+    # Test with mixed active (URLs) and inactive (None) streams
+    streams = RTSPSStreams(
+        high="rtsps://example.com/high",
+        medium=None,  # inactive stream
+        low="rtsps://example.com/low",
+        ultra=None,  # inactive stream
+    )
+
+    # Test active streams (those with valid RTSPS URLs)
+    active_qualities = streams.get_active_stream_qualities()
+    assert set(active_qualities) == {"high", "low"}
+
+    # Test inactive streams (those with None values)
+    inactive_qualities = streams.get_inactive_stream_qualities()
+    assert set(inactive_qualities) == {"medium", "ultra"}
+
+    # Test all available streams (both active and inactive)
+    available_qualities = streams.get_available_stream_qualities()
+    assert set(available_qualities) == {"high", "medium", "low", "ultra"}
+
+    # Test that active + inactive equals available
+    assert set(active_qualities + inactive_qualities) == set(available_qualities)
+
+
+def test_rtsps_streams_only_active():
+    """Test RTSPSStreams with only active streams."""
+    from uiprotect.api import RTSPSStreams
+
+    streams = RTSPSStreams(
+        high="rtsps://example.com/high",
+        medium="rtsps://example.com/medium",
+    )
+
+    active_qualities = streams.get_active_stream_qualities()
+    assert set(active_qualities) == {"high", "medium"}
+
+    inactive_qualities = streams.get_inactive_stream_qualities()
+    assert inactive_qualities == []
+
+    available_qualities = streams.get_available_stream_qualities()
+    assert set(available_qualities) == {"high", "medium"}
+
+
+def test_rtsps_streams_only_inactive():
+    """Test RTSPSStreams with only inactive streams."""
+    from uiprotect.api import RTSPSStreams
+
+    streams = RTSPSStreams(
+        high=None,
+        medium=None,
+        low=None,
+    )
+
+    active_qualities = streams.get_active_stream_qualities()
+    assert active_qualities == []
+
+    inactive_qualities = streams.get_inactive_stream_qualities()
+    assert set(inactive_qualities) == {"high", "medium", "low"}
+
+    available_qualities = streams.get_available_stream_qualities()
+    assert set(available_qualities) == {"high", "medium", "low"}
+
+
+def test_rtsps_streams_empty():
+    """Test RTSPSStreams with no streams."""
+    from uiprotect.api import RTSPSStreams
+
+    streams = RTSPSStreams()
+
+    assert streams.get_active_stream_qualities() == []
+    assert streams.get_inactive_stream_qualities() == []
+    assert streams.get_available_stream_qualities() == []
+
+
+def test_rtsps_streams_edge_cases():
+    """Test RTSPSStreams edge cases and string validation."""
+    from uiprotect.api import RTSPSStreams
+
+    # Test with empty strings and various URL formats
+    streams = RTSPSStreams(
+        high="rtsps://valid.com/stream",
+        medium="",  # empty string - still a string, so active
+        low="http://invalid.com/stream",  # still a string, so active
+        ultra="invalid_url",  # still a string, so active
+    )
+
+    # All string values are considered active (including empty strings)
+    active_qualities = streams.get_active_stream_qualities()
+    assert set(active_qualities) == {"high", "medium", "low", "ultra"}
+
+    # Test with None values (should be inactive)
+    streams_with_none = RTSPSStreams(
+        high="rtsps://valid.com/stream",
+        medium=None,  # None value - inactive
+    )
+
+    active_qualities = streams_with_none.get_active_stream_qualities()
+    assert active_qualities == ["high"]
+
+    inactive_qualities = streams_with_none.get_inactive_stream_qualities()
+    assert inactive_qualities == ["medium"]
+
+    available_qualities = streams.get_available_stream_qualities()
+    assert set(available_qualities) == {"high", "medium", "low", "ultra"}
+
+
+def test_rtsps_streams_none_pydantic_extra():
+    """Test RTSPSStreams when __pydantic_extra__ is None."""
+    from uiprotect.api import RTSPSStreams
+
+    # Create an RTSPSStreams instance and manually set __pydantic_extra__ to None
+    # This simulates edge cases where pydantic might not initialize extra fields
+    streams = RTSPSStreams()
+
+    # Manually set __pydantic_extra__ to None to test the None check
+    streams.__pydantic_extra__ = None
+
+    # All methods should return empty lists when __pydantic_extra__ is None
+    assert streams.get_available_stream_qualities() == []
+    assert streams.get_active_stream_qualities() == []
+    assert streams.get_inactive_stream_qualities() == []
+
+    # get_stream_url should still work (uses getattr, not __pydantic_extra__)
+    assert streams.get_stream_url("any") is None
+
+
+@pytest.mark.asyncio
+async def test_camera_create_rtsps_streams():
+    """Test Camera.create_rtsps_streams method."""
+    from uiprotect.api import RTSPSStreams
+    from uiprotect.data import Camera
+
+    # Mock camera and API
+    camera = AsyncMock(spec=Camera)
+    camera.id = "test_camera_id"
+    camera._api = AsyncMock()
+    camera._api._api_key = "test_api_key"
+    camera._api.create_camera_rtsps_streams = AsyncMock(
+        return_value=RTSPSStreams(high="rtsps://example.com/high")
+    )
+
+    # Bind the actual method to the mock
+    from uiprotect.data.devices import Camera
+
+    camera.create_rtsps_streams = Camera.create_rtsps_streams.__get__(camera, Camera)
+
+    # Test successful creation
+    result = await camera.create_rtsps_streams(["high"])
+    assert result is not None
+    assert result.get_stream_url("high") == "rtsps://example.com/high"
+    camera._api.create_camera_rtsps_streams.assert_called_once_with(
+        "test_camera_id", ["high"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_camera_create_rtsps_streams_no_api_key():
+    """Test Camera.create_rtsps_streams method without API key."""
+    from uiprotect.data import Camera
+    from uiprotect.exceptions import NotAuthorized
+
+    # Mock camera and API without key
+    camera = AsyncMock(spec=Camera)
+    camera.id = "test_camera_id"
+    camera._api = AsyncMock()
+    camera._api._api_key = None
+
+    # Bind the actual method to the mock
+    from uiprotect.data.devices import Camera
+
+    camera.create_rtsps_streams = Camera.create_rtsps_streams.__get__(camera, Camera)
+
+    # Test that it raises NotAuthorized
+    with pytest.raises(
+        NotAuthorized, match="Cannot create RTSPS streams without an API key"
+    ):
+        await camera.create_rtsps_streams(["high"])
+
+
+@pytest.mark.asyncio
+async def test_camera_get_rtsps_streams():
+    """Test Camera.get_rtsps_streams method."""
+    from uiprotect.api import RTSPSStreams
+    from uiprotect.data import Camera
+
+    # Mock camera and API
+    camera = AsyncMock(spec=Camera)
+    camera.id = "test_camera_id"
+    camera._api = AsyncMock()
+    camera._api._api_key = "test_api_key"
+    camera._api.get_camera_rtsps_streams = AsyncMock(
+        return_value=RTSPSStreams(
+            high="rtsps://example.com/high", medium="rtsps://example.com/medium"
+        )
+    )
+
+    # Bind the actual method to the mock
+    from uiprotect.data.devices import Camera
+
+    camera.get_rtsps_streams = Camera.get_rtsps_streams.__get__(camera, Camera)
+
+    # Test successful retrieval
+    result = await camera.get_rtsps_streams()
+    assert result is not None
+    assert result.get_stream_url("high") == "rtsps://example.com/high"
+    assert result.get_stream_url("medium") == "rtsps://example.com/medium"
+    camera._api.get_camera_rtsps_streams.assert_called_once_with("test_camera_id")
+
+
+@pytest.mark.asyncio
+async def test_camera_get_rtsps_streams_no_api_key():
+    """Test Camera.get_rtsps_streams method without API key."""
+    from uiprotect.data import Camera
+    from uiprotect.exceptions import NotAuthorized
+
+    # Mock camera and API without key
+    camera = AsyncMock(spec=Camera)
+    camera.id = "test_camera_id"
+    camera._api = AsyncMock()
+    camera._api._api_key = None
+
+    # Bind the actual method to the mock
+    from uiprotect.data.devices import Camera
+
+    camera.get_rtsps_streams = Camera.get_rtsps_streams.__get__(camera, Camera)
+
+    # Test that it raises NotAuthorized
+    with pytest.raises(
+        NotAuthorized, match="Cannot get RTSPS streams without an API key"
+    ):
+        await camera.get_rtsps_streams()
+
+
+@pytest.mark.asyncio
+async def test_camera_delete_rtsps_streams():
+    """Test Camera.delete_rtsps_streams method."""
+    from uiprotect.data import Camera
+
+    # Mock camera and API
+    camera = AsyncMock(spec=Camera)
+    camera.id = "test_camera_id"
+    camera._api = AsyncMock()
+    camera._api._api_key = "test_api_key"
+    camera._api.delete_camera_rtsps_streams = AsyncMock(return_value=True)
+
+    # Bind the actual method to the mock
+    from uiprotect.data.devices import Camera
+
+    camera.delete_rtsps_streams = Camera.delete_rtsps_streams.__get__(camera, Camera)
+
+    # Test successful deletion
+    result = await camera.delete_rtsps_streams(["high", "medium"])
+    assert result is True
+    camera._api.delete_camera_rtsps_streams.assert_called_once_with(
+        "test_camera_id", ["high", "medium"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_camera_delete_rtsps_streams_no_api_key():
+    """Test Camera.delete_rtsps_streams method without API key."""
+    from uiprotect.data import Camera
+    from uiprotect.exceptions import NotAuthorized
+
+    # Mock camera and API without key
+    camera = AsyncMock(spec=Camera)
+    camera.id = "test_camera_id"
+    camera._api = AsyncMock()
+    camera._api._api_key = None
+
+    # Bind the actual method to the mock
+    from uiprotect.data.devices import Camera
+
+    camera.delete_rtsps_streams = Camera.delete_rtsps_streams.__get__(camera, Camera)
+
+    # Test that it raises NotAuthorized
+    with pytest.raises(
+        NotAuthorized, match="Cannot delete RTSPS streams without an API key"
+    ):
+        await camera.delete_rtsps_streams(["high"])
+
+
+@pytest.mark.asyncio
+async def test_raise_for_status_status_codes():
+    """Test _raise_for_status with different HTTP status codes."""
+    from uiprotect.api import ProtectApiClient
+    from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
+
+    # Create API client
+    api = ProtectApiClient("test.com", 443, "username", "password")
+
+    # Test success codes (2xx) - should not raise
+    success_tests = [
+        (199, True, NvrError),  # Just below 2xx range
+        (200, False, None),  # Start of 2xx range
+        (201, False, None),  # Common success code
+        (299, False, None),  # End of 2xx range
+        (300, True, NvrError),  # Just above 2xx range
+    ]
+
+    for status_code, should_raise, expected_exception in success_tests:
+        response = Mock()
+        response.status = status_code
+        response.url = "https://test.com/api/test"
+
+        with patch("uiprotect.api.get_response_reason", return_value="Test"):
+            if should_raise:
+                with pytest.raises(expected_exception):
+                    await api._raise_for_status(response, raise_exception=True)
+            else:
+                # Should not raise any exception
+                await api._raise_for_status(response, raise_exception=True)
+                await api._raise_for_status(response, raise_exception=False)
+
+    # Test specific error codes
+    error_tests = [
+        (400, BadRequest),
+        (401, NotAuthorized),
+        (403, NotAuthorized),
+        (404, BadRequest),
+        (429, NvrError),
+        (500, NvrError),
+    ]
+
+    for status_code, expected_exception in error_tests:
+        response = Mock()
+        response.status = status_code
+        response.url = "https://test.com/api/test"
+
+        with patch("uiprotect.api.get_response_reason", return_value="Error"):
+            # Should raise with raise_exception=True
+            with pytest.raises(expected_exception):
+                await api._raise_for_status(response, raise_exception=True)
+
+            # Should not raise with raise_exception=False
+            await api._raise_for_status(response, raise_exception=False)
+
+
+@pytest.mark.asyncio
+async def test_api_request_raw_error_handling():
+    """Test api_request_raw error handling with raise_exception parameter."""
+    from uiprotect.api import ProtectApiClient
+    from uiprotect.exceptions import BadRequest
+
+    # Create API client
+    api = ProtectApiClient("test.com", 443, "username", "password")
+
+    # Mock the request method to return a response with error status
+    mock_response = AsyncMock()
+    mock_response.status = 404
+    mock_response.url = "https://test.com/api/test"
+    mock_response.read = AsyncMock(return_value=b'{"error": "not found"}')
+    mock_response.release = AsyncMock()
+
+    api.request = AsyncMock(return_value=mock_response)
+
+    # Mock get_response_reason
+    with patch("uiprotect.api.get_response_reason", return_value="Not Found"):
+        # Test with raise_exception=False - should return None
+        result = await api.api_request_raw("/test", raise_exception=False)
+        assert result is None
+
+        # Verify that response.read() was NOT called since we return early
+        mock_response.read.assert_not_called()
+
+        # Reset mock for next test
+        mock_response.reset_mock()
+        api.request.reset_mock()
+
+        # Test with raise_exception=True - should raise exception
+        with pytest.raises(BadRequest):
+            await api.api_request_raw("/test", raise_exception=True)
+
+        # Verify that response.release() was called in the exception handler
+        mock_response.release.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_api_request_raw_success():
+    """Test api_request_raw with successful response."""
+    from uiprotect.api import ProtectApiClient
+
+    # Create API client
+    api = ProtectApiClient("test.com", 443, "username", "password")
+
+    # Mock the request method to return a response with success status
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.url = "https://test.com/api/test"
+    mock_response.read = AsyncMock(return_value=b'{"success": true}')
+    mock_response.release = AsyncMock()
+
+    api.request = AsyncMock(return_value=mock_response)
+
+    # Test with success status - should return data
+    result = await api.api_request_raw("/test", raise_exception=True)
+    assert result == b'{"success": true}'
+
+    # Verify that response.read() was called
+    mock_response.read.assert_called_once()
+    # Verify that response.release() was called
+    mock_response.release.assert_called_once()

@@ -61,12 +61,10 @@ OPTION_PASSWORD = typer.Option(
     envvar="UFP_PASSWORD",
 )
 OPTION_API_KEY = typer.Option(
-    ...,
+    None,
     "--api-key",
     "-k",
-    help="UniFi Protect API key",
-    prompt=True,
-    hide_input=True,
+    help="UniFi Protect API key (required for public API operations)",
     envvar="UFP_API_KEY",
 )
 OPTION_ADDRESS = typer.Option(
@@ -149,7 +147,7 @@ def main(
     ctx: typer.Context,
     username: str = OPTION_USERNAME,
     password: str = OPTION_PASSWORD,
-    api_key: str = OPTION_API_KEY,
+    api_key: str | None = OPTION_API_KEY,
     address: str = OPTION_ADDRESS,
     port: int = OPTION_PORT,
     verify: bool = OPTION_VERIFY,
