@@ -1603,7 +1603,11 @@ class ProtectApiClient(BaseApiClient):
             response_json = orjson.loads(response)
             return RTSPSStreams(**response_json)
         except (orjson.JSONDecodeError, TypeError) as ex:
-            _LOGGER.error("Could not decode JSON response for create RTSPS streams (camera %s): %s", camera_id, ex)
+            _LOGGER.error(
+                "Could not decode JSON response for create RTSPS streams (camera %s): %s",
+                camera_id,
+                ex,
+            )
             return None
 
     async def get_camera_rtsps_streams(
@@ -1624,7 +1628,11 @@ class ProtectApiClient(BaseApiClient):
             response_json = orjson.loads(response)
             return RTSPSStreams(**response_json)
         except (orjson.JSONDecodeError, TypeError) as ex:
-            _LOGGER.error("Could not decode JSON response for get RTSPS streams (camera %s): %s", camera_id, ex)
+            _LOGGER.error(
+                "Could not decode JSON response for get RTSPS streams (camera %s): %s",
+                camera_id,
+                ex,
+            )
             return None
 
     async def delete_camera_rtsps_streams(
