@@ -2330,11 +2330,11 @@ async def test_raise_for_status_status_codes():
 
     # Test success codes (2xx) - should not raise
     success_tests = [
-        (199, True, NvrError),    # Just below 2xx range
-        (200, False, None),       # Start of 2xx range
-        (201, False, None),       # Common success code
-        (299, False, None),       # End of 2xx range
-        (300, True, NvrError),    # Just above 2xx range
+        (199, True, NvrError),  # Just below 2xx range
+        (200, False, None),  # Start of 2xx range
+        (201, False, None),  # Common success code
+        (299, False, None),  # End of 2xx range
+        (300, True, NvrError),  # Just above 2xx range
     ]
 
     for status_code, should_raise, expected_exception in success_tests:
@@ -2354,7 +2354,7 @@ async def test_raise_for_status_status_codes():
     # Test specific error codes
     error_tests = [
         (400, BadRequest),
-        (401, NotAuthorized), 
+        (401, NotAuthorized),
         (403, NotAuthorized),
         (404, BadRequest),
         (429, NvrError),
@@ -2370,7 +2370,7 @@ async def test_raise_for_status_status_codes():
             # Should raise with raise_exception=True
             with pytest.raises(expected_exception):
                 await api._raise_for_status(response, raise_exception=True)
-            
+
             # Should not raise with raise_exception=False
             await api._raise_for_status(response, raise_exception=False)
 
@@ -2398,7 +2398,7 @@ async def test_api_request_raw_error_handling():
         # Test with raise_exception=False - should return None
         result = await api.api_request_raw("/test", raise_exception=False)
         assert result is None
-        
+
         # Verify that response.read() was NOT called since we return early
         mock_response.read.assert_not_called()
 
@@ -2409,7 +2409,7 @@ async def test_api_request_raw_error_handling():
         # Test with raise_exception=True - should raise exception
         with pytest.raises(BadRequest):
             await api.api_request_raw("/test", raise_exception=True)
-        
+
         # Verify that response.release() was called in the exception handler
         mock_response.release.assert_called_once()
 
@@ -2434,7 +2434,7 @@ async def test_api_request_raw_success():
     # Test with success status - should return data
     result = await api.api_request_raw("/test", raise_exception=True)
     assert result == b'{"success": true}'
-    
+
     # Verify that response.read() was called
     mock_response.read.assert_called_once()
     # Verify that response.release() was called
