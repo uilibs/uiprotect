@@ -162,6 +162,10 @@ class RTSPSStreams(ProtectBaseObject):
     """RTSPS stream URLs for a camera."""
 
     model_config = {"extra": "allow"}
+    # Intentionally no variables like 'high', 'medium', 'low' are defined here.
+    # The API naming appears inconsistent - what's called "quality" might actually be "channels".
+    # Besides standard qualities (high/medium/low), there are special cases like "package" for doorbells
+    # and unclear implementation for 180° cameras with dual sensors. Dynamic handling via __pydantic_extra__ is safer.
 
     def get_stream_url(self, quality: str) -> str | None:
         """Get stream URL for a specific quality level."""
@@ -1598,7 +1602,8 @@ class ProtectApiClient(BaseApiClient):
         try:
             response_json = orjson.loads(response)
             return RTSPSStreams(**response_json)
-        except (orjson.JSONDecodeError, TypeError):
+        except (orjson.JSONDecodeError, TypeError) as ex:
+            _LOGGER.error("Could not decode JSON response for create RTSPS streams (camera %s): %s", camera_id, ex)
             return None
 
     async def get_camera_rtsps_streams(
@@ -1618,7 +1623,8 @@ class ProtectApiClient(BaseApiClient):
         try:
             response_json = orjson.loads(response)
             return RTSPSStreams(**response_json)
-        except (orjson.JSONDecodeError, TypeError):
+        except (orjson.JSONDecodeError, TypeError) as ex:
+            _LOGGER.error("Could not decode JSON response for get RTSPS streams (camera %s): %s", camera_id, ex)
             return None
 
     async def delete_camera_rtsps_streams(
