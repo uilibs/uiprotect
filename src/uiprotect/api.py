@@ -163,36 +163,58 @@ class RTSPSStreams(ProtectBaseObject):
 
     model_config = {"extra": "allow"}
 
-    def __init__(self, **data: Any) -> None:
-        # Allow any quality level as attribute
-        super().__init__(**data)
+    def __init__(self, api: ProtectApiClient | None = None, **data: Any) -> None:
+        """Initialize with stream data - bypass unifi_dict processing for simple key-value data."""
+        # Set the api reference first
+        super().__init__(api=api)
+        
+        # Set stream data directly as attributes since they're already in correct format
+        for key, value in data.items():
+            if not key.startswith("_") and key != "api":
+                setattr(self, key, value)
 
     def get_stream_url(self, quality: str) -> str | None:
         """Get stream URL for a specific quality level."""
         return getattr(self, quality, None)
 
-    def get_available_qualities(self) -> list[str]:
-        """Get list of available quality levels."""
-        # Use model_fields_set to get the fields that were actually set
-        # Exclude internal Pydantic fields
-        excluded_fields = {"_api"}
+    def get_available_stream_qualities(self) -> list[str]:
+        """Get list of available RTSPS stream quality levels (including inactive ones with null values)."""
+        # Use model's __pydantic_extra__ to get all dynamically set attributes
+        if hasattr(self, "__pydantic_extra__") and self.__pydantic_extra__:
+            return list(self.__pydantic_extra__.keys())
+        
+        # Fallback: iterate through all set attributes to find quality levels
         qualities = []
-
-        # Check both __dict__ and model_fields_set for Pydantic compatibility
-        if hasattr(self, "model_fields_set"):
-            qualities.extend(self.model_fields_set)
-
-        # Also check __dict__ for dynamically set attributes
-        for key, value in self.__dict__.items():
-            if (
-                not key.startswith("_")
-                and key not in excluded_fields
-                and value is not None
-            ):
-                if key not in qualities:
-                    qualities.append(key)
-
+        for attr_name in vars(self):
+            if not attr_name.startswith("_"):
+                qualities.append(attr_name)
         return qualities
+
+    def get_active_stream_qualities(self) -> list[str]:
+        """Get list of currently active RTSPS stream quality levels (only those with stream URLs)."""
+        # Use model's __pydantic_extra__ to get dynamically set attributes
+        if hasattr(self, "__pydantic_extra__") and self.__pydantic_extra__:
+            return [
+                key
+                for key, value in self.__pydantic_extra__.items()
+                if isinstance(value, str) and value is not None and "rtsps://" in value
+            ]
+        
+        # Fallback: iterate through all set attributes to find active quality streams
+        qualities = []
+        for attr_name in vars(self):
+            if not attr_name.startswith("_"):
+                attr_value = getattr(self, attr_name)
+                # Only include attributes that contain RTSPS URLs
+                if isinstance(attr_value, str) and attr_value and "rtsps://" in attr_value:
+                    qualities.append(attr_name)
+        return qualities
+
+    def get_inactive_stream_qualities(self) -> list[str]:
+        """Get list of inactive RTSPS stream quality levels (supported but not currently active)."""
+        available = set(self.get_available_stream_qualities())
+        active = set(self.get_active_stream_qualities())
+        return list(available - active)
 
 
 class BaseApiClient:
@@ -1598,7 +1620,7 @@ class ProtectApiClient(BaseApiClient):
 
         try:
             response_json = orjson.loads(response)
-            return RTSPSStreams(**response_json)
+            return RTSPSStreams(api=self, **response_json)
         except (orjson.JSONDecodeError, TypeError):
             return None
 
@@ -1618,7 +1640,7 @@ class ProtectApiClient(BaseApiClient):
 
         try:
             response_json = orjson.loads(response)
-            return RTSPSStreams(**response_json)
+            return RTSPSStreams(api=self, **response_json)
         except (orjson.JSONDecodeError, TypeError):
             return None
 

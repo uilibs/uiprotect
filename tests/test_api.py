@@ -1868,7 +1868,7 @@ async def test_get_camera_rtsps_streams():
         assert result is not None
         assert result.get_stream_url("high") == "rtsps://example.com/high"
         assert result.get_stream_url("medium") == "rtsps://example.com/medium"
-        assert set(result.get_available_qualities()) == {"high", "medium"}
+        assert set(result.get_available_stream_qualities()) == {"high", "medium"}
 
 
 @pytest.mark.asyncio
@@ -1996,18 +1996,18 @@ def test_rtsps_streams_class():
     assert streams.get_stream_url("low") == "rtsps://example.com/low"
     assert streams.get_stream_url("nonexistent") is None
 
-    available_qualities = streams.get_available_qualities()
+    available_qualities = streams.get_available_stream_qualities()
     assert set(available_qualities) == {"high", "medium", "low"}
 
     # Test with single quality
     single_stream = RTSPSStreams(ultra="rtsps://example.com/ultra")
     assert single_stream.get_stream_url("ultra") == "rtsps://example.com/ultra"
-    assert set(single_stream.get_available_qualities()) == {"ultra"}
+    assert set(single_stream.get_available_stream_qualities()) == {"ultra"}
 
     # Test with empty streams
     empty_stream = RTSPSStreams()
     assert empty_stream.get_stream_url("any") is None
-    assert empty_stream.get_available_qualities() == []
+    assert empty_stream.get_available_stream_qualities() == []
 
 
 @pytest.mark.asyncio

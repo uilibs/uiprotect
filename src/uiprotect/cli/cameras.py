@@ -610,7 +610,7 @@ def create_rtsps_streams(
                     typer.echo(f"{quality:10}\t{url}")
         except Exception as e:
             typer.secho(f"Error creating RTSPS streams: {e}", fg="red")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
 
     base.run(ctx, create_streams())
 
@@ -648,7 +648,7 @@ def get_rtsps_streams(ctx: typer.Context) -> None:
                         typer.echo(f"{quality:10}\t{url}")
         except Exception as e:
             typer.secho(f"Error getting RTSPS streams: {e}", fg="red")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
 
     base.run(ctx, get_streams())
 
@@ -684,6 +684,6 @@ def delete_rtsps_streams(
                 raise typer.Exit(1)
         except Exception as e:
             typer.secho(f"Error deleting RTSPS streams: {e}", fg="red")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
 
     base.run(ctx, delete_streams())
