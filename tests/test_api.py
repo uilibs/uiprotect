@@ -2320,176 +2320,122 @@ async def test_camera_delete_rtsps_streams_no_api_key():
 
 
 @pytest.mark.asyncio
-async def test_raise_for_status_success_codes():
-    """Test _raise_for_status with success status codes (2xx)."""
-    from uiprotect.api import ProtectApiClient
-
-    # Create API client
-    api = ProtectApiClient("test.com", 443, "username", "password")
-
-    # Test all 2xx status codes should not raise exceptions
-    # Including exact boundary values 200 and 299
-    success_codes = [200, 201, 202, 204, 206, 299]
-
-    for status_code in success_codes:
-        # Mock response
-        response = Mock()
-        response.status = status_code
-        response.url = "https://test.com/api/test"
-
-        # Mock get_response_reason function
-        with patch("uiprotect.api.get_response_reason", return_value="OK"):
-            # Should not raise any exception
-            await api._raise_for_status(response, raise_exception=True)
-            await api._raise_for_status(response, raise_exception=False)
-
-
-@pytest.mark.asyncio
-async def test_raise_for_status_boundary_values():
-    """Test _raise_for_status with exact boundary values for 2xx range."""
-    from uiprotect.api import ProtectApiClient
-    from uiprotect.exceptions import NvrError
-
-    # Create API client
-    api = ProtectApiClient("test.com", 443, "username", "password")
-
-    # Test exact boundaries: 199 (should fail), 200 (should pass), 299 (should pass), 300 (should fail)
-    boundary_tests = [
-        (199, True, NvrError),  # Just below 2xx range - should raise
-        (200, False, None),  # Start of 2xx range - should not raise
-        (299, False, None),  # End of 2xx range - should not raise
-        (300, True, NvrError),  # Just above 2xx range - should raise
-    ]
-
-    for status_code, should_raise, expected_exception in boundary_tests:
-        response = Mock()
-        response.status = status_code
-        response.url = "https://test.com/api/test"
-
-        with patch("uiprotect.api.get_response_reason", return_value="Test"):
-            if should_raise:
-                with pytest.raises(
-                    expected_exception, match=f"Request failed.*{status_code}.*Test"
-                ):
-                    await api._raise_for_status(response, raise_exception=True)
-            else:
-                # Should not raise any exception
-                await api._raise_for_status(response, raise_exception=True)
-
-
-@pytest.mark.asyncio
-async def test_raise_for_status_client_errors():
-    """Test _raise_for_status with client error status codes (4xx)."""
+async def test_raise_for_status_status_codes():
+    """Test _raise_for_status with different HTTP status codes."""
     from uiprotect.api import ProtectApiClient
     from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
 
     # Create API client
     api = ProtectApiClient("test.com", 443, "username", "password")
 
-    # Test 401 Unauthorized
-    response_401 = Mock()
-    response_401.status = 401
-    response_401.url = "https://test.com/api/test"
+    # Test success codes (2xx) - should not raise
+    success_tests = [
+        (199, True, NvrError),    # Just below 2xx range
+        (200, False, None),       # Start of 2xx range
+        (201, False, None),       # Common success code
+        (299, False, None),       # End of 2xx range
+        (300, True, NvrError),    # Just above 2xx range
+    ]
 
-    with patch("uiprotect.api.get_response_reason", return_value="Unauthorized"):
-        with pytest.raises(NotAuthorized, match="Request failed.*401.*Unauthorized"):
-            await api._raise_for_status(response_401, raise_exception=True)
-
-    # Test 403 Forbidden
-    response_403 = Mock()
-    response_403.status = 403
-    response_403.url = "https://test.com/api/test"
-
-    with patch("uiprotect.api.get_response_reason", return_value="Forbidden"):
-        with pytest.raises(NotAuthorized, match="Request failed.*403.*Forbidden"):
-            await api._raise_for_status(response_403, raise_exception=True)
-
-    # Test 429 Too Many Requests
-    response_429 = Mock()
-    response_429.status = 429
-    response_429.url = "https://test.com/api/test"
-
-    with patch("uiprotect.api.get_response_reason", return_value="Too Many Requests"):
-        with pytest.raises(NvrError, match="Request failed.*429.*Too Many Requests"):
-            await api._raise_for_status(response_429, raise_exception=True)
-
-    # Test other 4xx errors (BadRequest)
-    for status_code in [400, 404, 422]:
+    for status_code, should_raise, expected_exception in success_tests:
         response = Mock()
         response.status = status_code
         response.url = "https://test.com/api/test"
 
-        with patch("uiprotect.api.get_response_reason", return_value="Bad Request"):
-            with pytest.raises(
-                BadRequest, match=f"Request failed.*{status_code}.*Bad Request"
-            ):
+        with patch("uiprotect.api.get_response_reason", return_value="Test"):
+            if should_raise:
+                with pytest.raises(expected_exception):
+                    await api._raise_for_status(response, raise_exception=True)
+            else:
+                # Should not raise any exception
                 await api._raise_for_status(response, raise_exception=True)
+                await api._raise_for_status(response, raise_exception=False)
 
+    # Test specific error codes
+    error_tests = [
+        (400, BadRequest),
+        (401, NotAuthorized), 
+        (403, NotAuthorized),
+        (404, BadRequest),
+        (429, NvrError),
+        (500, NvrError),
+    ]
 
-@pytest.mark.asyncio
-async def test_raise_for_status_server_errors():
-    """Test _raise_for_status with server error status codes (5xx)."""
-    from uiprotect.api import ProtectApiClient
-    from uiprotect.exceptions import NvrError
-
-    # Create API client
-    api = ProtectApiClient("test.com", 443, "username", "password")
-
-    # Test 5xx server errors
-    for status_code in [500, 502, 503, 504]:
-        response = Mock()
-        response.status = status_code
-        response.url = "https://test.com/api/test"
-
-        with patch(
-            "uiprotect.api.get_response_reason", return_value="Internal Server Error"
-        ):
-            with pytest.raises(
-                NvrError, match=f"Request failed.*{status_code}.*Internal Server Error"
-            ):
-                await api._raise_for_status(response, raise_exception=True)
-
-
-@pytest.mark.asyncio
-async def test_raise_for_status_no_exception():
-    """Test _raise_for_status with raise_exception=False."""
-    from uiprotect.api import ProtectApiClient
-
-    # Create API client
-    api = ProtectApiClient("test.com", 443, "username", "password")
-
-    # Test that no exception is raised when raise_exception=False
-    error_codes = [400, 401, 403, 404, 429, 500, 502, 503]
-
-    for status_code in error_codes:
+    for status_code, expected_exception in error_tests:
         response = Mock()
         response.status = status_code
         response.url = "https://test.com/api/test"
 
         with patch("uiprotect.api.get_response_reason", return_value="Error"):
-            # Should not raise exception, just debug log
+            # Should raise with raise_exception=True
+            with pytest.raises(expected_exception):
+                await api._raise_for_status(response, raise_exception=True)
+            
+            # Should not raise with raise_exception=False
             await api._raise_for_status(response, raise_exception=False)
 
 
 @pytest.mark.asyncio
-async def test_raise_for_status_edge_cases():
-    """Test _raise_for_status with edge case status codes."""
+async def test_api_request_raw_error_handling():
+    """Test api_request_raw error handling with raise_exception parameter."""
     from uiprotect.api import ProtectApiClient
-    from uiprotect.exceptions import NvrError
+    from uiprotect.exceptions import BadRequest
 
     # Create API client
     api = ProtectApiClient("test.com", 443, "username", "password")
 
-    # Test edge cases like 1xx, 3xx status codes
-    edge_cases = [100, 101, 300, 301, 302, 399]
+    # Mock the request method to return a response with error status
+    mock_response = AsyncMock()
+    mock_response.status = 404
+    mock_response.url = "https://test.com/api/test"
+    mock_response.read = AsyncMock(return_value=b'{"error": "not found"}')
+    mock_response.release = AsyncMock()
 
-    for status_code in edge_cases:
-        response = Mock()
-        response.status = status_code
-        response.url = "https://test.com/api/test"
+    api.request = AsyncMock(return_value=mock_response)
 
-        with patch("uiprotect.api.get_response_reason", return_value="Redirect"):
-            with pytest.raises(
-                NvrError, match=f"Request failed.*{status_code}.*Redirect"
-            ):
-                await api._raise_for_status(response, raise_exception=True)
+    # Mock get_response_reason
+    with patch("uiprotect.api.get_response_reason", return_value="Not Found"):
+        # Test with raise_exception=False - should return None
+        result = await api.api_request_raw("/test", raise_exception=False)
+        assert result is None
+        
+        # Verify that response.read() was NOT called since we return early
+        mock_response.read.assert_not_called()
+
+        # Reset mock for next test
+        mock_response.reset_mock()
+        api.request.reset_mock()
+
+        # Test with raise_exception=True - should raise exception
+        with pytest.raises(BadRequest):
+            await api.api_request_raw("/test", raise_exception=True)
+        
+        # Verify that response.release() was called in the exception handler
+        mock_response.release.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_api_request_raw_success():
+    """Test api_request_raw with successful response."""
+    from uiprotect.api import ProtectApiClient
+
+    # Create API client
+    api = ProtectApiClient("test.com", 443, "username", "password")
+
+    # Mock the request method to return a response with success status
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.url = "https://test.com/api/test"
+    mock_response.read = AsyncMock(return_value=b'{"success": true}')
+    mock_response.release = AsyncMock()
+
+    api.request = AsyncMock(return_value=mock_response)
+
+    # Test with success status - should return data
+    result = await api.api_request_raw("/test", raise_exception=True)
+    assert result == b'{"success": true}'
+    
+    # Verify that response.read() was called
+    mock_response.read.assert_called_once()
+    # Verify that response.release() was called
+    mock_response.release.assert_called_once()

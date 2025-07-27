@@ -612,7 +612,7 @@ def create_rtsps_streams(
             typer.secho(f"Error creating RTSPS streams: {e}", fg="red")
             raise typer.Exit(1) from e
 
-    base.run(ctx, create_streams())
+    base.run(ctx, create_streams)
 
 
 @app.command()
@@ -650,7 +650,7 @@ def get_rtsps_streams(ctx: typer.Context) -> None:
             typer.secho(f"Error getting RTSPS streams: {e}", fg="red")
             raise typer.Exit(1) from e
 
-    base.run(ctx, get_streams())
+    base.run(ctx, get_streams)
 
 
 @app.command()
@@ -686,4 +686,4 @@ def delete_rtsps_streams(
             typer.secho(f"Error deleting RTSPS streams: {e}", fg="red")
             raise typer.Exit(1) from e
 
-    base.run(ctx, delete_streams())
+    base.run(ctx, delete_streams)
