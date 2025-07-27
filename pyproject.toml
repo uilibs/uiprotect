@@ -150,6 +150,7 @@ ignore = [
     "UP007", # typer needs Optional syntax
     "UP038", # Use `X | Y` in `isinstance` is slower
     "S603", #  check for execution of untrusted input
+    "PERF203", # too many to fix right now
 ]
 select = [
     "B",   # flake8-bugbear
@@ -157,10 +158,12 @@ select = [
     "C4",  # flake8-comprehensions
     "S",   # flake8-bandit
     "F",   # pyflake
+    "FURB",# refurb rules
     "E",   # pycodestyle
     "W",   # pycodestyle
     "UP",  # pyupgrade
     "I",   # isort
+    "PERF",# performance
     "RUF", # ruff specific
     "SIM", # simplify
 ]
