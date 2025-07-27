@@ -1,6 +1,6 @@
 [project]
 name = "uiprotect"
-version = "7.19.0"
+version = "7.20.0"
 license = "MIT"
 description = "Python API for Unifi Protect (Unofficial)"
 authors = [{ name = "UI Protect Maintainers", email = "ui@koston.org" }]

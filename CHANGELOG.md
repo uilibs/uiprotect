@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.20.0 (2025-07-27)
+
+### Features
+
+
+- Add publicapi rtsps streams management for cameras with create, get, and delete functionalities ([`a53f4b6`](https://github.com/uilibs/uiprotect/commit/a53f4b6e787551aed522e3969914f0a70aa70c96))
+
+
 ## v7.19.0 (2025-07-22)
 
 ### Features
