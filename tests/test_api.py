@@ -2206,15 +2206,15 @@ def test_rtsps_streams_none_pydantic_extra():
     # Create an RTSPSStreams instance and manually set __pydantic_extra__ to None
     # This simulates edge cases where pydantic might not initialize extra fields
     streams = RTSPSStreams()
-    
+
     # Manually set __pydantic_extra__ to None to test the None check
     streams.__pydantic_extra__ = None
-    
+
     # All methods should return empty lists when __pydantic_extra__ is None
     assert streams.get_available_stream_qualities() == []
     assert streams.get_active_stream_qualities() == []
     assert streams.get_inactive_stream_qualities() == []
-    
+
     # get_stream_url should still work (uses getattr, not __pydantic_extra__)
     assert streams.get_stream_url("any") is None
 
