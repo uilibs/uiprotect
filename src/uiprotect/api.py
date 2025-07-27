@@ -169,10 +169,14 @@ class RTSPSStreams(ProtectBaseObject):
 
     def get_available_stream_qualities(self) -> list[str]:
         """Get list of available RTSPS stream quality levels (including inactive ones with null values)."""
+        if self.__pydantic_extra__ is None:
+            return []
         return list(self.__pydantic_extra__.keys())
 
     def get_active_stream_qualities(self) -> list[str]:
         """Get list of currently active RTSPS stream quality levels (only those with stream URLs)."""
+        if self.__pydantic_extra__ is None:
+            return []
         return [
             key
             for key, value in self.__pydantic_extra__.items()
@@ -181,6 +185,8 @@ class RTSPSStreams(ProtectBaseObject):
 
     def get_inactive_stream_qualities(self) -> list[str]:
         """Get list of inactive RTSPS stream quality levels (supported but not currently active)."""
+        if self.__pydantic_extra__ is None:
+            return []
         return [
             key
             for key, value in self.__pydantic_extra__.items()
@@ -1591,7 +1597,7 @@ class ProtectApiClient(BaseApiClient):
 
         try:
             response_json = orjson.loads(response)
-            return RTSPSStreams(api=self, **response_json)
+            return RTSPSStreams(**response_json)
         except (orjson.JSONDecodeError, TypeError):
             return None
 
@@ -1611,7 +1617,7 @@ class ProtectApiClient(BaseApiClient):
 
         try:
             response_json = orjson.loads(response)
-            return RTSPSStreams(api=self, **response_json)
+            return RTSPSStreams(**response_json)
         except (orjson.JSONDecodeError, TypeError):
             return None
 
