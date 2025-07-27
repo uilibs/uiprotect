@@ -601,11 +601,11 @@ def create_rtsps_streams(
             if ctx.obj.output_format == base.OutputFormatEnum.JSON:
                 stream_data = {
                     quality: result.get_stream_url(quality)
-                    for quality in result.get_available_qualities()
+                    for quality in result.get_available_stream_qualities()
                 }
                 base.json_output(stream_data)
             else:
-                for quality in result.get_available_qualities():
+                for quality in result.get_available_stream_qualities():
                     url = result.get_stream_url(quality)
                     typer.echo(f"{quality:10}\t{url}")
         except Exception as e:
@@ -635,11 +635,11 @@ def get_rtsps_streams(ctx: typer.Context) -> None:
             if ctx.obj.output_format == base.OutputFormatEnum.JSON:
                 stream_data = {
                     quality: result.get_stream_url(quality)
-                    for quality in result.get_available_qualities()
+                    for quality in result.get_available_stream_qualities()
                 }
                 base.json_output(stream_data)
             else:
-                available_qualities = result.get_available_qualities()
+                available_qualities = result.get_available_stream_qualities()
                 if not available_qualities:
                     typer.echo("No RTSPS streams available")
                 else:

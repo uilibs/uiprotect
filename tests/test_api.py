@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from ipaddress import IPv4Address
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import aiohttp
 import pytest
@@ -2010,6 +2010,186 @@ def test_rtsps_streams_class():
     assert empty_stream.get_available_stream_qualities() == []
 
 
+def test_rtsps_streams_active_inactive():
+    """Test RTSPSStreams active/inactive stream quality detection."""
+    from uiprotect.api import RTSPSStreams
+
+    # Test with mixed active and inactive streams
+    streams = RTSPSStreams(
+        high="rtsps://example.com/high",
+        medium=None,  # inactive
+        low="rtsps://example.com/low",
+        ultra=None,   # inactive
+    )
+
+    # All available qualities (active + inactive)
+    available = streams.get_available_stream_qualities()
+    assert set(available) == {"high", "medium", "low", "ultra"}
+
+    # Only active streams (with URLs)
+    active = streams.get_active_stream_qualities()
+    assert set(active) == {"high", "low"}
+
+    # Only inactive streams (without URLs)
+    inactive = streams.get_inactive_stream_qualities()
+    assert set(inactive) == {"medium", "ultra"}
+
+
+def test_rtsps_streams_all_active():
+    """Test RTSPSStreams when all streams are active."""
+    from uiprotect.api import RTSPSStreams
+
+    streams = RTSPSStreams(
+        high="rtsps://example.com/high",
+        medium="rtsps://example.com/medium",
+    )
+
+    assert set(streams.get_available_stream_qualities()) == {"high", "medium"}
+    assert set(streams.get_active_stream_qualities()) == {"high", "medium"}
+    assert streams.get_inactive_stream_qualities() == []
+
+
+def test_rtsps_streams_all_inactive():
+    """Test RTSPSStreams when all streams are inactive."""
+    from uiprotect.api import RTSPSStreams
+
+    streams = RTSPSStreams(
+        high=None,
+        medium=None,
+    )
+
+    assert set(streams.get_available_stream_qualities()) == {"high", "medium"}
+    assert streams.get_active_stream_qualities() == []
+    assert set(streams.get_inactive_stream_qualities()) == {"high", "medium"}
+
+
+def test_rtsps_streams_edge_cases():
+    """Test RTSPSStreams edge cases."""
+    from uiprotect.api import RTSPSStreams
+
+    # Test with empty strings (should not be considered active)
+    streams = RTSPSStreams(
+        high="rtsps://example.com/high",
+        medium="",  # empty string
+        low=None,   # null
+    )
+
+    assert set(streams.get_available_stream_qualities()) == {"high", "medium", "low"}
+    assert streams.get_active_stream_qualities() == ["high"]  # only high has valid URL
+    assert set(streams.get_inactive_stream_qualities()) == {"medium", "low"}
+
+    # Test with non-RTSPS URLs (should not be considered active)
+    streams2 = RTSPSStreams(
+        high="rtsps://example.com/high",
+        medium="http://example.com/medium",  # not RTSPS
+        low="rtsp://example.com/low",       # not RTSPS
+    )
+
+    assert set(streams2.get_available_stream_qualities()) == {"high", "medium", "low"}
+    assert streams2.get_active_stream_qualities() == ["high"]  # only RTSPS URLs
+    assert set(streams2.get_inactive_stream_qualities()) == {"medium", "low"}
+
+
+def test_rtsps_streams_active_inactive_qualities():
+    """Test RTSPSStreams active and inactive quality methods."""
+    from uiprotect.api import RTSPSStreams
+
+    # Test with mixed active (URLs) and inactive (None) streams
+    streams = RTSPSStreams(
+        high="rtsps://example.com/high",
+        medium=None,  # inactive stream
+        low="rtsps://example.com/low",
+        ultra=None,  # inactive stream
+    )
+
+    # Test active streams (those with valid RTSPS URLs)
+    active_qualities = streams.get_active_stream_qualities()
+    assert set(active_qualities) == {"high", "low"}
+
+    # Test inactive streams (those with None values)
+    inactive_qualities = streams.get_inactive_stream_qualities()
+    assert set(inactive_qualities) == {"medium", "ultra"}
+
+    # Test all available streams (both active and inactive)
+    available_qualities = streams.get_available_stream_qualities()
+    assert set(available_qualities) == {"high", "medium", "low", "ultra"}
+
+    # Test that active + inactive equals available
+    assert set(active_qualities + inactive_qualities) == set(available_qualities)
+
+
+def test_rtsps_streams_only_active():
+    """Test RTSPSStreams with only active streams."""
+    from uiprotect.api import RTSPSStreams
+
+    streams = RTSPSStreams(
+        high="rtsps://example.com/high",
+        medium="rtsps://example.com/medium",
+    )
+
+    active_qualities = streams.get_active_stream_qualities()
+    assert set(active_qualities) == {"high", "medium"}
+
+    inactive_qualities = streams.get_inactive_stream_qualities()
+    assert inactive_qualities == []
+
+    available_qualities = streams.get_available_stream_qualities()
+    assert set(available_qualities) == {"high", "medium"}
+
+
+def test_rtsps_streams_only_inactive():
+    """Test RTSPSStreams with only inactive streams."""
+    from uiprotect.api import RTSPSStreams
+
+    streams = RTSPSStreams(
+        high=None,
+        medium=None,
+        low=None,
+    )
+
+    active_qualities = streams.get_active_stream_qualities()
+    assert active_qualities == []
+
+    inactive_qualities = streams.get_inactive_stream_qualities()
+    assert set(inactive_qualities) == {"high", "medium", "low"}
+
+    available_qualities = streams.get_available_stream_qualities()
+    assert set(available_qualities) == {"high", "medium", "low"}
+
+
+def test_rtsps_streams_empty():
+    """Test RTSPSStreams with no streams."""
+    from uiprotect.api import RTSPSStreams
+
+    streams = RTSPSStreams()
+
+    assert streams.get_active_stream_qualities() == []
+    assert streams.get_inactive_stream_qualities() == []
+    assert streams.get_available_stream_qualities() == []
+
+
+def test_rtsps_streams_edge_cases():
+    """Test RTSPSStreams edge cases and invalid URLs."""
+    from uiprotect.api import RTSPSStreams
+
+    # Test with empty strings and invalid URLs
+    streams = RTSPSStreams(
+        high="rtsps://valid.com/stream",
+        medium="",  # empty string - should be inactive
+        low="http://invalid.com/stream",  # not RTSPS - should be inactive
+        ultra="invalid_url",  # invalid format - should be inactive
+    )
+
+    active_qualities = streams.get_active_stream_qualities()
+    assert active_qualities == ["high"]  # only valid RTSPS URL
+
+    inactive_qualities = streams.get_inactive_stream_qualities()
+    assert set(inactive_qualities) == {"medium", "low", "ultra"}
+
+    available_qualities = streams.get_available_stream_qualities()
+    assert set(available_qualities) == {"high", "medium", "low", "ultra"}
+
+
 @pytest.mark.asyncio
 async def test_camera_create_rtsps_streams():
     """Test Camera.create_rtsps_streams method."""
@@ -2164,3 +2344,169 @@ async def test_camera_delete_rtsps_streams_no_api_key():
         NotAuthorized, match="Cannot delete RTSPS streams without an API key"
     ):
         await camera.delete_rtsps_streams(["high"])
+
+
+@pytest.mark.asyncio
+async def test_raise_for_status_success_codes():
+    """Test _raise_for_status with success status codes (2xx)."""
+    from uiprotect.api import ProtectApiClient
+
+    # Create API client
+    api = ProtectApiClient("test.com", 443, "username", "password")
+    
+    # Test all 2xx status codes should not raise exceptions
+    # Including exact boundary values 200 and 299
+    success_codes = [200, 201, 202, 204, 206, 299]
+    
+    for status_code in success_codes:
+        # Mock response
+        response = Mock()
+        response.status = status_code
+        response.url = "https://test.com/api/test"
+        
+        # Mock get_response_reason function
+        with patch("uiprotect.api.get_response_reason", return_value="OK"):
+            # Should not raise any exception
+            await api._raise_for_status(response, raise_exception=True)
+            await api._raise_for_status(response, raise_exception=False)
+
+
+@pytest.mark.asyncio
+async def test_raise_for_status_boundary_values():
+    """Test _raise_for_status with exact boundary values for 2xx range."""
+    from uiprotect.api import ProtectApiClient
+    from uiprotect.exceptions import NvrError
+
+    # Create API client
+    api = ProtectApiClient("test.com", 443, "username", "password")
+    
+    # Test exact boundaries: 199 (should fail), 200 (should pass), 299 (should pass), 300 (should fail)
+    boundary_tests = [
+        (199, True, NvrError),  # Just below 2xx range - should raise
+        (200, False, None),     # Start of 2xx range - should not raise
+        (299, False, None),     # End of 2xx range - should not raise
+        (300, True, NvrError),  # Just above 2xx range - should raise
+    ]
+    
+    for status_code, should_raise, expected_exception in boundary_tests:
+        response = Mock()
+        response.status = status_code
+        response.url = "https://test.com/api/test"
+        
+        with patch("uiprotect.api.get_response_reason", return_value="Test"):
+            if should_raise:
+                with pytest.raises(expected_exception, match=f"Request failed.*{status_code}.*Test"):
+                    await api._raise_for_status(response, raise_exception=True)
+            else:
+                # Should not raise any exception
+                await api._raise_for_status(response, raise_exception=True)
+
+
+@pytest.mark.asyncio
+async def test_raise_for_status_client_errors():
+    """Test _raise_for_status with client error status codes (4xx)."""
+    from uiprotect.api import ProtectApiClient
+    from uiprotect.exceptions import NotAuthorized, BadRequest, NvrError
+
+    # Create API client
+    api = ProtectApiClient("test.com", 443, "username", "password")
+    
+    # Test 401 Unauthorized
+    response_401 = Mock()
+    response_401.status = 401
+    response_401.url = "https://test.com/api/test"
+    
+    with patch("uiprotect.api.get_response_reason", return_value="Unauthorized"):
+        with pytest.raises(NotAuthorized, match="Request failed.*401.*Unauthorized"):
+            await api._raise_for_status(response_401, raise_exception=True)
+    
+    # Test 403 Forbidden
+    response_403 = Mock()
+    response_403.status = 403
+    response_403.url = "https://test.com/api/test"
+    
+    with patch("uiprotect.api.get_response_reason", return_value="Forbidden"):
+        with pytest.raises(NotAuthorized, match="Request failed.*403.*Forbidden"):
+            await api._raise_for_status(response_403, raise_exception=True)
+    
+    # Test 429 Too Many Requests
+    response_429 = Mock()
+    response_429.status = 429
+    response_429.url = "https://test.com/api/test"
+    
+    with patch("uiprotect.api.get_response_reason", return_value="Too Many Requests"):
+        with pytest.raises(NvrError, match="Request failed.*429.*Too Many Requests"):
+            await api._raise_for_status(response_429, raise_exception=True)
+    
+    # Test other 4xx errors (BadRequest)
+    for status_code in [400, 404, 422]:
+        response = Mock()
+        response.status = status_code
+        response.url = "https://test.com/api/test"
+        
+        with patch("uiprotect.api.get_response_reason", return_value="Bad Request"):
+            with pytest.raises(BadRequest, match=f"Request failed.*{status_code}.*Bad Request"):
+                await api._raise_for_status(response, raise_exception=True)
+
+
+@pytest.mark.asyncio
+async def test_raise_for_status_server_errors():
+    """Test _raise_for_status with server error status codes (5xx)."""
+    from uiprotect.api import ProtectApiClient
+    from uiprotect.exceptions import NvrError
+
+    # Create API client
+    api = ProtectApiClient("test.com", 443, "username", "password")
+    
+    # Test 5xx server errors
+    for status_code in [500, 502, 503, 504]:
+        response = Mock()
+        response.status = status_code
+        response.url = "https://test.com/api/test"
+        
+        with patch("uiprotect.api.get_response_reason", return_value="Internal Server Error"):
+            with pytest.raises(NvrError, match=f"Request failed.*{status_code}.*Internal Server Error"):
+                await api._raise_for_status(response, raise_exception=True)
+
+
+@pytest.mark.asyncio
+async def test_raise_for_status_no_exception():
+    """Test _raise_for_status with raise_exception=False."""
+    from uiprotect.api import ProtectApiClient
+
+    # Create API client
+    api = ProtectApiClient("test.com", 443, "username", "password")
+    
+    # Test that no exception is raised when raise_exception=False
+    error_codes = [400, 401, 403, 404, 429, 500, 502, 503]
+    
+    for status_code in error_codes:
+        response = Mock()
+        response.status = status_code
+        response.url = "https://test.com/api/test"
+        
+        with patch("uiprotect.api.get_response_reason", return_value="Error"):
+            # Should not raise exception, just debug log
+            await api._raise_for_status(response, raise_exception=False)
+
+
+@pytest.mark.asyncio
+async def test_raise_for_status_edge_cases():
+    """Test _raise_for_status with edge case status codes."""
+    from uiprotect.api import ProtectApiClient
+    from uiprotect.exceptions import NvrError
+
+    # Create API client
+    api = ProtectApiClient("test.com", 443, "username", "password")
+    
+    # Test edge cases like 1xx, 3xx status codes
+    edge_cases = [100, 101, 300, 301, 302, 399]
+    
+    for status_code in edge_cases:
+        response = Mock()
+        response.status = status_code
+        response.url = "https://test.com/api/test"
+        
+        with patch("uiprotect.api.get_response_reason", return_value="Redirect"):
+            with pytest.raises(NvrError, match=f"Request failed.*{status_code}.*Redirect"):
+                await api._raise_for_status(response, raise_exception=True)
