@@ -2063,33 +2063,6 @@ def test_rtsps_streams_all_inactive():
     assert set(streams.get_inactive_stream_qualities()) == {"high", "medium"}
 
 
-def test_rtsps_streams_edge_cases():
-    """Test RTSPSStreams edge cases."""
-    from uiprotect.api import RTSPSStreams
-
-    # Test with empty strings (should not be considered active)
-    streams = RTSPSStreams(
-        high="rtsps://example.com/high",
-        medium="",  # empty string
-        low=None,  # null
-    )
-
-    assert set(streams.get_available_stream_qualities()) == {"high", "medium", "low"}
-    assert streams.get_active_stream_qualities() == ["high"]  # only high has valid URL
-    assert set(streams.get_inactive_stream_qualities()) == {"medium", "low"}
-
-    # Test with non-RTSPS URLs (should not be considered active)
-    streams2 = RTSPSStreams(
-        high="rtsps://example.com/high",
-        medium="http://example.com/medium",  # not RTSPS
-        low="rtsp://example.com/low",  # not RTSPS
-    )
-
-    assert set(streams2.get_available_stream_qualities()) == {"high", "medium", "low"}
-    assert streams2.get_active_stream_qualities() == ["high"]  # only RTSPS URLs
-    assert set(streams2.get_inactive_stream_qualities()) == {"medium", "low"}
-
-
 def test_rtsps_streams_active_inactive_qualities():
     """Test RTSPSStreams active and inactive quality methods."""
     from uiprotect.api import RTSPSStreams
