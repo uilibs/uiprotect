@@ -5,7 +5,6 @@ import base64
 import json
 import math
 import os
-from contextlib import suppress
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -677,12 +676,8 @@ def now():
 
 @pytest.fixture()
 def tmp_binary_file():
-    tmp_file = NamedTemporaryFile(mode="wb", delete=False)
-
-    yield tmp_file
-
-    with suppress(Exception):
-        tmp_file.close()
+    with NamedTemporaryFile(mode="wb", delete=False) as tmp_file:
+        yield tmp_file
 
     os.remove(tmp_file.name)
 
@@ -1026,17 +1021,23 @@ def compare_objs(obj_type, expected, actual):
                 actual_disk = actual_ustor["disks"][index]
                 estimate = disk.get("estimate")
                 actual_estimate = actual_disk.get("estimate")
-                if estimate is not None and actual_estimate is not None:
-                    if math.isclose(estimate, actual_estimate, rel_tol=0.01):
-                        actual_ustor["disks"][index]["estimate"] = estimate
+                if (
+                    estimate is not None
+                    and actual_estimate is not None
+                    and math.isclose(estimate, actual_estimate, rel_tol=0.01)
+                ):
+                    actual_ustor["disks"][index]["estimate"] = estimate
 
             for index, device in enumerate(expected_ustor["space"]):
                 actual_device = actual_ustor["space"][index]
                 estimate = device.get("estimate")
                 actual_estimate = actual_device.get("estimate")
-                if estimate is not None and actual_estimate is not None:
-                    if math.isclose(estimate, actual_estimate, rel_tol=0.01):
-                        actual_ustor["space"][index]["estimate"] = estimate
+                if (
+                    estimate is not None
+                    and actual_estimate is not None
+                    and math.isclose(estimate, actual_estimate, rel_tol=0.01)
+                ):
+                    actual_ustor["space"][index]["estimate"] = estimate
                 if "space_type" not in device:
                     del actual_device["space_type"]
                 if "size" in device:
