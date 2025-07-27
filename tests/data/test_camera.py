@@ -1415,12 +1415,14 @@ async def test_get_snapshot_no_permissions(camera_obj: Camera | None):
     def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
         return False
 
-    with patch.object(auth_user, "can", side_effect=mock_can):
-        with pytest.raises(
+    with (
+        patch.object(auth_user, "can", side_effect=mock_can),
+        pytest.raises(
             NotAuthorized,
             match=f"Do not have permission to read live or media for camera: {camera_obj.id}",
-        ):
-            await camera_obj.get_snapshot()
+        ),
+    ):
+        await camera_obj.get_snapshot()
 
 
 @pytest.mark.asyncio
@@ -1501,12 +1503,14 @@ async def test_get_snapshot_with_dt_no_read_media(camera_obj: Camera | None):
     def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
         return permission != PermissionNode.READ_MEDIA
 
-    with patch.object(auth_user, "can", side_effect=mock_can):
-        with pytest.raises(
+    with (
+        patch.object(auth_user, "can", side_effect=mock_can),
+        pytest.raises(
             NotAuthorized,
             match=f"Do not have permission to read media for camera: {camera_obj.id}",
-        ):
-            await camera_obj.get_snapshot(dt=datetime.now())
+        ),
+    ):
+        await camera_obj.get_snapshot(dt=datetime.now())
 
 
 @pytest.mark.asyncio
@@ -1558,12 +1562,14 @@ async def test_get_package_snapshot_no_permissions(camera_obj: Camera | None):
     def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
         return False
 
-    with patch.object(auth_user, "can", side_effect=mock_can):
-        with pytest.raises(
+    with (
+        patch.object(auth_user, "can", side_effect=mock_can),
+        pytest.raises(
             NotAuthorized,
             match=f"Do not have permission to read live or media for camera: {camera_obj.id}",
-        ):
-            await camera_obj.get_package_snapshot()
+        ),
+    ):
+        await camera_obj.get_package_snapshot()
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing test data")
@@ -1618,12 +1624,14 @@ async def test_get_package_snapshot_dt_no_read_media(camera_obj: Camera | None):
             permission != PermissionNode.READ_MEDIA
         )  # Simulate missing READ_MEDIA permission
 
-    with patch.object(auth_user, "can", side_effect=mock_can):
-        with pytest.raises(
+    with (
+        patch.object(auth_user, "can", side_effect=mock_can),
+        pytest.raises(
             NotAuthorized,
             match=f"Do not have permission to read media for camera: {camera_obj.id}",
-        ):
-            await camera_obj.get_package_snapshot(dt=datetime.now())
+        ),
+    ):
+        await camera_obj.get_package_snapshot(dt=datetime.now())
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")

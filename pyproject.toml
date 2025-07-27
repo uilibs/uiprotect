@@ -55,7 +55,7 @@ pytest = ">=7,<9"
 pytest-cov = ">=3,<7"
 aiosqlite = ">=0.20.0"
 asttokens = ">=2.4.1,<4.0.0"
-pytest-asyncio = ">=0.23.7,<1.1.0"
+pytest-asyncio = ">=0.23.7,<1.2.0"
 pytest-benchmark = ">=4,<6"
 pytest-sugar = "^1.0.0"
 pytest-timeout = "^2.4.0"
@@ -150,6 +150,7 @@ ignore = [
     "UP007", # typer needs Optional syntax
     "UP038", # Use `X | Y` in `isinstance` is slower
     "S603", #  check for execution of untrusted input
+    "PERF203", # too many to fix right now
 ]
 select = [
     "B",   # flake8-bugbear
@@ -157,11 +158,15 @@ select = [
     "C4",  # flake8-comprehensions
     "S",   # flake8-bandit
     "F",   # pyflake
+    "FURB", # refurb rules
     "E",   # pycodestyle
     "W",   # pycodestyle
     "UP",  # pyupgrade
     "I",   # isort
+    "PERF", # performance
+    "RET", # return rules
     "RUF", # ruff specific
+    "SIM", # simplify
 ]
 
 [tool.ruff.lint.per-file-ignores]
