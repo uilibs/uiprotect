@@ -179,7 +179,7 @@ class RTSPSStreams(ProtectBaseObject):
         """Get list of currently active RTSPS stream quality levels (only those with stream URLs)."""
         if not self.__pydantic_extra__:
             return []
-        
+
         return [
             key
             for key, value in self.__pydantic_extra__.items()
