@@ -2518,8 +2518,8 @@ async def test_get_nvr_public_success():
     mock_nvr.id = "663d0a9d001d8803e40003ea"
     mock_nvr.name = "Test NVR"
 
-    # Mock the create_from_unifi_dict function to return our mock
-    with patch("uiprotect.api.create_from_unifi_dict", return_value=mock_nvr):
+    # Mock the NVR.from_unifi_dict method to return our mock
+    with patch("uiprotect.data.nvr.NVR.from_unifi_dict", return_value=mock_nvr):
         client.api_request_obj = AsyncMock(return_value={"id": "test"})
 
         result = await client.get_nvr_public()
@@ -2572,7 +2572,7 @@ async def test_get_lights_public_success():
     mock_light2.name = "Light 2"
 
     with patch(
-        "uiprotect.api.create_from_unifi_dict", side_effect=[mock_light1, mock_light2]
+        "uiprotect.data.devices.Light.from_unifi_dict", side_effect=[mock_light1, mock_light2]
     ):
         client.api_request_list = AsyncMock(return_value=[{"id": "1"}, {"id": "2"}])
 
@@ -2621,7 +2621,7 @@ async def test_get_light_public_success():
     mock_light.id = "663d0aa401218803e4000449"
     mock_light.name = "Light 1"
 
-    with patch("uiprotect.api.create_from_unifi_dict", return_value=mock_light):
+    with patch("uiprotect.data.devices.Light.from_unifi_dict", return_value=mock_light):
         client.api_request_obj = AsyncMock(return_value={"id": "test"})
 
         result = await client.get_light_public("663d0aa401218803e4000449")
@@ -2657,7 +2657,7 @@ async def test_get_light_public_error():
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.api.create_from_unifi_dict")
+@patch("uiprotect.data.devices.Camera.from_unifi_dict")
 async def test_get_cameras_public_success(mock_create):
     """Test successful cameras retrieval from public API."""
     client = ProtectApiClient(
@@ -2691,7 +2691,7 @@ async def test_get_cameras_public_success(mock_create):
     # Mock the API request
     client.api_request_list = AsyncMock(return_value=mock_cameras_data)
 
-    # Mock the create_from_unifi_dict function
+    # Mock the Camera.from_unifi_dict method
     mock_camera = Mock()
     mock_create.return_value = mock_camera
 
@@ -2726,7 +2726,7 @@ async def test_get_cameras_public_error():
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.api.create_from_unifi_dict")
+@patch("uiprotect.data.devices.Camera.from_unifi_dict")
 async def test_get_camera_public_success(mock_create):
     """Test successful single camera retrieval from public API."""
     client = ProtectApiClient(
@@ -2750,7 +2750,7 @@ async def test_get_camera_public_success(mock_create):
     # Mock the API request
     client.api_request_obj = AsyncMock(return_value=mock_camera_data)
 
-    # Mock the create_from_unifi_dict function
+    # Mock the Camera.from_unifi_dict method
     mock_camera = Mock()
     mock_camera.id = "663d0aa400918803e4000445"
     mock_camera.name = "Camera 1"
@@ -2764,7 +2764,7 @@ async def test_get_camera_public_success(mock_create):
     client.api_request_obj.assert_called_with(
         url="/v1/cameras/663d0aa400918803e4000445", public_api=True
     )
-    mock_create.assert_called_once_with(mock_camera_data, api=client)
+    mock_create.assert_called_once_with(**mock_camera_data, api=client)
 
 
 @pytest.mark.asyncio()
@@ -2790,7 +2790,7 @@ async def test_get_camera_public_error():
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.api.create_from_unifi_dict")
+@patch("uiprotect.data.devices.Chime.from_unifi_dict")
 async def test_get_chimes_public_success(mock_create):
     """Test successful chimes retrieval from public API."""
     client = ProtectApiClient(
@@ -2816,7 +2816,7 @@ async def test_get_chimes_public_success(mock_create):
     # Mock the API request
     client.api_request_list = AsyncMock(return_value=mock_chimes_data)
 
-    # Mock the create_from_unifi_dict function
+    # Mock the Chime.from_unifi_dict method
     mock_chime = Mock()
     mock_chime.id = "663d0aa401108803e4000447"
     mock_chime.name = "Chime 1"
@@ -2830,7 +2830,7 @@ async def test_get_chimes_public_success(mock_create):
     assert result[0].id == "663d0aa401108803e4000447"
     assert result[0].name == "Chime 1"
     client.api_request_list.assert_called_with(url="/v1/chimes", public_api=True)
-    mock_create.assert_called_once_with(mock_chimes_data[0], api=client)
+    mock_create.assert_called_once_with(**mock_chimes_data[0], api=client)
 
 
 @pytest.mark.asyncio()
@@ -2854,7 +2854,7 @@ async def test_get_chimes_public_error():
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.api.create_from_unifi_dict")
+@patch("uiprotect.data.devices.Chime.from_unifi_dict")
 async def test_get_chime_public_success(mock_create):
     """Test successful single chime retrieval from public API."""
     client = ProtectApiClient(
@@ -2878,7 +2878,7 @@ async def test_get_chime_public_success(mock_create):
     # Mock the API request
     client.api_request_obj = AsyncMock(return_value=mock_chime_data)
 
-    # Mock the create_from_unifi_dict function
+    # Mock the Chime.from_unifi_dict method
     mock_chime = Mock()
     mock_chime.id = "663d0aa401108803e4000447"
     mock_chime.name = "Chime 1"
@@ -2892,7 +2892,7 @@ async def test_get_chime_public_success(mock_create):
     client.api_request_obj.assert_called_with(
         url="/v1/chimes/663d0aa401108803e4000447", public_api=True
     )
-    mock_create.assert_called_once_with(mock_chime_data, api=client)
+    mock_create.assert_called_once_with(**mock_chime_data, api=client)
 
 
 @pytest.mark.asyncio()

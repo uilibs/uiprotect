@@ -2281,7 +2281,7 @@ class ProtectApiClient(BaseApiClient):
         """
         try:
             data = await self.api_request_obj(url="/v1/nvrs", public_api=True)
-            return create_from_unifi_dict(data, api=self)
+            return NVR.from_unifi_dict(**data, api=self)
         except Exception as ex:
             _LOGGER.error("Could not get NVR from public API: %s", ex)
             return None
@@ -2297,7 +2297,7 @@ class ProtectApiClient(BaseApiClient):
         """
         try:
             data = await self.api_request_list(url="/v1/lights", public_api=True)
-            return [create_from_unifi_dict(light_data, api=self) for light_data in data]
+            return [Light.from_unifi_dict(**light_data, api=self) for light_data in data]
         except Exception as ex:
             _LOGGER.error("Could not get lights from public API: %s", ex)
             return None
@@ -2319,7 +2319,7 @@ class ProtectApiClient(BaseApiClient):
             data = await self.api_request_obj(
                 url=f"/v1/lights/{light_id}", public_api=True
             )
-            return create_from_unifi_dict(data, api=self)
+            return Light.from_unifi_dict(**data, api=self)
         except Exception as ex:
             _LOGGER.error("Could not get light from public API: %s", ex)
             return None
@@ -2336,7 +2336,7 @@ class ProtectApiClient(BaseApiClient):
         try:
             data = await self.api_request_list(url="/v1/cameras", public_api=True)
             return [
-                create_from_unifi_dict(camera_data, api=self) for camera_data in data
+                Camera.from_unifi_dict(**camera_data, api=self) for camera_data in data
             ]
         except Exception as ex:
             _LOGGER.error("Could not get cameras from public API: %s", ex)
@@ -2359,7 +2359,7 @@ class ProtectApiClient(BaseApiClient):
             data = await self.api_request_obj(
                 url=f"/v1/cameras/{camera_id}", public_api=True
             )
-            return create_from_unifi_dict(data, api=self)
+            return Camera.from_unifi_dict(**data, api=self)
         except Exception as ex:
             _LOGGER.error("Could not get camera from public API: %s", ex)
             return None
@@ -2375,7 +2375,7 @@ class ProtectApiClient(BaseApiClient):
         """
         try:
             data = await self.api_request_list(url="/v1/chimes", public_api=True)
-            return [create_from_unifi_dict(chime_data, api=self) for chime_data in data]
+            return [Chime.from_unifi_dict(**chime_data, api=self) for chime_data in data]
         except Exception as ex:
             _LOGGER.error("Could not get chimes from public API: %s", ex)
             return None
@@ -2397,7 +2397,7 @@ class ProtectApiClient(BaseApiClient):
             data = await self.api_request_obj(
                 url=f"/v1/chimes/{chime_id}", public_api=True
             )
-            return create_from_unifi_dict(data, api=self)
+            return Chime.from_unifi_dict(**data, api=self)
         except Exception as ex:
             _LOGGER.error("Could not get chime from public API: %s", ex)
             return None
