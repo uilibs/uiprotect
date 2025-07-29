@@ -2297,7 +2297,9 @@ class ProtectApiClient(BaseApiClient):
         """
         try:
             data = await self.api_request_list(url="/v1/lights", public_api=True)
-            return [Light.from_unifi_dict(**light_data, api=self) for light_data in data]
+            return [
+                Light.from_unifi_dict(**light_data, api=self) for light_data in data
+            ]
         except Exception as ex:
             _LOGGER.error("Could not get lights from public API: %s", ex)
             return None
@@ -2375,7 +2377,9 @@ class ProtectApiClient(BaseApiClient):
         """
         try:
             data = await self.api_request_list(url="/v1/chimes", public_api=True)
-            return [Chime.from_unifi_dict(**chime_data, api=self) for chime_data in data]
+            return [
+                Chime.from_unifi_dict(**chime_data, api=self) for chime_data in data
+            ]
         except Exception as ex:
             _LOGGER.error("Could not get chimes from public API: %s", ex)
             return None

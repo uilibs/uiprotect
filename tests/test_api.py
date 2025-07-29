@@ -2572,7 +2572,8 @@ async def test_get_lights_public_success():
     mock_light2.name = "Light 2"
 
     with patch(
-        "uiprotect.data.devices.Light.from_unifi_dict", side_effect=[mock_light1, mock_light2]
+        "uiprotect.data.devices.Light.from_unifi_dict",
+        side_effect=[mock_light1, mock_light2],
     ):
         client.api_request_list = AsyncMock(return_value=[{"id": "1"}, {"id": "2"}])
 
