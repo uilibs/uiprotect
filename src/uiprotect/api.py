@@ -2269,14 +2269,15 @@ class ProtectApiClient(BaseApiClient):
     async def get_nvr_public(self) -> NVR | None:
         """
         Get NVR information using public API.
-        
+
         Returns:
         -------
             NVR object if successful, None if an error occurs.
-            
+
         Note:
         ----
             NVR endpoint may not be available in all public API versions.
+
         """
         try:
             data = await self.api_request_obj(url="/v1/nvrs", public_api=True)
@@ -2288,10 +2289,11 @@ class ProtectApiClient(BaseApiClient):
     async def get_lights_public(self) -> list[Light] | None:
         """
         Get all lights using public API.
-        
-        Returns:
+
+        Returns
         -------
             List of Light objects if successful, None if an error occurs.
+
         """
         try:
             data = await self.api_request_list(url="/v1/lights", public_api=True)
@@ -2303,17 +2305,20 @@ class ProtectApiClient(BaseApiClient):
     async def get_light_public(self, light_id: str) -> Light | None:
         """
         Get a specific light using public API.
-        
+
         Args:
         ----
             light_id: The ID of the light to retrieve.
-            
+
         Returns:
         -------
             Light object if successful, None if an error occurs.
+
         """
         try:
-            data = await self.api_request_obj(url=f"/v1/lights/{light_id}", public_api=True)
+            data = await self.api_request_obj(
+                url=f"/v1/lights/{light_id}", public_api=True
+            )
             return create_from_unifi_dict(data, api=self)
         except Exception as ex:
             _LOGGER.error("Could not get light from public API: %s", ex)
@@ -2322,14 +2327,17 @@ class ProtectApiClient(BaseApiClient):
     async def get_cameras_public(self) -> list[Camera] | None:
         """
         Get all cameras using public API.
-        
-        Returns:
+
+        Returns
         -------
             List of Camera objects if successful, None if an error occurs.
+
         """
         try:
             data = await self.api_request_list(url="/v1/cameras", public_api=True)
-            return [create_from_unifi_dict(camera_data, api=self) for camera_data in data]
+            return [
+                create_from_unifi_dict(camera_data, api=self) for camera_data in data
+            ]
         except Exception as ex:
             _LOGGER.error("Could not get cameras from public API: %s", ex)
             return None
@@ -2337,17 +2345,20 @@ class ProtectApiClient(BaseApiClient):
     async def get_camera_public(self, camera_id: str) -> Camera | None:
         """
         Get a specific camera using public API.
-        
+
         Args:
         ----
             camera_id: The ID of the camera to retrieve.
-            
+
         Returns:
         -------
             Camera object if successful, None if an error occurs.
+
         """
         try:
-            data = await self.api_request_obj(url=f"/v1/cameras/{camera_id}", public_api=True)
+            data = await self.api_request_obj(
+                url=f"/v1/cameras/{camera_id}", public_api=True
+            )
             return create_from_unifi_dict(data, api=self)
         except Exception as ex:
             _LOGGER.error("Could not get camera from public API: %s", ex)
@@ -2356,10 +2367,11 @@ class ProtectApiClient(BaseApiClient):
     async def get_chimes_public(self) -> list[Chime] | None:
         """
         Get all chimes using public API.
-        
-        Returns:
+
+        Returns
         -------
             List of Chime objects if successful, None if an error occurs.
+
         """
         try:
             data = await self.api_request_list(url="/v1/chimes", public_api=True)
@@ -2371,17 +2383,20 @@ class ProtectApiClient(BaseApiClient):
     async def get_chime_public(self, chime_id: str) -> Chime | None:
         """
         Get a specific chime using public API.
-        
+
         Args:
         ----
             chime_id: The ID of the chime to retrieve.
-            
+
         Returns:
         -------
             Chime object if successful, None if an error occurs.
+
         """
         try:
-            data = await self.api_request_obj(url=f"/v1/chimes/{chime_id}", public_api=True)
+            data = await self.api_request_obj(
+                url=f"/v1/chimes/{chime_id}", public_api=True
+            )
             return create_from_unifi_dict(data, api=self)
         except Exception as ex:
             _LOGGER.error("Could not get chime from public API: %s", ex)
