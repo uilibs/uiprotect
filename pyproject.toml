@@ -62,7 +62,7 @@ pytest-timeout = "^2.4.0"
 pytest-xdist = "^3.7.0"
 types-aiofiles = ">=23.2.0.20240403,<25.0.0.0"
 types-dateparser = "^1.2.0.20250601"
-mypy = "^1.16.0"
+mypy = "^1.17.1"
 
 [tool.poetry.group.docs]
 optional = true
