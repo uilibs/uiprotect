@@ -2267,103 +2267,38 @@ class ProtectApiClient(BaseApiClient):
     # Public API Methods
 
     async def get_nvr_public(self) -> NVR:
-        """
-        Get NVR information using public API.
-
-        Returns:
-        -------
-            NVR object from public API.
-
-        Note:
-        ----
-            NVR endpoint may not be available in all public API versions.
-
-        """
+        """Get NVR information using public API."""
         data = await self.api_request_obj(url="/v1/nvrs", public_api=True)
         return NVR.from_unifi_dict(**data, api=self)
 
     async def get_lights_public(self) -> list[Light]:
-        """
-        Get all lights using public API.
-
-        Returns
-        -------
-            List of Light objects from public API.
-
-        """
+        """Get all lights using public API."""
         data = await self.api_request_list(url="/v1/lights", public_api=True)
         return [Light.from_unifi_dict(**light_data, api=self) for light_data in data]
 
     async def get_light_public(self, light_id: str) -> Light:
-        """
-        Get a specific light using public API.
-
-        Args:
-        ----
-            light_id: The ID of the light to retrieve.
-
-        Returns:
-        -------
-            Light object from public API.
-
-        """
+        """Get a specific light using public API."""
         data = await self.api_request_obj(url=f"/v1/lights/{light_id}", public_api=True)
         return Light.from_unifi_dict(**data, api=self)
 
     async def get_cameras_public(self) -> list[Camera]:
-        """
-        Get all cameras using public API.
-
-        Returns
-        -------
-            List of Camera objects from public API.
-
-        """
+        """Get all cameras using public API."""
         data = await self.api_request_list(url="/v1/cameras", public_api=True)
         return [Camera.from_unifi_dict(**camera_data, api=self) for camera_data in data]
 
     async def get_camera_public(self, camera_id: str) -> Camera:
-        """
-        Get a specific camera using public API.
-
-        Args:
-        ----
-            camera_id: The ID of the camera to retrieve.
-
-        Returns:
-        -------
-            Camera object from public API.
-
-        """
+        """Get a specific camera using public API."""
         data = await self.api_request_obj(
             url=f"/v1/cameras/{camera_id}", public_api=True
         )
         return Camera.from_unifi_dict(**data, api=self)
 
     async def get_chimes_public(self) -> list[Chime]:
-        """
-        Get all chimes using public API.
-
-        Returns
-        -------
-            List of Chime objects from public API.
-
-        """
+        """Get all chimes using public API."""
         data = await self.api_request_list(url="/v1/chimes", public_api=True)
         return [Chime.from_unifi_dict(**chime_data, api=self) for chime_data in data]
 
     async def get_chime_public(self, chime_id: str) -> Chime:
-        """
-        Get a specific chime using public API.
-
-        Args:
-        ----
-            chime_id: The ID of the chime to retrieve.
-
-        Returns:
-        -------
-            Chime object from public API.
-
-        """
+        """Get a specific chime using public API."""
         data = await self.api_request_obj(url=f"/v1/chimes/{chime_id}", public_api=True)
         return Chime.from_unifi_dict(**data, api=self)
