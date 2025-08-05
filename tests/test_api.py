@@ -2544,9 +2544,9 @@ async def test_get_nvr_public_error():
 
     client.api_request_obj = AsyncMock(side_effect=Exception("API Error"))
 
-    result = await client.get_nvr_public()
+    with pytest.raises(Exception, match="API Error"):
+        await client.get_nvr_public()
 
-    assert result is None
     client.api_request_obj.assert_called_with(url="/v1/nvrs", public_api=True)
 
 
@@ -2600,9 +2600,9 @@ async def test_get_lights_public_error():
 
     client.api_request_list = AsyncMock(side_effect=Exception("API Error"))
 
-    result = await client.get_lights_public()
+    with pytest.raises(Exception, match="API Error"):
+        await client.get_lights_public()
 
-    assert result is None
     client.api_request_list.assert_called_with(url="/v1/lights", public_api=True)
 
 
@@ -2649,9 +2649,9 @@ async def test_get_light_public_error():
 
     client.api_request_obj = AsyncMock(side_effect=Exception("API Error"))
 
-    result = await client.get_light_public("663d0aa401218803e4000449")
+    with pytest.raises(Exception, match="API Error"):
+        await client.get_light_public("663d0aa401218803e4000449")
 
-    assert result is None
     client.api_request_obj.assert_called_with(
         url="/v1/lights/663d0aa401218803e4000449", public_api=True
     )
@@ -2720,9 +2720,9 @@ async def test_get_cameras_public_error():
 
     client.api_request_list = AsyncMock(side_effect=Exception("API Error"))
 
-    result = await client.get_cameras_public()
+    with pytest.raises(Exception, match="API Error"):
+        await client.get_cameras_public()
 
-    assert result is None
     client.api_request_list.assert_called_with(url="/v1/cameras", public_api=True)
 
 
@@ -2782,9 +2782,9 @@ async def test_get_camera_public_error():
 
     client.api_request_obj = AsyncMock(side_effect=Exception("API Error"))
 
-    result = await client.get_camera_public("663d0aa400918803e4000445")
+    with pytest.raises(Exception, match="API Error"):
+        await client.get_camera_public("663d0aa400918803e4000445")
 
-    assert result is None
     client.api_request_obj.assert_called_with(
         url="/v1/cameras/663d0aa400918803e4000445", public_api=True
     )
@@ -2848,9 +2848,9 @@ async def test_get_chimes_public_error():
 
     client.api_request_list = AsyncMock(side_effect=Exception("API Error"))
 
-    result = await client.get_chimes_public()
+    with pytest.raises(Exception, match="API Error"):
+        await client.get_chimes_public()
 
-    assert result is None
     client.api_request_list.assert_called_with(url="/v1/chimes", public_api=True)
 
 
@@ -2910,9 +2910,9 @@ async def test_get_chime_public_error():
 
     client.api_request_obj = AsyncMock(side_effect=Exception("API Error"))
 
-    result = await client.get_chime_public("663d0aa401108803e4000447")
+    with pytest.raises(Exception, match="API Error"):
+        await client.get_chime_public("663d0aa401108803e4000447")
 
-    assert result is None
     client.api_request_obj.assert_called_with(
         url="/v1/chimes/663d0aa401108803e4000447", public_api=True
     )
