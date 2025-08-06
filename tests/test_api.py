@@ -2496,3 +2496,423 @@ async def test_api_request_raw_success():
     mock_response.read.assert_called_once()
     # Verify that response.release() was called
     mock_response.release.assert_called_once()
+
+
+# Public API Tests
+
+
+@pytest.mark.asyncio()
+async def test_get_nvr_public_success():
+    """Test successful NVR retrieval from public API."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+
+    # Mock a simple valid object instead of trying to create full NVR
+    mock_nvr = Mock()
+    mock_nvr.id = "663d0a9d001d8803e40003ea"
+    mock_nvr.name = "Test NVR"
+
+    # Mock the NVR.from_unifi_dict method to return our mock
+    with patch("uiprotect.data.nvr.NVR.from_unifi_dict", return_value=mock_nvr):
+        client.api_request_obj = AsyncMock(return_value={"id": "test"})
+
+        result = await client.get_nvr_public()
+
+        assert result is not None
+        assert result.id == "663d0a9d001d8803e40003ea"
+        assert result.name == "Test NVR"
+        client.api_request_obj.assert_called_with(url="/v1/nvrs", public_api=True)
+
+
+@pytest.mark.asyncio()
+async def test_get_nvr_public_error():
+    """Test NVR retrieval error handling."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+
+    client.api_request_obj = AsyncMock(side_effect=Exception("API Error"))
+
+    with pytest.raises(Exception, match="API Error"):
+        await client.get_nvr_public()
+
+    client.api_request_obj.assert_called_with(url="/v1/nvrs", public_api=True)
+
+
+@pytest.mark.asyncio()
+async def test_get_lights_public_success():
+    """Test successful lights retrieval from public API."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+
+    # Mock simple light objects
+    mock_light1 = Mock()
+    mock_light1.id = "663d0aa401218803e4000449"
+    mock_light1.name = "Light 1"
+
+    mock_light2 = Mock()
+    mock_light2.id = "663d0aa401218803e4000450"
+    mock_light2.name = "Light 2"
+
+    with patch(
+        "uiprotect.data.devices.Light.from_unifi_dict",
+        side_effect=[mock_light1, mock_light2],
+    ):
+        client.api_request_list = AsyncMock(return_value=[{"id": "1"}, {"id": "2"}])
+
+        result = await client.get_lights_public()
+
+        assert result is not None
+        assert len(result) == 2
+        assert result[0].id == "663d0aa401218803e4000449"
+        assert result[1].id == "663d0aa401218803e4000450"
+        client.api_request_list.assert_called_with(url="/v1/lights", public_api=True)
+
+
+@pytest.mark.asyncio()
+async def test_get_lights_public_error():
+    """Test lights retrieval error handling."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+
+    client.api_request_list = AsyncMock(side_effect=Exception("API Error"))
+
+    with pytest.raises(Exception, match="API Error"):
+        await client.get_lights_public()
+
+    client.api_request_list.assert_called_with(url="/v1/lights", public_api=True)
+
+
+@pytest.mark.asyncio()
+async def test_get_light_public_success():
+    """Test successful single light retrieval from public API."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+
+    mock_light = Mock()
+    mock_light.id = "663d0aa401218803e4000449"
+    mock_light.name = "Light 1"
+
+    with patch("uiprotect.data.devices.Light.from_unifi_dict", return_value=mock_light):
+        client.api_request_obj = AsyncMock(return_value={"id": "test"})
+
+        result = await client.get_light_public("663d0aa401218803e4000449")
+
+        assert result is not None
+        assert result.id == "663d0aa401218803e4000449"
+        assert result.name == "Light 1"
+        client.api_request_obj.assert_called_with(
+            url="/v1/lights/663d0aa401218803e4000449", public_api=True
+        )
+
+
+@pytest.mark.asyncio()
+async def test_get_light_public_error():
+    """Test single light retrieval error handling."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+
+    client.api_request_obj = AsyncMock(side_effect=Exception("API Error"))
+
+    with pytest.raises(Exception, match="API Error"):
+        await client.get_light_public("663d0aa401218803e4000449")
+
+    client.api_request_obj.assert_called_with(
+        url="/v1/lights/663d0aa401218803e4000449", public_api=True
+    )
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.data.devices.Camera.from_unifi_dict")
+async def test_get_cameras_public_success(mock_create):
+    """Test successful cameras retrieval from public API."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+
+    mock_cameras_data = [
+        {
+            "id": "663d0aa400918803e4000445",
+            "name": "Camera 1",
+            "type": "UVC G4 Doorbell Pro PoE",
+            "mac": "E438830EDA97",
+            "modelKey": "camera",
+            "firmwareVersion": "4.74.78",
+        },
+        {
+            "id": "663d0aa400918803e4000446",
+            "name": "Camera 2",
+            "type": "UVC G4 Doorbell Pro PoE",
+            "mac": "E438830EDA98",
+            "modelKey": "camera",
+            "firmwareVersion": "4.74.78",
+        },
+    ]
+
+    # Mock the API request
+    client.api_request_list = AsyncMock(return_value=mock_cameras_data)
+
+    # Mock the Camera.from_unifi_dict method
+    mock_camera = Mock()
+    mock_create.return_value = mock_camera
+
+    result = await client.get_cameras_public()
+
+    assert result is not None
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert all(camera == mock_camera for camera in result)
+    client.api_request_list.assert_called_with(url="/v1/cameras", public_api=True)
+    assert mock_create.call_count == 2
+
+
+@pytest.mark.asyncio()
+async def test_get_cameras_public_error():
+    """Test cameras retrieval error handling."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+
+    client.api_request_list = AsyncMock(side_effect=Exception("API Error"))
+
+    with pytest.raises(Exception, match="API Error"):
+        await client.get_cameras_public()
+
+    client.api_request_list.assert_called_with(url="/v1/cameras", public_api=True)
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.data.devices.Camera.from_unifi_dict")
+async def test_get_camera_public_success(mock_create):
+    """Test successful single camera retrieval from public API."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+
+    mock_camera_data = {
+        "id": "663d0aa400918803e4000445",
+        "name": "Camera 1",
+        "type": "UVC G4 Doorbell Pro PoE",
+        "mac": "E438830EDA97",
+        "modelKey": "camera",
+        "firmwareVersion": "4.74.78",
+    }
+
+    # Mock the API request
+    client.api_request_obj = AsyncMock(return_value=mock_camera_data)
+
+    # Mock the Camera.from_unifi_dict method
+    mock_camera = Mock()
+    mock_camera.id = "663d0aa400918803e4000445"
+    mock_camera.name = "Camera 1"
+    mock_create.return_value = mock_camera
+
+    result = await client.get_camera_public("663d0aa400918803e4000445")
+
+    assert result is not None
+    assert result.id == "663d0aa400918803e4000445"
+    assert result.name == "Camera 1"
+    client.api_request_obj.assert_called_with(
+        url="/v1/cameras/663d0aa400918803e4000445", public_api=True
+    )
+    mock_create.assert_called_once_with(**mock_camera_data, api=client)
+
+
+@pytest.mark.asyncio()
+async def test_get_camera_public_error():
+    """Test single camera retrieval error handling."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+
+    client.api_request_obj = AsyncMock(side_effect=Exception("API Error"))
+
+    with pytest.raises(Exception, match="API Error"):
+        await client.get_camera_public("663d0aa400918803e4000445")
+
+    client.api_request_obj.assert_called_with(
+        url="/v1/cameras/663d0aa400918803e4000445", public_api=True
+    )
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.data.devices.Chime.from_unifi_dict")
+async def test_get_chimes_public_success(mock_create):
+    """Test successful chimes retrieval from public API."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+
+    mock_chimes_data = [
+        {
+            "id": "663d0aa401108803e4000447",
+            "name": "Chime 1",
+            "type": "UP Chime PoE",
+            "mac": "E438830ABC01",
+            "modelKey": "chime",
+            "firmwareVersion": "1.5.4",
+        }
+    ]
+
+    # Mock the API request
+    client.api_request_list = AsyncMock(return_value=mock_chimes_data)
+
+    # Mock the Chime.from_unifi_dict method
+    mock_chime = Mock()
+    mock_chime.id = "663d0aa401108803e4000447"
+    mock_chime.name = "Chime 1"
+    mock_create.return_value = mock_chime
+
+    result = await client.get_chimes_public()
+
+    assert result is not None
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert result[0].id == "663d0aa401108803e4000447"
+    assert result[0].name == "Chime 1"
+    client.api_request_list.assert_called_with(url="/v1/chimes", public_api=True)
+    mock_create.assert_called_once_with(**mock_chimes_data[0], api=client)
+
+
+@pytest.mark.asyncio()
+async def test_get_chimes_public_error():
+    """Test chimes retrieval error handling."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+
+    client.api_request_list = AsyncMock(side_effect=Exception("API Error"))
+
+    with pytest.raises(Exception, match="API Error"):
+        await client.get_chimes_public()
+
+    client.api_request_list.assert_called_with(url="/v1/chimes", public_api=True)
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.data.devices.Chime.from_unifi_dict")
+async def test_get_chime_public_success(mock_create):
+    """Test successful single chime retrieval from public API."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+
+    mock_chime_data = {
+        "id": "663d0aa401108803e4000447",
+        "name": "Chime 1",
+        "type": "UP Chime PoE",
+        "mac": "E438830ABC01",
+        "modelKey": "chime",
+        "firmwareVersion": "1.5.4",
+    }
+
+    # Mock the API request
+    client.api_request_obj = AsyncMock(return_value=mock_chime_data)
+
+    # Mock the Chime.from_unifi_dict method
+    mock_chime = Mock()
+    mock_chime.id = "663d0aa401108803e4000447"
+    mock_chime.name = "Chime 1"
+    mock_create.return_value = mock_chime
+
+    result = await client.get_chime_public("663d0aa401108803e4000447")
+
+    assert result is not None
+    assert result.id == "663d0aa401108803e4000447"
+    assert result.name == "Chime 1"
+    client.api_request_obj.assert_called_with(
+        url="/v1/chimes/663d0aa401108803e4000447", public_api=True
+    )
+    mock_create.assert_called_once_with(**mock_chime_data, api=client)
+
+
+@pytest.mark.asyncio()
+async def test_get_chime_public_error():
+    """Test single chime retrieval error handling."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+
+    client.api_request_obj = AsyncMock(side_effect=Exception("API Error"))
+
+    with pytest.raises(Exception, match="API Error"):
+        await client.get_chime_public("663d0aa401108803e4000447")
+
+    client.api_request_obj.assert_called_with(
+        url="/v1/chimes/663d0aa401108803e4000447", public_api=True
+    )
