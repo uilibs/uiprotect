@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.21.0 (2025-08-06)
+
+### Features
+
+
+- Implement get public api methods for nvr, lights, cameras, and chimes ([`94cc56a`](https://github.com/uilibs/uiprotect/commit/94cc56a9f5bd1feba3a3cf690008966e53d32083))
+
+
 ## v7.20.0 (2025-07-27)
 
 ### Features
