@@ -14,7 +14,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install poetry
         run: pipx install poetry
       - uses: actions/setup-python@v5
@@ -32,7 +32,7 @@ jobs:
     name: Lint Commit Messages
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - uses: wagoid/commitlint-github-action@v6.2.1
@@ -52,7 +52,7 @@ jobs:
           - "2"
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install poetry
         run: pipx install poetry
       - name: Set up Python
@@ -94,7 +94,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: ${{ github.head_ref || github.ref_name }}
@@ -107,14 +107,14 @@ jobs:
 
       # Do a dry run of PSR
       - name: Test release
-        uses: python-semantic-release/python-semantic-release@v10.3.0
+        uses: python-semantic-release/python-semantic-release@v10.3.1
         if: github.ref_name != 'main'
         with:
           no_operation_mode: true
 
       # On main branch: actual PSR + upload to PyPI & GitHub
       - name: Release
-        uses: python-semantic-release/python-semantic-release@v10.3.0
+        uses: python-semantic-release/python-semantic-release@v10.3.1
         id: release
         if: github.ref_name == 'main'
         with:
