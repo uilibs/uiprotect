@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.21.1 (2025-08-14)
+
+### Bug fixes
+
+
+- Remove typer dependency to resolve home assistant version conflicts ([`3619dd2`](https://github.com/uilibs/uiprotect/commit/3619dd2c203eed36ee5c2e77b1b6f20fb35b6380))
+
+
 ## v7.21.0 (2025-08-06)
 
 ### Features
