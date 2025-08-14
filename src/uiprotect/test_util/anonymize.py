@@ -6,8 +6,6 @@ import uuid
 from typing import Any
 from urllib.parse import urlparse
 
-import typer
-
 from ..data import ModelType
 
 object_id_mapping: dict[str, str] = {}
@@ -111,7 +109,7 @@ def anonymize_dict(obj: dict[str, Any], name: str | None = None) -> dict[str, An
         if obj["modelKey"] in [m.value for m in ModelType]:
             obj_type = ModelType(obj["modelKey"])
         else:
-            typer.secho(f"Unknown modelKey: {obj['modelKey']}", fg="yellow")
+            print(f"Warning: Unknown modelKey: {obj['modelKey']}")
 
     if obj_type == ModelType.USER:
         return anonymize_user(obj)
