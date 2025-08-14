@@ -3,10 +3,9 @@ from __future__ import annotations
 import secrets
 import string
 import uuid
+import warnings
 from typing import Any
 from urllib.parse import urlparse
-
-import typer
 
 from ..data import ModelType
 
@@ -111,7 +110,7 @@ def anonymize_dict(obj: dict[str, Any], name: str | None = None) -> dict[str, An
         if obj["modelKey"] in [m.value for m in ModelType]:
             obj_type = ModelType(obj["modelKey"])
         else:
-            typer.secho(f"Unknown modelKey: {obj['modelKey']}", fg="yellow")
+            warnings.warn(f"Unknown modelKey: {obj['modelKey']}", stacklevel=2)
 
     if obj_type == ModelType.USER:
         return anonymize_user(obj)
