@@ -338,8 +338,16 @@ async def test_process_events_ws_message_non_text(
         (None, None, False),  # Basic test without objects
         (MagicMock(model="event", id="test-1"), None, False),  # With new_obj
         (None, MagicMock(model="event", id="test-2"), False),  # With old_obj
-        (MagicMock(model="event", id="test-3"), None, True),  # Debug logging with new_obj
-        (None, MagicMock(model="event", id="test-4"), True),  # Debug logging with old_obj
+        (
+            MagicMock(model="event", id="test-3"),
+            None,
+            True,
+        ),  # Debug logging with new_obj
+        (
+            None,
+            MagicMock(model="event", id="test-4"),
+            True,
+        ),  # Debug logging with old_obj
         (None, None, True),  # Debug logging without objects
     ],
 )
@@ -364,7 +372,11 @@ async def test_emit_events_message(
 
     # Create a test message
     test_msg = WSSubscriptionMessage(
-        action=WSAction.ADD if new_obj else WSAction.REMOVE if old_obj else WSAction.UPDATE,
+        action=WSAction.ADD
+        if new_obj
+        else WSAction.REMOVE
+        if old_obj
+        else WSAction.UPDATE,
         new_update_id="test-123",
         changed_data={"id": "test-event", "type": "motion"},
         new_obj=new_obj,
@@ -396,8 +408,16 @@ async def test_emit_events_message(
         (None, None, False),  # Basic test without objects
         (MagicMock(model="camera", id="test-1"), None, False),  # With new_obj
         (None, MagicMock(model="camera", id="test-2"), False),  # With old_obj
-        (MagicMock(model="camera", id="test-3"), None, True),  # Debug logging with new_obj
-        (None, MagicMock(model="camera", id="test-4"), True),  # Debug logging with old_obj
+        (
+            MagicMock(model="camera", id="test-3"),
+            None,
+            True,
+        ),  # Debug logging with new_obj
+        (
+            None,
+            MagicMock(model="camera", id="test-4"),
+            True,
+        ),  # Debug logging with old_obj
         (None, None, True),  # Debug logging without objects
     ],
 )
@@ -422,7 +442,11 @@ async def test_emit_devices_message(
 
     # Create a test message
     test_msg = WSSubscriptionMessage(
-        action=WSAction.UPDATE if new_obj else WSAction.REMOVE if old_obj else WSAction.ADD,
+        action=WSAction.UPDATE
+        if new_obj
+        else WSAction.REMOVE
+        if old_obj
+        else WSAction.ADD,
         new_update_id="test-456",
         changed_data={"id": "test-device", "name": "Test Camera"},
         new_obj=new_obj,
@@ -1006,8 +1030,7 @@ async def test_process_devices_ws_message_exception_handling(
         mock_logger.exception.assert_called_once()
         call_args = mock_logger.exception.call_args
         assert (
-            "Error processing public API devices websocket message"
-            in call_args[0][0]
+            "Error processing public API devices websocket message" in call_args[0][0]
         )
 
 
