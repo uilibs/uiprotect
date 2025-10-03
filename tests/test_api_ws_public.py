@@ -1247,9 +1247,10 @@ async def test_process_devices_ws_message_exception_handling(
     protect_client_no_debug: ProtectApiClient,
 ) -> None:
     """Test exception handling in _process_devices_ws_message."""
+    from unittest.mock import MagicMock, patch
+
     import aiohttp
     import orjson
-    from unittest.mock import MagicMock, patch
 
     protect_client = protect_client_no_debug
 
@@ -1259,7 +1260,7 @@ async def test_process_devices_ws_message_exception_handling(
         "item": {
             "modelKey": "camera",
             "id": "test-id",
-        }
+        },
     }
 
     # Create a mock WSMessage
@@ -1268,7 +1269,10 @@ async def test_process_devices_ws_message_exception_handling(
     mock_msg.data = orjson.dumps(valid_data)
 
     # Patch orjson.loads to raise an exception during processing
-    with patch("uiprotect.api.orjson.loads", side_effect=Exception("Test JSON parsing exception")):
+    with patch(
+        "uiprotect.api.orjson.loads",
+        side_effect=Exception("Test JSON parsing exception"),
+    ):
         with patch("uiprotect.api._LOGGER") as mock_logger:
             # This should catch the exception and log it
             protect_client._process_devices_ws_message(mock_msg)
@@ -1276,4 +1280,7 @@ async def test_process_devices_ws_message_exception_handling(
             # Verify that exception was logged
             mock_logger.exception.assert_called_once()
             call_args = mock_logger.exception.call_args
-            assert "Error processing public API devices websocket message" in call_args[0][0]
+            assert (
+                "Error processing public API devices websocket message"
+                in call_args[0][0]
+            )
