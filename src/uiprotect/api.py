@@ -280,8 +280,12 @@ class BaseApiClient:
         if self._port != 443:
             self._url = URL(f"https://{self._host}:{self._port}")
             self._ws_url = URL(f"wss://{self._host}:{self._port}{self.private_ws_path}")
-            self._events_ws_url = URL(f"https://{self._host}:{self._port}{self.events_ws_path}")
-            self._devices_ws_url = URL(f"https://{self._host}:{self._port}{self.devices_ws_path}")
+            self._events_ws_url = URL(
+                f"https://{self._host}:{self._port}{self.events_ws_path}"
+            )
+            self._devices_ws_url = URL(
+                f"https://{self._host}:{self._port}{self.devices_ws_path}"
+            )
         else:
             self._url = URL(f"https://{self._host}")
             self._ws_url = URL(f"wss://{self._host}{self.private_ws_path}")
@@ -347,7 +351,9 @@ class BaseApiClient:
         await self.ensure_authenticated()
         return self.headers
 
-    async def _auth_public_api_websocket(self, force: bool = False) -> dict[str, str] | None:
+    async def _auth_public_api_websocket(
+        self, force: bool = False
+    ) -> dict[str, str] | None:
         """Authenticate for Public API Websocket."""
         if self._api_key is None:
             raise NotAuthorized("API key is required for public API WebSocket")
@@ -369,7 +375,7 @@ class BaseApiClient:
                 receive_timeout=self._ws_receive_timeout,
             )
         return self._private_websocket
-    
+
     def _get_events_websocket(self) -> Websocket:
         """Gets or creates current Events Websocket."""
         if self._events_websocket is None:
@@ -385,7 +391,7 @@ class BaseApiClient:
                 receive_timeout=self._ws_receive_timeout,
             )
         return self._events_websocket
-    
+
     def _get_devices_websocket(self) -> Websocket:
         """Gets or creates current Devices Websocket."""
         if self._devices_websocket is None:
@@ -1116,7 +1122,9 @@ class ProtectApiClient(BaseApiClient):
             try:
                 sub(msg)
             except Exception:
-                _LOGGER.exception("Exception while running devices subscription handler")
+                _LOGGER.exception(
+                    "Exception while running devices subscription handler"
+                )
 
     def _get_last_update_id(self) -> str | None:
         if self._bootstrap is None:
@@ -1140,25 +1148,26 @@ class ProtectApiClient(BaseApiClient):
         if msg.type != aiohttp.WSMsgType.TEXT:
             _LOGGER.debug("Ignoring non-text websocket message: %s", msg.type)
             return
-        
+
         try:
             data = orjson.loads(msg.data)
             action_type = data.get("type")  # "update", "add", "remove"
             item = data.get("item", {})
             model_key = item.get("modelKey")
-            
+
             if not action_type or not model_key:
                 _LOGGER.debug("Invalid public API websocket message: %s", data)
                 return
-            
+
             # Create a WSSubscriptionMessage similar to private WS
             from .data import ModelType, WSAction
+
             model_type = ModelType.from_string(model_key)
-            
+
             if model_type is ModelType.UNKNOWN:
                 _LOGGER.debug("Unknown model type in public API message: %s", model_key)
                 return
-            
+
             # For now, just emit the raw data
             # TODO: Create proper objects from the data
             msg_obj = WSSubscriptionMessage(
@@ -1168,35 +1177,38 @@ class ProtectApiClient(BaseApiClient):
                 new_obj=None,
                 old_obj=None,
             )
-            
+
             self.emit_events_message(msg_obj)
         except Exception as e:
-            _LOGGER.exception("Error processing public API events websocket message: %s", e)
+            _LOGGER.exception(
+                "Error processing public API events websocket message: %s", e
+            )
 
     def _process_devices_ws_message(self, msg: aiohttp.WSMessage) -> None:
         """Process devices websocket message (Public API - JSON format)."""
         if msg.type != aiohttp.WSMsgType.TEXT:
             _LOGGER.debug("Ignoring non-text websocket message: %s", msg.type)
             return
-        
+
         try:
             data = orjson.loads(msg.data)
             action_type = data.get("type")  # "update", "add", "remove"
             item = data.get("item", {})
             model_key = item.get("modelKey")
-            
+
             if not action_type or not model_key:
                 _LOGGER.debug("Invalid public API websocket message: %s", data)
                 return
-            
+
             # Create a WSSubscriptionMessage similar to private WS
             from .data import ModelType, WSAction
+
             model_type = ModelType.from_string(model_key)
-            
+
             if model_type is ModelType.UNKNOWN:
                 _LOGGER.debug("Unknown model type in public API message: %s", model_key)
                 return
-            
+
             # For now, just emit the raw data
             # TODO: Create proper objects from the data
             msg_obj = WSSubscriptionMessage(
@@ -1206,10 +1218,12 @@ class ProtectApiClient(BaseApiClient):
                 new_obj=None,
                 old_obj=None,
             )
-            
+
             self.emit_devices_message(msg_obj)
         except Exception as e:
-            _LOGGER.exception("Error processing public API devices websocket message: %s", e)
+            _LOGGER.exception(
+                "Error processing public API devices websocket message: %s", e
+            )
 
     async def _get_event_paginate(
         self,
@@ -1455,7 +1469,7 @@ class ProtectApiClient(BaseApiClient):
         self._ws_subscriptions.append(ws_callback)
         self._get_websocket().start()
         return partial(self._unsubscribe_websocket, ws_callback)
-    
+
     def subscribe_events_websocket(
         self,
         ws_callback: Callable[[WSSubscriptionMessage], None],
@@ -1469,7 +1483,7 @@ class ProtectApiClient(BaseApiClient):
         self._events_ws_subscriptions.append(ws_callback)
         self._get_events_websocket().start()
         return partial(self._unsubscribe_events_websocket, ws_callback)
-    
+
     def subscribe_devices_websocket(
         self,
         ws_callback: Callable[[WSSubscriptionMessage], None],
@@ -1493,7 +1507,7 @@ class ProtectApiClient(BaseApiClient):
         self._ws_subscriptions.remove(ws_callback)
         if not self._ws_subscriptions:
             self._get_websocket().stop()
-    
+
     def _unsubscribe_events_websocket(
         self,
         ws_callback: Callable[[WSSubscriptionMessage], None],
@@ -1503,11 +1517,11 @@ class ProtectApiClient(BaseApiClient):
         self._events_ws_subscriptions.remove(ws_callback)
         if not self._events_ws_subscriptions:
             self._get_events_websocket().stop()
-    
+
     def _unsubscribe_devices_websocket(
         self,
         ws_callback: Callable[[WSSubscriptionMessage], None],
-    ) -> None:  
+    ) -> None:
         """Unsubscribe to devices websocket events."""
         _LOGGER.debug("Removing devices subscription: %s", ws_callback)
         self._devices_ws_subscriptions.remove(ws_callback)
@@ -1525,7 +1539,7 @@ class ProtectApiClient(BaseApiClient):
         """
         self._ws_state_subscriptions.append(ws_callback)
         return partial(self._unsubscribe_websocket_state, ws_callback)
-    
+
     def subscribe_events_websocket_state(
         self,
         ws_callback: Callable[[WebsocketState], None],
@@ -1586,15 +1600,19 @@ class ProtectApiClient(BaseApiClient):
             try:
                 sub(state)
             except Exception:
-                _LOGGER.exception("Exception while running events websocket state handler")
-    
+                _LOGGER.exception(
+                    "Exception while running events websocket state handler"
+                )
+
     def _on_devices_websocket_state_change(self, state: WebsocketState) -> None:
         """Devices Websocket state changed."""
         for sub in self._devices_ws_state_subscriptions:
             try:
                 sub(state)
             except Exception:
-                _LOGGER.exception("Exception while running devices websocket state handler")
+                _LOGGER.exception(
+                    "Exception while running devices websocket state handler"
+                )
 
     async def get_bootstrap(self) -> Bootstrap:
         """
