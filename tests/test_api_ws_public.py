@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 @pytest.mark.asyncio()
 async def test_subscribe_events_websocket(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test subscribing to events websocket."""
     protect_client = protect_client_no_debug
 
@@ -41,7 +41,7 @@ async def test_subscribe_events_websocket(
 @pytest.mark.asyncio()
 async def test_subscribe_devices_websocket(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test subscribing to devices websocket."""
     protect_client = protect_client_no_debug
 
@@ -65,7 +65,7 @@ async def test_subscribe_devices_websocket(
 @pytest.mark.asyncio()
 async def test_subscribe_events_websocket_state(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test subscribing to events websocket state changes."""
     protect_client = protect_client_no_debug
 
@@ -89,7 +89,7 @@ async def test_subscribe_events_websocket_state(
 @pytest.mark.asyncio()
 async def test_subscribe_devices_websocket_state(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test subscribing to devices websocket state changes."""
     protect_client = protect_client_no_debug
 
@@ -113,7 +113,7 @@ async def test_subscribe_devices_websocket_state(
 @pytest.mark.asyncio()
 async def test_process_events_ws_message_add(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test processing events websocket message with ADD action."""
     protect_client = protect_client_no_debug
 
@@ -142,7 +142,7 @@ async def test_process_events_ws_message_add(
 @pytest.mark.asyncio()
 async def test_process_events_ws_message_update(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test processing events websocket message with UPDATE action."""
     protect_client = protect_client_no_debug
 
@@ -171,7 +171,7 @@ async def test_process_events_ws_message_update(
 @pytest.mark.asyncio()
 async def test_process_devices_ws_message_update(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test processing devices websocket message with UPDATE action."""
     protect_client = protect_client_no_debug
 
@@ -200,7 +200,7 @@ async def test_process_devices_ws_message_update(
 @pytest.mark.asyncio()
 async def test_process_events_ws_message_remove(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test processing events websocket message with REMOVE action."""
     protect_client = protect_client_no_debug
 
@@ -228,7 +228,7 @@ async def test_process_events_ws_message_remove(
 @pytest.mark.asyncio()
 async def test_process_events_ws_message_invalid_json(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test processing events websocket message with invalid JSON."""
     protect_client = protect_client_no_debug
 
@@ -255,7 +255,7 @@ async def test_process_events_ws_message_invalid_json(
 @pytest.mark.asyncio()
 async def test_process_events_ws_message_missing_type(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test processing events websocket message with missing type."""
     protect_client = protect_client_no_debug
 
@@ -281,7 +281,7 @@ async def test_process_events_ws_message_missing_type(
 @pytest.mark.asyncio()
 async def test_process_events_ws_message_unknown_model(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test processing events websocket message with unknown model type."""
     protect_client = protect_client_no_debug
 
@@ -307,7 +307,7 @@ async def test_process_events_ws_message_unknown_model(
 @pytest.mark.asyncio()
 async def test_process_events_ws_message_non_text(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test processing events websocket message with non-text type."""
     protect_client = protect_client_no_debug
 
@@ -333,7 +333,7 @@ async def test_process_events_ws_message_non_text(
 @pytest.mark.asyncio()
 async def test_emit_events_message(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test emitting events messages to multiple subscribers."""
     protect_client = protect_client_no_debug
 
@@ -370,7 +370,7 @@ async def test_emit_events_message(
 @pytest.mark.asyncio()
 async def test_emit_devices_message(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test emitting devices messages to multiple subscribers."""
     protect_client = protect_client_no_debug
 
@@ -407,7 +407,7 @@ async def test_emit_devices_message(
 @pytest.mark.asyncio()
 async def test_events_websocket_multiple_subscriptions(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test multiple subscriptions and unsubscriptions for events websocket."""
     protect_client = protect_client_no_debug
 
@@ -441,7 +441,7 @@ async def test_events_websocket_multiple_subscriptions(
 @pytest.mark.asyncio()
 async def test_devices_websocket_multiple_subscriptions(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test multiple subscriptions and unsubscriptions for devices websocket."""
     protect_client = protect_client_no_debug
 
@@ -475,7 +475,7 @@ async def test_devices_websocket_multiple_subscriptions(
 @pytest.mark.asyncio()
 async def test_process_devices_ws_message_add(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test processing devices websocket message with ADD action."""
     protect_client = protect_client_no_debug
 
@@ -504,7 +504,7 @@ async def test_process_devices_ws_message_add(
 @pytest.mark.asyncio()
 async def test_events_websocket_exception_handling(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test that exceptions in event callbacks don't crash the system."""
     protect_client = protect_client_no_debug
 
@@ -535,7 +535,7 @@ async def test_events_websocket_exception_handling(
 @pytest.mark.asyncio()
 async def test_devices_websocket_exception_handling(
     protect_client_no_debug: ProtectApiClient,
-):
+) -> None:
     """Test that exceptions in device callbacks don't crash the system."""
     protect_client = protect_client_no_debug
 
@@ -561,3 +561,123 @@ async def test_devices_websocket_exception_handling(
     assert call_count == 1
 
     unsub()
+
+
+@pytest.mark.asyncio()
+async def test_events_ws_url(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test events websocket URL property."""
+    protect_client = protect_client_no_debug
+    
+    # Get the events websocket URL
+    events_url = protect_client.events_ws_url
+    
+    # Verify it's a string and contains the expected path
+    assert isinstance(events_url, str)
+    assert "/proxy/protect/integration/v1/subscribe/events" in events_url
+    assert events_url.startswith("https://")
+
+
+@pytest.mark.asyncio()
+async def test_devices_ws_url(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test devices websocket URL property."""
+    protect_client = protect_client_no_debug
+    
+    # Get the devices websocket URL
+    devices_url = protect_client.devices_ws_url
+    
+    # Verify it's a string and contains the expected path
+    assert isinstance(devices_url, str)
+    assert "/proxy/protect/integration/v1/subscribe/devices" in devices_url
+    assert devices_url.startswith("https://")
+
+
+@pytest.mark.asyncio()
+async def test_get_events_websocket(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test getting events websocket instance."""
+    protect_client = protect_client_no_debug
+    
+    # Get the websocket instance (should create it if not exists)
+    ws = protect_client._get_events_websocket()
+    
+    # Verify it's the same instance when called again
+    ws2 = protect_client._get_events_websocket()
+    assert ws is ws2
+
+
+@pytest.mark.asyncio()
+async def test_get_devices_websocket(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test getting devices websocket instance."""
+    protect_client = protect_client_no_debug
+    
+    # Get the websocket instance (should create it if not exists)
+    ws = protect_client._get_devices_websocket()
+    
+    # Verify it's the same instance when called again
+    ws2 = protect_client._get_devices_websocket()
+    assert ws is ws2
+
+
+@pytest.mark.asyncio()
+async def test_auth_public_api_websocket_with_api_key(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test authentication for public API websocket with API key."""
+    protect_client = protect_client_no_debug
+    
+    # Set an API key for testing
+    protect_client._api_key = "test-api-key-12345"
+    
+    headers = await protect_client._auth_public_api_websocket()
+    
+    assert headers is not None
+    assert "X-API-KEY" in headers
+    assert headers["X-API-KEY"] == "test-api-key-12345"
+
+
+@pytest.mark.asyncio()
+async def test_auth_public_api_websocket_without_api_key(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test authentication for public API websocket without API key raises error."""
+    from uiprotect.exceptions import NotAuthorized
+    
+    protect_client = protect_client_no_debug
+    
+    # Ensure API key is None
+    protect_client._api_key = None
+    
+    with pytest.raises(NotAuthorized, match="API key is required"):
+        await protect_client._auth_public_api_websocket()
+
+
+@pytest.mark.asyncio()
+async def test_auth_public_api_websocket_force_param(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test authentication for public API websocket with force parameter."""
+    protect_client = protect_client_no_debug
+    
+    # Set an API key for testing
+    protect_client._api_key = "test-api-key-force"
+    
+    # Test with force=True
+    headers_forced = await protect_client._auth_public_api_websocket(force=True)
+    
+    assert headers_forced is not None
+    assert "X-API-KEY" in headers_forced
+    assert headers_forced["X-API-KEY"] == "test-api-key-force"
+    
+    # Test with force=False
+    headers_not_forced = await protect_client._auth_public_api_websocket(force=False)
+    
+    assert headers_not_forced is not None
+    assert "X-API-KEY" in headers_not_forced
+    assert headers_not_forced["X-API-KEY"] == "test-api-key-force"

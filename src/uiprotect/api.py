@@ -382,7 +382,7 @@ class BaseApiClient:
             self._events_websocket = Websocket(
                 lambda: self._events_ws_url,
                 self._auth_public_api_websocket,
-                None,
+                lambda: None,
                 self.get_public_api_session,
                 self._process_events_ws_message,
                 self._on_events_websocket_state_change,
@@ -398,7 +398,7 @@ class BaseApiClient:
             self._devices_websocket = Websocket(
                 lambda: self._devices_ws_url,
                 self._auth_public_api_websocket,
-                None,
+                lambda: None,
                 self.get_public_api_session,
                 self._process_devices_ws_message,
                 self._on_devices_websocket_state_change,
@@ -858,6 +858,14 @@ class BaseApiClient:
     def _process_ws_message(self, msg: aiohttp.WSMessage) -> None:
         raise NotImplementedError
 
+    def _process_events_ws_message(self, msg: aiohttp.WSMessage) -> None:
+        """Process events websocket message - to be implemented by subclass."""
+        raise NotImplementedError
+
+    def _process_devices_ws_message(self, msg: aiohttp.WSMessage) -> None:
+        """Process devices websocket message - to be implemented by subclass."""
+        raise NotImplementedError
+
     def _get_last_update_id(self) -> str | None:
         raise NotImplementedError
 
@@ -867,6 +875,14 @@ class BaseApiClient:
     def _on_websocket_state_change(self, state: WebsocketState) -> None:
         """Websocket state changed."""
         _LOGGER.debug("Websocket state changed: %s", state)
+
+    def _on_events_websocket_state_change(self, state: WebsocketState) -> None:
+        """Events websocket state changed."""
+        _LOGGER.debug("Events websocket state changed: %s", state)
+
+    def _on_devices_websocket_state_change(self, state: WebsocketState) -> None:
+        """Devices websocket state changed."""
+        _LOGGER.debug("Devices websocket state changed: %s", state)
 
 
 class ProtectApiClient(BaseApiClient):
