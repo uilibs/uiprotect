@@ -331,7 +331,6 @@ async def test_process_events_ws_message_non_text(
 
 
 @pytest.mark.asyncio()
-@pytest.mark.asyncio()
 @pytest.mark.parametrize(
     ("new_obj", "old_obj", "use_debug"),
     [
