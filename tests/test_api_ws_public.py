@@ -569,10 +569,10 @@ async def test_events_ws_url(
 ) -> None:
     """Test events websocket URL property."""
     protect_client = protect_client_no_debug
-    
+
     # Get the events websocket URL
     events_url = protect_client.events_ws_url
-    
+
     # Verify it's a string and contains the expected path
     assert isinstance(events_url, str)
     assert "/proxy/protect/integration/v1/subscribe/events" in events_url
@@ -585,10 +585,10 @@ async def test_devices_ws_url(
 ) -> None:
     """Test devices websocket URL property."""
     protect_client = protect_client_no_debug
-    
+
     # Get the devices websocket URL
     devices_url = protect_client.devices_ws_url
-    
+
     # Verify it's a string and contains the expected path
     assert isinstance(devices_url, str)
     assert "/proxy/protect/integration/v1/subscribe/devices" in devices_url
@@ -601,10 +601,10 @@ async def test_get_events_websocket(
 ) -> None:
     """Test getting events websocket instance."""
     protect_client = protect_client_no_debug
-    
+
     # Get the websocket instance (should create it if not exists)
     ws = protect_client._get_events_websocket()
-    
+
     # Verify it's the same instance when called again
     ws2 = protect_client._get_events_websocket()
     assert ws is ws2
@@ -616,10 +616,10 @@ async def test_get_devices_websocket(
 ) -> None:
     """Test getting devices websocket instance."""
     protect_client = protect_client_no_debug
-    
+
     # Get the websocket instance (should create it if not exists)
     ws = protect_client._get_devices_websocket()
-    
+
     # Verify it's the same instance when called again
     ws2 = protect_client._get_devices_websocket()
     assert ws is ws2
@@ -631,12 +631,12 @@ async def test_auth_public_api_websocket_with_api_key(
 ) -> None:
     """Test authentication for public API websocket with API key."""
     protect_client = protect_client_no_debug
-    
+
     # Set an API key for testing
     protect_client._api_key = "test-api-key-12345"
-    
+
     headers = await protect_client._auth_public_api_websocket()
-    
+
     assert headers is not None
     assert "X-API-KEY" in headers
     assert headers["X-API-KEY"] == "test-api-key-12345"
@@ -648,12 +648,12 @@ async def test_auth_public_api_websocket_without_api_key(
 ) -> None:
     """Test authentication for public API websocket without API key raises error."""
     from uiprotect.exceptions import NotAuthorized
-    
+
     protect_client = protect_client_no_debug
-    
+
     # Ensure API key is None
     protect_client._api_key = None
-    
+
     with pytest.raises(NotAuthorized, match="API key is required"):
         await protect_client._auth_public_api_websocket()
 
@@ -664,20 +664,20 @@ async def test_auth_public_api_websocket_force_param(
 ) -> None:
     """Test authentication for public API websocket with force parameter."""
     protect_client = protect_client_no_debug
-    
+
     # Set an API key for testing
     protect_client._api_key = "test-api-key-force"
-    
+
     # Test with force=True
     headers_forced = await protect_client._auth_public_api_websocket(force=True)
-    
+
     assert headers_forced is not None
     assert "X-API-KEY" in headers_forced
     assert headers_forced["X-API-KEY"] == "test-api-key-force"
-    
+
     # Test with force=False
     headers_not_forced = await protect_client._auth_public_api_websocket(force=False)
-    
+
     assert headers_not_forced is not None
     assert "X-API-KEY" in headers_not_forced
     assert headers_not_forced["X-API-KEY"] == "test-api-key-force"
