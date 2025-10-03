@@ -331,77 +331,120 @@ async def test_process_events_ws_message_non_text(
 
 
 @pytest.mark.asyncio()
+@pytest.mark.asyncio()
+@pytest.mark.parametrize(
+    ("new_obj", "old_obj", "use_debug"),
+    [
+        (None, None, False),  # Basic test without objects
+        (MagicMock(model="event", id="test-1"), None, False),  # With new_obj
+        (None, MagicMock(model="event", id="test-2"), False),  # With old_obj
+        (MagicMock(model="event", id="test-3"), None, True),  # Debug logging with new_obj
+        (None, MagicMock(model="event", id="test-4"), True),  # Debug logging with old_obj
+        (None, None, True),  # Debug logging without objects
+    ],
+)
 async def test_emit_events_message(
     protect_client_no_debug: ProtectApiClient,
+    protect_client: ProtectApiClient,
+    new_obj: MagicMock | None,
+    old_obj: MagicMock | None,
+    use_debug: bool,
 ) -> None:
-    """Test emitting events messages to multiple subscribers."""
-    protect_client = protect_client_no_debug
+    """Test emitting events messages with various configurations."""
+    from unittest.mock import patch
 
-    messages1: list[WSSubscriptionMessage] = []
-    messages2: list[WSSubscriptionMessage] = []
+    client = protect_client if use_debug else protect_client_no_debug
 
-    def capture_ws1(message: WSSubscriptionMessage) -> None:
-        messages1.append(message)
+    messages: list[WSSubscriptionMessage] = []
 
-    def capture_ws2(message: WSSubscriptionMessage) -> None:
-        messages2.append(message)
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
 
-    unsub1 = protect_client.subscribe_events_websocket(capture_ws1)
-    unsub2 = protect_client.subscribe_events_websocket(capture_ws2)
+    unsub = client.subscribe_events_websocket(capture_ws)
 
     # Create a test message
     test_msg = WSSubscriptionMessage(
-        action=WSAction.ADD,
+        action=WSAction.ADD if new_obj else WSAction.REMOVE if old_obj else WSAction.UPDATE,
         new_update_id="test-123",
-        changed_data={"id": "test-event", "modelKey": "event"},
+        changed_data={"id": "test-event", "type": "motion"},
+        new_obj=new_obj,
+        old_obj=old_obj,
     )
 
-    protect_client.emit_events_message(test_msg)
+    if use_debug:
+        with patch("uiprotect.api._LOGGER") as mock_logger:
+            mock_logger.isEnabledFor.return_value = True
+            client.emit_events_message(test_msg)
 
-    assert len(messages1) == 1
-    assert len(messages2) == 1
-    assert messages1[0] == test_msg
-    assert messages2[0] == test_msg
+            # Verify debug log was called
+            assert mock_logger.debug.call_count >= 1
+            call_args = mock_logger.debug.call_args[0]
+            assert "emitting events message" in call_args[0]
+    else:
+        client.emit_events_message(test_msg)
 
-    unsub1()
-    unsub2()
+    assert len(messages) == 1
+    assert messages[0] == test_msg
+
+    unsub()
 
 
 @pytest.mark.asyncio()
+@pytest.mark.parametrize(
+    ("new_obj", "old_obj", "use_debug"),
+    [
+        (None, None, False),  # Basic test without objects
+        (MagicMock(model="camera", id="test-1"), None, False),  # With new_obj
+        (None, MagicMock(model="camera", id="test-2"), False),  # With old_obj
+        (MagicMock(model="camera", id="test-3"), None, True),  # Debug logging with new_obj
+        (None, MagicMock(model="camera", id="test-4"), True),  # Debug logging with old_obj
+        (None, None, True),  # Debug logging without objects
+    ],
+)
 async def test_emit_devices_message(
     protect_client_no_debug: ProtectApiClient,
+    protect_client: ProtectApiClient,
+    new_obj: MagicMock | None,
+    old_obj: MagicMock | None,
+    use_debug: bool,
 ) -> None:
-    """Test emitting devices messages to multiple subscribers."""
-    protect_client = protect_client_no_debug
+    """Test emitting devices messages with various configurations."""
+    from unittest.mock import patch
 
-    messages1: list[WSSubscriptionMessage] = []
-    messages2: list[WSSubscriptionMessage] = []
+    client = protect_client if use_debug else protect_client_no_debug
 
-    def capture_ws1(message: WSSubscriptionMessage) -> None:
-        messages1.append(message)
+    messages: list[WSSubscriptionMessage] = []
 
-    def capture_ws2(message: WSSubscriptionMessage) -> None:
-        messages2.append(message)
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
 
-    unsub1 = protect_client.subscribe_devices_websocket(capture_ws1)
-    unsub2 = protect_client.subscribe_devices_websocket(capture_ws2)
+    unsub = client.subscribe_devices_websocket(capture_ws)
 
     # Create a test message
     test_msg = WSSubscriptionMessage(
-        action=WSAction.UPDATE,
+        action=WSAction.UPDATE if new_obj else WSAction.REMOVE if old_obj else WSAction.ADD,
         new_update_id="test-456",
-        changed_data={"id": "test-sensor", "modelKey": "sensor"},
+        changed_data={"id": "test-device", "name": "Test Camera"},
+        new_obj=new_obj,
+        old_obj=old_obj,
     )
 
-    protect_client.emit_devices_message(test_msg)
+    if use_debug:
+        with patch("uiprotect.api._LOGGER") as mock_logger:
+            mock_logger.isEnabledFor.return_value = True
+            client.emit_devices_message(test_msg)
 
-    assert len(messages1) == 1
-    assert len(messages2) == 1
-    assert messages1[0] == test_msg
-    assert messages2[0] == test_msg
+            # Verify debug log was called
+            assert mock_logger.debug.call_count >= 1
+            call_args = mock_logger.debug.call_args[0]
+            assert "emitting devices message" in call_args[0]
+    else:
+        client.emit_devices_message(test_msg)
 
-    unsub1()
-    unsub2()
+    assert len(messages) == 1
+    assert messages[0] == test_msg
+
+    unsub()
 
 
 @pytest.mark.asyncio()
@@ -559,326 +602,6 @@ async def test_devices_websocket_exception_handling(
     protect_client.emit_devices_message(test_msg)
 
     assert call_count == 1
-
-    unsub()
-
-
-@pytest.mark.asyncio()
-async def test_emit_events_message_with_new_obj(
-    protect_client_no_debug: ProtectApiClient,
-) -> None:
-    """Test emitting events messages with new_obj for debug logging."""
-    from unittest.mock import MagicMock
-
-    protect_client = protect_client_no_debug
-
-    messages: list[WSSubscriptionMessage] = []
-
-    def capture_ws(message: WSSubscriptionMessage) -> None:
-        messages.append(message)
-
-    unsub = protect_client.subscribe_events_websocket(capture_ws)
-
-    # Create a mock object with model and id attributes
-    mock_obj = MagicMock()
-    mock_obj.model = "event"
-    mock_obj.id = "test-event-123"
-
-    # Create a test message with new_obj
-    test_msg = WSSubscriptionMessage(
-        action=WSAction.ADD,
-        new_update_id="test-123",
-        changed_data={"id": "test-event-123", "type": "motion"},
-        new_obj=mock_obj,
-    )
-
-    protect_client.emit_events_message(test_msg)
-
-    assert len(messages) == 1
-    assert messages[0] == test_msg
-
-    unsub()
-
-
-@pytest.mark.asyncio()
-async def test_emit_events_message_with_old_obj(
-    protect_client_no_debug: ProtectApiClient,
-) -> None:
-    """Test emitting events messages with old_obj for debug logging."""
-    from unittest.mock import MagicMock
-
-    protect_client = protect_client_no_debug
-
-    messages: list[WSSubscriptionMessage] = []
-
-    def capture_ws(message: WSSubscriptionMessage) -> None:
-        messages.append(message)
-
-    unsub = protect_client.subscribe_events_websocket(capture_ws)
-
-    # Create a mock object with model and id attributes
-    mock_obj = MagicMock()
-    mock_obj.model = "event"
-    mock_obj.id = "test-event-456"
-
-    # Create a test message with old_obj (no new_obj)
-    test_msg = WSSubscriptionMessage(
-        action=WSAction.REMOVE,
-        new_update_id="test-456",
-        changed_data={"id": "test-event-456"},
-        old_obj=mock_obj,
-    )
-
-    protect_client.emit_events_message(test_msg)
-
-    assert len(messages) == 1
-    assert messages[0] == test_msg
-
-    unsub()
-
-
-@pytest.mark.asyncio()
-async def test_emit_devices_message_with_new_obj(
-    protect_client_no_debug: ProtectApiClient,
-) -> None:
-    """Test emitting devices messages with new_obj for debug logging."""
-    from unittest.mock import MagicMock
-
-    protect_client = protect_client_no_debug
-
-    messages: list[WSSubscriptionMessage] = []
-
-    def capture_ws(message: WSSubscriptionMessage) -> None:
-        messages.append(message)
-
-    unsub = protect_client.subscribe_devices_websocket(capture_ws)
-
-    # Create a mock object with model and id attributes
-    mock_obj = MagicMock()
-    mock_obj.model = "camera"
-    mock_obj.id = "test-camera-123"
-
-    # Create a test message with new_obj
-    test_msg = WSSubscriptionMessage(
-        action=WSAction.UPDATE,
-        new_update_id="test-789",
-        changed_data={"id": "test-camera-123", "isMotionDetected": True},
-        new_obj=mock_obj,
-    )
-
-    protect_client.emit_devices_message(test_msg)
-
-    assert len(messages) == 1
-    assert messages[0] == test_msg
-
-    unsub()
-
-
-@pytest.mark.asyncio()
-async def test_emit_devices_message_with_old_obj(
-    protect_client_no_debug: ProtectApiClient,
-) -> None:
-    """Test emitting devices messages with old_obj for debug logging."""
-    from unittest.mock import MagicMock
-
-    protect_client = protect_client_no_debug
-
-    messages: list[WSSubscriptionMessage] = []
-
-    def capture_ws(message: WSSubscriptionMessage) -> None:
-        messages.append(message)
-
-    unsub = protect_client.subscribe_devices_websocket(capture_ws)
-
-    # Create a mock object with model and id attributes
-    mock_obj = MagicMock()
-    mock_obj.model = "sensor"
-    mock_obj.id = "test-sensor-789"
-
-    # Create a test message with old_obj (no new_obj)
-    test_msg = WSSubscriptionMessage(
-        action=WSAction.REMOVE,
-        new_update_id="test-999",
-        changed_data={"id": "test-sensor-789"},
-        old_obj=mock_obj,
-    )
-
-    protect_client.emit_devices_message(test_msg)
-
-    assert len(messages) == 1
-    assert messages[0] == test_msg
-
-    unsub()
-
-
-@pytest.mark.asyncio()
-async def test_emit_events_message_debug_logging(
-    protect_client: ProtectApiClient,
-) -> None:
-    """Test emitting events messages with debug logging enabled."""
-    from unittest.mock import MagicMock, patch
-
-    messages: list[WSSubscriptionMessage] = []
-
-    def capture_ws(message: WSSubscriptionMessage) -> None:
-        messages.append(message)
-
-    unsub = protect_client.subscribe_events_websocket(capture_ws)
-
-    with patch("uiprotect.api._LOGGER") as mock_logger:
-        # Make the logger enabled for DEBUG
-        mock_logger.isEnabledFor.return_value = True
-
-        # Test with new_obj
-        mock_new_obj = MagicMock()
-        mock_new_obj.model = "event"
-        mock_new_obj.id = "test-event-debug-1"
-
-        test_msg1 = WSSubscriptionMessage(
-            action=WSAction.ADD,
-            new_update_id="debug-1",
-            changed_data={"id": "test-event-debug-1", "type": "motion"},
-            new_obj=mock_new_obj,
-        )
-
-        protect_client.emit_events_message(test_msg1)
-        assert len(messages) == 1
-
-        # Verify debug log for new_obj branch
-        assert mock_logger.debug.call_count >= 1
-        first_call = mock_logger.debug.call_args_list[0]
-        assert "emitting events message" in first_call[0][0]
-        assert mock_new_obj.model in first_call[0]
-        assert mock_new_obj.id in first_call[0]
-
-        mock_logger.reset_mock()
-        mock_logger.isEnabledFor.return_value = True
-
-        # Test with old_obj
-        mock_old_obj = MagicMock()
-        mock_old_obj.model = "event"
-        mock_old_obj.id = "test-event-debug-2"
-
-        test_msg2 = WSSubscriptionMessage(
-            action=WSAction.REMOVE,
-            new_update_id="debug-2",
-            changed_data={"id": "test-event-debug-2"},
-            old_obj=mock_old_obj,
-        )
-
-        protect_client.emit_events_message(test_msg2)
-        assert len(messages) == 2
-
-        # Verify debug log for old_obj branch
-        assert mock_logger.debug.call_count >= 1
-        second_call = mock_logger.debug.call_args_list[0]
-        assert "emitting events message" in second_call[0][0]
-        assert mock_old_obj.model in second_call[0]
-        assert mock_old_obj.id in second_call[0]
-
-        mock_logger.reset_mock()
-        mock_logger.isEnabledFor.return_value = True
-
-        # Test with neither new_obj nor old_obj
-        test_msg3 = WSSubscriptionMessage(
-            action=WSAction.UPDATE,
-            new_update_id="debug-3",
-            changed_data={"id": "test-event-debug-3"},
-        )
-
-        protect_client.emit_events_message(test_msg3)
-        assert len(messages) == 3
-
-        # Verify debug log for neither branch
-        assert mock_logger.debug.call_count >= 1
-        third_call = mock_logger.debug.call_args_list[0]
-        assert "emitting events message" in third_call[0][0]
-
-    unsub()
-
-
-@pytest.mark.asyncio()
-async def test_emit_devices_message_debug_logging(
-    protect_client: ProtectApiClient,
-) -> None:
-    """Test emitting devices messages with debug logging enabled."""
-    from unittest.mock import MagicMock, patch
-
-    messages: list[WSSubscriptionMessage] = []
-
-    def capture_ws(message: WSSubscriptionMessage) -> None:
-        messages.append(message)
-
-    unsub = protect_client.subscribe_devices_websocket(capture_ws)
-
-    with patch("uiprotect.api._LOGGER") as mock_logger:
-        # Make the logger enabled for DEBUG
-        mock_logger.isEnabledFor.return_value = True
-
-        # Test with new_obj
-        mock_new_obj = MagicMock()
-        mock_new_obj.model = "camera"
-        mock_new_obj.id = "test-device-debug-1"
-
-        test_msg1 = WSSubscriptionMessage(
-            action=WSAction.ADD,
-            new_update_id="debug-1",
-            changed_data={"id": "test-device-debug-1", "name": "Test Camera"},
-            new_obj=mock_new_obj,
-        )
-
-        protect_client.emit_devices_message(test_msg1)
-        assert len(messages) == 1
-
-        # Verify debug log for new_obj branch
-        assert mock_logger.debug.call_count >= 1
-        first_call = mock_logger.debug.call_args_list[0]
-        assert "emitting devices message" in first_call[0][0]
-        assert mock_new_obj.model in first_call[0]
-        assert mock_new_obj.id in first_call[0]
-
-        mock_logger.reset_mock()
-        mock_logger.isEnabledFor.return_value = True
-
-        # Test with old_obj
-        mock_old_obj = MagicMock()
-        mock_old_obj.model = "camera"
-        mock_old_obj.id = "test-device-debug-2"
-
-        test_msg2 = WSSubscriptionMessage(
-            action=WSAction.REMOVE,
-            new_update_id="debug-2",
-            changed_data={"id": "test-device-debug-2"},
-            old_obj=mock_old_obj,
-        )
-
-        protect_client.emit_devices_message(test_msg2)
-        assert len(messages) == 2
-
-        # Verify debug log for old_obj branch
-        assert mock_logger.debug.call_count >= 1
-        second_call = mock_logger.debug.call_args_list[0]
-        assert "emitting devices message" in second_call[0][0]
-        assert mock_old_obj.model in second_call[0]
-        assert mock_old_obj.id in second_call[0]
-
-        mock_logger.reset_mock()
-        mock_logger.isEnabledFor.return_value = True
-
-        # Test with neither new_obj nor old_obj
-        test_msg3 = WSSubscriptionMessage(
-            action=WSAction.UPDATE,
-            new_update_id="debug-3",
-            changed_data={"id": "test-device-debug-3"},
-        )
-
-        protect_client.emit_devices_message(test_msg3)
-        assert len(messages) == 3
-
-        # Verify debug log for neither branch
-        assert mock_logger.debug.call_count >= 1
-        third_call = mock_logger.debug.call_args_list[0]
-        assert "emitting devices message" in third_call[0][0]
 
     unsub()
 
@@ -1269,21 +992,23 @@ async def test_process_devices_ws_message_exception_handling(
     mock_msg.data = orjson.dumps(valid_data)
 
     # Patch orjson.loads to raise an exception during processing
-    with patch(
-        "uiprotect.api.orjson.loads",
-        side_effect=Exception("Test JSON parsing exception"),
+    with (
+        patch(
+            "uiprotect.api.orjson.loads",
+            side_effect=Exception("Test JSON parsing exception"),
+        ),
+        patch("uiprotect.api._LOGGER") as mock_logger,
     ):
-        with patch("uiprotect.api._LOGGER") as mock_logger:
-            # This should catch the exception and log it
-            protect_client._process_devices_ws_message(mock_msg)
+        # This should catch the exception and log it
+        protect_client._process_devices_ws_message(mock_msg)
 
-            # Verify that exception was logged
-            mock_logger.exception.assert_called_once()
-            call_args = mock_logger.exception.call_args
-            assert (
-                "Error processing public API devices websocket message"
-                in call_args[0][0]
-            )
+        # Verify that exception was logged
+        mock_logger.exception.assert_called_once()
+        call_args = mock_logger.exception.call_args
+        assert (
+            "Error processing public API devices websocket message"
+            in call_args[0][0]
+        )
 
 
 @pytest.mark.asyncio()
