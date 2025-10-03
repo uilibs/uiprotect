@@ -1284,3 +1284,151 @@ async def test_process_devices_ws_message_exception_handling(
                 "Error processing public API devices websocket message"
                 in call_args[0][0]
             )
+
+
+@pytest.mark.asyncio()
+async def test_base_api_client_events_websocket_state_change_debug(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test BaseApiClient._on_events_websocket_state_change debug logging."""
+    from unittest.mock import patch
+
+    from uiprotect.api import BaseApiClient
+
+    protect_client = protect_client_no_debug
+
+    # Call the BaseApiClient method directly (not the overridden one)
+    with patch("uiprotect.api._LOGGER") as mock_logger:
+        mock_logger.isEnabledFor.return_value = True
+
+        # Call the base class method directly
+        BaseApiClient._on_events_websocket_state_change(
+            protect_client, WebsocketState.CONNECTED
+        )
+
+        # Verify debug log was called
+        mock_logger.debug.assert_called_once()
+        call_args = mock_logger.debug.call_args
+        assert "Events websocket state changed" in call_args[0][0]
+        assert WebsocketState.CONNECTED in call_args[0]
+
+
+@pytest.mark.asyncio()
+async def test_base_api_client_devices_websocket_state_change_debug(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test BaseApiClient._on_devices_websocket_state_change debug logging."""
+    from unittest.mock import patch
+
+    from uiprotect.api import BaseApiClient
+
+    protect_client = protect_client_no_debug
+
+    # Call the BaseApiClient method directly (not the overridden one)
+    with patch("uiprotect.api._LOGGER") as mock_logger:
+        mock_logger.isEnabledFor.return_value = True
+
+        # Call the base class method directly
+        BaseApiClient._on_devices_websocket_state_change(
+            protect_client, WebsocketState.DISCONNECTED
+        )
+
+        # Verify debug log was called
+        mock_logger.debug.assert_called_once()
+        call_args = mock_logger.debug.call_args
+        assert "Devices websocket state changed" in call_args[0][0]
+        assert WebsocketState.DISCONNECTED in call_args[0]
+
+
+@pytest.mark.asyncio()
+async def test_process_devices_ws_message_non_text_debug(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test _process_devices_ws_message debug logging for non-text messages."""
+    from unittest.mock import MagicMock, patch
+
+    import aiohttp
+
+    protect_client = protect_client_no_debug
+
+    # Create a non-text WebSocket message (e.g., BINARY)
+    mock_msg = MagicMock(spec=aiohttp.WSMessage)
+    mock_msg.type = aiohttp.WSMsgType.BINARY
+
+    with patch("uiprotect.api._LOGGER") as mock_logger:
+        # Process the non-text message
+        protect_client._process_devices_ws_message(mock_msg)
+
+        # Verify debug log was called
+        mock_logger.debug.assert_called_once()
+        call_args = mock_logger.debug.call_args
+        assert "Ignoring non-text websocket message" in call_args[0][0]
+        assert aiohttp.WSMsgType.BINARY in call_args[0]
+
+
+@pytest.mark.asyncio()
+async def test_process_devices_ws_message_invalid_data_debug(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test _process_devices_ws_message debug logging for invalid data."""
+    from unittest.mock import MagicMock, patch
+
+    import aiohttp
+    import orjson
+
+    protect_client = protect_client_no_debug
+
+    # Create a message with missing required fields
+    invalid_data = {
+        "type": "update",
+        # Missing "item" or "item.modelKey"
+    }
+
+    mock_msg = MagicMock(spec=aiohttp.WSMessage)
+    mock_msg.type = aiohttp.WSMsgType.TEXT
+    mock_msg.data = orjson.dumps(invalid_data)
+
+    with patch("uiprotect.api._LOGGER") as mock_logger:
+        # Process the invalid message
+        protect_client._process_devices_ws_message(mock_msg)
+
+        # Verify debug log was called
+        mock_logger.debug.assert_called_once()
+        call_args = mock_logger.debug.call_args
+        assert "Invalid public API websocket message" in call_args[0][0]
+
+
+@pytest.mark.asyncio()
+async def test_process_devices_ws_message_unknown_model_debug(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test _process_devices_ws_message debug logging for unknown model type."""
+    from unittest.mock import MagicMock, patch
+
+    import aiohttp
+    import orjson
+
+    protect_client = protect_client_no_debug
+
+    # Create a message with an unknown model type
+    unknown_model_data = {
+        "type": "update",
+        "item": {
+            "modelKey": "unknown_model_type_xyz",
+            "id": "test-id",
+        },
+    }
+
+    mock_msg = MagicMock(spec=aiohttp.WSMessage)
+    mock_msg.type = aiohttp.WSMsgType.TEXT
+    mock_msg.data = orjson.dumps(unknown_model_data)
+
+    with patch("uiprotect.api._LOGGER") as mock_logger:
+        # Process the message with unknown model
+        protect_client._process_devices_ws_message(mock_msg)
+
+        # Verify debug log was called
+        mock_logger.debug.assert_called_once()
+        call_args = mock_logger.debug.call_args
+        assert "Unknown model type in public API message" in call_args[0][0]
+        assert "unknown_model_type_xyz" in call_args[0]
