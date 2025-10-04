@@ -54,6 +54,7 @@ from .data import (
     SmartDetectTrack,
     Version,
     Viewer,
+    WSAction,
     WSPacket,
     WSSubscriptionMessage,
     create_from_unifi_dict,
@@ -1176,8 +1177,6 @@ class ProtectApiClient(BaseApiClient):
                 return
 
             # Create a WSSubscriptionMessage similar to private WS
-            from .data import ModelType, WSAction
-
             model_type = ModelType.from_string(model_key)
 
             if model_type is ModelType.UNKNOWN:
@@ -1217,8 +1216,6 @@ class ProtectApiClient(BaseApiClient):
                 return
 
             # Create a WSSubscriptionMessage similar to private WS
-            from .data import ModelType, WSAction
-
             model_type = ModelType.from_string(model_key)
 
             if model_type is ModelType.UNKNOWN:
