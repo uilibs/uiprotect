@@ -1192,7 +1192,9 @@ class ProtectApiClient(BaseApiClient):
                 try:
                     new_obj = create_from_unifi_dict(item, api=self)
                 except Exception:
-                    _LOGGER.debug("Could not create object from public API data: %s", item)
+                    _LOGGER.debug(
+                        "Could not create object from public API data: %s", item
+                    )
 
             msg_obj = WSSubscriptionMessage(
                 action=WSAction(action_type),
@@ -1240,7 +1242,9 @@ class ProtectApiClient(BaseApiClient):
                 try:
                     new_obj = create_from_unifi_dict(item, api=self)
                 except Exception:
-                    _LOGGER.debug("Could not create object from public API data: %s", item)
+                    _LOGGER.debug(
+                        "Could not create object from public API data: %s", item
+                    )
 
             msg_obj = WSSubscriptionMessage(
                 action=WSAction(action_type),

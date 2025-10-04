@@ -132,7 +132,9 @@ async def test_process_events_ws_message_add(
     unsub = protect_client_no_debug.subscribe_events_websocket(capture_ws)
 
     # Create a mock websocket message (JSON format for public API)
-    msg = create_mock_ws_message('{"type":"add","item":{"id":"test-event-123","modelKey":"event","type":"motion","start":1234567890}}')
+    msg = create_mock_ws_message(
+        '{"type":"add","item":{"id":"test-event-123","modelKey":"event","type":"motion","start":1234567890}}'
+    )
 
     protect_client_no_debug._process_events_ws_message(msg)
 
@@ -140,12 +142,12 @@ async def test_process_events_ws_message_add(
     assert messages[0].action == WSAction.ADD
     assert messages[0].changed_data["id"] == "test-event-123"
     assert messages[0].changed_data["modelKey"] == "event"
-    
+
     # Test that a real Event object was created
     assert messages[0].new_obj is not None
     assert messages[0].new_obj.id == "test-event-123"
     assert messages[0].new_obj.model.value == "event"
-    
+
     # Test update_id is set correctly
     assert messages[0].new_update_id == "test-event-123"
 
@@ -323,7 +325,7 @@ async def test_process_events_ws_message_object_creation_failure(
 ) -> None:
     """Test processing events websocket message when object creation fails."""
     from unittest.mock import patch
-    
+
     protect_client = protect_client_no_debug
 
     messages: list[WSSubscriptionMessage] = []
@@ -334,20 +336,25 @@ async def test_process_events_ws_message_object_creation_failure(
     unsub = protect_client.subscribe_events_websocket(capture_ws)
 
     # Create a mock websocket message with invalid data that will cause object creation to fail
-    msg = create_mock_ws_message('{"type":"add","item":{"id":"test-event-123","modelKey":"event","invalid_field":"bad_data"}}')
+    msg = create_mock_ws_message(
+        '{"type":"add","item":{"id":"test-event-123","modelKey":"event","invalid_field":"bad_data"}}'
+    )
 
     # Patch create_from_unifi_dict to raise an exception
-    with patch("uiprotect.api.create_from_unifi_dict", side_effect=Exception("Object creation failed")):
+    with patch(
+        "uiprotect.api.create_from_unifi_dict",
+        side_effect=Exception("Object creation failed"),
+    ):
         protect_client._process_events_ws_message(msg)
 
     assert len(messages) == 1
     assert messages[0].action == WSAction.ADD
     assert messages[0].changed_data["id"] == "test-event-123"
-    
+
     # Object creation should have failed gracefully
     assert messages[0].new_obj is None
     assert messages[0].old_obj is None
-    
+
     # But other data should still be set
     assert messages[0].new_update_id == "test-event-123"
 
@@ -361,7 +368,7 @@ async def test_process_events_ws_message_object_creation_failure_debug(
 ) -> None:
     """Test processing events websocket message when object creation fails with debug logging."""
     from unittest.mock import patch
-    
+
     messages: list[WSSubscriptionMessage] = []
 
     def capture_ws(message: WSSubscriptionMessage) -> None:
@@ -370,23 +377,31 @@ async def test_process_events_ws_message_object_creation_failure_debug(
     unsub = protect_client.subscribe_events_websocket(capture_ws)
 
     # Create a mock websocket message with invalid data that will cause object creation to fail
-    msg = create_mock_ws_message('{"type":"add","item":{"id":"test-event-123","modelKey":"event","invalid_field":"bad_data"}}')
+    msg = create_mock_ws_message(
+        '{"type":"add","item":{"id":"test-event-123","modelKey":"event","invalid_field":"bad_data"}}'
+    )
 
     # Patch create_from_unifi_dict to raise an exception
-    with patch("uiprotect.api.create_from_unifi_dict", side_effect=Exception("Object creation failed")):
+    with patch(
+        "uiprotect.api.create_from_unifi_dict",
+        side_effect=Exception("Object creation failed"),
+    ):
         with caplog.at_level(logging.DEBUG):
             protect_client._process_events_ws_message(msg)
 
     assert len(messages) == 1
     assert messages[0].action == WSAction.ADD
     assert messages[0].changed_data["id"] == "test-event-123"
-    
+
     # Object creation should have failed gracefully
     assert messages[0].new_obj is None
     assert messages[0].old_obj is None
 
     # Check that debug log message was created
-    assert any("Could not create object from public API data" in record.message for record in caplog.records)
+    assert any(
+        "Could not create object from public API data" in record.message
+        for record in caplog.records
+    )
 
     unsub()
 
@@ -1275,7 +1290,7 @@ async def test_process_devices_ws_message_object_creation_failure_debug(
 ) -> None:
     """Test processing devices websocket message when object creation fails with debug logging."""
     from unittest.mock import patch
-    
+
     messages: list[WSSubscriptionMessage] = []
 
     def capture_ws(message: WSSubscriptionMessage) -> None:
@@ -1284,22 +1299,30 @@ async def test_process_devices_ws_message_object_creation_failure_debug(
     unsub = protect_client.subscribe_devices_websocket(capture_ws)
 
     # Create a mock websocket message with invalid data that will cause object creation to fail
-    msg = create_mock_ws_message('{"type":"add","item":{"id":"test-device-123","modelKey":"camera","invalid_field":"bad_data"}}')
+    msg = create_mock_ws_message(
+        '{"type":"add","item":{"id":"test-device-123","modelKey":"camera","invalid_field":"bad_data"}}'
+    )
 
     # Patch create_from_unifi_dict to raise an exception
-    with patch("uiprotect.api.create_from_unifi_dict", side_effect=Exception("Object creation failed")):
+    with patch(
+        "uiprotect.api.create_from_unifi_dict",
+        side_effect=Exception("Object creation failed"),
+    ):
         with caplog.at_level(logging.DEBUG):
             protect_client._process_devices_ws_message(msg)
 
     assert len(messages) == 1
     assert messages[0].action == WSAction.ADD
     assert messages[0].changed_data["id"] == "test-device-123"
-    
+
     # Object creation should have failed gracefully
     assert messages[0].new_obj is None
     assert messages[0].old_obj is None
 
     # Check that debug log message was created
-    assert any("Could not create object from public API data" in record.message for record in caplog.records)
+    assert any(
+        "Could not create object from public API data" in record.message
+        for record in caplog.records
+    )
 
     unsub()
