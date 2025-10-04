@@ -382,12 +382,14 @@ async def test_process_events_ws_message_object_creation_failure_debug(
     )
 
     # Patch create_from_unifi_dict to raise an exception
-    with patch(
-        "uiprotect.api.create_from_unifi_dict",
-        side_effect=Exception("Object creation failed"),
+    with (
+        patch(
+            "uiprotect.api.create_from_unifi_dict",
+            side_effect=Exception("Object creation failed"),
+        ),
+        caplog.at_level(logging.DEBUG),
     ):
-        with caplog.at_level(logging.DEBUG):
-            protect_client._process_events_ws_message(msg)
+        protect_client._process_events_ws_message(msg)
 
     assert len(messages) == 1
     assert messages[0].action == WSAction.ADD
@@ -1304,12 +1306,14 @@ async def test_process_devices_ws_message_object_creation_failure_debug(
     )
 
     # Patch create_from_unifi_dict to raise an exception
-    with patch(
-        "uiprotect.api.create_from_unifi_dict",
-        side_effect=Exception("Object creation failed"),
+    with (
+        patch(
+            "uiprotect.api.create_from_unifi_dict",
+            side_effect=Exception("Object creation failed"),
+        ),
+        caplog.at_level(logging.DEBUG),
     ):
-        with caplog.at_level(logging.DEBUG):
-            protect_client._process_devices_ws_message(msg)
+        protect_client._process_devices_ws_message(msg)
 
     assert len(messages) == 1
     assert messages[0].action == WSAction.ADD
