@@ -489,8 +489,8 @@ class ProtectBaseObject(BaseModel):
             has_unifi_objs,
             unifi_lists,
             has_unifi_lists,
-            unifi_dicts,
-            has_unifi_dicts,
+            _unifi_dicts,
+            _has_unifi_dicts,
         ) = self._get_protect_model()
         api = self._api
         _fields = self.__class__.model_fields
