@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
@@ -12,6 +13,14 @@ from uiprotect.websocket import WebsocketState
 
 if TYPE_CHECKING:
     from uiprotect import ProtectApiClient
+
+
+def create_mock_ws_message(data: str, msg_type: int = 1) -> MagicMock:
+    """Create a mock websocket message with the given data."""
+    msg = MagicMock()
+    msg.type = msg_type  # WSMsgType.TEXT by default
+    msg.data = data
+    return msg
 
 
 @pytest.mark.asyncio()
@@ -115,26 +124,30 @@ async def test_process_events_ws_message_add(
     protect_client_no_debug: ProtectApiClient,
 ) -> None:
     """Test processing events websocket message with ADD action."""
-    protect_client = protect_client_no_debug
-
     messages: list[WSSubscriptionMessage] = []
 
     def capture_ws(message: WSSubscriptionMessage) -> None:
         messages.append(message)
 
-    unsub = protect_client.subscribe_events_websocket(capture_ws)
+    unsub = protect_client_no_debug.subscribe_events_websocket(capture_ws)
 
     # Create a mock websocket message (JSON format for public API)
-    msg = MagicMock()
-    msg.type = 1  # WSMsgType.TEXT
-    msg.data = '{"type":"add","item":{"id":"test-event-123","modelKey":"event","type":"motion","start":1234567890}}'
+    msg = create_mock_ws_message('{"type":"add","item":{"id":"test-event-123","modelKey":"event","type":"motion","start":1234567890}}')
 
-    protect_client._process_events_ws_message(msg)
+    protect_client_no_debug._process_events_ws_message(msg)
 
     assert len(messages) == 1
     assert messages[0].action == WSAction.ADD
     assert messages[0].changed_data["id"] == "test-event-123"
     assert messages[0].changed_data["modelKey"] == "event"
+    
+    # Test that a real Event object was created
+    assert messages[0].new_obj is not None
+    assert messages[0].new_obj.id == "test-event-123"
+    assert messages[0].new_obj.model.value == "event"
+    
+    # Test update_id is set correctly
+    assert messages[0].new_update_id == "test-event-123"
 
     unsub()
 
@@ -300,6 +313,80 @@ async def test_process_events_ws_message_unknown_model(
     protect_client._process_events_ws_message(msg)
 
     assert len(messages) == 0
+
+    unsub()
+
+
+@pytest.mark.asyncio()
+async def test_process_events_ws_message_object_creation_failure(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test processing events websocket message when object creation fails."""
+    from unittest.mock import patch
+    
+    protect_client = protect_client_no_debug
+
+    messages: list[WSSubscriptionMessage] = []
+
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
+
+    unsub = protect_client.subscribe_events_websocket(capture_ws)
+
+    # Create a mock websocket message with invalid data that will cause object creation to fail
+    msg = create_mock_ws_message('{"type":"add","item":{"id":"test-event-123","modelKey":"event","invalid_field":"bad_data"}}')
+
+    # Patch create_from_unifi_dict to raise an exception
+    with patch("uiprotect.api.create_from_unifi_dict", side_effect=Exception("Object creation failed")):
+        protect_client._process_events_ws_message(msg)
+
+    assert len(messages) == 1
+    assert messages[0].action == WSAction.ADD
+    assert messages[0].changed_data["id"] == "test-event-123"
+    
+    # Object creation should have failed gracefully
+    assert messages[0].new_obj is None
+    assert messages[0].old_obj is None
+    
+    # But other data should still be set
+    assert messages[0].new_update_id == "test-event-123"
+
+    unsub()
+
+
+@pytest.mark.asyncio()
+async def test_process_events_ws_message_object_creation_failure_debug(
+    protect_client: ProtectApiClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test processing events websocket message when object creation fails with debug logging."""
+    from unittest.mock import patch
+    
+    messages: list[WSSubscriptionMessage] = []
+
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
+
+    unsub = protect_client.subscribe_events_websocket(capture_ws)
+
+    # Create a mock websocket message with invalid data that will cause object creation to fail
+    msg = create_mock_ws_message('{"type":"add","item":{"id":"test-event-123","modelKey":"event","invalid_field":"bad_data"}}')
+
+    # Patch create_from_unifi_dict to raise an exception
+    with patch("uiprotect.api.create_from_unifi_dict", side_effect=Exception("Object creation failed")):
+        with caplog.at_level(logging.DEBUG):
+            protect_client._process_events_ws_message(msg)
+
+    assert len(messages) == 1
+    assert messages[0].action == WSAction.ADD
+    assert messages[0].changed_data["id"] == "test-event-123"
+    
+    # Object creation should have failed gracefully
+    assert messages[0].new_obj is None
+    assert messages[0].old_obj is None
+
+    # Check that debug log message was created
+    assert any("Could not create object from public API data" in record.message for record in caplog.records)
 
     unsub()
 
@@ -1179,3 +1266,40 @@ async def test_process_devices_ws_message_unknown_model_debug(
         call_args = mock_logger.debug.call_args
         assert "Unknown model type in public API message" in call_args[0][0]
         assert "unknown_model_type_xyz" in call_args[0]
+
+
+@pytest.mark.asyncio()
+async def test_process_devices_ws_message_object_creation_failure_debug(
+    protect_client: ProtectApiClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test processing devices websocket message when object creation fails with debug logging."""
+    from unittest.mock import patch
+    
+    messages: list[WSSubscriptionMessage] = []
+
+    def capture_ws(message: WSSubscriptionMessage) -> None:
+        messages.append(message)
+
+    unsub = protect_client.subscribe_devices_websocket(capture_ws)
+
+    # Create a mock websocket message with invalid data that will cause object creation to fail
+    msg = create_mock_ws_message('{"type":"add","item":{"id":"test-device-123","modelKey":"camera","invalid_field":"bad_data"}}')
+
+    # Patch create_from_unifi_dict to raise an exception
+    with patch("uiprotect.api.create_from_unifi_dict", side_effect=Exception("Object creation failed")):
+        with caplog.at_level(logging.DEBUG):
+            protect_client._process_devices_ws_message(msg)
+
+    assert len(messages) == 1
+    assert messages[0].action == WSAction.ADD
+    assert messages[0].changed_data["id"] == "test-device-123"
+    
+    # Object creation should have failed gracefully
+    assert messages[0].new_obj is None
+    assert messages[0].old_obj is None
+
+    # Check that debug log message was created
+    assert any("Could not create object from public API data" in record.message for record in caplog.records)
+
+    unsub()

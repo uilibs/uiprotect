@@ -1183,14 +1183,23 @@ class ProtectApiClient(BaseApiClient):
                 _LOGGER.debug("Unknown model type in public API message: %s", model_key)
                 return
 
-            # For now, just emit the raw data
-            # TODO: Create proper objects from the data
+            # Create proper objects from the data
+            new_obj = None
+            old_obj = None
+            update_id = item.get("id", "")
+
+            if action_type in ("add", "update"):
+                try:
+                    new_obj = create_from_unifi_dict(item, api=self)
+                except Exception:
+                    _LOGGER.debug("Could not create object from public API data: %s", item)
+
             msg_obj = WSSubscriptionMessage(
                 action=WSAction(action_type),
-                new_update_id="",
+                new_update_id=update_id,
                 changed_data=item,
-                new_obj=None,
-                old_obj=None,
+                new_obj=new_obj,
+                old_obj=old_obj,
             )
 
             self.emit_events_message(msg_obj)
@@ -1222,14 +1231,23 @@ class ProtectApiClient(BaseApiClient):
                 _LOGGER.debug("Unknown model type in public API message: %s", model_key)
                 return
 
-            # For now, just emit the raw data
-            # TODO: Create proper objects from the data
+            # Create proper objects from the data
+            new_obj = None
+            old_obj = None
+            update_id = item.get("id", "")
+
+            if action_type in ("add", "update"):
+                try:
+                    new_obj = create_from_unifi_dict(item, api=self)
+                except Exception:
+                    _LOGGER.debug("Could not create object from public API data: %s", item)
+
             msg_obj = WSSubscriptionMessage(
                 action=WSAction(action_type),
-                new_update_id="",
+                new_update_id=update_id,
                 changed_data=item,
-                new_obj=None,
-                old_obj=None,
+                new_obj=new_obj,
+                old_obj=old_obj,
             )
 
             self.emit_devices_message(msg_obj)
