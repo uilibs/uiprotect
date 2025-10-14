@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.22.0 (2025-10-14)
+
+### Features
+
+
+- Remove last uses of pydantic.v1 ([`1d2004b`](https://github.com/uilibs/uiprotect/commit/1d2004bcb5b2c4c78c175c28b1226e797d50ebb8))
+
+
 ## v7.21.1 (2025-08-14)
 
 ### Bug fixes
