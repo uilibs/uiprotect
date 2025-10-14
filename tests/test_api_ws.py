@@ -178,7 +178,7 @@ async def test_ws_event_ring(
     def get_camera():
         return protect_client.bootstrap.cameras[camera["id"]]
 
-    camera_before = get_camera().copy()
+    camera_before = get_camera().model_copy()
 
     expected_updated_id = "0441ecc6-f0fa-4b19-b071-7987c143138a"
     expected_event_id = "bf9a241afe74821ceffffd05"
@@ -219,7 +219,7 @@ async def test_ws_event_ring(
     camera.last_ring = None
     camera_before.last_ring = None
 
-    assert camera.dict() == camera_before.dict()
+    assert camera.model_dump() == camera_before.model_dump()
     assert event.id == expected_event_id
     assert event.type == EventType.RING
     assert event.thumbnail_id == f"e-{expected_event_id}"
@@ -242,7 +242,7 @@ async def test_ws_event_motion(
     def get_camera():
         return protect_client.bootstrap.cameras[camera["id"]]
 
-    camera_before = get_camera().copy()
+    camera_before = get_camera().model_copy()
 
     expected_updated_id = "0441ecc6-f0fa-4b19-b071-7987c143138a"
     expected_event_id = "bf9a241afe74821ceffffd05"
@@ -283,7 +283,7 @@ async def test_ws_event_motion(
     camera_before.last_motion = None
     camera.last_motion = None
 
-    assert camera.dict() == camera_before.dict()
+    assert camera.model_dump() == camera_before.model_dump()
     assert event.id == expected_event_id
     assert event.type == EventType.MOTION
     assert event.thumbnail_id == f"e-{expected_event_id}"
@@ -307,7 +307,7 @@ async def test_ws_event_nfc_card_scanned(
     def get_camera():
         return protect_client.bootstrap.cameras[camera["id"]]
 
-    camera_before = get_camera().copy()
+    camera_before = get_camera().model_copy()
 
     expected_updated_id = "0441ecc6-f0fa-4b03-b071-7987c143138a"
     expected_event_id = "6730b5af01029603e4003bdb"
@@ -355,7 +355,7 @@ async def test_ws_event_nfc_card_scanned(
     camera_before.last_nfc_card_scanned = None
     camera.last_nfc_card_scanned = None
 
-    assert camera.dict() == camera_before.dict()
+    assert camera.model_dump() == camera_before.model_dump()
     assert event.id == expected_event_id
     assert event.type == EventType.NFC_CARD_SCANNED
     assert event.metadata.nfc.nfc_id == expected_nfc_id
@@ -382,7 +382,7 @@ async def test_ws_event_fingerprint_identified(
     def get_camera():
         return protect_client.bootstrap.cameras[camera["id"]]
 
-    camera_before = get_camera().copy()
+    camera_before = get_camera().model_copy()
 
     expected_updated_id = "0441ecc6-f0fa-4b03-b071-7987c143138a"
     expected_event_id = "6730b5af01029603e4003bdb"
@@ -429,7 +429,7 @@ async def test_ws_event_fingerprint_identified(
     camera_before.last_fingerprint_identified = None
     camera.last_fingerprint_identified = None
 
-    assert camera.dict() == camera_before.dict()
+    assert camera.model_dump() == camera_before.model_dump()
     assert event.id == expected_event_id
     assert event.type == EventType.FINGERPRINT_IDENTIFIED
     assert event.metadata.fingerprint.ulp_id == expected_ulp_id
@@ -456,7 +456,7 @@ async def test_ws_event_smart(
         return protect_client.bootstrap.cameras[camera["id"]]
 
     bootstrap_before = protect_client.bootstrap.unifi_dict()
-    camera_before = get_camera().copy()
+    camera_before = get_camera().model_copy()
 
     expected_updated_id = "0441ecc6-f0fa-4b19-b071-7987c143138a"
     expected_event_id = "bf9a241afe74821ceffffd05"
@@ -498,7 +498,7 @@ async def test_ws_event_smart(
     camera_before.last_smart_detect = None
 
     assert bootstrap == bootstrap_before
-    assert camera.dict() == camera_before.dict()
+    assert camera.model_dump() == camera_before.model_dump()
     assert smart_event.id == expected_event_id
     assert smart_event.type == EventType.SMART_DETECT
     assert smart_event.thumbnail_id == f"e-{expected_event_id}"
@@ -524,7 +524,7 @@ async def test_ws_event_update(
         return protect_client.bootstrap.cameras[camera["id"]]
 
     bootstrap_before = protect_client.bootstrap.unifi_dict()
-    camera_before = get_camera().copy()
+    camera_before = get_camera().model_copy()
 
     new_stats = camera_before.stats.unifi_dict()
     new_stats["rxBytes"] += 100

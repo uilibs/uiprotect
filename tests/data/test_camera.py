@@ -1434,7 +1434,7 @@ async def test_get_public_api_snapshot_no_api_key(camera_obj: Camera):
 
     # get_public_api_snapshot should raise NotAuthorized if api_key is missing
     with pytest.raises(
-        NotAuthorized, match="Cannot get public API snapshot without an API key."
+        NotAuthorized, match=r"Cannot get public API snapshot without an API key\."
     ):
         await camera_obj.get_public_api_snapshot()
 
