@@ -824,7 +824,7 @@ async def test_permissions_user(
 ):
     api = user_obj.api
 
-    user1 = user_obj.copy()
+    user1 = user_obj.model_copy()
     user1.id = "test_id_1"
     user1.all_permissions = [
         Permission.from_unifi_dict(rawPermission=p, api=api) for p in permissions
@@ -875,13 +875,13 @@ async def test_permissions_self_with_other(
 ):
     api = user_obj.api
 
-    user1 = user_obj.copy()
+    user1 = user_obj.model_copy()
     user1.id = "test_id_1"
     user1.all_permissions = [
         Permission.from_unifi_dict(rawPermission=p, api=api) for p in permissions
     ]
 
-    user2 = user_obj.copy()
+    user2 = user_obj.model_copy()
     user2.id = "test_id_2"
 
     api.bootstrap.auth_user_id = user1.id
@@ -909,14 +909,14 @@ async def test_revert(user_obj: User, camera_obj: Camera):
         Permission.from_unifi_dict(rawPermission="camera:read:*", api=api),
     ]
 
-    camera_before = camera_obj.dict()
+    camera_before = camera_obj.model_dump()
 
     camera_obj.remove_privacy_zone()
     camera_obj.recording_settings.mode = RecordingMode.ALWAYS
     with pytest.raises(NotAuthorized):
         await camera_obj.save_device(camera_before)
 
-    assert camera_before == camera_obj.dict()
+    assert camera_before == camera_obj.model_dump()
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
