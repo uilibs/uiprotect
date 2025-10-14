@@ -1,18 +1,14 @@
 from __future__ import annotations
 
 import enum
-from collections.abc import Callable, Coroutine
+import types
+from collections.abc import Callable, Coroutine, Sequence
 from functools import cache, lru_cache
-from typing import Annotated, Any, Literal, TypeVar, Union
+from typing import Annotated, Any, Literal, TypeVar, Union, get_args, get_origin
 
 from packaging.version import Version as BaseVersion
 from pydantic import BaseModel, Field
 from pydantic.types import StringConstraints
-from pydantic.v1.config import BaseConfig as BaseConfigV1
-from pydantic.v1.fields import SHAPE_DICT as SHAPE_DICT_V1  # noqa: F401
-from pydantic.v1.fields import SHAPE_LIST as SHAPE_LIST_V1  # noqa: F401
-from pydantic.v1.fields import SHAPE_SET as SHAPE_SET_V1  # noqa: F401
-from pydantic.v1.fields import ModelField as ModelFieldV1
 from pydantic_extra_types.color import Color  # noqa: F401
 
 from .._compat import cached_property
@@ -21,20 +17,34 @@ KT = TypeVar("KT")
 VT = TypeVar("VT")
 
 
-class _BaseConfigV1(BaseConfigV1):
-    arbitrary_types_allowed = True
-    validate_assignment = True
-
-
 @lru_cache(maxsize=512)
-def extract_type_shape(annotation: type[Any] | None) -> tuple[Any, int]:
-    """Extract the type from a type hint."""
+def get_field_type(annotation: type[Any] | None) -> tuple[type | None, Any]:
+    """Extract the origin and type from an annotation."""
     if annotation is None:
         raise ValueError("Type annotation cannot be None")
-    v1_field = ModelFieldV1(
-        name="", type_=annotation, class_validators=None, model_config=_BaseConfigV1
-    )
-    return v1_field.type_, v1_field.shape
+    origin = get_origin(annotation)
+    args: Sequence[Any]
+    if origin in (list, set):
+        if not (args := get_args(annotation)):
+            raise ValueError(f"Unable to determine args of type: {annotation}")
+        return origin, args[0]
+    if origin is dict:
+        if not (args := get_args(annotation)):
+            raise ValueError(f"Unable to determine args of type: {annotation}")
+        return origin, args[1]
+    if origin is Annotated:
+        if not (args := get_args(annotation)):
+            raise ValueError(f"Unable to determine args of type: {annotation}")
+        return None, args[0]
+    if origin is Union or origin is types.UnionType:
+        if not (args := get_args(annotation)):
+            raise ValueError(f"Unable to determine args of type: {annotation}")
+        args = [get_field_type(arg) for arg in args]
+        if len(args) == 2 and type(None) in list(zip(*args, strict=False))[1]:
+            # Strip '| None' type from Union
+            return next(arg for arg in args if arg[1] is not type(None))
+        return None, annotation
+    return origin, annotation
 
 
 DEFAULT = "DEFAULT_VALUE"

@@ -27,14 +27,12 @@ from ..utils import (
     to_snake_case,
 )
 from .types import (
-    SHAPE_DICT_V1,
-    SHAPE_LIST_V1,
     ModelType,
     PercentFloat,
     PermissionNode,
     ProtectWSPayloadFormat,
     StateType,
-    extract_type_shape,
+    get_field_type,
 )
 from .websocket import (
     WSJSONPacketFrame,
@@ -223,11 +221,11 @@ class ProtectBaseObject(BaseModel):
 
         for name, field in cls.model_fields.items():
             try:
-                type_, shape = extract_type_shape(field.annotation)  # type: ignore[arg-type]
+                origin, type_ = get_field_type(field.annotation)  # type: ignore[arg-type]
                 if _is_protect_base_object(type_):
-                    if shape == SHAPE_LIST_V1:
+                    if origin is list:
                         lists[name] = type_
-                    elif shape == SHAPE_DICT_V1:
+                    elif origin is dict:
                         dicts[name] = type_
                     else:
                         objs[name] = type_

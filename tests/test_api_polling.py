@@ -24,7 +24,7 @@ async def test_process_events_none(protect_client: ProtectApiClient, camera):
         return protect_client.bootstrap.cameras[camera["id"]]
 
     bootstrap_before = protect_client.bootstrap.unifi_dict()
-    camera_before = get_camera().copy()
+    camera_before = get_camera().model_copy()
 
     async def get_events(*args, **kwargs):
         return []
@@ -58,7 +58,7 @@ async def test_process_events_ring(protect_client: ProtectApiClient, now, camera
     def get_camera():
         return protect_client.bootstrap.cameras[camera["id"]]
 
-    camera_before = get_camera().copy()
+    camera_before = get_camera().model_copy()
 
     expected_event_id = "bf9a241afe74821ceffffd05"
 
@@ -93,7 +93,7 @@ async def test_process_events_ring(protect_client: ProtectApiClient, now, camera
     _reset_events(camera)
     _reset_events(camera_before)
 
-    assert camera.dict() == camera_before.dict()
+    assert camera.model_dump() == camera_before.model_dump()
     assert event.id == expected_event_id
     assert event.type == EventType.RING
     assert event.thumbnail_id == f"e-{expected_event_id}"
@@ -106,7 +106,7 @@ async def test_process_events_motion(protect_client: ProtectApiClient, now, came
     def get_camera():
         return protect_client.bootstrap.cameras[camera["id"]]
 
-    camera_before = get_camera().copy()
+    camera_before = get_camera().model_copy()
 
     expected_event_id = "bf9a241afe74821ceffffd05"
 
@@ -142,7 +142,7 @@ async def test_process_events_motion(protect_client: ProtectApiClient, now, came
     _reset_events(camera)
     _reset_events(camera_before)
 
-    assert camera.dict() == camera_before.dict()
+    assert camera.model_dump() == camera_before.model_dump()
     assert event.id == expected_event_id
     assert event.type == EventType.MOTION
     assert event.thumbnail_id == f"e-{expected_event_id}"
@@ -156,7 +156,7 @@ async def test_process_events_smart(protect_client: ProtectApiClient, now, camer
     def get_camera():
         return protect_client.bootstrap.cameras[camera["id"]]
 
-    camera_before = get_camera().copy()
+    camera_before = get_camera().model_copy()
 
     expected_event_id = "bf9a241afe74821ceffffd05"
 
@@ -193,7 +193,7 @@ async def test_process_events_smart(protect_client: ProtectApiClient, now, camer
     _reset_events(camera)
     _reset_events(camera_before)
 
-    assert camera.dict() == camera_before.dict()
+    assert camera.model_dump() == camera_before.model_dump()
     assert smart_event.id == expected_event_id
     assert smart_event.type == EventType.SMART_DETECT
     assert smart_event.thumbnail_id == f"e-{expected_event_id}"
