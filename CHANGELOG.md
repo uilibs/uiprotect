@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.23.0 (2025-10-16)
+
+### Features
+
+
+- Add events and devices websocket support with subscription handling ([`bf71cb4`](https://github.com/uilibs/uiprotect/commit/bf71cb411e0c90ed008d17e2003f66312ad652d6))
+
+
 ## v7.22.0 (2025-10-14)
 
 ### Features
