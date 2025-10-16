@@ -1184,13 +1184,15 @@ class ProtectApiClient(BaseApiClient):
                 return
 
             # Create proper objects from the data
-            new_obj = None
-            old_obj = None
+            new_obj: ProtectModelWithId | None = None
+            old_obj: ProtectModelWithId | None = None
             update_id = item.get("id", "")
 
             if action_type in ("add", "update"):
                 try:
-                    new_obj = create_from_unifi_dict(item, api=self)
+                    new_obj = cast(
+                        ProtectModelWithId, create_from_unifi_dict(item, api=self)
+                    )
                 except Exception:
                     _LOGGER.debug(
                         "Could not create object from public API data: %s", item
@@ -1234,13 +1236,15 @@ class ProtectApiClient(BaseApiClient):
                 return
 
             # Create proper objects from the data
-            new_obj = None
-            old_obj = None
+            new_obj: ProtectModelWithId | None = None
+            old_obj: ProtectModelWithId | None = None
             update_id = item.get("id", "")
 
             if action_type in ("add", "update"):
                 try:
-                    new_obj = create_from_unifi_dict(item, api=self)
+                    new_obj = cast(
+                        ProtectModelWithId, create_from_unifi_dict(item, api=self)
+                    )
                 except Exception:
                     _LOGGER.debug(
                         "Could not create object from public API data: %s", item
