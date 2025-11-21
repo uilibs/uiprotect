@@ -207,7 +207,7 @@ def to_camel_case(name: str) -> str:
 _EMPTY_UUID = UUID("0" * 32)
 
 
-def convert_unifi_data(value: Any, field: FieldInfo) -> Any:
+def convert_unifi_data(value: Any, field: FieldInfo) -> Any:  # noqa: PLR0911, PLR0912
     """Converts value from UFP data into pydantic field class"""
     origin, type_ = get_field_type(field.annotation)  # type: ignore[arg-type]
 
@@ -269,7 +269,7 @@ def _is_from_string_enum(type_: Any) -> bool:
     return hasattr(type_, "from_string")
 
 
-def serialize_unifi_obj(value: Any, levels: int = -1) -> Any:
+def serialize_unifi_obj(value: Any, levels: int = -1) -> Any:  # noqa: PLR0911
     """Serializes UFP data"""
     if unifi_dict := getattr(value, "unifi_dict", None):
         value = unifi_dict()
@@ -421,7 +421,7 @@ def print_ws_stat_summary(
 ) -> None:
     # typer<0.4.1 is incompatible with click>=8.1.0
     # allows only the CLI interface to break if both are installed
-    import typer
+    import typer  # noqa: PLC0415
 
     if output is None:
         output = typer.echo if typer is not None else print
@@ -516,7 +516,7 @@ def format_duration(duration: timedelta) -> str:
 
 
 def _set_timezone(tz: tzinfo | str) -> tzinfo:
-    global TIMEZONE_GLOBAL
+    global TIMEZONE_GLOBAL  # noqa: PLW0603
 
     if isinstance(tz, str):
         tz = zoneinfo.ZoneInfo(tz)
@@ -532,7 +532,9 @@ def get_local_timezone() -> tzinfo:
         return TIMEZONE_GLOBAL
 
     try:
-        from homeassistant.util import dt as dt_util  # type: ignore[import-not-found]
+        from homeassistant.util import (  # noqa: PLC0415
+            dt as dt_util,  # type: ignore[import-not-found]
+        )
 
         return _set_timezone(dt_util.DEFAULT_TIME_ZONE)
     except ImportError:
@@ -569,7 +571,7 @@ def local_datetime(dt: datetime | None = None) -> datetime:
 
 
 def log_event(event: Event) -> None:
-    from uiprotect.data import EventType
+    from uiprotect.data import EventType  # noqa: PLC0415
 
     _LOGGER.debug("event WS msg: %s", event.model_dump())
     if "smart" not in event.type.value:

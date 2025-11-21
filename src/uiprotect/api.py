@@ -1264,7 +1264,7 @@ class ProtectApiClient(BaseApiClient):
                 "Error processing public API devices websocket message: %s", e
             )
 
-    async def _get_event_paginate(
+    async def _get_event_paginate(  # noqa: PLR0912
         self,
         params: dict[str, Any],
         *,
@@ -1322,7 +1322,7 @@ class ProtectApiClient(BaseApiClient):
 
         return events
 
-    async def get_events_raw(
+    async def get_events_raw(  # noqa: PLR0912
         self,
         *,
         start: datetime | None = None,
