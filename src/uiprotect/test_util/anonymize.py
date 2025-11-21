@@ -71,7 +71,7 @@ def anonymize_user(user_dict: dict[str, Any]) -> dict[str, Any]:
     return user_dict
 
 
-def anonymize_value(value: Any, name: str | None = None) -> Any:
+def anonymize_value(value: Any, name: str | None = None) -> Any:  # noqa: PLR0912
     if isinstance(value, str):
         if name == "accessKey":
             value = f"{random_number(13)}:{random_hex(24)}:{random_hex(128)}"
@@ -104,7 +104,7 @@ def anonymize_value(value: Any, name: str | None = None) -> Any:
     return value
 
 
-def anonymize_dict(obj: dict[str, Any], name: str | None = None) -> dict[str, Any]:
+def anonymize_dict(obj: dict[str, Any], name: str | None = None) -> dict[str, Any]:  # noqa: PLR0912
     obj_type = None
     if "modelKey" in obj:
         if obj["modelKey"] in [m.value for m in ModelType]:

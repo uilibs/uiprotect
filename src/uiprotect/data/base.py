@@ -316,23 +316,26 @@ class ProtectBaseObject(BaseModel):
         # convert to snake_case and remove extra fields
         _fields = cls.model_fields
         for key in data.copy():
-            if key in remaps:
+            current_key = key
+            if current_key in remaps:
                 # remap keys that will not be converted correctly by snake_case convert
-                remapped_key = remaps[key]
-                data[remapped_key] = data.pop(key)
-                key = remapped_key
+                remapped_key = remaps[current_key]
+                data[remapped_key] = data.pop(current_key)
+                current_key = remapped_key
 
-            new_key = to_snake_case(key)
-            data[new_key] = data.pop(key)
-            key = new_key
+            new_key = to_snake_case(current_key)
+            data[new_key] = data.pop(current_key)
+            current_key = new_key
 
-            if key == "api":
+            if current_key == "api":
                 continue
 
-            if key not in _fields:
-                del data[key]
+            if current_key not in _fields:
+                del data[current_key]
                 continue
-            data[key] = convert_unifi_data(data[key], _fields[key])
+            data[current_key] = convert_unifi_data(
+                data[current_key], _fields[current_key]
+            )
 
         if not data:
             return data
