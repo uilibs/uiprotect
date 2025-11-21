@@ -178,12 +178,12 @@ class Bootstrap(ProtectBaseObject):
     liveviews: dict[str, Liveview]
     nvr: NVR
     viewers: dict[str, Viewer]
-    lights: dict[str, Light]
-    bridges: dict[str, Bridge]
-    sensors: dict[str, Sensor]
-    doorlocks: dict[str, Doorlock]
-    chimes: dict[str, Chime]
-    aiports: dict[str, AiPort]
+    lights: dict[str, Light] = {}
+    bridges: dict[str, Bridge] = {}
+    sensors: dict[str, Sensor] = {}
+    doorlocks: dict[str, Doorlock] = {}
+    chimes: dict[str, Chime] = {}
+    aiports: dict[str, AiPort] = {}
     ringtones: list[Ringtone]
     last_update_id: str
 
@@ -215,14 +215,19 @@ class Bootstrap(ProtectBaseObject):
         data["idLookup"] = id_lookup
         data["macLookup"] = mac_lookup
 
+        # Fields that are not (always?) available in newer Protect versions
+        optional_fields = {"doorlocks"}
+
         for model_type in ModelType.bootstrap_models_types_set:
             key = model_type.devices_key  # type: ignore[attr-defined]
             items: dict[str, ProtectModel] = {}
             if key not in data:
-                data[key] = {}
-                _LOGGER.error(
-                    f"Missing key in bootstrap: {key}. This may be fixed by updating Protect."
-                )
+                # Optional fields with defaults don't need logging or setting
+                if key not in optional_fields:
+                    data[key] = {}
+                    _LOGGER.error(
+                        f"Missing key in bootstrap: {key}. This may be fixed by updating Protect."
+                    )
                 continue
             for item in data[key]:
                 if (
