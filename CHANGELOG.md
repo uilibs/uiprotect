@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.26.0 (2025-11-21)
+
+### Features
+
+
+- Add ipv6 support for host formatting and connection urls ([`958f139`](https://github.com/uilibs/uiprotect/commit/958f139b0a3becfc8f30cf4509af0aa28cb46696))
+
+
 ## v7.25.0 (2025-11-21)
 
 ### Features
