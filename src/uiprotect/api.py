@@ -700,6 +700,11 @@ class BaseApiClient:
             response = await self.request("post", url=url, json=auth)
             if response.status != 200:
                 await self._raise_for_status(response, True)
+
+            csrf_token = response.headers.get("x-csrf-token")
+            if csrf_token:
+                self.set_header("x-csrf-token", csrf_token)
+
             self.set_header("cookie", response.headers.get("set-cookie", ""))
             self._is_authenticated = True
             _LOGGER.debug("Authenticated successfully!")

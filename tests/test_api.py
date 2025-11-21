@@ -1437,6 +1437,72 @@ def test_api_key_init():
 
 
 @pytest.mark.asyncio()
+async def test_authenticate_sets_csrf_token() -> None:
+    """Test that authenticate() extracts and sets the x-csrf-token header."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=False,
+    )
+
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.headers = {
+        "set-cookie": "TOKEN=test_token_value; path=/",
+        "x-csrf-token": "test-csrf-token-12345",
+    }
+    mock_response.cookies = {}
+
+    client.request = AsyncMock(return_value=mock_response)
+
+    await client.authenticate()
+
+    assert client.headers is not None
+    assert client.headers.get("x-csrf-token") == "test-csrf-token-12345"
+    assert client._is_authenticated is True
+
+    client.request.assert_called_once_with(
+        "post",
+        url="/api/auth/login",
+        json={
+            "username": "test_user",
+            "password": "test_pass",
+            "rememberMe": False,
+        },
+    )
+
+
+@pytest.mark.asyncio()
+async def test_authenticate_without_csrf_token() -> None:
+    """Test that authenticate() works even if no x-csrf-token is returned."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=False,
+    )
+
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.headers = {
+        "set-cookie": "TOKEN=test_token_value; path=/",
+    }
+    mock_response.cookies = {}
+
+    client.request = AsyncMock(return_value=mock_response)
+
+    await client.authenticate()
+
+    assert client.headers is None or client.headers.get("x-csrf-token") is None
+    assert client._is_authenticated is True
+
+
+@pytest.mark.asyncio()
 async def test_get_meta_info_calls_public_api():
     client = ProtectApiClient(
         "127.0.0.1",
