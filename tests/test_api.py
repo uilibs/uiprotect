@@ -35,7 +35,7 @@ from tests.conftest import (
     validate_video_file,
 )
 from tests.sample_data.constants import CONSTANTS
-from uiprotect.api import ProtectApiClient
+from uiprotect.api import ProtectApiClient, RTSPSStreams
 from uiprotect.data import (
     Camera,
     Event,
@@ -1827,8 +1827,6 @@ async def test_get_public_api_session_creates_and_reuses_session():
 
 @pytest.mark.asyncio
 async def test_public_api_session_constructor_assignment():
-    import aiohttp
-
     async with aiohttp.ClientSession() as session:
         client = ProtectApiClient(
             "127.0.0.1",
@@ -1925,7 +1923,6 @@ def test_set_api_key_empty_raises():
         api_key=None,
         verify_ssl=False,
     )
-    import pytest
 
     with pytest.raises(BadRequest, match="API key cannot be empty"):
         client.set_api_key("")
@@ -2238,8 +2235,6 @@ async def test_delete_camera_rtsps_streams_failure():
 
 def test_rtsps_streams_class():
     """Test RTSPSStreams class functionality."""
-    from uiprotect.api import RTSPSStreams
-
     # Test with multiple qualities
     streams = RTSPSStreams(
         high="rtsps://example.com/high",
@@ -2268,8 +2263,6 @@ def test_rtsps_streams_class():
 
 def test_rtsps_streams_active_inactive():
     """Test RTSPSStreams active/inactive stream quality detection."""
-    from uiprotect.api import RTSPSStreams
-
     # Test with mixed active and inactive streams
     streams = RTSPSStreams(
         high="rtsps://example.com/high",
@@ -2293,8 +2286,6 @@ def test_rtsps_streams_active_inactive():
 
 def test_rtsps_streams_all_active():
     """Test RTSPSStreams when all streams are active."""
-    from uiprotect.api import RTSPSStreams
-
     streams = RTSPSStreams(
         high="rtsps://example.com/high",
         medium="rtsps://example.com/medium",
@@ -2307,8 +2298,6 @@ def test_rtsps_streams_all_active():
 
 def test_rtsps_streams_all_inactive():
     """Test RTSPSStreams when all streams are inactive."""
-    from uiprotect.api import RTSPSStreams
-
     streams = RTSPSStreams(
         high=None,
         medium=None,
@@ -2321,8 +2310,6 @@ def test_rtsps_streams_all_inactive():
 
 def test_rtsps_streams_active_inactive_qualities():
     """Test RTSPSStreams active and inactive quality methods."""
-    from uiprotect.api import RTSPSStreams
-
     # Test with mixed active (URLs) and inactive (None) streams
     streams = RTSPSStreams(
         high="rtsps://example.com/high",
@@ -2349,8 +2336,6 @@ def test_rtsps_streams_active_inactive_qualities():
 
 def test_rtsps_streams_only_active():
     """Test RTSPSStreams with only active streams."""
-    from uiprotect.api import RTSPSStreams
-
     streams = RTSPSStreams(
         high="rtsps://example.com/high",
         medium="rtsps://example.com/medium",
@@ -2368,8 +2353,6 @@ def test_rtsps_streams_only_active():
 
 def test_rtsps_streams_only_inactive():
     """Test RTSPSStreams with only inactive streams."""
-    from uiprotect.api import RTSPSStreams
-
     streams = RTSPSStreams(
         high=None,
         medium=None,
@@ -2388,8 +2371,6 @@ def test_rtsps_streams_only_inactive():
 
 def test_rtsps_streams_empty():
     """Test RTSPSStreams with no streams."""
-    from uiprotect.api import RTSPSStreams
-
     streams = RTSPSStreams()
 
     assert streams.get_active_stream_qualities() == []
@@ -2399,8 +2380,6 @@ def test_rtsps_streams_empty():
 
 def test_rtsps_streams_edge_cases():
     """Test RTSPSStreams edge cases and string validation."""
-    from uiprotect.api import RTSPSStreams
-
     # Test with empty strings and various URL formats
     streams = RTSPSStreams(
         high="rtsps://valid.com/stream",
@@ -2431,8 +2410,6 @@ def test_rtsps_streams_edge_cases():
 
 def test_rtsps_streams_none_pydantic_extra():
     """Test RTSPSStreams when __pydantic_extra__ is None."""
-    from uiprotect.api import RTSPSStreams
-
     # Create an RTSPSStreams instance and manually set __pydantic_extra__ to None
     # This simulates edge cases where pydantic might not initialize extra fields
     streams = RTSPSStreams()
@@ -2452,9 +2429,6 @@ def test_rtsps_streams_none_pydantic_extra():
 @pytest.mark.asyncio
 async def test_camera_create_rtsps_streams():
     """Test Camera.create_rtsps_streams method."""
-    from uiprotect.api import RTSPSStreams
-    from uiprotect.data import Camera
-
     # Mock camera and API
     camera = AsyncMock(spec=Camera)
     camera.id = "test_camera_id"
@@ -2465,8 +2439,6 @@ async def test_camera_create_rtsps_streams():
     )
 
     # Bind the actual method to the mock
-    from uiprotect.data.devices import Camera
-
     camera.create_rtsps_streams = Camera.create_rtsps_streams.__get__(camera, Camera)
 
     # Test successful creation
@@ -2481,9 +2453,6 @@ async def test_camera_create_rtsps_streams():
 @pytest.mark.asyncio
 async def test_camera_create_rtsps_streams_no_api_key():
     """Test Camera.create_rtsps_streams method without API key."""
-    from uiprotect.data import Camera
-    from uiprotect.exceptions import NotAuthorized
-
     # Mock camera and API without key
     camera = AsyncMock(spec=Camera)
     camera.id = "test_camera_id"
@@ -2491,8 +2460,6 @@ async def test_camera_create_rtsps_streams_no_api_key():
     camera._api._api_key = None
 
     # Bind the actual method to the mock
-    from uiprotect.data.devices import Camera
-
     camera.create_rtsps_streams = Camera.create_rtsps_streams.__get__(camera, Camera)
 
     # Test that it raises NotAuthorized
@@ -2505,9 +2472,6 @@ async def test_camera_create_rtsps_streams_no_api_key():
 @pytest.mark.asyncio
 async def test_camera_get_rtsps_streams():
     """Test Camera.get_rtsps_streams method."""
-    from uiprotect.api import RTSPSStreams
-    from uiprotect.data import Camera
-
     # Mock camera and API
     camera = AsyncMock(spec=Camera)
     camera.id = "test_camera_id"
@@ -2520,8 +2484,6 @@ async def test_camera_get_rtsps_streams():
     )
 
     # Bind the actual method to the mock
-    from uiprotect.data.devices import Camera
-
     camera.get_rtsps_streams = Camera.get_rtsps_streams.__get__(camera, Camera)
 
     # Test successful retrieval
@@ -2535,9 +2497,6 @@ async def test_camera_get_rtsps_streams():
 @pytest.mark.asyncio
 async def test_camera_get_rtsps_streams_no_api_key():
     """Test Camera.get_rtsps_streams method without API key."""
-    from uiprotect.data import Camera
-    from uiprotect.exceptions import NotAuthorized
-
     # Mock camera and API without key
     camera = AsyncMock(spec=Camera)
     camera.id = "test_camera_id"
@@ -2545,8 +2504,6 @@ async def test_camera_get_rtsps_streams_no_api_key():
     camera._api._api_key = None
 
     # Bind the actual method to the mock
-    from uiprotect.data.devices import Camera
-
     camera.get_rtsps_streams = Camera.get_rtsps_streams.__get__(camera, Camera)
 
     # Test that it raises NotAuthorized
@@ -2559,8 +2516,6 @@ async def test_camera_get_rtsps_streams_no_api_key():
 @pytest.mark.asyncio
 async def test_camera_delete_rtsps_streams():
     """Test Camera.delete_rtsps_streams method."""
-    from uiprotect.data import Camera
-
     # Mock camera and API
     camera = AsyncMock(spec=Camera)
     camera.id = "test_camera_id"
@@ -2569,8 +2524,6 @@ async def test_camera_delete_rtsps_streams():
     camera._api.delete_camera_rtsps_streams = AsyncMock(return_value=True)
 
     # Bind the actual method to the mock
-    from uiprotect.data.devices import Camera
-
     camera.delete_rtsps_streams = Camera.delete_rtsps_streams.__get__(camera, Camera)
 
     # Test successful deletion
@@ -2584,9 +2537,6 @@ async def test_camera_delete_rtsps_streams():
 @pytest.mark.asyncio
 async def test_camera_delete_rtsps_streams_no_api_key():
     """Test Camera.delete_rtsps_streams method without API key."""
-    from uiprotect.data import Camera
-    from uiprotect.exceptions import NotAuthorized
-
     # Mock camera and API without key
     camera = AsyncMock(spec=Camera)
     camera.id = "test_camera_id"
@@ -2594,8 +2544,6 @@ async def test_camera_delete_rtsps_streams_no_api_key():
     camera._api._api_key = None
 
     # Bind the actual method to the mock
-    from uiprotect.data.devices import Camera
-
     camera.delete_rtsps_streams = Camera.delete_rtsps_streams.__get__(camera, Camera)
 
     # Test that it raises NotAuthorized
@@ -2608,9 +2556,6 @@ async def test_camera_delete_rtsps_streams_no_api_key():
 @pytest.mark.asyncio
 async def test_raise_for_status_status_codes():
     """Test _raise_for_status with different HTTP status codes."""
-    from uiprotect.api import ProtectApiClient
-    from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
-
     # Create API client
     api = ProtectApiClient("test.com", 443, "username", "password")
 
@@ -2664,9 +2609,6 @@ async def test_raise_for_status_status_codes():
 @pytest.mark.asyncio
 async def test_api_request_raw_error_handling():
     """Test api_request_raw error handling with raise_exception parameter."""
-    from uiprotect.api import ProtectApiClient
-    from uiprotect.exceptions import BadRequest
-
     # Create API client
     api = ProtectApiClient("test.com", 443, "username", "password")
 
@@ -2703,8 +2645,6 @@ async def test_api_request_raw_error_handling():
 @pytest.mark.asyncio
 async def test_api_request_raw_success():
     """Test api_request_raw with successful response."""
-    from uiprotect.api import ProtectApiClient
-
     # Create API client
     api = ProtectApiClient("test.com", 443, "username", "password")
 
