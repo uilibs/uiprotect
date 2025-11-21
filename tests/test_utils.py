@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
+from ipaddress import IPv4Address, IPv6Address
 from typing import Any
 from unittest.mock import Mock
 from uuid import UUID
@@ -13,9 +14,11 @@ from uiprotect.utils import (
     convert_to_datetime,
     convert_unifi_data,
     dict_diff,
+    format_host_for_url,
     get_nested_attr,
     get_nested_attr_as_bool,
     get_top_level_attr_as_bool,
+    ip_from_host,
     make_enabled_getter,
     make_required_getter,
     make_value_getter,
@@ -283,3 +286,70 @@ def test_make_required_getter_nested():
     assert make_required_getter("a.q")(data) is True
     assert make_required_getter("b.q")(data) is False
     assert make_required_getter("c.q")(data) is True
+
+
+@pytest.mark.parametrize(
+    ("host", "expected"),
+    [
+        # IPv4 addresses (no brackets)
+        (IPv4Address("192.168.1.1"), "192.168.1.1"),
+        ("192.168.1.1", "192.168.1.1"),
+        ("10.0.0.1", "10.0.0.1"),
+        # IPv6 addresses (with brackets)
+        (IPv6Address("fe80::1ff:fe23:4567:890a"), "[fe80::1ff:fe23:4567:890a]"),
+        ("fe80::1ff:fe23:4567:890a", "[fe80::1ff:fe23:4567:890a]"),
+        (
+            IPv6Address("2001:0db8:85a3:0000:0000:8a2e:0370:7334"),
+            "[2001:db8:85a3::8a2e:370:7334]",
+        ),
+        ("::1", "[::1]"),
+        ("::", "[::]"),
+        # Hostnames (unchanged)
+        ("example.com", "example.com"),
+        ("nvr.local", "nvr.local"),
+        ("localhost", "localhost"),
+    ],
+)
+def test_format_host_for_url(host, expected):
+    """Test that hosts are correctly formatted for URLs."""
+    assert format_host_for_url(host) == expected
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize(
+    ("host", "expected_type", "expected_str"),
+    [
+        # IPv4 addresses
+        ("192.168.1.1", IPv4Address, "192.168.1.1"),
+        ("10.0.0.1", IPv4Address, "10.0.0.1"),
+        # IPv6 addresses (normalized)
+        ("fe80::1ff:fe23:4567:890a", IPv6Address, "fe80::1ff:fe23:4567:890a"),
+        (
+            "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+            IPv6Address,
+            "2001:db8:85a3::8a2e:370:7334",
+        ),
+        ("::1", IPv6Address, "::1"),
+        ("::", IPv6Address, "::"),
+    ],
+)
+async def test_ip_from_host(host, expected_type, expected_str):
+    """Test that IP addresses are parsed correctly."""
+    result = await ip_from_host(host)
+    assert isinstance(result, expected_type)
+    assert str(result) == expected_str
+
+
+@pytest.mark.asyncio()
+async def test_ip_from_host_localhost():
+    """Test that localhost hostname resolves to an IP address."""
+    result = await ip_from_host("localhost")
+    # localhost can resolve to either IPv4 or IPv6 depending on system configuration
+    assert isinstance(result, (IPv4Address, IPv6Address))
+
+
+@pytest.mark.asyncio()
+async def test_ip_from_host_invalid():
+    """Test that invalid hostnames raise ValueError."""
+    with pytest.raises(ValueError, match="Cannot resolve hostname"):
+        await ip_from_host("this-does-not-exist-12345.invalid")

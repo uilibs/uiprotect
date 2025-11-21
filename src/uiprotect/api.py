@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from functools import partial
 from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
-from ipaddress import IPv4Address, IPv6Address
+from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
 from typing import Any, Literal, cast
 from urllib.parse import SplitResult
@@ -65,6 +65,7 @@ from .data.types import IteratorCallback, ProgressCallback
 from .exceptions import BadRequest, NotAuthorized, NvrError
 from .utils import (
     decode_token_cookie,
+    format_host_for_url,
     get_response_reason,
     ip_from_host,
     pybool_to_json_bool,
@@ -278,20 +279,26 @@ class BaseApiClient:
 
     def _update_url(self) -> None:
         """Updates the url after changing _host or _port."""
+        formatted_host = format_host_for_url(self._host)
+
         if self._port != 443:
-            self._url = URL(f"https://{self._host}:{self._port}")
-            self._ws_url = URL(f"wss://{self._host}:{self._port}{self.private_ws_path}")
+            self._url = URL(f"https://{formatted_host}:{self._port}")
+            self._ws_url = URL(
+                f"wss://{formatted_host}:{self._port}{self.private_ws_path}"
+            )
             self._events_ws_url = URL(
-                f"https://{self._host}:{self._port}{self.events_ws_path}"
+                f"https://{formatted_host}:{self._port}{self.events_ws_path}"
             )
             self._devices_ws_url = URL(
-                f"https://{self._host}:{self._port}{self.devices_ws_path}"
+                f"https://{formatted_host}:{self._port}{self.devices_ws_path}"
             )
         else:
-            self._url = URL(f"https://{self._host}")
-            self._ws_url = URL(f"wss://{self._host}{self.private_ws_path}")
-            self._events_ws_url = URL(f"https://{self._host}{self.events_ws_path}")
-            self._devices_ws_url = URL(f"https://{self._host}{self.devices_ws_path}")
+            self._url = URL(f"https://{formatted_host}")
+            self._ws_url = URL(f"wss://{formatted_host}{self.private_ws_path}")
+            self._events_ws_url = URL(f"https://{formatted_host}{self.events_ws_path}")
+            self._devices_ws_url = URL(
+                f"https://{formatted_host}{self.devices_ws_path}"
+            )
 
         self.base_url = str(self._url)
 
@@ -1006,10 +1013,52 @@ class ProtectApiClient(BaseApiClient):
         self._update_lock = asyncio.Lock()
 
         if override_connection_host:
-            self._connection_host = ip_from_host(self._host)
+            self._connection_host = ip_address(self._host)
 
         if debug:
             set_debug()
+
+    def _set_connection_host_from_bootstrap(self) -> None:
+        """
+        Set connection host from bootstrap NVR hosts (sync).
+
+        NOTE: Must stay in sync with _async_set_connection_host_from_bootstrap().
+        Sync version for property getter, async version for update() method.
+        """
+        index = 0
+        try:
+            index = self.bootstrap.nvr.hosts.index(self._host)
+        except ValueError:
+            try:
+                host = ip_address(self._host)
+                with contextlib.suppress(ValueError):
+                    index = self.bootstrap.nvr.hosts.index(host)
+            except ValueError:
+                pass
+
+        self._connection_host = self.bootstrap.nvr.hosts[index]
+
+    async def _async_set_connection_host_from_bootstrap(
+        self,
+        bootstrap: Bootstrap,
+    ) -> None:
+        """
+        Set connection host from bootstrap NVR hosts (async).
+
+        NOTE: Must stay in sync with _set_connection_host_from_bootstrap().
+        Async version allows DNS resolution via ip_from_host().
+        """
+        index = 0
+        try:
+            index = bootstrap.nvr.hosts.index(self._host)
+        except ValueError:
+            try:
+                host_ip = await ip_from_host(self._host)
+                index = bootstrap.nvr.hosts.index(host_ip)
+            except ValueError:
+                pass
+
+        self._connection_host = bootstrap.nvr.hosts[index]
 
     @cached_property
     def bootstrap(self) -> Bootstrap:
@@ -1020,21 +1069,11 @@ class ProtectApiClient(BaseApiClient):
 
     @property
     def connection_host(self) -> IPv4Address | IPv6Address | str:
-        """Connection host to use for generating RTSP URLs"""
+        """Connection host to use for generating RTSP URLs."""
         if self._connection_host is None:
-            # fallback if cannot find user supplied host
-            index = 0
-            try:
-                # check if user supplied host is avaiable
-                index = self.bootstrap.nvr.hosts.index(self._host)
-            except ValueError:
-                # check if IP of user supplied host is avaiable
-                host = ip_from_host(self._host)
-                with contextlib.suppress(ValueError):
-                    index = self.bootstrap.nvr.hosts.index(host)
+            self._set_connection_host_from_bootstrap()
 
-            self._connection_host = self.bootstrap.nvr.hosts[index]
-
+        assert self._connection_host is not None
         return self._connection_host
 
     async def update(self) -> Bootstrap:
@@ -1068,6 +1107,11 @@ class ProtectApiClient(BaseApiClient):
                 )
             self.__dict__.pop("bootstrap", None)
             self._bootstrap = bootstrap
+
+            # Set connection host if not set via override_connection_host
+            if self._connection_host is None:
+                await self._async_set_connection_host_from_bootstrap(bootstrap)
+
             return bootstrap
 
     async def poll_events(self) -> None:

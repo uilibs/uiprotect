@@ -23,6 +23,7 @@ from ..utils import (
     convert_smart_types,
     convert_to_datetime,
     convert_video_modes,
+    format_host_for_url,
     from_js_time,
     serialize_point,
     timedelta_total_seconds,
@@ -280,7 +281,11 @@ class CameraChannel(ProtectBaseObject):
 
         if self._rtsp_url is not None:
             return self._rtsp_url
-        self._rtsp_url = f"rtsp://{self._api.connection_host}:{self._api.bootstrap.nvr.ports.rtsp}/{self.rtsp_alias}"
+
+        host = format_host_for_url(self._api.connection_host)
+        self._rtsp_url = (
+            f"rtsp://{host}:{self._api.bootstrap.nvr.ports.rtsp}/{self.rtsp_alias}"
+        )
         return self._rtsp_url
 
     @property
@@ -290,7 +295,9 @@ class CameraChannel(ProtectBaseObject):
 
         if self._rtsps_url is not None:
             return self._rtsps_url
-        self._rtsps_url = f"rtsps://{self._api.connection_host}:{self._api.bootstrap.nvr.ports.rtsps}/{self.rtsp_alias}?enableSrtp"
+
+        host = format_host_for_url(self._api.connection_host)
+        self._rtsps_url = f"rtsps://{host}:{self._api.bootstrap.nvr.ports.rtsps}/{self.rtsp_alias}?enableSrtp"
         return self._rtsps_url
 
     @property
@@ -300,7 +307,11 @@ class CameraChannel(ProtectBaseObject):
 
         if self._rtsps_no_srtp_url is not None:
             return self._rtsps_no_srtp_url
-        self._rtsps_no_srtp_url = f"rtsps://{self._api.connection_host}:{self._api.bootstrap.nvr.ports.rtsps}/{self.rtsp_alias}"
+
+        host = format_host_for_url(self._api.connection_host)
+        self._rtsps_no_srtp_url = (
+            f"rtsps://{host}:{self._api.bootstrap.nvr.ports.rtsps}/{self.rtsp_alias}"
+        )
         return self._rtsps_no_srtp_url
 
     @property

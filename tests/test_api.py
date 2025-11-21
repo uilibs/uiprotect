@@ -6,7 +6,7 @@ import logging
 from copy import deepcopy
 from datetime import datetime, timedelta
 from io import BytesIO
-from ipaddress import IPv4Address
+from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock, patch
@@ -304,9 +304,35 @@ def test_connection_host(protect_client: ProtectApiClient):
     assert protect_client.connection_host == "se-gw.local"
 
 
-def test_connection_host_override():
+def test_connection_host_with_hostname_fallback(protect_client: ProtectApiClient):
+    """Test connection_host property when host is a hostname (not IP)."""
+    protect_client.bootstrap.nvr.hosts = [
+        IPv4Address("192.168.1.1"),
+        IPv4Address("192.168.2.1"),
+        "hostname.local",
+    ]
+
+    # Hostname triggers ValueError, falls back to first host
+    protect_client._connection_host = None
+    protect_client._host = "unifi.local"
+    assert protect_client.connection_host == IPv4Address("192.168.1.1")
+
+
+@pytest.mark.parametrize(
+    ("host", "expected_type", "expected_value"),
+    [
+        ("127.0.0.1", IPv4Address, IPv4Address("127.0.0.1")),
+        ("2001:db8::1", IPv6Address, IPv6Address("2001:db8::1")),
+        ("192.168.1.100", IPv4Address, IPv4Address("192.168.1.100")),
+        ("fe80::1", IPv6Address, IPv6Address("fe80::1")),
+    ],
+)
+def test_connection_host_override(
+    host: str, expected_type: type, expected_value: IPv4Address | IPv6Address
+):
+    """Test override_connection_host with various IP addresses."""
     protect = ProtectApiClient(
-        "127.0.0.1",
+        host,
         443,
         "test",
         "test",
@@ -314,8 +340,163 @@ def test_connection_host_override():
         store_sessions=False,
     )
 
-    expected = IPv4Address("127.0.0.1")
-    assert protect._connection_host == expected
+    assert protect._connection_host == expected_value
+    assert isinstance(protect._connection_host, expected_type)
+
+
+def test_connection_host_override_hostname_fails():
+    """Test that override_connection_host with hostname raises ValueError."""
+    with pytest.raises(
+        ValueError, match="does not appear to be an IPv4 or IPv6 address"
+    ):
+        ProtectApiClient(
+            "unifi.local",
+            443,
+            "test",
+            "test",
+            override_connection_host=True,
+            store_sessions=False,
+        )
+
+
+@pytest.mark.asyncio()
+async def test_connection_host_update_with_dns_resolution(
+    protect_client: ProtectApiClient,
+):
+    """Test that update() resolves hostnames via ip_from_host."""
+    # Setup: host is a hostname that will be resolved
+    protect_client._connection_host = None
+    protect_client._host = "unifi.local"
+
+    # Create a new bootstrap object with specific hosts
+    bootstrap = protect_client.bootstrap.model_copy()
+    bootstrap.nvr.hosts = [
+        IPv4Address("192.168.1.1"),
+        IPv4Address("192.168.1.100"),
+    ]
+
+    # Mock get_bootstrap to return our custom bootstrap
+    # Mock ip_from_host to return an IP that exists in nvr.hosts
+    with (
+        patch.object(
+            protect_client, "get_bootstrap", new=AsyncMock(return_value=bootstrap)
+        ),
+        patch(
+            "uiprotect.api.ip_from_host",
+            new=AsyncMock(return_value=IPv4Address("192.168.1.100")),
+        ),
+    ):
+        await protect_client.update()
+
+    # Should have selected the resolved IP from nvr.hosts
+    assert protect_client._connection_host == IPv4Address("192.168.1.100")
+
+
+@pytest.mark.asyncio()
+async def test_connection_host_update_fallback_to_first(
+    protect_client: ProtectApiClient,
+):
+    """Test that update() falls back to first host if no match found."""
+    # Setup: host won't match anything
+    protect_client._connection_host = None
+    protect_client._host = "unknown.local"
+
+    # Create a new bootstrap object with specific hosts
+    bootstrap = protect_client.bootstrap.model_copy()
+    bootstrap.nvr.hosts = [
+        IPv4Address("192.168.1.1"),
+        IPv4Address("192.168.1.2"),
+    ]
+
+    # Mock get_bootstrap to return our custom bootstrap
+    # Mock ip_from_host to return an IP that's NOT in nvr.hosts
+    with (
+        patch.object(
+            protect_client, "get_bootstrap", new=AsyncMock(return_value=bootstrap)
+        ),
+        patch(
+            "uiprotect.api.ip_from_host",
+            new=AsyncMock(return_value=IPv4Address("10.0.0.1")),
+        ),
+    ):
+        await protect_client.update()
+
+    # Should fall back to first host
+    assert protect_client._connection_host == IPv4Address("192.168.1.1")
+
+
+def test_connection_host_ipv6(protect_client: ProtectApiClient):
+    """Test that IPv6 addresses work correctly for connection_host."""
+    protect_client.bootstrap.nvr.hosts = [
+        IPv6Address("fe80::1ff:fe23:4567:890a"),
+        IPv6Address("2001:db8::1"),
+        IPv4Address("192.168.1.1"),
+    ]
+
+    # Test IPv6 address selection
+    protect_client._connection_host = None
+    protect_client._host = "192.168.10.1"
+    assert protect_client.connection_host == IPv6Address("fe80::1ff:fe23:4567:890a")
+
+    # Test matching IPv6 address
+    protect_client._connection_host = None
+    protect_client._host = "2001:db8::1"
+    assert protect_client.connection_host == IPv6Address("2001:db8::1")
+
+
+def test_rtsp_urls_with_ipv6(protect_client: ProtectApiClient):
+    """Test that RTSP URLs are correctly formatted with IPv6 addresses (with brackets)."""
+    # Set an IPv6 address as connection_host
+    ipv6_addr = IPv6Address("fe80::1ff:fe23:4567:890a")
+    protect_client._connection_host = ipv6_addr
+
+    camera = next(iter(protect_client.bootstrap.cameras.values()))
+
+    for channel in camera.channels:
+        if channel.is_rtsp_enabled:
+            # IPv6 addresses should be wrapped in brackets in URLs
+            expected_host = "[fe80::1ff:fe23:4567:890a]"
+
+            assert (
+                channel.rtsp_url == f"rtsp://{expected_host}:7447/{channel.rtsp_alias}"
+            )
+            assert (
+                channel.rtsps_url
+                == f"rtsps://{expected_host}:7441/{channel.rtsp_alias}?enableSrtp"
+            )
+            assert (
+                channel.rtsps_no_srtp_url
+                == f"rtsps://{expected_host}:7441/{channel.rtsp_alias}"
+            )
+            break
+
+
+def test_api_client_with_ipv6():
+    """Test that ProtectApiClient handles IPv6 addresses correctly in URLs."""
+    # Test with IPv6 address
+    protect = ProtectApiClient(
+        "fe80::1",
+        443,
+        "test",
+        "test",
+        store_sessions=False,
+    )
+
+    # Check that URLs are formatted with brackets for IPv6
+    assert "[fe80::1]" in str(protect._url)
+    assert "[fe80::1]" in str(protect._ws_url)
+
+    # Test with IPv6 and custom port
+    protect_port = ProtectApiClient(
+        "2001:db8::1",
+        7443,
+        "test",
+        "test",
+        store_sessions=False,
+    )
+
+    assert "[2001:db8::1]:7443" in str(protect_port._url)
+    assert "[2001:db8::1]:7443" in str(protect_port._ws_url)
 
 
 @pytest.mark.asyncio()
