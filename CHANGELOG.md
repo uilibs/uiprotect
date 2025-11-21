@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.24.0 (2025-11-21)
+
+### Features
+
+
+- Extract and set x-csrf-token during authentication ([`57d878a`](https://github.com/uilibs/uiprotect/commit/57d878a908728ae2d5b5a461d2e749939e8e671d))
+
+
 ## v7.23.0 (2025-10-16)
 
 ### Features
