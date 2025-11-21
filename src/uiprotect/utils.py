@@ -359,13 +359,64 @@ def convert_video_modes(items: Iterable[str]) -> list[VideoMode]:
     return types
 
 
-def ip_from_host(host: str) -> IPv4Address | IPv6Address:
+async def ip_from_host(host: str) -> IPv4Address | IPv6Address:
+    """
+    Resolve hostname to IP address. Supports both IPv4 and IPv6.
+
+    Args:
+        host: IP address string or hostname to resolve
+
+    Returns:
+        IPv4Address or IPv6Address object
+
+    Raises:
+        ValueError: If host cannot be resolved to an IP address
+
+    """
     try:
         return ip_address(host)
     except ValueError:
         pass
 
-    return ip_address(socket.gethostbyname(host))
+    try:
+        loop = asyncio.get_running_loop()
+        addr_info = await loop.getaddrinfo(host, None)
+        ip_str = addr_info[0][4][0]
+    except (socket.gaierror, OSError) as err:
+        raise ValueError(f"Cannot resolve hostname '{host}' to IP address") from err
+
+    return ip_address(ip_str)
+
+
+def format_host_for_url(host: IPv4Address | IPv6Address | str) -> str:
+    """
+    Format host for use in URLs. IPv6 addresses are wrapped in brackets.
+
+    Args:
+        host: IPv4Address, IPv6Address, or hostname string
+
+    Returns:
+        Formatted host string (IPv6 with brackets, others as-is)
+
+    Examples:
+        >>> format_host_for_url("192.168.1.1")
+        '192.168.1.1'
+        >>> format_host_for_url("::1")
+        '[::1]'
+        >>> format_host_for_url("example.com")
+        'example.com'
+
+    """
+    if isinstance(host, str):
+        try:
+            parsed_host = ip_address(host)
+        except ValueError:
+            return host
+        host = parsed_host
+
+    if isinstance(host, IPv6Address):
+        return f"[{host}]"
+    return str(host)
 
 
 def dict_diff(orig: dict[str, Any] | None, new: dict[str, Any]) -> dict[str, Any]:

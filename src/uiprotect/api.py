@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from functools import partial
 from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
-from ipaddress import IPv4Address, IPv6Address
+from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
 from typing import Any, Literal, cast
 from urllib.parse import SplitResult
@@ -65,6 +65,7 @@ from .data.types import IteratorCallback, ProgressCallback
 from .exceptions import BadRequest, NotAuthorized, NvrError
 from .utils import (
     decode_token_cookie,
+    format_host_for_url,
     get_response_reason,
     ip_from_host,
     pybool_to_json_bool,
@@ -278,20 +279,26 @@ class BaseApiClient:
 
     def _update_url(self) -> None:
         """Updates the url after changing _host or _port."""
+        formatted_host = format_host_for_url(self._host)
+
         if self._port != 443:
-            self._url = URL(f"https://{self._host}:{self._port}")
-            self._ws_url = URL(f"wss://{self._host}:{self._port}{self.private_ws_path}")
+            self._url = URL(f"https://{formatted_host}:{self._port}")
+            self._ws_url = URL(
+                f"wss://{formatted_host}:{self._port}{self.private_ws_path}"
+            )
             self._events_ws_url = URL(
-                f"https://{self._host}:{self._port}{self.events_ws_path}"
+                f"https://{formatted_host}:{self._port}{self.events_ws_path}"
             )
             self._devices_ws_url = URL(
-                f"https://{self._host}:{self._port}{self.devices_ws_path}"
+                f"https://{formatted_host}:{self._port}{self.devices_ws_path}"
             )
         else:
-            self._url = URL(f"https://{self._host}")
-            self._ws_url = URL(f"wss://{self._host}{self.private_ws_path}")
-            self._events_ws_url = URL(f"https://{self._host}{self.events_ws_path}")
-            self._devices_ws_url = URL(f"https://{self._host}{self.devices_ws_path}")
+            self._url = URL(f"https://{formatted_host}")
+            self._ws_url = URL(f"wss://{formatted_host}{self.private_ws_path}")
+            self._events_ws_url = URL(f"https://{formatted_host}{self.events_ws_path}")
+            self._devices_ws_url = URL(
+                f"https://{formatted_host}{self.devices_ws_path}"
+            )
 
         self.base_url = str(self._url)
 
@@ -1006,7 +1013,7 @@ class ProtectApiClient(BaseApiClient):
         self._update_lock = asyncio.Lock()
 
         if override_connection_host:
-            self._connection_host = ip_from_host(self._host)
+            self._connection_host = ip_address(self._host)
 
         if debug:
             set_debug()
@@ -1025,13 +1032,17 @@ class ProtectApiClient(BaseApiClient):
             # fallback if cannot find user supplied host
             index = 0
             try:
-                # check if user supplied host is avaiable
+                # check if user supplied host is available
                 index = self.bootstrap.nvr.hosts.index(self._host)
             except ValueError:
-                # check if IP of user supplied host is avaiable
-                host = ip_from_host(self._host)
-                with contextlib.suppress(ValueError):
-                    index = self.bootstrap.nvr.hosts.index(host)
+                # check if IP of user supplied host is available
+                try:
+                    host = ip_address(self._host)
+                    with contextlib.suppress(ValueError):
+                        index = self.bootstrap.nvr.hosts.index(host)
+                except ValueError:
+                    # host is a hostname, cannot resolve synchronously
+                    pass
 
             self._connection_host = self.bootstrap.nvr.hosts[index]
 
@@ -1068,6 +1079,24 @@ class ProtectApiClient(BaseApiClient):
                 )
             self.__dict__.pop("bootstrap", None)
             self._bootstrap = bootstrap
+
+            # Set connection host if not set via override_connection_host
+            if self._connection_host is None:
+                # fallback if cannot find user supplied host
+                index = 0
+                try:
+                    # check if user supplied host is available
+                    index = bootstrap.nvr.hosts.index(self._host)
+                except ValueError:
+                    # check if IP of user supplied host is available
+                    try:
+                        host_ip = await ip_from_host(self._host)
+                        index = bootstrap.nvr.hosts.index(host_ip)
+                    except ValueError:
+                        # user supplied host not in list, use first host
+                        pass
+                self._connection_host = bootstrap.nvr.hosts[index]
+
             return bootstrap
 
     async def poll_events(self) -> None:
