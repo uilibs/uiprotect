@@ -35,7 +35,7 @@ from tests.conftest import (
     validate_video_file,
 )
 from tests.sample_data.constants import CONSTANTS
-from uiprotect.api import ProtectApiClient, RTSPSStreams
+from uiprotect.api import ProtectApiClient, RTSPSStreams, get_user_hash
 from uiprotect.data import (
     Camera,
     Event,
@@ -1507,10 +1507,6 @@ async def test_authenticate_without_csrf_token(mock_request: AsyncMock) -> None:
 @pytest.mark.asyncio()
 async def test_load_session_rejects_missing_csrf_token(tmp_path: Path) -> None:
     """Test that _read_auth_config rejects sessions without CSRF token."""
-    import orjson
-
-    from uiprotect.api import get_user_hash
-
     client = ProtectApiClient(
         "127.0.0.1",
         0,
@@ -1548,10 +1544,6 @@ async def test_load_session_rejects_missing_csrf_token(tmp_path: Path) -> None:
 @pytest.mark.asyncio()
 async def test_load_session_accepts_valid_csrf_token(tmp_path: Path) -> None:
     """Test that _read_auth_config accepts sessions with valid CSRF token."""
-    import orjson
-
-    from uiprotect.api import get_user_hash
-
     client = ProtectApiClient(
         "127.0.0.1",
         0,
