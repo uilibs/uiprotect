@@ -700,8 +700,25 @@ class BaseApiClient:
             response = await self.request("post", url=url, json=auth)
             if response.status != 200:
                 await self._raise_for_status(response, True)
-            self.set_header("cookie", response.headers.get("set-cookie", ""))
+
+            csrf_token = response.headers.get("x-csrf-token")
+            if csrf_token:
+                self.set_header("x-csrf-token", csrf_token)
+
+            cookie_header = response.headers.get("set-cookie", "")
+            self.set_header("cookie", cookie_header)
             self._is_authenticated = True
+
+            # parse and store the cookie for session persistence
+            if self.store_sessions and cookie_header:
+                # extract cookie from header to save in session file
+                cookie = SimpleCookie(cookie_header)
+                if cookie:
+                    for cookie_obj in cookie.values():
+                        self._last_token_cookie = cookie_obj
+                        await self._update_auth_config(cookie_obj)
+                        break  # auth response only contains single cookie (TOKEN or UOS_TOKEN)
+
             _LOGGER.debug("Authenticated successfully!")
 
     async def _update_last_token_cookie(self, response: aiohttp.ClientResponse) -> None:
@@ -713,7 +730,6 @@ class BaseApiClient:
             and csrf_token != self.headers.get("x-csrf-token")
         ):
             self.set_header("x-csrf-token", csrf_token)
-            await self._update_last_token_cookie(response)
             self._update_cookiename(response.cookies)
 
         if (
@@ -800,10 +816,16 @@ class BaseApiClient:
         cookie_value = _COOKIE_RE.sub("", str(cookie[cookie_name]))
         self._last_token_cookie = cookie[cookie_name]
         self._last_token_cookie_decode = None
+
+        # Only mark as authenticated if we have both cookie and CSRF token
+        csrf_token = session.get("csrf")
+        if not csrf_token:
+            _LOGGER.debug("Session found but missing CSRF token, will re-authenticate")
+            return None
+
         self._is_authenticated = True
         self.set_header("cookie", cookie_value)
-        if session.get("csrf"):
-            self.set_header("x-csrf-token", session["csrf"])
+        self.set_header("x-csrf-token", csrf_token)
         return cookie
 
     def is_authenticated(self) -> bool:

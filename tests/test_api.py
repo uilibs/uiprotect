@@ -7,10 +7,12 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from io import BytesIO
 from ipaddress import IPv4Address
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import aiohttp
+import orjson
 import pytest
 from PIL import Image
 
@@ -33,7 +35,7 @@ from tests.conftest import (
     validate_video_file,
 )
 from tests.sample_data.constants import CONSTANTS
-from uiprotect.api import ProtectApiClient, RTSPSStreams
+from uiprotect.api import ProtectApiClient, RTSPSStreams, get_user_hash
 from uiprotect.data import (
     Camera,
     Event,
@@ -1434,6 +1436,225 @@ def test_api_key_init():
     )
     assert hasattr(client, "_api_key")
     assert client._api_key == "my_key"
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.ProtectApiClient.request")
+async def test_authenticate_sets_csrf_token(mock_request: AsyncMock) -> None:
+    """Test that authenticate() extracts and sets the x-csrf-token header."""
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.headers = {
+        "set-cookie": "TOKEN=test_token_value; path=/",
+        "x-csrf-token": "test-csrf-token-12345",
+    }
+    mock_response.cookies = {}
+    mock_request.return_value = mock_response
+
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=False,
+    )
+
+    await client.authenticate()
+
+    assert client.headers is not None
+    assert client.headers.get("x-csrf-token") == "test-csrf-token-12345"
+    assert client._is_authenticated is True
+
+    mock_request.assert_called_once_with(
+        "post",
+        url="/api/auth/login",
+        json={
+            "username": "test_user",
+            "password": "test_pass",
+            "rememberMe": False,
+        },
+    )
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.ProtectApiClient.request")
+async def test_authenticate_without_csrf_token(mock_request: AsyncMock) -> None:
+    """Test that authenticate() works even if no x-csrf-token is returned."""
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.headers = {
+        "set-cookie": "TOKEN=test_token_value; path=/",
+    }
+    mock_response.cookies = {}
+    mock_request.return_value = mock_response
+
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=False,
+    )
+
+    await client.authenticate()
+
+    assert client.headers is None or client.headers.get("x-csrf-token") is None
+    assert client._is_authenticated is True
+
+
+@pytest.mark.asyncio()
+async def test_load_session_rejects_missing_csrf_token(tmp_path: Path) -> None:
+    """Test that _read_auth_config rejects sessions without CSRF token."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path,
+    )
+
+    # Create a config file with a session but no CSRF token (simulating old session)
+    session_hash = get_user_hash(str(client._url), "test_user")
+    config = {
+        "sessions": {
+            session_hash: {
+                "metadata": {"path": "/", "expires": "Sun, 21 Dec 2025 13:44:52 GMT"},
+                "cookiename": "TOKEN",
+                "value": "old_token_without_csrf",
+                "csrf": None,  # Old session without CSRF token
+            }
+        }
+    }
+
+    config_file = tmp_path / "unifi_protect.json"
+    config_file.write_bytes(orjson.dumps(config))
+
+    # Try to load the session
+    cookie = await client._read_auth_config()
+
+    # Should return None because CSRF token is missing
+    assert cookie is None
+    assert client._is_authenticated is False
+
+
+@pytest.mark.asyncio()
+async def test_load_session_accepts_valid_csrf_token(tmp_path: Path) -> None:
+    """Test that _read_auth_config accepts sessions with valid CSRF token."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path,
+    )
+
+    # Create a config file with a session including CSRF token
+    session_hash = get_user_hash(str(client._url), "test_user")
+    config = {
+        "sessions": {
+            session_hash: {
+                "metadata": {"path": "/", "expires": "Sun, 21 Dec 2025 13:44:52 GMT"},
+                "cookiename": "TOKEN",
+                "value": "valid_token_with_csrf",
+                "csrf": "valid-csrf-token-12345",
+            }
+        }
+    }
+
+    config_file = tmp_path / "unifi_protect.json"
+    config_file.write_bytes(orjson.dumps(config))
+
+    # Try to load the session
+    cookie = await client._read_auth_config()
+
+    # Should successfully load the session
+    assert cookie is not None
+    assert client._is_authenticated is True
+    assert client.headers is not None
+    assert client.headers.get("x-csrf-token") == "valid-csrf-token-12345"
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.ProtectApiClient.request")
+async def test_authenticate_with_session_storage(
+    mock_request: AsyncMock, tmp_path: Path
+) -> None:
+    """Test that authenticate() stores session with CSRF token when store_sessions=True."""
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.headers = {
+        "set-cookie": "TOKEN=stored_token_value; path=/; Secure; HttpOnly",
+        "x-csrf-token": "stored-csrf-token-67890",
+    }
+    mock_response.cookies = {}
+    mock_request.return_value = mock_response
+
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+    )
+    client.config_dir = tmp_path
+
+    await client.authenticate()
+
+    # Verify authentication succeeded
+    assert client._is_authenticated is True
+    assert client.headers is not None
+    assert client.headers.get("x-csrf-token") == "stored-csrf-token-67890"
+
+    # Verify session was saved to file
+    config_file = tmp_path / "unifi_protect.json"
+    assert config_file.exists()
+
+    config = orjson.loads(config_file.read_bytes())
+    assert "sessions" in config
+    sessions = config["sessions"]
+    assert len(sessions) == 1
+
+    # Get the session (there's only one)
+    session = next(iter(sessions.values()))
+    assert session["csrf"] == "stored-csrf-token-67890"
+    assert "TOKEN" in session["cookiename"]
+
+
+@pytest.mark.asyncio()
+async def test_csrf_token_rotation() -> None:
+    """Test that _update_last_token_cookie updates CSRF token when server sends new one."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=False,
+    )
+
+    # Set initial CSRF token
+    client.set_header("x-csrf-token", "initial-csrf-token")
+
+    # Simulate API response with new CSRF token
+    mock_response = AsyncMock()
+    mock_response.headers = {
+        "x-csrf-token": "rotated-csrf-token",
+    }
+    mock_response.cookies = {}
+
+    # Call the method that updates CSRF token
+    await client._update_last_token_cookie(mock_response)
+
+    # Verify CSRF token was updated
+    assert client.headers is not None
+    assert client.headers.get("x-csrf-token") == "rotated-csrf-token"
 
 
 @pytest.mark.asyncio()
