@@ -867,48 +867,6 @@ class BaseApiClient:
         """Get Websocket URL."""
         return self._ws_url_object
 
-    def _set_connection_host_from_bootstrap(self) -> None:
-        """
-        Set connection host from bootstrap NVR hosts (sync).
-
-        NOTE: Must stay in sync with _async_set_connection_host_from_bootstrap().
-        Sync version for property getter, async version for update() method.
-        """
-        index = 0
-        try:
-            index = self.bootstrap.nvr.hosts.index(self._host)
-        except ValueError:
-            try:
-                host = ip_address(self._host)
-                with contextlib.suppress(ValueError):
-                    index = self.bootstrap.nvr.hosts.index(host)
-            except ValueError:
-                pass
-
-        self._connection_host = self.bootstrap.nvr.hosts[index]
-
-    async def _async_set_connection_host_from_bootstrap(
-        self,
-        bootstrap: Bootstrap,
-    ) -> None:
-        """
-        Set connection host from bootstrap NVR hosts (async).
-
-        NOTE: Must stay in sync with _set_connection_host_from_bootstrap().
-        Async version allows DNS resolution via ip_from_host().
-        """
-        index = 0
-        try:
-            index = bootstrap.nvr.hosts.index(self._host)
-        except ValueError:
-            try:
-                host_ip = await ip_from_host(self._host)
-                index = bootstrap.nvr.hosts.index(host_ip)
-            except ValueError:
-                pass
-
-        self._connection_host = bootstrap.nvr.hosts[index]
-
     async def async_disconnect_ws(self) -> None:
         """Disconnect from Websocket."""
         if self._private_websocket:
@@ -1060,6 +1018,48 @@ class ProtectApiClient(BaseApiClient):
         if debug:
             set_debug()
 
+    def _set_connection_host_from_bootstrap(self) -> None:
+        """
+        Set connection host from bootstrap NVR hosts (sync).
+
+        NOTE: Must stay in sync with _async_set_connection_host_from_bootstrap().
+        Sync version for property getter, async version for update() method.
+        """
+        index = 0
+        try:
+            index = self.bootstrap.nvr.hosts.index(self._host)
+        except ValueError:
+            try:
+                host = ip_address(self._host)
+                with contextlib.suppress(ValueError):
+                    index = self.bootstrap.nvr.hosts.index(host)
+            except ValueError:
+                pass
+
+        self._connection_host = self.bootstrap.nvr.hosts[index]
+
+    async def _async_set_connection_host_from_bootstrap(
+        self,
+        bootstrap: Bootstrap,
+    ) -> None:
+        """
+        Set connection host from bootstrap NVR hosts (async).
+
+        NOTE: Must stay in sync with _set_connection_host_from_bootstrap().
+        Async version allows DNS resolution via ip_from_host().
+        """
+        index = 0
+        try:
+            index = bootstrap.nvr.hosts.index(self._host)
+        except ValueError:
+            try:
+                host_ip = await ip_from_host(self._host)
+                index = bootstrap.nvr.hosts.index(host_ip)
+            except ValueError:
+                pass
+
+        self._connection_host = bootstrap.nvr.hosts[index]
+
     @cached_property
     def bootstrap(self) -> Bootstrap:
         if self._bootstrap is None:
@@ -1073,6 +1073,7 @@ class ProtectApiClient(BaseApiClient):
         if self._connection_host is None:
             self._set_connection_host_from_bootstrap()
 
+        assert self._connection_host is not None
         return self._connection_host
 
     async def update(self) -> Bootstrap:
