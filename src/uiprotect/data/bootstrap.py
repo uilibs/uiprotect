@@ -593,7 +593,7 @@ class Bootstrap(ProtectBaseObject):
 
         return message
 
-    def _make_ws_packet_message(
+    def _make_ws_packet_message(  # noqa: PLR0911
         self,
         action: dict[str, Any],
         data: dict[str, Any],

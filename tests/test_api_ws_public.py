@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
+import aiohttp
+import orjson
 import pytest
 
+from uiprotect.api import BaseApiClient
 from uiprotect.data.websocket import WSAction, WSSubscriptionMessage
+from uiprotect.exceptions import NotAuthorized
 from uiprotect.websocket import WebsocketState
 
 if TYPE_CHECKING:
@@ -324,8 +328,6 @@ async def test_process_events_ws_message_object_creation_failure(
     protect_client_no_debug: ProtectApiClient,
 ) -> None:
     """Test processing events websocket message when object creation fails."""
-    from unittest.mock import patch
-
     protect_client = protect_client_no_debug
 
     messages: list[WSSubscriptionMessage] = []
@@ -367,8 +369,6 @@ async def test_process_events_ws_message_object_creation_failure_debug(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test processing events websocket message when object creation fails with debug logging."""
-    from unittest.mock import patch
-
     messages: list[WSSubscriptionMessage] = []
 
     def capture_ws(message: WSSubscriptionMessage) -> None:
@@ -462,8 +462,6 @@ async def test_emit_events_message(
     use_debug: bool,
 ) -> None:
     """Test emitting events messages with various configurations."""
-    from unittest.mock import patch
-
     client = protect_client if use_debug else protect_client_no_debug
 
     messages: list[WSSubscriptionMessage] = []
@@ -532,8 +530,6 @@ async def test_emit_devices_message(
     use_debug: bool,
 ) -> None:
     """Test emitting devices messages with various configurations."""
-    from unittest.mock import patch
-
     client = protect_client if use_debug else protect_client_no_debug
 
     messages: list[WSSubscriptionMessage] = []
@@ -1041,8 +1037,6 @@ async def test_auth_public_api_websocket_without_api_key(
     protect_client_no_debug: ProtectApiClient,
 ) -> None:
     """Test authentication for public API websocket without API key raises error."""
-    from uiprotect.exceptions import NotAuthorized
-
     protect_client = protect_client_no_debug
 
     # Ensure API key is None
@@ -1097,11 +1091,6 @@ async def test_process_devices_ws_message_exception_handling(
     protect_client_no_debug: ProtectApiClient,
 ) -> None:
     """Test exception handling in _process_devices_ws_message."""
-    from unittest.mock import MagicMock, patch
-
-    import aiohttp
-    import orjson
-
     protect_client = protect_client_no_debug
 
     # Create valid data structure that will pass initial checks
@@ -1142,10 +1131,6 @@ async def test_base_api_client_events_websocket_state_change_debug(
     protect_client_no_debug: ProtectApiClient,
 ) -> None:
     """Test BaseApiClient._on_events_websocket_state_change debug logging."""
-    from unittest.mock import patch
-
-    from uiprotect.api import BaseApiClient
-
     protect_client = protect_client_no_debug
 
     # Call the BaseApiClient method directly (not the overridden one)
@@ -1169,10 +1154,6 @@ async def test_base_api_client_devices_websocket_state_change_debug(
     protect_client_no_debug: ProtectApiClient,
 ) -> None:
     """Test BaseApiClient._on_devices_websocket_state_change debug logging."""
-    from unittest.mock import patch
-
-    from uiprotect.api import BaseApiClient
-
     protect_client = protect_client_no_debug
 
     # Call the BaseApiClient method directly (not the overridden one)
@@ -1196,10 +1177,6 @@ async def test_process_devices_ws_message_non_text_debug(
     protect_client_no_debug: ProtectApiClient,
 ) -> None:
     """Test _process_devices_ws_message debug logging for non-text messages."""
-    from unittest.mock import MagicMock, patch
-
-    import aiohttp
-
     protect_client = protect_client_no_debug
 
     # Create a non-text WebSocket message (e.g., BINARY)
@@ -1222,11 +1199,6 @@ async def test_process_devices_ws_message_invalid_data_debug(
     protect_client_no_debug: ProtectApiClient,
 ) -> None:
     """Test _process_devices_ws_message debug logging for invalid data."""
-    from unittest.mock import MagicMock, patch
-
-    import aiohttp
-    import orjson
-
     protect_client = protect_client_no_debug
 
     # Create a message with missing required fields
@@ -1254,11 +1226,6 @@ async def test_process_devices_ws_message_unknown_model_debug(
     protect_client_no_debug: ProtectApiClient,
 ) -> None:
     """Test _process_devices_ws_message debug logging for unknown model type."""
-    from unittest.mock import MagicMock, patch
-
-    import aiohttp
-    import orjson
-
     protect_client = protect_client_no_debug
 
     # Create a message with an unknown model type
@@ -1291,8 +1258,6 @@ async def test_process_devices_ws_message_object_creation_failure_debug(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test processing devices websocket message when object creation fails with debug logging."""
-    from unittest.mock import patch
-
     messages: list[WSSubscriptionMessage] = []
 
     def capture_ws(message: WSSubscriptionMessage) -> None:

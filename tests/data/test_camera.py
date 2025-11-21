@@ -1430,7 +1430,6 @@ async def test_get_public_api_snapshot_no_api_key(camera_obj: Camera):
     """Test that get_public_api_snapshot fails with NotAuthorized if no API key is set in the API client."""
     camera_obj._api = MagicMock(spec=ProtectApiClient)
     camera_obj._api._api_key = None
-    from uiprotect.exceptions import NotAuthorized
 
     # get_public_api_snapshot should raise NotAuthorized if api_key is missing
     with pytest.raises(
