@@ -717,7 +717,7 @@ class BaseApiClient:
                     for cookie_obj in cookie.values():
                         self._last_token_cookie = cookie_obj
                         await self._update_auth_config(cookie_obj)
-                        break
+                        break  # auth response only contains single cookie (TOKEN or UOS_TOKEN)
 
             _LOGGER.debug("Authenticated successfully!")
 
