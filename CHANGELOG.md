@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.25.0 (2025-11-21)
+
+### Features
+
+
+- Handle optional doorlocks field in bootstrap class ([`bb589b2`](https://github.com/uilibs/uiprotect/commit/bb589b20132bfbb54c2a053053ff2bf665a7823e))
+
+
 ## v7.24.0 (2025-11-21)
 
 ### Features
