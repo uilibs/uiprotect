@@ -867,6 +867,48 @@ class BaseApiClient:
         """Get Websocket URL."""
         return self._ws_url_object
 
+    def _set_connection_host_from_bootstrap(self) -> None:
+        """
+        Set connection host from bootstrap NVR hosts (sync).
+
+        NOTE: Must stay in sync with _async_set_connection_host_from_bootstrap().
+        Sync version for property getter, async version for update() method.
+        """
+        index = 0
+        try:
+            index = self.bootstrap.nvr.hosts.index(self._host)
+        except ValueError:
+            try:
+                host = ip_address(self._host)
+                with contextlib.suppress(ValueError):
+                    index = self.bootstrap.nvr.hosts.index(host)
+            except ValueError:
+                pass
+
+        self._connection_host = self.bootstrap.nvr.hosts[index]
+
+    async def _async_set_connection_host_from_bootstrap(
+        self,
+        bootstrap: Bootstrap,
+    ) -> None:
+        """
+        Set connection host from bootstrap NVR hosts (async).
+
+        NOTE: Must stay in sync with _set_connection_host_from_bootstrap().
+        Async version allows DNS resolution via ip_from_host().
+        """
+        index = 0
+        try:
+            index = bootstrap.nvr.hosts.index(self._host)
+        except ValueError:
+            try:
+                host_ip = await ip_from_host(self._host)
+                index = bootstrap.nvr.hosts.index(host_ip)
+            except ValueError:
+                pass
+
+        self._connection_host = bootstrap.nvr.hosts[index]
+
     async def async_disconnect_ws(self) -> None:
         """Disconnect from Websocket."""
         if self._private_websocket:
@@ -1027,24 +1069,9 @@ class ProtectApiClient(BaseApiClient):
 
     @property
     def connection_host(self) -> IPv4Address | IPv6Address | str:
-        """Connection host to use for generating RTSP URLs"""
+        """Connection host to use for generating RTSP URLs."""
         if self._connection_host is None:
-            # fallback if cannot find user supplied host
-            index = 0
-            try:
-                # check if user supplied host is available
-                index = self.bootstrap.nvr.hosts.index(self._host)
-            except ValueError:
-                # check if IP of user supplied host is available
-                try:
-                    host = ip_address(self._host)
-                    with contextlib.suppress(ValueError):
-                        index = self.bootstrap.nvr.hosts.index(host)
-                except ValueError:
-                    # host is a hostname, cannot resolve synchronously
-                    pass
-
-            self._connection_host = self.bootstrap.nvr.hosts[index]
+            self._set_connection_host_from_bootstrap()
 
         return self._connection_host
 
@@ -1082,20 +1109,7 @@ class ProtectApiClient(BaseApiClient):
 
             # Set connection host if not set via override_connection_host
             if self._connection_host is None:
-                # fallback if cannot find user supplied host
-                index = 0
-                try:
-                    # check if user supplied host is available
-                    index = bootstrap.nvr.hosts.index(self._host)
-                except ValueError:
-                    # check if IP of user supplied host is available
-                    try:
-                        host_ip = await ip_from_host(self._host)
-                        index = bootstrap.nvr.hosts.index(host_ip)
-                    except ValueError:
-                        # user supplied host not in list, use first host
-                        pass
-                self._connection_host = bootstrap.nvr.hosts[index]
+                await self._async_set_connection_host_from_bootstrap(bootstrap)
 
             return bootstrap
 
