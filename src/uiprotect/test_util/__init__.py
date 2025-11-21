@@ -126,12 +126,12 @@ class SampleDataGenerator:
             "group": len(bootstrap["groups"]),
             "liveview": len(bootstrap["liveviews"]),
             "viewer": len(bootstrap["viewers"]),
-            "light": len(bootstrap["lights"]),
-            "bridge": len(bootstrap["bridges"]),
-            "sensor": len(bootstrap["sensors"]),
-            "doorlock": len(bootstrap["doorlocks"]),
-            "chime": len(bootstrap["chimes"]),
-            "aiport": len(bootstrap["aiports"]),
+            "light": len(bootstrap.get("lights", [])),
+            "bridge": len(bootstrap.get("bridges", [])),
+            "sensor": len(bootstrap.get("sensors", [])),
+            "doorlock": len(bootstrap.get("doorlocks", [])),
+            "chime": len(bootstrap.get("chimes", [])),
+            "aiport": len(bootstrap.get("aiports", [])),
         }
 
         self.log("Generating event data...")
@@ -309,10 +309,18 @@ class SampleDataGenerator:
         await self.write_json_file("sample_camera", deepcopy(obj))
         self.constants["camera_online"] = camera_is_online
 
+        # Check if camera has channels
+        if not obj.get("channels") or len(obj["channels"]) == 0:
+            self.log(
+                "Camera has no channels, skipping snapshot, thumbnail and heatmap generation",
+            )
+            return
+
         if not camera_is_online:
             self.log(
                 "Camera is not online, skipping snapshot, thumbnail and heatmap generation",
             )
+            return
 
         # snapshot
         width = obj["channels"][0]["width"]
@@ -452,7 +460,12 @@ class SampleDataGenerator:
         await self.write_json_file("sample_sensor", obj)
 
     async def generate_lock_data(self) -> None:
-        objs = await self.client.api_request_list("doorlocks")
+        try:
+            objs = await self.client.api_request_list("doorlocks")
+        except BadRequest:
+            self.log("No doorlock endpoint available. Skipping doorlock endpoints...")
+            return
+
         device_id: str | None = None
         for obj_dict in objs:
             device_id = obj_dict["id"]

@@ -350,6 +350,31 @@ def test_bootstrap_aiports_missing(bootstrap: dict[str, Any]):
         assert obj.aiports == {}
 
 
+def test_bootstrap_doorlocks_missing(bootstrap: dict[str, Any]):
+    """Test that missing doorlocks field (older Protect versions) is handled gracefully."""
+    deepcopied_bootstrap = deepcopy(bootstrap)
+    deepcopied_bootstrap.pop("doorlocks", None)
+
+    logger = logging.getLogger("uiprotect.data.bootstrap")
+    with patch.object(logger, "error") as mock_log_error:
+        obj = Bootstrap.from_unifi_dict(**deepcopied_bootstrap)
+        # doorlocks is in optional_fields, so no error should be logged
+        mock_log_error.assert_not_called()
+        assert obj.doorlocks == {}
+
+
+def test_bootstrap_doorlocks_present(bootstrap: dict[str, Any]):
+    """Test that doorlocks field (newer Protect versions) is handled correctly."""
+    deepcopied_bootstrap = deepcopy(bootstrap)
+    # Ensure doorlocks is present (it should be in test data)
+    if "doorlocks" not in deepcopied_bootstrap:
+        deepcopied_bootstrap["doorlocks"] = []
+
+    obj = Bootstrap.from_unifi_dict(**deepcopied_bootstrap)
+    assert isinstance(obj.doorlocks, dict)
+    assert len(obj.doorlocks) == len(deepcopied_bootstrap["doorlocks"])
+
+
 def test_unifi_dict_exclude(bootstrap: dict[str, Any]):
     obj = Bootstrap.from_unifi_dict(**deepcopy(bootstrap))
 
