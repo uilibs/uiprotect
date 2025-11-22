@@ -1227,6 +1227,7 @@ async def test_get_event_heatmap(protect_client: ProtectApiClient):
 async def test_get_event_smart_detect_track(protect_client: ProtectApiClient):
     data = await protect_client.get_event_smart_detect_track("test_id")
     assert data.camera
+    assert data.license_plate == "WWH336E"
 
     protect_client.api_request.assert_called_with(  # type: ignore[attr-defined]
         url="events/test_id/smartDetectTrack",
