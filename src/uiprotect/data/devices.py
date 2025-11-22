@@ -368,7 +368,7 @@ class LEDSettings(ProtectBaseObject):
     # Status Light
     is_enabled: bool
     blink_rate: int | None = (
-        None  # in milliseconds betweeen blinks, 0 = solid (removed in Protect 6.x)
+        None  # in milliseconds between blinks, 0 = solid (removed in Protect 6.x)
     )
     # 6.2+
     welcome_led: bool | None = None
