@@ -30149,7 +30149,7 @@
                     "clockBestWall": 1763817398276,
                     "group": {
                         "id": "6921b7ba010a2703e401be0f",
-                        "matchedName": "WWH336E",
+                        "matchedName": "WWHXXXX",
                         "confidence": 75
                     }
                 }
@@ -30192,6 +30192,204 @@
                     "params": {
                         "cameraId": "6878d82800215803e45928e1",
                         "start": 1763817385975
+                    }
+                }
+            ]
+        },
+        "category": "smart",
+        "smartDetectEvents": []
+    },
+    {
+        "id": "989692fa0c87d6a12570691f",
+        "modelKey": "event",
+        "type": "smartDetectZone",
+        "start": 1763816515775,
+        "end": 1763816549575,
+        "score": 89,
+        "smartDetectTypes": [
+            "face",
+            "person"
+        ],
+        "camera": "dcb7b0d1318653f056420d16",
+        "partition": null,
+        "user": null,
+        "metadata": {
+            "weather": {
+                "iconCode": 30,
+                "temperature": 1,
+                "temperatureUnit": "C"
+            },
+            "zonesStatus": {
+                "1": {
+                    "level": 0,
+                    "status": "none"
+                },
+                "2": {
+                    "level": 0,
+                    "status": "none"
+                },
+                "3": {
+                    "level": 71,
+                    "status": "leave"
+                }
+            },
+            "detectedAreas": [
+                {
+                    "areaIndexes": [
+                        32,
+                        42,
+                        52,
+                        62,
+                        72,
+                        82,
+                        92,
+                        102,
+                        33,
+                        43,
+                        53,
+                        63,
+                        73,
+                        83,
+                        93,
+                        103,
+                        34,
+                        44,
+                        54,
+                        64,
+                        74,
+                        84,
+                        94,
+                        104,
+                        35,
+                        45,
+                        55,
+                        65,
+                        75,
+                        85,
+                        95,
+                        105,
+                        36,
+                        46,
+                        56,
+                        66,
+                        76,
+                        86,
+                        96,
+                        106,
+                        37,
+                        47,
+                        57,
+                        67,
+                        77,
+                        87,
+                        97,
+                        107
+                    ],
+                    "smartDetectObject": "6921b47603b12703e40195de"
+                },
+                {
+                    "areaIndexes": [
+                        32,
+                        42,
+                        33,
+                        43,
+                        34,
+                        44,
+                        35,
+                        45
+                    ],
+                    "smartDetectObject": "6921b47700cd2703e40195ee"
+                }
+            ],
+            "ramDescription": "",
+            "detectedThumbnails": [
+                {
+                    "type": "person",
+                    "coord": [
+                        335,
+                        305,
+                        302,
+                        692
+                    ],
+                    "objectId": "6921b47603b12703e40195de",
+                    "croppedId": "1C6A1B87ED72-1763816566861",
+                    "attributes": {
+                        "zone": [
+                            1
+                        ],
+                        "trackerId": 13583
+                    },
+                    "confidence": 96,
+                    "clockBestWall": 1763816543376
+                },
+                {
+                    "type": "face",
+                    "coord": [
+                        441,
+                        329,
+                        48,
+                        91
+                    ],
+                    "objectId": "6921b47700cd2703e40195ee",
+                    "croppedId": "1C6A1B87ED72-1763816567187",
+                    "attributes": {
+                        "zone": [
+                            3
+                        ],
+                        "faceMask": {
+                            "val": "face",
+                            "confidence": 84
+                        },
+                        "trackerId": 13590
+                    },
+                    "confidence": 85,
+                    "clockBestWall": 1763816539676,
+                    "group": {
+                        "id": "6763e18900b67503e400042c",
+                        "name": "Hdvkkz Ehemy",
+                        "matchedName": "RapXXXXXXXXX",
+                        "confidence": 88
+                    }
+                }
+            ]
+        },
+        "thumbnail": "e-989692fa0c87d6a12570691f",
+        "heatmap": "e-989692fa0c87d6a12570691f",
+        "timestamp": 1763816532675,
+        "isFavorite": false,
+        "favoriteObjectIds": null,
+        "description": {
+            "eventMetadata": {
+                "eventType": "smartDetectZone",
+                "category": "detection",
+                "subCategory": "smartDetectEvent",
+                "severity": "medium",
+                "title": "Smart Detection",
+                "deviceEventClassId": 2161
+            },
+            "messageRaw": "{deviceLink} has recorded a face, a person. {viewLink}",
+            "messageKeys": [
+                {
+                    "key": "deviceLink",
+                    "text": "G4 Doorbell Pro PoE",
+                    "style": [
+                        "link"
+                    ],
+                    "action": "viewDeviceDetails",
+                    "params": {
+                        "deviceId": "6878d82800215803e45928e1"
+                    }
+                },
+                {
+                    "key": "viewLink",
+                    "text": "View",
+                    "style": [
+                        "link"
+                    ],
+                    "action": "viewCameraTimelapse",
+                    "params": {
+                        "cameraId": "6878d82800215803e45928e1",
+                        "start": 1763816515775
                     }
                 }
             ]
