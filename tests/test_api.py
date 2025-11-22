@@ -1240,7 +1240,7 @@ async def test_get_event_smart_detect_track(protect_client: ProtectApiClient):
 
 
 @pytest.mark.asyncio()
-async def test_smart_detect_track_license_plate_none(protect_client: ProtectApiClient):
+async def test_smart_detect_track_license_plate_none():
     # Create a SmartDetectTrack with face detection (no license plate)
     track_data = {
         "id": "test_face_track",
@@ -1268,9 +1268,7 @@ async def test_smart_detect_track_license_plate_none(protect_client: ProtectApiC
 
 
 @pytest.mark.asyncio()
-async def test_smart_detect_track_license_plate_highest_confidence(
-    protect_client: ProtectApiClient,
-):
+async def test_smart_detect_track_license_plate_highest_confidence():
     # Create a SmartDetectTrack with multiple license plate detections at different confidence levels
     track_data = {
         "id": "test_lpr_track",
