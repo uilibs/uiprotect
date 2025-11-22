@@ -1240,7 +1240,7 @@ async def test_get_event_smart_detect_track(protect_client: ProtectApiClient):
 
 @pytest.mark.asyncio()
 async def test_smart_detect_track_license_plate_none(protect_client: ProtectApiClient):
-    from uiprotect.data.nvr import SmartDetectTrack, SmartDetectItem
+    from uiprotect.data.nvr import SmartDetectTrack
 
     # Create a SmartDetectTrack with face detection (no license plate)
     track_data = {
@@ -1263,7 +1263,7 @@ async def test_smart_detect_track_license_plate_none(protect_client: ProtectApiC
             }
         ],
     }
-    
+
     track = SmartDetectTrack.from_unifi_dict(**track_data)
     assert track.license_plate is None
 
