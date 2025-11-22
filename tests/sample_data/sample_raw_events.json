@@ -30060,46 +30060,143 @@
         "category": null
     },
     {
-        "id": "test-favorite-1",
+        "id": "f1d59512b03f596d87db22c7",
+        "modelKey": "event",
         "type": "smartDetectZone",
-        "score": 100,
+        "start": 1763817385975,
+        "end": 1763817402675,
+        "score": 94,
+        "smartDetectTypes": [
+            "vehicle",
+            "licensePlate"
+        ],
+        "camera": "dcb7b0d1318653f056420d16",
+        "partition": null,
+        "user": null,
+        "metadata": {
+            "weather": {
+                "iconCode": 30,
+                "temperature": 1,
+                "temperatureUnit": "C"
+            },
+            "zonesStatus": {
+                "1": {
+                    "level": 0,
+                    "status": "none"
+                },
+                "2": {
+                    "level": 94,
+                    "status": "leave"
+                },
+                "3": {
+                    "level": 0,
+                    "status": "none"
+                }
+            },
+            "detectedAreas": [
+                {
+                    "areaIndexes": [
+                        59,
+                        69,
+                        79,
+                        89,
+                        58,
+                        68,
+                        78,
+                        88,
+                        57,
+                        67,
+                        77,
+                        87,
+                        56,
+                        66,
+                        76,
+                        86,
+                        65,
+                        75
+                    ],
+                    "smartDetectObject": "6921b7b903ac2703e401be0a"
+                }
+            ],
+            "ramDescription": "",
+            "detectedThumbnails": [
+                {
+                    "name": "Xzz Aobdf",
+                    "type": "vehicle",
+                    "coord": [
+                        598,
+                        553,
+                        142,
+                        96
+                    ],
+                    "objectId": "6921b7b903ac2703e401be0a",
+                    "croppedId": "1C6A1B87ED72-1763817401905",
+                    "attributes": {
+                        "zone": [
+                            2
+                        ],
+                        "color": {
+                            "val": "white",
+                            "confidence": 86
+                        },
+                        "trackerId": 15915,
+                        "vehicleType": {
+                            "val": "car",
+                            "confidence": 92
+                        }
+                    },
+                    "confidence": 97,
+                    "clockBestWall": 1763817398276,
+                    "group": {
+                        "id": "6921b7ba010a2703e401be0f",
+                        "matchedName": "WWH336E",
+                        "confidence": 75
+                    }
+                }
+            ]
+        },
+        "thumbnail": "e-f1d59512b03f596d87db22c7",
+        "heatmap": "e-f1d59512b03f596d87db22c7",
+        "timestamp": 1763817394325,
         "isFavorite": false,
         "favoriteObjectIds": null,
-        "start": 1700000000000,
-        "end": 1700000001000,
-        "camera": "test-camera-1"
-    },
-    {
-        "id": "test-favorite-2",
-        "type": "smartDetectZone",
-        "score": 100,
-        "isFavorite": true,
-        "favoriteObjectIds": [
-            "obj1",
-            "obj2"
-        ],
-        "start": 1700000010000,
-        "end": 1700000011000,
-        "camera": "test-camera-1"
-    },
-    {
-        "id": "test-favorite-3",
-        "type": "smartDetectZone",
-        "score": 100,
-        "isFavorite": false,
-        "start": 1700000020000,
-        "end": 1700000021000,
-        "camera": "test-camera-1"
-    },
-    {
-        "id": "test-favorite-4",
-        "type": "smartDetectZone",
-        "score": 100,
-        "favoriteObjectIds": [
-            "obj3"
-        ],
-        "start": 1700000030000,
-        "end": 1700000031000,
-        "camera": "test-camera-1"
+        "description": {
+            "eventMetadata": {
+                "eventType": "smartDetectZone",
+                "category": "detection",
+                "subCategory": "smartDetectEvent",
+                "severity": "medium",
+                "title": "Smart Detection",
+                "deviceEventClassId": 2161
+            },
+            "messageRaw": "{deviceLink} has recorded a vehicle, a license plate. {viewLink}",
+            "messageKeys": [
+                {
+                    "key": "deviceLink",
+                    "text": "G4 Doorbell Pro PoE",
+                    "style": [
+                        "link"
+                    ],
+                    "action": "viewDeviceDetails",
+                    "params": {
+                        "deviceId": "6878d82800215803e45928e1"
+                    }
+                },
+                {
+                    "key": "viewLink",
+                    "text": "View",
+                    "style": [
+                        "link"
+                    ],
+                    "action": "viewCameraTimelapse",
+                    "params": {
+                        "cameraId": "6878d82800215803e45928e1",
+                        "start": 1763817385975
+                    }
+                }
+            ]
+        },
+        "category": "smart",
+        "smartDetectEvents": []
     }
 ]
