@@ -45,7 +45,6 @@ from .types import (
     ModelType,
     MountType,
     PercentFloat,
-    PercentInt,
     PermissionNode,
     ProgressCallback,
     RecordingMode,
@@ -90,19 +89,17 @@ class SmartDetectItemAttribute(ProtectBaseObject):
 class SmartDetectItem(ProtectBaseObject):
     id: str
     timestamp: datetime
-    level: PercentInt
     coord: tuple[int, int, int, int]
     object_type: SmartDetectObjectType
     zone_ids: list[int]
     duration: timedelta
-    # requires 6.0.0+
-    license_plate: str | None = None
-    confidence: int | None = None
+    confidence: int
+    first_shown_time_ms: int
+    idle_since_time_ms: int
+    stationary: bool
+    license_plate: str | None = None  # only populated for vehicle object_type
     depth: float | None = None
     speed: float | None = None
-    stationary: bool | None = None
-    first_shown_time_ms: int | None = None
-    idle_since_time_ms: int | None = None
     attributes: dict[str, SmartDetectItemAttribute] | None = None
     lines: list[int] | None = None
 
@@ -481,7 +478,7 @@ class Event(ProtectModelWithId):
         Returns a list of all matched face names (empty list if none found).
         Unknown faces (matched_name=None) are excluded.
         """
-        names = []
+        names: list[str] = []
         if (
             self.metadata
             and self.metadata.detected_thumbnails
