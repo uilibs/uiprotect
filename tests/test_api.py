@@ -43,6 +43,7 @@ from uiprotect.data import (
     ModelType,
     create_from_unifi_dict,
 )
+from uiprotect.data.nvr import SmartDetectItem, SmartDetectTrack
 from uiprotect.data.types import Version, VideoMode
 from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
 from uiprotect.utils import to_js_time
@@ -1240,8 +1241,6 @@ async def test_get_event_smart_detect_track(protect_client: ProtectApiClient):
 
 @pytest.mark.asyncio()
 async def test_smart_detect_track_license_plate_none(protect_client: ProtectApiClient):
-    from uiprotect.data.nvr import SmartDetectTrack
-
     # Create a SmartDetectTrack with face detection (no license plate)
     track_data = {
         "id": "test_face_track",
