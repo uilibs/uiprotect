@@ -1238,6 +1238,36 @@ async def test_get_event_smart_detect_track(protect_client: ProtectApiClient):
     )
 
 
+@pytest.mark.asyncio()
+async def test_smart_detect_track_license_plate_none(protect_client: ProtectApiClient):
+    from uiprotect.data.nvr import SmartDetectTrack, SmartDetectItem
+
+    # Create a SmartDetectTrack with face detection (no license plate)
+    track_data = {
+        "id": "test_face_track",
+        "cameraId": "test_camera",
+        "eventId": "test_event",
+        "payload": [
+            {
+                "coord": [100, 200, 50, 100],
+                "id": "1",
+                "timestamp": 1234567890000,
+                "confidence": 95,
+                "objectType": "person",
+                "zones": [],
+                "lines": [],
+                "duration": 1000,
+                "stationary": False,
+                "firstShownTimeMs": 1234567890000,
+                "idleSinceTimeMs": 0,
+            }
+        ],
+    }
+    
+    track = SmartDetectTrack.from_unifi_dict(**track_data)
+    assert track.license_plate is None
+
+
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
 async def test_get_aiport(protect_client: ProtectApiClient, aiport):
