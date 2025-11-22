@@ -1372,7 +1372,6 @@ class Camera(ProtectMotionDeviceModel):
         event = self.get_last_smart_detect_event(smart_type)
         return (
             self._is_smart_enabled(smart_type)
-            and self.is_smart_detected
             and event is not None
             and event.end is None
             and smart_type in event.smart_detect_types
@@ -1384,7 +1383,6 @@ class Camera(ProtectMotionDeviceModel):
         return (
             self.is_recording_enabled
             and bool(self.active_smart_detect_types)
-            and self.is_smart_detected
             and self.last_smart_detect_event is not None
             and self.last_smart_detect_event.end is None
         )

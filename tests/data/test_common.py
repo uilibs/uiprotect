@@ -302,6 +302,83 @@ def test_camera_smart_audio_events(camera_obj: Camera):
     assert camera_obj.last_cmonx_detect_event.id == "test_event_2"
 
 
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_camera_person_vehicle_detection_independence(camera_obj: Camera):
+    """Test that person detection remains active when vehicle detection ends.
+    
+    This reproduces a bug where if a vehicle is detected around the same time
+    as a person, the vehicle detection sensor activation would inactivate the
+    person detection sensor, even though person detection was still active.
+    """
+    now = utc_now()
+
+    # Setup camera with smart detections enabled
+    camera_obj.is_smart_detected = False
+    camera_obj.is_recording = True
+    camera_obj.last_smart_detect_event_id = None
+    camera_obj.last_smart_detect = None
+    camera_obj.last_smart_detect_event_ids = {}
+    camera_obj.last_smart_detects = {}
+
+    # Event 1: Person detected (still ongoing)
+    person_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="test_event_person",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=10),
+        end=None,  # Still ongoing
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    
+    camera_obj.api.bootstrap.process_event(person_event)
+    
+    # Person should be detected (is_smart_detected is False but that shouldn't matter anymore)
+    assert camera_obj.is_person_currently_detected is True
+    
+    # Event 2: Vehicle detected around the same time (also ongoing)
+    vehicle_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="test_event_vehicle",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=8),
+        end=None,  # Still ongoing
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.VEHICLE],
+        smart_detect_event_ids=[],
+    )
+    
+    camera_obj.api.bootstrap.process_event(vehicle_event)
+    
+    # Both should be detected
+    assert camera_obj.is_person_currently_detected is True
+    assert camera_obj.is_vehicle_currently_detected is True
+    
+    # Event 3: Vehicle detection ends
+    vehicle_ended_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="test_event_vehicle",  # Same ID as vehicle event
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=8),
+        end=now - timedelta(seconds=5),  # Vehicle detection ended
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.VEHICLE],
+        smart_detect_event_ids=[],
+    )
+    
+    camera_obj.api.bootstrap.process_event(vehicle_ended_event)
+    
+    # Now the global is_smart_detected might be False since vehicle ended
+    # But person should STILL be detected because person event has no end
+    # This is the key fix: _is_smart_detected should not rely on global is_smart_detected
+    assert camera_obj.is_person_currently_detected is True
+    assert camera_obj.is_vehicle_currently_detected is False
+
+
 def test_bootstrap(bootstrap: dict[str, Any]):
     obj = Bootstrap.from_unifi_dict(**deepcopy(bootstrap))
 
