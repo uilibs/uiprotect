@@ -1267,6 +1267,64 @@ async def test_smart_detect_track_license_plate_none(protect_client: ProtectApiC
     assert track.license_plate is None
 
 
+@pytest.mark.asyncio()
+async def test_smart_detect_track_license_plate_highest_confidence(protect_client: ProtectApiClient):
+    # Create a SmartDetectTrack with multiple license plate detections at different confidence levels
+    track_data = {
+        "id": "test_lpr_track",
+        "cameraId": "test_camera",
+        "eventId": "test_event",
+        "payload": [
+            {
+                "coord": [100, 200, 50, 100],
+                "id": "1",
+                "timestamp": 1234567890000,
+                "confidence": 75,
+                "licensePlate": "ABC123",
+                "objectType": "vehicle",
+                "zones": [],
+                "lines": [],
+                "duration": 1000,
+                "stationary": False,
+                "firstShownTimeMs": 1234567890000,
+                "idleSinceTimeMs": 0,
+            },
+            {
+                "coord": [110, 210, 50, 100],
+                "id": "2",
+                "timestamp": 1234567891000,
+                "confidence": 92,
+                "licensePlate": "XYZ789",
+                "objectType": "vehicle",
+                "zones": [],
+                "lines": [],
+                "duration": 1000,
+                "stationary": False,
+                "firstShownTimeMs": 1234567890000,
+                "idleSinceTimeMs": 0,
+            },
+            {
+                "coord": [120, 220, 50, 100],
+                "id": "3",
+                "timestamp": 1234567892000,
+                "confidence": 85,
+                "licensePlate": "DEF456",
+                "objectType": "vehicle",
+                "zones": [],
+                "lines": [],
+                "duration": 1000,
+                "stationary": False,
+                "firstShownTimeMs": 1234567890000,
+                "idleSinceTimeMs": 0,
+            },
+        ],
+    }
+
+    track = SmartDetectTrack.from_unifi_dict(**track_data)
+    # Should return the license plate with confidence 92, not the first one (75)
+    assert track.license_plate == "XYZ789"
+
+
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
 async def test_get_aiport(protect_client: ProtectApiClient, aiport):

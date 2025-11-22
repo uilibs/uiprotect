@@ -144,11 +144,13 @@ class SmartDetectTrack(ProtectBaseObject):
 
     @property
     def license_plate(self) -> str | None:
-        """Returns the detected license plate from the smart detect track."""
+        """Returns the detected license plate with the highest confidence from the smart detect track."""
+        best_item: SmartDetectItem | None = None
         for item in self.payload:
             if item.license_plate:
-                return item.license_plate
-        return None
+                if best_item is None or item.confidence > best_item.confidence:
+                    best_item = item
+        return best_item.license_plate if best_item else None
 
 
 class LicensePlateMetadata(ProtectBaseObject):
