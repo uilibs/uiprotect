@@ -43,7 +43,7 @@ from uiprotect.data import (
     ModelType,
     create_from_unifi_dict,
 )
-from uiprotect.data.nvr import SmartDetectItem, SmartDetectTrack
+from uiprotect.data.nvr import SmartDetectTrack
 from uiprotect.data.types import Version, VideoMode
 from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
 from uiprotect.utils import to_js_time
