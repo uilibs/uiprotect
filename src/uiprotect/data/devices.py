@@ -374,6 +374,15 @@ class LEDSettings(ProtectBaseObject):
     welcome_led: bool | None = None
     flood_led: bool | None = None
 
+    def unifi_dict(
+        self,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
+    ) -> dict[str, Any]:
+        data = super().unifi_dict(data=data, exclude=exclude)
+        pop_dict_set_if_none(data, {"blinkRate", "welcomeLed", "floodLed"})
+        return data
+
 
 class SpeakerSettings(ProtectBaseObject):
     is_enabled: bool
