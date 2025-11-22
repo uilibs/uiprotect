@@ -304,8 +304,9 @@ def test_camera_smart_audio_events(camera_obj: Camera):
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 def test_camera_person_vehicle_detection_independence(camera_obj: Camera):
-    """Test that person detection remains active when vehicle detection ends.
-    
+    """
+    Test that person detection remains active when vehicle detection ends.
+
     This reproduces a bug where if a vehicle is detected around the same time
     as a person, the vehicle detection sensor activation would inactivate the
     person detection sensor, even though person detection was still active.
@@ -332,12 +333,12 @@ def test_camera_person_vehicle_detection_independence(camera_obj: Camera):
         smart_detect_types=[SmartDetectObjectType.PERSON],
         smart_detect_event_ids=[],
     )
-    
+
     camera_obj.api.bootstrap.process_event(person_event)
-    
+
     # Person should be detected (is_smart_detected is False but that shouldn't matter anymore)
     assert camera_obj.is_person_currently_detected is True
-    
+
     # Event 2: Vehicle detected around the same time (also ongoing)
     vehicle_event = Event(  # type: ignore[call-arg]
         api=camera_obj.api,
@@ -350,13 +351,13 @@ def test_camera_person_vehicle_detection_independence(camera_obj: Camera):
         smart_detect_types=[SmartDetectObjectType.VEHICLE],
         smart_detect_event_ids=[],
     )
-    
+
     camera_obj.api.bootstrap.process_event(vehicle_event)
-    
+
     # Both should be detected
     assert camera_obj.is_person_currently_detected is True
     assert camera_obj.is_vehicle_currently_detected is True
-    
+
     # Event 3: Vehicle detection ends
     vehicle_ended_event = Event(  # type: ignore[call-arg]
         api=camera_obj.api,
@@ -369,9 +370,9 @@ def test_camera_person_vehicle_detection_independence(camera_obj: Camera):
         smart_detect_types=[SmartDetectObjectType.VEHICLE],
         smart_detect_event_ids=[],
     )
-    
+
     camera_obj.api.bootstrap.process_event(vehicle_ended_event)
-    
+
     # Now the global is_smart_detected might be False since vehicle ended
     # But person should STILL be detected because person event has no end
     # This is the key fix: _is_smart_detected should not rely on global is_smart_detected
