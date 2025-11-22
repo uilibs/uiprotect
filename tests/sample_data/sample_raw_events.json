@@ -30058,5 +30058,48 @@
         "heatmap": "e-ebbf14dc11a45c2c846f43fc",
         "timestamp": 1731761533438,
         "category": null
+    },
+    {
+        "id": "test-favorite-1",
+        "type": "smartDetectZone",
+        "score": 100,
+        "isFavorite": false,
+        "favoriteObjectIds": null,
+        "start": 1700000000000,
+        "end": 1700000001000,
+        "camera": "test-camera-1"
+    },
+    {
+        "id": "test-favorite-2",
+        "type": "smartDetectZone",
+        "score": 100,
+        "isFavorite": true,
+        "favoriteObjectIds": [
+            "obj1",
+            "obj2"
+        ],
+        "start": 1700000010000,
+        "end": 1700000011000,
+        "camera": "test-camera-1"
+    },
+    {
+        "id": "test-favorite-3",
+        "type": "smartDetectZone",
+        "score": 100,
+        "isFavorite": false,
+        "start": 1700000020000,
+        "end": 1700000021000,
+        "camera": "test-camera-1"
+    },
+    {
+        "id": "test-favorite-4",
+        "type": "smartDetectZone",
+        "score": 100,
+        "favoriteObjectIds": [
+            "obj3"
+        ],
+        "start": 1700000030000,
+        "end": 1700000031000,
+        "camera": "test-camera-1"
     }
 ]

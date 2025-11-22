@@ -80,6 +80,13 @@ class NVRLocation(UserLocation):
     model: ModelType | None = None
 
 
+class SmartDetectItemAttribute(ProtectBaseObject):
+    """Attribute value with confidence for smart detect items (e.g., color, vehicle type)."""
+
+    val: str
+    confidence: int
+
+
 class SmartDetectItem(ProtectBaseObject):
     id: str
     timestamp: datetime
@@ -88,13 +95,23 @@ class SmartDetectItem(ProtectBaseObject):
     object_type: SmartDetectObjectType
     zone_ids: list[int]
     duration: timedelta
+    # requires 6.0.0+
+    license_plate: str | None = None
+    confidence: int | None = None
+    depth: float | None = None
+    speed: float | None = None
+    stationary: bool | None = None
+    first_shown_time_ms: int | None = None
+    idle_since_time_ms: int | None = None
+    attributes: dict[str, SmartDetectItemAttribute] | None = None
+    lines: list[int] | None = None
 
     @classmethod
     @cache
     def _get_unifi_remaps(cls) -> dict[str, str]:
         return {
             **super()._get_unifi_remaps(),
-            "zones": "zoneIds",
+            "zones": "zone_ids",
         }
 
     @classmethod
@@ -128,10 +145,36 @@ class SmartDetectTrack(ProtectBaseObject):
     def event(self) -> Event | None:
         return self._api.bootstrap.events.get(self.event_id)
 
+    @property
+    def license_plate(self) -> str | None:
+        """Returns the detected license plate from the smart detect track."""
+        for item in self.payload:
+            if item.license_plate:
+                return item.license_plate
+        return None
+
 
 class LicensePlateMetadata(ProtectBaseObject):
     name: str
     confidence_level: int
+
+
+class EventThumbnailGroup(ProtectBaseObject):
+    """Group information for detected thumbnails (e.g., license plate recognition)."""
+
+    id: str
+    name: str | None = None
+    matched_name: str | None = None
+    confidence: int
+
+    def unifi_dict(
+        self,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
+    ) -> dict[str, Any]:
+        data = super().unifi_dict(data=data, exclude=exclude)
+        pop_dict_set_if_none(data, {"matchedName", "name"})
+        return data
 
 
 class EventThumbnailAttribute(ProtectBaseObject):
@@ -168,6 +211,10 @@ class FingerprintMetadata(ProtectBaseObject):
 class EventThumbnailAttributes(ProtectBaseObject):
     color: EventThumbnailAttribute | None = None
     vehicle_type: EventThumbnailAttribute | None = None
+    # requires 6.0.0+
+    zone: list[int] | None = None
+    tracker_id: int | None = None
+    face_mask: EventThumbnailAttribute | None = None
 
     def unifi_dict(
         self,
@@ -175,7 +222,9 @@ class EventThumbnailAttributes(ProtectBaseObject):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-        pop_dict_set_if_none(data, DELETE_KEYS_THUMB)
+        pop_dict_set_if_none(
+            data, DELETE_KEYS_THUMB | {"zone", "trackerId", "faceMask"}
+        )
         return data
 
 
@@ -185,6 +234,11 @@ class EventDetectedThumbnail(ProtectBaseObject):
     cropped_id: str
     attributes: EventThumbnailAttributes | None = None
     name: str | None = None
+    coord: list[int] | None = None
+    confidence: int | None = None
+    # requires 6.0.0+
+    group: EventThumbnailGroup | None = None
+    object_id: str | None = None
 
     @classmethod
     @cache
@@ -197,7 +251,7 @@ class EventDetectedThumbnail(ProtectBaseObject):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-        pop_dict_set_if_none(data, {"name"})
+        pop_dict_set_if_none(data, {"name", "group", "objectId", "coord", "confidence"})
         return data
 
 
@@ -300,6 +354,9 @@ class Event(ProtectModelWithId):
     # only appears if `get_events` is called with category
     category: EventCategories | None = None
     sub_category: str | None = None
+    # requires 6.0.0+
+    is_favorite: bool | None = None
+    favorite_object_ids: list[str] | None = None
 
     # TODO:
     # partition
@@ -379,6 +436,68 @@ class Event(ProtectModelWithId):
             if g in self._api.bootstrap.events
         ]
         return self._smart_detect_events
+
+    @property
+    def license_plates(self) -> list[str]:
+        """
+        All detected license plates from event metadata.
+
+        Returns a list of all matched license plates (empty list if none found).
+        Unknown plates (matched_name=None) are excluded.
+        """
+        plates = []
+
+        # legacy metadata.license_plate field (UFP < 5.x)
+        if (
+            self.metadata
+            and self.metadata.license_plate
+            and self.metadata.license_plate.name
+        ):
+            plates.append(self.metadata.license_plate.name)
+
+        # newer detectedThumbnails[].group.matchedName (UFP 6.x+)
+        if (
+            self.metadata
+            and self.metadata.detected_thumbnails
+            and SmartDetectObjectType.LICENSE_PLATE in self.smart_detect_types
+        ):
+            plates.extend(
+                thumbnail.group.matched_name
+                for thumbnail in self.metadata.detected_thumbnails
+                if (
+                    thumbnail.type == "vehicle"
+                    and thumbnail.group
+                    and thumbnail.group.matched_name
+                )
+            )
+
+        return plates
+
+    @property
+    def face_names(self) -> list[str]:
+        """
+        All detected face names from event metadata (UFP 6.x+).
+
+        Returns a list of all matched face names (empty list if none found).
+        Unknown faces (matched_name=None) are excluded.
+        """
+        names = []
+        if (
+            self.metadata
+            and self.metadata.detected_thumbnails
+            and SmartDetectObjectType.FACE in self.smart_detect_types
+        ):
+            names.extend(
+                thumbnail.group.matched_name
+                for thumbnail in self.metadata.detected_thumbnails
+                if (
+                    thumbnail.type == "face"
+                    and thumbnail.group
+                    and thumbnail.group.matched_name
+                )
+            )
+
+        return names
 
     async def get_thumbnail(
         self,
