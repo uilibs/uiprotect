@@ -147,7 +147,9 @@ class SmartDetectTrack(ProtectBaseObject):
         """Returns the detected license plate with the highest confidence from the smart detect track."""
         best_item: SmartDetectItem | None = None
         for item in self.payload:
-            if item.license_plate and (best_item is None or item.confidence > best_item.confidence):
+            if item.license_plate and (
+                best_item is None or item.confidence > best_item.confidence
+            ):
                 best_item = item
         return best_item.license_plate if best_item else None
 
