@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.28.0 (2025-11-24)
+
+### Features
+
+
+- Add support for ufp 6.x detected license plate and face name properties ([`811e2e2`](https://github.com/uilibs/uiprotect/commit/811e2e2b2019a950c8276e21db10f8c209d42d43))
+
+
 ## v7.27.0 (2025-11-24)
 
 ### Features
