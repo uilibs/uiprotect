@@ -17,9 +17,7 @@ if TYPE_CHECKING:
     from uiprotect import ProtectApiClient
 
 
-def test_get_detected_thumbnail_with_clock_best_wall(
-    protect_client: ProtectApiClient,
-):
+def test_get_detected_thumbnail_with_clock_best_wall():
     """Test that get_detected_thumbnail returns the thumbnail with clockBestWall."""
     event = Event.model_construct(
         id="test_event",
