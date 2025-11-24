@@ -230,13 +230,12 @@ class EventThumbnailAttributes(ProtectBaseObject):
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         # Convert nested attribute objects to EventThumbnailAttribute instances
-        result = {}
-        for key, value in data.items():
-            if isinstance(value, dict) and "val" in value and "confidence" in value:
-                result[key] = EventThumbnailAttribute.from_unifi_dict(**value)
-            else:
-                result[key] = value
-        return result
+        return {
+            key: EventThumbnailAttribute.from_unifi_dict(**value)
+            if isinstance(value, dict) and "val" in value and "confidence" in value
+            else value
+            for key, value in data.items()
+        }
 
     def unifi_dict(
         self,
