@@ -195,3 +195,49 @@ def test_get_detected_thumbnail_from_real_data(
     thumbnail = event.get_detected_thumbnail()
     assert thumbnail is not None
     assert thumbnail.clock_best_wall is not None
+
+
+def test_event_thumbnail_attributes_get_value(
+    raw_events: list[dict], protect_client: ProtectApiClient
+):
+    """Test EventThumbnailAttributes.get_value() helper method."""
+    events_with_attrs = [
+        e
+        for e in raw_events
+        if any(
+            t.get("attributes")
+            for t in e.get("metadata", {}).get("detectedThumbnails", [])
+        )
+    ]
+
+    if not events_with_attrs:
+        return  # Skip if no events with attributes
+
+    event = Event.from_unifi_dict(**events_with_attrs[0], api=protect_client)
+    thumbnail = event.get_detected_thumbnail()
+
+    assert thumbnail is not None
+    assert thumbnail.attributes is not None
+
+    # Test get_value with EventThumbnailAttribute objects
+    # Check if color exists (common for LPR events)
+    if hasattr(thumbnail.attributes, "color"):
+        color = thumbnail.attributes.get_value("color")
+        assert color is not None
+        assert isinstance(color, str)
+
+    # Check if vehicleType exists (common for LPR events)
+    if hasattr(thumbnail.attributes, "vehicleType"):
+        vehicle_type = thumbnail.attributes.get_value("vehicleType")
+        assert vehicle_type is not None
+        assert isinstance(vehicle_type, str)
+
+    # Test get_value with non-EventThumbnailAttribute fields
+    # zone is list[int], not EventThumbnailAttribute
+    if hasattr(thumbnail.attributes, "zone"):
+        zone_value = thumbnail.attributes.get_value("zone")
+        assert zone_value is None  # Should be None because it's not EventThumbnailAttribute
+
+    # Test get_value with non-existent field
+    nonexistent = thumbnail.attributes.get_value("nonexistent_field_12345")
+    assert nonexistent is None
