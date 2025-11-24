@@ -378,7 +378,21 @@ class OSDSettings(ProtectBaseObject):
 class LEDSettings(ProtectBaseObject):
     # Status Light
     is_enabled: bool
-    blink_rate: int  # in milliseconds betweeen blinks, 0 = solid
+    blink_rate: int | None = (
+        None  # in milliseconds between blinks, 0 = solid (removed in Protect 6.x)
+    )
+    # 6.2+
+    welcome_led: bool | None = None
+    flood_led: bool | None = None
+
+    def unifi_dict(
+        self,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
+    ) -> dict[str, Any]:
+        data = super().unifi_dict(data=data, exclude=exclude)
+        pop_dict_set_if_none(data, {"blinkRate", "welcomeLed", "floodLed"})
+        return data
 
 
 class SpeakerSettings(ProtectBaseObject):
@@ -2269,7 +2283,9 @@ class Camera(ProtectMotionDeviceModel):
 
         def callback() -> None:
             self.led_settings.is_enabled = enabled
-            self.led_settings.blink_rate = 0
+            # blink_rate was removed in Protect 6.x
+            if self.led_settings.blink_rate is not None:
+                self.led_settings.blink_rate = 0
 
         await self.queue_update(callback)
 
@@ -2907,7 +2923,7 @@ class Sensor(ProtectAdoptableDeviceModel):
     is_motion_detected: bool
     is_opened: bool
     leak_detected_at: datetime | None = None
-    led_settings: SensorSettingsBase
+    led_settings: LEDSettings
     light_settings: SensorThresholdSettings
     motion_detected_at: datetime | None = None
     motion_settings: SensorSensitivitySettings

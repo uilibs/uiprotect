@@ -43,6 +43,7 @@ from uiprotect.data import (
     ModelType,
     create_from_unifi_dict,
 )
+from uiprotect.data.devices import LEDSettings
 from uiprotect.data.types import Version, VideoMode
 from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
 from uiprotect.utils import to_js_time
@@ -3258,3 +3259,64 @@ async def test_get_chime_public_error():
     client.api_request_obj.assert_called_with(
         url="/v1/chimes/663d0aa401108803e4000447", public_api=True
     )
+
+
+def test_led_settings_deserialization_with_blink_rate():
+    """Test that LEDSettings can be created with blink_rate field (older Protect versions)."""
+    led_data = {
+        "isEnabled": False,
+        "blinkRate": 100,
+    }
+    led_settings = LEDSettings.from_unifi_dict(**led_data)
+
+    assert led_settings.is_enabled is False
+    assert led_settings.blink_rate == 100
+    assert led_settings.welcome_led is None
+    assert led_settings.flood_led is None
+
+
+def test_led_settings_deserialization_without_blink_rate():
+    """Test that LEDSettings can be created without blink_rate field (Protect 6.x+)."""
+    led_data = {
+        "isEnabled": True,
+    }
+    led_settings = LEDSettings.from_unifi_dict(**led_data)
+
+    assert led_settings.is_enabled is True
+    assert led_settings.blink_rate is None
+    assert led_settings.welcome_led is None
+    assert led_settings.flood_led is None
+
+
+def test_led_settings_with_new_fields():
+    """Test LED settings with welcome_led and flood_led fields (Protect 6.2+)."""
+    led_data = {
+        "isEnabled": True,
+        "welcomeLed": True,
+        "floodLed": False,
+    }
+    led_settings = LEDSettings.from_unifi_dict(**led_data)
+
+    assert led_settings.is_enabled is True
+    assert led_settings.blink_rate is None
+    assert led_settings.welcome_led is True
+    assert led_settings.flood_led is False
+
+
+def test_led_settings_serialization_with_all_fields():
+    """Test that LEDSettings serialization includes all fields when set."""
+    led_settings = LEDSettings(
+        is_enabled=True,
+        blink_rate=0,
+        welcome_led=True,
+        flood_led=False,
+    )
+
+    # Test unifi_dict() serialization (for API)
+    serialized = led_settings.unifi_dict()
+
+    # All fields should be present in camelCase
+    assert serialized["isEnabled"] is True
+    assert serialized["blinkRate"] == 0
+    assert serialized["welcomeLed"] is True
+    assert serialized["floodLed"] is False
