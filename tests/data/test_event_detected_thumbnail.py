@@ -236,7 +236,9 @@ def test_event_thumbnail_attributes_get_value(
     # zone is list[int], not EventThumbnailAttribute
     if hasattr(thumbnail.attributes, "zone"):
         zone_value = thumbnail.attributes.get_value("zone")
-        assert zone_value is None  # Should be None because it's not EventThumbnailAttribute
+        assert (
+            zone_value is None
+        )  # Should be None because it's not EventThumbnailAttribute
 
     # Test get_value with non-existent field
     nonexistent = thumbnail.attributes.get_value("nonexistent_field_12345")

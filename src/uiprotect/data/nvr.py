@@ -196,16 +196,16 @@ class FingerprintMetadata(ProtectBaseObject):
 class EventThumbnailAttributes(ProtectBaseObject):
     """
     Dynamic attributes for detected thumbnails.
-    
+
     All attributes are stored as extra fields for full flexibility.
-    
+
     Common attribute types:
     - color, vehicleType, faceMask: EventThumbnailAttribute (with val and confidence)
     - zone: list[int] - Zone IDs where detection occurred
     - trackerId: int - Unique tracker ID for this detection
-    
+
     Allows any attributes for forward compatibility with new UFP features.
-    
+
     Example usage:
         >>> attrs = thumbnail.attributes
         >>> if attrs:
@@ -217,8 +217,9 @@ class EventThumbnailAttributes(ProtectBaseObject):
         ...     zones = attrs.zone  # list[int] | None
         ...     tracker = attrs.trackerId  # int | None
     """
+
     model_config = ConfigDict(extra="allow")
-    
+
     def get_value(self, key: str) -> str | None:
         """Get the string value from an EventThumbnailAttribute field, if it exists."""
         attr = getattr(self, key, None)
@@ -243,7 +244,7 @@ class EventThumbnailAttributes(ProtectBaseObject):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-        
+
         # Remove None values from extra fields
         return {k: v for k, v in data.items() if v is not None}
 
@@ -458,16 +459,16 @@ class Event(ProtectModelWithId):
     def get_detected_thumbnail(self) -> EventDetectedThumbnail | None:
         """
         Gets best detected thumbnail for event (UFP 6.x+).
-        
+
         Returns the thumbnail marked with clockBestWall, which indicates
         the optimal frame for this detection (highest confidence, best angle, etc.).
-        
+
         Returns:
             EventDetectedThumbnail with the best detection frame, or None if:
             - Event has no metadata
             - No detected thumbnails available
             - No thumbnail has clockBestWall set
-        
+
         Example usage:
             >>> # License Plate Recognition
             >>> thumbnail = event.get_detected_thumbnail()
@@ -477,12 +478,13 @@ class Event(ProtectModelWithId):
             ...     if thumbnail.attributes:
             ...         color = thumbnail.attributes.get_value("color")  # "white"
             ...         vehicle = thumbnail.attributes.get_value("vehicleType")  # "sedan"
-            
+
             >>> # Face Detection
             >>> thumbnail = event.get_detected_thumbnail()
             >>> if thumbnail and thumbnail.group:
             ...     face_name = thumbnail.group.matched_name  # "John Doe"
             ...     confidence = thumbnail.group.confidence  # 87
+
         """
         if not self.metadata or not self.metadata.detected_thumbnails:
             return None
