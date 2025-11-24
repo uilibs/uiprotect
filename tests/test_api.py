@@ -43,7 +43,6 @@ from uiprotect.data import (
     ModelType,
     create_from_unifi_dict,
 )
-from uiprotect.data.nvr import SmartDetectTrack
 from uiprotect.data.types import Version, VideoMode
 from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
 from uiprotect.utils import to_js_time
@@ -1236,9 +1235,6 @@ async def test_get_event_smart_detect_track(protect_client: ProtectApiClient):
         raise_exception=True,
         public_api=False,
     )
-
-
-
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
