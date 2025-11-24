@@ -1,398 +1,3244 @@
 {
-    "id": "2cfadb80b0b93e3135bc9ee0",
-    "payload": [
-        {
-            "id": "1191",
-            "timestamp": 1643055487431,
-            "level": 82,
-            "coord": [
-                341,
-                466,
-                39,
-                133
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 464
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055487929,
-            "level": 80,
-            "coord": [
-                354,
-                461,
-                39,
-                144
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 472
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055488264,
-            "level": 80,
-            "coord": [
-                360,
-                458,
-                39,
-                155
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 465
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055488764,
-            "level": 86,
-            "coord": [
-                364,
-                461,
-                47,
-                158
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 473
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055489105,
-            "level": 83,
-            "coord": [
-                372,
-                461,
-                47,
-                161
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 464
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055489606,
-            "level": 85,
-            "coord": [
-                372,
-                463,
-                50,
-                166
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 473
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055490105,
-            "level": 84,
-            "coord": [
-                370,
-                461,
-                56,
-                180
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 480
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055490606,
-            "level": 87,
-            "coord": [
-                362,
-                449,
-                62,
-                200
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 487
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055491106,
-            "level": 86,
-            "coord": [
-                352,
-                449,
-                68,
-                219
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 493
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055491606,
-            "level": 88,
-            "coord": [
-                339,
-                447,
-                75,
-                249
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 500
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055492106,
-            "level": 92,
-            "coord": [
-                322,
-                436,
-                83,
-                280
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 504
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055492607,
-            "level": 90,
-            "coord": [
-                306,
-                427,
-                97,
-                327
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 508
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055493110,
-            "level": 92,
-            "coord": [
-                281,
-                408,
-                114,
-                375
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 515
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055493609,
-            "level": 91,
-            "coord": [
-                268,
-                386,
-                135,
-                427
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 526
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055494109,
-            "level": 92,
-            "coord": [
-                222,
-                369,
-                166,
-                511
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 536
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055494609,
-            "level": 91,
-            "coord": [
-                177,
-                338,
-                210,
-                591
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 537
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055495111,
-            "level": 93,
-            "coord": [
-                87,
-                283,
-                283,
-                669
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 538
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055495610,
-            "level": 90,
-            "coord": [
-                39,
-                224,
-                333,
-                738
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 539
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055495946,
-            "level": 93,
-            "coord": [
-                25,
-                191,
-                381,
-                786
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 523
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055496447,
-            "level": 89,
-            "coord": [
-                108,
-                163,
-                368,
-                824
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 525
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055496946,
-            "level": 89,
-            "coord": [
-                47,
-                94,
-                406,
-                886
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 530
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055497452,
-            "level": 45,
-            "coord": [
-                6,
-                44,
-                410,
-                938
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 532
-        },
-        {
-            "id": "1191",
-            "timestamp": 1643055497951,
-            "level": 35,
-            "coord": [
-                -33,
-                16,
-                372,
-                977
-            ],
-            "objectType": "person",
-            "zones": [
-                1
-            ],
-            "lines": [],
-            "duration": 533
+  "id": "011ff3a70d34c3ac6aaa3be3",
+  "payload": [
+    {
+      "coord": [
+        916,
+        540,
+        83,
+        253
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817387975,
+      "confidence": 86,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 690,
+      "stationary": false,
+      "attributes": null,
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        906,
+        540,
+        92,
+        251
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817388076,
+      "confidence": 85,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 699,
+      "stationary": false,
+      "attributes": null,
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        896,
+        536,
+        102,
+        256
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817388175,
+      "confidence": 86,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 706,
+      "stationary": false,
+      "attributes": null,
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        887,
+        535,
+        111,
+        247
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817388276,
+      "confidence": 86,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 713,
+      "stationary": false,
+      "attributes": null,
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        878,
+        534,
+        121,
+        250
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817388375,
+      "confidence": 87,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 718,
+      "stationary": false,
+      "attributes": null,
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        871,
+        531,
+        128,
+        251
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817388476,
+      "confidence": 90,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 722,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
         }
-    ],
-    "camera": "1c9a2db4df6efda47a3509be",
-    "event": "e46822b9b3d12873255725a5"
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        861,
+        530,
+        137,
+        249
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817388575,
+      "confidence": 88,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 727,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        852,
+        527,
+        146,
+        246
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817388675,
+      "confidence": 89,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 732,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        845,
+        528,
+        154,
+        239
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817388776,
+      "confidence": 90,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 735,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        838,
+        526,
+        161,
+        241
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817388875,
+      "confidence": 91,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 738,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        828,
+        525,
+        170,
+        239
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817388975,
+      "confidence": 91,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 740,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        822,
+        525,
+        175,
+        240
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817389075,
+      "confidence": 92,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 743,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        816,
+        527,
+        182,
+        240
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817389176,
+      "confidence": 91,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 745,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        809,
+        525,
+        189,
+        240
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817389275,
+      "confidence": 93,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 747,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        802,
+        525,
+        196,
+        240
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817389375,
+      "confidence": 92,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 749,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        795,
+        524,
+        203,
+        243
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817389475,
+      "confidence": 91,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 751,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        790,
+        525,
+        208,
+        238
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817389576,
+      "confidence": 90,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 754,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        785,
+        525,
+        213,
+        240
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817389675,
+      "confidence": 90,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 756,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        780,
+        523,
+        218,
+        242
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817389779,
+      "confidence": 91,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 758,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        775,
+        525,
+        222,
+        237
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817389875,
+      "confidence": 92,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 760,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        770,
+        525,
+        229,
+        242
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817389976,
+      "confidence": 91,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 763,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        764,
+        527,
+        234,
+        236
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817390075,
+      "confidence": 90,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 765,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        760,
+        531,
+        238,
+        232
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817390176,
+      "confidence": 91,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 767,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        752,
+        531,
+        247,
+        238
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817390275,
+      "confidence": 91,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 769,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        746,
+        533,
+        253,
+        239
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817390376,
+      "confidence": 91,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 771,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        743,
+        534,
+        256,
+        240
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817390476,
+      "confidence": 93,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 772,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        738,
+        535,
+        260,
+        235
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817390575,
+      "confidence": 92,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 772,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        734,
+        535,
+        265,
+        236
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817390675,
+      "confidence": 90,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 772,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        730,
+        535,
+        269,
+        234
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817390775,
+      "confidence": 90,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 774,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        725,
+        536,
+        274,
+        238
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817390875,
+      "confidence": 90,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 775,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        721,
+        539,
+        277,
+        231
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817390976,
+      "confidence": 89,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 775,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        721,
+        538,
+        277,
+        229
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817391075,
+      "confidence": 91,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 775,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        716,
+        539,
+        280,
+        231
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817391176,
+      "confidence": 92,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 775,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        711,
+        539,
+        285,
+        225
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817391275,
+      "confidence": 94,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 776,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        708,
+        538,
+        290,
+        231
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817391376,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 778,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        705,
+        537,
+        294,
+        234
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817391479,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 779,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        701,
+        536,
+        298,
+        238
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817391576,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 779,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        698,
+        539,
+        301,
+        238
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817391675,
+      "confidence": 93,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 780,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        695,
+        538,
+        304,
+        239
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817391775,
+      "confidence": 93,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 781,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        688,
+        539,
+        310,
+        237
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817391875,
+      "confidence": 91,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 781,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        688,
+        539,
+        310,
+        237
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817391983,
+      "confidence": 93,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 780,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        682,
+        540,
+        316,
+        222
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817392075,
+      "confidence": 92,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 778,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        678,
+        540,
+        319,
+        232
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817392175,
+      "confidence": 91,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 777,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        674,
+        540,
+        324,
+        230
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817392275,
+      "confidence": 92,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 777,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        675,
+        541,
+        324,
+        223
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817392375,
+      "confidence": 92,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 778,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        672,
+        540,
+        326,
+        223
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817392475,
+      "confidence": 92,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 780,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        668,
+        540,
+        329,
+        222
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817392575,
+      "confidence": 93,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 780,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        667,
+        541,
+        332,
+        215
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817392675,
+      "confidence": 93,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 781,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        665,
+        541,
+        334,
+        212
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817392775,
+      "confidence": 93,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 783,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        661,
+        541,
+        337,
+        208
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817392875,
+      "confidence": 93,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 785,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        658,
+        541,
+        340,
+        202
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817392976,
+      "confidence": 94,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 787,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        657,
+        542,
+        341,
+        196
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817393075,
+      "confidence": 94,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 788,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        655,
+        543,
+        343,
+        193
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817393176,
+      "confidence": 93,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 789,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        651,
+        543,
+        338,
+        190
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817393275,
+      "confidence": 94,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 789,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        649,
+        543,
+        333,
+        188
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817393375,
+      "confidence": 94,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 789,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        648,
+        544,
+        319,
+        184
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817393475,
+      "confidence": 94,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 790,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        646,
+        544,
+        314,
+        180
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817393575,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 790,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        645,
+        545,
+        307,
+        177
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817393676,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 789,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        645,
+        544,
+        299,
+        175
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817393775,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 789,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        644,
+        545,
+        291,
+        171
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817393876,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 789,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 81,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        643,
+        544,
+        285,
+        170
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817393976,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 790,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 81,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        640,
+        544,
+        281,
+        169
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817394075,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 790,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 85,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        638,
+        545,
+        276,
+        164
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817394175,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 792,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 85,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        637,
+        546,
+        271,
+        158
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817394276,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 792,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 85,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        636,
+        544,
+        263,
+        157
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817394375,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 793,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 85,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        635,
+        545,
+        259,
+        154
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817394476,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 795,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 85,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        635,
+        545,
+        254,
+        153
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817394576,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 802,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 85,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        632,
+        544,
+        249,
+        152
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817394676,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 809,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 88,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        629,
+        547,
+        244,
+        149
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817394775,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 817,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 88,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        628,
+        545,
+        243,
+        146
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817394876,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 824,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        626,
+        546,
+        234,
+        145
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817395076,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 831,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        625,
+        546,
+        234,
+        142
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817395176,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 828,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        625,
+        548,
+        228,
+        138
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817395275,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 825,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        623,
+        548,
+        225,
+        138
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817395376,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 821,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        625,
+        548,
+        220,
+        135
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817395475,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 818,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        621,
+        548,
+        219,
+        134
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817395575,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 815,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        621,
+        549,
+        215,
+        134
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817395675,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 814,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        619,
+        548,
+        212,
+        133
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817395776,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 812,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        619,
+        549,
+        210,
+        132
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817395876,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 811,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        618,
+        549,
+        207,
+        131
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817395975,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 808,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        617,
+        548,
+        204,
+        130
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817396075,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 807,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        617,
+        548,
+        201,
+        127
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817396175,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 805,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        615,
+        549,
+        200,
+        125
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817396275,
+      "confidence": 97,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 803,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        615,
+        549,
+        196,
+        125
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817396375,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 802,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        614,
+        550,
+        193,
+        122
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817396475,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 800,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 79,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        612,
+        550,
+        189,
+        122
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817396575,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 799,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 84,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        613,
+        549,
+        186,
+        120
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817396675,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 797,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 84,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        612,
+        550,
+        183,
+        118
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817396775,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 796,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 84,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        611,
+        550,
+        181,
+        117
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817396875,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 796,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 85,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        610,
+        550,
+        176,
+        115
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817396976,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 795,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 85,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        609,
+        550,
+        174,
+        112
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817397075,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 794,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 85,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        608,
+        550,
+        171,
+        111
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817397175,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 793,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 85,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        605,
+        552,
+        169,
+        108
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817397275,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 792,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 85,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        604,
+        552,
+        166,
+        107
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817397377,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 791,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 85,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        604,
+        551,
+        166,
+        106
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817397475,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 792,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 85,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        604,
+        551,
+        161,
+        105
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817397575,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 792,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 85,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        601,
+        552,
+        158,
+        104
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817397676,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 792,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 85,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        601,
+        551,
+        156,
+        103
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817397775,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 790,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 85,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        600,
+        553,
+        153,
+        102
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817397882,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 790,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 86,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        598,
+        553,
+        150,
+        101
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817397975,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 788,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 86,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        598,
+        554,
+        150,
+        98
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817398075,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 788,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 86,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        598,
+        554,
+        147,
+        98
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817398175,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 788,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 86,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        598,
+        553,
+        142,
+        96
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817398276,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 788,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 86,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        595,
+        555,
+        142,
+        94
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817398375,
+      "confidence": 95,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 788,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 86,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        595,
+        555,
+        139,
+        95
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817398476,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 787,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 86,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    },
+    {
+      "coord": [
+        594,
+        555,
+        134,
+        91
+      ],
+      "depth": null,
+      "speed": null,
+      "id": "15915",
+      "timestamp": 1763817398675,
+      "confidence": 96,
+      "licensePlate": "WWH336E",
+      "objectType": "vehicle",
+      "zones": [
+        2
+      ],
+      "lines": [],
+      "duration": 785,
+      "stationary": false,
+      "attributes": {
+        "color": {
+          "confidence": 86,
+          "val": "white"
+        },
+        "vehicleType": {
+          "confidence": 92,
+          "val": "car"
+        }
+      },
+      "firstShownTimeMs": 1763817387575,
+      "idleSinceTimeMs": 0
+    }
+  ],
+  "camera": "1c9a2db4df6efda47a3509be",
+  "event": "f1d59512b03f596d87db22c7"
 }

@@ -16,6 +16,7 @@ from uuid import UUID
 import aiofiles
 import orjson
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
+from pydantic import ConfigDict
 from pydantic.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized
@@ -45,7 +46,6 @@ from .types import (
     ModelType,
     MountType,
     PercentFloat,
-    PercentInt,
     PermissionNode,
     ProgressCallback,
     RecordingMode,
@@ -80,21 +80,36 @@ class NVRLocation(UserLocation):
     model: ModelType | None = None
 
 
+class SmartDetectItemAttribute(ProtectBaseObject):
+    """Attribute value with confidence for smart detect items (e.g., color, vehicle type)."""
+
+    val: str
+    confidence: int
+
+
 class SmartDetectItem(ProtectBaseObject):
     id: str
     timestamp: datetime
-    level: PercentInt
     coord: tuple[int, int, int, int]
     object_type: SmartDetectObjectType
     zone_ids: list[int]
     duration: timedelta
+    confidence: int
+    first_shown_time_ms: int
+    idle_since_time_ms: int
+    stationary: bool
+    license_plate: str | None = None  # only populated for vehicle object_type
+    depth: float | None = None
+    speed: float | None = None
+    attributes: dict[str, SmartDetectItemAttribute] | None = None
+    lines: list[int] | None = None
 
     @classmethod
     @cache
     def _get_unifi_remaps(cls) -> dict[str, str]:
         return {
             **super()._get_unifi_remaps(),
-            "zones": "zoneIds",
+            "zones": "zone_ids",
         }
 
     @classmethod
@@ -129,9 +144,22 @@ class SmartDetectTrack(ProtectBaseObject):
         return self._api.bootstrap.events.get(self.event_id)
 
 
-class LicensePlateMetadata(ProtectBaseObject):
-    name: str
-    confidence_level: int
+class EventThumbnailGroup(ProtectBaseObject):
+    """Group information for detected thumbnails (e.g., license plate recognition)."""
+
+    id: str
+    name: str | None = None
+    matched_name: str | None = None
+    confidence: int
+
+    def unifi_dict(
+        self,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
+    ) -> dict[str, Any]:
+        data = super().unifi_dict(data=data, exclude=exclude)
+        pop_dict_set_if_none(data, {"matchedName", "name"})
+        return data
 
 
 class EventThumbnailAttribute(ProtectBaseObject):
@@ -166,8 +194,48 @@ class FingerprintMetadata(ProtectBaseObject):
 
 
 class EventThumbnailAttributes(ProtectBaseObject):
-    color: EventThumbnailAttribute | None = None
-    vehicle_type: EventThumbnailAttribute | None = None
+    """
+    Dynamic attributes for detected thumbnails.
+
+    All attributes are stored as extra fields for full flexibility.
+
+    Common attribute types:
+    - color, vehicleType, faceMask: EventThumbnailAttribute (with val and confidence)
+    - zone: list[int] - Zone IDs where detection occurred
+    - trackerId: int - Unique tracker ID for this detection
+
+    Allows any attributes for forward compatibility with new UFP features.
+
+    Example usage:
+        >>> attrs = thumbnail.attributes
+        >>> if attrs:
+        ...     # Access EventThumbnailAttribute objects
+        ...     color = attrs.color  # EventThumbnailAttribute
+        ...     if color:
+        ...         print(f"Color: {color.val} (confidence: {color.confidence})")
+        ...     # Access primitive types
+        ...     zones = attrs.zone  # list[int] | None
+        ...     tracker = attrs.trackerId  # int | None
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    def get_value(self, key: str) -> str | None:
+        """Get the string value from an EventThumbnailAttribute field, if it exists."""
+        attr = getattr(self, key, None)
+        if isinstance(attr, EventThumbnailAttribute):
+            return attr.val
+        return None
+
+    @classmethod
+    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
+        # Convert nested attribute objects to EventThumbnailAttribute instances
+        return {
+            key: EventThumbnailAttribute.from_unifi_dict(**value)
+            if isinstance(value, dict) and "val" in value and "confidence" in value
+            else value
+            for key, value in data.items()
+        }
 
     def unifi_dict(
         self,
@@ -175,8 +243,9 @@ class EventThumbnailAttributes(ProtectBaseObject):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-        pop_dict_set_if_none(data, DELETE_KEYS_THUMB)
-        return data
+
+        # Remove None values from extra fields
+        return {k: v for k, v in data.items() if v is not None}
 
 
 class EventDetectedThumbnail(ProtectBaseObject):
@@ -185,6 +254,11 @@ class EventDetectedThumbnail(ProtectBaseObject):
     cropped_id: str
     attributes: EventThumbnailAttributes | None = None
     name: str | None = None
+    coord: list[int] | None = None
+    confidence: int | None = None
+    # requires 6.0.0+
+    group: EventThumbnailGroup | None = None
+    object_id: str | None = None
 
     @classmethod
     @cache
@@ -197,7 +271,7 @@ class EventDetectedThumbnail(ProtectBaseObject):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-        pop_dict_set_if_none(data, {"name"})
+        pop_dict_set_if_none(data, {"name", "group", "objectId", "coord", "confidence"})
         return data
 
 
@@ -220,8 +294,6 @@ class EventMetadata(ProtectBaseObject):
     alarm_type: str | None = None
     device_id: str | None = None
     mac: str | None = None
-    # require 2.7.5+
-    license_plate: LicensePlateMetadata | None = None
     # requires 2.11.13+
     detected_thumbnails: list[EventDetectedThumbnail] | None = None
     # requires 5.1.34+
@@ -300,6 +372,9 @@ class Event(ProtectModelWithId):
     # only appears if `get_events` is called with category
     category: EventCategories | None = None
     sub_category: str | None = None
+    # requires 6.0.0+
+    is_favorite: bool | None = None
+    favorite_object_ids: list[str] | None = None
 
     # TODO:
     # partition
@@ -379,6 +454,45 @@ class Event(ProtectModelWithId):
             if g in self._api.bootstrap.events
         ]
         return self._smart_detect_events
+
+    def get_detected_thumbnail(self) -> EventDetectedThumbnail | None:
+        """
+        Gets best detected thumbnail for event (UFP 6.x+).
+
+        Returns the thumbnail marked with clockBestWall, which indicates
+        the optimal frame for this detection (highest confidence, best angle, etc.).
+
+        Returns:
+            EventDetectedThumbnail with the best detection frame, or None if:
+            - Event has no metadata
+            - No detected thumbnails available
+            - No thumbnail has clockBestWall set
+
+        Example usage:
+            >>> # License Plate Recognition
+            >>> thumbnail = event.get_detected_thumbnail()
+            >>> if thumbnail and thumbnail.group:
+            ...     plate = thumbnail.group.matched_name  # "ABC123"
+            ...     confidence = thumbnail.group.confidence  # 95
+            ...     if thumbnail.attributes:
+            ...         color = thumbnail.attributes.get_value("color")  # "white"
+            ...         vehicle = thumbnail.attributes.get_value("vehicleType")  # "sedan"
+
+            >>> # Face Detection
+            >>> thumbnail = event.get_detected_thumbnail()
+            >>> if thumbnail and thumbnail.group:
+            ...     face_name = thumbnail.group.matched_name  # "John Doe"
+            ...     confidence = thumbnail.group.confidence  # 87
+
+        """
+        if not self.metadata or not self.metadata.detected_thumbnails:
+            return None
+
+        for thumbnail in self.metadata.detected_thumbnails:
+            if thumbnail.clock_best_wall:
+                return thumbnail
+
+        return None
 
     async def get_thumbnail(
         self,

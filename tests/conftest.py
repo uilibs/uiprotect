@@ -759,6 +759,9 @@ NEW_FIELDS = {
     "isUCoreStacked",
     # 5.0.33+
     "isThirdPartyCamera",
+    # 6.0.0+
+    "isFavorite",
+    "favoriteObjectIds",
 }
 
 NEW_CAMERA_FEATURE_FLAGS = {
