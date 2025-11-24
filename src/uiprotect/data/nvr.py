@@ -437,67 +437,16 @@ class Event(ProtectModelWithId):
         ]
         return self._smart_detect_events
 
-    @property
-    def license_plates(self) -> list[str]:
-        """
-        All detected license plates from event metadata.
+    def get_detected_thumbnail(self) -> EventDetectedThumbnail | None:
+        """Gets best detected thumbnail for event (UFP 6.x+)"""
+        if not self.metadata or not self.metadata.detected_thumbnails:
+            return None
 
-        Returns a list of all matched license plates (empty list if none found).
-        Unknown plates (matched_name=None) are excluded.
-        """
-        plates = []
+        for thumbnail in self.metadata.detected_thumbnails:
+            if thumbnail.clock_best_wall:
+                return thumbnail
 
-        # legacy metadata.license_plate field (UFP < 5.x)
-        if (
-            self.metadata
-            and self.metadata.license_plate
-            and self.metadata.license_plate.name
-        ):
-            plates.append(self.metadata.license_plate.name)
-
-        # newer detectedThumbnails[].group.matchedName (UFP 6.x+)
-        if (
-            self.metadata
-            and self.metadata.detected_thumbnails
-            and SmartDetectObjectType.LICENSE_PLATE in self.smart_detect_types
-        ):
-            plates.extend(
-                thumbnail.group.matched_name
-                for thumbnail in self.metadata.detected_thumbnails
-                if (
-                    thumbnail.type == "vehicle"
-                    and thumbnail.group
-                    and thumbnail.group.matched_name
-                )
-            )
-
-        return plates
-
-    @property
-    def face_names(self) -> list[str]:
-        """
-        All detected face names from event metadata (UFP 6.x+).
-
-        Returns a list of all matched face names (empty list if none found).
-        Unknown faces (matched_name=None) are excluded.
-        """
-        names: list[str] = []
-        if (
-            self.metadata
-            and self.metadata.detected_thumbnails
-            and SmartDetectObjectType.FACE in self.smart_detect_types
-        ):
-            names.extend(
-                thumbnail.group.matched_name
-                for thumbnail in self.metadata.detected_thumbnails
-                if (
-                    thumbnail.type == "face"
-                    and thumbnail.group
-                    and thumbnail.group.matched_name
-                )
-            )
-
-        return names
+        return None
 
     async def get_thumbnail(
         self,
