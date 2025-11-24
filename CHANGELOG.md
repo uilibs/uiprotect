@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.27.0 (2025-11-24)
+
+### Features
+
+
+- Update ledsettings for protect 6.x compatibility and add new fields ([`45ab777`](https://github.com/uilibs/uiprotect/commit/45ab77734ac674f4f7ca32441fad118e677ba52d))
+
+
 ## v7.26.0 (2025-11-21)
 
 ### Features
