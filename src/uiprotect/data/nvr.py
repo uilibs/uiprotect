@@ -142,22 +142,6 @@ class SmartDetectTrack(ProtectBaseObject):
     def event(self) -> Event | None:
         return self._api.bootstrap.events.get(self.event_id)
 
-    @property
-    def license_plate(self) -> str | None:
-        """Returns the detected license plate with the highest confidence from the smart detect track."""
-        best_item: SmartDetectItem | None = None
-        for item in self.payload:
-            if item.license_plate and (
-                best_item is None or item.confidence > best_item.confidence
-            ):
-                best_item = item
-        return best_item.license_plate if best_item else None
-
-
-class LicensePlateMetadata(ProtectBaseObject):
-    name: str
-    confidence_level: int
-
 
 class EventThumbnailGroup(ProtectBaseObject):
     """Group information for detected thumbnails (e.g., license plate recognition)."""
@@ -274,8 +258,6 @@ class EventMetadata(ProtectBaseObject):
     alarm_type: str | None = None
     device_id: str | None = None
     mac: str | None = None
-    # require 2.7.5+
-    license_plate: LicensePlateMetadata | None = None
     # requires 2.11.13+
     detected_thumbnails: list[EventDetectedThumbnail] | None = None
     # requires 5.1.34+
