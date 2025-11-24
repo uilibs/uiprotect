@@ -182,9 +182,7 @@ def test_get_detected_thumbnail_from_real_data(
 ):
     """Test get_detected_thumbnail with real event data."""
     events_with_thumbs = [
-        e
-        for e in raw_events
-        if e.get("metadata", {}).get("detectedThumbnails")
+        e for e in raw_events if e.get("metadata", {}).get("detectedThumbnails")
     ]
 
     if not events_with_thumbs:
