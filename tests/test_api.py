@@ -480,24 +480,29 @@ def test_rtsp_urls_with_stacked_nvr(protect_client: ProtectApiClient, camera):
     # Simulate stacked NVR: NVR at 192.168.1.1, but camera connected via 192.168.2.100
     protect_client._connection_host = IPv4Address("192.168.1.1")
     camera["connectionHost"] = "192.168.2.100"
-    
+
     camera_obj = Camera.from_unifi_dict(api=protect_client, **camera)
-    
+
     # Verify setup
     assert camera_obj.connection_host == IPv4Address("192.168.2.100")
     assert protect_client.connection_host == IPv4Address("192.168.1.1")
-    
+
     # Test all RTSP-enabled channels use camera's connectionHost
     rtsp_channels = [
-        ch for ch in camera_obj.channels 
-        if ch.is_rtsp_enabled and ch.rtsp_alias
+        ch for ch in camera_obj.channels if ch.is_rtsp_enabled and ch.rtsp_alias
     ]
     assert rtsp_channels, "No RTSP-enabled channels found"
-    
+
     for channel in rtsp_channels:
         assert channel.rtsp_url == f"rtsp://192.168.2.100:7447/{channel.rtsp_alias}"
-        assert channel.rtsps_url == f"rtsps://192.168.2.100:7441/{channel.rtsp_alias}?enableSrtp"
-        assert channel.rtsps_no_srtp_url == f"rtsps://192.168.2.100:7441/{channel.rtsp_alias}"
+        assert (
+            channel.rtsps_url
+            == f"rtsps://192.168.2.100:7441/{channel.rtsp_alias}?enableSrtp"
+        )
+        assert (
+            channel.rtsps_no_srtp_url
+            == f"rtsps://192.168.2.100:7441/{channel.rtsp_alias}"
+        )
 
 
 def test_api_client_with_ipv6():
