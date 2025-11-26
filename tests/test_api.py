@@ -2065,6 +2065,9 @@ async def test_clear_methods_handle_missing_file(
         store_sessions=True,
         config_dir=tmp_path,
     )
+    # Set auth state to simulate authenticated client
+    client._is_authenticated = True
+    client._last_token_cookie = "some_token"
 
     # Don't create the config file
     await getattr(client, clear_method)()
@@ -2072,7 +2075,9 @@ async def test_clear_methods_handle_missing_file(
     # No file should exist and no error should be raised
     config_file = tmp_path / "unifi_protect.json"
     assert not config_file.exists()
-    assert client._is_authenticated is False
+    # Client state should NOT be reset since no file was found
+    assert client._is_authenticated is True
+    assert client._last_token_cookie == "some_token"
 
 
 @pytest.mark.asyncio()
@@ -2087,6 +2092,9 @@ async def test_clear_session_when_session_not_in_config(tmp_path: Path) -> None:
         store_sessions=True,
         config_dir=tmp_path,
     )
+    # Set auth state to simulate authenticated client
+    client._is_authenticated = True
+    client._last_token_cookie = "some_token"
 
     config = {
         "sessions": {
@@ -2107,8 +2115,9 @@ async def test_clear_session_when_session_not_in_config(tmp_path: Path) -> None:
     # File should still have the original session
     updated_config = orjson.loads(config_file.read_bytes())
     assert "different_hash" in updated_config["sessions"]
-    # Client state should still be reset
-    assert client._is_authenticated is False
+    # Client state should NOT be reset since no session was actually removed
+    assert client._is_authenticated is True
+    assert client._last_token_cookie == "some_token"
 
 
 @pytest.mark.asyncio()
@@ -2126,6 +2135,9 @@ async def test_clear_all_sessions_handles_file_disappearing(
         store_sessions=True,
     )
     client.config_dir = tmp_path
+    # Set auth state to simulate authenticated client
+    client._is_authenticated = True
+    client._last_token_cookie = "some_token"
 
     # Create config file so path.exists() check passes
     config_file = tmp_path / "unifi_protect.json"
@@ -2141,9 +2153,9 @@ async def test_clear_all_sessions_handles_file_disappearing(
 
     # Should have attempted to remove the file
     mock_remove.assert_called_once()
-    # Client state should still be reset
-    assert client._is_authenticated is False
-    assert client._last_token_cookie is None
+    # Client state should NOT be reset since file removal failed
+    assert client._is_authenticated is True
+    assert client._last_token_cookie == "some_token"
 
 
 @pytest.mark.asyncio()

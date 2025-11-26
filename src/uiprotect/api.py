@@ -864,7 +864,7 @@ class BaseApiClient:
         return token_expires_at >= max_expire_time
 
     async def clear_session(self) -> None:
-        """Clears stored session for this specific user/host combination"""
+        """Clears stored session for this specific user/host combination."""
         if not self.store_sessions:
             return
 
@@ -890,12 +890,13 @@ class BaseApiClient:
 
             _LOGGER.debug("Cleared session for %s", session_hash)
 
-        self._is_authenticated = False
-        self._last_token_cookie = None
-        self._last_token_cookie_decode = None
+            # Clear authentication state only when session was actually removed
+            self._is_authenticated = False
+            self._last_token_cookie = None
+            self._last_token_cookie_decode = None
 
     async def clear_all_sessions(self) -> None:
-        """Clears all stored sessions from the config file"""
+        """Clears all stored sessions from the config file."""
         if not self.store_sessions:
             return
 
@@ -903,12 +904,13 @@ class BaseApiClient:
             if self.config_file.exists():
                 await aos.remove(self.config_file)
                 _LOGGER.debug("Cleared all sessions from config file")
+
+                # Clear authentication state only after successful deletion
+                self._is_authenticated = False
+                self._last_token_cookie = None
+                self._last_token_cookie_decode = None
         except FileNotFoundError:
             pass
-
-        self._is_authenticated = False
-        self._last_token_cookie = None
-        self._last_token_cookie_decode = None
 
     def _get_websocket_url(self) -> URL:
         """Get Websocket URL."""
