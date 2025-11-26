@@ -863,6 +863,57 @@ class BaseApiClient:
 
         return token_expires_at >= max_expire_time
 
+    async def clear_session(self) -> None:
+        """Clears stored session for this specific user/host combination."""
+        if not self.store_sessions:
+            return
+
+        config: dict[str, Any] = {}
+        session_hash = get_user_hash(str(self._url), self._username)
+        try:
+            async with aiofiles.open(self.config_file, "rb") as f:
+                config_data = await f.read()
+                if config_data:
+                    try:
+                        config = orjson.loads(config_data)
+                    except orjson.JSONDecodeError:
+                        _LOGGER.warning("Invalid config file, ignoring.")
+                        return
+        except FileNotFoundError:
+            return
+
+        if "sessions" in config and session_hash in config["sessions"]:
+            del config["sessions"][session_hash]
+
+            async with aiofiles.open(self.config_file, "wb") as f:
+                await f.write(orjson.dumps(config, option=orjson.OPT_INDENT_2))
+
+            _LOGGER.debug("Cleared session for %s", session_hash)
+
+            # Clear authentication state only when session was actually removed
+            self._is_authenticated = False
+            self._last_token_cookie = None
+            self._last_token_cookie_decode = None
+
+    async def clear_all_sessions(self) -> None:
+        """Clears all stored sessions from the config file."""
+        if not self.store_sessions:
+            return
+
+        try:
+            await aos.remove(self.config_file)
+        except FileNotFoundError:
+            # File already gone - either never existed or removed by another process
+            return
+
+        # If we get here, the file was successfully removed (no exception raised)
+        _LOGGER.debug("Cleared all sessions from config file")
+
+        # Clear authentication state only after successful deletion
+        self._is_authenticated = False
+        self._last_token_cookie = None
+        self._last_token_cookie_decode = None
+
     def _get_websocket_url(self) -> URL:
         """Get Websocket URL."""
         return self._ws_url_object
