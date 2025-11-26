@@ -1835,6 +1835,7 @@ async def test_load_session_with_invalid_token(tmp_path: Path) -> None:
     # The decode should fail gracefully and return None
     # This simulates the "Authentication token decode error: Not enough segments" from the issue
     from uiprotect.utils import decode_token_cookie
+
     decoded = decode_token_cookie(client._last_token_cookie)
     assert decoded is None
 
@@ -1881,6 +1882,7 @@ async def test_load_session_with_token_two_segments(tmp_path: Path) -> None:
 
     # The decode should fail gracefully and return None
     from uiprotect.utils import decode_token_cookie
+
     decoded = decode_token_cookie(client._last_token_cookie)
     assert decoded is None
 
