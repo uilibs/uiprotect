@@ -876,7 +876,7 @@ class BaseApiClient:
                 if config_data:
                     try:
                         config = orjson.loads(config_data)
-                    except Exception:
+                    except orjson.JSONDecodeError:
                         _LOGGER.warning("Invalid config file, ignoring.")
                         return
         except FileNotFoundError:
@@ -901,16 +901,18 @@ class BaseApiClient:
             return
 
         try:
-            if self.config_file.exists():
-                await aos.remove(self.config_file)
-                _LOGGER.debug("Cleared all sessions from config file")
-
-                # Clear authentication state only after successful deletion
-                self._is_authenticated = False
-                self._last_token_cookie = None
-                self._last_token_cookie_decode = None
+            await aos.remove(self.config_file)
         except FileNotFoundError:
-            pass
+            # File already gone - either never existed or removed by another process
+            return
+
+        # If we get here, the file was successfully removed (no exception raised)
+        _LOGGER.debug("Cleared all sessions from config file")
+
+        # Clear authentication state only after successful deletion
+        self._is_authenticated = False
+        self._last_token_cookie = None
+        self._last_token_cookie_decode = None
 
     def _get_websocket_url(self) -> URL:
         """Get Websocket URL."""
