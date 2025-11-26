@@ -2067,7 +2067,7 @@ async def test_clear_methods_handle_missing_file(
     )
     # Set auth state to simulate authenticated client
     client._is_authenticated = True
-    client._last_token_cookie = "some_token"
+    client._last_token_cookie = "some_token"  # noqa: S105
 
     # Don't create the config file
     await getattr(client, clear_method)()
@@ -2077,7 +2077,7 @@ async def test_clear_methods_handle_missing_file(
     assert not config_file.exists()
     # Client state should NOT be reset since no file was found
     assert client._is_authenticated is True
-    assert client._last_token_cookie == "some_token"
+    assert client._last_token_cookie == "some_token"  # noqa: S105
 
 
 @pytest.mark.asyncio()
@@ -2094,7 +2094,7 @@ async def test_clear_session_when_session_not_in_config(tmp_path: Path) -> None:
     )
     # Set auth state to simulate authenticated client
     client._is_authenticated = True
-    client._last_token_cookie = "some_token"
+    client._last_token_cookie = "some_token"  # noqa: S105
 
     config = {
         "sessions": {
@@ -2117,7 +2117,7 @@ async def test_clear_session_when_session_not_in_config(tmp_path: Path) -> None:
     assert "different_hash" in updated_config["sessions"]
     # Client state should NOT be reset since no session was actually removed
     assert client._is_authenticated is True
-    assert client._last_token_cookie == "some_token"
+    assert client._last_token_cookie == "some_token"  # noqa: S105
 
 
 @pytest.mark.asyncio()
@@ -2137,7 +2137,7 @@ async def test_clear_all_sessions_handles_file_disappearing(
     client.config_dir = tmp_path
     # Set auth state to simulate authenticated client
     client._is_authenticated = True
-    client._last_token_cookie = "some_token"
+    client._last_token_cookie = "some_token"  # noqa: S105
 
     # Create config file so path.exists() check passes
     config_file = tmp_path / "unifi_protect.json"
@@ -2155,7 +2155,7 @@ async def test_clear_all_sessions_handles_file_disappearing(
     mock_remove.assert_called_once()
     # Client state should NOT be reset since file removal failed
     assert client._is_authenticated is True
-    assert client._last_token_cookie == "some_token"
+    assert client._last_token_cookie == "some_token"  # noqa: S105
 
 
 @pytest.mark.asyncio()
