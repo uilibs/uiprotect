@@ -1956,7 +1956,9 @@ async def test_clear_session_removes_specific_session(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio()
 @patch("uiprotect.api._LOGGER")
-async def test_clear_all_sessions_removes_file(mock_logger: Mock, tmp_path: Path) -> None:
+async def test_clear_all_sessions_removes_file(
+    mock_logger: Mock, tmp_path: Path
+) -> None:
     """Test that clear_all_sessions removes the config file and logs debug message."""
     client = ProtectApiClient(
         "127.0.0.1",
@@ -1970,8 +1972,18 @@ async def test_clear_all_sessions_removes_file(mock_logger: Mock, tmp_path: Path
 
     config = {
         "sessions": {
-            "hash1": {"metadata": {"path": "/"}, "cookiename": "TOKEN", "value": "token1", "csrf": "csrf1"},
-            "hash2": {"metadata": {"path": "/"}, "cookiename": "TOKEN", "value": "token2", "csrf": "csrf2"},
+            "hash1": {
+                "metadata": {"path": "/"},
+                "cookiename": "TOKEN",
+                "value": "token1",
+                "csrf": "csrf1",
+            },
+            "hash2": {
+                "metadata": {"path": "/"},
+                "cookiename": "TOKEN",
+                "value": "token2",
+                "csrf": "csrf2",
+            },
         }
     }
 
@@ -2120,7 +2132,9 @@ async def test_clear_all_sessions_handles_file_disappearing(
     config_file.write_bytes(orjson.dumps({"sessions": {}}))
 
     # Mock aos.remove to raise FileNotFoundError (race condition simulation)
-    mock_remove.side_effect = FileNotFoundError("File disappeared between exists() and remove()")
+    mock_remove.side_effect = FileNotFoundError(
+        "File disappeared between exists() and remove()"
+    )
 
     # Should not raise exception even though remove() fails
     await client.clear_all_sessions()
