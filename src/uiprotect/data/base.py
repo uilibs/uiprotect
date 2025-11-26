@@ -7,7 +7,7 @@ import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import cache
-from ipaddress import IPv4Address
+from ipaddress import IPv4Address, IPv6Address
 from typing import TYPE_CHECKING, Any, NamedTuple
 from uuid import UUID
 
@@ -887,7 +887,7 @@ class WifiConnectionState(WirelessConnectionState):
 
 class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     state: StateType
-    connection_host: IPv4Address | str | None = None
+    connection_host: IPv4Address | IPv6Address | str | None = None
     connected_since: datetime | None = None
     latest_firmware_version: str | None = None
     firmware_build: str | None = None

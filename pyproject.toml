@@ -51,7 +51,7 @@ propcache = ">=0.0.0"
 pydantic-extra-types = ">=2.10.1"
 
 [tool.poetry.group.dev.dependencies]
-pytest = ">=7,<9"
+pytest = ">=7,<10"
 pytest-cov = ">=3,<8"
 aiosqlite = ">=0.20.0"
 asttokens = ">=2.4.1,<4.0.0"
