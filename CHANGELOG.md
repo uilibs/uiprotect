@@ -1,5 +1,16 @@
 # Changelog
 
+## v7.29.0 (2025-11-26)
+
+### Features
+
+
+- Implement session management with clear_session and clear_all_sessions methods ([`20dbf23`](https://github.com/uilibs/uiprotect/commit/20dbf2336052adf442cf508f5c96bd5a9eff2fb4))
+
+
+- Enhance rtsp url handling for stacked nvr scenarios ([`80e5370`](https://github.com/uilibs/uiprotect/commit/80e5370e79ea6cd68d0ca0a3b1af9279b0789f63))
+
+
 ## v7.28.0 (2025-11-24)
 
 ### Features
