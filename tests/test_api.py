@@ -46,7 +46,7 @@ from uiprotect.data import (
 from uiprotect.data.devices import LEDSettings
 from uiprotect.data.types import Version, VideoMode
 from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
-from uiprotect.utils import to_js_time
+from uiprotect.utils import decode_token_cookie, to_js_time
 
 from .common import assert_equal_dump
 
@@ -1802,8 +1802,6 @@ async def test_load_session_with_invalid_token(tmp_path: Path) -> None:
 
     # The decode should fail gracefully and return None
     # This simulates the "Authentication token decode error: Not enough segments" from the issue
-    from uiprotect.utils import decode_token_cookie
-
     decoded = decode_token_cookie(client._last_token_cookie)
     assert decoded is None
 
@@ -1849,8 +1847,6 @@ async def test_load_session_with_token_two_segments(tmp_path: Path) -> None:
     assert client._last_token_cookie is not None
 
     # The decode should fail gracefully and return None
-    from uiprotect.utils import decode_token_cookie
-
     decoded = decode_token_cookie(client._last_token_cookie)
     assert decoded is None
 
@@ -1916,9 +1912,8 @@ async def test_invalid_token_triggers_reauthentication(
 
 
 @pytest.mark.asyncio()
-async def test_clear_session_data(tmp_path: Path) -> None:
-    """Test that session data can be cleared (for integration removal)."""
-    # Create a client with session storage
+async def test_clear_session_removes_specific_session(tmp_path: Path) -> None:
+    """Test that clear_session removes only the specific user/host session."""
     client = ProtectApiClient(
         "127.0.0.1",
         0,
@@ -1929,7 +1924,6 @@ async def test_clear_session_data(tmp_path: Path) -> None:
         config_dir=tmp_path,
     )
 
-    # Create a session config file with some data
     session_hash = get_user_hash(str(client._url), "test_user")
     config = {
         "sessions": {
@@ -1938,31 +1932,32 @@ async def test_clear_session_data(tmp_path: Path) -> None:
                 "cookiename": "TOKEN",
                 "value": "some_token_value",
                 "csrf": "some-csrf-token",
-            }
+            },
+            "other_session_hash": {
+                "metadata": {"path": "/"},
+                "cookiename": "TOKEN",
+                "value": "other_token",
+                "csrf": "other-csrf",
+            },
         }
     }
 
     config_file = tmp_path / "unifi_protect.json"
     config_file.write_bytes(orjson.dumps(config))
 
-    # Verify file exists
-    assert config_file.exists()
-
-    # Clear session data - this should remove the session for this specific user/url
-    # but keep the file structure intact for other potential sessions
     await client.clear_session()
 
-    # File should still exist but the session for this user should be removed
-    if config_file.exists():
-        updated_config = orjson.loads(config_file.read_bytes())
-        # The session for this specific user/url should be gone
-        assert session_hash not in updated_config.get("sessions", {})
+    # File should still exist with the other session intact
+    updated_config = orjson.loads(config_file.read_bytes())
+    assert session_hash not in updated_config["sessions"]
+    assert "other_session_hash" in updated_config["sessions"]
+    assert client._is_authenticated is False
 
 
 @pytest.mark.asyncio()
-async def test_clear_all_sessions(tmp_path: Path) -> None:
-    """Test that all session data can be cleared."""
-    # Create a client with session storage
+@patch("uiprotect.api._LOGGER")
+async def test_clear_all_sessions_removes_file(mock_logger: Mock, tmp_path: Path) -> None:
+    """Test that clear_all_sessions removes the config file and logs debug message."""
     client = ProtectApiClient(
         "127.0.0.1",
         0,
@@ -1973,37 +1968,168 @@ async def test_clear_all_sessions(tmp_path: Path) -> None:
         config_dir=tmp_path,
     )
 
-    # Create a session config file with multiple sessions
     config = {
         "sessions": {
-            "hash1": {
-                "metadata": {"path": "/"},
-                "cookiename": "TOKEN",
-                "value": "token1",
-                "csrf": "csrf1",
-            },
-            "hash2": {
-                "metadata": {"path": "/"},
-                "cookiename": "TOKEN",
-                "value": "token2",
-                "csrf": "csrf2",
-            },
+            "hash1": {"metadata": {"path": "/"}, "cookiename": "TOKEN", "value": "token1", "csrf": "csrf1"},
+            "hash2": {"metadata": {"path": "/"}, "cookiename": "TOKEN", "value": "token2", "csrf": "csrf2"},
         }
     }
 
     config_file = tmp_path / "unifi_protect.json"
     config_file.write_bytes(orjson.dumps(config))
 
-    # Verify file exists
-    assert config_file.exists()
-
-    # Clear all session data
     await client.clear_all_sessions()
 
-    # File should either not exist or be empty
-    if config_file.exists():
-        updated_config = orjson.loads(config_file.read_bytes())
-        assert len(updated_config.get("sessions", {})) == 0
+    assert not config_file.exists()
+    assert client._is_authenticated is False
+    assert client._last_token_cookie is None
+    assert client._last_token_cookie_decode is None
+    mock_logger.debug.assert_called_once_with("Cleared all sessions from config file")
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("clear_method", ["clear_session", "clear_all_sessions"])
+async def test_clear_methods_do_nothing_when_sessions_disabled(
+    tmp_path: Path, clear_method: str
+) -> None:
+    """Test that clear methods do nothing when store_sessions=False."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=False,
+        config_dir=tmp_path,
+    )
+
+    config_file = tmp_path / "unifi_protect.json"
+    config_file.write_bytes(orjson.dumps({"sessions": {}}))
+
+    await getattr(client, clear_method)()
+
+    # File should still exist since sessions are disabled
+    assert config_file.exists()
+    config = orjson.loads(config_file.read_bytes())
+    assert config == {"sessions": {}}
+
+
+@pytest.mark.asyncio()
+async def test_clear_session_with_invalid_config_file(tmp_path: Path) -> None:
+    """Test that clear_session handles invalid config file gracefully."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path,
+    )
+
+    # Create a config file with invalid JSON
+    config_file = tmp_path / "unifi_protect.json"
+    config_file.write_text("invalid json content {{{")
+
+    # Call clear_session - should handle the exception gracefully
+    await client.clear_session()
+
+    # File should still exist
+    assert config_file.exists()
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("clear_method", ["clear_session", "clear_all_sessions"])
+async def test_clear_methods_handle_missing_file(
+    tmp_path: Path, clear_method: str
+) -> None:
+    """Test that clear methods handle missing config file gracefully."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path,
+    )
+
+    # Don't create the config file
+    await getattr(client, clear_method)()
+
+    # No file should exist and no error should be raised
+    config_file = tmp_path / "unifi_protect.json"
+    assert not config_file.exists()
+    assert client._is_authenticated is False
+
+
+@pytest.mark.asyncio()
+async def test_clear_session_when_session_not_in_config(tmp_path: Path) -> None:
+    """Test that clear_session handles missing session hash gracefully."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path,
+    )
+
+    config = {
+        "sessions": {
+            "different_hash": {
+                "metadata": {"path": "/"},
+                "cookiename": "TOKEN",
+                "value": "token1",
+                "csrf": "csrf1",
+            }
+        }
+    }
+
+    config_file = tmp_path / "unifi_protect.json"
+    config_file.write_bytes(orjson.dumps(config))
+
+    await client.clear_session()
+
+    # File should still have the original session
+    updated_config = orjson.loads(config_file.read_bytes())
+    assert "different_hash" in updated_config["sessions"]
+    # Client state should still be reset
+    assert client._is_authenticated is False
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.aos.remove")
+async def test_clear_all_sessions_handles_file_disappearing(
+    mock_remove: AsyncMock, tmp_path: Path
+) -> None:
+    """Test that clear_all_sessions handles FileNotFoundError if file disappears during removal."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+    )
+    client.config_dir = tmp_path
+
+    # Create config file so path.exists() check passes
+    config_file = tmp_path / "unifi_protect.json"
+    config_file.write_bytes(orjson.dumps({"sessions": {}}))
+
+    # Mock aos.remove to raise FileNotFoundError (race condition simulation)
+    mock_remove.side_effect = FileNotFoundError("File disappeared between exists() and remove()")
+
+    # Should not raise exception even though remove() fails
+    await client.clear_all_sessions()
+
+    # Should have attempted to remove the file
+    mock_remove.assert_called_once()
+    # Client state should still be reset
+    assert client._is_authenticated is False
+    assert client._last_token_cookie is None
 
 
 @pytest.mark.asyncio()
