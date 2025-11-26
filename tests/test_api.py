@@ -1795,6 +1795,248 @@ async def test_load_session_accepts_valid_csrf_token(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio()
+async def test_load_session_with_invalid_token(tmp_path: Path) -> None:
+    """Test that loading a session with an invalid token (not enough segments) handles gracefully."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path,
+    )
+
+    # Create a config file with a session containing an invalid token
+    # (not a valid JWT format - should have 3 segments separated by dots)
+    session_hash = get_user_hash(str(client._url), "test_user")
+    config = {
+        "sessions": {
+            session_hash: {
+                "metadata": {"path": "/", "expires": "Sun, 21 Dec 2025 13:44:52 GMT"},
+                "cookiename": "TOKEN",
+                "value": "invalid_token_not_jwt",  # Invalid: only 1 segment, not 3
+                "csrf": "valid-csrf-token-12345",
+            }
+        }
+    }
+
+    config_file = tmp_path / "unifi_protect.json"
+    config_file.write_bytes(orjson.dumps(config))
+
+    # Load the session
+    cookie = await client._read_auth_config()
+
+    # Should successfully load the cookie even if token is invalid
+    assert cookie is not None
+    assert client._is_authenticated is True
+    assert client._last_token_cookie is not None
+
+    # The decode should fail gracefully and return None
+    # This simulates the "Authentication token decode error: Not enough segments" from the issue
+    from uiprotect.utils import decode_token_cookie
+    decoded = decode_token_cookie(client._last_token_cookie)
+    assert decoded is None
+
+    # Verify is_authenticated returns False for invalid token
+    assert client.is_authenticated() is False
+
+
+@pytest.mark.asyncio()
+async def test_load_session_with_token_two_segments(tmp_path: Path) -> None:
+    """Test that loading a session with a token having only 2 segments handles gracefully."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path,
+    )
+
+    # Create a config file with a token that has 2 segments instead of 3
+    session_hash = get_user_hash(str(client._url), "test_user")
+    config = {
+        "sessions": {
+            session_hash: {
+                "metadata": {"path": "/", "expires": "Sun, 21 Dec 2025 13:44:52 GMT"},
+                "cookiename": "TOKEN",
+                "value": "segment1.segment2",  # Invalid: only 2 segments instead of 3
+                "csrf": "valid-csrf-token-12345",
+            }
+        }
+    }
+
+    config_file = tmp_path / "unifi_protect.json"
+    config_file.write_bytes(orjson.dumps(config))
+
+    # Load the session
+    cookie = await client._read_auth_config()
+
+    # Should successfully load the cookie even if token is invalid
+    assert cookie is not None
+    assert client._is_authenticated is True
+    assert client._last_token_cookie is not None
+
+    # The decode should fail gracefully and return None
+    from uiprotect.utils import decode_token_cookie
+    decoded = decode_token_cookie(client._last_token_cookie)
+    assert decoded is None
+
+    # Verify is_authenticated returns False for invalid token
+    assert client.is_authenticated() is False
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.ProtectApiClient.request")
+async def test_invalid_token_triggers_reauthentication(
+    mock_request: AsyncMock, tmp_path: Path
+) -> None:
+    """Test that an invalid token in session triggers re-authentication and updates the session file."""
+    # Create a config file with an invalid token (like from the GitHub issue)
+    session_hash = get_user_hash("https://127.0.0.1:0", "test_user")
+    invalid_config = {
+        "sessions": {
+            session_hash: {
+                "metadata": {"path": "/", "expires": "Sun, 21 Dec 2025 13:44:52 GMT"},
+                "cookiename": "TOKEN",
+                "value": "invalid_token",  # Not a valid JWT
+                "csrf": "old-csrf-token",
+            }
+        }
+    }
+
+    config_file = tmp_path / "unifi_protect.json"
+    config_file.write_bytes(orjson.dumps(invalid_config))
+
+    # Setup mock for authentication
+    mock_auth_response = AsyncMock()
+    mock_auth_response.status = 200
+    mock_auth_response.headers = {
+        "set-cookie": "TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0IiwiZXhwIjoxNzMzMDAwMDAwfQ.test; path=/",
+        "x-csrf-token": "new-csrf-token-12345",
+    }
+    mock_auth_response.cookies = {}
+    mock_request.return_value = mock_auth_response
+
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path,
+    )
+
+    # Ensure authentication is triggered (which loads the session first)
+    await client.ensure_authenticated()
+
+    # Should have called authenticate() due to invalid token
+    assert mock_request.called
+    assert client._is_authenticated is True
+
+    # Verify the session file was updated with the new valid token
+    updated_config = orjson.loads(config_file.read_bytes())
+    session_data = updated_config["sessions"][session_hash]
+    assert session_data["csrf"] == "new-csrf-token-12345"
+    # The new token should be a valid JWT format (3 segments)
+    assert session_data["value"].count(".") == 2
+
+
+@pytest.mark.asyncio()
+async def test_clear_session_data(tmp_path: Path) -> None:
+    """Test that session data can be cleared (for integration removal)."""
+    # Create a client with session storage
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path,
+    )
+
+    # Create a session config file with some data
+    session_hash = get_user_hash(str(client._url), "test_user")
+    config = {
+        "sessions": {
+            session_hash: {
+                "metadata": {"path": "/", "expires": "Sun, 21 Dec 2025 13:44:52 GMT"},
+                "cookiename": "TOKEN",
+                "value": "some_token_value",
+                "csrf": "some-csrf-token",
+            }
+        }
+    }
+
+    config_file = tmp_path / "unifi_protect.json"
+    config_file.write_bytes(orjson.dumps(config))
+
+    # Verify file exists
+    assert config_file.exists()
+
+    # Clear session data - this should remove the session for this specific user/url
+    # but keep the file structure intact for other potential sessions
+    await client.clear_session()
+
+    # File should still exist but the session for this user should be removed
+    if config_file.exists():
+        updated_config = orjson.loads(config_file.read_bytes())
+        # The session for this specific user/url should be gone
+        assert session_hash not in updated_config.get("sessions", {})
+
+
+@pytest.mark.asyncio()
+async def test_clear_all_sessions(tmp_path: Path) -> None:
+    """Test that all session data can be cleared."""
+    # Create a client with session storage
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path,
+    )
+
+    # Create a session config file with multiple sessions
+    config = {
+        "sessions": {
+            "hash1": {
+                "metadata": {"path": "/"},
+                "cookiename": "TOKEN",
+                "value": "token1",
+                "csrf": "csrf1",
+            },
+            "hash2": {
+                "metadata": {"path": "/"},
+                "cookiename": "TOKEN",
+                "value": "token2",
+                "csrf": "csrf2",
+            },
+        }
+    }
+
+    config_file = tmp_path / "unifi_protect.json"
+    config_file.write_bytes(orjson.dumps(config))
+
+    # Verify file exists
+    assert config_file.exists()
+
+    # Clear all session data
+    await client.clear_all_sessions()
+
+    # File should either not exist or be empty
+    if config_file.exists():
+        updated_config = orjson.loads(config_file.read_bytes())
+        assert len(updated_config.get("sessions", {})) == 0
+
+
+@pytest.mark.asyncio()
 @patch("uiprotect.api.ProtectApiClient.request")
 async def test_authenticate_with_session_storage(
     mock_request: AsyncMock, tmp_path: Path
