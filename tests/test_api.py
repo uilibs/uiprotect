@@ -452,6 +452,8 @@ def test_rtsp_urls_with_ipv6(protect_client: ProtectApiClient):
     protect_client._connection_host = ipv6_addr
 
     camera = next(iter(protect_client.bootstrap.cameras.values()))
+    # Set camera's connectionHost to None so it falls back to NVR's connection_host
+    camera.connection_host = None
 
     for channel in camera.channels:
         if channel.is_rtsp_enabled:
@@ -470,6 +472,36 @@ def test_rtsp_urls_with_ipv6(protect_client: ProtectApiClient):
                 == f"rtsps://{expected_host}:7441/{channel.rtsp_alias}"
             )
             break
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_rtsp_urls_with_stacked_nvr(protect_client: ProtectApiClient, camera):
+    """Test that RTSP URLs use camera's connectionHost in stacked NVR scenario."""
+    # Simulate stacked NVR: NVR at 192.168.1.1, but camera connected via 192.168.2.100
+    protect_client._connection_host = IPv4Address("192.168.1.1")
+    camera["connectionHost"] = IPv4Address("192.168.2.100")
+
+    camera_obj = Camera.from_unifi_dict(api=protect_client, **camera)
+
+    # Verify setup
+    assert camera_obj.connection_host == IPv4Address("192.168.2.100")
+    assert protect_client.connection_host == IPv4Address("192.168.1.1")
+
+    # Test all RTSP-enabled channels use camera's connectionHost
+    rtsp_channels = [ch for ch in camera_obj.channels if ch.is_rtsp_enabled]
+    assert rtsp_channels, "No RTSP-enabled channels found"
+
+    for channel in rtsp_channels:
+        if channel.rtsp_alias:
+            assert channel.rtsp_url == f"rtsp://192.168.2.100:7447/{channel.rtsp_alias}"
+            assert (
+                channel.rtsps_url
+                == f"rtsps://192.168.2.100:7441/{channel.rtsp_alias}?enableSrtp"
+            )
+            assert (
+                channel.rtsps_no_srtp_url
+                == f"rtsps://192.168.2.100:7441/{channel.rtsp_alias}"
+            )
 
 
 def test_api_client_with_ipv6():

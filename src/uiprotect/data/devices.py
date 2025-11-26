@@ -8,11 +8,12 @@ import warnings
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import cache, lru_cache
-from ipaddress import IPv4Address
+from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
+from pydantic import model_validator
 from pydantic.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized, StreamError
@@ -270,9 +271,16 @@ class CameraChannel(ProtectBaseObject):
     auto_bitrate: bool | None = None
     auto_fps: bool | None = None
 
+    _parent: Camera | None = PrivateAttr(None)
     _rtsp_url: str | None = PrivateAttr(None)
     _rtsps_url: str | None = PrivateAttr(None)
     _rtsps_no_srtp_url: str | None = PrivateAttr(None)
+
+    def _get_connection_host(self) -> IPv4Address | IPv6Address | str:
+        """Get connection host (camera's for stacked NVR, otherwise NVR's)."""
+        if self._parent is not None and self._parent.connection_host is not None:
+            return self._parent.connection_host
+        return self._api.connection_host
 
     @property
     def rtsp_url(self) -> str | None:
@@ -282,7 +290,7 @@ class CameraChannel(ProtectBaseObject):
         if self._rtsp_url is not None:
             return self._rtsp_url
 
-        host = format_host_for_url(self._api.connection_host)
+        host = format_host_for_url(self._get_connection_host())
         self._rtsp_url = (
             f"rtsp://{host}:{self._api.bootstrap.nvr.ports.rtsp}/{self.rtsp_alias}"
         )
@@ -296,7 +304,7 @@ class CameraChannel(ProtectBaseObject):
         if self._rtsps_url is not None:
             return self._rtsps_url
 
-        host = format_host_for_url(self._api.connection_host)
+        host = format_host_for_url(self._get_connection_host())
         self._rtsps_url = f"rtsps://{host}:{self._api.bootstrap.nvr.ports.rtsps}/{self.rtsp_alias}?enableSrtp"
         return self._rtsps_url
 
@@ -308,7 +316,7 @@ class CameraChannel(ProtectBaseObject):
         if self._rtsps_no_srtp_url is not None:
             return self._rtsps_no_srtp_url
 
-        host = format_host_for_url(self._api.connection_host)
+        host = format_host_for_url(self._get_connection_host())
         self._rtsps_no_srtp_url = (
             f"rtsps://{host}:{self._api.bootstrap.nvr.ports.rtsps}/{self.rtsp_alias}"
         )
@@ -1100,6 +1108,13 @@ class Camera(ProtectMotionDeviceModel):
         return {
             "chimeDuration": lambda x: timedelta(milliseconds=x),
         } | super().unifi_dict_conversions()
+
+    @model_validator(mode="after")
+    def _set_channel_parents(self) -> Camera:
+        """Set parent camera reference in channels after initialization."""
+        for channel in self.channels:
+            channel._parent = self
+        return self
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
