@@ -276,7 +276,7 @@ class CameraChannel(ProtectBaseObject):
     _rtsps_url: str | None = PrivateAttr(None)
     _rtsps_no_srtp_url: str | None = PrivateAttr(None)
 
-    def _get_connection_host(self) -> IPv4Address | IPv6Address:
+    def _get_connection_host(self) -> IPv4Address | IPv6Address | str:
         """Get connection host (camera's for stacked NVR, otherwise NVR's)."""
         if self._parent is not None and self._parent.connection_host is not None:
             return self._parent.connection_host
