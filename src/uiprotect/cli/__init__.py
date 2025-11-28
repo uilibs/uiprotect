@@ -84,9 +84,10 @@ OPTION_PORT = typer.Option(
 )
 OPTION_SECONDS = typer.Option(15, "--seconds", "-s", help="Seconds to pull events")
 OPTION_VERIFY = typer.Option(
-    True,
-    "--no-verify",
+    False,
+    "--verify",
     help="Verify SSL",
+    prompt="Verify SSL certificate",
     envvar="UFP_SSL_VERIFY",
 )
 OPTION_ANON = typer.Option(True, "--actual", help="Do not anonymize test data")
