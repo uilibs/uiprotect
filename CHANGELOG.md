@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.30.0 (2025-11-28)
+
+### Features
+
+
+- Improve devcontainer configuration ([`f32aba2`](https://github.com/uilibs/uiprotect/commit/f32aba29c790a85b8d76686cf86b90dc92b20a94))
+
+
 ## v7.29.0 (2025-11-26)
 
 ### Features
