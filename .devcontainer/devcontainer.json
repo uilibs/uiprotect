@@ -6,8 +6,18 @@
     },
     "updateRemoteUserUID": true,
     "features": {},
-    "postCreateCommand": "bash -c 'poetry install --with dev --no-interaction --no-ansi && poetry run pre-commit install --install-hooks'",
+    "postCreateCommand": "bash -c 'export LANG=C.UTF-8 LC_ALL=C.UTF-8 && poetry install --with dev --no-interaction --no-ansi && LANG=C.UTF-8 LC_ALL=C.UTF-8 poetry run pre-commit install --install-hooks && echo \"LANG=C.UTF-8\" >> /etc/environment && echo \"LC_ALL=C.UTF-8\" >> /etc/environment'",
     "remoteUser": "root",
+    "containerEnv": {
+        "GIT_AUTHOR_NAME": "${localEnv:GIT_AUTHOR_NAME:${localEnv:USER:devcontainer}}",
+        "GIT_AUTHOR_EMAIL": "${localEnv:GIT_AUTHOR_EMAIL:${localEnv:USER:devcontainer}@localhost}",
+        "GIT_COMMITTER_NAME": "${localEnv:GIT_COMMITTER_NAME:${localEnv:USER:devcontainer}}",
+        "GIT_COMMITTER_EMAIL": "${localEnv:GIT_COMMITTER_EMAIL:${localEnv:USER:devcontainer}@localhost}"
+    },
+    "remoteEnv": {
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8"
+    },
     "customizations": {
         "vscode": {
             "settings": {
@@ -25,16 +35,17 @@
                 ],
                 "python.analysis.typeCheckingMode": "strict",
                 "python.analysis.autoImportCompletions": true,
-                "python.analysis.fixAll": ["source.organizeImports", "source.unusedImports"],
                 "editor.formatOnSave": true,
-                "editor.rulers": [88],
+                "editor.rulers": [
+                    88
+                ],
                 "files.trimTrailingWhitespace": true,
                 "files.insertFinalNewline": true,
                 "[python]": {
                     "editor.defaultFormatter": "charliermarsh.ruff",
                     "editor.codeActionsOnSave": {
-                        "source.organizeImports": "explicit",
-                        "source.fixAll": "explicit"
+                        "source.organizeImports.ruff": "explicit",
+                        "source.fixAll.ruff": "explicit"
                     }
                 },
                 "[markdown]": {
