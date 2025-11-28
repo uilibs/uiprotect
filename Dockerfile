@@ -6,11 +6,18 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     build-essential \
     bash \
- && rm -rf /var/lib/apt/lists/*
+    locales \
+    && sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen \
+    && locale-gen en_US.UTF-8 \
+    && update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
 
 SHELL ["/bin/bash", "-c"]
 
-RUN curl -sSL https://install.python-poetry.org | POETRY_VERSION=2.1.3 python3 -
+RUN curl -sSL https://install.python-poetry.org | POETRY_VERSION=2.2.1 python3 -
 
 ENV PATH="/root/.local/bin:${PATH}"
 
