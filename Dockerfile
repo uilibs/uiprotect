@@ -6,7 +6,11 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     build-essential \
     bash \
- && rm -rf /var/lib/apt/lists/*
+    locales \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 SHELL ["/bin/bash", "-c"]
 
