@@ -50,6 +50,31 @@ Install this via pip (or your favorite package manager):
 
 `pip install uiprotect`
 
+## Developer Setup
+
+The recommended way to develop is using the provided **devcontainer** with VS Code:
+
+1. Install [VS Code](https://code.visualstudio.com/) and the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+2. Open the project in VS Code
+3. When prompted, click "Reopen in Container" (or use Command Palette: "Dev Containers: Reopen in Container")
+4. The devcontainer will automatically set up Python, Poetry, pre-commit hooks, and all dependencies
+
+Alternatively, if you want to develop natively without devcontainer:
+
+```bash
+# Install dependencies
+poetry install --with dev
+
+# Install pre-commit hooks
+poetry run pre-commit install --install-hooks
+
+# Run tests
+poetry run pytest
+
+# Run pre-commit checks manually
+poetry run pre-commit run --all-files
+```
+
 ## History
 
 This project was split off from `pyunifiprotect` because that project changed its license to one that would not be accepted in Home Assistant. This project is committed to keeping the MIT license.
@@ -80,14 +105,6 @@ The API is not documented by Ubiquiti, so there might be misses and/or frequent 
 
 The module is primarily written for the purpose of being used in Home Assistant core [integration for UniFi Protect](https://www.home-assistant.io/integrations/unifiprotect) but might be used for other purposes also.
 
-## Smart Detections now Require Remote Access to enable
-
-Smart Detections (person, vehicle, animal, face), a feature that previously could be used with local only console, [now requires you to enable remote access to enable](https://community.ui.com/questions/Cannot-enable-Smart-Detections/e3d50641-5c00-4607-9723-453cda557e35#answer/1d146426-89aa-4022-a0ae-fd5000846028).
-
-Enabling Remote Access may grant other users access to your console [due to the fact Ubiquiti can reconfigure access controls at any time](https://community.ui.com/questions/Bug-Fix-Cloud-Access-Misconfiguration/fe8d4479-e187-4471-bf95-b2799183ceb7).
-
-If you are not okay with the feature being locked behind Remote Access, [let Ubiquiti know](https://community.ui.com/questions/Cannot-enable-Smart-Detections/e3d50641-5c00-4607-9723-453cda557e35).
-
 ## Documentation
 
 [Full documentation for the project](https://uiprotect.readthedocs.io/).
@@ -96,8 +113,8 @@ If you are not okay with the feature being locked behind Remote Access, [let Ubi
 
 If you want to install `uiprotect` natively, the below are the requirements:
 
-- [UniFi Protect](https://ui.com/camera-security) version 1.20+
-  - Latest version of library is generally only tested against the two latest minor version. This is either two latest stable versions (such as 1.21.x and 2.0.x) or the latest EA version and stable version (such as 2.2.x EA and 2.1.x).
+- [UniFi Protect](https://ui.com/camera-security) version 6.0+
+  - Only UniFi Protect version 6 and newer are supported. The library is generally tested against the latest stable version and the latest EA version.
 - [Python](https://www.python.org/) 3.10+
 - POSIX compatible system
   - Library is only tested on Linux, specifically the latest Debian version available for the official Python Docker images, but there is no reason the library should not work on any Linux distro or macOS.
@@ -164,9 +181,38 @@ export UFP_PORT=443
 # change to false if you do not have a valid HTTPS certificate for your instance
 export UFP_SSL_VERIFY=True
 
+# Alternatively, use an API key for authentication (required for public API operations)
+export UFP_API_KEY=YOUR_API_KEY_HERE
+
 uiprotect --help
 uiprotect nvr
 ```
+
+#### Available CLI Commands
+
+**Top-level commands:**
+
+- `uiprotect shell` - Start an interactive Python shell with the API client
+- `uiprotect create-api-key <name>` - Create a new API key for authentication
+- `uiprotect get-meta-info` - Get metadata information
+- `uiprotect generate-sample-data` - Generate sample data for testing
+- `uiprotect profile-ws` - Profile WebSocket performance
+- `uiprotect decode-ws-msg` - Decode WebSocket messages
+
+**Device management commands:**
+
+- `uiprotect nvr` - NVR information and settings
+- `uiprotect events` - Event management and export
+- `uiprotect cameras` - Camera management
+- `uiprotect lights` - Light device management
+- `uiprotect sensors` - Sensor management
+- `uiprotect viewers` - Viewer management
+- `uiprotect liveviews` - Live view configuration
+- `uiprotect chimes` - Chime management
+- `uiprotect doorlocks` - Door lock management
+- `uiprotect aiports` - AI port management
+
+For more details on any command, use `uiprotect <command> --help`.
 
 ### Python
 
@@ -177,7 +223,11 @@ The main interface for the library is the `uiprotect.ProtectApiClient`:
 ```python
 from uiprotect import ProtectApiClient
 
+# Initialize with username/password
 protect = ProtectApiClient(host, port, username, password, verify_ssl=True)
+
+# Or with API key (required for public API operations)
+protect = ProtectApiClient(host, port, username, password, api_key=api_key, verify_ssl=True)
 
 await protect.update() # this will initialize the protect .bootstrap and open a Websocket connection for updates
 
@@ -214,4 +264,3 @@ Anything that is strictly a UniFi OS feature. If it is ever done, it will be in 
 Some features that require an Ubiquiti Account or "Remote Access" to be enabled are currently not implemented. Examples include:
 
 - Stream sharing
-- Face detection
