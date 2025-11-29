@@ -89,6 +89,7 @@ OPTION_VERIFY_SSL = typer.Option(
     True,
     "--verify-ssl/--no-verify-ssl",
     help="Verify SSL certificate. Disable for self-signed certificates.",
+    envvar="UFP_SSL_VERIFY",
 )
 OPTION_ANON = typer.Option(True, "--actual", help="Do not anonymize test data")
 OPTION_ZIP = typer.Option(False, "--zip", help="Zip up data after generate")
