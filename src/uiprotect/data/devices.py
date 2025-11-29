@@ -408,6 +408,23 @@ class SpeakerSettings(ProtectBaseObject):
     # Status Sounds
     are_system_sounds_enabled: bool
     volume: PercentInt
+    # Doorbell ring volume (for doorbells)
+    ring_volume: PercentInt | None = None
+    ringtone_id: str | None = None
+    repeat_times: int | None = None
+    # Actual speaker output volume (for cameras with speakers)
+    speaker_volume: PercentInt | None = None
+
+    def unifi_dict(
+        self,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
+    ) -> dict[str, Any]:
+        data = super().unifi_dict(data=data, exclude=exclude)
+        pop_dict_set_if_none(
+            data, {"ringVolume", "ringtoneId", "repeatTimes", "speakerVolume"}
+        )
+        return data
 
 
 class RecordingSettings(ProtectBaseObject):
@@ -2390,12 +2407,32 @@ class Camera(ProtectMotionDeviceModel):
         await self.queue_update(callback)
 
     async def set_speaker_volume(self, level: int) -> None:
-        """Sets the speaker sensitivity level on camera. Requires camera to have speakers"""
+        """Sets the speaker output volume on camera. Requires camera to have speakers"""
+        if not self.feature_flags.has_speaker:
+            raise BadRequest("Camera does not have speaker")
+
+        def callback() -> None:
+            self.speaker_settings.speaker_volume = PercentInt(level)
+
+        await self.queue_update(callback)
+
+    async def set_volume(self, level: int) -> None:
+        """Sets the general volume level on camera. Requires camera to have speakers"""
         if not self.feature_flags.has_speaker:
             raise BadRequest("Camera does not have speaker")
 
         def callback() -> None:
             self.speaker_settings.volume = PercentInt(level)
+
+        await self.queue_update(callback)
+
+    async def set_ring_volume(self, level: int) -> None:
+        """Sets the doorbell ring volume. Requires camera to be a doorbell"""
+        if not self.feature_flags.is_doorbell:
+            raise BadRequest("Camera is not a doorbell")
+
+        def callback() -> None:
+            self.speaker_settings.ring_volume = PercentInt(level)
 
         await self.queue_update(callback)
 
