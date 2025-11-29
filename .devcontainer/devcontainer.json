@@ -2,7 +2,8 @@
     "name": "uiprotect-dev",
     "build": {
         "dockerfile": "../Dockerfile",
-        "context": ".."
+        "context": "..",
+        "target": "devcontainer"
     },
     "updateRemoteUserUID": true,
     "features": {},
