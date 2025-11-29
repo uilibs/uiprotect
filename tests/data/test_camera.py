@@ -1688,3 +1688,17 @@ def test_camera_is_face_currently_detected(camera_obj: Camera) -> None:
 
     with patch.object(camera_obj.api.bootstrap.events, "get", return_value=mock_event):
         assert camera_obj.is_face_currently_detected is False
+
+
+def test_camera_zone_color_serialization():
+    """Test that CameraZone color is serialized as hex string, not dict with RGB values."""
+    zone = CameraZone.create_privacy_zone(0)
+    zone_dict = zone.unifi_dict()
+
+    # Verify color is serialized as string (hex format)
+    assert "color" in zone_dict
+    assert isinstance(zone_dict["color"], str)
+    assert zone_dict["color"] == "#85BCEC"
+
+    # Verify it's not a dict with RGB values (which would cause Pydantic warnings)
+    assert not isinstance(zone_dict["color"], dict)
