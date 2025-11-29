@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
@@ -1690,7 +1691,7 @@ def test_camera_is_face_currently_detected(camera_obj: Camera) -> None:
         assert camera_obj.is_face_currently_detected is False
 
 
-def test_camera_zone_color_serialization():
+def test_camera_zone_color_serialization() -> None:
     """Test that CameraZone color is serialized as hex string, not dict with RGB values."""
     zone = CameraZone.create_privacy_zone(0)
     zone_dict = zone.unifi_dict()
@@ -1702,3 +1703,28 @@ def test_camera_zone_color_serialization():
 
     # Verify it's not a dict with RGB values (which would cause Pydantic warnings)
     assert not isinstance(zone_dict["color"], dict)
+
+
+def test_camera_zone_color_serialization_from_dict() -> None:
+    """
+    Test that CameraZone.unifi_dict() converts color dict to hex string.
+
+    This simulates the case where Pydantic's serializer returns a dict
+    with RGB values instead of a hex string, which would cause warnings.
+    """
+    zone = CameraZone.create_privacy_zone(0)
+
+    # Create a dict with color as a dict (simulating Pydantic serialization issue)
+    zone_dict_with_color_dict: dict[str, Any] = {
+        "id": 0,
+        "name": "pyufp_privacy_zone",
+        "color": {"r": 133, "g": 188, "b": 236, "a": 1.0},  # Color as dict
+        "points": [[0, 0], [1, 0], [1, 1], [0, 1]],
+    }
+
+    # Call unifi_dict with this data - it should convert color dict to hex string
+    result = zone.unifi_dict(data=zone_dict_with_color_dict)
+
+    # Verify the color was converted from dict to hex string
+    assert isinstance(result["color"], str)
+    assert result["color"] == "#85BCEC"
