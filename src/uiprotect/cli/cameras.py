@@ -487,11 +487,35 @@ def set_speaker_volume(
     ctx: typer.Context,
     level: int = typer.Argument(..., min=0, max=100),
 ) -> None:
-    """Sets the speaker sensitivity level on camera"""
+    """Sets the speaker output volume on camera"""
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
 
     base.run(ctx, obj.set_speaker_volume(level))
+
+
+@app.command()
+def set_volume(
+    ctx: typer.Context,
+    level: int = typer.Argument(..., min=0, max=100),
+) -> None:
+    """Sets the general volume level on camera"""
+    base.require_device_id(ctx)
+    obj: d.Camera = ctx.obj.device
+
+    base.run(ctx, obj.set_volume(level))
+
+
+@app.command()
+def set_ring_volume(
+    ctx: typer.Context,
+    level: int = typer.Argument(..., min=0, max=100),
+) -> None:
+    """Sets the doorbell ring volume"""
+    base.require_device_id(ctx)
+    obj: d.Camera = ctx.obj.device
+
+    base.run(ctx, obj.set_ring_volume(level))
 
 
 @app.command()
