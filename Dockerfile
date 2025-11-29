@@ -39,8 +39,6 @@ RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
 
 FROM base AS prod
 
-ARG UIPROTECT_VERSION
-
 COPY --from=builder /usr/local/bin/uv /usr/local/bin/
 COPY --from=prod-builder /tmp/build/dist/*.whl /tmp/
 RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
@@ -69,9 +67,9 @@ RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
 FROM base AS dev
 
 # Python will not automatically write .pyc files
-ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONDONTWRITEBYTECODE=1
 # Enables Python development mode, see https://docs.python.org/3/library/devmode.html
-ENV PYTHONDEVMODE 1
+ENV PYTHONDEVMODE=1
 
 COPY --from=builder-dev /usr/local/bin/ /usr/local/bin/
 COPY --from=builder-dev /usr/local/lib/python3.13/ /usr/local/lib/python3.13/
@@ -80,13 +78,13 @@ COPY ./.docker/bashrc /root/.bashrc
 COPY ./.docker/bashrc /home/app/.bashrc
 RUN --mount=type=cache,mode=0755,id=apt-$TARGETPLATFORM,target=/var/lib/apt/lists \
     apt-get update -qq \
-    && apt-get install -yqq git curl vim procps curl jq sudo \
+    && apt-get install -yqq git curl vim procps jq sudo \
     && echo 'app ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers \
     && chown app:app /home/app/.bashrc \
     && chmod +x /usr/local/bin/docker-fix
 
-ENV PYTHONPATH /workspaces/uiprotect/
-ENV PATH $PATH:/workspaces/uiprotect/.bin
+ENV PYTHONPATH=/workspaces/uiprotect/
+ENV PATH=$PATH:/workspaces/uiprotect/.bin
 USER app
 WORKDIR /workspaces/uiprotect/
 
