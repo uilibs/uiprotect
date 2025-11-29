@@ -93,7 +93,7 @@ WORKDIR /workspaces/uiprotect/
 # Development Container (for VS Code devcontainer)
 # =============================================================================
 
-FROM python:3.13-slim AS devcontainer
+FROM python:3.13-slim-bookworm AS devcontainer
 
 RUN apt-get update && apt-get install -y \
     curl \
