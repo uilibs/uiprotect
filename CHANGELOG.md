@@ -1,5 +1,19 @@
 # Changelog
 
+## v7.31.0 (2025-11-29)
+
+### Bug fixes
+
+
+- Pydantic serialization warnings for camerazone color ([`5869b88`](https://github.com/uilibs/uiprotect/commit/5869b88c549e5f98d31eaf799ae006f30f04bd5d))
+
+
+### Features
+
+
+- Add update_light_public() method and fix lux_sensitivity handling ([`ef4e378`](https://github.com/uilibs/uiprotect/commit/ef4e3789fcfdb797ebe0e9b2c437cb4cfb977576))
+
+
 ## v7.30.1 (2025-11-29)
 
 ### Bug fixes

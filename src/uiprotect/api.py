@@ -16,7 +16,7 @@ from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal, TypedDict, cast
 from urllib.parse import SplitResult
 
 import aiofiles
@@ -29,6 +29,7 @@ from yarl import URL
 
 from uiprotect.data.base import ProtectBaseObject
 from uiprotect.data.convert import list_from_unifi_list
+from uiprotect.data.devices import LightDeviceSettings, LightModeSettings
 from uiprotect.data.nvr import MetaInfo
 from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
 
@@ -79,6 +80,16 @@ if "partitioned" not in cookies.Morsel._reserved:  # type: ignore[attr-defined]
     # See: https://github.com/python/cpython/issues/112713
     cookies.Morsel._reserved["partitioned"] = "partitioned"  # type: ignore[attr-defined]
     cookies.Morsel._flags.add("partitioned")  # type: ignore[attr-defined]
+
+
+class LightPatchRequest(TypedDict, total=False):
+    """Type for PATCH /v1/lights/{id} request body."""
+
+    name: str
+    isLightForceEnabled: bool
+    lightModeSettings: dict[str, Any]
+    lightDeviceSettings: dict[str, Any]
+
 
 TOKEN_COOKIE_MAX_EXP_SECONDS = 60
 
@@ -1820,6 +1831,10 @@ class ProtectApiClient(BaseApiClient):
         Gets the list of lights straight from the NVR.
 
         The websocket is connected and running, you likely just want to use `self.bootstrap.lights`
+
+        .. deprecated::
+            Use :meth:`get_lights_public` instead. This method uses the private API
+            and will be removed in a future version.
         """
         return cast(list[Light], await self.get_devices(ModelType.LIGHT, Light))
 
@@ -1946,6 +1961,10 @@ class ProtectApiClient(BaseApiClient):
         Gets a light straight from the NVR.
 
         The websocket is connected and running, you likely just want to use `self.bootstrap.lights[device_id]`
+
+        .. deprecated::
+            Use :meth:`get_light_public` instead. This method uses the private API
+            and will be removed in a future version.
         """
         return cast(Light, await self.get_device(ModelType.LIGHT, device_id, Light))
 
@@ -2516,7 +2535,13 @@ class ProtectApiClient(BaseApiClient):
     async def set_light_is_led_force_on(
         self, device_id: str, is_led_force_on: bool
     ) -> None:
-        """Sets isLedForceOn for light."""  # workaround because forceOn doesnt work via websocket
+        """
+        Sets isLedForceOn for light.
+
+        .. deprecated::
+            Use :meth:`update_light_public` instead. This method uses the private API
+            and will be removed in a future version.
+        """
         await self.api_request(
             f"lights/{device_id}",
             method="patch",
@@ -2761,6 +2786,59 @@ class ProtectApiClient(BaseApiClient):
         """Get a specific light using public API."""
         data = await self.api_request_obj(url=f"/v1/lights/{light_id}", public_api=True)
         return Light.from_unifi_dict(**data, api=self)
+
+    async def update_light_public(
+        self,
+        light_id: str,
+        *,
+        name: str | None = None,
+        is_light_force_enabled: bool | None = None,
+        light_mode_settings: LightModeSettings | None = None,
+        light_device_settings: LightDeviceSettings | None = None,
+    ) -> Light:
+        """
+        Update light settings using public API.
+
+        Args:
+        ----
+            light_id: The light's ID
+            name: Light name
+            is_light_force_enabled: Force enable the light
+            light_mode_settings: Light mode settings (mode, enable_at)
+            light_device_settings: Light device settings (LED level, PIR settings, etc.)
+
+        Returns:
+        -------
+            Updated Light object
+
+        Raises:
+        ------
+            BadRequest: If no parameters are provided
+
+        """
+        data: LightPatchRequest = {}
+        if name is not None:
+            data["name"] = name
+        if is_light_force_enabled is not None:
+            data["isLightForceEnabled"] = is_light_force_enabled
+        if light_mode_settings is not None:
+            data["lightModeSettings"] = light_mode_settings.unifi_dict()
+        if light_device_settings is not None:
+            # luxSensitivity may come from Private API but is not settable - filter it out
+            device_dict = light_device_settings.unifi_dict()
+            device_dict.pop("luxSensitivity", None)
+            data["lightDeviceSettings"] = device_dict
+
+        if not data:
+            raise BadRequest("At least one parameter must be provided")
+
+        result = await self.api_request_obj(
+            url=f"/v1/lights/{light_id}",
+            method="patch",
+            json=data,
+            public_api=True,
+        )
+        return Light.from_unifi_dict(**result, api=self)
 
     async def get_cameras_public(self) -> list[Camera]:
         """Get all cameras using public API."""

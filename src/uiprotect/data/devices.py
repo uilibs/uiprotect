@@ -96,9 +96,10 @@ class LightDeviceSettings(ProtectBaseObject):
     is_indicator_enabled: bool
     # Brightness
     led_level: LEDLevel
-    lux_sensitivity: LowMedHigh
     pir_duration: timedelta
     pir_sensitivity: PercentInt
+    # lux_sensitivity exists in Private API but not in Public API - filtered when sending updates
+    lux_sensitivity: LowMedHigh | None = None
 
     @classmethod
     @cache
@@ -743,6 +744,10 @@ class CameraZone(ProtectBaseObject):
 
         if "points" in data:
             data["points"] = [serialize_point(p) for p in data["points"]]
+
+        if "color" in data and isinstance(data["color"], dict):
+            # Serialize Color object to hex string to avoid Pydantic serialization warnings
+            data["color"] = self.color.as_hex().upper()
 
         return data
 
