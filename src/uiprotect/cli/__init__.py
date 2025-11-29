@@ -85,8 +85,8 @@ OPTION_PORT = typer.Option(
 OPTION_SECONDS = typer.Option(15, "--seconds", "-s", help="Seconds to pull events")
 OPTION_VERIFY = typer.Option(
     False,
-    "--verify",
-    help="Verify SSL",
+    "--verify-ssl",
+    help="Verify SSL certificate (disable for self-signed certificates)",
     prompt="Verify SSL certificate",
     envvar="UFP_SSL_VERIFY",
 )

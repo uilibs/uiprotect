@@ -24,7 +24,7 @@ export UFP_PASSWORD=YOUR_PASSWORD_HERE
 export UFP_ADDRESS=YOUR_IP_ADDRESS
 export UFP_PORT=443
 # change to false if you do not have a valid HTTPS Certificate for your instance
-export UFP_SSL_VERIFY=True
+export UFP_SSL_VERIFY=false
 
 uiprotect nvr
 ```
@@ -32,7 +32,7 @@ uiprotect nvr
 ### CLI Args
 
 ```bash
-uiprotect -U YOUR_USERNAME_HERE -P YOUR_PASSWORD_HERE -a YOUR_IP_ADDRESS -p 443 --no-verify nvr
+uiprotect -U YOUR_USERNAME_HERE -P YOUR_PASSWORD_HERE -a YOUR_IP_ADDRESS -p 443 --verify-ssl=false nvr
 ```
 
 ## Timezones
@@ -54,17 +54,17 @@ UniFi Protect CLI
 
 ### Options
 
-|      | Option                | Required?          | Env              | Type           | Default | Description                                                                                                     |
-| ---- | --------------------- | ------------------ | ---------------- | -------------- | ------- | --------------------------------------------------------------------------------------------------------------- |
-| `-U` | `--username`          | :white_check_mark: | `UFP_USERNAME`   | text           |         | UniFi Protect username                                                                                          |
-| `-P` | `--password`          | :white_check_mark: | `UFP_PASSWORD`   | text           |         | UniFi Protect password                                                                                          |
-| `-a` | `--address`           | :white_check_mark: | `UFP_ADDRESS`    | text           |         | UniFi Protect IP address or hostname                                                                            |
-| `-p` | `--port`              |                    | `UFP_PORT`       | integer        | `443`   | UniFi Protect port                                                                                              |
-|      | `--no-verify`         |                    | `UFP_SSL_VERIFY` | boolean        | `True`  | Verify SSL                                                                                                      |
-|      | `--output-format`     |                    |                  | `json`,`plain` | `plain` | Preferred output format. Not all commands support both JSON and plain and may still output in one or the other. |
-| `-u` | `--include-unadopted` |                    |                  |                |         | Include devices not adopted by this NVR.                                                                        |
-|      | `--show-completion`   |                    |                  |                |         | Show completion for the current shell, to copy it or customize the installation.                                |
-|      | `--help`              |                    |                  |                |         | Show help message and exit.                                                                                     |
+|      | Option                | Required?          | Env              | Type           | Default | Description                                                                                                                 |
+| ---- | --------------------- | ------------------ | ---------------- | -------------- | ------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `-U` | `--username`          | :white_check_mark: | `UFP_USERNAME`   | text           |         | UniFi Protect username                                                                                                      |
+| `-P` | `--password`          | :white_check_mark: | `UFP_PASSWORD`   | text           |         | UniFi Protect password                                                                                                      |
+| `-a` | `--address`           | :white_check_mark: | `UFP_ADDRESS`    | text           |         | UniFi Protect IP address or hostname                                                                                        |
+| `-p` | `--port`              |                    | `UFP_PORT`       | integer        | `443`   | UniFi Protect port                                                                                                          |
+|      | `--verify-ssl`        |                    | `UFP_SSL_VERIFY` | boolean        | `False` | Verify SSL certificate (disable for self-signed certificates). Will prompt if not provided via CLI or environment variable. |
+|      | `--output-format`     |                    |                  | `json`,`plain` | `plain` | Preferred output format. Not all commands support both JSON and plain and may still output in one or the other.             |
+| `-u` | `--include-unadopted` |                    |                  |                |         | Include devices not adopted by this NVR.                                                                                    |
+|      | `--show-completion`   |                    |                  |                |         | Show completion for the current shell, to copy it or customize the installation.                                            |
+|      | `--help`              |                    |                  |                |         | Show help message and exit.                                                                                                 |
 
 ### Subcommands
 
