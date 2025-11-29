@@ -121,4 +121,4 @@ WORKDIR /workspace
 ENV POETRY_VIRTUALENVS_CREATE=false
 
 COPY pyproject.toml poetry.lock* ./
-RUN poetry install --no-root || true
+RUN poetry install --no-root
