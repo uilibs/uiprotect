@@ -98,7 +98,7 @@ class LightDeviceSettings(ProtectBaseObject):
     led_level: LEDLevel
     pir_duration: timedelta
     pir_sensitivity: PercentInt
-    # luxSensitivity exists in Private API but is not settable/used - ignored
+    # lux_sensitivity exists in Private API but not in Public API - filtered when sending updates
     lux_sensitivity: LowMedHigh | None = None
 
     @classmethod

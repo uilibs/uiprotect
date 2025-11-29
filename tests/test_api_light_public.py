@@ -14,6 +14,7 @@ from uiprotect.data.devices import (
     LightModeSettings,
     LightModeType,
 )
+from uiprotect.data.types import LowMedHigh
 from uiprotect.exceptions import BadRequest
 
 if TYPE_CHECKING:
@@ -322,8 +323,58 @@ async def test_update_light_public_no_parameters(
 
 @pytest.mark.asyncio()
 @patch("uiprotect.data.devices.Light.from_unifi_dict")
-async def test_update_light_public_api_error(
+async def test_update_light_public_filters_lux_sensitivity(
     mock_create: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    """Test that lux_sensitivity is filtered out when sending to Public API."""
+    light_device_settings = LightDeviceSettings(
+        is_indicator_enabled=True,
+        led_level=5,
+        pir_duration=timedelta(seconds=30),
+        pir_sensitivity=60,
+        lux_sensitivity=LowMedHigh.HIGH,  # Should be filtered out
+    )
+
+    mock_light = Mock()
+    mock_light.id = LIGHT_ID
+    mock_create.return_value = mock_light
+
+    mock_light_data: dict[str, Any] = {
+        "id": LIGHT_ID,
+        "lightDeviceSettings": {
+            "isIndicatorEnabled": True,
+            "ledLevel": 5,
+            "pirDuration": 30000,
+            "pirSensitivity": 60,
+        },
+    }
+    protect_client.api_request_obj = AsyncMock(return_value=mock_light_data)  # type: ignore[method-assign]
+
+    result = await protect_client.update_light_public(
+        LIGHT_ID, light_device_settings=light_device_settings
+    )
+
+    assert result is not None
+    # Verify that luxSensitivity is NOT in the JSON payload sent to API
+    protect_client.api_request_obj.assert_called_once_with(  # type: ignore[attr-defined]
+        url=f"/v1/lights/{LIGHT_ID}",
+        method="patch",
+        json={
+            "lightDeviceSettings": {
+                "isIndicatorEnabled": True,
+                "ledLevel": 5,
+                "pirDuration": 30000,
+                "pirSensitivity": 60,
+                # luxSensitivity should NOT be here
+            }
+        },
+        public_api=True,
+    )
+
+
+@pytest.mark.asyncio()
+async def test_update_light_public_api_error(
     protect_client: ProtectApiClient,
 ) -> None:
     """Test API error handling."""
