@@ -96,9 +96,10 @@ class LightDeviceSettings(ProtectBaseObject):
     is_indicator_enabled: bool
     # Brightness
     led_level: LEDLevel
-    lux_sensitivity: LowMedHigh
     pir_duration: timedelta
     pir_sensitivity: PercentInt
+    # luxSensitivity exists in Private API but is not settable/used - ignored
+    lux_sensitivity: LowMedHigh | None = None
 
     @classmethod
     @cache
