@@ -452,7 +452,7 @@ async def test_camera_set_speaker_volume(camera_obj: Camera | None, level: int):
     camera_obj.api.api_request.reset_mock()
 
     camera_obj.feature_flags.has_speaker = True
-    camera_obj.speaker_settings.volume = 10
+    camera_obj.speaker_settings.speaker_volume = 10
 
     if level in {-1, 200}:
         with pytest.raises(ValidationError):
@@ -464,7 +464,7 @@ async def test_camera_set_speaker_volume(camera_obj: Camera | None, level: int):
         camera_obj.api.api_request.assert_called_with(
             f"cameras/{camera_obj.id}",
             method="patch",
-            json={"speakerSettings": {"volume": level}},
+            json={"speakerSettings": {"speakerVolume": level}},
         )
 
 

@@ -408,6 +408,12 @@ class SpeakerSettings(ProtectBaseObject):
     # Status Sounds
     are_system_sounds_enabled: bool
     volume: PercentInt
+    # Doorbell ring volume (for doorbells)
+    ring_volume: PercentInt | None = None
+    ringtone_id: str | None = None
+    repeat_times: int | None = None
+    # Actual speaker output volume (for cameras with speakers)
+    speaker_volume: PercentInt | None = None
 
 
 class RecordingSettings(ProtectBaseObject):
@@ -2395,7 +2401,7 @@ class Camera(ProtectMotionDeviceModel):
             raise BadRequest("Camera does not have speaker")
 
         def callback() -> None:
-            self.speaker_settings.volume = PercentInt(level)
+            self.speaker_settings.speaker_volume = PercentInt(level)
 
         await self.queue_update(callback)
 
