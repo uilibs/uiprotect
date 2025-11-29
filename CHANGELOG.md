@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.32.0 (2025-11-29)
+
+### Features
+
+
+- Add ssl verification prompt with default to disabled ([`f9a07f7`](https://github.com/uilibs/uiprotect/commit/f9a07f707aea417fc7a000fcec6a5fe560964034))
+
+
 ## v7.31.0 (2025-11-29)
 
 ### Bug fixes
