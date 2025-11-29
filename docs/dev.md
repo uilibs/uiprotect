@@ -49,8 +49,8 @@ UFP_USERNAME=YOUR_USERNAME_HERE
 UFP_PASSWORD=YOUR_PASSWORD_HERE
 UFP_ADDRESS=YOUR_IP_ADDRESS
 UFP_PORT=443
-# change to false if you do not have a valid HTTPS Certificate for your instance
-UFP_SSL_VERIFY=True
+# set to true if you have a valid HTTPS certificate for your instance
+UFP_SSL_VERIFY=false
 ```
 
 ## Linting and Testing

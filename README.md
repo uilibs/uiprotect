@@ -152,7 +152,7 @@ function uiprotect() {
       -e UFP_PASSWORD=YOUR_PASSWORD_HERE \
       -e UFP_ADDRESS=YOUR_IP_ADDRESS \
       -e UFP_PORT=443 \
-      -e UFP_SSL_VERIFY=True \
+      -e UFP_SSL_VERIFY=false \
       -e TZ=America/New_York \
       -v $PWD:/data ghcr.io/uilibs/uiprotect:latest "$@"
 }
@@ -178,8 +178,8 @@ export UFP_USERNAME=YOUR_USERNAME_HERE
 export UFP_PASSWORD=YOUR_PASSWORD_HERE
 export UFP_ADDRESS=YOUR_IP_ADDRESS
 export UFP_PORT=443
-# change to false if you do not have a valid HTTPS certificate for your instance
-export UFP_SSL_VERIFY=True
+# set to true if you have a valid HTTPS certificate for your instance
+export UFP_SSL_VERIFY=false
 
 # Alternatively, use an API key for authentication (required for public API operations)
 export UFP_API_KEY=YOUR_API_KEY_HERE

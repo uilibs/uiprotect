@@ -3,10 +3,12 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import ssl
 import sys
 from pathlib import Path
 from typing import cast
 
+import aiohttp
 import orjson
 import typer
 from rich.progress import track
@@ -83,10 +85,10 @@ OPTION_PORT = typer.Option(
     envvar="UFP_PORT",
 )
 OPTION_SECONDS = typer.Option(15, "--seconds", "-s", help="Seconds to pull events")
-OPTION_VERIFY = typer.Option(
+OPTION_VERIFY_SSL = typer.Option(
     True,
-    "--no-verify",
-    help="Verify SSL",
+    "--verify-ssl/--no-verify-ssl",
+    help="Verify SSL certificate. Disable for self-signed certificates.",
     envvar="UFP_SSL_VERIFY",
 )
 OPTION_ANON = typer.Option(True, "--actual", help="Do not anonymize test data")
@@ -142,6 +144,27 @@ if backup_app is not None:
     app.add_typer(backup_app, name="backup")
 
 
+def _is_ssl_error(exc: BaseException) -> bool:
+    """Check if an exception is an SSL certificate verification error."""
+    if isinstance(exc, aiohttp.ClientConnectorCertificateError):
+        return True
+    if isinstance(exc, aiohttp.ClientConnectorSSLError):
+        return True
+    if isinstance(exc, ssl.SSLCertVerificationError):
+        return True
+    # Check nested exceptions
+    if exc.__cause__ is not None:
+        return _is_ssl_error(exc.__cause__)
+    return False
+
+
+async def _connect_and_bootstrap(protect: ProtectApiClient) -> None:
+    """Connect to the Protect API and fetch bootstrap data."""
+    protect._bootstrap = await protect.get_bootstrap()
+    await protect.close_session()
+    await protect.close_public_api_session()
+
+
 @app.callback()
 def main(
     ctx: typer.Context,
@@ -150,7 +173,7 @@ def main(
     api_key: str | None = OPTION_API_KEY,
     address: str = OPTION_ADDRESS,
     port: int = OPTION_PORT,
-    verify: bool = OPTION_VERIFY,
+    verify_ssl: bool = OPTION_VERIFY_SSL,
     output_format: OutputFormatEnum = OPTION_OUT_FORMAT,
     include_unadopted: bool = OPTION_UNADOPTED,
 ) -> None:
@@ -164,16 +187,50 @@ def main(
         username,
         password,
         api_key,
-        verify_ssl=verify,
+        verify_ssl=verify_ssl,
         ignore_unadopted=not include_unadopted,
     )
 
-    async def update() -> None:
-        protect._bootstrap = await protect.get_bootstrap()
+    async def close_protect() -> None:
+        """Close the Protect API client sessions."""
         await protect.close_session()
         await protect.close_public_api_session()
 
-    run_async(update())
+    try:
+        run_async(_connect_and_bootstrap(protect))
+    except Exception as exc:
+        # Always close the session on error to avoid "Unclosed client session" warning
+        run_async(close_protect())
+
+        if verify_ssl and _is_ssl_error(exc):
+            typer.secho(
+                "SSL certificate verification failed. "
+                "This is common with self-signed certificates on UniFi devices.",
+                fg="yellow",
+            )
+            if typer.confirm("Would you like to disable SSL verification and retry?"):
+                # Create new client with SSL disabled
+                protect = ProtectApiClient(
+                    address,
+                    port,
+                    username,
+                    password,
+                    api_key,
+                    verify_ssl=False,
+                    ignore_unadopted=not include_unadopted,
+                )
+                run_async(_connect_and_bootstrap(protect))
+                typer.secho(
+                    "Connected successfully with SSL verification disabled.\n"
+                    "Tip: Use --no-verify-ssl to skip this prompt in the future.",
+                    fg="green",
+                )
+            else:
+                typer.secho("Connection aborted.", fg="red")
+                raise typer.Exit(code=1) from exc
+        else:
+            raise
+
     ctx.obj = CliContext(protect=protect, output_format=output_format)
 
 
