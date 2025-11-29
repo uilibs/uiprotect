@@ -1,5 +1,19 @@
 # Changelog
 
+## v7.30.1 (2025-11-29)
+
+### Bug fixes
+
+
+- Camera speaker volume ([`ea66817`](https://github.com/uilibs/uiprotect/commit/ea66817c5e05f3acc2da74544f8c431e8e3b28f6))
+
+
+### Documentation
+
+
+- Update readme with current features and requirements ([`7301124`](https://github.com/uilibs/uiprotect/commit/73011248abfa7b7febd1a66f4c07a9bd2818d77d))
+
+
 ## v7.30.0 (2025-11-28)
 
 ### Features
