@@ -469,6 +469,58 @@ async def test_camera_set_speaker_volume(camera_obj: Camera | None, level: int):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("level", [-1, 0, 100, 200])
+@pytest.mark.asyncio()
+async def test_camera_set_volume(camera_obj: Camera | None, level: int):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.api.api_request.reset_mock()
+
+    camera_obj.feature_flags.has_speaker = True
+    camera_obj.speaker_settings.volume = 10
+
+    if level in {-1, 200}:
+        with pytest.raises(ValidationError):
+            await camera_obj.set_volume(level)
+        assert not camera_obj.api.api_request.called
+    else:
+        await camera_obj.set_volume(level)
+
+        camera_obj.api.api_request.assert_called_with(
+            f"cameras/{camera_obj.id}",
+            method="patch",
+            json={"speakerSettings": {"volume": level}},
+        )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("level", [-1, 0, 100, 200])
+@pytest.mark.asyncio()
+async def test_camera_set_ring_volume(camera_obj: Camera | None, level: int):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.api.api_request.reset_mock()
+
+    camera_obj.feature_flags.is_doorbell = True
+    camera_obj.speaker_settings.ring_volume = 10
+
+    if level in {-1, 200}:
+        with pytest.raises(ValidationError):
+            await camera_obj.set_ring_volume(level)
+        assert not camera_obj.api.api_request.called
+    else:
+        await camera_obj.set_ring_volume(level)
+
+        camera_obj.api.api_request.assert_called_with(
+            f"cameras/{camera_obj.id}",
+            method="patch",
+            json={"speakerSettings": {"ringVolume": level}},
+        )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
 async def test_camera_set_chime_duration_no_chime(camera_obj: Camera | None):
     if camera_obj is None:
