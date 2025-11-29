@@ -469,6 +469,22 @@ async def test_camera_set_speaker_volume(camera_obj: Camera | None, level: int):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_set_volume_no_speaker(camera_obj: Camera | None):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.api.api_request.reset_mock()
+
+    camera_obj.feature_flags.has_speaker = False
+
+    with pytest.raises(BadRequest):
+        await camera_obj.set_volume(50)
+
+    assert not camera_obj.api.api_request.called
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("level", [-1, 0, 100, 200])
 @pytest.mark.asyncio()
 async def test_camera_set_volume(camera_obj: Camera | None, level: int):
@@ -492,6 +508,22 @@ async def test_camera_set_volume(camera_obj: Camera | None, level: int):
             method="patch",
             json={"speakerSettings": {"volume": level}},
         )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_set_ring_volume_no_doorbell(camera_obj: Camera | None):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.api.api_request.reset_mock()
+
+    camera_obj.feature_flags.is_doorbell = False
+
+    with pytest.raises(BadRequest):
+        await camera_obj.set_ring_volume(50)
+
+    assert not camera_obj.api.api_request.called
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")

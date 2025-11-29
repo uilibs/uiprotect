@@ -415,6 +415,17 @@ class SpeakerSettings(ProtectBaseObject):
     # Actual speaker output volume (for cameras with speakers)
     speaker_volume: PercentInt | None = None
 
+    def unifi_dict(
+        self,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
+    ) -> dict[str, Any]:
+        data = super().unifi_dict(data=data, exclude=exclude)
+        pop_dict_set_if_none(
+            data, {"ringVolume", "ringtoneId", "repeatTimes", "speakerVolume"}
+        )
+        return data
+
 
 class RecordingSettings(ProtectBaseObject):
     # Seconds to record before Motion
