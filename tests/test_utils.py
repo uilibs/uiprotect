@@ -696,7 +696,8 @@ def test_log_event():
     log_event(event)
 
     # Smart event with camera and end
-    camera = Mock(name="Cam", mac="AA:BB:CC:DD:EE:FF")
+    camera = Mock(mac="AA:BB:CC:DD:EE:FF")
+    camera.name = "Cam"
     event = Mock(
         type=EventType.SMART_DETECT,
         model_dump=Mock(return_value={}),
@@ -709,13 +710,13 @@ def test_log_event():
 
     # Smart detect event (new)
     camera = Mock(
-        name="Cam",
         mac="AA:BB:CC:DD:EE:FF",
         is_smart_detected=True,
         is_recording_enabled=True,
         smart_detect_settings=Mock(object_types=[SmartDetectObjectType.PERSON]),
         get_last_smart_detect_event=Mock(return_value=None),
     )
+    camera.name = "Cam"
     event = Mock(
         type=EventType.SMART_DETECT,
         model_dump=Mock(return_value={}),
@@ -728,13 +729,13 @@ def test_log_event():
 
     # Smart audio detect
     camera = Mock(
-        name="Cam",
         mac="AA:BB:CC:DD:EE:FF",
         is_smart_detected=True,
         is_recording_enabled=True,
         smart_detect_settings=Mock(audio_types=[SmartDetectAudioType.SMOKE]),
         get_last_smart_audio_detect_event=Mock(return_value=None),
     )
+    camera.name = "Cam"
     smart_type = Mock(audio_type=SmartDetectAudioType.SMOKE)
     event = Mock(
         type=EventType.SMART_AUDIO_DETECT,
@@ -748,10 +749,12 @@ def test_log_event():
 
     # Smart audio detect without audio_type
     smart_type = Mock(audio_type=None)
+    camera = Mock(mac="AA:BB:CC:DD:EE:FF")
+    camera.name = "Cam"
     event = Mock(
         type=EventType.SMART_AUDIO_DETECT,
         model_dump=Mock(return_value={}),
-        camera=Mock(name="Cam", mac="AA:BB:CC:DD:EE:FF"),
+        camera=camera,
         end=None,
         smart_detect_types=[smart_type],
         id="e4",
