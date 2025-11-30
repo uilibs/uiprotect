@@ -22,6 +22,7 @@ from uiprotect.utils import (
     make_enabled_getter,
     make_required_getter,
     make_value_getter,
+    run_async,
     to_snake_case,
 )
 
@@ -353,3 +354,13 @@ async def test_ip_from_host_invalid():
     """Test that invalid hostnames raise ValueError."""
     with pytest.raises(ValueError, match="Cannot resolve hostname"):
         await ip_from_host("this-does-not-exist-12345.invalid")
+
+
+def test_run_async():
+    """Test run_async executes coroutine and returns result."""
+
+    async def sample_coroutine() -> int:
+        return 42
+
+    result = run_async(sample_coroutine())
+    assert result == 42
