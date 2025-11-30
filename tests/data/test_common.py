@@ -8,6 +8,7 @@ import logging
 from copy import deepcopy
 from datetime import timedelta
 from ipaddress import IPv4Address
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -543,6 +544,22 @@ async def test_play_audio(mock_talkback, camera_obj: Camera):
     assert mock_talkback.called
     assert mock_instance.start.called
     assert mock_instance.run_until_complete.called
+
+
+@pytest.mark.asyncio()
+@pytest.mark.usefixtures("_disable_camera_validation")
+@patch("uiprotect.data.devices.TalkbackStream")
+async def test_play_audio_ffmpeg_path_deprecated(
+    mock_talkback, camera_obj: Camera, caplog: pytest.LogCaptureFixture
+):
+    """Test that ffmpeg_path parameter triggers deprecation warning."""
+    camera_obj.feature_flags.has_speaker = True
+    mock_talkback.return_value = MockTalkback()
+    camera_obj._api.create_talkback_session_public = AsyncMock(return_value=Mock())
+
+    await camera_obj.play_audio("test", ffmpeg_path=Path("/usr/bin/ffmpeg"))
+
+    assert "ffmpeg_path is deprecated" in caplog.text
 
 
 @pytest.mark.asyncio()

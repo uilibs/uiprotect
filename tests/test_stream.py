@@ -57,6 +57,16 @@ def talkback_session() -> TalkbackSession:
 
 
 @pytest.fixture
+def talkback_session_ipv6() -> TalkbackSession:
+    """Create a test talkback session with IPv6 address."""
+    return TalkbackSession(
+        url="rtp://[2001:db8::1]:7004",
+        codec="opus",
+        sampling_rate=24000,
+    )
+
+
+@pytest.fixture
 def audio_file(tmp_path: Path) -> str:
     """Create a temporary audio file for testing (auto-cleaned by pytest)."""
     filepath = tmp_path / "test_audio.wav"
@@ -230,6 +240,18 @@ def test_get_stream_params_with_session(
     assert rate == 24000
 
 
+def test_get_stream_params_with_ipv6_session(
+    mock_camera: Mock, talkback_session_ipv6: TalkbackSession
+):
+    """Test that IPv6 addresses are correctly extracted from session URL."""
+    stream = TalkbackStream(mock_camera, "/path/to/audio.wav", talkback_session_ipv6)
+    host, port, codec, rate = stream._get_stream_params()
+    assert host == "2001:db8::1"
+    assert port == 7004
+    assert codec == "opus"
+    assert rate == 24000
+
+
 def test_get_stream_params_without_session(mock_camera: Mock):
     stream = TalkbackStream(mock_camera, "/path/to/audio.wav")
     # Testing protected method to verify camera settings fallback
@@ -294,6 +316,33 @@ async def test_context_manager(mock_camera: Mock, audio_file: str):
             assert s is stream
             assert stream.is_running is True
         assert stream.is_running is False
+
+
+# --- IPv6 URL Construction Tests ---
+
+
+@pytest.mark.asyncio
+async def test_ipv6_url_construction(
+    mock_camera: Mock, audio_file: str, talkback_session_ipv6: TalkbackSession
+):
+    """Test that IPv6 addresses are properly bracketed in UDP URLs."""
+    mock_input, mock_output, mock_resampler = _create_mock_av_containers()
+
+    with (
+        patch("uiprotect.stream.av.open") as mock_av_open,
+        patch("uiprotect.stream.av.AudioResampler", return_value=mock_resampler),
+    ):
+        mock_av_open.side_effect = [mock_input, mock_output]
+        stream = TalkbackStream(mock_camera, audio_file, talkback_session_ipv6)
+
+        await stream.run_until_complete()
+
+        # Verify the UDP URL was constructed with brackets for IPv6
+        calls = mock_av_open.call_args_list
+        assert len(calls) == 2
+        output_call = calls[1]
+        udp_url = output_call[0][0]
+        assert udp_url == "udp://[2001:db8::1]:7004"
 
 
 # --- TalkbackStream Audio Processing Tests ---

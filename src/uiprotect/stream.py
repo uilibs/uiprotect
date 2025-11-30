@@ -14,6 +14,7 @@ import av
 from av.audio import AudioStream
 
 from .exceptions import BadRequest, StreamError
+from .utils import format_host_for_url
 
 if TYPE_CHECKING:
     from .data import Camera
@@ -201,7 +202,8 @@ class TalkbackStream:
             self._error = StreamError(f"Unsupported codec: {codec}")
             return
 
-        udp_url = f"udp://{host}:{port}"
+        formatted_host = format_host_for_url(host)
+        udp_url = f"udp://{formatted_host}:{port}"
         _LOGGER.debug("Talkback: %s codec=%s rate=%d", udp_url, codec, sample_rate)
 
         input_container = None
