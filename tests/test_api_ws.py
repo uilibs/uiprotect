@@ -1310,7 +1310,8 @@ def _setup_auth_state(
 
 
 def _assert_auth_cleared(client: ProtectApiClient) -> None:
-    """Helper to assert authentication headers are cleared."""
+    """Helper to assert authentication state is cleared."""
+    assert client._is_authenticated is False
     assert client.headers.get("cookie") is None
     assert client.headers.get("x-csrf-token") is None
 
