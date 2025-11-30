@@ -299,10 +299,12 @@ async def cleanup_client(client: ProtectApiClient):
     await client.close_public_api_session()
 
 
-@pytest.fixture
-def simple_api_client():
+@pytest_asyncio.fixture
+async def simple_api_client():
     """Create a simple ProtectApiClient for unit testing without mocked bootstrap."""
-    return ProtectApiClient("test.com", 443, "username", "password")
+    client = ProtectApiClient("test.com", 443, "username", "password")
+    yield client
+    await cleanup_client(client)
 
 
 @pytest_asyncio.fixture(name="protect_client")
