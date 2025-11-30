@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, tzinfo
 from functools import cache
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal
 from uuid import UUID
 
 import aiofiles
@@ -58,10 +58,6 @@ from .types import (
     Version,
 )
 from .user import User, UserLocation
-
-if TYPE_CHECKING:
-    from pydantic.typing import SetStr
-
 
 _LOGGER = logging.getLogger(__name__)
 MAX_SUPPORTED_CAMERAS = 256
@@ -300,7 +296,7 @@ class EventMetadata(ProtectBaseObject):
     nfc: NfcMetadata | None = None
     fingerprint: FingerprintMetadata | None = None
 
-    _collapse_keys: ClassVar[SetStr] = {
+    _collapse_keys: ClassVar[set[str]] = {
         "lightId",
         "lightName",
         "type",
