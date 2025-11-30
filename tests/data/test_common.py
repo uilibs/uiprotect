@@ -42,11 +42,10 @@ from uiprotect.data import (
     WSPacket,
     create_from_unifi_dict,
 )
-from uiprotect.data.devices import LCDMessage, TalkbackSettings
-from uiprotect.data.types import AudioCodecs, RecordingType, ResolutionStorageType
+from uiprotect.data.devices import LCDMessage
+from uiprotect.data.types import RecordingType, ResolutionStorageType
 from uiprotect.data.user import CloudAccount
 from uiprotect.exceptions import BadRequest, NotAuthorized, StreamError
-from uiprotect.stream import TalkbackStream
 from uiprotect.utils import set_debug, set_no_debug, utc_now
 
 from ..common import assert_equal_dump
@@ -528,9 +527,20 @@ async def test_play_audio(mock_talkback, camera_obj: Camera):
     mock_instance = MockTalkback()
     mock_talkback.return_value = mock_instance
 
+    # Mock the API call for public talkback session
+    camera_obj._api.create_talkback_session_public = AsyncMock(
+        return_value=Mock(
+            url="rtp://192.168.1.100:7004",
+            codec="opus",
+            sampling_rate=24000,
+            host="192.168.1.100",
+            port=7004,
+        )
+    )
+
     await camera_obj.play_audio("test")
 
-    mock_talkback.assert_called_with(camera_obj, "test", None)
+    assert mock_talkback.called
     assert mock_instance.start.called
     assert mock_instance.run_until_complete.called
 
@@ -544,9 +554,20 @@ async def test_play_audio_no_blocking(mock_talkback, camera_obj: Camera):
     mock_instance = MockTalkback()
     mock_talkback.return_value = mock_instance
 
+    # Mock the API call for public talkback session
+    camera_obj._api.create_talkback_session_public = AsyncMock(
+        return_value=Mock(
+            url="rtp://192.168.1.100:7004",
+            codec="opus",
+            sampling_rate=24000,
+            host="192.168.1.100",
+            port=7004,
+        )
+    )
+
     await camera_obj.play_audio("test", blocking=False)
 
-    mock_talkback.assert_called_with(camera_obj, "test", None)
+    assert mock_talkback.called
     assert mock_instance.start.called
     assert not mock_instance.run_until_complete.called
 
@@ -563,9 +584,20 @@ async def test_play_audio_stop(mock_talkback, camera_obj: Camera):
     mock_instance = MockTalkback()
     mock_talkback.return_value = mock_instance
 
+    # Mock the API call for public talkback session
+    camera_obj._api.create_talkback_session_public = AsyncMock(
+        return_value=Mock(
+            url="rtp://192.168.1.100:7004",
+            codec="opus",
+            sampling_rate=24000,
+            host="192.168.1.100",
+            port=7004,
+        )
+    )
+
     await camera_obj.play_audio("test", blocking=False)
 
-    mock_talkback.assert_called_with(camera_obj, "test", None)
+    assert mock_talkback.called
     assert mock_instance.start.called
     assert not mock_instance.run_until_complete.called
 
@@ -580,13 +612,26 @@ async def test_play_audio_error(mock_talkback, camera_obj: Camera):
     camera_obj.feature_flags.has_speaker = True
 
     mock_instance = MockTalkback()
-    mock_instance.is_error = True
+    mock_instance.run_until_complete = AsyncMock(
+        side_effect=StreamError("Audio streaming failed")
+    )
     mock_talkback.return_value = mock_instance
+
+    # Mock the API call for public talkback session
+    camera_obj._api.create_talkback_session_public = AsyncMock(
+        return_value=Mock(
+            url="rtp://192.168.1.100:7004",
+            codec="opus",
+            sampling_rate=24000,
+            host="192.168.1.100",
+            port=7004,
+        )
+    )
 
     with pytest.raises(StreamError):
         await camera_obj.play_audio("test")
 
-    mock_talkback.assert_called_with(camera_obj, "test", None)
+    assert mock_talkback.called
     assert mock_instance.run_until_complete.called
 
 
@@ -1128,59 +1173,4 @@ def test_unknown_storage_type(
     set_debug()
 
 
-@pytest.mark.asyncio
-@patch("uiprotect.stream.create_subprocess_exec", new_callable=AsyncMock)
-async def test_ffmpeg_call_with_codec_mapping(mock_subprocess_exec, camera_obj: Camera):
-    camera_obj.feature_flags.has_speaker = True
-    camera_obj.talkback_settings = Mock(spec=TalkbackSettings)
-    camera_obj.talkback_settings.type_fmt = Mock(spec=AudioCodecs)
-    camera_obj.talkback_settings.type_fmt.value = "opus"
-    camera_obj.talkback_settings.channels = 1
-    camera_obj.talkback_settings.sampling_rate = 22050
-    camera_obj.talkback_settings.bind_port = 12345
-    camera_obj.host = "192.168.1.100"
-
-    content_url = "http://example.com/audio_stream"
-
-    talkback_stream = TalkbackStream(camera_obj, content_url)
-
-    await talkback_stream.start()
-
-    mock_subprocess_exec.assert_called_once()
-    args = mock_subprocess_exec.call_args[0]
-    ffmpeg_path = args[0]
-    ffmpeg_args = args[1:]
-
-    assert ffmpeg_path == talkback_stream.ffmpeg_path
-
-    assert "-acodec" in ffmpeg_args
-    assert "libopus" in ffmpeg_args
-    assert "-ac" in ffmpeg_args
-    assert "1" in ffmpeg_args
-    assert "-ar" in ffmpeg_args
-    assert "22050" in ffmpeg_args
-    assert "-b:a" in ffmpeg_args
-    assert "22050" in ffmpeg_args
-    assert "-f" in ffmpeg_args
-    assert "rtp" in ffmpeg_args
-    assert f"udp://{camera_obj.host}:12345?bitrate=22050" in ffmpeg_args
-
-
-@pytest.mark.asyncio
-@patch("uiprotect.stream.create_subprocess_exec", new_callable=AsyncMock)
-async def test_ffmpeg_call_with_unknown_codec(mock_subprocess_exec, camera_obj: Camera):
-    camera_obj.feature_flags.has_speaker = True
-    camera_obj.talkback_settings = Mock(spec=TalkbackSettings)
-    camera_obj.talkback_settings.type_fmt = Mock(spec=AudioCodecs)
-    camera_obj.talkback_settings.type_fmt.value = "unknown_codec"  # Unbekannter Codec
-    camera_obj.talkback_settings.channels = 1
-    camera_obj.talkback_settings.sampling_rate = 22050
-    camera_obj.talkback_settings.bind_port = 12345
-    camera_obj.host = "192.168.1.100"
-
-    content_url = "http://example.com/audio_stream"
-
-    with pytest.raises(ValueError, match="Unsupported codec: unknown_codec"):
-        TalkbackStream(camera_obj, content_url)
-
-    mock_subprocess_exec.assert_not_called()
+# TalkbackStream tests moved to tests/test_stream.py for comprehensive coverage

@@ -1130,10 +1130,6 @@ def _disable_nvr_validation():
 
 
 class MockTalkback:
-    is_error: bool = False
-    stdout: list[str] = []
-    stderr: list[str] = []
-
     def __init__(self) -> None:
         self.start = AsyncMock()
         self.stop = AsyncMock()

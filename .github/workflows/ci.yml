@@ -63,10 +63,7 @@ jobs:
           allow-prereleases: true
       - run: echo "Cache hit:${{ steps.setup-python.outputs.cache-hit }}" # true if cache-hit occurred on the primary key
       - name: Install Dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y ffmpeg
-          poetry install
+        run: poetry install
       - name: Test with Pytest
         run: ./.bin/test-code
         shell: bash

@@ -8,11 +8,10 @@ from collections.abc import Callable, Coroutine
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
-from shlex import split
-from subprocess import run
 from typing import Any, overload
 
 import aiohttp
+import av
 from PIL import Image
 
 from ..api import ProtectApiClient
@@ -24,7 +23,68 @@ from ..test_util.anonymize import (
 )
 from ..utils import from_js_time, is_online, run_async, write_json
 
-BLANK_VIDEO_CMD = "ffmpeg -y -hide_banner -loglevel error -f lavfi -i color=size=1280x720:rate=25:color=black -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -t {length} {filename}"
+
+def generate_blank_video(output_path: Path, length: int) -> None:
+    """
+    Generate a blank video with silent audio using PyAV.
+
+    Args:
+        output_path: Path to output MP4 file.
+        length: Duration in seconds.
+
+    """
+    width, height = 1280, 720
+    fps = 25
+    sample_rate = 44100
+    samples_per_frame = 1024
+
+    with av.open(str(output_path), "w") as container:
+        video_stream = container.add_stream("h264", rate=fps)
+        video_stream.width = width
+        video_stream.height = height
+        video_stream.pix_fmt = "yuv420p"
+
+        audio_stream = container.add_stream("aac", rate=sample_rate)
+        audio_stream.layout = "stereo"  # type: ignore[assignment]
+
+        # Create black frame (YUV420p: Y=16 is black, U=V=128 is neutral)
+        black_frame = av.VideoFrame(width, height, "yuv420p")
+        # Y plane (full resolution)
+        y_size = width * height
+        black_frame.planes[0].update(bytes([16] * y_size))
+        # U and V planes (half resolution each direction)
+        uv_size = (width // 2) * (height // 2)
+        black_frame.planes[1].update(bytes([128] * uv_size))
+        black_frame.planes[2].update(bytes([128] * uv_size))
+
+        # Create silent audio frame
+        silent_samples = bytes(
+            samples_per_frame * 2 * 2
+        )  # 2 channels, 2 bytes per sample
+
+        total_frames = fps * length
+        total_audio_frames = (sample_rate * length) // samples_per_frame
+
+        for i in range(total_frames):
+            black_frame.pts = i
+            for packet in video_stream.encode(black_frame):
+                container.mux(packet)
+
+        for i in range(total_audio_frames):
+            audio_frame = av.AudioFrame(
+                format="s16", layout="stereo", samples=samples_per_frame
+            )
+            audio_frame.planes[0].update(silent_samples)
+            audio_frame.rate = sample_rate
+            audio_frame.pts = i * samples_per_frame
+            for packet in audio_stream.encode(audio_frame):
+                container.mux(packet)
+
+        # Flush encoders
+        for packet in video_stream.encode(None):
+            container.mux(packet)
+        for packet in audio_stream.encode(None):
+            container.mux(packet)
 
 
 def placeholder_image(
@@ -378,14 +438,9 @@ class SampleDataGenerator:
         filename = "sample_camera_video"
         length = int((motion_event["end"] - motion_event["start"]) / 1000)
         if self.anonymize:
-            run(
-                split(
-                    BLANK_VIDEO_CMD.format(
-                        length=length,
-                        filename=self.output_folder / f"{filename}.mp4",
-                    ),
-                ),
-                check=True,
+            generate_blank_video(
+                self.output_folder / f"{filename}.mp4",
+                length,
             )
         else:
             video = await self.client.get_camera_video(
