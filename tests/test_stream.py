@@ -5,8 +5,8 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Generator
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from typing import Any
+from unittest.mock import MagicMock, Mock, patch
 
 import av
 import pytest
@@ -22,9 +22,6 @@ from uiprotect.stream import (
     TalkbackSession,
     TalkbackStream,
 )
-
-if TYPE_CHECKING:
-    from uiprotect.api import ProtectApiClient
 
 # --- Fixtures ---
 
@@ -493,29 +490,3 @@ async def test_run_until_complete_unexpected_error(mock_camera: Mock, audio_file
 
     with pytest.raises(StreamError, match="Unexpected error"):
         await stream.run_until_complete()
-
-
-# --- API Method Tests ---
-
-
-@pytest.mark.asyncio
-async def test_create_talkback_session_public(protect_client: ProtectApiClient):
-    """Test create_talkback_session_public API method."""
-    mock_response: dict[str, Any] = {
-        "url": "rtp://192.168.1.100:7004",
-        "codec": "opus",
-        "samplingRate": 24000,
-    }
-    protect_client.api_request_obj = AsyncMock(return_value=mock_response)  # type: ignore[method-assign]
-
-    session = await protect_client.create_talkback_session_public("camera123")
-
-    assert isinstance(session, TalkbackSession)
-    assert session.url == "rtp://192.168.1.100:7004"
-    assert session.codec == "opus"
-    assert session.sampling_rate == 24000
-    protect_client.api_request_obj.assert_called_once_with(  # type: ignore[attr-defined]
-        url="/v1/cameras/camera123/talkback-session",
-        method="post",
-        public_api=True,
-    )

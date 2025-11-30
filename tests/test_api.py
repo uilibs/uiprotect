@@ -46,6 +46,7 @@ from uiprotect.data import (
 from uiprotect.data.devices import LEDSettings
 from uiprotect.data.types import Version, VideoMode
 from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
+from uiprotect.stream import TalkbackSession
 from uiprotect.utils import decode_token_cookie, to_js_time
 
 from .common import assert_equal_dump
@@ -2503,6 +2504,33 @@ async def test_close_public_api_session():
         await client.close_public_api_session()
 
 
+@pytest.mark.asyncio
+async def test_close_session_closes_public_api_session():
+    """Test that close_session also closes the public API session."""
+    mock_session = AsyncMock()
+    mock_public_session = AsyncMock()
+
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        verify_ssl=False,
+    )
+    client._session = mock_session
+    client._loaded_session = True
+    client._public_api_session = mock_public_session
+
+    await client.close_session()
+
+    # Both sessions should be closed
+    mock_session.close.assert_called_once()
+    mock_public_session.close.assert_called_once()
+    assert client._session is None
+    assert client._public_api_session is None
+    assert client._loaded_session is False
+
+
 def test_set_api_key_sets_value():
     client = ProtectApiClient(
         "127.0.0.1",
@@ -3671,6 +3699,32 @@ async def test_ptz_public_api(method: str, args: dict, expected_path: str):
 
     client.api_request.assert_called_with(
         url=f"/v1/cameras/camera123{expected_path}",
+        method="post",
+        public_api=True,
+    )
+
+
+# Talkback Public API Tests
+
+
+@pytest.mark.asyncio
+async def test_create_talkback_session_public(protect_client: ProtectApiClient):
+    """Test create_talkback_session_public API method."""
+    mock_response: dict[str, Any] = {
+        "url": "rtp://192.168.1.100:7004",
+        "codec": "opus",
+        "samplingRate": 24000,
+    }
+    protect_client.api_request_obj = AsyncMock(return_value=mock_response)  # type: ignore[method-assign]
+
+    session = await protect_client.create_talkback_session_public("camera123")
+
+    assert isinstance(session, TalkbackSession)
+    assert session.url == "rtp://192.168.1.100:7004"
+    assert session.codec == "opus"
+    assert session.sampling_rate == 24000
+    protect_client.api_request_obj.assert_called_once_with(  # type: ignore[attr-defined]
+        url="/v1/cameras/camera123/talkback-session",
         method="post",
         public_api=True,
     )
