@@ -2861,3 +2861,30 @@ class ProtectApiClient(BaseApiClient):
         """Get a specific chime using public API."""
         data = await self.api_request_obj(url=f"/v1/chimes/{chime_id}", public_api=True)
         return Chime.from_unifi_dict(**data, api=self)
+
+    # PTZ Control Public API Methods
+    # Note: Public API doc is inconsistent - description says 0-4, but examples show -1 to 9
+
+    async def ptz_goto_preset_public(self, camera_id: str, *, slot: int) -> None:
+        """Move PTZ camera to preset position using public API."""
+        await self.api_request(
+            url=f"/v1/cameras/{camera_id}/ptz/goto/{slot}",
+            method="post",
+            public_api=True,
+        )
+
+    async def ptz_patrol_start_public(self, camera_id: str, *, slot: int) -> None:
+        """Start a PTZ patrol using public API."""
+        await self.api_request(
+            url=f"/v1/cameras/{camera_id}/ptz/patrol/start/{slot}",
+            method="post",
+            public_api=True,
+        )
+
+    async def ptz_patrol_stop_public(self, camera_id: str) -> None:
+        """Stop the active PTZ patrol using public API."""
+        await self.api_request(
+            url=f"/v1/cameras/{camera_id}/ptz/patrol/stop",
+            method="post",
+            public_api=True,
+        )

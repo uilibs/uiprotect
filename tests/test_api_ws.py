@@ -7,6 +7,7 @@ import base64
 import logging
 from copy import deepcopy
 from datetime import datetime, timedelta
+from http.cookies import SimpleCookie
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, Mock, patch
 
@@ -527,8 +528,11 @@ async def test_ws_event_update(
     camera_before = get_camera().model_copy()
 
     new_stats = camera_before.stats.unifi_dict()
-    new_stats["rxBytes"] += 100
-    new_stats["txBytes"] += 100
+    # rxBytes and txBytes were removed in Protect 6.1+, handle both cases
+    if new_stats.get("rxBytes") is not None:
+        new_stats["rxBytes"] += 100
+    if new_stats.get("txBytes") is not None:
+        new_stats["txBytes"] += 100
     new_stats["video"]["recordingEnd"] = to_js_time(now)
     new_stats_unifi = camera_before.unifi_dict(data={"stats": deepcopy(new_stats)})
 
@@ -1296,3 +1300,128 @@ async def test_ws_ulp_user_unknown_action(
     protect_client._process_ws_message(msg)
 
     unsub()
+
+
+def _setup_auth_state(
+    client: ProtectApiClient,
+    cookie: str = "test-cookie",
+    csrf: str = "test-csrf-token",
+) -> None:
+    """Helper to set up authentication state for testing."""
+    client._is_authenticated = True
+    client.set_header("cookie", cookie)
+    client.set_header("x-csrf-token", csrf)
+
+
+def _assert_auth_cleared(client: ProtectApiClient) -> None:
+    """Helper to assert authentication state is cleared."""
+    assert client._is_authenticated is False
+    assert client.headers.get("cookie") is None
+    assert client.headers.get("x-csrf-token") is None
+
+
+@pytest.mark.asyncio()
+async def test_auth_websocket_without_force(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test _auth_websocket without force parameter doesn't clear auth state."""
+    protect_client = protect_client_no_debug
+    _setup_auth_state(protect_client)
+
+    headers = await protect_client._auth_websocket(force=False)
+
+    assert protect_client._is_authenticated is True
+    assert headers is not None
+    assert protect_client.headers.get("cookie") == "test-cookie"
+    assert protect_client.headers.get("x-csrf-token") == "test-csrf-token"
+
+
+@pytest.mark.asyncio()
+async def test_auth_websocket_with_force_clears_auth_state(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test _auth_websocket with force=True clears authentication state."""
+    protect_client = protect_client_no_debug
+    _setup_auth_state(protect_client)
+
+    headers = await protect_client._auth_websocket(force=True)
+
+    assert headers is not None
+    _assert_auth_cleared(protect_client)
+
+
+@pytest.mark.asyncio()
+async def test_auth_websocket_with_force_clears_session_cookies(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test _auth_websocket with force=True clears session cookie jar."""
+    protect_client = protect_client_no_debug
+    session = await protect_client.get_session()
+    cookies = SimpleCookie()
+    cookies["test_cookie"] = "test_value"
+    session.cookie_jar.update_cookies(cookies)
+    # Verify cookie was actually added before testing removal
+    assert len(list(session.cookie_jar)) > 0
+
+    await protect_client._auth_websocket(force=True)
+
+    assert len(list(session.cookie_jar)) == 0
+
+
+@pytest.mark.asyncio()
+async def test_auth_websocket_returns_headers(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test _auth_websocket returns the headers dictionary."""
+    protect_client = protect_client_no_debug
+    _setup_auth_state(protect_client, cookie="auth-cookie", csrf="csrf-token")
+
+    headers = await protect_client._auth_websocket(force=False)
+
+    assert headers is not None
+    assert isinstance(headers, dict)
+    assert headers == protect_client.headers
+
+
+@pytest.mark.asyncio()
+async def test_auth_websocket_calls_ensure_authenticated(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test _auth_websocket calls ensure_authenticated."""
+    protect_client = protect_client_no_debug
+    protect_client.ensure_authenticated.reset_mock()
+
+    await protect_client._auth_websocket(force=False)
+
+    protect_client.ensure_authenticated.assert_called_once()
+
+
+@pytest.mark.asyncio()
+async def test_auth_websocket_with_force_calls_ensure_authenticated(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test _auth_websocket with force=True calls ensure_authenticated after clearing state."""
+    protect_client = protect_client_no_debug
+    protect_client._is_authenticated = True
+    protect_client.ensure_authenticated.reset_mock()
+
+    await protect_client._auth_websocket(force=True)
+
+    protect_client.ensure_authenticated.assert_called_once()
+
+
+@pytest.mark.asyncio()
+async def test_auth_websocket_with_no_session(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Test _auth_websocket with force=True when session is None."""
+    protect_client = protect_client_no_debug
+    if protect_client._session is not None:
+        await protect_client._session.close()
+    protect_client._session = None
+    _setup_auth_state(protect_client)
+
+    headers = await protect_client._auth_websocket(force=True)
+
+    assert headers is not None
+    _assert_auth_cleared(protect_client)
