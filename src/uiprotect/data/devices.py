@@ -694,8 +694,8 @@ class StorageStats(ProtectBaseObject):
 
 
 class CameraStats(ProtectBaseObject):
-    rx_bytes: int
-    tx_bytes: int
+    rx_bytes: int | None = None  # deprecated: removed in Protect 6.1+
+    tx_bytes: int | None = None  # deprecated: removed in Protect 6.1+
     wifi: WifiStats
     video: VideoStats
     storage: StorageStats | None = None
