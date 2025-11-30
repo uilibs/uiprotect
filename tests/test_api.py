@@ -3641,3 +3641,115 @@ def test_led_settings_serialization_with_all_fields():
     assert serialized["blinkRate"] == 0
     assert serialized["welcomeLed"] is True
     assert serialized["floodLed"] is False
+
+
+class TestApiRequestJsonDeserialization:
+    """Tests for JSON deserialization in api_request, api_request_obj, api_request_list."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "response_data,expected,expected_type",
+        [
+            (b'{"key": "value", "number": 42}', {"key": "value", "number": 42}, dict),
+            (b'[{"id": 1}, {"id": 2}]', [{"id": 1}, {"id": 2}], list),
+            (None, None, type(None)),
+        ],
+        ids=["dict_response", "list_response", "empty_response"],
+    )
+    async def test_api_request_success(
+        self, simple_api_client, response_data, expected, expected_type
+    ):
+        """Test api_request successfully deserializes various JSON responses."""
+        simple_api_client.api_request_raw = AsyncMock(return_value=response_data)
+
+        result = await simple_api_client.api_request("/test")
+
+        assert result == expected
+        assert isinstance(result, expected_type)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "invalid_data",
+        [
+            pytest.param(b"invalid json {{{", id="invalid_syntax"),
+            pytest.param(b'{"key": "value"', id="truncated"),
+            pytest.param(b"\x00\x01\x02\x03\x04", id="binary_data"),
+        ],
+    )
+    async def test_api_request_json_decode_error(self, simple_api_client, invalid_data):
+        """Test api_request raises NvrError on JSONDecodeError."""
+        simple_api_client.api_request_raw = AsyncMock(return_value=invalid_data)
+
+        with pytest.raises(NvrError, match="Could not decode JSON from /test"):
+            await simple_api_client.api_request("/test")
+
+    @pytest.mark.asyncio
+    async def test_api_request_complex_nested_json(self, simple_api_client):
+        """Test api_request handles complex nested JSON structures."""
+        complex_json = (
+            b'{"devices": [{"id": "cam1"}], "meta": {"nested": {"deep": true}}}'
+        )
+        simple_api_client.api_request_raw = AsyncMock(return_value=complex_json)
+
+        result = await simple_api_client.api_request("/test")
+
+        assert result["devices"][0]["id"] == "cam1"
+        assert result["meta"]["nested"]["deep"] is True
+
+    @pytest.mark.asyncio
+    async def test_api_request_unicode(self, simple_api_client):
+        """Test api_request handles JSON with unicode characters."""
+        simple_api_client.api_request_raw = AsyncMock(
+            return_value='{"name": "Kamera Außen", "emoji": "📷"}'.encode()
+        )
+
+        result = await simple_api_client.api_request("/test")
+
+        assert result["name"] == "Kamera Außen"
+        assert result["emoji"] == "📷"
+
+    @pytest.mark.asyncio
+    async def test_api_request_obj_success(self, simple_api_client):
+        """Test api_request_obj successfully returns dict."""
+        simple_api_client.api_request_raw = AsyncMock(return_value=b'{"id": "test-id"}')
+
+        result = await simple_api_client.api_request_obj("/test")
+
+        assert result == {"id": "test-id"}
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "response_data",
+        [pytest.param(b'[{"id": 1}]', id="list"), pytest.param(b"null", id="null")],
+    )
+    async def test_api_request_obj_invalid_type(self, simple_api_client, response_data):
+        """Test api_request_obj raises NvrError when response is not a dict."""
+        simple_api_client.api_request_raw = AsyncMock(return_value=response_data)
+
+        with pytest.raises(NvrError, match="Could not decode object from /test"):
+            await simple_api_client.api_request_obj("/test")
+
+    @pytest.mark.asyncio
+    async def test_api_request_list_success(self, simple_api_client):
+        """Test api_request_list successfully returns list."""
+        simple_api_client.api_request_raw = AsyncMock(
+            return_value=b'[{"id": 1}, {"id": 2}]'
+        )
+
+        result = await simple_api_client.api_request_list("/test")
+
+        assert result == [{"id": 1}, {"id": 2}]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "response_data",
+        [pytest.param(b'{"id": "test"}', id="dict"), pytest.param(b"null", id="null")],
+    )
+    async def test_api_request_list_invalid_type(
+        self, simple_api_client, response_data
+    ):
+        """Test api_request_list raises NvrError when response is not a list."""
+        simple_api_client.api_request_raw = AsyncMock(return_value=response_data)
+
+        with pytest.raises(NvrError, match="Could not decode list from /test"):
+            await simple_api_client.api_request_list("/test")
