@@ -8,13 +8,12 @@ import os
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
-from shlex import split
-from subprocess import run
 from tempfile import NamedTemporaryFile
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import aiohttp
+import av
 import pytest
 import pytest_asyncio
 
@@ -31,9 +30,6 @@ if UFP_SAMPLE_DIR:
     SAMPLE_DATA_DIRECTORY = Path(UFP_SAMPLE_DIR)
 else:
     SAMPLE_DATA_DIRECTORY = Path(__file__).parent / "sample_data"
-
-CHECK_CMD = "ffprobe -v error -select_streams v:0 -show_entries stream=codec_type -of csv=p=0 {filename}"
-LENGTH_CMD = "ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {filename}"
 
 TEST_CAMERA_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_camera.json").exists()
 TEST_SNAPSHOT_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_camera_snapshot.png").exists()
@@ -110,20 +106,15 @@ def get_time():
 
 
 def validate_video_file(filepath: Path, length: int):
-    output = run(
-        split(CHECK_CMD.format(filename=filepath)),
-        check=True,
-        capture_output=True,
-    )
-    assert output.stdout.decode("utf8").strip() == "video"
+    """Validate video file using PyAV."""
+    with av.open(str(filepath)) as container:
+        # Check that video stream exists
+        assert len(container.streams.video) > 0, "No video stream found"
 
-    output = run(
-        split(LENGTH_CMD.format(filename=filepath)),
-        check=True,
-        capture_output=True,
-    )
-    # it looks like UFP does not always generate a video of exact length
-    assert length - 10 < int(float(output.stdout.decode("utf8").strip())) < length + 10
+        # Check duration (in seconds)
+        duration = float(container.duration) / av.time_base if container.duration else 0
+        # it looks like UFP does not always generate a video of exact length
+        assert length - 10 < duration < length + 10
 
 
 async def mock_api_request_raw(url: str, *args, **kwargs):
