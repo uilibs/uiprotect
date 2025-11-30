@@ -527,8 +527,11 @@ async def test_ws_event_update(
     camera_before = get_camera().model_copy()
 
     new_stats = camera_before.stats.unifi_dict()
-    new_stats["rxBytes"] += 100
-    new_stats["txBytes"] += 100
+    # rxBytes and txBytes were removed in Protect 6.1+, handle both cases
+    if new_stats.get("rxBytes") is not None:
+        new_stats["rxBytes"] += 100
+    if new_stats.get("txBytes") is not None:
+        new_stats["txBytes"] += 100
     new_stats["video"]["recordingEnd"] = to_js_time(now)
     new_stats_unifi = camera_before.unifi_dict(data={"stats": deepcopy(new_stats)})
 
