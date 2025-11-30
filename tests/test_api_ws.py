@@ -7,6 +7,7 @@ import base64
 import logging
 from copy import deepcopy
 from datetime import datetime, timedelta
+from http.cookies import SimpleCookie
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, Mock, patch
 
@@ -1353,7 +1354,11 @@ async def test_auth_websocket_with_force_clears_session_cookies(
     """Test _auth_websocket with force=True clears session cookie jar."""
     protect_client = protect_client_no_debug
     session = await protect_client.get_session()
-    session.cookie_jar.update_cookies({"test_cookie": "test_value"})
+    cookies = SimpleCookie()
+    cookies["test_cookie"] = "test_value"
+    session.cookie_jar.update_cookies(cookies)
+    # Verify cookie was actually added before testing removal
+    assert len(list(session.cookie_jar)) > 0
 
     await protect_client._auth_websocket(force=True)
 
