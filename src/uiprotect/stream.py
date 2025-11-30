@@ -57,7 +57,7 @@ class TalkbackSession:
     Talkback session configuration from the UniFi Protect public API.
 
     Attributes:
-        url: UDP URL for talkback streaming (e.g., "udp://192.168.1.1:7004").
+        url: Streaming URL (UDP or RTP, e.g., "rtp://192.168.1.1:7004").
         codec: Audio codec name ("aac" or "opus").
         sampling_rate: Audio sampling rate in Hz.
 
@@ -294,4 +294,6 @@ class TalkbackStream:
         if self._error is not None:
             error = self._error
             self._error = None
-            raise error
+            if isinstance(error, BaseException):
+                raise error
+            raise StreamError(f"Unexpected error: {error}")

@@ -2703,6 +2703,10 @@ class Camera(ProtectMotionDeviceModel):
         `.play_audio()` is a helper that wraps this method and automatically runs the stream as well
 
         """
+        if ffmpeg_path is not None:
+            _LOGGER.warning(
+                "ffmpeg_path is deprecated and ignored, PyAV is used instead"
+            )
         if self.talkback_stream is not None and self.talkback_stream.is_running:
             raise BadRequest("Camera is already playing audio")
 
