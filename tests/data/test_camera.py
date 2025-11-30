@@ -1812,3 +1812,63 @@ def test_camera_zone_color_serialization_from_dict() -> None:
     # Verify the color was converted from dict to hex string
     assert isinstance(result["color"], str)
     assert result["color"] == "#85BCEC"
+
+
+# PTZ Public API Tests
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    ("method", "args", "expected_path"),
+    [
+        ("ptz_goto_preset_public", {"slot": 2}, "/ptz/goto/2"),
+        ("ptz_patrol_start_public", {"slot": 1}, "/ptz/patrol/start/1"),
+        ("ptz_patrol_stop_public", {}, "/ptz/patrol/stop"),
+    ],
+)
+@pytest.mark.asyncio()
+async def test_camera_ptz_public_api(
+    ptz_camera: Camera | None,
+    method: str,
+    args: dict,
+    expected_path: str,
+):
+    if ptz_camera is None:
+        pytest.skip("No ptz_camera obj found")
+
+    ptz_camera.api.api_request.reset_mock()
+
+    await getattr(ptz_camera, method)(**args)
+
+    ptz_camera.api.api_request.assert_called_with(
+        url=f"/v1/cameras/{ptz_camera.id}{expected_path}",
+        method="post",
+        public_api=True,
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    ("method", "args"),
+    [
+        ("ptz_goto_preset_public", {"slot": 0}),
+        ("ptz_patrol_start_public", {"slot": 0}),
+        ("ptz_patrol_stop_public", {}),
+    ],
+)
+@pytest.mark.asyncio()
+async def test_camera_ptz_public_api_no_ptz(
+    camera_obj: Camera | None,
+    method: str,
+    args: dict,
+):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.api.api_request.reset_mock()
+    camera_obj.feature_flags.is_ptz = False
+
+    with pytest.raises(BadRequest, match="Camera does not support PTZ features"):
+        await getattr(camera_obj, method)(**args)
+
+    assert not camera_obj.api.api_request.called

@@ -2891,6 +2891,26 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._api.set_home_ptz_camera(self.id)
 
+    def _check_ptz_public_api(self) -> None:
+        """Check prerequisites for PTZ public API calls."""
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support PTZ features.")
+
+    async def ptz_goto_preset_public(self, *, slot: int) -> None:
+        """Move PTZ camera to preset position using public API."""
+        self._check_ptz_public_api()
+        await self._api.ptz_goto_preset_public(self.id, slot=slot)
+
+    async def ptz_patrol_start_public(self, *, slot: int) -> None:
+        """Start a PTZ patrol using public API."""
+        self._check_ptz_public_api()
+        await self._api.ptz_patrol_start_public(self.id, slot=slot)
+
+    async def ptz_patrol_stop_public(self) -> None:
+        """Stop the active PTZ patrol using public API."""
+        self._check_ptz_public_api()
+        await self._api.ptz_patrol_stop_public(self.id)
+
     # endregion
 
 
