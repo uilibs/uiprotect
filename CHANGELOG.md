@@ -1,5 +1,19 @@
 # Changelog
 
+## v7.33.0 (2025-11-30)
+
+### Bug fixes
+
+
+- Make rx_bytes and tx_bytes optional in camerastats ([`8d20059`](https://github.com/uilibs/uiprotect/commit/8d20059c1adc83685c9ccd18e524b1480be7e381))
+
+
+### Features
+
+
+- Add ptz public api methods ([`a4e2013`](https://github.com/uilibs/uiprotect/commit/a4e2013124dde43c4aea1975362e01c28013f8f2))
+
+
 ## v7.32.0 (2025-11-29)
 
 ### Features

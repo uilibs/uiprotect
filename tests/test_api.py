@@ -3753,3 +3753,36 @@ class TestApiRequestJsonDeserialization:
 
         with pytest.raises(NvrError, match="Could not decode list from /test"):
             await simple_api_client.api_request_list("/test")
+
+
+# PTZ Public API Tests
+
+
+@pytest.mark.parametrize(
+    ("method", "args", "expected_path"),
+    [
+        ("ptz_goto_preset_public", {"slot": 2}, "/ptz/goto/2"),
+        ("ptz_patrol_start_public", {"slot": 1}, "/ptz/patrol/start/1"),
+        ("ptz_patrol_stop_public", {}, "/ptz/patrol/stop"),
+    ],
+)
+@pytest.mark.asyncio()
+async def test_ptz_public_api(method: str, args: dict, expected_path: str):
+    """Test PTZ public API methods."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="my_key",
+        verify_ssl=False,
+    )
+    client.api_request = AsyncMock(return_value=None)
+
+    await getattr(client, method)("camera123", **args)
+
+    client.api_request.assert_called_with(
+        url=f"/v1/cameras/camera123{expected_path}",
+        method="post",
+        public_api=True,
+    )
