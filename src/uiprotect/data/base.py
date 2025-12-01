@@ -842,7 +842,7 @@ class ProtectDeviceModel(ProtectModelWithId):
 
     def _event_callback_ping(self) -> None:
         _LOGGER.debug("Event ping timer started for %s", self.id)
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         self._callback_ping = loop.call_later(
             EVENT_PING_INTERVAL_SECONDS,
             self._emit_message,
