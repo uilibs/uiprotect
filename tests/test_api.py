@@ -3645,26 +3645,30 @@ def test_led_settings_serialization_with_all_fields():
 
 
 @pytest.mark.asyncio()
-@pytest.mark.parametrize(
-    "use_completed_task",
-    [
-        pytest.param(False, id="no_existing_task"),
-        pytest.param(True, id="existing_task_done"),
-    ],
-)
-async def test_update_bootstrap_soon_creates_task(
+async def test_update_bootstrap_soon_creates_task_when_none_exists(
     protect_client: ProtectApiClient,
-    use_completed_task: bool,
 ):
-    """Test _update_bootstrap_soon creates a new task when none exists or previous is done."""
-    if use_completed_task:
-        completed_task = asyncio.create_task(asyncio.sleep(0))
-        await completed_task
-        protect_client._update_task = completed_task
-    else:
-        protect_client._update_task = None
-
+    """Test _update_bootstrap_soon creates a new task when none exists."""
+    protect_client._update_task = None
     protect_client.update = AsyncMock()
+
+    protect_client._update_bootstrap_soon()
+
+    assert protect_client._update_task is not None
+    await protect_client._update_task
+    protect_client.update.assert_called_once()
+
+
+@pytest.mark.asyncio()
+async def test_update_bootstrap_soon_creates_task_when_previous_done(
+    protect_client: ProtectApiClient,
+):
+    """Test _update_bootstrap_soon creates a new task when previous task is done."""
+    completed_task = asyncio.create_task(asyncio.sleep(0))
+    await completed_task
+    protect_client._update_task = completed_task
+    protect_client.update = AsyncMock()
+
     protect_client._update_bootstrap_soon()
 
     assert protect_client._update_task is not None
