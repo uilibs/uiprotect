@@ -1,5 +1,25 @@
 # Changelog
 
+## v7.33.1 (2025-12-01)
+
+### Bug fixes
+
+
+- Remove deprecated python 3.16 and pydantic v3 patterns ([`b09dab7`](https://github.com/uilibs/uiprotect/commit/b09dab7139e404eaeb8a555da56ae3e0129f1d73))
+
+
+### Testing
+
+
+- Add coverage for json deserialization in api_request ([`00eab75`](https://github.com/uilibs/uiprotect/commit/00eab75378fb70f1d9dacc152afb6ec2b06fcaec))
+
+
+- Improve utils.py test coverage from 45% to 94% ([`2aff97f`](https://github.com/uilibs/uiprotect/commit/2aff97f7fee7cc6816f024b26fab33ea8709b358))
+
+
+- Add unit tests for _auth_websocket method ([`d1f3841`](https://github.com/uilibs/uiprotect/commit/d1f3841d8838e770d22700bfac273b34fc7f09c4))
+
+
 ## v7.33.0 (2025-11-30)
 
 ### Bug fixes

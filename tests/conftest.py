@@ -260,7 +260,6 @@ class MockWebsocket(SimpleMockWebsocket):
 
 MockDatetime = Mock()
 MockDatetime.now.return_value = get_now()
-MockDatetime.utcnow.return_value = get_now()
 
 
 @pytest.fixture(autouse=True)
@@ -297,6 +296,14 @@ async def cleanup_client(client: ProtectApiClient):
     await client.async_disconnect_ws()
     await client.close_session()
     await client.close_public_api_session()
+
+
+@pytest_asyncio.fixture
+async def simple_api_client():
+    """Create a simple ProtectApiClient for unit testing without mocked bootstrap."""
+    client = ProtectApiClient("test.com", 443, "username", "password")
+    yield client
+    await cleanup_client(client)
 
 
 @pytest_asyncio.fixture(name="protect_client")
