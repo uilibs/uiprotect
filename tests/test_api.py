@@ -321,18 +321,17 @@ def test_connection_host_with_hostname_fallback(protect_client: ProtectApiClient
 
 
 @pytest.mark.parametrize(
-    ("host", "expected_type", "expected_value"),
+    ("host",),
     [
-        ("127.0.0.1", IPv4Address, IPv4Address("127.0.0.1")),
-        ("2001:db8::1", IPv6Address, IPv6Address("2001:db8::1")),
-        ("192.168.1.100", IPv4Address, IPv4Address("192.168.1.100")),
-        ("fe80::1", IPv6Address, IPv6Address("fe80::1")),
+        ("127.0.0.1",),
+        ("2001:db8::1",),
+        ("192.168.1.100",),
+        ("fe80::1",),
+        ("unifi.local",),
     ],
 )
-def test_connection_host_override(
-    host: str, expected_type: type, expected_value: IPv4Address | IPv6Address
-):
-    """Test override_connection_host with various IP addresses."""
+def test_connection_host_override(host: str):
+    """Test override_connection_host stores host as-is (string)."""
     protect = ProtectApiClient(
         host,
         443,
@@ -342,23 +341,9 @@ def test_connection_host_override(
         store_sessions=False,
     )
 
-    assert protect._connection_host == expected_value
-    assert isinstance(protect._connection_host, expected_type)
-
-
-def test_connection_host_override_hostname_fails():
-    """Test that override_connection_host with hostname raises ValueError."""
-    with pytest.raises(
-        ValueError, match="does not appear to be an IPv4 or IPv6 address"
-    ):
-        ProtectApiClient(
-            "unifi.local",
-            443,
-            "test",
-            "test",
-            override_connection_host=True,
-            store_sessions=False,
-        )
+    # Host is always stored as string, format_host_for_url handles formatting
+    assert protect._connection_host == host
+    assert isinstance(protect._connection_host, str)
 
 
 @pytest.mark.asyncio()
