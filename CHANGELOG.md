@@ -1,5 +1,19 @@
 # Changelog
 
+## v7.33.2 (2025-12-05)
+
+### Bug fixes
+
+
+- Allow dns hostnames with override_connection_host (#679) ([`4f84e69`](https://github.com/uilibs/uiprotect/commit/4f84e69618bfe38e2312dfe558c0649f170928b1))
+
+
+### Testing
+
+
+- Add test coverage for _update_bootstrap_soon method ([`cf11161`](https://github.com/uilibs/uiprotect/commit/cf111612fb18409654cda86f8dd4feea80f414b8))
+
+
 ## v7.33.1 (2025-12-01)
 
 ### Bug fixes

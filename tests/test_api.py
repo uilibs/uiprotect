@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -321,18 +322,17 @@ def test_connection_host_with_hostname_fallback(protect_client: ProtectApiClient
 
 
 @pytest.mark.parametrize(
-    ("host", "expected_type", "expected_value"),
+    ("host",),
     [
-        ("127.0.0.1", IPv4Address, IPv4Address("127.0.0.1")),
-        ("2001:db8::1", IPv6Address, IPv6Address("2001:db8::1")),
-        ("192.168.1.100", IPv4Address, IPv4Address("192.168.1.100")),
-        ("fe80::1", IPv6Address, IPv6Address("fe80::1")),
+        ("127.0.0.1",),
+        ("2001:db8::1",),
+        ("192.168.1.100",),
+        ("fe80::1",),
+        ("unifi.local",),
     ],
 )
-def test_connection_host_override(
-    host: str, expected_type: type, expected_value: IPv4Address | IPv6Address
-):
-    """Test override_connection_host with various IP addresses."""
+def test_connection_host_override(host: str):
+    """Test override_connection_host stores host as-is (string)."""
     protect = ProtectApiClient(
         host,
         443,
@@ -342,23 +342,9 @@ def test_connection_host_override(
         store_sessions=False,
     )
 
-    assert protect._connection_host == expected_value
-    assert isinstance(protect._connection_host, expected_type)
-
-
-def test_connection_host_override_hostname_fails():
-    """Test that override_connection_host with hostname raises ValueError."""
-    with pytest.raises(
-        ValueError, match="does not appear to be an IPv4 or IPv6 address"
-    ):
-        ProtectApiClient(
-            "unifi.local",
-            443,
-            "test",
-            "test",
-            override_connection_host=True,
-            store_sessions=False,
-        )
+    # Host is always stored as string, format_host_for_url handles formatting
+    assert protect._connection_host == host
+    assert isinstance(protect._connection_host, str)
 
 
 @pytest.mark.asyncio()
@@ -3669,6 +3655,57 @@ def test_led_settings_serialization_with_all_fields():
     assert serialized["blinkRate"] == 0
     assert serialized["welcomeLed"] is True
     assert serialized["floodLed"] is False
+
+
+@pytest.mark.asyncio()
+async def test_update_bootstrap_soon_creates_task_when_none_exists(
+    protect_client: ProtectApiClient,
+):
+    """Test _update_bootstrap_soon creates a new task when none exists."""
+    protect_client._update_task = None
+    protect_client.update = AsyncMock()
+
+    protect_client._update_bootstrap_soon()
+
+    assert protect_client._update_task is not None
+    await protect_client._update_task
+    protect_client.update.assert_called_once()
+
+
+@pytest.mark.asyncio()
+async def test_update_bootstrap_soon_creates_task_when_previous_done(
+    protect_client: ProtectApiClient,
+):
+    """Test _update_bootstrap_soon creates a new task when previous task is done."""
+    completed_task = asyncio.create_task(asyncio.sleep(0))
+    await completed_task
+    protect_client._update_task = completed_task
+    protect_client.update = AsyncMock()
+
+    protect_client._update_bootstrap_soon()
+
+    assert protect_client._update_task is not None
+    await protect_client._update_task
+    protect_client.update.assert_called_once()
+
+
+@pytest.mark.asyncio()
+async def test_update_bootstrap_soon_skips_when_task_running(
+    protect_client: ProtectApiClient,
+):
+    """Test _update_bootstrap_soon does not create a new task when one is running."""
+    task_event = asyncio.Event()
+    running_task = asyncio.create_task(task_event.wait())
+    protect_client._update_task = running_task
+    protect_client.update = AsyncMock()
+
+    protect_client._update_bootstrap_soon()
+
+    assert protect_client._update_task is running_task
+    protect_client.update.assert_not_called()
+
+    task_event.set()
+    await running_task
 
 
 # Tests for JSON deserialization in api_request, api_request_obj, api_request_list
