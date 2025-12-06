@@ -118,8 +118,8 @@ If you want to install `uiprotect` natively, the below are the requirements:
 - [Python](https://www.python.org/) 3.10+
 - POSIX compatible system
   - Library is only tested on Linux, specifically the latest Debian version available for the official Python Docker images, but there is no reason the library should not work on any Linux distro or macOS.
-- [ffmpeg](https://ffmpeg.org/)
-  - ffmpeg is primarily only for streaming audio to Protect cameras, this can be considered a soft requirement
+- [PyAV](https://pyav.org/) (av) - included as a dependency
+  - PyAV is used for audio streaming to camera speakers (talkback feature)
 
 Alternatively you can use the [provided Docker container](#using-docker-container), in which case the only requirement is [Docker](https://docs.docker.com/desktop/) or another OCI compatible orchestrator (such as Kubernetes or podman).
 

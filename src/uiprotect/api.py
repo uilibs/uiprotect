@@ -64,6 +64,7 @@ from .data.base import ProtectModelWithId
 from .data.devices import AiPort, Chime
 from .data.types import IteratorCallback, ProgressCallback
 from .exceptions import BadRequest, NotAuthorized, NvrError
+from .stream import TalkbackSession
 from .utils import (
     decode_token_cookie,
     format_host_for_url,
@@ -437,15 +438,18 @@ class BaseApiClient:
         self._update_task = asyncio.create_task(self.update())
 
     async def close_session(self) -> None:
-        """Closing and deletes client session"""
+        """Closing and deletes all client sessions."""
         await self._cancel_update_task()
         if self._session is not None:
             await self._session.close()
             self._session = None
             self._loaded_session = False
+        if self._public_api_session is not None:
+            await self._public_api_session.close()
+            self._public_api_session = None
 
     async def close_public_api_session(self) -> None:
-        """Closing and deletes public API client session"""
+        """Closing and deletes public API client session."""
         if self._public_api_session is not None:
             await self._public_api_session.close()
             self._public_api_session = None
@@ -2888,3 +2892,16 @@ class ProtectApiClient(BaseApiClient):
             method="post",
             public_api=True,
         )
+
+    async def create_talkback_session_public(self, camera_id: str) -> TalkbackSession:
+        """
+        Create a talkback session for a camera using public API.
+
+        Returns the talkback stream URL and audio configuration.
+        """
+        data = await self.api_request_obj(
+            url=f"/v1/cameras/{camera_id}/talkback-session",
+            method="post",
+            public_api=True,
+        )
+        return TalkbackSession.from_unifi_dict(**data)

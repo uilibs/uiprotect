@@ -244,18 +244,12 @@ def save_video(
 @app.command()
 def play_audio(
     ctx: typer.Context,
-    url: str = typer.Argument(..., help="ffmpeg playable URL"),
-    ffmpeg_path: Path | None = typer.Option(
-        None,
-        "--ffmpeg-path",
-        help="Path to ffmpeg executable",
-        envvar="FFMPEG_PATH",
-    ),
+    url: str = typer.Argument(..., help="URL or path to audio file"),
 ) -> None:
     """Plays audio file on camera speaker."""
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
-    base.run(ctx, obj.play_audio(url, ffmpeg_path=ffmpeg_path))
+    base.run(ctx, obj.play_audio(url))
 
 
 @app.command()
