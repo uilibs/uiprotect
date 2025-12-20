@@ -63,7 +63,7 @@ pytest-timeout = "^2.4.0"
 pytest-xdist = "^3.7.0"
 types-aiofiles = ">=23.2.0.20240403,<26.0.0.0"
 types-dateparser = "^1.2.2.20250809"
-mypy = "^1.18.2"
+mypy = "^1.19.0"
 pre-commit = "^4.0.0"
 
 [tool.poetry.group.docs]
@@ -81,7 +81,7 @@ pymdown-extensions = "^10.17.2"
 mkdocs-git-revision-date-localized-plugin = "^1.5.0"
 mkdocs-include-markdown-plugin = ">=6.1.1,<8.0.0"
 mkdocstrings = ">=0.25.1,<1.1.0"
-mkdocstrings-python = "^1.19.0"
+mkdocstrings-python = "^2.0.1"
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
