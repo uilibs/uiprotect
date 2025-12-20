@@ -1075,7 +1075,7 @@ class ProtectApiClient(BaseApiClient):
         self._update_lock = asyncio.Lock()
 
         if override_connection_host:
-            self._connection_host = ip_address(self._host)
+            self._connection_host = self._host
 
         if debug:
             set_debug()
