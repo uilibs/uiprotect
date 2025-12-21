@@ -168,6 +168,32 @@ def test_to_camel_case(input_val, expected):
         ("invalid-ip", IPv4Address | str, "invalid-ip"),
         ("", IPv4Address | None, None),
         ("::1", IPv6Address | str, IPv6Address("::1")),
+        # IPv6 support tests - ensure IPv6 addresses work in IPv4-typed fields
+        ("fd00:1:1:1::64", IPv4Address | None, IPv6Address("fd00:1:1:1::64")),
+        (
+            "fd00:1:1:1::64",
+            IPv4Address | IPv6Address | None,
+            IPv6Address("fd00:1:1:1::64"),
+        ),
+        ("192.168.1.1", IPv4Address | IPv6Address | None, IPv4Address("192.168.1.1")),
+        ("", IPv6Address | None, None),
+        (
+            "",
+            IPv4Address | IPv6Address | None,
+            None,
+        ),  # empty string becomes None when str is not in union
+        (
+            "",
+            IPv4Address | IPv6Address | str | None,
+            "",
+        ),  # empty string kept when str is in union,
+        (
+            "2001:db8::1",
+            IPv4Address | IPv6Address | str | None,
+            IPv6Address("2001:db8::1"),
+        ),
+        ("10.0.0.1", IPv4Address | IPv6Address | str | None, IPv4Address("10.0.0.1")),
+        ("hostname.local", IPv4Address | IPv6Address | str | None, "hostname.local"),
         (1705320000000, datetime, datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)),
         (["a", "b"], list[str], ["a", "b"]),
         (["a", "b"], set[str], {"a", "b"}),

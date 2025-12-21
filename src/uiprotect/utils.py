@@ -24,7 +24,7 @@ from inspect import isclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from operator import attrgetter
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypeVar, Union, overload
+from typing import TYPE_CHECKING, Any, TypeVar, Union, get_args, overload
 from uuid import UUID
 
 import jwt
@@ -71,19 +71,32 @@ SNAKE_CASE_MATCH_3 = re.compile("([a-z0-9])([A-Z])")
 
 _LOGGER = logging.getLogger(__name__)
 
-_CREATE_TYPES = {IPv6Address, IPv4Address, UUID, Color, Decimal, Path, Version}
+_CREATE_TYPES = {UUID, Color, Decimal, Path, Version}
 _BAD_UUID = "00000000-0000-00 0- 000-000000000000"
 
-IP_TYPES = {
-    Union[IPv4Address, str, None],
-    Union[IPv4Address, str],
-    Union[IPv6Address, str, None],
-    Union[IPv6Address, str],
-    Union[IPv6Address, IPv4Address, str, None],
-    Union[IPv6Address, IPv4Address, str],
-    Union[IPv6Address, IPv4Address],
-    Union[IPv6Address, IPv4Address, None],
-}
+# All IP-related types that need special handling via _cached_ip_address
+# Note: Union is order-independent, so Union[A, B] == Union[B, A]
+_IP_TYPES = frozenset(
+    {
+        # Individual types (from get_field_type extracting first Union arg)
+        IPv4Address,
+        IPv6Address,
+        # Union types (matched against field.annotation directly)
+        Union[IPv4Address, None],
+        Union[IPv4Address, str],
+        Union[IPv4Address, str, None],
+        Union[IPv6Address, None],
+        Union[IPv6Address, str],
+        Union[IPv6Address, str, None],
+        Union[IPv4Address, IPv6Address],
+        Union[IPv4Address, IPv6Address, None],
+        Union[IPv4Address, IPv6Address, str],
+        Union[IPv4Address, IPv6Address, str, None],
+    }
+)
+
+# Precompute which _IP_TYPES allow str to determine empty string handling
+_IP_TYPES_WITH_STR = frozenset(t for t in _IP_TYPES if str in get_args(t))
 
 
 @lru_cache
@@ -223,7 +236,12 @@ def convert_unifi_data(value: Any, field: FieldInfo) -> Any:  # noqa: PLR0911, P
             return {k: convert_unifi_data(v, field) for k, v in value.items()}
 
     if value is not None:
-        if type_ in IP_TYPES:
+        if type_ in _IP_TYPES:
+            # Handle IP addresses - use _cached_ip_address to support cases where
+            # UniFi returns IPv6 for a field typed as IPv4Address or vice versa
+            if value == "":
+                # Return empty string only if str is in the union, otherwise None
+                return value if type_ in _IP_TYPES_WITH_STR else None
             return _cached_ip_address(value)
         if type_ is datetime:
             return from_js_time(value)
@@ -238,8 +256,6 @@ def convert_unifi_data(value: Any, field: FieldInfo) -> Any:  # noqa: PLR0911, P
                 # 00000000-0000-00 0- 000-000000000000
                 if value == _BAD_UUID:
                     return _EMPTY_UUID
-            if (type_ is IPv4Address) and value == "":
-                return None
             return type_(value)
         if _is_enum_type(type_):
             if _is_from_string_enum(type_):

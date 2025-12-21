@@ -1081,7 +1081,7 @@ class NVR(ProtectDeviceModel):
     country_code: str | None = None
     has_gateway: bool | None = None
     is_vault_registered: bool | None = None
-    public_ip: IPv4Address | None = None
+    public_ip: IPv4Address | IPv6Address | None = None
     ulp_version: str | None = None
     wan_ip: IPv4Address | IPv6Address | None = None
     # requires 2.9.20+
