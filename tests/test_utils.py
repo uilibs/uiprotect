@@ -180,9 +180,13 @@ def test_to_camel_case(input_val, expected):
         (
             "",
             IPv4Address | IPv6Address | None,
+            None,
+        ),  # empty string becomes None when str is not in union
+        (
             "",
-        ),  # empty string stays as-is via _cached_ip_address
-        ("", IPv4Address | IPv6Address | str | None, ""),
+            IPv4Address | IPv6Address | str | None,
+            "",
+        ),  # empty string kept when str is in union,
         (
             "2001:db8::1",
             IPv4Address | IPv6Address | str | None,
