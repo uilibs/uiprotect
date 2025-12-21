@@ -83,6 +83,8 @@ IP_TYPES = {
     Union[IPv6Address, IPv4Address, str],
     Union[IPv6Address, IPv4Address],
     Union[IPv6Address, IPv4Address, None],
+    Union[IPv4Address, IPv6Address, str, None],
+    Union[IPv4Address, IPv6Address, None],
 }
 
 
@@ -238,8 +240,12 @@ def convert_unifi_data(value: Any, field: FieldInfo) -> Any:  # noqa: PLR0911, P
                 # 00000000-0000-00 0- 000-000000000000
                 if value == _BAD_UUID:
                     return _EMPTY_UUID
-            if (type_ is IPv4Address) and value == "":
-                return None
+            if type_ in {IPv4Address, IPv6Address}:
+                if value == "":
+                    return None
+                # Use _cached_ip_address to handle cases where UniFi returns
+                # an IPv6 address for a field typed as IPv4Address or vice versa
+                return _cached_ip_address(value)
             return type_(value)
         if _is_enum_type(type_):
             if _is_from_string_enum(type_):

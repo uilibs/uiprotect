@@ -803,7 +803,7 @@ class ProtectDeviceModel(ProtectModelWithId):
     name: str | None = None
     type: str
     mac: str
-    host: IPv4Address | str | None = None
+    host: IPv4Address | IPv6Address | str | None = None
     up_since: datetime | None = None
     uptime: timedelta | None = None
     last_seen: datetime | None = None
