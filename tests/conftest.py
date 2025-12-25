@@ -112,6 +112,8 @@ def validate_video_file(filepath: Path, length: int):
         assert len(container.streams.video) > 0, "No video stream found"
 
         # Check duration (in seconds)
+        # container.duration is in av.time_base units (microseconds, 1000000/sec)
+        # so we divide by av.time_base to convert to seconds
         duration = float(container.duration) / av.time_base if container.duration else 0
         # it looks like UFP does not always generate a video of exact length
         assert length - 10 < duration < length + 10
