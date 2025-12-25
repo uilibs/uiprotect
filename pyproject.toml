@@ -63,7 +63,7 @@ pytest-xdist = "^3.7.0"
 types-aiofiles = ">=23.2.0.20240403,<26.0.0.0"
 types-dateparser = "^1.2.2.20250809"
 mypy = "^1.19.0"
-pre-commit = "^4.0.0"
+pre-commit = "^4.5.1"
 
 [tool.poetry.group.docs]
 optional = true
