@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.33.3 (2025-12-21)
+
+### Bug fixes
+
+
+- Handle ipv6 addresses in ipv4-typed fields ([`98a39b9`](https://github.com/uilibs/uiprotect/commit/98a39b9aeb94d4d976e9e8b568a214599815365f))
+
+
 ## v7.33.2 (2025-12-05)
 
 ### Bug fixes

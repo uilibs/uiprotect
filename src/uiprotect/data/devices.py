@@ -605,7 +605,7 @@ class LCDMessage(ProtectBaseObject):
 class TalkbackSettings(ProtectBaseObject):
     type_fmt: AudioCodecs
     type_in: str
-    bind_addr: IPv4Address | None = None
+    bind_addr: IPv4Address | IPv6Address | str | None = None
     bind_port: int
     filter_addr: str | None = None  # can be used to restrict sender address
     filter_port: int | None = None  # can be used to restrict sender port
@@ -1029,7 +1029,7 @@ class Camera(ProtectMotionDeviceModel):
     # requires 2.6.13+
     homekit_settings: CameraHomekitSettings | None = None
     # requires 2.6.17+
-    ap_mgmt_ip: IPv4Address | None = None
+    ap_mgmt_ip: IPv4Address | IPv6Address | None = None
     # requires 2.7.5+
     is_waterproof_case_attached: bool | None = None
     last_disconnect: datetime | None = None
@@ -3457,7 +3457,7 @@ class Chime(ProtectAdoptableDeviceModel):
     is_wireless_uplink_enabled: bool
     camera_ids: list[str]
     # requires 2.6.17+
-    ap_mgmt_ip: IPv4Address | None = None
+    ap_mgmt_ip: IPv4Address | IPv6Address | None = None
     # requires 2.7.15+
     feature_flags: ChimeFeatureFlags | None = None
     # requires 2.8.22+
