@@ -23,11 +23,30 @@ from uiprotect.data import (
     SmartDetectAudioType,
     VideoMode,
 )
-from uiprotect.data.devices import CameraZone, Hotplug, HotplugExtender
+from uiprotect.data.devices import CameraZone, Hotplug, HotplugExtender, WifiStats
 from uiprotect.data.types import DEFAULT, PermissionNode, SmartDetectObjectType
 from uiprotect.data.websocket import WSAction, WSSubscriptionMessage
 from uiprotect.exceptions import BadRequest, NotAuthorized
 from uiprotect.utils import to_js_time
+
+
+@pytest.mark.parametrize(
+    ("link_speed", "expected_type"),
+    [
+        (300, int),  # new Protect behavior
+        ("300 Mbps", str),  # legacy behavior
+        (None, type(None)),
+    ],
+)
+def test_wifi_stats_link_speed_mbps(link_speed: int | str | None, expected_type: type):
+    """Test WifiStats accepts int, str, and None for link_speed_mbps (Protect 6.x+)."""
+    stats = WifiStats.from_unifi_dict(
+        linkSpeedMbps=link_speed,
+        signalQuality=50,
+        signalStrength=0,
+    )
+    assert stats.link_speed_mbps == link_speed
+    assert isinstance(stats.link_speed_mbps, expected_type)
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
