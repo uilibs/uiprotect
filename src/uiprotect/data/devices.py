@@ -618,7 +618,7 @@ class TalkbackSettings(ProtectBaseObject):
 class WifiStats(ProtectBaseObject):
     channel: int | None = None
     frequency: int | None = None
-    link_speed_mbps: str | None = None
+    link_speed_mbps: int | str | None = None
     signal_quality: PercentInt
     signal_strength: int
 
