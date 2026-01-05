@@ -125,7 +125,7 @@ class TalkbackStream:
     Stream audio to a UniFi Protect camera's speaker using PyAV.
 
     This class handles audio transcoding and UDP streaming to camera speakers.
-    It runs the actual streaming in a thread pool to avoid blocking the event loop.
+    It runs the actual streaming in a separate thread to avoid blocking the event loop.
 
     Example:
         ```python
