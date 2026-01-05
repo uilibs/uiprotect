@@ -93,10 +93,16 @@ def _create_mock_av_containers(
     """Create mock av input/output containers for testing."""
     mock_input = MagicMock()
     mock_input.streams.audio = [MagicMock()]
+    # Make it work as a context manager
+    mock_input.__enter__ = MagicMock(return_value=mock_input)
+    mock_input.__exit__ = MagicMock(return_value=False)
 
     mock_output = MagicMock()
     mock_output_stream = MagicMock()
     mock_output.add_stream.return_value = mock_output_stream
+    # Make it work as a context manager
+    mock_output.__enter__ = MagicMock(return_value=mock_output)
+    mock_output.__exit__ = MagicMock(return_value=False)
 
     mock_resampler = MagicMock()
 
@@ -223,43 +229,6 @@ def test_talkback_stream_init_no_session(mock_camera: Mock):
 def test_talkback_stream_init_no_speaker_raises(mock_camera_no_speaker: Mock):
     with pytest.raises(BadRequest, match="does not have a speaker"):
         TalkbackStream(mock_camera_no_speaker, "/path/to/audio.wav")
-
-
-# --- TalkbackStream Parameter Resolution Tests ---
-
-
-def test_get_stream_params_with_session(
-    mock_camera: Mock, talkback_session: TalkbackSession
-):
-    stream = TalkbackStream(mock_camera, "/path/to/audio.wav", talkback_session)
-    # Testing protected method to verify session vs camera fallback logic
-    host, port, codec, rate = stream._get_stream_params()
-    assert host == "192.168.1.100"
-    assert port == 7004
-    assert codec == "opus"
-    assert rate == 24000
-
-
-def test_get_stream_params_with_ipv6_session(
-    mock_camera: Mock, talkback_session_ipv6: TalkbackSession
-):
-    """Test that IPv6 addresses are correctly extracted from session URL."""
-    stream = TalkbackStream(mock_camera, "/path/to/audio.wav", talkback_session_ipv6)
-    host, port, codec, rate = stream._get_stream_params()
-    assert host == "2001:db8::1"
-    assert port == 7004
-    assert codec == "opus"
-    assert rate == 24000
-
-
-def test_get_stream_params_without_session(mock_camera: Mock):
-    stream = TalkbackStream(mock_camera, "/path/to/audio.wav")
-    # Testing protected method to verify camera settings fallback
-    host, port, codec, rate = stream._get_stream_params()
-    assert host == "192.168.1.100"
-    assert port == 7004
-    assert codec == "opus"
-    assert rate == 24000
 
 
 # --- TalkbackStream Start/Stop Tests ---
@@ -410,6 +379,27 @@ def test_stream_audio_sync_direct_coverage(
         stream._stream_audio_sync()  # Should hit break on line 242
 
 
+def test_stream_audio_sync_camera_fallback(mock_camera: Mock, audio_file: str):
+    """Test _stream_audio_sync uses camera settings when no session provided."""
+    mock_input, mock_output, mock_resampler = _create_mock_av_containers()
+
+    with (
+        patch("uiprotect.stream.av.open") as mock_av_open,
+        patch("uiprotect.stream.av.AudioResampler", return_value=mock_resampler),
+    ):
+        mock_av_open.side_effect = [mock_input, mock_output]
+        stream = TalkbackStream(mock_camera, audio_file)  # No session
+        stream._stream_audio_sync()
+
+        # Verify output was opened with camera settings
+        calls = mock_av_open.call_args_list
+        assert len(calls) == 2
+        output_call = calls[1]
+        udp_url = output_call[0][0]
+        assert "192.168.1.100" in udp_url
+        assert "7004" in udp_url
+
+
 @pytest.mark.asyncio
 async def test_run_until_complete_aac_codec(
     mock_camera: Mock, audio_file: str, talkback_session_aac: TalkbackSession
@@ -438,6 +428,8 @@ async def test_run_until_complete_no_audio_stream(
 ):
     mock_input = MagicMock()
     mock_input.streams.audio = []
+    mock_input.__enter__ = MagicMock(return_value=mock_input)
+    mock_input.__exit__ = MagicMock(return_value=False)
 
     with patch("uiprotect.stream.av.open") as mock_av_open:
         mock_av_open.return_value = mock_input
