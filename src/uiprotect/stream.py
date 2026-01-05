@@ -256,8 +256,12 @@ class TalkbackStream:
                     for packet in output_stream.encode(None):
                         output_container.mux(packet)
 
-    def _start_thread(self) -> None:
-        """Reset state and start streaming thread. Must hold lock."""
+    def _start_thread_if_needed(self, *, raise_if_running: bool) -> None:
+        """Start streaming thread if not already running. Must hold lock."""
+        if self._thread is not None and self._thread.is_alive():
+            if raise_if_running:
+                raise StreamError("Stream already started")
+            return
         self._stop_event.clear()
         self._error = None
         self._thread = threading.Thread(
@@ -276,9 +280,7 @@ class TalkbackStream:
     async def start(self) -> None:
         """Start the audio stream."""
         async with self._lock:
-            if self._thread is not None and self._thread.is_alive():
-                raise StreamError("Stream already started")
-            self._start_thread()
+            self._start_thread_if_needed(raise_if_running=True)
 
     async def stop(self) -> None:
         """Stop the audio stream gracefully and wait for completion."""
@@ -291,8 +293,7 @@ class TalkbackStream:
     async def run_until_complete(self) -> None:
         """Run the stream until it completes naturally."""
         async with self._lock:
-            if self._thread is None or not self._thread.is_alive():
-                self._start_thread()
+            self._start_thread_if_needed(raise_if_running=False)
             await self._wait_for_thread()
 
             if self._error is not None:
