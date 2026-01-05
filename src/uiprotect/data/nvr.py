@@ -672,9 +672,9 @@ class MemoryInfo(ProtectBaseObject):
 
 
 class StorageDevice(ProtectBaseObject):
-    model: str
-    size: int
-    healthy: bool | str
+    model: str | None = None
+    size: int | None = None
+    healthy: bool | str | None = None
 
 
 class StorageInfo(ProtectBaseObject):
