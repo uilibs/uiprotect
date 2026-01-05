@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import functools
 import logging
 import threading
@@ -140,7 +139,7 @@ class TalkbackStream:
         "_error",
         "_lock",
         "_stop_event",
-        "_task",
+        "_thread",
         "camera",
         "content_url",
         "session",
@@ -171,7 +170,7 @@ class TalkbackStream:
         self.content_url = content_url
         self.session = session
         self._stop_event = threading.Event()
-        self._task: asyncio.Future[None] | None = None
+        self._thread: threading.Thread | None = None
         self._lock = asyncio.Lock()
         self._error: BaseException | None = None
 
@@ -192,7 +191,7 @@ class TalkbackStream:
     @property
     def is_running(self) -> bool:
         """Check if the stream is currently running."""
-        return self._task is not None and not self._task.done()
+        return self._thread is not None and self._thread.is_alive()
 
     @_convert_av_errors
     def _stream_audio_sync(self) -> None:
@@ -257,39 +256,47 @@ class TalkbackStream:
                     for packet in output_stream.encode(None):
                         output_container.mux(packet)
 
-    def _start_task(self) -> None:
-        """Reset state and start streaming task. Must hold lock."""
+    def _start_thread(self) -> None:
+        """Reset state and start streaming thread. Must hold lock."""
         self._stop_event.clear()
         self._error = None
-        self._task = asyncio.get_running_loop().run_in_executor(
-            None, self._stream_audio_sync
+        self._thread = threading.Thread(
+            target=self._stream_audio_sync,
+            name="TalkbackStream",
+            daemon=True,
         )
+        self._thread.start()
+
+    async def _wait_for_thread(self) -> None:
+        """Wait for the thread to complete without blocking the event loop."""
+        loop = asyncio.get_running_loop()
+        thread = self._thread
+        if thread is not None:
+            await loop.run_in_executor(None, thread.join)
 
     async def start(self) -> None:
         """Start the audio stream."""
         async with self._lock:
-            if self._task is not None and not self._task.done():
+            if self._thread is not None and self._thread.is_alive():
                 raise StreamError("Stream already started")
-            self._start_task()
+            self._start_thread()
 
     async def stop(self) -> None:
         """Stop the audio stream gracefully and wait for completion."""
         async with self._lock:
             self._stop_event.set()
-            if self._task is not None:
-                with contextlib.suppress(asyncio.CancelledError):
-                    await self._task
-                self._task = None
+            if self._thread is not None:
+                await self._wait_for_thread()
+                self._thread = None
 
     async def run_until_complete(self) -> None:
         """Run the stream until it completes naturally."""
         async with self._lock:
-            if self._task is None or self._task.done():
-                self._start_task()
-            task = self._task
+            if self._thread is None or not self._thread.is_alive():
+                self._start_thread()
 
-        if task is not None:
-            await task
+        await self._wait_for_thread()
+
         if self._error is not None:
             error = self._error
             self._error = None

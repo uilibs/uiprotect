@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
-from collections.abc import Generator
+import threading
+from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, Mock, patch
@@ -235,25 +235,38 @@ def test_talkback_stream_init_no_speaker_raises(mock_camera_no_speaker: Mock):
 # --- TalkbackStream Start/Stop Tests ---
 
 
+def _blocking_mock(stop_event: threading.Event) -> Callable[[], None]:
+    """Create a mock that blocks until stop_event is set."""
+
+    def mock_stream_audio_sync(self: TalkbackStream) -> None:
+        stop_event.wait()
+
+    return mock_stream_audio_sync
+
+
 @pytest.mark.asyncio
 async def test_start_stop(mock_camera: Mock, audio_file: str):
-    with patch.object(TalkbackStream, "_stream_audio_sync"):
+    stop_event = threading.Event()
+    with patch.object(TalkbackStream, "_stream_audio_sync", _blocking_mock(stop_event)):
         stream = TalkbackStream(mock_camera, audio_file)
 
         await stream.start()
         assert stream.is_running is True
 
+        stop_event.set()  # Allow thread to finish
         await stream.stop()
         assert stream.is_running is False
 
 
 @pytest.mark.asyncio
 async def test_start_twice_raises(mock_camera: Mock, audio_file: str):
-    with patch.object(TalkbackStream, "_stream_audio_sync"):
+    stop_event = threading.Event()
+    with patch.object(TalkbackStream, "_stream_audio_sync", _blocking_mock(stop_event)):
         stream = TalkbackStream(mock_camera, audio_file)
         await stream.start()
         with pytest.raises(StreamError, match="already started"):
             await stream.start()
+        stop_event.set()
         await stream.stop()
 
 
@@ -266,11 +279,15 @@ async def test_stop_when_not_running(mock_camera: Mock, audio_file: str):
 
 @pytest.mark.asyncio
 async def test_multiple_start_stop_cycles(mock_camera: Mock, audio_file: str):
-    with patch.object(TalkbackStream, "_stream_audio_sync"):
-        stream = TalkbackStream(mock_camera, audio_file)
-        for _ in range(3):
+    for _ in range(3):
+        stop_event = threading.Event()
+        with patch.object(
+            TalkbackStream, "_stream_audio_sync", _blocking_mock(stop_event)
+        ):
+            stream = TalkbackStream(mock_camera, audio_file)
             await stream.start()
             assert stream.is_running is True
+            stop_event.set()
             await stream.stop()
             assert stream.is_running is False
 
@@ -280,11 +297,13 @@ async def test_multiple_start_stop_cycles(mock_camera: Mock, audio_file: str):
 
 @pytest.mark.asyncio
 async def test_context_manager(mock_camera: Mock, audio_file: str):
-    with patch.object(TalkbackStream, "_stream_audio_sync"):
+    stop_event = threading.Event()
+    with patch.object(TalkbackStream, "_stream_audio_sync", _blocking_mock(stop_event)):
         stream = TalkbackStream(mock_camera, audio_file)
         async with stream as s:
             assert s is stream
             assert stream.is_running is True
+            stop_event.set()
         assert stream.is_running is False
 
 
@@ -506,7 +525,11 @@ async def test_stop_signal_interrupts_streaming(mock_camera: Mock, audio_file: s
 @pytest.mark.asyncio
 async def test_stop_event_is_set_on_stop(mock_camera: Mock, audio_file: str):
     """Test that calling stop() sets the stop event."""
-    with patch.object(TalkbackStream, "_stream_audio_sync"):
+
+    def wait_for_stop(self: TalkbackStream) -> None:
+        self._stop_event.wait()
+
+    with patch.object(TalkbackStream, "_stream_audio_sync", wait_for_stop):
         stream = TalkbackStream(mock_camera, audio_file)
 
         assert not stream._stop_event.is_set()
@@ -522,13 +545,15 @@ async def test_stop_event_is_set_on_stop(mock_camera: Mock, audio_file: str):
 @pytest.mark.asyncio
 async def test_run_until_complete_unexpected_error(mock_camera: Mock, audio_file: str):
     """Test that run_until_complete handles unexpected non-exception errors."""
-    stream = TalkbackStream(mock_camera, audio_file)
-    stream.session = TalkbackSession(
-        url="rtp://192.168.1.100:7004", codec="opus", sampling_rate=24000
-    )
-    # Simulate an unexpected non-BaseException error stored
-    stream._error = "unexpected string error"  # type: ignore[assignment]
-    stream._task = asyncio.create_task(asyncio.sleep(0))
 
-    with pytest.raises(StreamError, match="Unexpected error"):
-        await stream.run_until_complete()
+    def set_string_error(self: TalkbackStream) -> None:
+        self._error = "unexpected string error"  # type: ignore[assignment]
+
+    with patch.object(TalkbackStream, "_stream_audio_sync", set_string_error):
+        stream = TalkbackStream(mock_camera, audio_file)
+        stream.session = TalkbackSession(
+            url="rtp://192.168.1.100:7004", codec="opus", sampling_rate=24000
+        )
+
+        with pytest.raises(StreamError, match="Unexpected error"):
+            await stream.run_until_complete()
