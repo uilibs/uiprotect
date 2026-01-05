@@ -269,10 +269,9 @@ class TalkbackStream:
 
     async def _wait_for_thread(self) -> None:
         """Wait for the thread to complete without blocking the event loop."""
-        loop = asyncio.get_running_loop()
-        thread = self._thread
-        if thread is not None:
-            await loop.run_in_executor(None, thread.join)
+        if self._thread is not None:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, self._thread.join)
 
     async def start(self) -> None:
         """Start the audio stream."""
@@ -294,12 +293,11 @@ class TalkbackStream:
         async with self._lock:
             if self._thread is None or not self._thread.is_alive():
                 self._start_thread()
+            await self._wait_for_thread()
 
-        await self._wait_for_thread()
-
-        if self._error is not None:
-            error = self._error
-            self._error = None
-            if isinstance(error, BaseException):
-                raise error
-            raise StreamError(f"Unexpected error: {error}")
+            if self._error is not None:
+                error = self._error
+                self._error = None
+                if isinstance(error, BaseException):
+                    raise error
+                raise StreamError(f"Unexpected error: {error}")
