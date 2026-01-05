@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import functools
 import logging
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, NamedTuple, cast
 from urllib.parse import ParseResult, urlparse
@@ -18,6 +20,22 @@ from .utils import format_host_for_url
 
 if TYPE_CHECKING:
     from .data import Camera
+
+
+def _convert_av_errors(
+    func: Callable[[TalkbackStream], None],
+) -> Callable[[TalkbackStream], None]:
+    """Decorator to convert av.FFmpegError to StreamError on self._error."""
+
+    @functools.wraps(func)
+    def wrapper(self: TalkbackStream) -> None:
+        try:
+            func(self)
+        except av.FFmpegError as e:
+            self._error = StreamError(f"Audio streaming failed: {e}")
+
+    return wrapper
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,6 +67,7 @@ class CodecConfig(NamedTuple):
 CODEC_MAP: dict[str, CodecConfig] = {
     "aac": CodecConfig("aac", "adts"),
     "opus": CodecConfig("libopus", "rtp"),
+    "vorbis": CodecConfig("libvorbis", "ogg"),
 }
 
 
@@ -175,6 +194,7 @@ class TalkbackStream:
         """Check if the stream is currently running."""
         return self._task is not None and not self._task.done()
 
+    @_convert_av_errors
     def _stream_audio_sync(self) -> None:
         """Stream audio to the camera (runs in executor thread)."""
         if self.session:
@@ -198,49 +218,44 @@ class TalkbackStream:
         udp_url = f"udp://{formatted_host}:{port}"
         _LOGGER.debug("Talkback: %s codec=%s rate=%d", udp_url, codec, sample_rate)
 
-        try:
-            # Open input with timeout to avoid hanging
+        with av.open(
+            self.content_url,
+            timeout=(INPUT_TIMEOUT, INPUT_TIMEOUT),
+        ) as input_container:
+            if not input_container.streams.audio:
+                self._error = StreamError("No audio stream found in input")
+                return
+
+            input_stream = input_container.streams.audio[0]
+
             with av.open(
-                self.content_url,
-                timeout=(INPUT_TIMEOUT, INPUT_TIMEOUT),
-            ) as input_container:
-                if not input_container.streams.audio:
-                    self._error = StreamError("No audio stream found in input")
-                    return
+                udp_url,
+                "w",
+                format=config.format,
+                timeout=OUTPUT_TIMEOUT,
+            ) as output_container:
+                output_stream = cast(
+                    AudioStream,
+                    output_container.add_stream(config.encoder, rate=sample_rate),
+                )
+                output_stream.layout = "mono"
 
-                input_stream = input_container.streams.audio[0]
+                resampler = av.AudioResampler(
+                    format=output_stream.format, layout="mono", rate=sample_rate
+                )
 
-                with av.open(
-                    udp_url,
-                    "w",
-                    format=config.format,
-                    timeout=OUTPUT_TIMEOUT,
-                ) as output_container:
-                    output_stream = cast(
-                        AudioStream,
-                        output_container.add_stream(config.encoder, rate=sample_rate),
-                    )
-                    output_stream.layout = "mono"
-
-                    resampler = av.AudioResampler(
-                        format=output_stream.format, layout="mono", rate=sample_rate
-                    )
-
-                    for frame in input_container.decode(input_stream):
-                        if self._stop_event.is_set():
-                            break
-                        for resampled in resampler.resample(frame):
-                            resampled.pts = None
-                            for packet in output_stream.encode(resampled):
-                                output_container.mux(packet)
-
-                    # Flush encoder only if completed normally
-                    if not self._stop_event.is_set():
-                        for packet in output_stream.encode(None):
+                for frame in input_container.decode(input_stream):
+                    if self._stop_event.is_set():
+                        break
+                    for resampled in resampler.resample(frame):
+                        resampled.pts = None
+                        for packet in output_stream.encode(resampled):
                             output_container.mux(packet)
 
-        except av.FFmpegError as e:
-            self._error = StreamError(f"Audio streaming failed: {e}")
+                # Flush encoder only if completed normally
+                if not self._stop_event.is_set():
+                    for packet in output_stream.encode(None):
+                        output_container.mux(packet)
 
     def _start_task(self) -> None:
         """Reset state and start streaming task. Must hold lock."""

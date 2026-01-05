@@ -186,6 +186,7 @@ def test_codec_config():
     [
         ("aac", "aac", "adts"),
         ("opus", "libopus", "rtp"),
+        ("vorbis", "libvorbis", "ogg"),
     ],
 )
 def test_codec_map(codec: str, expected_encoder: str, expected_format: str):
