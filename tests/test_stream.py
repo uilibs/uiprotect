@@ -421,6 +421,22 @@ def test_stream_audio_sync_camera_fallback(mock_camera: Mock, audio_file: str):
 
 
 @pytest.mark.asyncio
+async def test_run_until_complete_while_running(mock_camera: Mock, audio_file: str):
+    """Test run_until_complete waits for existing stream instead of starting new one."""
+    stop_event = threading.Event()
+
+    with patch.object(TalkbackStream, "_stream_audio_sync", _blocking_mock(stop_event)):
+        stream = TalkbackStream(mock_camera, audio_file)
+        await stream.start()
+        assert stream.is_running
+
+        # Call run_until_complete while already running - should wait, not start new
+        stop_event.set()
+        await stream.run_until_complete()
+        assert not stream.is_running
+
+
+@pytest.mark.asyncio
 async def test_run_until_complete_aac_codec(
     mock_camera: Mock, audio_file: str, talkback_session_aac: TalkbackSession
 ):
