@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.33.4 (2026-01-05)
+
+### Bug fixes
+
+
+- Update schemas for latest protect version ([`9fa5afa`](https://github.com/uilibs/uiprotect/commit/9fa5afae647ec73206255342dabf2cd08d1285e5))
+
+
 ## v7.33.3 (2025-12-21)
 
 ### Bug fixes
