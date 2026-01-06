@@ -269,8 +269,8 @@ class TalkbackStream:
                         samples_sent += resampled.samples
                         target_time = start_time + (samples_sent / sample_rate)
                         sleep_time = target_time - time.monotonic()
-                        if sleep_time > 0:
-                            time.sleep(sleep_time)
+                        if sleep_time > 0 and self._stop_event.wait(sleep_time):
+                            break  # Stop requested during pacing delay
 
                 # Flush encoder only if completed normally
                 if not self._stop_event.is_set():

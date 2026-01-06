@@ -390,7 +390,6 @@ def test_stream_audio_sync_direct_coverage(
         patch("uiprotect.stream.av.open") as mock_av_open,
         patch("uiprotect.stream.av.AudioResampler", return_value=mock_resampler),
         patch("uiprotect.stream.time.monotonic", return_value=0.0),
-        patch("uiprotect.stream.time.sleep"),
     ):
         mock_av_open.side_effect = [mock_input, mock_output]
         stream = TalkbackStream(mock_camera, audio_file, talkback_session)
