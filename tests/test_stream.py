@@ -396,10 +396,22 @@ def test_stream_audio_sync_direct_coverage(
         stream._stream_audio_sync()  # Normal run
         mock_output.mux.assert_called()
 
-        # Test break path: set stop_event and run again
+        # Test outer loop break: stop_event set before iteration
         mock_av_open.side_effect = [mock_input, mock_output]
         stream._stop_event.set()
-        stream._stream_audio_sync()  # Should hit break on line 264
+        stream._stream_audio_sync()  # Hits break at outer loop check
+
+        # Test inner loop break: stop_event set during encode (before wait)
+        mock_av_open.side_effect = [mock_input, mock_output]
+        stream._stop_event.clear()
+        mock_output_stream = mock_output.add_stream.return_value
+
+        def set_stop_during_encode(frame):
+            stream._stop_event.set()  # Set stop so wait() returns True
+            return [MagicMock()]
+
+        mock_output_stream.encode.side_effect = set_stop_during_encode
+        stream._stream_audio_sync()  # Hits break at pacing wait
 
 
 def test_stream_audio_sync_camera_fallback(mock_camera: Mock, audio_file: str):
