@@ -6,6 +6,7 @@ import asyncio
 import functools
 import logging
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, NamedTuple, cast
@@ -254,13 +255,22 @@ class TalkbackStream:
                     format=audio_format, layout="mono", rate=sample_rate
                 )
 
+                # Real-time pacing: sync to absolute time to avoid drift
+                start_time = time.monotonic()
+                samples_sent = 0
+
                 for frame in input_container.decode(input_stream):
                     if self._stop_event.is_set():
                         break
                     for resampled in resampler.resample(frame):
-                        resampled.pts = None
                         for packet in output_stream.encode(resampled):
                             output_container.mux(packet)
+
+                        samples_sent += resampled.samples
+                        target_time = start_time + (samples_sent / sample_rate)
+                        sleep_time = target_time - time.monotonic()
+                        if sleep_time > 0:
+                            time.sleep(sleep_time)
 
                 # Flush encoder only if completed normally
                 if not self._stop_event.is_set():
