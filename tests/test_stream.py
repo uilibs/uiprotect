@@ -490,7 +490,7 @@ async def test_run_until_complete_unsupported_codec(mock_camera: Mock, audio_fil
 
 
 @pytest.mark.asyncio
-async def test_run_until_complete_ffmpeg_error(
+async def test_run_until_complete_av_error(
     mock_camera: Mock, audio_file: str, talkback_session: TalkbackSession
 ):
     with patch("uiprotect.stream.av.open") as mock_av_open:

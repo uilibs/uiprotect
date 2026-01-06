@@ -54,7 +54,7 @@ class CodecConfig(NamedTuple):
     Audio codec configuration for talkback streaming.
 
     Attributes:
-        encoder: FFmpeg encoder name (e.g., "aac", "libopus").
+        encoder: PyAV/libav encoder name (e.g., "aac", "libopus").
         format: Output container format (e.g., "adts", "rtp").
 
     """
@@ -78,7 +78,7 @@ class TalkbackSession:
 
     Attributes:
         url: Streaming URL (UDP or RTP, e.g., "rtp://192.168.1.1:7004").
-        codec: Audio codec name ("aac" or "opus").
+        codec: Audio codec name ("aac", "opus", or "vorbis").
         sampling_rate: Audio sampling rate in Hz.
 
     """

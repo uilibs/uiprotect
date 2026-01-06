@@ -2712,6 +2712,10 @@ class Camera(ProtectMotionDeviceModel):
 
         session: TalkbackSession | None = None
         if use_public_api:
+            if self._api._api_key is None:
+                raise NotAuthorized(
+                    "Cannot create talkback session without an API key."
+                )
             session = await self._api.create_talkback_session_public(self.id)
 
         self.talkback_stream = TalkbackStream(self, content_url, session)
