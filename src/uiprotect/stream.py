@@ -85,6 +85,7 @@ class TalkbackSession:
     url: str
     codec: str
     sampling_rate: int
+    bits_per_sample: int = 16
     _parsed_url: ParseResult = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -107,6 +108,7 @@ class TalkbackSession:
             url=str(data.get("url", "")),
             codec=str(data.get("codec", "")),
             sampling_rate=int(cast(Any, data.get("samplingRate", 0))),
+            bits_per_sample=int(cast(Any, data.get("bitsPerSample", 16))),
         )
 
     @property
@@ -197,25 +199,30 @@ class TalkbackStream:
     def _stream_audio_sync(self) -> None:
         """Stream audio to the camera (runs in executor thread)."""
         if self.session:
-            host = self.session.host
-            port = self.session.port
+            output_url = self.session.url
             codec = self.session.codec
             sample_rate = self.session.sampling_rate
+            bits_per_sample = self.session.bits_per_sample
         else:
             ts = self.camera.talkback_settings
-            host = str(self.camera.host)
-            port = ts.bind_port
+            host = format_host_for_url(str(self.camera.host))
+            output_url = f"udp://{host}:{ts.bind_port}"
             codec = ts.type_fmt.value
             sample_rate = ts.sampling_rate
+            bits_per_sample = ts.bits_per_sample
 
         config = CODEC_MAP.get(codec)
         if not config:
             self._error = StreamError(f"Unsupported codec: {codec}")
             return
 
-        formatted_host = format_host_for_url(host)
-        udp_url = f"udp://{formatted_host}:{port}"
-        _LOGGER.debug("Talkback: %s codec=%s rate=%d", udp_url, codec, sample_rate)
+        _LOGGER.debug(
+            "Talkback: %s codec=%s rate=%d bits=%d",
+            output_url,
+            codec,
+            sample_rate,
+            bits_per_sample,
+        )
 
         with av.open(
             self.content_url,
@@ -228,7 +235,7 @@ class TalkbackStream:
             input_stream = input_container.streams.audio[0]
 
             with av.open(
-                udp_url,
+                output_url,
                 "w",
                 format=config.format,
                 timeout=OUTPUT_TIMEOUT,
@@ -239,8 +246,12 @@ class TalkbackStream:
                 )
                 output_stream.layout = "mono"
 
+                # Map bits_per_sample to av format (8->u8, 16->s16, 32->s32)
+                audio_format = {8: "u8", 16: "s16", 32: "s32"}.get(
+                    bits_per_sample, "s16"
+                )
                 resampler = av.AudioResampler(
-                    format=output_stream.format, layout="mono", rate=sample_rate
+                    format=audio_format, layout="mono", rate=sample_rate
                 )
 
                 for frame in input_container.decode(input_stream):
