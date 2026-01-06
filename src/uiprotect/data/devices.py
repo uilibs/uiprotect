@@ -17,7 +17,7 @@ from pydantic import model_validator
 from pydantic.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized, StreamError
-from ..stream import TalkbackStream
+from ..stream import TalkbackSession, TalkbackStream
 from ..utils import (
     clamp_value,
     convert_smart_audio_types,
@@ -2679,70 +2679,84 @@ class Camera(ProtectMotionDeviceModel):
 
         await self.queue_update(callback)
 
-    def create_talkback_stream(
+    async def create_talkback_stream(
         self,
         content_url: str,
-        ffmpeg_path: Path | None = None,
+        ffmpeg_path: Path | None = None,  # Deprecated: no longer used
+        *,
+        use_public_api: bool = True,
     ) -> TalkbackStream:
         """
-        Creates a subprocess to play audio to a camera through its speaker.
+        Creates a stream to play audio to a camera through its speaker.
 
-        Requires ffmpeg to use.
+        Uses PyAV (libav) for audio encoding - compatible with Home Assistant.
 
         Args:
         ----
-            content_url: Either a URL accessible by python or a path to a file (ffmepg's `-i` parameter)
-            ffmpeg_path: Optional path to ffmpeg binary
+            content_url: Either a URL accessible by python or a path to a file
+            ffmpeg_path: Deprecated, no longer used (PyAV handles encoding)
+            use_public_api: Use the public API to get talkback session (default: True)
 
-        Use either `await stream.run_until_complete()` or `await stream.start()` to start subprocess command
+        Use either `await stream.run_until_complete()` or `await stream.start()` to start streaming
         after getting the stream.
 
-        `.play_audio()` is a helper that wraps this method and automatically runs the subprocess as well
+        `.play_audio()` is a helper that wraps this method and automatically runs the stream as well
 
         """
+        if ffmpeg_path is not None:
+            _LOGGER.warning(
+                "ffmpeg_path is deprecated and ignored, PyAV is used instead"
+            )
         if self.talkback_stream is not None and self.talkback_stream.is_running:
             raise BadRequest("Camera is already playing audio")
 
-        self.talkback_stream = TalkbackStream(self, content_url, ffmpeg_path)
+        session: TalkbackSession | None = None
+        if use_public_api:
+            if self._api._api_key is None:
+                raise NotAuthorized(
+                    "Cannot create talkback session without an API key."
+                )
+            session = await self._api.create_talkback_session_public(self.id)
+
+        self.talkback_stream = TalkbackStream(self, content_url, session)
         return self.talkback_stream
 
     async def play_audio(
         self,
         content_url: str,
-        ffmpeg_path: Path | None = None,
+        ffmpeg_path: Path | None = None,  # Deprecated: no longer used
         blocking: bool = True,
+        *,
+        use_public_api: bool = True,
     ) -> None:
         """
         Plays audio to a camera through its speaker.
 
-        Requires ffmpeg to use.
+        Uses PyAV (libav) for audio encoding - compatible with Home Assistant.
 
         Args:
         ----
-            content_url: Either a URL accessible by python or a path to a file (ffmepg's `-i` parameter)
-            ffmpeg_path: Optional path to ffmpeg binary
-            blocking: Awaits stream completion and logs stdout/stderr
+            content_url: Either a URL accessible by python or a path to a file
+            ffmpeg_path: Deprecated, no longer used (PyAV handles encoding)
+            blocking: Awaits stream completion
+            use_public_api: Use the public API to get talkback session (default: True)
 
         """
-        stream = self.create_talkback_stream(content_url, ffmpeg_path)
+        stream = await self.create_talkback_stream(
+            content_url, ffmpeg_path, use_public_api=use_public_api
+        )
         await stream.start()
 
         if blocking:
             await self.wait_until_audio_completes()
 
     async def wait_until_audio_completes(self) -> None:
-        """Awaits stream completion of audio and logs stdout/stderr."""
+        """Awaits stream completion of audio."""
         stream = self.talkback_stream
         if stream is None:
             raise StreamError("No audio playing to wait for")
 
         await stream.run_until_complete()
-
-        _LOGGER.debug("ffmpeg stdout:\n%s", "\n".join(stream.stdout))
-        _LOGGER.debug("ffmpeg stderr:\n%s", "\n".join(stream.stderr))
-        if stream.is_error:
-            error = "\n".join(stream.stderr)
-            raise StreamError("Error while playing audio (ffmpeg): \n" + error)
 
     async def stop_audio(self) -> None:
         """Stop currently playing audio."""

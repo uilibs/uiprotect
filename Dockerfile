@@ -9,10 +9,6 @@ ARG TARGETPLATFORM
 RUN addgroup --system --gid 1000 app \
     && adduser --system --shell /bin/bash --uid 1000 --home /home/app --ingroup app app
 
-RUN --mount=type=cache,mode=0755,id=apt-$TARGETPLATFORM,target=/var/lib/apt/lists \
-    apt-get update -qq \
-    && apt-get install -yqq ffmpeg
-
 
 FROM base AS builder
 
@@ -98,7 +94,6 @@ FROM python:3.13-slim-bookworm AS devcontainer
 RUN apt-get update && apt-get install -y \
     curl \
     git \
-    ffmpeg \
     build-essential \
     bash \
     locales \
