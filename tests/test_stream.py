@@ -35,6 +35,7 @@ def mock_camera() -> Mock:
     camera.talkback_settings.bind_port = 7004
     camera.talkback_settings.type_fmt = AudioCodecs.OPUS
     camera.talkback_settings.sampling_rate = 24000
+    camera.talkback_settings.bits_per_sample = 16
     return camera
 
 
@@ -112,6 +113,7 @@ def _create_mock_av_containers(
         mock_input.decode.return_value = [mock_frame]
 
         mock_resampled = MagicMock()
+        mock_resampled.samples = 1024  # Needed for real-time pacing calculation
         mock_resampler.resample.return_value = [mock_resampled]
 
         mock_packet = MagicMock()
@@ -326,12 +328,12 @@ async def test_ipv6_url_construction(
 
         await stream.run_until_complete()
 
-        # Verify the UDP URL was constructed with brackets for IPv6
+        # Verify the session URL was used (now uses session URL directly)
         calls = mock_av_open.call_args_list
         assert len(calls) == 2
         output_call = calls[1]
-        udp_url = output_call[0][0]
-        assert udp_url == "udp://[2001:db8::1]:7004"
+        output_url = output_call[0][0]
+        assert output_url == "rtp://[2001:db8::1]:7004"
 
 
 # --- TalkbackStream Audio Processing Tests ---
@@ -387,6 +389,8 @@ def test_stream_audio_sync_direct_coverage(
     with (
         patch("uiprotect.stream.av.open") as mock_av_open,
         patch("uiprotect.stream.av.AudioResampler", return_value=mock_resampler),
+        patch("uiprotect.stream.time.monotonic", return_value=0.0),
+        patch("uiprotect.stream.time.sleep"),
     ):
         mock_av_open.side_effect = [mock_input, mock_output]
         stream = TalkbackStream(mock_camera, audio_file, talkback_session)
@@ -396,7 +400,7 @@ def test_stream_audio_sync_direct_coverage(
         # Test break path: set stop_event and run again
         mock_av_open.side_effect = [mock_input, mock_output]
         stream._stop_event.set()
-        stream._stream_audio_sync()  # Should hit break on line 242
+        stream._stream_audio_sync()  # Should hit break on line 264
 
 
 def test_stream_audio_sync_camera_fallback(mock_camera: Mock, audio_file: str):
