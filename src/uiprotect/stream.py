@@ -255,7 +255,17 @@ class TalkbackStream:
                     format=audio_format, layout="mono", rate=sample_rate
                 )
 
-                # Real-time pacing: sync to absolute time to avoid drift
+                # Real-time pacing implementation:
+                #
+                # Unlike FFmpeg subprocess which handles timing internally, PyAV
+                # returns encoded packets as fast as the CPU can process them.
+                # Without pacing, we'd flood the camera's UDP buffer causing
+                # garbled audio or dropped packets (UDP has no flow control).
+                #
+                # We use absolute time reference (start_time + samples/rate) rather
+                # than relative delays to prevent cumulative drift from processing
+                # overhead. The stop_event.wait(timeout) provides both the delay
+                # and immediate cancellation when stop() is called.
                 start_time = time.monotonic()
                 samples_sent = 0
 
@@ -266,6 +276,7 @@ class TalkbackStream:
                         for packet in output_stream.encode(resampled):
                             output_container.mux(packet)
 
+                        # Calculate how long we should have taken vs actual elapsed
                         samples_sent += resampled.samples
                         target_time = start_time + (samples_sent / sample_rate)
                         sleep_time = target_time - time.monotonic()
