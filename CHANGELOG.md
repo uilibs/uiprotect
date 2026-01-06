@@ -1,5 +1,13 @@
 # Changelog
 
+## v8.0.0 (2026-01-06)
+
+### Features
+
+
+- Replace ffmpeg with pyav for talkback streaming ([`9998db0`](https://github.com/uilibs/uiprotect/commit/9998db00b0a0f541befe009aee84ad5e92dfb6b9))
+
+
 ## v7.33.4 (2026-01-05)
 
 ### Bug fixes
