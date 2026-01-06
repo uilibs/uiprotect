@@ -528,7 +528,8 @@ async def test_play_audio(mock_talkback, camera_obj: Camera):
     mock_instance = MockTalkback()
     mock_talkback.return_value = mock_instance
 
-    # Mock the API call for public talkback session
+    # Mock the API key and call for public talkback session
+    camera_obj._api._api_key = "test-api-key"
     camera_obj._api.create_talkback_session_public = AsyncMock(
         return_value=Mock(
             url="rtp://192.168.1.100:7004",
@@ -555,6 +556,7 @@ async def test_play_audio_ffmpeg_path_deprecated(
     """Test that ffmpeg_path parameter triggers deprecation warning."""
     camera_obj.feature_flags.has_speaker = True
     mock_talkback.return_value = MockTalkback()
+    camera_obj._api._api_key = "test-api-key"
     camera_obj._api.create_talkback_session_public = AsyncMock(return_value=Mock())
 
     await camera_obj.play_audio("test", ffmpeg_path=Path("/usr/bin/ffmpeg"))
@@ -571,7 +573,8 @@ async def test_play_audio_no_blocking(mock_talkback, camera_obj: Camera):
     mock_instance = MockTalkback()
     mock_talkback.return_value = mock_instance
 
-    # Mock the API call for public talkback session
+    # Mock the API key and call for public talkback session
+    camera_obj._api._api_key = "test-api-key"
     camera_obj._api.create_talkback_session_public = AsyncMock(
         return_value=Mock(
             url="rtp://192.168.1.100:7004",
@@ -601,7 +604,8 @@ async def test_play_audio_stop(mock_talkback, camera_obj: Camera):
     mock_instance = MockTalkback()
     mock_talkback.return_value = mock_instance
 
-    # Mock the API call for public talkback session
+    # Mock the API key and call for public talkback session
+    camera_obj._api._api_key = "test-api-key"
     camera_obj._api.create_talkback_session_public = AsyncMock(
         return_value=Mock(
             url="rtp://192.168.1.100:7004",
@@ -634,7 +638,8 @@ async def test_play_audio_error(mock_talkback, camera_obj: Camera):
     )
     mock_talkback.return_value = mock_instance
 
-    # Mock the API call for public talkback session
+    # Mock the API key and call for public talkback session
+    camera_obj._api._api_key = "test-api-key"
     camera_obj._api.create_talkback_session_public = AsyncMock(
         return_value=Mock(
             url="rtp://192.168.1.100:7004",
