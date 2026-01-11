@@ -17,7 +17,7 @@ from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
-from typing import Any, Literal, NotRequired, TypedDict, cast
+from typing import Any, Literal, TypedDict, cast
 from urllib.parse import SplitResult
 
 import aiofiles
@@ -26,6 +26,7 @@ import orjson
 from aiofiles import os as aos
 from aiohttp import CookieJar, client_exceptions
 from platformdirs import user_cache_dir, user_config_dir
+from typing_extensions import NotRequired
 from yarl import URL
 
 from uiprotect.data.base import ProtectBaseObject

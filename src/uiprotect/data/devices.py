@@ -3755,17 +3755,13 @@ class Chime(ProtectAdoptableDeviceModel):
         if ring_setting is None:
             raise BadRequest(f"Camera {camera.id} is not paired with chime")
 
-        # Build the update payload preserving other settings
+        # Build the update payload preserving original order
         ring_settings_update: list[PublicApiChimeRingSettingRequest] = [
-            ring_setting.to_api_dict(volume=level)
-        ]
-
-        # Include other cameras' settings unchanged
-        ring_settings_update.extend(
-            setting.to_api_dict()
+            setting.to_api_dict(volume=level)
+            if setting.camera_id == camera.id
+            else setting.to_api_dict()
             for setting in self.ring_settings
-            if setting.camera_id != camera.id
-        )
+        ]
 
         await self.set_ring_settings_public(ring_settings_update)
 

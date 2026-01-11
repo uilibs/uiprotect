@@ -441,6 +441,10 @@ async def test_chime_set_volume_for_camera_public_multiple_cameras(
     assert other_setting["volume"] == 70
     assert other_setting["repeatTimes"] == 1
 
+    # Verify order is preserved (target camera was first in original list)
+    assert ring_settings[0]["cameraId"] == camera_obj.id
+    assert ring_settings[1]["cameraId"] == other_camera_id
+
 
 @pytest.mark.skipif(
     not TEST_CHIME_EXISTS or not TEST_CAMERA_EXISTS,
