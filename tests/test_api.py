@@ -1354,7 +1354,6 @@ async def test_play_speaker_with_volume(protect_client: ProtectApiClient):
         json={
             "volume": volume,
             "repeatTimes": chime.repeat_times,
-            "trackNo": chime.track_no,
         },
     )
 

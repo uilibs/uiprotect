@@ -9,6 +9,7 @@ import logging
 import re
 import sys
 import time
+import warnings
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import partial
@@ -90,6 +91,23 @@ class LightPatchRequest(TypedDict, total=False):
     isLightForceEnabled: bool
     lightModeSettings: dict[str, Any]
     lightDeviceSettings: dict[str, Any]
+
+
+class PublicApiChimeRingSettingRequest(TypedDict, total=False):
+    """Type for ringSettings items in PATCH /v1/chimes/{id} request body (Public API)."""
+
+    cameraId: str
+    repeatTimes: int
+    ringtoneId: str | None
+    volume: int
+
+
+class PublicApiChimePatchRequest(TypedDict, total=False):
+    """Type for PATCH /v1/chimes/{id} request body (Public API)."""
+
+    name: str
+    cameraIds: list[str]
+    ringSettings: list[PublicApiChimeRingSettingRequest]
 
 
 TOKEN_COOKIE_MAX_EXP_SECONDS = 60
@@ -2510,21 +2528,48 @@ class ProtectApiClient(BaseApiClient):
         ringtone_id: str | None = None,
         track_no: int | None = None,
     ) -> None:
-        """Plays chime tones on a chime"""
+        """
+        Plays chime tones on a chime.
+
+        Args:
+        ----
+            device_id: The chime device ID
+            volume: Volume level for playback (0-100)
+            repeat_times: Number of times to repeat the tone
+            ringtone_id: The ringtone ID (UUID) to play. Preferred over track_no.
+            track_no: Legacy track number from speakerTrackList.
+                .. deprecated::
+                    Use ringtone_id instead. track_no maps to the speaker track
+                    list but ringtone_id is the current API standard.
+
+        """
         data: dict[str, Any] | None = None
-        if volume or repeat_times or ringtone_id or track_no:
+        if (
+            volume is not None
+            or repeat_times is not None
+            or ringtone_id is not None
+            or track_no is not None
+        ):
             chime = self.bootstrap.chimes.get(device_id)
             if chime is None:
-                raise BadRequest("Invalid chime ID %s", device_id)
+                raise BadRequest(f"Invalid chime ID {device_id}")
 
             data = {
-                "volume": volume or chime.volume,
-                "repeatTimes": repeat_times or chime.repeat_times,
-                "trackNo": track_no or chime.track_no,
+                "volume": volume if volume is not None else chime.volume,
+                "repeatTimes": repeat_times
+                if repeat_times is not None
+                else chime.repeat_times,
             }
             if ringtone_id:
                 data["ringtoneId"] = ringtone_id
-                data.pop("trackNo", None)
+            elif track_no is not None:
+                warnings.warn(
+                    "track_no is deprecated, use ringtone_id instead",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                data["trackNo"] = track_no
+            # If neither ringtone_id nor track_no provided, don't include in payload
 
         await self.api_request(
             f"chimes/{device_id}/play-speaker",
@@ -2865,6 +2910,56 @@ class ProtectApiClient(BaseApiClient):
         """Get a specific chime using public API."""
         data = await self.api_request_obj(url=f"/v1/chimes/{chime_id}", public_api=True)
         return Chime.from_unifi_dict(**data, api=self)
+
+    async def update_chime_public(
+        self,
+        chime_id: str,
+        *,
+        name: str | None = None,
+        camera_ids: list[str] | None = None,
+        ring_settings: list[PublicApiChimeRingSettingRequest] | None = None,
+    ) -> Chime:
+        """
+        Update chime settings using public API.
+
+        Args:
+        ----
+            chime_id: The chime's ID
+            name: Chime name
+            camera_ids: List of paired doorbell camera IDs
+            ring_settings: List of ring settings per camera. Each dict should contain:
+                - cameraId: The camera ID this setting applies to
+                - volume: Ring volume (0-100)
+                - repeatTimes: How many times to repeat (1-10)
+                - ringtoneId: The ringtone ID to use
+
+        Returns:
+        -------
+            Updated Chime object
+
+        Raises:
+        ------
+            BadRequest: If no parameters are provided
+
+        """
+        data: PublicApiChimePatchRequest = {}
+        if name is not None:
+            data["name"] = name
+        if camera_ids is not None:
+            data["cameraIds"] = camera_ids
+        if ring_settings is not None:
+            data["ringSettings"] = ring_settings
+
+        if not data:
+            raise BadRequest("At least one parameter must be provided")
+
+        result = await self.api_request_obj(
+            url=f"/v1/chimes/{chime_id}",
+            method="patch",
+            json=data,
+            public_api=True,
+        )
+        return Chime.from_unifi_dict(**result, api=self)
 
     # PTZ Control Public API Methods
     # Note: Public API doc is inconsistent - description says 0-4, but examples show -1 to 9
