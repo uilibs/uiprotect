@@ -35,7 +35,7 @@ async def test_chime_set_volume(
         RingSetting(
             camera_id=camera_obj.id,
             repeat_times=1,  # type: ignore[arg-type]
-            track_no=1,
+            ringtone_id="test-ringtone-id",
             volume=20,
         ),
     ]
@@ -55,9 +55,9 @@ async def test_chime_set_volume(
                 "volume": level,
                 "ringSettings": [
                     {
-                        "camera": camera_obj.id,
+                        "cameraId": camera_obj.id,
                         "repeatTimes": 1,
-                        "trackNo": 1,
+                        "ringtoneId": "test-ringtone-id",
                         "volume": level,
                     },
                 ],
@@ -85,7 +85,7 @@ async def test_chime_set_volume_with_existing_custom(
         RingSetting(
             camera_id=camera_obj.id,
             repeat_times=1,  # type: ignore[arg-type]
-            track_no=1,
+            ringtone_id="test-ringtone-id",
             volume=20,
         ),
     ]
@@ -121,7 +121,7 @@ async def test_chime_set_volume_for_camera(
         RingSetting(
             camera_id=camera_obj.id,
             repeat_times=1,  # type: ignore[arg-type]
-            track_no=1,
+            ringtone_id="test-ringtone-id",
             volume=100,
         ),
     ]
@@ -136,9 +136,9 @@ async def test_chime_set_volume_for_camera(
         json={
             "ringSettings": [
                 {
-                    "camera": camera_obj.id,
+                    "cameraId": camera_obj.id,
                     "repeatTimes": 1,
-                    "trackNo": 1,
+                    "ringtoneId": "test-ringtone-id",
                     "volume": 50,
                 },
             ],
@@ -166,7 +166,7 @@ async def test_chime_set_volume_for_camera_not_exist(
         RingSetting(
             camera_id="other-id",
             repeat_times=1,  # type: ignore[arg-type]
-            track_no=1,
+            ringtone_id="test-ringtone-id",
             volume=100,
         ),
     ]
@@ -202,7 +202,6 @@ async def test_chime_play_with_options(chime_obj: Chime | None):
 
     chime_obj.volume = 100
     chime_obj.repeat_times = 1
-    chime_obj.track_no = 1
     chime_obj.api.api_request.reset_mock()
 
     await chime_obj.play(volume=50)
@@ -213,7 +212,6 @@ async def test_chime_play_with_options(chime_obj: Chime | None):
         json={
             "volume": 50,
             "repeatTimes": 1,
-            "trackNo": 1,
         },
     )
 
@@ -388,7 +386,7 @@ async def test_chime_set_repeat_times(
         RingSetting(
             camera_id=camera_obj.id,
             repeat_times=1,  # type: ignore[arg-type]
-            track_no=1,
+            ringtone_id="test-ringtone-id",
             volume=100,
         ),
     ]
@@ -404,9 +402,9 @@ async def test_chime_set_repeat_times(
             "repeatTimes": 2,
             "ringSettings": [
                 {
-                    "camera": camera_obj.id,
+                    "cameraId": camera_obj.id,
                     "repeatTimes": 2,
-                    "trackNo": 1,
+                    "ringtoneId": "test-ringtone-id",
                     "volume": 100,
                 },
             ],
@@ -434,7 +432,7 @@ async def test_chime_set_repeat_times_with_existing_custom(
         RingSetting(
             camera_id=camera_obj.id,
             repeat_times=3,  # type: ignore[arg-type]
-            track_no=1,
+            ringtone_id="test-ringtone-id",
             volume=100,
         ),
     ]
@@ -470,7 +468,7 @@ async def test_chime_set_repeat_times_for_camera(
         RingSetting(
             camera_id=camera_obj.id,
             repeat_times=1,  # type: ignore[arg-type]
-            track_no=1,
+            ringtone_id="test-ringtone-id",
             volume=100,
         ),
     ]
@@ -485,9 +483,9 @@ async def test_chime_set_repeat_times_for_camera(
         json={
             "ringSettings": [
                 {
-                    "camera": camera_obj.id,
+                    "cameraId": camera_obj.id,
                     "repeatTimes": 2,
-                    "trackNo": 1,
+                    "ringtoneId": "test-ringtone-id",
                     "volume": 100,
                 },
             ],
@@ -515,7 +513,7 @@ async def test_chime_set_repeat_times_for_camera_not_exist(
         RingSetting(
             camera_id="other-id",
             repeat_times=1,  # type: ignore[arg-type]
-            track_no=1,
+            ringtone_id="test-ringtone-id",
             volume=100,
         ),
     ]
