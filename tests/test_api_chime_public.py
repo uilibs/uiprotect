@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from tests.conftest import TEST_CAMERA_EXISTS, TEST_CHIME_EXISTS
 from uiprotect.api import PublicApiChimeRingSettingRequest
@@ -439,6 +440,66 @@ async def test_chime_set_volume_for_camera_public_multiple_cameras(
     # Other camera should be unchanged
     assert other_setting["volume"] == 70
     assert other_setting["repeatTimes"] == 1
+
+
+@pytest.mark.skipif(
+    not TEST_CHIME_EXISTS or not TEST_CAMERA_EXISTS,
+    reason="Missing testdata",
+)
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("invalid_level", [-1, 101, 200])
+async def test_chime_set_volume_for_camera_public_invalid_level(
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
+    invalid_level: int,
+) -> None:
+    """Test set_volume_for_camera_public raises ValidationError for invalid level."""
+    if chime_obj is None:
+        pytest.skip("No chime_obj found")
+    if camera_obj is None:
+        pytest.skip("No camera_obj found")
+
+    chime_obj.ring_settings = [
+        RingSetting(
+            camera_id=camera_obj.id,
+            repeat_times=1,  # type: ignore[arg-type]
+            ringtone_id=RINGTONE_ID,
+            volume=50,
+        ),
+    ]
+
+    with pytest.raises(ValidationError):
+        await chime_obj.set_volume_for_camera_public(camera_obj, invalid_level)
+
+
+@pytest.mark.skipif(
+    not TEST_CHIME_EXISTS or not TEST_CAMERA_EXISTS,
+    reason="Missing testdata",
+)
+@pytest.mark.asyncio()
+async def test_ring_setting_to_api_dict_omits_none_ringtone_id(
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
+) -> None:
+    """Test that to_api_dict omits ringtoneId when it's None."""
+    if chime_obj is None:
+        pytest.skip("No chime_obj found")
+    if camera_obj is None:
+        pytest.skip("No camera_obj found")
+
+    ring_setting = RingSetting(
+        camera_id=camera_obj.id,
+        repeat_times=2,  # type: ignore[arg-type]
+        ringtone_id=None,
+        volume=50,
+    )
+
+    result = ring_setting.to_api_dict()
+
+    assert "cameraId" in result
+    assert "volume" in result
+    assert "repeatTimes" in result
+    assert "ringtoneId" not in result
 
 
 # =============================================================================

@@ -3440,15 +3440,17 @@ class RingSetting(ProtectBaseObject):
 
         Returns:
         -------
-            Dict with cameraId, volume, repeatTimes, ringtoneId keys.
+            Dict with cameraId, volume, repeatTimes, and optionally ringtoneId keys.
 
         """
-        return {
+        result: PublicApiChimeRingSettingRequest = {
             "cameraId": self.camera_id,
             "volume": volume if volume is not None else self.volume,
             "repeatTimes": self.repeat_times,
-            "ringtoneId": self.ringtone_id,
         }
+        if self.ringtone_id is not None:
+            result["ringtoneId"] = self.ringtone_id
+        return result
 
     @property
     def camera(self) -> Camera | None:
@@ -3726,8 +3728,12 @@ class Chime(ProtectAdoptableDeviceModel):
         Raises:
         ------
             BadRequest: If the camera is not paired with this chime
+            ValidationError: If level is not in range 0-100
 
         """
+        # Validate level using PercentInt (raises ValidationError if invalid)
+        PercentInt(level)
+
         # Find the current ring setting for this camera
         ring_setting = None
         for setting in self.ring_settings:
