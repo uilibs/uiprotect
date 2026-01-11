@@ -3596,6 +3596,7 @@ class Chime(ProtectAdoptableDeviceModel):
         volume: int | None = None,
         repeat_times: int | None = None,
         ringtone_id: str | None = None,
+        track_no: int | None = None,
     ) -> None:
         """
         Plays chime tone.
@@ -3605,13 +3606,23 @@ class Chime(ProtectAdoptableDeviceModel):
             volume: Volume level for playback (0-100). Uses chime's current volume if None.
             repeat_times: Number of times to repeat the tone.
             ringtone_id: The ringtone ID (UUID) to play. If None, uses default tone.
+            track_no: Legacy track number from speakerTrackList.
+                .. deprecated::
+                    Use ringtone_id instead.
 
         """
+        if track_no is not None:
+            warnings.warn(
+                "track_no is deprecated, use ringtone_id instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         await self._api.play_speaker(
             self.id,
             volume=volume,
             repeat_times=repeat_times,
             ringtone_id=ringtone_id,
+            track_no=track_no,
         )
 
     async def play_buzzer(self) -> None:

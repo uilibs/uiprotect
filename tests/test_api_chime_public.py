@@ -587,3 +587,43 @@ async def test_play_speaker_track_no_deprecation_warning(
             "trackNo": 1,
         },
     )
+
+
+@pytest.mark.skipif(not TEST_CHIME_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_chime_play_track_no_deprecation_warning(
+    chime_obj: Chime | None,
+) -> None:
+    """Test that Chime.play() with track_no emits a deprecation warning."""
+    if chime_obj is None:
+        pytest.skip("No chime_obj found")
+
+    chime_obj.volume = 50
+    chime_obj.repeat_times = 1
+    chime_obj.api.api_request.reset_mock()
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        await chime_obj.play(track_no=1)
+
+        # Check deprecation warning was raised (from play() and play_speaker())
+        assert len(w) >= 1
+        deprecation_warnings = [
+            warning for warning in w if issubclass(warning.category, DeprecationWarning)
+        ]
+        assert len(deprecation_warnings) >= 1
+        assert any(
+            "track_no is deprecated" in str(warning.message)
+            for warning in deprecation_warnings
+        )
+
+    # trackNo should still be sent
+    chime_obj.api.api_request.assert_called_with(
+        f"chimes/{chime_obj.id}/play-speaker",
+        method="post",
+        json={
+            "volume": 50,
+            "repeatTimes": 1,
+            "trackNo": 1,
+        },
+    )
