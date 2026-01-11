@@ -17,7 +17,7 @@ from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
-from typing import Any, Literal, TypedDict, cast
+from typing import Any, Literal, NotRequired, TypedDict, cast
 from urllib.parse import SplitResult
 
 import aiofiles
@@ -93,12 +93,12 @@ class LightPatchRequest(TypedDict, total=False):
     lightDeviceSettings: dict[str, Any]
 
 
-class PublicApiChimeRingSettingRequest(TypedDict, total=False):
+class PublicApiChimeRingSettingRequest(TypedDict):
     """Type for ringSettings items in PATCH /v1/chimes/{id} request body (Public API)."""
 
     cameraId: str
     repeatTimes: int
-    ringtoneId: str | None
+    ringtoneId: NotRequired[str | None]
     volume: int
 
 
@@ -2560,7 +2560,7 @@ class ProtectApiClient(BaseApiClient):
                 if repeat_times is not None
                 else chime.repeat_times,
             }
-            if ringtone_id:
+            if ringtone_id is not None:
                 data["ringtoneId"] = ringtone_id
             elif track_no is not None:
                 warnings.warn(
@@ -2931,7 +2931,7 @@ class ProtectApiClient(BaseApiClient):
                 - cameraId: The camera ID this setting applies to
                 - volume: Ring volume (0-100)
                 - repeatTimes: How many times to repeat (1-10)
-                - ringtoneId: The ringtone ID to use
+                - ringtoneId (optional): The ringtone ID to use
 
         Returns:
         -------

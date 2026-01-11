@@ -3688,7 +3688,7 @@ class Chime(ProtectAdoptableDeviceModel):
                 - cameraId: The camera ID this setting applies to
                 - volume: Ring volume (0-100)
                 - repeatTimes: How many times to repeat (1-10)
-                - ringtoneId: The ringtone ID to use
+                - ringtoneId (optional): The ringtone ID to use
 
         Example:
         -------
