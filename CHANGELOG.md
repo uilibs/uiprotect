@@ -1,5 +1,13 @@
 # Changelog
 
+## v8.1.1 (2026-01-12)
+
+### Bug fixes
+
+
+- Re-release ([`dbabddb`](https://github.com/uilibs/uiprotect/commit/dbabddbf61ab68e1fa7ed5e0fd6e7d5a406090a5))
+
+
 ## v8.1.0 (2026-01-12)
 
 ### Features
