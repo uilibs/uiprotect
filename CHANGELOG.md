@@ -1,5 +1,13 @@
 # Changelog
 
+## v8.1.0 (2026-01-12)
+
+### Features
+
+
+- Add public api support for chime ring volume per camera ([`87782fb`](https://github.com/uilibs/uiprotect/commit/87782fbe688e970cb0e1e1e448683417fb5f57c4))
+
+
 ## v8.0.0 (2026-01-06)
 
 ### Features
