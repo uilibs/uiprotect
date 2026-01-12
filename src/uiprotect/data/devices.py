@@ -3426,7 +3426,13 @@ class RingSetting(ProtectBaseObject):
     camera_id: str
     repeat_times: RepeatTimes
     ringtone_id: str | None = None
+    track_no: int | None = None  # deprecated: use ringtone_id
     volume: int
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {**super()._get_unifi_remaps(), "camera": "cameraId"}
 
     def to_api_dict(
         self, volume: int | None = None

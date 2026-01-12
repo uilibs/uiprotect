@@ -55,9 +55,10 @@ async def test_chime_set_volume(
                 "volume": level,
                 "ringSettings": [
                     {
-                        "cameraId": camera_obj.id,
+                        "camera": camera_obj.id,
                         "repeatTimes": 1,
                         "ringtoneId": "test-ringtone-id",
+                        "trackNo": None,
                         "volume": level,
                     },
                 ],
@@ -136,9 +137,10 @@ async def test_chime_set_volume_for_camera(
         json={
             "ringSettings": [
                 {
-                    "cameraId": camera_obj.id,
+                    "camera": camera_obj.id,
                     "repeatTimes": 1,
                     "ringtoneId": "test-ringtone-id",
+                    "trackNo": None,
                     "volume": 50,
                 },
             ],
@@ -402,9 +404,10 @@ async def test_chime_set_repeat_times(
             "repeatTimes": 2,
             "ringSettings": [
                 {
-                    "cameraId": camera_obj.id,
+                    "camera": camera_obj.id,
                     "repeatTimes": 2,
                     "ringtoneId": "test-ringtone-id",
+                    "trackNo": None,
                     "volume": 100,
                 },
             ],
@@ -483,9 +486,10 @@ async def test_chime_set_repeat_times_for_camera(
         json={
             "ringSettings": [
                 {
-                    "cameraId": camera_obj.id,
+                    "camera": camera_obj.id,
                     "repeatTimes": 2,
                     "ringtoneId": "test-ringtone-id",
+                    "trackNo": None,
                     "volume": 100,
                 },
             ],
