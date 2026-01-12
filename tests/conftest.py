@@ -754,7 +754,6 @@ NEW_FIELDS = {
     "repeatTimes",
     "ringSettings",
     "speakerTrackList",
-    "trackNo",
     "hasHttpsClientOTA",
     "isUCoreStacked",
     # 5.0.33+

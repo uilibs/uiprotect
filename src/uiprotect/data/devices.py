@@ -82,7 +82,7 @@ from .types import (
 from .user import User
 
 if TYPE_CHECKING:
-    from ..api import RTSPSStreams
+    from ..api import PublicApiChimeRingSettingRequest, RTSPSStreams
     from .nvr import Event, Liveview
 
 PRIVACY_ZONE_NAME = "pyufp_privacy_zone"
@@ -3421,9 +3421,12 @@ class ChimeFeatureFlags(ProtectBaseObject):
 
 
 class RingSetting(ProtectBaseObject):
+    """Ring settings for a paired doorbell camera."""
+
     camera_id: str
     repeat_times: RepeatTimes
-    track_no: int
+    ringtone_id: str | None = None
+    track_no: int | None = None  # deprecated: use ringtone_id
     volume: int
 
     @classmethod
@@ -3431,9 +3434,33 @@ class RingSetting(ProtectBaseObject):
     def _get_unifi_remaps(cls) -> dict[str, str]:
         return {**super()._get_unifi_remaps(), "camera": "cameraId"}
 
+    def to_api_dict(
+        self, volume: int | None = None
+    ) -> PublicApiChimeRingSettingRequest:
+        """
+        Convert to API dict format for Public API requests.
+
+        Args:
+        ----
+            volume: Override volume value. If None, uses current volume.
+
+        Returns:
+        -------
+            Dict with cameraId, volume, repeatTimes, and optionally ringtoneId keys.
+
+        """
+        result: PublicApiChimeRingSettingRequest = {
+            "cameraId": self.camera_id,
+            "volume": volume if volume is not None else self.volume,
+            "repeatTimes": self.repeat_times,
+        }
+        if self.ringtone_id is not None:
+            result["ringtoneId"] = self.ringtone_id
+        return result
+
     @property
     def camera(self) -> Camera | None:
-        """Paired Camera will always be none if no camera is paired"""
+        """Paired Camera will always be none if no camera is paired."""
         if self.camera_id is None:
             return None  # type: ignore[unreachable]
 
@@ -3470,7 +3497,6 @@ class Chime(ProtectAdoptableDeviceModel):
     has_https_client_ota: bool | None = None
     platform: str | None = None
     repeat_times: RepeatTimes | None = None
-    track_no: int | None = None
     ring_settings: list[RingSetting] = []
     speaker_track_list: list[ChimeTrack] = []
 
@@ -3497,7 +3523,18 @@ class Chime(ProtectAdoptableDeviceModel):
         return [self._api.bootstrap.cameras[c] for c in self.camera_ids]
 
     async def set_volume(self, level: int) -> None:
-        """Set the volume on chime."""
+        """
+        Set the speaker volume on chime.
+
+        .. deprecated::
+            Use :meth:`set_volume_for_camera_public` instead. This method
+            updates the speaker volume but not the doorbell ring volume.
+        """
+        warnings.warn(
+            "set_volume is deprecated, use set_volume_for_camera_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         old_value = self.volume
         new_value = PercentInt(level)
 
@@ -3510,7 +3547,18 @@ class Chime(ProtectAdoptableDeviceModel):
         await self.queue_update(callback)
 
     async def set_volume_for_camera(self, camera: Camera, level: int) -> None:
-        """Set the volume on chime for specific camera."""
+        """
+        Set the ring volume on chime for a specific camera.
+
+        .. deprecated::
+            Use :meth:`set_volume_for_camera_public` instead. This method uses
+            the private API which may not properly update the ring volume.
+        """
+        warnings.warn(
+            "set_volume_for_camera is deprecated, use set_volume_for_camera_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         def callback() -> None:
             handled = False
@@ -3521,7 +3569,7 @@ class Chime(ProtectAdoptableDeviceModel):
                     break
 
             if not handled:
-                raise BadRequest("Camera %s is not paired with chime", camera.id)
+                raise BadRequest(f"Camera {camera.id} is not paired with chime")
 
         await self.queue_update(callback)
 
@@ -3553,16 +3601,53 @@ class Chime(ProtectAdoptableDeviceModel):
         *,
         volume: int | None = None,
         repeat_times: int | None = None,
+        ringtone_id: str | None = None,
+        track_no: int | None = None,
     ) -> None:
-        """Plays chime tone"""
-        await self._api.play_speaker(self.id, volume=volume, repeat_times=repeat_times)
+        """
+        Plays chime tone.
+
+        Args:
+        ----
+            volume: Volume level for playback (0-100). Uses chime's current volume if None.
+            repeat_times: Number of times to repeat the tone.
+            ringtone_id: The ringtone ID (UUID) to play. If None, uses default tone.
+            track_no: Legacy track number from speakerTrackList.
+                .. deprecated::
+                    Use ringtone_id instead.
+
+        """
+        if track_no is not None:
+            warnings.warn(
+                "track_no is deprecated, use ringtone_id instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        await self._api.play_speaker(
+            self.id,
+            volume=volume,
+            repeat_times=repeat_times,
+            ringtone_id=ringtone_id,
+            track_no=track_no,
+        )
 
     async def play_buzzer(self) -> None:
         """Plays chime buzzer"""
         await self._api.play_buzzer(self.id)
 
     async def set_repeat_times(self, value: int) -> None:
-        """Set repeat times on chime."""
+        """
+        Set repeat times on chime.
+
+        .. deprecated::
+            Use :meth:`set_ring_settings_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_repeat_times is deprecated, use set_ring_settings_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         old_value = self.repeat_times
 
         def callback() -> None:
@@ -3578,7 +3663,18 @@ class Chime(ProtectAdoptableDeviceModel):
         camera: Camera,
         value: int,
     ) -> None:
-        """Set repeat times on chime for specific camera."""
+        """
+        Set repeat times on chime for a specific camera.
+
+        .. deprecated::
+            Use :meth:`set_ring_settings_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_repeat_times_for_camera is deprecated, use set_ring_settings_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         def callback() -> None:
             handled = False
@@ -3589,9 +3685,91 @@ class Chime(ProtectAdoptableDeviceModel):
                     break
 
             if not handled:
-                raise BadRequest("Camera %s is not paired with chime", camera.id)
+                raise BadRequest(f"Camera {camera.id} is not paired with chime")
 
         await self.queue_update(callback)
+
+    async def set_ring_settings_public(
+        self,
+        ring_settings: list[PublicApiChimeRingSettingRequest],
+    ) -> None:
+        """
+        Update ring settings using public API.
+
+        This is the preferred method to change ring volume per camera as it uses
+        the official public API.
+
+        Args:
+        ----
+            ring_settings: List of ring settings per camera. Each dict should contain:
+                - cameraId: The camera ID this setting applies to
+                - volume: Ring volume (0-100)
+                - repeatTimes: How many times to repeat (1-10)
+                - ringtoneId (optional): The ringtone ID to use
+
+        Example:
+        -------
+            >>> await chime.set_ring_settings_public([
+            ...     {
+            ...         "cameraId": "camera123",
+            ...         "volume": 80,
+            ...         "repeatTimes": 2,
+            ...         "ringtoneId": "ringtone456"
+            ...     }
+            ... ])
+
+        """
+        updated = await self._api.update_chime_public(
+            self.id,
+            ring_settings=ring_settings,
+        )
+        # Update local state from response
+        self.ring_settings = updated.ring_settings
+
+    async def set_volume_for_camera_public(
+        self,
+        camera: Camera,
+        level: int,
+    ) -> None:
+        """
+        Set the ring volume for a specific camera using public API.
+
+        This is the preferred method to change ring volume as it uses
+        the official public API and properly updates the doorbell ring volume.
+
+        Args:
+        ----
+            camera: The doorbell camera to set volume for
+            level: Volume level (0-100)
+
+        Raises:
+        ------
+            BadRequest: If the camera is not paired with this chime
+            ValidationError: If level is not in range 0-100
+
+        """
+        # Validate level using PercentInt (raises ValidationError if invalid)
+        PercentInt(level)
+
+        # Find the current ring setting for this camera
+        ring_setting = None
+        for setting in self.ring_settings:
+            if setting.camera_id == camera.id:
+                ring_setting = setting
+                break
+
+        if ring_setting is None:
+            raise BadRequest(f"Camera {camera.id} is not paired with chime")
+
+        # Build the update payload preserving original order
+        ring_settings_update: list[PublicApiChimeRingSettingRequest] = [
+            setting.to_api_dict(volume=level)
+            if setting.camera_id == camera.id
+            else setting.to_api_dict()
+            for setting in self.ring_settings
+        ]
+
+        await self.set_ring_settings_public(ring_settings_update)
 
 
 class AiPort(Camera):
