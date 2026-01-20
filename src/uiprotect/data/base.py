@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from asyncio import timeout as asyncio_timeout
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import cache
@@ -18,7 +19,6 @@ from pydantic.fields import PrivateAttr
 from .._compat import cached_property
 from ..exceptions import BadRequest, ClientError, NotAuthorized
 from ..utils import (
-    asyncio_timeout,
     convert_to_datetime,
     convert_unifi_data,
     dict_diff,

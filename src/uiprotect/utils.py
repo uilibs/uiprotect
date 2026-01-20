@@ -45,8 +45,6 @@ if TYPE_CHECKING:
     from uiprotect.data import CoordType, Event
     from uiprotect.data.bootstrap import WSStat
 
-from asyncio import timeout as asyncio_timeout  # noqa: F401
-
 T = TypeVar("T")
 
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
