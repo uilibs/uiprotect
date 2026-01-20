@@ -7,7 +7,7 @@ import os
 import sys
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -146,13 +146,13 @@ class Event(Base):  # type: ignore[valid-type,misc]
     @property
     def start(self) -> datetime:
         if self._start is None:
-            self._start = self.start_naive.replace(tzinfo=timezone.utc)  # type: ignore[union-attr]
+            self._start = self.start_naive.replace(tzinfo=UTC)  # type: ignore[union-attr]
         return self._start
 
     @property
     def end(self) -> datetime | None:
         if self._end is None and self.end_naive is not None:
-            self._end = self.end_naive.replace(tzinfo=timezone.utc)
+            self._end = self.end_naive.replace(tzinfo=UTC)
         return self._end
 
     @property

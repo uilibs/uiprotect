@@ -115,7 +115,7 @@ If you want to install `uiprotect` natively, the below are the requirements:
 
 - [UniFi Protect](https://ui.com/camera-security) version 6.0+
   - Only UniFi Protect version 6 and newer are supported. The library is generally tested against the latest stable version and the latest EA version.
-- [Python](https://www.python.org/) 3.10+
+- [Python](https://www.python.org/) 3.11+
 - POSIX compatible system
   - Library is only tested on Linux, specifically the latest Debian version available for the official Python Docker images, but there is no reason the library should not work on any Linux distro or macOS.
 - [PyAV](https://pyav.org/) (av) - included as a dependency
