@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time as time_module
 import zoneinfo
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import Enum
 from http.cookies import Morsel
@@ -194,7 +194,7 @@ def test_to_camel_case(input_val, expected):
         ),
         ("10.0.0.1", IPv4Address | IPv6Address | str | None, IPv4Address("10.0.0.1")),
         ("hostname.local", IPv4Address | IPv6Address | str | None, "hostname.local"),
-        (1705320000000, datetime, datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)),
+        (1705320000000, datetime, datetime(2024, 1, 15, 12, 0, 0, tzinfo=UTC)),
         (["a", "b"], list[str], ["a", "b"]),
         (["a", "b"], set[str], {"a", "b"}),
         ({"k": "v"}, dict[str, str], {"k": "v"}),
@@ -217,11 +217,11 @@ def test_convert_unifi_data(value, annotation, expected):
 @pytest.mark.parametrize(
     ("input_val", "expected"),
     [
-        (1715563200000.0, datetime(2024, 5, 13, 1, 20, tzinfo=timezone.utc)),
-        ("1715563200000", datetime(2024, 5, 13, 1, 20, tzinfo=timezone.utc)),
+        (1715563200000.0, datetime(2024, 5, 13, 1, 20, tzinfo=UTC)),
+        ("1715563200000", datetime(2024, 5, 13, 1, 20, tzinfo=UTC)),
         (
-            datetime(2024, 6, 11, 12, 0, tzinfo=timezone.utc),
-            datetime(2024, 6, 11, 12, 0, tzinfo=timezone.utc),
+            datetime(2024, 6, 11, 12, 0, tzinfo=UTC),
+            datetime(2024, 6, 11, 12, 0, tzinfo=UTC),
         ),
         (None, None),
     ],
@@ -332,7 +332,7 @@ def test_cached_ip_address(ip, expected_type):
     [
         (None, None),
         (1234567890000, 1234567890000),
-        (datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc), 1705320000000),
+        (datetime(2024, 1, 15, 12, 0, 0, tzinfo=UTC), 1705320000000),
     ],
 )
 def test_to_js_time(dt, expected):
@@ -357,17 +357,15 @@ def test_to_ms(duration, expected):
 
 
 def test_from_js_time():
-    assert from_js_time(1705320000000) == datetime(
-        2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc
-    )
-    dt = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    assert from_js_time(1705320000000) == datetime(2024, 1, 15, 12, 0, 0, tzinfo=UTC)
+    dt = datetime(2024, 1, 1, tzinfo=UTC)
     assert from_js_time(dt) == dt
 
 
 def test_utc_now():
     result = utc_now()
-    assert result.tzinfo == timezone.utc
-    assert (datetime.now(tz=timezone.utc) - result).total_seconds() < 1
+    assert result.tzinfo == UTC
+    assert (datetime.now(tz=UTC) - result).total_seconds() < 1
 
 
 def test_timedelta_total_seconds():
@@ -471,7 +469,7 @@ def test_serialize_dict():
             "12345678-1234-5678-1234-567812345678",
         ),
         (Path("/test"), "/test"),
-        (datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc), 1705320000000),
+        (datetime(2024, 1, 15, 12, 0, 0, tzinfo=UTC), 1705320000000),
         (timedelta(seconds=1), 1000),
         (Version("1.2.3"), "1.2.3"),
         (zoneinfo.ZoneInfo("UTC"), "UTC"),
@@ -626,8 +624,7 @@ def test_decode_token_cookie():
 def test_local_datetime():
     assert local_datetime(None).tzinfo is not None
     assert (
-        local_datetime(datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)).tzinfo
-        is not None
+        local_datetime(datetime(2024, 1, 15, 12, 0, 0, tzinfo=UTC)).tzinfo is not None
     )
     assert local_datetime(datetime(2024, 1, 15, 12, 0, 0)).tzinfo is not None
 
@@ -728,7 +725,7 @@ def test_log_event():
         type=EventType.SMART_DETECT,
         model_dump=Mock(return_value={}),
         camera=camera,
-        end=datetime.now(tz=timezone.utc),
+        end=datetime.now(tz=UTC),
         smart_detect_types=[SmartDetectObjectType.PERSON],
         id="e1",
     )

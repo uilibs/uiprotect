@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
@@ -865,7 +865,7 @@ async def test_camera_set_lcd_text_custom(camera_obj: Camera | None):
         reset_at=None,
     )
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     await camera_obj.set_lcd_text(DoorbellMessageType.CUSTOM_MESSAGE, "Test", now)
 
     camera_obj.api.api_request.assert_called_with(
@@ -893,7 +893,7 @@ async def test_camera_set_lcd_text_custom_to_custom(camera_obj: Camera | None):
         reset_at=None,
     )
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     await camera_obj.set_lcd_text(DoorbellMessageType.CUSTOM_MESSAGE, "Test", now)
 
     camera_obj.api.api_request.assert_called_with(
@@ -1586,7 +1586,7 @@ async def test_get_snapshot_with_dt(camera_obj: Camera):
     camera_obj._api = MagicMock(spec=ProtectApiClient)
     camera_obj._api.get_camera_snapshot = AsyncMock(return_value=b"snapshot_data")
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
 
     snapshot = await camera_obj.get_snapshot(dt=now)
 
@@ -1685,7 +1685,7 @@ async def test_get_package_snapshot_with_dt(camera_obj: Camera):
     )
     camera_obj.feature_flags.has_package_camera = True
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
 
     snapshot = await camera_obj.get_package_snapshot(dt=now)
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
@@ -156,7 +156,7 @@ def save_snapshot(
     obj: d.Camera = ctx.obj.device
 
     if dt is not None:
-        local_tz = datetime.now(timezone.utc).astimezone().tzinfo
+        local_tz = datetime.now(UTC).astimezone().tzinfo
         dt = dt.replace(tzinfo=local_tz)
 
     if package:
@@ -209,7 +209,7 @@ def save_video(
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
 
-    local_tz = datetime.now(timezone.utc).astimezone().tzinfo
+    local_tz = datetime.now(UTC).astimezone().tzinfo
     start = start.replace(tzinfo=local_tz)
     end = end.replace(tzinfo=local_tz)
 
@@ -583,7 +583,7 @@ def set_lcd_text(
     TZ environment variable.
     """
     if reset_at is not None:
-        local_tz = datetime.now(timezone.utc).astimezone().tzinfo
+        local_tz = datetime.now(UTC).astimezone().tzinfo
         reset_at = reset_at.replace(tzinfo=local_tz)
 
     base.require_device_id(ctx)

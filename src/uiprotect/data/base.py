@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from asyncio import timeout as asyncio_timeout
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import cache
@@ -18,7 +19,6 @@ from pydantic.fields import PrivateAttr
 from .._compat import cached_property
 from ..exceptions import BadRequest, ClientError, NotAuthorized
 from ..utils import (
-    asyncio_timeout,
     convert_to_datetime,
     convert_unifi_data,
     dict_diff,
@@ -42,8 +42,7 @@ from .websocket import (
 
 if TYPE_CHECKING:
     from asyncio.events import TimerHandle
-
-    from typing_extensions import Self  # requires Python 3.11+
+    from typing import Self  # requires Python 3.11+
 
     from ..api import ProtectApiClient
     from ..data.devices import Bridge
@@ -652,7 +651,7 @@ class ProtectModelWithId(ProtectModel):
                 await self._update_sync.event.wait()
             self._update_sync.event.clear()
             return
-        except (TimeoutError, asyncio.TimeoutError):
+        except TimeoutError:
             async with self._update_sync.lock:
                 # Important! Now that we have the lock, we yield to the event loop so any
                 # updates from the websocket are processed before we generate the diff
