@@ -42,6 +42,7 @@ from uiprotect.data import (
     Event,
     EventType,
     ModelType,
+    PTZPatrol,
     create_from_unifi_dict,
 )
 from uiprotect.data.devices import LEDSettings
@@ -3822,6 +3823,77 @@ async def test_api_request_list_invalid_type(simple_api_client, response_data):
         await simple_api_client.api_request_list("/test")
 
 
+# PTZ Private API Tests
+
+
+@pytest.mark.asyncio
+async def test_get_patrols_ptz_camera():
+    """Test get_patrols_ptz_camera API method."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        verify_ssl=False,
+    )
+
+    mock_response: list[dict[str, Any]] = [
+        {
+            "name": "Patrol",
+            "slot": 0,
+            "presets": [0],
+            "presetMovementSpeed": None,
+            "presetDurationSeconds": 20,
+            "camera": "camera123",
+            "id": "patrol1",
+            "modelKey": "ptzPatrol",
+        },
+        {
+            "name": "Patrol 2",
+            "slot": 1,
+            "presets": [0, 2, 3],
+            "presetMovementSpeed": 50,
+            "presetDurationSeconds": 23,
+            "camera": "camera123",
+            "id": "patrol2",
+            "modelKey": "ptzPatrol",
+        },
+    ]
+    client.api_request = AsyncMock(return_value=mock_response)
+
+    patrols = await client.get_patrols_ptz_camera("camera123")
+
+    assert len(patrols) == 2
+    assert all(isinstance(p, PTZPatrol) for p in patrols)
+    assert patrols[0].name == "Patrol"
+    assert patrols[0].slot == 0
+    assert patrols[0].presets == [0]
+    assert patrols[0].preset_movement_speed is None
+    assert patrols[0].preset_duration_seconds == 20
+    assert patrols[1].name == "Patrol 2"
+    assert patrols[1].preset_movement_speed == 50
+    assert patrols[1].presets == [0, 2, 3]
+
+    client.api_request.assert_called_with("cameras/camera123/ptz/patrol")
+
+
+@pytest.mark.asyncio
+async def test_get_patrols_ptz_camera_empty():
+    """Test get_patrols_ptz_camera returns empty list when no patrols."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        verify_ssl=False,
+    )
+    client.api_request = AsyncMock(return_value=[])
+
+    patrols = await client.get_patrols_ptz_camera("camera123")
+
+    assert patrols == []
+
+
 # PTZ Public API Tests
 
 
@@ -3844,11 +3916,11 @@ async def test_ptz_public_api(method: str, args: dict, expected_path: str):
         api_key="my_key",
         verify_ssl=False,
     )
-    client.api_request = AsyncMock(return_value=None)
+    client.api_request_raw = AsyncMock(return_value=b"")
 
     await getattr(client, method)("camera123", **args)
 
-    client.api_request.assert_called_with(
+    client.api_request_raw.assert_called_with(
         url=f"/v1/cameras/camera123{expected_path}",
         method="post",
         public_api=True,

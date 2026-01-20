@@ -50,8 +50,6 @@ from .data import (
     ModelType,
     ProtectAdoptableDeviceModel,
     ProtectModel,
-    PTZPosition,
-    PTZPreset,
     Sensor,
     SmartDetectObjectType,
     SmartDetectTrack,
@@ -64,7 +62,7 @@ from .data import (
 )
 from .data.base import ProtectModelWithId
 from .data.devices import AiPort, Chime
-from .data.types import IteratorCallback, ProgressCallback
+from .data.types import IteratorCallback, ProgressCallback, PTZPatrol, PTZPreset
 from .exceptions import BadRequest, NotAuthorized, NvrError
 from .stream import TalkbackSession
 from .utils import (
@@ -127,61 +125,6 @@ _LOGGER = logging.getLogger(__name__)
 _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
 
 NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
-
-# TODO: Urls to still support
-# Backups
-# * GET /backups - list backends
-# * POST /backups/import - import backup
-# * POST /backups - create backup
-# * GET /backups/{id} - download backup
-# * POST /backups/{id}/restore - restore backup
-# * DELETE /backups/{id} - delete backup
-#
-# Cameras
-# * POST /cameras/{id}/reset - factory reset camera
-# * POST /cameras/{id}/reset-isp - reset ISP settings
-# * POST /cameras/{id}/reset-isp - reset ISP settings
-# * POST /cameras/{id}/wake - battery powered cameras
-# * POST /cameras/{id}/sleep
-# * POST /cameras/{id}/homekit-talkback-speaker-muted
-# * GET /cameras/{id}/live-heatmap - add live heatmap to WebRTC stream
-# * GET /cameras/{id}/enable-control - PTZ controls
-# * GET /cameras/{id}/disable-control
-# * POST /cameras/{id}/move
-# * POST /cameras/{id}/ptz/position
-# * GET|POST /cameras/{id}/ptz/preset
-# * GET /cameras/{id}/ptz/snapshot
-# * POST /cameras/{id}/ptz/goto
-# * GET /cameras/{id}/analytics-heatmap - analytics
-# * GET /cameras/{id}/analytics-detections
-# * GET /cameras/{id}/wifi-list - WiFi scan
-# * POST /cameras/{id}/wifi-setup - Change WiFi settings
-# * GET /cameras/{id}/playback-history
-# * GET|POST|DELETE /cameras/{id}/sharedStream - stream sharing, unfinished?
-#
-# Device Groups
-# * GET|POST|PUT|DELETE /device-groups
-# * GET|PATCH|DELETE /device-groups/{id}
-# * PATCH /device-groups/{id}/items
-#
-# Events
-# POST /events/{id}/animated-thumbnail
-#
-# Lights
-# POST /lights/{id}/locate
-#
-# NVR
-# GET|PATCH /nvr/device-password
-#
-# Schedules
-# GET|POST /recordingSchedules
-# PATCH|DELETE /recordingSchedules/{id}
-#
-# Sensors
-# POST /sensors/{id}/locate
-#
-# Timeline
-# GET /timeline
 
 
 def get_user_hash(host: str, username: str) -> str:
@@ -2631,152 +2574,6 @@ class ProtectApiClient(BaseApiClient):
 
         return versions
 
-    async def relative_move_ptz_camera(
-        self,
-        device_id: str,
-        *,
-        pan: float,
-        tilt: float,
-        pan_speed: int = 10,
-        tilt_speed: int = 10,
-        scale: int = 0,
-    ) -> None:
-        """
-        Move PTZ Camera relatively.
-
-        Pan/tilt values vary from camera to camera, but for G4 PTZ:
-            * Pan values range from 1 (0°) to 35200 (360°/0°).
-            * Tilt values range from 1 (-20°) to 9777 (90°).
-
-        Relative positions cannot move more then 4095 units in either direction at a time.
-
-        Camera objects have ptz values in feature flags and the methods on them provide better
-        control.
-        """
-        data = {
-            "type": "relative",
-            "payload": {
-                "panPos": pan,
-                "tiltPos": tilt,
-                "panSpeed": pan_speed,
-                "tiltSpeed": tilt_speed,
-                "scale": scale,
-            },
-        }
-
-        await self.api_request(f"cameras/{device_id}/move", method="post", json=data)
-
-    async def center_ptz_camera(
-        self,
-        device_id: str,
-        *,
-        x: int,
-        y: int,
-        z: int,
-    ) -> None:
-        """
-        Center PTZ Camera on point in viewport.
-
-        x, y, z values range from 0 to 1000.
-
-        x, y are relative coords for the current viewport:
-            * (0, 0) is top left
-            * (500, 500) is the center
-            * (1000, 1000) is the bottom right
-
-        z value is zoom, but since it is capped at 1000, probably better to use `ptz_zoom_camera`.
-        """
-        data = {
-            "type": "center",
-            "payload": {
-                "x": x,
-                "y": y,
-                "z": z,
-            },
-        }
-
-        await self.api_request(f"cameras/{device_id}/move", method="post", json=data)
-
-    async def zoom_ptz_camera(
-        self,
-        device_id: str,
-        *,
-        zoom: float,
-        speed: int = 10,
-    ) -> None:
-        """
-        Zoom PTZ Camera.
-
-        Zoom levels vary from camera to camera, but for G4 PTZ it goes from 0 (1x) to 2010 (22x).
-
-        Zoom speed does not seem to do much, if anything.
-
-        Camera objects have ptz values in feature flags and the methods on them provide better
-        control.
-        """
-        data = {
-            "type": "zoom",
-            "payload": {
-                "zoomPos": zoom,
-                "zoomSpeed": speed,
-            },
-        }
-
-        await self.api_request(f"cameras/{device_id}/move", method="post", json=data)
-
-    async def get_position_ptz_camera(self, device_id: str) -> PTZPosition:
-        """Get current PTZ camera position."""
-        pos = await self.api_request_obj(f"cameras/{device_id}/ptz/position")
-        return PTZPosition(**pos)
-
-    async def goto_ptz_camera(self, device_id: str, *, slot: int = -1) -> None:
-        """
-        Goto PTZ slot position.
-
-        -1 is Home slot.
-        """
-        await self.api_request(f"cameras/{device_id}/ptz/goto/{slot}", method="post")
-
-    async def create_preset_ptz_camera(self, device_id: str, *, name: str) -> PTZPreset:
-        """Create PTZ Preset for camera based on current camera settings."""
-        preset = await self.api_request_obj(
-            f"cameras/{device_id}/ptz/preset",
-            method="post",
-            json={"name": name},
-        )
-
-        return PTZPreset(**preset)
-
-    async def get_presets_ptz_camera(self, device_id: str) -> list[PTZPreset]:
-        """Get PTZ Presets for camera."""
-        presets = await self.api_request(f"cameras/{device_id}/ptz/preset")
-
-        if not presets:
-            return []
-
-        presets = cast(list[dict[str, Any]], presets)
-        return [PTZPreset(**p) for p in presets]
-
-    async def delete_preset_ptz_camera(self, device_id: str, *, slot: int) -> None:
-        """Delete PTZ preset for camera."""
-        await self.api_request(
-            f"cameras/{device_id}/ptz/preset/{slot}",
-            method="delete",
-        )
-
-    async def get_home_ptz_camera(self, device_id: str) -> PTZPreset:
-        """Get PTZ home preset (-1)."""
-        preset = await self.api_request_obj(f"cameras/{device_id}/ptz/home")
-        return PTZPreset(**preset)
-
-    async def set_home_ptz_camera(self, device_id: str) -> PTZPreset:
-        """Set PTZ home preset (-1) to current position."""
-        preset = await self.api_request_obj(
-            f"cameras/{device_id}/ptz/home",
-            method="post",
-        )
-        return PTZPreset(**preset)
-
     async def create_api_key(self, name: str) -> str:
         """Create an API key with the given name and return the full API key."""
         if not name:
@@ -2962,12 +2759,33 @@ class ProtectApiClient(BaseApiClient):
         )
         return Chime.from_unifi_dict(**result, api=self)
 
+    # PTZ Control Private API Methods
+
+    async def get_presets_ptz_camera(self, device_id: str) -> list[PTZPreset]:
+        """Get PTZ Presets for camera."""
+        presets = await self.api_request(f"cameras/{device_id}/ptz/preset")
+
+        if not presets:
+            return []
+
+        presets = cast(list[dict[str, Any]], presets)
+        return [PTZPreset(**p) for p in presets]
+
+    async def get_patrols_ptz_camera(self, device_id: str) -> list[PTZPatrol]:
+        """Get PTZ Patrols for camera."""
+        patrols = await self.api_request(f"cameras/{device_id}/ptz/patrol")
+
+        if not patrols:
+            return []
+
+        patrols = cast(list[dict[str, Any]], patrols)
+        return [PTZPatrol(**p) for p in patrols]
+
     # PTZ Control Public API Methods
-    # Note: Public API doc is inconsistent - description says 0-4, but examples show -1 to 9
 
     async def ptz_goto_preset_public(self, camera_id: str, *, slot: int) -> None:
         """Move PTZ camera to preset position using public API."""
-        await self.api_request(
+        await self.api_request_raw(
             url=f"/v1/cameras/{camera_id}/ptz/goto/{slot}",
             method="post",
             public_api=True,
@@ -2975,7 +2793,7 @@ class ProtectApiClient(BaseApiClient):
 
     async def ptz_patrol_start_public(self, camera_id: str, *, slot: int) -> None:
         """Start a PTZ patrol using public API."""
-        await self.api_request(
+        await self.api_request_raw(
             url=f"/v1/cameras/{camera_id}/ptz/patrol/start/{slot}",
             method="post",
             public_api=True,
@@ -2983,7 +2801,7 @@ class ProtectApiClient(BaseApiClient):
 
     async def ptz_patrol_stop_public(self, camera_id: str) -> None:
         """Stop the active PTZ patrol using public API."""
-        await self.api_request(
+        await self.api_request_raw(
             url=f"/v1/cameras/{camera_id}/ptz/patrol/stop",
             method="post",
             public_api=True,
