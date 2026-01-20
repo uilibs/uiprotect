@@ -1649,13 +1649,13 @@ async def test_camera_ptz_public_api_no_ptz(
     if camera_obj is None:
         pytest.skip("No camera_obj obj found")
 
-    camera_obj.api.api_request.reset_mock()
+    camera_obj.api.api_request_raw.reset_mock()
     camera_obj.feature_flags.is_ptz = False
 
     with pytest.raises(BadRequest, match="Camera does not support PTZ features"):
         await getattr(camera_obj, method)(**args)
 
-    assert not camera_obj.api.api_request.called
+    assert not camera_obj.api.api_request_raw.called
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
