@@ -6,7 +6,7 @@ import shutil
 import time
 from collections.abc import Callable, Coroutine
 from copy import deepcopy
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, overload
 
