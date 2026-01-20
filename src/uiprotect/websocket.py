@@ -98,7 +98,7 @@ class Websocket:
                         _LOGGER.log(level, "Websocket handshake error: %s: %s", url, ex)
                 else:
                     _LOGGER.log(level, "Websocket disconnect error: %s: %s", url, ex)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 level = logging.ERROR if self._seen_non_close_message else logging.DEBUG
                 _LOGGER.log(level, "Websocket timeout: %s", url)
             except Exception:

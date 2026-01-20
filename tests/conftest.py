@@ -6,7 +6,7 @@ import json
 import math
 import os
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
@@ -671,7 +671,7 @@ def smart_track():
 
 @pytest.fixture()
 def now():
-    return get_now().replace(tzinfo=timezone.utc)
+    return get_now().replace(tzinfo=UTC)
 
 
 @pytest.fixture()

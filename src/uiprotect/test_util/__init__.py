@@ -6,7 +6,7 @@ import shutil
 import time
 from collections.abc import Callable, Coroutine
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Any, overload
 
@@ -298,7 +298,7 @@ class SampleDataGenerator:
     ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
         data = await self.client.get_events_raw()
 
-        self.constants["time"] = datetime.now(tz=timezone.utc).isoformat()
+        self.constants["time"] = datetime.now(tz=UTC).isoformat()
         self.constants["event_count"] = len(data)
 
         motion_event: dict[str, Any] | None = None
