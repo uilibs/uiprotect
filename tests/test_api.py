@@ -43,6 +43,7 @@ from uiprotect.data import (
     EventType,
     ModelType,
     PTZPatrol,
+    PTZPreset,
     create_from_unifi_dict,
 )
 from uiprotect.data.devices import LEDSettings
@@ -3827,16 +3828,41 @@ async def test_api_request_list_invalid_type(simple_api_client, response_data):
 
 
 @pytest.mark.asyncio
-async def test_get_patrols_ptz_camera():
-    """Test get_patrols_ptz_camera API method."""
-    client = ProtectApiClient(
-        "127.0.0.1",
-        0,
-        "user",
-        "pass",
-        verify_ssl=False,
-    )
+async def test_get_presets_ptz_camera(protect_client: ProtectApiClient):
+    """Test get_presets_ptz_camera API method."""
+    mock_response: list[dict[str, Any]] = [
+        {
+            "id": "preset1",
+            "name": "Home",
+            "slot": -1,
+            "ptz": {"pan": 0.0, "tilt": 0.0, "zoom": 1.0},
+        },
+        {
+            "id": "preset2",
+            "name": "Front Door",
+            "slot": 0,
+            "ptz": {"pan": 45.0, "tilt": 10.0, "zoom": 2.0},
+        },
+    ]
+    protect_client.api_request = AsyncMock(return_value=mock_response)
 
+    presets = await protect_client.get_presets_ptz_camera("camera123")
+
+    assert len(presets) == 2
+    assert all(isinstance(p, PTZPreset) for p in presets)
+    assert presets[0].name == "Home"
+    assert presets[0].slot == -1
+    assert presets[0].id == "preset1"
+    assert presets[1].name == "Front Door"
+    assert presets[1].slot == 0
+    assert presets[1].id == "preset2"
+
+    protect_client.api_request.assert_called_with("cameras/camera123/ptz/preset")
+
+
+@pytest.mark.asyncio
+async def test_get_patrols_ptz_camera(protect_client: ProtectApiClient):
+    """Test get_patrols_ptz_camera API method."""
     mock_response: list[dict[str, Any]] = [
         {
             "name": "Patrol",
@@ -3859,9 +3885,9 @@ async def test_get_patrols_ptz_camera():
             "modelKey": "ptzPatrol",
         },
     ]
-    client.api_request = AsyncMock(return_value=mock_response)
+    protect_client.api_request = AsyncMock(return_value=mock_response)
 
-    patrols = await client.get_patrols_ptz_camera("camera123")
+    patrols = await protect_client.get_patrols_ptz_camera("camera123")
 
     assert len(patrols) == 2
     assert all(isinstance(p, PTZPatrol) for p in patrols)
@@ -3874,24 +3900,31 @@ async def test_get_patrols_ptz_camera():
     assert patrols[1].preset_movement_speed == 50
     assert patrols[1].presets == [0, 2, 3]
 
-    client.api_request.assert_called_with("cameras/camera123/ptz/patrol")
+    protect_client.api_request.assert_called_with("cameras/camera123/ptz/patrol")
 
 
+@pytest.mark.parametrize(
+    ("method", "api_path"),
+    [
+        ("get_presets_ptz_camera", "cameras/camera123/ptz/preset"),
+        ("get_patrols_ptz_camera", "cameras/camera123/ptz/patrol"),
+    ],
+)
+@pytest.mark.parametrize("return_value", [[], None])
 @pytest.mark.asyncio
-async def test_get_patrols_ptz_camera_empty():
-    """Test get_patrols_ptz_camera returns empty list when no patrols."""
-    client = ProtectApiClient(
-        "127.0.0.1",
-        0,
-        "user",
-        "pass",
-        verify_ssl=False,
-    )
-    client.api_request = AsyncMock(return_value=[])
+async def test_ptz_get_methods_empty(
+    protect_client: ProtectApiClient,
+    method: str,
+    api_path: str,
+    return_value: list[Any] | None,
+):
+    """Test PTZ get methods return empty list when no data or None."""
+    protect_client.api_request = AsyncMock(return_value=return_value)
 
-    patrols = await client.get_patrols_ptz_camera("camera123")
+    result = await getattr(protect_client, method)("camera123")
 
-    assert patrols == []
+    assert result == []
+    protect_client.api_request.assert_called_with(api_path)
 
 
 # PTZ Public API Tests
@@ -3906,21 +3939,15 @@ async def test_get_patrols_ptz_camera_empty():
     ],
 )
 @pytest.mark.asyncio()
-async def test_ptz_public_api(method: str, args: dict, expected_path: str):
+async def test_ptz_public_api(
+    protect_client: ProtectApiClient, method: str, args: dict, expected_path: str
+):
     """Test PTZ public API methods."""
-    client = ProtectApiClient(
-        "127.0.0.1",
-        0,
-        "user",
-        "pass",
-        api_key="my_key",
-        verify_ssl=False,
-    )
-    client.api_request_raw = AsyncMock(return_value=b"")
+    protect_client.api_request_raw = AsyncMock(return_value=b"")
 
-    await getattr(client, method)("camera123", **args)
+    await getattr(protect_client, method)("camera123", **args)
 
-    client.api_request_raw.assert_called_with(
+    protect_client.api_request_raw.assert_called_with(
         url=f"/v1/cameras/camera123{expected_path}",
         method="post",
         public_api=True,
