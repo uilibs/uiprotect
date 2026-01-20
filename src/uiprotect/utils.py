@@ -8,13 +8,12 @@ import math
 import os
 import re
 import socket
-import sys
 import time
 import zoneinfo
 from collections import Counter
 from collections.abc import Callable, Coroutine, Iterable
 from copy import deepcopy
-from datetime import datetime, timedelta, timezone, tzinfo
+from datetime import UTC, datetime, timedelta, tzinfo
 from decimal import Decimal
 from enum import Enum
 from functools import cache, lru_cache, partial
@@ -46,10 +45,7 @@ if TYPE_CHECKING:
     from uiprotect.data import CoordType, Event
     from uiprotect.data.bootstrap import WSStat
 
-if sys.version_info[:2] < (3, 11):
-    from async_timeout import timeout as asyncio_timeout
-else:
-    from asyncio import timeout as asyncio_timeout  # noqa: F401
+from asyncio import timeout as asyncio_timeout  # noqa: F401
 
 T = TypeVar("T")
 
@@ -154,7 +150,7 @@ def to_js_time(dt: datetime | int | None) -> int | None:
     if dt.tzinfo is None:
         return int(time.mktime(dt.timetuple()) * 1000)
 
-    return int(dt.astimezone(timezone.utc).timestamp() * 1000)
+    return int(dt.astimezone(UTC).timestamp() * 1000)
 
 
 def to_ms(duration: timedelta | None) -> int | None:
@@ -166,7 +162,7 @@ def to_ms(duration: timedelta | None) -> int | None:
 
 
 def utc_now() -> datetime:
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(tz=UTC)
 
 
 def from_js_time(num: float | str | datetime) -> datetime:
@@ -174,7 +170,7 @@ def from_js_time(num: float | str | datetime) -> datetime:
     if isinstance(num, datetime):
         return num
 
-    return datetime.fromtimestamp(int(num) / 1000, tz=timezone.utc)
+    return datetime.fromtimestamp(int(num) / 1000, tz=UTC)
 
 
 @lru_cache(maxsize=1024)
@@ -606,7 +602,7 @@ def get_local_timezone() -> tzinfo:
 def local_datetime(dt: datetime | None = None) -> datetime:
     """Returns datetime in local timezone"""
     if dt is None:
-        dt = datetime.now(tz=timezone.utc)
+        dt = datetime.now(tz=UTC)
 
     local_tz = get_local_timezone()
     if dt.tzinfo is None:
