@@ -1,5 +1,34 @@
 # Changelog
 
+## v10.0.0 (2026-01-20)
+
+### Features
+
+
+- Migrate ptz control to public api ([`82ac7f8`](https://github.com/uilibs/uiprotect/commit/82ac7f8610eece008e76b636b1a80a2881eacf8e))
+
+
+- Migrate ptz control to public api ([`82ac7f8`](https://github.com/uilibs/uiprotect/commit/82ac7f8610eece008e76b636b1a80a2881eacf8e))
+
+
+- Add ptz preset and patrol retrieval tests ([`82ac7f8`](https://github.com/uilibs/uiprotect/commit/82ac7f8610eece008e76b636b1a80a2881eacf8e))
+
+
+### Testing
+
+
+- Add activepatrolslot field to sample data files ([`82ac7f8`](https://github.com/uilibs/uiprotect/commit/82ac7f8610eece008e76b636b1a80a2881eacf8e))
+
+
+### Bug fixes
+
+
+- Address pr review comments ([`82ac7f8`](https://github.com/uilibs/uiprotect/commit/82ac7f8610eece008e76b636b1a80a2881eacf8e))
+
+
+- Restore activepatrolslot in sample_aiport.json for consistency ([`82ac7f8`](https://github.com/uilibs/uiprotect/commit/82ac7f8610eece008e76b636b1a80a2881eacf8e))
+
+
 ## v9.0.0 (2026-01-20)
 
 ### Chores
