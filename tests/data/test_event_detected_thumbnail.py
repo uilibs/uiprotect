@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from uiprotect.data.nvr import (
@@ -38,7 +38,7 @@ def test_get_detected_thumbnail_with_clock_best_wall():
                 EventDetectedThumbnail.model_construct(
                     type="vehicle",
                     cropped_id="thumb_2",
-                    clock_best_wall=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+                    clock_best_wall=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
                     group=EventThumbnailGroup.model_construct(
                         id="group_2",
                         matched_name="XYZ789",
@@ -147,7 +147,7 @@ def test_get_detected_thumbnail_first_with_clock_best_wall():
                 EventDetectedThumbnail.model_construct(
                     type="face",
                     cropped_id="thumb_2",
-                    clock_best_wall=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+                    clock_best_wall=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
                     group=EventThumbnailGroup.model_construct(
                         id="group_1",
                         matched_name="Alice",
@@ -157,7 +157,7 @@ def test_get_detected_thumbnail_first_with_clock_best_wall():
                 EventDetectedThumbnail.model_construct(
                     type="face",
                     cropped_id="thumb_3",
-                    clock_best_wall=datetime(2024, 1, 1, 12, 1, 0, tzinfo=timezone.utc),
+                    clock_best_wall=datetime(2024, 1, 1, 12, 1, 0, tzinfo=UTC),
                     group=EventThumbnailGroup.model_construct(
                         id="group_2",
                         matched_name="Bob",

@@ -16,7 +16,7 @@ Use `/config/ufp-data` for your `-o` argument below.
 
 ### Without Home Assistant
 
-1. Ensure Python 3.10+ is installed
+1. Ensure Python 3.11+ is installed
 2. Install uiprotect by issuing this command: `pip install uiprotect`
 
 Use `./ufp-data` for your `-o` argument below.

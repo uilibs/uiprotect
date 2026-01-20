@@ -2,21 +2,15 @@
 
 from __future__ import annotations
 
-import sys
 from abc import abstractmethod
 from datetime import datetime
 from functools import cache
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar
 
 from pydantic.fields import PrivateAttr
 
 from .base import ProtectBaseObject, ProtectModel, ProtectModelWithId
 from .types import ModelType, PermissionNode
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 
 class Permission(ProtectBaseObject):
