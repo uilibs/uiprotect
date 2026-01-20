@@ -713,11 +713,28 @@ class PTZPresetPosition(BaseModel):
     zoom: int
 
 
+# PTZ slot constant for home position
+PTZ_HOME_SLOT: int = -1
+
+
 class PTZPreset(BaseModel):
     id: str
     name: str
     slot: int
     ptz: PTZPresetPosition
+
+
+class PTZPatrol(BaseModel):
+    id: str
+    name: str
+    slot: int
+    presets: list[int]
+    preset_movement_speed: int | None = Field(None, alias="presetMovementSpeed")
+    preset_duration_seconds: int = Field(alias="presetDurationSeconds")
+    camera: str
+    model_key: str = Field("ptzPatrol", alias="modelKey")
+
+    model_config = {"populate_by_name": True}
 
 
 CoordType = Union[Percent, int, float]

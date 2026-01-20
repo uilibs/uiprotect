@@ -68,7 +68,7 @@ from .types import (
     PercentInt,
     PermissionNode,
     ProgressCallback,
-    PTZPosition,
+    PTZPatrol,
     PTZPreset,
     RecordingMode,
     RepeatTimes,
@@ -1043,6 +1043,7 @@ class Camera(ProtectMotionDeviceModel):
     has_recordings: bool | None = None
     # requires 2.10.10+
     is_ptz: bool | None = None
+    active_patrol_slot: int | None = None
     # requires 2.11.13+
     audio_settings: CameraAudioSettings | None = None
     # requires 5.0.33+
@@ -1305,6 +1306,11 @@ class Camera(ProtectMotionDeviceModel):
     def is_privacy_on(self) -> bool:
         index, _ = self.get_privacy_zone()
         return index is not None
+
+    @property
+    def is_ptz_patrolling(self) -> bool:
+        """Is PTZ camera currently running a patrol?"""
+        return self.active_patrol_slot is not None
 
     @property
     def is_recording_enabled(self) -> bool:
@@ -2776,107 +2782,6 @@ class Camera(ProtectMotionDeviceModel):
 
     # region PTZ
 
-    async def ptz_relative_move(
-        self,
-        *,
-        pan: float,
-        tilt: float,
-        pan_speed: int = 10,
-        tilt_speed: int = 10,
-        scale: int = 0,
-        use_native: bool = False,
-    ) -> None:
-        """
-        Move PTZ relative to current position.
-
-        Pan/tilt values vary from camera to camera, but for G4 PTZ:
-            * Pan values range from 0° and go to 360°/0°
-            * Tilt values range from -20° and go to 90°
-
-        Relative positions cannot move more then 4095 steps at a time in any direction.
-
-        For the G4 PTZ, 4095 steps is ~41° for pan and ~45° for tilt.
-
-        `use_native` lets you use the native step values instead of degrees.
-        """
-        if not self.feature_flags.is_ptz:
-            raise BadRequest("Camera does not support PTZ features.")
-
-        if not use_native:
-            pan = self.feature_flags.pan.to_native_value(pan, is_relative=True)
-            tilt = self.feature_flags.tilt.to_native_value(tilt, is_relative=True)
-
-        await self._api.relative_move_ptz_camera(
-            self.id,
-            pan=pan,
-            tilt=tilt,
-            pan_speed=pan_speed,
-            tilt_speed=tilt_speed,
-            scale=scale,
-        )
-
-    async def ptz_center(self, *, x: int, y: int, z: int) -> None:
-        """
-        Center PTZ Camera on point in viewport.
-
-        x, y, z values range from 0 to 1000.
-
-        x, y are relative coords for the current viewport:
-            * (0, 0) is top left
-            * (500, 500) is the center
-            * (1000, 1000) is the bottom right
-
-        z value is zoom, but since it is capped at 1000, probably better to use `ptz_zoom`.
-        """
-        await self._api.center_ptz_camera(self.id, x=x, y=y, z=z)
-
-    async def ptz_zoom(
-        self,
-        *,
-        zoom: float,
-        speed: int = 100,
-        use_native: bool = False,
-    ) -> None:
-        """
-        Zoom PTZ Camera.
-
-        Zoom levels vary from camera to camera, but for G4 PTZ it goes from 1x to 22x.
-
-        Zoom speed seems to range from 0 to 100. Any value over 100 results in a speed of 0.
-        """
-        if not self.feature_flags.is_ptz:
-            raise BadRequest("Camera does not support PTZ features.")
-
-        if not use_native:
-            zoom = self.feature_flags.zoom.to_native_value(zoom)
-
-        await self._api.zoom_ptz_camera(self.id, zoom=zoom, speed=speed)
-
-    async def get_ptz_position(self) -> PTZPosition:
-        """Get current PTZ Position."""
-        if not self.feature_flags.is_ptz:
-            raise BadRequest("Camera does not support PTZ features.")
-
-        return await self._api.get_position_ptz_camera(self.id)
-
-    async def goto_ptz_slot(self, *, slot: int) -> None:
-        """
-        Goto PTZ slot position.
-
-        -1 is Home slot.
-        """
-        if not self.feature_flags.is_ptz:
-            raise BadRequest("Camera does not support PTZ features.")
-
-        await self._api.goto_ptz_camera(self.id, slot=slot)
-
-    async def create_ptz_preset(self, *, name: str) -> PTZPreset:
-        """Create PTZ Preset for camera based on current camera settings."""
-        if not self.feature_flags.is_ptz:
-            raise BadRequest("Camera does not support PTZ features.")
-
-        return await self._api.create_preset_ptz_camera(self.id, name=name)
-
     async def get_ptz_presets(self) -> list[PTZPreset]:
         """Get PTZ Presets for camera."""
         if not self.feature_flags.is_ptz:
@@ -2884,26 +2789,12 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._api.get_presets_ptz_camera(self.id)
 
-    async def delete_ptz_preset(self, *, slot: int) -> None:
-        """Delete PTZ preset for camera."""
+    async def get_ptz_patrols(self) -> list[PTZPatrol]:
+        """Get PTZ Patrols for camera."""
         if not self.feature_flags.is_ptz:
             raise BadRequest("Camera does not support PTZ features.")
 
-        await self._api.delete_preset_ptz_camera(self.id, slot=slot)
-
-    async def get_ptz_home(self) -> PTZPreset:
-        """Get PTZ home preset (-1)."""
-        if not self.feature_flags.is_ptz:
-            raise BadRequest("Camera does not support PTZ features.")
-
-        return await self._api.get_home_ptz_camera(self.id)
-
-    async def set_ptz_home(self) -> PTZPreset:
-        """Get PTZ home preset (-1) to current position."""
-        if not self.feature_flags.is_ptz:
-            raise BadRequest("Camera does not support PTZ features.")
-
-        return await self._api.set_home_ptz_camera(self.id)
+        return await self._api.get_patrols_ptz_camera(self.id)
 
     def _check_ptz_public_api(self) -> None:
         """Check prerequisites for PTZ public API calls."""
