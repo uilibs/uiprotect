@@ -1,5 +1,13 @@
 # Changelog
 
+## v9.0.0 (2026-01-20)
+
+### Chores
+
+
+- Drop python 3.10 support ([`0836912`](https://github.com/uilibs/uiprotect/commit/0836912b20ac3677484bbd4d99ae5123803131cb))
+
+
 ## v8.1.1 (2026-01-12)
 
 ### Bug fixes
