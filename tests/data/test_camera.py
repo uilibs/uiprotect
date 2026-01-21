@@ -23,11 +23,46 @@ from uiprotect.data import (
     SmartDetectAudioType,
     VideoMode,
 )
-from uiprotect.data.devices import CameraZone, Hotplug, HotplugExtender, WifiStats
+from uiprotect.data.devices import (
+    CameraChannel,
+    CameraZone,
+    Hotplug,
+    HotplugExtender,
+    WifiStats,
+)
 from uiprotect.data.types import DEFAULT, PermissionNode, SmartDetectObjectType
 from uiprotect.data.websocket import WSAction, WSSubscriptionMessage
 from uiprotect.exceptions import BadRequest, NotAuthorized
 from uiprotect.utils import to_js_time
+
+
+@pytest.mark.parametrize(
+    ("channel_id", "fps", "expected"),
+    [
+        (3, 2, True),  # Package channel with low fps (legacy behavior)
+        (3, 15, True),  # Package channel with higher fps (G6 Entry)
+        (3, None, False),  # Package channel with no fps
+        (0, 2, False),  # Non-package channel with low fps
+        (1, 15, False),  # Non-package channel
+        (2, None, False),  # Non-package channel with no fps
+    ],
+)
+def test_camera_channel_is_package(channel_id: int, fps: int | None, expected: bool):
+    """Test CameraChannel.is_package uses channel id == 3 for detection."""
+    channel = CameraChannel.from_unifi_dict(
+        id=channel_id,
+        videoId="test",
+        name="test",
+        enabled=True,
+        isRtspEnabled=False,
+        width=1920,
+        height=1080,
+        fps=fps,
+        bitrate=1000,
+        fpsValues=[],
+        idrInterval=1,
+    )
+    assert channel.is_package is expected
 
 
 @pytest.mark.parametrize(
