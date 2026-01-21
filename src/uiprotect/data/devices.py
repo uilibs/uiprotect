@@ -325,7 +325,7 @@ class CameraChannel(ProtectBaseObject):
 
     @property
     def is_package(self) -> bool:
-        # NOTE: The previous logic (checking fps == 2) stopped working with G6 Entry
+        # NOTE: The previous logic (checking fps <= 2) stopped working with G6 Entry
         # due to higher FPS values. This is now aligned with the logic used in
         # package_camera_channel. Not optimal, but will be fixed with the switch
         # to the public API.
