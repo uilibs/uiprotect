@@ -325,7 +325,11 @@ class CameraChannel(ProtectBaseObject):
 
     @property
     def is_package(self) -> bool:
-        return self.fps is not None and self.fps <= 2
+        # NOTE: The previous logic (checking fps <= 2) stopped working with G6 Entry
+        # due to higher FPS values. This is now aligned with the logic used in
+        # package_camera_channel. Not optimal, but will be fixed with the switch
+        # to the public API.
+        return self.fps is not None and self.id == 3
 
 
 class ISPSettings(ProtectBaseObject):
