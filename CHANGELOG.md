@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.0.1 (2026-01-21)
+
+### Bug fixes
+
+
+- Update is_package detection logic for g6 entry ([`5ba9026`](https://github.com/uilibs/uiprotect/commit/5ba90263eb64354696014a3095973a0a514058a8))
+
+
 ## v10.0.0 (2026-01-20)
 
 ### Features
