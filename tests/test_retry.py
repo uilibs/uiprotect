@@ -262,14 +262,20 @@ class TestDefaultRetryConfig:
 class TestApiClientRetryIntegration:
     """Tests for retry integration in BaseApiClient."""
 
+    # Test credentials - noqa: S106 for all password usage in this class
+    TEST_HOST = "192.168.1.1"
+    TEST_PORT = 443
+    TEST_USER = "test"
+    TEST_PASS = "test"  # noqa: S105
+
     @pytest.fixture
     def base_client(self) -> BaseApiClient:
         """Create a BaseApiClient for testing."""
         return BaseApiClient(
-            host="192.168.1.1",
-            port=443,
-            username="test",
-            password="test",  # noqa: S106
+            host=self.TEST_HOST,
+            port=self.TEST_PORT,
+            username=self.TEST_USER,
+            password=self.TEST_PASS,
         )
 
     @pytest.fixture
@@ -277,7 +283,7 @@ class TestApiClientRetryIntegration:
         """Factory to create ProtectApiClient with custom retry config."""
 
         def _create(retry_config: RetryConfig | None = None) -> ProtectApiClient:
-            return ProtectApiClient(
+            client = ProtectApiClient(
                 "127.0.0.1",
                 0,
                 "user",
@@ -285,6 +291,9 @@ class TestApiClientRetryIntegration:
                 verify_ssl=False,
                 retry_config=retry_config,
             )
+            # Pre-configure common mocks for request tests
+            client.get_session = AsyncMock(return_value=AsyncMock())
+            return client
 
         return _create
 
@@ -303,14 +312,14 @@ class TestApiClientRetryIntegration:
         assert base_client._retry_config is not None
         assert base_client._retry_config.max_retries == 3
 
-    def test_custom_retry_config(self, base_client: BaseApiClient) -> None:
+    def test_custom_retry_config(self) -> None:
         """Test that custom retry config can be provided."""
         custom_config = RetryConfig(max_retries=5, base_delay=2.0)
         client = BaseApiClient(
-            host="192.168.1.1",
-            port=443,
-            username="test",
-            password="test",  # noqa: S106
+            host=self.TEST_HOST,
+            port=self.TEST_PORT,
+            username=self.TEST_USER,
+            password=self.TEST_PASS,
             retry_config=custom_config,
         )
 
@@ -320,10 +329,10 @@ class TestApiClientRetryIntegration:
     def test_disable_retry(self) -> None:
         """Test that retry can be disabled by passing None."""
         client = BaseApiClient(
-            host="192.168.1.1",
-            port=443,
-            username="test",
-            password="test",  # noqa: S106
+            host=self.TEST_HOST,
+            port=self.TEST_PORT,
+            username=self.TEST_USER,
+            password=self.TEST_PASS,
             retry_config=None,
         )
 
@@ -350,7 +359,6 @@ class TestApiClientRetryIntegration:
             call_count += 1
             return response_503 if call_count < 3 else response_200
 
-        client.get_session = AsyncMock(return_value=AsyncMock())
         with patch.object(client, "_do_request", side_effect=mock_do_request):
             result = await client.request("get", "/test", auto_close=False)
 
@@ -374,7 +382,6 @@ class TestApiClientRetryIntegration:
             call_count += 1
             return response_429 if call_count == 1 else response_200
 
-        client.get_session = AsyncMock(return_value=AsyncMock())
         with patch.object(client, "_do_request", side_effect=mock_do_request):
             result = await client.request("get", "/test", auto_close=False)
 
@@ -391,7 +398,6 @@ class TestApiClientRetryIntegration:
         )
         response_502 = self._mock_response(502)
 
-        client.get_session = AsyncMock(return_value=AsyncMock())
         with patch.object(
             client, "_do_request", return_value=response_502
         ) as mock_request:
@@ -406,7 +412,6 @@ class TestApiClientRetryIntegration:
         client = protect_client_factory(RetryConfig(max_retries=3, base_delay=0.01))
         response_200 = self._mock_response(200)
 
-        client.get_session = AsyncMock(return_value=AsyncMock())
         with patch.object(
             client, "_do_request", return_value=response_200
         ) as mock_request:
@@ -422,7 +427,6 @@ class TestApiClientRetryIntegration:
         response_200 = self._mock_response(200)
         response_200.content_type = "application/json"
 
-        client.get_session = AsyncMock(return_value=AsyncMock())
         with patch.object(client, "_do_request", return_value=response_200):
             result = await client.request("get", "/test", auto_close=True)
 
@@ -441,7 +445,6 @@ class TestApiClientRetryIntegration:
             side_effect=ValueError("test error")
         )
 
-        client.get_session = AsyncMock(return_value=AsyncMock())
         with (
             patch.object(client, "_do_request", return_value=response_200),
             pytest.raises(ValueError, match="test error"),
@@ -457,7 +460,6 @@ class TestApiClientRetryIntegration:
         client = protect_client_factory(retry_config=None)
         response_503 = self._mock_response(503)
 
-        client.get_session = AsyncMock(return_value=AsyncMock())
         with patch.object(
             client, "_do_request", return_value=response_503
         ) as mock_request:
@@ -481,6 +483,40 @@ class TestDoRequestExceptionHandling:
             verify_ssl=False,
         )
 
+    @staticmethod
+    def _create_mock_request_context(
+        side_effect: Exception | None = None,
+        return_value: AsyncMock | None = None,
+        fail_count: int = 0,
+    ):
+        """
+        Create a mock request context for testing _do_request.
+
+        Args:
+            side_effect: Exception to raise on every call.
+            return_value: Value to return after fail_count failures.
+            fail_count: Number of times to raise side_effect before returning.
+
+        """
+        call_count = 0
+
+        class MockRequestContext:
+            async def __aenter__(self_inner):
+                nonlocal call_count
+                call_count += 1
+                if side_effect and (fail_count == 0 or call_count <= fail_count):
+                    raise side_effect
+                return return_value
+
+            async def __aexit__(self_inner, *args):
+                pass
+
+            @property
+            def calls(self_inner) -> int:
+                return call_count
+
+        return MockRequestContext()
+
     @pytest.mark.asyncio()
     async def test_server_disconnected_error_retries_once(self, client) -> None:
         """Test that ServerDisconnectedError triggers one retry."""
@@ -489,20 +525,12 @@ class TestDoRequestExceptionHandling:
         response_200.status = 200
         response_200.headers = {}
 
-        call_count = 0
-
-        class MockRequestContext:
-            async def __aenter__(self_inner):
-                nonlocal call_count
-                call_count += 1
-                if call_count == 1:
-                    raise aiohttp.ServerDisconnectedError()
-                return response_200
-
-            async def __aexit__(self_inner, *args):
-                pass
-
-        mock_session.request = MagicMock(return_value=MockRequestContext())
+        mock_ctx = self._create_mock_request_context(
+            side_effect=aiohttp.ServerDisconnectedError(),
+            return_value=response_200,
+            fail_count=1,
+        )
+        mock_session.request = MagicMock(return_value=mock_ctx)
         client._update_last_token_cookie = AsyncMock()
 
         result = await client._do_request(
@@ -510,21 +538,16 @@ class TestDoRequestExceptionHandling:
         )
 
         assert result is response_200
-        assert call_count == 2  # 1 retry after disconnect
+        assert mock_ctx.calls == 2  # 1 retry after disconnect
 
     @pytest.mark.asyncio()
     async def test_server_disconnected_error_raises_after_retry(self, client) -> None:
         """Test that ServerDisconnectedError raises NvrError after retry fails."""
         mock_session = AsyncMock()
-
-        class MockRequestContext:
-            async def __aenter__(self_inner):
-                raise aiohttp.ServerDisconnectedError()
-
-            async def __aexit__(self_inner, *args):
-                pass
-
-        mock_session.request = MagicMock(return_value=MockRequestContext())
+        mock_ctx = self._create_mock_request_context(
+            side_effect=aiohttp.ServerDisconnectedError()
+        )
+        mock_session.request = MagicMock(return_value=mock_ctx)
 
         with pytest.raises(NvrError, match="Error requesting data"):
             await client._do_request(mock_session, "GET", URL("http://test/api"), {})
@@ -533,15 +556,10 @@ class TestDoRequestExceptionHandling:
     async def test_client_error_raises_nvr_error(self, client) -> None:
         """Test that ClientError raises NvrError immediately."""
         mock_session = AsyncMock()
-
-        class MockRequestContext:
-            async def __aenter__(self_inner):
-                raise client_exceptions.ClientConnectionError("Connection failed")
-
-            async def __aexit__(self_inner, *args):
-                pass
-
-        mock_session.request = MagicMock(return_value=MockRequestContext())
+        mock_ctx = self._create_mock_request_context(
+            side_effect=client_exceptions.ClientConnectionError("Connection failed")
+        )
+        mock_session.request = MagicMock(return_value=mock_ctx)
 
         with pytest.raises(NvrError, match="Error requesting data"):
             await client._do_request(mock_session, "GET", URL("http://test/api"), {})
