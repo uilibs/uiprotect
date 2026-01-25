@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import aiohttp
 import pytest
@@ -414,6 +414,42 @@ class TestApiClientRetryIntegration:
 
         assert result is response_200
         assert mock_request.await_count == 1  # No retries
+
+    @pytest.mark.asyncio()
+    async def test_auto_close_releases_response(self, protect_client_factory) -> None:
+        """Test that auto_close=True releases response."""
+        client = protect_client_factory(RetryConfig(max_retries=0, base_delay=0.01))
+        response_200 = self._mock_response(200)
+        response_200.content_type = "application/json"
+
+        client.get_session = AsyncMock(return_value=AsyncMock())
+        with patch.object(client, "_do_request", return_value=response_200):
+            result = await client.request("get", "/test", auto_close=True)
+
+        assert result is response_200
+        response_200.release.assert_called()
+
+    @pytest.mark.asyncio()
+    async def test_auto_close_releases_on_exception(
+        self, protect_client_factory
+    ) -> None:
+        """Test that auto_close=True releases response even on exception."""
+        client = protect_client_factory(RetryConfig(max_retries=0, base_delay=0.01))
+        response_200 = self._mock_response(200)
+        # Make content_type raise an exception when accessed
+        type(response_200).content_type = PropertyMock(
+            side_effect=ValueError("test error")
+        )
+
+        client.get_session = AsyncMock(return_value=AsyncMock())
+        with (
+            patch.object(client, "_do_request", return_value=response_200),
+            pytest.raises(ValueError, match="test error"),
+        ):
+            await client.request("get", "/test", auto_close=True)
+
+        # Response should be released even when exception occurs
+        response_200.release.assert_called()
 
     @pytest.mark.asyncio()
     async def test_no_retry_when_config_is_none(self, protect_client_factory) -> None:
