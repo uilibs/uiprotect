@@ -443,7 +443,8 @@ class BaseApiClient:
         **kwargs: Any,
     ) -> aiohttp.ClientResponse:
         """Execute a single HTTP request with disconnect retry."""
-        for attempt in range(2):
+        last_err: aiohttp.ServerDisconnectedError | None = None
+        for _attempt in range(2):
             try:
                 req_context = session.request(
                     method,
@@ -457,18 +458,15 @@ class BaseApiClient:
             except aiohttp.ServerDisconnectedError as err:
                 # If the server disconnected, try again
                 # since HTTP/1.1 allows the server to disconnect at any time
-                if attempt == 0:
-                    continue
-                raise NvrError(
-                    f"Error requesting data from {self._host}: {err}",
-                ) from err
+                last_err = err
             except client_exceptions.ClientError as err:
                 raise NvrError(
                     f"Error requesting data from {self._host}: {err}",
                 ) from err
 
-        # should never happen
-        raise NvrError(f"Error requesting data from {self._host}")
+        raise NvrError(
+            f"Error requesting data from {self._host}: {last_err}",
+        ) from last_err
 
     async def request(
         self,

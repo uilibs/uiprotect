@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import pytest
-from aiohttp import ClientResponse
+from aiohttp import ClientResponse, client_exceptions
+from yarl import URL
 
 from uiprotect import RetryConfig as ExportedRetryConfig
 from uiprotect.api import BaseApiClient, ProtectApiClient
+from uiprotect.exceptions import NvrError
 from uiprotect.retry import (
     DEFAULT_RETRY_CONFIG,
     MIN_RETRY_DELAY,
@@ -29,12 +32,6 @@ def mock_response() -> MagicMock:
     response.headers = {}
     response.release = MagicMock()
     return response
-
-
-@pytest.fixture
-def default_config() -> RetryConfig:
-    """Create default retry config for testing."""
-    return RetryConfig(jitter=False)  # Disable jitter for predictable tests
 
 
 # =============================================================================
@@ -167,6 +164,34 @@ class TestRetryConfigCalculateDelay:
 
         delays = [config.calculate_delay(0) for _ in range(100)]
         assert all(d >= MIN_RETRY_DELAY for d in delays)
+
+    def test_jitter_respects_max_delay(self) -> None:
+        """Test that jitter never exceeds max_delay."""
+        config = RetryConfig(
+            base_delay=10.0,
+            max_delay=10.0,  # Set max_delay equal to base_delay
+            jitter=True,
+        )
+
+        delays = [config.calculate_delay(0) for _ in range(100)]
+        # Even with +25% jitter, delay should be capped at max_delay
+        assert all(d <= config.max_delay for d in delays)
+
+    def test_jitter_respects_retry_after_minimum(self) -> None:
+        """Test that jitter never goes below retry_after value."""
+        config = RetryConfig(
+            base_delay=1.0,
+            jitter=True,
+        )
+        retry_after = 5.0
+
+        delays = [
+            config.calculate_delay(0, retry_after=retry_after) for _ in range(100)
+        ]
+        # Even with -25% jitter, delay should never go below retry_after
+        assert all(d >= retry_after for d in delays)
+        # But should also be capped at max_delay
+        assert all(d <= config.max_delay for d in delays)
 
 
 # =============================================================================
@@ -310,7 +335,7 @@ class TestApiClientRetryIntegration:
         assert 503 in DEFAULT_RETRY_CONFIG.retry_on_status
         assert 504 in DEFAULT_RETRY_CONFIG.retry_on_status
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_retry_loop_on_503_status(self, protect_client_factory) -> None:
         """Test that request retries on 503 status code."""
         client = protect_client_factory(
@@ -332,7 +357,7 @@ class TestApiClientRetryIntegration:
         assert result is response_200
         assert call_count == 3  # 2 retries + 1 initial
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_retry_loop_on_429_with_retry_after(
         self, protect_client_factory
     ) -> None:
@@ -356,7 +381,7 @@ class TestApiClientRetryIntegration:
         assert result is response_200
         assert call_count == 2
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_retry_loop_exhausted_returns_last_response(
         self, protect_client_factory
     ) -> None:
@@ -375,7 +400,7 @@ class TestApiClientRetryIntegration:
         assert result is response_502
         assert mock_request.await_count == 3  # 1 initial + 2 retries
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_no_retry_on_success_status(self, protect_client_factory) -> None:
         """Test that request does not retry on success status codes."""
         client = protect_client_factory(RetryConfig(max_retries=3, base_delay=0.01))
@@ -390,7 +415,7 @@ class TestApiClientRetryIntegration:
         assert result is response_200
         assert mock_request.await_count == 1  # No retries
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_no_retry_when_config_is_none(self, protect_client_factory) -> None:
         """Test that request does not retry when retry_config is None."""
         client = protect_client_factory(retry_config=None)
@@ -404,3 +429,83 @@ class TestApiClientRetryIntegration:
 
         assert result is response_503
         assert mock_request.await_count == 1  # No retries
+
+
+class TestDoRequestExceptionHandling:
+    """Tests for _do_request exception handling."""
+
+    @pytest.fixture
+    def client(self) -> ProtectApiClient:
+        """Create a ProtectApiClient for testing."""
+        return ProtectApiClient(
+            "127.0.0.1",
+            0,
+            "user",
+            "pass",
+            verify_ssl=False,
+        )
+
+    @pytest.mark.asyncio()
+    async def test_server_disconnected_error_retries_once(self, client) -> None:
+        """Test that ServerDisconnectedError triggers one retry."""
+        mock_session = AsyncMock()
+        response_200 = AsyncMock()
+        response_200.status = 200
+        response_200.headers = {}
+
+        call_count = 0
+
+        class MockRequestContext:
+            async def __aenter__(self_inner):
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    raise aiohttp.ServerDisconnectedError()
+                return response_200
+
+            async def __aexit__(self_inner, *args):
+                pass
+
+        mock_session.request = MagicMock(return_value=MockRequestContext())
+        client._update_last_token_cookie = AsyncMock()
+
+        result = await client._do_request(
+            mock_session, "GET", URL("http://test/api"), {}
+        )
+
+        assert result is response_200
+        assert call_count == 2  # 1 retry after disconnect
+
+    @pytest.mark.asyncio()
+    async def test_server_disconnected_error_raises_after_retry(self, client) -> None:
+        """Test that ServerDisconnectedError raises NvrError after retry fails."""
+        mock_session = AsyncMock()
+
+        class MockRequestContext:
+            async def __aenter__(self_inner):
+                raise aiohttp.ServerDisconnectedError()
+
+            async def __aexit__(self_inner, *args):
+                pass
+
+        mock_session.request = MagicMock(return_value=MockRequestContext())
+
+        with pytest.raises(NvrError, match="Error requesting data"):
+            await client._do_request(mock_session, "GET", URL("http://test/api"), {})
+
+    @pytest.mark.asyncio()
+    async def test_client_error_raises_nvr_error(self, client) -> None:
+        """Test that ClientError raises NvrError immediately."""
+        mock_session = AsyncMock()
+
+        class MockRequestContext:
+            async def __aenter__(self_inner):
+                raise client_exceptions.ClientConnectionError("Connection failed")
+
+            async def __aexit__(self_inner, *args):
+                pass
+
+        mock_session.request = MagicMock(return_value=MockRequestContext())
+
+        with pytest.raises(NvrError, match="Error requesting data"):
+            await client._do_request(mock_session, "GET", URL("http://test/api"), {})

@@ -61,8 +61,12 @@ class RetryConfig:
             Delay in seconds before next retry.
 
         """
+        delay: float
+        retry_after_value: float = 0.0
+
         if retry_after is not None and retry_after > 0:
             # Respect Retry-After header, but cap at max_delay
+            retry_after_value = retry_after
             delay = min(retry_after, self.max_delay)
         else:
             # Exponential backoff: base_delay * (exponential_base ^ attempt)
@@ -73,7 +77,12 @@ class RetryConfig:
             # Add random jitter (±25% of delay)
             jitter_range = delay * 0.25
             delay += random.uniform(-jitter_range, jitter_range)  # noqa: S311
-            delay = max(MIN_RETRY_DELAY, delay)  # Ensure minimum delay
+            # Ensure delay stays within bounds:
+            # - Never below MIN_RETRY_DELAY
+            # - Never below retry_after (respect server guidance)
+            # - Never above max_delay
+            min_delay = max(MIN_RETRY_DELAY, retry_after_value)
+            delay = max(min_delay, min(delay, self.max_delay))
 
         return delay
 
