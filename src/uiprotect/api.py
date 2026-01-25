@@ -6,11 +6,13 @@ import asyncio
 import contextlib
 import hashlib
 import logging
+import random
 import re
 import sys
 import time
 import warnings
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from functools import partial
 from http import HTTPStatus, cookies
@@ -24,7 +26,7 @@ import aiofiles
 import aiohttp
 import orjson
 from aiofiles import os as aos
-from aiohttp import CookieJar, client_exceptions
+from aiohttp import ClientResponse, CookieJar, client_exceptions
 from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
@@ -63,7 +65,6 @@ from .data.base import ProtectModelWithId
 from .data.devices import AiPort, Chime
 from .data.types import IteratorCallback, ProgressCallback, PTZPatrol, PTZPreset
 from .exceptions import BadRequest, NotAuthorized, NvrError
-from .retry import DEFAULT_RETRY_CONFIG, RetryConfig, parse_retry_after
 from .stream import TalkbackSession
 from .utils import (
     decode_token_cookie,
@@ -115,6 +116,8 @@ TOKEN_COOKIE_MAX_EXP_SECONDS = 60
 DEVICE_UPDATE_INTERVAL = 900
 # retry timeout for thumbnails/heatmaps
 RETRY_TIMEOUT = 10
+# Minimum delay to prevent tight retry loops
+MIN_RETRY_DELAY = 0.1
 
 TYPES_BUG_MESSAGE = """There is currently a bug in UniFi Protect that makes `start` / `end` not work if `types` is not provided. This means uiprotect has to iterate over all of the events matching the filters provided to return values.
 
@@ -125,6 +128,116 @@ _LOGGER = logging.getLogger(__name__)
 _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
 
 NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
+
+
+# =============================================================================
+# Retry Configuration
+# =============================================================================
+
+
+@dataclass
+class RetryConfig:
+    """
+    Configuration for retry behavior with exponential backoff.
+
+    Attributes:
+        max_retries: Maximum number of retry attempts (0 = no retries).
+        base_delay: Initial delay in seconds before first retry.
+        max_delay: Maximum delay in seconds between retries.
+        exponential_base: Base for exponential backoff calculation.
+        jitter: Whether to add random jitter to delays.
+        retry_on_status: HTTP status codes that should trigger a retry.
+
+    """
+
+    max_retries: int = 3
+    base_delay: float = 1.0
+    max_delay: float = 30.0
+    exponential_base: float = 2.0
+    jitter: bool = True
+    retry_on_status: frozenset[int] = field(
+        default_factory=lambda: frozenset({429, 502, 503, 504})
+    )
+
+    def __post_init__(self) -> None:
+        """Validate configuration values."""
+        if self.max_retries < 0:
+            raise ValueError("max_retries must be non-negative")
+        if self.base_delay <= 0:
+            raise ValueError("base_delay must be positive")
+        if self.max_delay <= 0:
+            raise ValueError("max_delay must be positive")
+        if self.exponential_base <= 1:
+            raise ValueError("exponential_base must be greater than 1")
+
+    def calculate_delay(self, attempt: int, retry_after: float | None = None) -> float:
+        """
+        Calculate delay before next retry attempt.
+
+        Args:
+            attempt: Current retry attempt number (0-based).
+            retry_after: Optional Retry-After header value in seconds.
+
+        Returns:
+            Delay in seconds before next retry.
+
+        """
+        delay: float
+        retry_after_value: float = 0.0
+
+        if retry_after is not None and retry_after > 0:
+            # Respect Retry-After header, but cap at max_delay
+            retry_after_value = retry_after
+            delay = min(retry_after, self.max_delay)
+        else:
+            # Exponential backoff: base_delay * (exponential_base ^ attempt)
+            delay = self.base_delay * (self.exponential_base**attempt)
+            delay = min(delay, self.max_delay)
+
+        if self.jitter:
+            # Add random jitter (±25% of delay)
+            jitter_range = delay * 0.25
+            delay += random.uniform(-jitter_range, jitter_range)  # noqa: S311
+            # Ensure delay stays within bounds:
+            # - Never below MIN_RETRY_DELAY
+            # - Never below retry_after (respect server guidance)
+            # - Never above max_delay
+            min_delay = max(MIN_RETRY_DELAY, retry_after_value)
+            delay = max(min_delay, min(delay, self.max_delay))
+
+        return delay
+
+
+def _parse_retry_after(response: ClientResponse) -> float | None:
+    """
+    Parse Retry-After header from response.
+
+    Args:
+        response: HTTP response object.
+
+    Returns:
+        Retry delay in seconds, or None if header not present/parseable.
+
+    """
+    retry_after = response.headers.get("Retry-After")
+    if retry_after is None:
+        return None
+
+    try:
+        # Retry-After can be seconds or HTTP-date, we only handle seconds
+        return float(retry_after)
+    except ValueError:
+        _LOGGER.debug("Could not parse Retry-After header: %s", retry_after)
+        return None
+
+
+# Default configuration for UniFi Protect API (uses dataclass defaults)
+DEFAULT_RETRY_CONFIG = RetryConfig()
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
 
 
 def get_user_hash(host: str, username: str) -> str:
@@ -516,7 +629,7 @@ class BaseApiClient:
             if response.status not in retry_config.retry_on_status:  # type: ignore[union-attr]
                 break
 
-            retry_after = parse_retry_after(response)
+            retry_after = _parse_retry_after(response)
             delay = retry_config.calculate_delay(retry_attempt, retry_after)  # type: ignore[union-attr]
             _LOGGER.warning(
                 "Request to %s returned %s, retrying in %.2f seconds (attempt %d/%d)",

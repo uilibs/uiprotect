@@ -10,14 +10,15 @@ from aiohttp import ClientResponse, client_exceptions
 from yarl import URL
 
 from uiprotect import RetryConfig as ExportedRetryConfig
-from uiprotect.api import BaseApiClient, ProtectApiClient
-from uiprotect.exceptions import NvrError
-from uiprotect.retry import (
+from uiprotect.api import (
     DEFAULT_RETRY_CONFIG,
     MIN_RETRY_DELAY,
+    BaseApiClient,
+    ProtectApiClient,
     RetryConfig,
-    parse_retry_after,
+    _parse_retry_after,
 )
+from uiprotect.exceptions import NvrError
 
 # =============================================================================
 # Fixtures
@@ -195,37 +196,37 @@ class TestRetryConfigCalculateDelay:
 
 
 # =============================================================================
-# parse_retry_after Tests
+# _parse_retry_after Tests
 # =============================================================================
 
 
 class TestParseRetryAfter:
-    """Tests for parse_retry_after function."""
+    """Tests for _parse_retry_after function."""
 
     def test_valid_integer(self, mock_response: MagicMock) -> None:
         """Test parsing integer Retry-After value."""
         mock_response.headers = {"Retry-After": "5"}
-        assert parse_retry_after(mock_response) == 5.0
+        assert _parse_retry_after(mock_response) == 5.0
 
     def test_valid_float(self, mock_response: MagicMock) -> None:
         """Test parsing float Retry-After value."""
         mock_response.headers = {"Retry-After": "2.5"}
-        assert parse_retry_after(mock_response) == 2.5
+        assert _parse_retry_after(mock_response) == 2.5
 
     def test_missing_header(self, mock_response: MagicMock) -> None:
         """Test handling missing Retry-After header."""
         mock_response.headers = {}
-        assert parse_retry_after(mock_response) is None
+        assert _parse_retry_after(mock_response) is None
 
     def test_invalid_value(self, mock_response: MagicMock) -> None:
         """Test handling invalid Retry-After value."""
         mock_response.headers = {"Retry-After": "not-a-number"}
-        assert parse_retry_after(mock_response) is None
+        assert _parse_retry_after(mock_response) is None
 
     def test_http_date_not_supported(self, mock_response: MagicMock) -> None:
         """Test that HTTP-date format returns None."""
         mock_response.headers = {"Retry-After": "Wed, 21 Oct 2025 07:28:00 GMT"}
-        assert parse_retry_after(mock_response) is None
+        assert _parse_retry_after(mock_response) is None
 
 
 # =============================================================================

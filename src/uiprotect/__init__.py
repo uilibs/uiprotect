@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from .api import ProtectApiClient
+from .api import ProtectApiClient, RetryConfig
 from .exceptions import Invalid, NotAuthorized, NvrError
-from .retry import RetryConfig
 from .utils import (
     get_nested_attr,
     get_nested_attr_as_bool,
