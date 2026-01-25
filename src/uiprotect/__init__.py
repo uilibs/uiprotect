@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .api import ProtectApiClient
 from .exceptions import Invalid, NotAuthorized, NvrError
+from .retry import RetryConfig
 from .utils import (
     get_nested_attr,
     get_nested_attr_as_bool,
@@ -18,6 +19,7 @@ __all__ = [
     "NotAuthorized",
     "NvrError",
     "ProtectApiClient",
+    "RetryConfig",
     "get_nested_attr",
     "get_nested_attr_as_bool",
     "get_top_level_attr_as_bool",

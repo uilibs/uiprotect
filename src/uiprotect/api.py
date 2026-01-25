@@ -63,6 +63,7 @@ from .data.base import ProtectModelWithId
 from .data.devices import AiPort, Chime
 from .data.types import IteratorCallback, ProgressCallback, PTZPatrol, PTZPreset
 from .exceptions import BadRequest, NotAuthorized, NvrError
+from .retry import DEFAULT_RETRY_CONFIG, RetryConfig, parse_retry_after
 from .stream import TalkbackSession
 from .utils import (
     decode_token_cookie,
@@ -189,6 +190,7 @@ class BaseApiClient:
     _public_api_session: aiohttp.ClientSession | None = None
     _loaded_session: bool = False
     _cookiename = "TOKEN"
+    _retry_config: RetryConfig | None = None
 
     headers: dict[str, str] | None = None
     _private_websocket: Websocket | None = None
@@ -220,6 +222,7 @@ class BaseApiClient:
         config_dir: Path | None = None,
         store_sessions: bool = True,
         ws_receive_timeout: int | None = None,
+        retry_config: RetryConfig | None = DEFAULT_RETRY_CONFIG,
     ) -> None:
         self._auth_lock = asyncio.Lock()
         self._host = host
@@ -233,6 +236,7 @@ class BaseApiClient:
         self._ws_receive_timeout = ws_receive_timeout
         self._loaded_session = False
         self._update_task: asyncio.Task[Bootstrap | None] | None = None
+        self._retry_config = retry_config
 
         self.config_dir = config_dir or (Path(user_config_dir()) / "ufp")
         self.cache_dir = cache_dir or (Path(user_cache_dir()) / "ufp_cache")
@@ -430,6 +434,42 @@ class BaseApiClient:
         else:
             self.headers[key] = value
 
+    async def _do_request(
+        self,
+        session: aiohttp.ClientSession,
+        method: str,
+        request_url: URL,
+        headers: dict[str, str],
+        **kwargs: Any,
+    ) -> aiohttp.ClientResponse:
+        """Execute a single HTTP request with disconnect retry."""
+        for attempt in range(2):
+            try:
+                req_context = session.request(
+                    method,
+                    request_url,
+                    headers=headers,
+                    **kwargs,
+                )
+                response = await req_context.__aenter__()
+                await self._update_last_token_cookie(response)
+                return response
+            except aiohttp.ServerDisconnectedError as err:
+                # If the server disconnected, try again
+                # since HTTP/1.1 allows the server to disconnect at any time
+                if attempt == 0:
+                    continue
+                raise NvrError(
+                    f"Error requesting data from {self._host}: {err}",
+                ) from err
+            except client_exceptions.ClientError as err:
+                raise NvrError(
+                    f"Error requesting data from {self._host}: {err}",
+                ) from err
+
+        # should never happen
+        raise NvrError(f"Error requesting data from {self._host}")
+
     async def request(
         self,
         method: str,
@@ -439,7 +479,12 @@ class BaseApiClient:
         public_api: bool = False,
         **kwargs: Any,
     ) -> aiohttp.ClientResponse:
-        """Make a request to UniFi Protect"""
+        """
+        Make a request to UniFi Protect with automatic retry on transient errors.
+
+        Automatically retries requests that receive 429 (Too Many Requests),
+        502, 503, or 504 status codes using exponential backoff.
+        """
         if require_auth and not public_api:
             await self.ensure_authenticated()
 
@@ -460,49 +505,51 @@ class BaseApiClient:
         else:
             session = await self.get_session()
 
-        for attempt in range(2):
+        retry_config = self._retry_config
+        max_retries = retry_config.max_retries if retry_config else 0
+
+        # First attempt (always happens, even with max_retries=0)
+        response = await self._do_request(
+            session, method, request_url, headers, **kwargs
+        )
+
+        # Retry loop for transient errors
+        for retry_attempt in range(max_retries):
+            if response.status not in retry_config.retry_on_status:  # type: ignore[union-attr]
+                break
+
+            retry_after = parse_retry_after(response)
+            delay = retry_config.calculate_delay(retry_attempt, retry_after)  # type: ignore[union-attr]
+            _LOGGER.warning(
+                "Request to %s returned %s, retrying in %.2f seconds (attempt %d/%d)",
+                request_url,
+                response.status,
+                delay,
+                retry_attempt + 1,
+                max_retries,
+            )
+            response.release()
+            await asyncio.sleep(delay)
+            response = await self._do_request(
+                session, method, request_url, headers, **kwargs
+            )
+
+        if auto_close:
             try:
-                req_context = session.request(
-                    method,
-                    request_url,
-                    headers=headers,
-                    **kwargs,
+                _LOGGER.debug(
+                    "%s %s %s",
+                    response.status,
+                    response.content_type,
+                    response,
                 )
-                response = await req_context.__aenter__()
+                response.release()
+            except Exception:
+                # make sure response is released
+                response.release()
+                # re-raise exception
+                raise
 
-                await self._update_last_token_cookie(response)
-                if auto_close:
-                    try:
-                        _LOGGER.debug(
-                            "%s %s %s",
-                            response.status,
-                            response.content_type,
-                            response,
-                        )
-                        response.release()
-                    except Exception:
-                        # make sure response is released
-                        response.release()
-                        # re-raise exception
-                        raise
-
-                return response
-            except aiohttp.ServerDisconnectedError as err:
-                # If the server disconnected, try again
-                # since HTTP/1.1 allows the server to disconnect
-                # at any time
-                if attempt == 0:
-                    continue
-                raise NvrError(
-                    f"Error requesting data from {self._host}: {err}",
-                ) from err
-            except client_exceptions.ClientError as err:
-                raise NvrError(
-                    f"Error requesting data from {self._host}: {err}",
-                ) from err
-
-        # should never happen
-        raise NvrError(f"Error requesting data from {self._host}")
+        return response
 
     async def api_request_raw(
         self,
@@ -1010,6 +1057,7 @@ class ProtectApiClient(BaseApiClient):
         ignore_unadopted: bool = True,
         debug: bool = False,
         ws_receive_timeout: int | None = None,
+        retry_config: RetryConfig | None = DEFAULT_RETRY_CONFIG,
     ) -> None:
         super().__init__(
             host=host,
@@ -1025,6 +1073,7 @@ class ProtectApiClient(BaseApiClient):
             cache_dir=cache_dir,
             config_dir=config_dir,
             store_sessions=store_sessions,
+            retry_config=retry_config,
         )
 
         self._minimum_score = minimum_score
