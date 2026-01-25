@@ -63,6 +63,7 @@ from .data.base import ProtectModelWithId
 from .data.devices import AiPort, Chime
 from .data.types import IteratorCallback, ProgressCallback, PTZPatrol, PTZPreset
 from .exceptions import BadRequest, NotAuthorized, NvrError
+from .rate_limiter import RateLimiter
 from .stream import TalkbackSession
 from .utils import (
     decode_token_cookie,
@@ -178,6 +179,7 @@ class BaseApiClient:
     _port: int
     _username: str
     _password: str
+    _public_api_rate_limiter: RateLimiter | None = None
     _api_key: str | None = None
     _verify_ssl: bool
     _ws_timeout: int
@@ -220,10 +222,20 @@ class BaseApiClient:
         config_dir: Path | None = None,
         store_sessions: bool = True,
         ws_receive_timeout: int | None = None,
+        public_api_rate_limit: int | None = 10,
     ) -> None:
         self._auth_lock = asyncio.Lock()
         self._host = host
         self._port = port
+        # Initialize rate limiter for public API (10 requests/second by default)
+        # Set to None to disable rate limiting
+        if public_api_rate_limit is not None and public_api_rate_limit > 0:
+            self._public_api_rate_limiter = RateLimiter(
+                max_requests=public_api_rate_limit,
+                window_seconds=1.0,
+            )
+        else:
+            self._public_api_rate_limiter = None
 
         self._username = username
         self._password = password
@@ -300,6 +312,33 @@ class BaseApiClient:
     @property
     def config_file(self) -> Path:
         return self.config_dir / "unifi_protect.json"
+
+    @property
+    def public_api_rate_limiter(self) -> RateLimiter | None:
+        """Get the rate limiter for public API requests."""
+        return self._public_api_rate_limiter
+
+    def set_public_api_rate_limit(
+        self, max_requests: int | None, window_seconds: float = 1.0
+    ) -> None:
+        """
+        Configure the rate limiter for public API requests.
+
+        Note: This creates a new rate limiter instance, resetting any
+        existing request count. Avoid calling during high request volume.
+
+        Args:
+            max_requests: Maximum number of requests per window. Set to None to disable.
+            window_seconds: Size of the sliding window in seconds (default: 1.0).
+
+        """
+        if max_requests is None or max_requests <= 0:
+            self._public_api_rate_limiter = None
+        else:
+            self._public_api_rate_limiter = RateLimiter(
+                max_requests=max_requests,
+                window_seconds=window_seconds,
+            )
 
     async def get_session(self) -> aiohttp.ClientSession:
         """Gets or creates current client session"""
@@ -430,6 +469,11 @@ class BaseApiClient:
         else:
             self.headers[key] = value
 
+    async def _apply_rate_limit_if_needed(self, public_api: bool) -> None:
+        """Apply rate limiting for public API requests if configured."""
+        if public_api and self._public_api_rate_limiter is not None:
+            await self._public_api_rate_limiter.acquire()
+
     async def request(
         self,
         method: str,
@@ -442,6 +486,8 @@ class BaseApiClient:
         """Make a request to UniFi Protect"""
         if require_auth and not public_api:
             await self.ensure_authenticated()
+
+        await self._apply_rate_limit_if_needed(public_api)
 
         request_url = self._url.join(
             URL(SplitResult("", "", url, "", ""), encoded=True)
@@ -1010,6 +1056,7 @@ class ProtectApiClient(BaseApiClient):
         ignore_unadopted: bool = True,
         debug: bool = False,
         ws_receive_timeout: int | None = None,
+        public_api_rate_limit: int | None = 10,
     ) -> None:
         super().__init__(
             host=host,
@@ -1025,6 +1072,7 @@ class ProtectApiClient(BaseApiClient):
             cache_dir=cache_dir,
             config_dir=config_dir,
             store_sessions=store_sessions,
+            public_api_rate_limit=public_api_rate_limit,
         )
 
         self._minimum_score = minimum_score
