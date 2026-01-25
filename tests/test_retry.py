@@ -1,4 +1,4 @@
-"""Tests for retry module."""
+"""Tests for retry functionality."""
 
 from __future__ import annotations
 
@@ -9,13 +9,15 @@ import pytest
 from aiohttp import ClientResponse, client_exceptions
 from yarl import URL
 
-from uiprotect import RetryConfig as ExportedRetryConfig
 from uiprotect.api import (
-    DEFAULT_RETRY_CONFIG,
-    MIN_RETRY_DELAY,
+    RETRY_BASE_DELAY,
+    RETRY_DEFAULT_ATTEMPTS,
+    RETRY_EXPONENTIAL_BASE,
+    RETRY_MAX_DELAY,
+    RETRY_STATUS_CODES,
     BaseApiClient,
     ProtectApiClient,
-    RetryConfig,
+    _calculate_retry_delay,
     _parse_retry_after,
 )
 from uiprotect.exceptions import NvrError
@@ -36,163 +38,90 @@ def mock_response() -> MagicMock:
 
 
 # =============================================================================
-# RetryConfig Tests
+# Retry Constants Tests
 # =============================================================================
 
 
-class TestRetryConfigInit:
-    """Tests for RetryConfig initialization and validation."""
+class TestRetryConstants:
+    """Tests for retry configuration constants."""
 
-    def test_default_values(self) -> None:
-        """Test default configuration values."""
-        config = RetryConfig()
+    def test_default_attempts(self) -> None:
+        """Test default retry attempts value."""
+        assert RETRY_DEFAULT_ATTEMPTS == 3
 
-        assert config.max_retries == 3
-        assert config.base_delay == 1.0
-        assert config.max_delay == 30.0
-        assert config.exponential_base == 2.0
-        assert config.jitter is True
-        assert config.retry_on_status == frozenset({429, 502, 503, 504})
+    def test_base_delay(self) -> None:
+        """Test base delay value."""
+        assert RETRY_BASE_DELAY == 1.0
 
-    def test_custom_values(self) -> None:
-        """Test custom configuration values."""
-        config = RetryConfig(
-            max_retries=5,
-            base_delay=0.5,
-            max_delay=60.0,
-            exponential_base=3.0,
-            jitter=False,
-            retry_on_status=frozenset({429}),
-        )
+    def test_max_delay(self) -> None:
+        """Test max delay value."""
+        assert RETRY_MAX_DELAY == 30.0
 
-        assert config.max_retries == 5
-        assert config.base_delay == 0.5
-        assert config.max_delay == 60.0
-        assert config.exponential_base == 3.0
-        assert config.jitter is False
-        assert config.retry_on_status == frozenset({429})
+    def test_exponential_base(self) -> None:
+        """Test exponential base value."""
+        assert RETRY_EXPONENTIAL_BASE == 2.0
 
-    @pytest.mark.parametrize(
-        ("field", "value", "error_msg"),
-        [
-            ("max_retries", -1, "max_retries must be non-negative"),
-            ("base_delay", 0, "base_delay must be positive"),
-            ("base_delay", -1, "base_delay must be positive"),
-            ("max_delay", 0, "max_delay must be positive"),
-            ("max_delay", -1, "max_delay must be positive"),
-            ("exponential_base", 1, "exponential_base must be greater than 1"),
-            ("exponential_base", 0.5, "exponential_base must be greater than 1"),
-        ],
-    )
-    def test_validation_errors(self, field: str, value: float, error_msg: str) -> None:
-        """Test validation raises ValueError for invalid values."""
-        with pytest.raises(ValueError, match=error_msg):
-            RetryConfig(**{field: value})
-
-    def test_zero_retries_allowed(self) -> None:
-        """Test that zero retries is valid (disables retry)."""
-        config = RetryConfig(max_retries=0)
-        assert config.max_retries == 0
+    def test_status_codes(self) -> None:
+        """Test retry status codes."""
+        assert frozenset({429, 502, 503, 504}) == RETRY_STATUS_CODES
 
 
-class TestRetryConfigCalculateDelay:
-    """Tests for RetryConfig.calculate_delay method."""
+# =============================================================================
+# _calculate_retry_delay Tests
+# =============================================================================
 
-    def test_exponential_backoff_without_jitter(self) -> None:
-        """Test exponential backoff calculation without jitter."""
-        config = RetryConfig(
-            base_delay=1.0,
-            exponential_base=2.0,
-            max_delay=30.0,
-            jitter=False,
-        )
 
-        assert config.calculate_delay(0) == 1.0  # 1 * 2^0 = 1
-        assert config.calculate_delay(1) == 2.0  # 1 * 2^1 = 2
-        assert config.calculate_delay(2) == 4.0  # 1 * 2^2 = 4
-        assert config.calculate_delay(3) == 8.0  # 1 * 2^3 = 8
+class TestCalculateRetryDelay:
+    """Tests for _calculate_retry_delay function."""
+
+    def test_exponential_backoff(self) -> None:
+        """Test that delays follow exponential backoff pattern."""
+        # With jitter, values will vary, but should be around expected values
+        delays = [_calculate_retry_delay(i) for i in range(4)]
+
+        # Check rough ranges (accounting for ±25% jitter)
+        assert 0.75 <= delays[0] <= 1.25  # ~1.0
+        assert 1.5 <= delays[1] <= 2.5  # ~2.0
+        assert 3.0 <= delays[2] <= 5.0  # ~4.0
+        assert 6.0 <= delays[3] <= 10.0  # ~8.0
 
     def test_max_delay_cap(self) -> None:
         """Test that delay is capped at max_delay."""
-        config = RetryConfig(
-            base_delay=1.0,
-            exponential_base=2.0,
-            max_delay=5.0,
-            jitter=False,
-        )
-
-        assert config.calculate_delay(0) == 1.0
-        assert config.calculate_delay(1) == 2.0
-        assert config.calculate_delay(2) == 4.0
-        assert config.calculate_delay(3) == 5.0  # Capped at max_delay
-        assert config.calculate_delay(10) == 5.0  # Still capped
+        # Very high attempt number should still cap at RETRY_MAX_DELAY
+        delay = _calculate_retry_delay(100)
+        assert delay <= RETRY_MAX_DELAY
 
     def test_retry_after_header_respected(self) -> None:
         """Test that Retry-After header value is used when provided."""
-        config = RetryConfig(max_delay=30.0, jitter=False)
-
-        # Retry-After overrides exponential backoff
-        assert config.calculate_delay(0, retry_after=5.0) == 5.0
-        assert config.calculate_delay(1, retry_after=10.0) == 10.0
+        delay = _calculate_retry_delay(0, retry_after=5.0)
+        # Should be around 5.0 (±25% jitter)
+        assert 3.75 <= delay <= 6.25
 
     def test_retry_after_capped_at_max_delay(self) -> None:
         """Test that Retry-After is capped at max_delay."""
-        config = RetryConfig(max_delay=10.0, jitter=False)
-
-        assert config.calculate_delay(0, retry_after=100.0) == 10.0
+        delay = _calculate_retry_delay(0, retry_after=100.0)
+        assert delay <= RETRY_MAX_DELAY
 
     def test_jitter_adds_variation(self) -> None:
         """Test that jitter adds variation to delay."""
-        config = RetryConfig(
-            base_delay=10.0,
-            exponential_base=2.0,
-            jitter=True,
-        )
+        delays = [_calculate_retry_delay(0) for _ in range(100)]
 
-        delays = [config.calculate_delay(0) for _ in range(100)]
-
-        # All delays should be around 10.0 (±25%)
-        assert all(7.5 <= d <= 12.5 for d in delays)
         # With jitter, we should see variation
         assert len(set(delays)) > 1
 
-    def test_jitter_minimum_delay(self) -> None:
-        """Test that jitter maintains minimum delay of MIN_RETRY_DELAY."""
-        config = RetryConfig(
-            base_delay=0.1,
-            jitter=True,
-        )
+    def test_minimum_delay(self) -> None:
+        """Test that delay never goes below 0.1s."""
+        delays = [_calculate_retry_delay(0) for _ in range(100)]
+        assert all(d >= 0.1 for d in delays)
 
-        delays = [config.calculate_delay(0) for _ in range(100)]
-        assert all(d >= MIN_RETRY_DELAY for d in delays)
-
-    def test_jitter_respects_max_delay(self) -> None:
-        """Test that jitter never exceeds max_delay."""
-        config = RetryConfig(
-            base_delay=10.0,
-            max_delay=10.0,  # Set max_delay equal to base_delay
-            jitter=True,
-        )
-
-        delays = [config.calculate_delay(0) for _ in range(100)]
-        # Even with +25% jitter, delay should be capped at max_delay
-        assert all(d <= config.max_delay for d in delays)
-
-    def test_jitter_respects_retry_after_minimum(self) -> None:
-        """Test that jitter never goes below retry_after value."""
-        config = RetryConfig(
-            base_delay=1.0,
-            jitter=True,
-        )
+    def test_retry_after_minimum_respected(self) -> None:
+        """Test that delay respects retry_after value when under max_delay."""
         retry_after = 5.0
-
         delays = [
-            config.calculate_delay(0, retry_after=retry_after) for _ in range(100)
+            _calculate_retry_delay(0, retry_after=retry_after) for _ in range(100)
         ]
-        # Even with -25% jitter, delay should never go below retry_after
-        assert all(d >= retry_after for d in delays)
-        # But should also be capped at max_delay
-        assert all(d <= config.max_delay for d in delays)
+        # With jitter ±25%, delay should be around 5.0 (3.75-6.25)
+        assert all(3.75 <= d <= 6.25 for d in delays)
 
 
 # =============================================================================
@@ -230,32 +159,6 @@ class TestParseRetryAfter:
 
 
 # =============================================================================
-# retry_request Tests
-# =============================================================================
-
-
-# =============================================================================
-# DEFAULT_RETRY_CONFIG Tests
-# =============================================================================
-
-
-class TestDefaultRetryConfig:
-    """Tests for DEFAULT_RETRY_CONFIG."""
-
-    def test_default_config_values(self) -> None:
-        """Test that default config has expected values."""
-        assert DEFAULT_RETRY_CONFIG.max_retries == 3
-        assert DEFAULT_RETRY_CONFIG.base_delay == 1.0
-        assert DEFAULT_RETRY_CONFIG.max_delay == 30.0
-        assert DEFAULT_RETRY_CONFIG.exponential_base == 2.0
-        assert DEFAULT_RETRY_CONFIG.jitter is True
-        assert 429 in DEFAULT_RETRY_CONFIG.retry_on_status
-        assert 502 in DEFAULT_RETRY_CONFIG.retry_on_status
-        assert 503 in DEFAULT_RETRY_CONFIG.retry_on_status
-        assert 504 in DEFAULT_RETRY_CONFIG.retry_on_status
-
-
-# =============================================================================
 # API Client Integration Tests
 # =============================================================================
 
@@ -263,7 +166,6 @@ class TestDefaultRetryConfig:
 class TestApiClientRetryIntegration:
     """Tests for retry integration in BaseApiClient."""
 
-    # Test credentials - noqa: S106 for all password usage in this class
     TEST_HOST = "192.168.1.1"
     TEST_PORT = 443
     TEST_USER = "test"
@@ -281,76 +183,62 @@ class TestApiClientRetryIntegration:
 
     @pytest.fixture
     def protect_client_factory(self):
-        """Factory to create ProtectApiClient with custom retry config."""
+        """Factory to create ProtectApiClient with custom max_retries."""
 
-        def _create(retry_config: RetryConfig | None = None) -> ProtectApiClient:
+        def _create(max_retries: int = RETRY_DEFAULT_ATTEMPTS) -> ProtectApiClient:
             client = ProtectApiClient(
                 "127.0.0.1",
                 0,
                 "user",
                 "pass",
                 verify_ssl=False,
-                retry_config=retry_config,
+                max_retries=max_retries,
             )
-            # Pre-configure common mocks for request tests
             client.get_session = AsyncMock(return_value=AsyncMock())
             return client
 
         return _create
 
     @staticmethod
-    def _mock_response(status: int, headers: dict[str, str] | None = None) -> AsyncMock:
-        """Create a mock response with given status."""
-        response = AsyncMock()
+    def _mock_response(status: int = 200, headers: dict | None = None) -> MagicMock:
+        """Create a mock response with given status and headers."""
+        response = MagicMock()
         response.status = status
         response.headers = headers or {}
-        response.release = AsyncMock()
-        response.content_type = "application/json" if status == 200 else "text/plain"
+        response.release = MagicMock()
+        response.content_type = "application/json"
         return response
 
-    def test_default_retry_config_applied(self, base_client: BaseApiClient) -> None:
-        """Test that default retry config is applied to new clients."""
-        assert base_client._retry_config is not None
-        assert base_client._retry_config.max_retries == 3
+    def test_default_max_retries_applied(self, base_client: BaseApiClient) -> None:
+        """Test that default max_retries is applied to new clients."""
+        assert base_client._max_retries == RETRY_DEFAULT_ATTEMPTS
 
-    def test_custom_retry_config(self) -> None:
-        """Test that custom retry config can be provided."""
-        custom_config = RetryConfig(max_retries=5, base_delay=2.0)
+    def test_custom_max_retries(self) -> None:
+        """Test that custom max_retries can be provided."""
         client = BaseApiClient(
             host=self.TEST_HOST,
             port=self.TEST_PORT,
             username=self.TEST_USER,
             password=self.TEST_PASS,
-            retry_config=custom_config,
+            max_retries=5,
         )
-
-        assert client._retry_config is custom_config
-        assert client._retry_config.max_retries == 5
+        assert client._max_retries == 5
 
     def test_disable_retry(self) -> None:
-        """Test that retry can be disabled by passing None."""
+        """Test that retry can be disabled by passing 0."""
         client = BaseApiClient(
             host=self.TEST_HOST,
             port=self.TEST_PORT,
             username=self.TEST_USER,
             password=self.TEST_PASS,
-            retry_config=None,
+            max_retries=0,
         )
-
-        assert client._retry_config is None
-
-    def test_retry_config_exported(self) -> None:
-        """Test that RetryConfig is exported from uiprotect package."""
-        assert ExportedRetryConfig is RetryConfig
-        assert 503 in DEFAULT_RETRY_CONFIG.retry_on_status
-        assert 504 in DEFAULT_RETRY_CONFIG.retry_on_status
+        assert client._max_retries == 0
 
     @pytest.mark.asyncio()
     async def test_retry_loop_on_503_status(self, protect_client_factory) -> None:
         """Test that request retries on 503 status code."""
-        client = protect_client_factory(
-            RetryConfig(max_retries=2, base_delay=0.01, jitter=False)
-        )
+        client = protect_client_factory(max_retries=2)
         response_503 = self._mock_response(503)
         response_200 = self._mock_response(200)
         call_count = 0
@@ -371,9 +259,7 @@ class TestApiClientRetryIntegration:
         self, protect_client_factory
     ) -> None:
         """Test that request respects Retry-After header on 429."""
-        client = protect_client_factory(
-            RetryConfig(max_retries=1, base_delay=0.01, jitter=False)
-        )
+        client = protect_client_factory(max_retries=1)
         response_429 = self._mock_response(429, {"Retry-After": "0.01"})
         response_200 = self._mock_response(200)
         call_count = 0
@@ -394,9 +280,7 @@ class TestApiClientRetryIntegration:
         self, protect_client_factory
     ) -> None:
         """Test that request returns last response when retries exhausted."""
-        client = protect_client_factory(
-            RetryConfig(max_retries=2, base_delay=0.01, jitter=False)
-        )
+        client = protect_client_factory(max_retries=2)
         response_502 = self._mock_response(502)
 
         with patch.object(
@@ -410,7 +294,7 @@ class TestApiClientRetryIntegration:
     @pytest.mark.asyncio()
     async def test_no_retry_on_success_status(self, protect_client_factory) -> None:
         """Test that request does not retry on success status codes."""
-        client = protect_client_factory(RetryConfig(max_retries=3, base_delay=0.01))
+        client = protect_client_factory(max_retries=3)
         response_200 = self._mock_response(200)
 
         with patch.object(
@@ -424,7 +308,7 @@ class TestApiClientRetryIntegration:
     @pytest.mark.asyncio()
     async def test_auto_close_releases_response(self, protect_client_factory) -> None:
         """Test that auto_close=True releases response."""
-        client = protect_client_factory(RetryConfig(max_retries=0, base_delay=0.01))
+        client = protect_client_factory(max_retries=0)
         response_200 = self._mock_response(200)
         response_200.content_type = "application/json"
 
@@ -439,9 +323,8 @@ class TestApiClientRetryIntegration:
         self, protect_client_factory
     ) -> None:
         """Test that auto_close=True releases response even on exception."""
-        client = protect_client_factory(RetryConfig(max_retries=0, base_delay=0.01))
+        client = protect_client_factory(max_retries=0)
         response_200 = self._mock_response(200)
-        # Make content_type raise an exception when accessed
         type(response_200).content_type = PropertyMock(
             side_effect=ValueError("test error")
         )
@@ -452,13 +335,12 @@ class TestApiClientRetryIntegration:
         ):
             await client.request("get", "/test", auto_close=True)
 
-        # Response should be released even when exception occurs
         response_200.release.assert_called()
 
     @pytest.mark.asyncio()
-    async def test_no_retry_when_config_is_none(self, protect_client_factory) -> None:
-        """Test that request does not retry when retry_config is None."""
-        client = protect_client_factory(retry_config=None)
+    async def test_no_retry_when_max_retries_zero(self, protect_client_factory) -> None:
+        """Test that request does not retry when max_retries is 0."""
+        client = protect_client_factory(max_retries=0)
         response_503 = self._mock_response(503)
 
         with patch.object(

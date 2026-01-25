@@ -12,7 +12,6 @@ import sys
 import time
 import warnings
 from collections.abc import Callable
-from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from functools import partial
 from http import HTTPStatus, cookies
@@ -116,8 +115,13 @@ TOKEN_COOKIE_MAX_EXP_SECONDS = 60
 DEVICE_UPDATE_INTERVAL = 900
 # retry timeout for thumbnails/heatmaps
 RETRY_TIMEOUT = 10
-# Minimum delay to prevent tight retry loops
-MIN_RETRY_DELAY = 0.1
+
+# Retry configuration constants
+RETRY_DEFAULT_ATTEMPTS = 3
+RETRY_BASE_DELAY = 1.0
+RETRY_MAX_DELAY = 30.0
+RETRY_EXPONENTIAL_BASE = 2.0
+RETRY_STATUS_CODES = frozenset({429, 502, 503, 504})
 
 TYPES_BUG_MESSAGE = """There is currently a bug in UniFi Protect that makes `start` / `end` not work if `types` is not provided. This means uiprotect has to iterate over all of the events matching the filters provided to return values.
 
@@ -130,82 +134,30 @@ _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
 NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
 
 
-# =============================================================================
-# Retry Configuration
-# =============================================================================
-
-
-@dataclass
-class RetryConfig:
+def _calculate_retry_delay(attempt: int, retry_after: float | None = None) -> float:
     """
-    Configuration for retry behavior with exponential backoff.
+    Calculate delay before next retry attempt with exponential backoff and jitter.
 
-    Attributes:
-        max_retries: Maximum number of retry attempts (0 = no retries).
-        base_delay: Initial delay in seconds before first retry.
-        max_delay: Maximum delay in seconds between retries.
-        exponential_base: Base for exponential backoff calculation.
-        jitter: Whether to add random jitter to delays.
-        retry_on_status: HTTP status codes that should trigger a retry.
+    Args:
+        attempt: Current retry attempt number (0-based).
+        retry_after: Optional Retry-After header value in seconds.
+
+    Returns:
+        Delay in seconds before next retry.
 
     """
+    if retry_after is not None and retry_after > 0:
+        delay = min(retry_after, RETRY_MAX_DELAY)
+    else:
+        delay = RETRY_BASE_DELAY * (RETRY_EXPONENTIAL_BASE**attempt)
+        delay = min(delay, RETRY_MAX_DELAY)
 
-    max_retries: int = 3
-    base_delay: float = 1.0
-    max_delay: float = 30.0
-    exponential_base: float = 2.0
-    jitter: bool = True
-    retry_on_status: frozenset[int] = field(
-        default_factory=lambda: frozenset({429, 502, 503, 504})
-    )
+    # Add random jitter (±25% of delay)
+    jitter_range = delay * 0.25
+    delay += random.uniform(-jitter_range, jitter_range)  # noqa: S311
 
-    def __post_init__(self) -> None:
-        """Validate configuration values."""
-        if self.max_retries < 0:
-            raise ValueError("max_retries must be non-negative")
-        if self.base_delay <= 0:
-            raise ValueError("base_delay must be positive")
-        if self.max_delay <= 0:
-            raise ValueError("max_delay must be positive")
-        if self.exponential_base <= 1:
-            raise ValueError("exponential_base must be greater than 1")
-
-    def calculate_delay(self, attempt: int, retry_after: float | None = None) -> float:
-        """
-        Calculate delay before next retry attempt.
-
-        Args:
-            attempt: Current retry attempt number (0-based).
-            retry_after: Optional Retry-After header value in seconds.
-
-        Returns:
-            Delay in seconds before next retry.
-
-        """
-        delay: float
-        retry_after_value: float = 0.0
-
-        if retry_after is not None and retry_after > 0:
-            # Respect Retry-After header, but cap at max_delay
-            retry_after_value = retry_after
-            delay = min(retry_after, self.max_delay)
-        else:
-            # Exponential backoff: base_delay * (exponential_base ^ attempt)
-            delay = self.base_delay * (self.exponential_base**attempt)
-            delay = min(delay, self.max_delay)
-
-        if self.jitter:
-            # Add random jitter (±25% of delay)
-            jitter_range = delay * 0.25
-            delay += random.uniform(-jitter_range, jitter_range)  # noqa: S311
-            # Ensure delay stays within bounds:
-            # - Never below MIN_RETRY_DELAY
-            # - Never below retry_after (respect server guidance)
-            # - Never above max_delay
-            min_delay = max(MIN_RETRY_DELAY, retry_after_value)
-            delay = max(min_delay, min(delay, self.max_delay))
-
-        return delay
+    # Ensure delay stays within bounds [0.1, RETRY_MAX_DELAY]
+    return max(0.1, min(delay, RETRY_MAX_DELAY))
 
 
 def _parse_retry_after(response: ClientResponse) -> float | None:
@@ -229,10 +181,6 @@ def _parse_retry_after(response: ClientResponse) -> float | None:
     except ValueError:
         _LOGGER.debug("Could not parse Retry-After header: %s", retry_after)
         return None
-
-
-# Default configuration for UniFi Protect API (uses dataclass defaults)
-DEFAULT_RETRY_CONFIG = RetryConfig()
 
 
 # =============================================================================
@@ -303,7 +251,7 @@ class BaseApiClient:
     _public_api_session: aiohttp.ClientSession | None = None
     _loaded_session: bool = False
     _cookiename = "TOKEN"
-    _retry_config: RetryConfig | None = None
+    _max_retries: int = RETRY_DEFAULT_ATTEMPTS
 
     headers: dict[str, str] | None = None
     _private_websocket: Websocket | None = None
@@ -335,7 +283,7 @@ class BaseApiClient:
         config_dir: Path | None = None,
         store_sessions: bool = True,
         ws_receive_timeout: int | None = None,
-        retry_config: RetryConfig | None = DEFAULT_RETRY_CONFIG,
+        max_retries: int = RETRY_DEFAULT_ATTEMPTS,
     ) -> None:
         self._auth_lock = asyncio.Lock()
         self._host = host
@@ -349,7 +297,7 @@ class BaseApiClient:
         self._ws_receive_timeout = ws_receive_timeout
         self._loaded_session = False
         self._update_task: asyncio.Task[Bootstrap | None] | None = None
-        self._retry_config = retry_config
+        self._max_retries = max_retries
 
         self.config_dir = config_dir or (Path(user_config_dir()) / "ufp")
         self.cache_dir = cache_dir or (Path(user_cache_dir()) / "ufp_cache")
@@ -616,28 +564,25 @@ class BaseApiClient:
         else:
             session = await self.get_session()
 
-        retry_config = self._retry_config
-        max_retries = retry_config.max_retries if retry_config else 0
-
         # First attempt (always happens, even with max_retries=0)
         response = await self._do_request(
             session, method, request_url, headers, **kwargs
         )
 
         # Retry loop for transient errors
-        for retry_attempt in range(max_retries):
-            if response.status not in retry_config.retry_on_status:  # type: ignore[union-attr]
+        for retry_attempt in range(self._max_retries):
+            if response.status not in RETRY_STATUS_CODES:
                 break
 
             retry_after = _parse_retry_after(response)
-            delay = retry_config.calculate_delay(retry_attempt, retry_after)  # type: ignore[union-attr]
+            delay = _calculate_retry_delay(retry_attempt, retry_after)
             _LOGGER.warning(
                 "Request to %s returned %s, retrying in %.2f seconds (attempt %d/%d)",
                 request_url,
                 response.status,
                 delay,
                 retry_attempt + 1,
-                max_retries,
+                self._max_retries,
             )
             response.release()
             await asyncio.sleep(delay)
@@ -1168,7 +1113,7 @@ class ProtectApiClient(BaseApiClient):
         ignore_unadopted: bool = True,
         debug: bool = False,
         ws_receive_timeout: int | None = None,
-        retry_config: RetryConfig | None = DEFAULT_RETRY_CONFIG,
+        max_retries: int = RETRY_DEFAULT_ATTEMPTS,
     ) -> None:
         super().__init__(
             host=host,
@@ -1184,7 +1129,7 @@ class ProtectApiClient(BaseApiClient):
             cache_dir=cache_dir,
             config_dir=config_dir,
             store_sessions=store_sessions,
-            retry_config=retry_config,
+            max_retries=max_retries,
         )
 
         self._minimum_score = minimum_score
