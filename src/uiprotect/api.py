@@ -121,7 +121,7 @@ RETRY_DEFAULT_ATTEMPTS = 3
 RETRY_BASE_DELAY = 1.0
 RETRY_MAX_DELAY = 30.0
 RETRY_EXPONENTIAL_BASE = 2.0
-RETRY_STATUS_CODES = frozenset({429, 502, 503, 504})
+RETRY_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
 
 TYPES_BUG_MESSAGE = """There is currently a bug in UniFi Protect that makes `start` / `end` not work if `types` is not provided. This means uiprotect has to iterate over all of the events matching the filters provided to return values.
 
@@ -134,7 +134,7 @@ _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
 NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
 
 
-def _calculate_retry_delay(attempt: int, retry_after: float | None = None) -> float:
+def calculate_retry_delay(attempt: int, retry_after: float | None = None) -> float:
     """
     Calculate delay before next retry attempt with exponential backoff and jitter.
 
@@ -148,19 +148,21 @@ def _calculate_retry_delay(attempt: int, retry_after: float | None = None) -> fl
     """
     if retry_after is not None and retry_after > 0:
         delay = min(retry_after, RETRY_MAX_DELAY)
+        # Only add positive jitter when server specified a delay
+        jitter_range = delay * 0.25
+        delay += random.uniform(0, jitter_range)  # noqa: S311
     else:
         delay = RETRY_BASE_DELAY * (RETRY_EXPONENTIAL_BASE**attempt)
         delay = min(delay, RETRY_MAX_DELAY)
-
-    # Add random jitter (±25% of delay)
-    jitter_range = delay * 0.25
-    delay += random.uniform(-jitter_range, jitter_range)  # noqa: S311
+        # Full jitter (±25% of delay) for calculated delays
+        jitter_range = delay * 0.25
+        delay += random.uniform(-jitter_range, jitter_range)  # noqa: S311
 
     # Ensure delay stays within bounds [0.1, RETRY_MAX_DELAY]
     return max(0.1, min(delay, RETRY_MAX_DELAY))
 
 
-def _parse_retry_after(response: ClientResponse) -> float | None:
+def parse_retry_after(response: ClientResponse) -> float | None:
     """
     Parse Retry-After header from response.
 
@@ -514,7 +516,11 @@ class BaseApiClient:
                     **kwargs,
                 )
                 response = await req_context.__aenter__()
-                await self._update_last_token_cookie(response)
+                try:
+                    await self._update_last_token_cookie(response)
+                except Exception:
+                    response.release()
+                    raise
                 return response
             except aiohttp.ServerDisconnectedError as err:
                 # If the server disconnected, try again
@@ -541,8 +547,8 @@ class BaseApiClient:
         """
         Make a request to UniFi Protect with automatic retry on transient errors.
 
-        Automatically retries requests that receive 429 (Too Many Requests),
-        502, 503, or 504 status codes using exponential backoff.
+        Automatically retries requests that receive 408, 429, 500, 502, 503,
+        or 504 status codes using exponential backoff.
         """
         if require_auth and not public_api:
             await self.ensure_authenticated()
@@ -574,9 +580,15 @@ class BaseApiClient:
             if response.status not in RETRY_STATUS_CODES:
                 break
 
-            retry_after = _parse_retry_after(response)
-            delay = _calculate_retry_delay(retry_attempt, retry_after)
-            _LOGGER.warning(
+            retry_after = parse_retry_after(response)
+            response.release()
+            delay = calculate_retry_delay(retry_attempt, retry_after)
+            # Escalate log level: DEBUG (1st) → INFO (2nd) → WARNING (3rd+)
+            log_level = (logging.DEBUG, logging.INFO, logging.WARNING)[
+                min(retry_attempt, 2)
+            ]
+            _LOGGER.log(
+                log_level,
                 "Request to %s returned %s, retrying in %.2f seconds (attempt %d/%d)",
                 request_url,
                 response.status,
@@ -584,7 +596,6 @@ class BaseApiClient:
                 retry_attempt + 1,
                 self._max_retries,
             )
-            response.release()
             await asyncio.sleep(delay)
             response = await self._do_request(
                 session, method, request_url, headers, **kwargs
