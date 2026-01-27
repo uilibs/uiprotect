@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import hashlib
 import logging
+import random
 import re
 import sys
 import time
@@ -24,7 +25,7 @@ import aiofiles
 import aiohttp
 import orjson
 from aiofiles import os as aos
-from aiohttp import CookieJar, client_exceptions
+from aiohttp import ClientResponse, CookieJar, client_exceptions
 from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
@@ -115,6 +116,13 @@ DEVICE_UPDATE_INTERVAL = 900
 # retry timeout for thumbnails/heatmaps
 RETRY_TIMEOUT = 10
 
+# Retry configuration constants
+RETRY_DEFAULT_ATTEMPTS = 3
+RETRY_BASE_DELAY = 1.0
+RETRY_MAX_DELAY = 30.0
+RETRY_EXPONENTIAL_BASE = 2.0
+RETRY_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
+
 TYPES_BUG_MESSAGE = """There is currently a bug in UniFi Protect that makes `start` / `end` not work if `types` is not provided. This means uiprotect has to iterate over all of the events matching the filters provided to return values.
 
 If your Protect instance has a lot of events, this request will take much longer then expected. It is recommended adding additional filters to speed the request up."""
@@ -124,6 +132,62 @@ _LOGGER = logging.getLogger(__name__)
 _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
 
 NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
+
+
+def calculate_retry_delay(attempt: int, retry_after: float | None = None) -> float:
+    """
+    Calculate delay before next retry attempt with exponential backoff and jitter.
+
+    Args:
+        attempt: Current retry attempt number (0-based).
+        retry_after: Optional Retry-After header value in seconds.
+
+    Returns:
+        Delay in seconds before next retry.
+
+    """
+    if retry_after is not None and retry_after > 0:
+        delay = min(retry_after, RETRY_MAX_DELAY)
+        # Only add positive jitter when server specified a delay
+        jitter_range = delay * 0.25
+        delay += random.uniform(0, jitter_range)  # noqa: S311
+    else:
+        delay = RETRY_BASE_DELAY * (RETRY_EXPONENTIAL_BASE**attempt)
+        delay = min(delay, RETRY_MAX_DELAY)
+        # Full jitter (±25% of delay) for calculated delays
+        jitter_range = delay * 0.25
+        delay += random.uniform(-jitter_range, jitter_range)  # noqa: S311
+
+    # Ensure delay stays within bounds [0.1, RETRY_MAX_DELAY]
+    return max(0.1, min(delay, RETRY_MAX_DELAY))
+
+
+def parse_retry_after(response: ClientResponse) -> float | None:
+    """
+    Parse Retry-After header from response.
+
+    Args:
+        response: HTTP response object.
+
+    Returns:
+        Retry delay in seconds, or None if header not present/parseable.
+
+    """
+    retry_after = response.headers.get("Retry-After")
+    if retry_after is None:
+        return None
+
+    try:
+        # Retry-After can be seconds or HTTP-date, we only handle seconds
+        return float(retry_after)
+    except ValueError:
+        _LOGGER.debug("Could not parse Retry-After header: %s", retry_after)
+        return None
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
 
 
 def get_user_hash(host: str, username: str) -> str:
@@ -189,6 +253,7 @@ class BaseApiClient:
     _public_api_session: aiohttp.ClientSession | None = None
     _loaded_session: bool = False
     _cookiename = "TOKEN"
+    _max_retries: int = RETRY_DEFAULT_ATTEMPTS
 
     headers: dict[str, str] | None = None
     _private_websocket: Websocket | None = None
@@ -220,6 +285,7 @@ class BaseApiClient:
         config_dir: Path | None = None,
         store_sessions: bool = True,
         ws_receive_timeout: int | None = None,
+        max_retries: int = RETRY_DEFAULT_ATTEMPTS,
     ) -> None:
         self._auth_lock = asyncio.Lock()
         self._host = host
@@ -233,6 +299,7 @@ class BaseApiClient:
         self._ws_receive_timeout = ws_receive_timeout
         self._loaded_session = False
         self._update_task: asyncio.Task[Bootstrap | None] | None = None
+        self._max_retries = max_retries
 
         self.config_dir = config_dir or (Path(user_config_dir()) / "ufp")
         self.cache_dir = cache_dir or (Path(user_cache_dir()) / "ufp_cache")
@@ -430,6 +497,44 @@ class BaseApiClient:
         else:
             self.headers[key] = value
 
+    async def _do_request(
+        self,
+        session: aiohttp.ClientSession,
+        method: str,
+        request_url: URL,
+        headers: dict[str, str],
+        **kwargs: Any,
+    ) -> aiohttp.ClientResponse:
+        """Execute a single HTTP request with disconnect retry."""
+        last_err: aiohttp.ServerDisconnectedError | None = None
+        for _attempt in range(2):
+            try:
+                req_context = session.request(
+                    method,
+                    request_url,
+                    headers=headers,
+                    **kwargs,
+                )
+                response = await req_context.__aenter__()
+                try:
+                    await self._update_last_token_cookie(response)
+                except Exception:
+                    response.release()
+                    raise
+                return response
+            except aiohttp.ServerDisconnectedError as err:
+                # If the server disconnected, try again
+                # since HTTP/1.1 allows the server to disconnect at any time
+                last_err = err
+            except client_exceptions.ClientError as err:
+                raise NvrError(
+                    f"Error requesting data from {self._host}: {err}",
+                ) from err
+
+        raise NvrError(
+            f"Error requesting data from {self._host}: {last_err}",
+        ) from last_err
+
     async def request(
         self,
         method: str,
@@ -439,7 +544,12 @@ class BaseApiClient:
         public_api: bool = False,
         **kwargs: Any,
     ) -> aiohttp.ClientResponse:
-        """Make a request to UniFi Protect"""
+        """
+        Make a request to UniFi Protect with automatic retry on transient errors.
+
+        Automatically retries requests that receive 408, 429, 500, 502, 503,
+        or 504 status codes using exponential backoff.
+        """
         if require_auth and not public_api:
             await self.ensure_authenticated()
 
@@ -460,49 +570,53 @@ class BaseApiClient:
         else:
             session = await self.get_session()
 
-        for attempt in range(2):
+        # First attempt (always happens, even with max_retries=0)
+        response = await self._do_request(
+            session, method, request_url, headers, **kwargs
+        )
+
+        # Retry loop for transient errors
+        for retry_attempt in range(self._max_retries):
+            if response.status not in RETRY_STATUS_CODES:
+                break
+
+            retry_after = parse_retry_after(response)
+            response.release()
+            delay = calculate_retry_delay(retry_attempt, retry_after)
+            # Escalate log level: DEBUG (1st) → INFO (2nd) → WARNING (3rd+)
+            log_level = (logging.DEBUG, logging.INFO, logging.WARNING)[
+                min(retry_attempt, 2)
+            ]
+            _LOGGER.log(
+                log_level,
+                "Request to %s returned %s, retrying in %.2f seconds (attempt %d/%d)",
+                request_url,
+                response.status,
+                delay,
+                retry_attempt + 1,
+                self._max_retries,
+            )
+            await asyncio.sleep(delay)
+            response = await self._do_request(
+                session, method, request_url, headers, **kwargs
+            )
+
+        if auto_close:
             try:
-                req_context = session.request(
-                    method,
-                    request_url,
-                    headers=headers,
-                    **kwargs,
+                _LOGGER.debug(
+                    "%s %s %s",
+                    response.status,
+                    response.content_type,
+                    response,
                 )
-                response = await req_context.__aenter__()
+                response.release()
+            except Exception:
+                # make sure response is released
+                response.release()
+                # re-raise exception
+                raise
 
-                await self._update_last_token_cookie(response)
-                if auto_close:
-                    try:
-                        _LOGGER.debug(
-                            "%s %s %s",
-                            response.status,
-                            response.content_type,
-                            response,
-                        )
-                        response.release()
-                    except Exception:
-                        # make sure response is released
-                        response.release()
-                        # re-raise exception
-                        raise
-
-                return response
-            except aiohttp.ServerDisconnectedError as err:
-                # If the server disconnected, try again
-                # since HTTP/1.1 allows the server to disconnect
-                # at any time
-                if attempt == 0:
-                    continue
-                raise NvrError(
-                    f"Error requesting data from {self._host}: {err}",
-                ) from err
-            except client_exceptions.ClientError as err:
-                raise NvrError(
-                    f"Error requesting data from {self._host}: {err}",
-                ) from err
-
-        # should never happen
-        raise NvrError(f"Error requesting data from {self._host}")
+        return response
 
     async def api_request_raw(
         self,
@@ -1010,6 +1124,7 @@ class ProtectApiClient(BaseApiClient):
         ignore_unadopted: bool = True,
         debug: bool = False,
         ws_receive_timeout: int | None = None,
+        max_retries: int = RETRY_DEFAULT_ATTEMPTS,
     ) -> None:
         super().__init__(
             host=host,
@@ -1025,6 +1140,7 @@ class ProtectApiClient(BaseApiClient):
             cache_dir=cache_dir,
             config_dir=config_dir,
             store_sessions=store_sessions,
+            max_retries=max_retries,
         )
 
         self._minimum_score = minimum_score
