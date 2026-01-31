@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.1.0 (2026-01-31)
+
+### Features
+
+
+- Add retry with exponential backoff ([`14e3617`](https://github.com/uilibs/uiprotect/commit/14e36178d322557858695b9f0e5918c77b27f76d))
+
+
 ## v10.0.1 (2026-01-21)
 
 ### Bug fixes
