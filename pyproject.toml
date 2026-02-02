@@ -33,7 +33,6 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.11"
 rich = ">=10"
-async-timeout = ">=3.0.1"
 aiofiles = ">=24"
 aiohttp = ">=3.10.0"
 aioshutil = ">=1.3"
