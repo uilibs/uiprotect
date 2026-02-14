@@ -118,7 +118,7 @@ class UnknownValuesEnumMixin(ValuesEnumMixin):
 
 
 @enum.unique
-class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
+class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
     CAMERA = "camera"
     CLOUD_IDENTITY = "cloudIdentity"
     EVENT = "event"
@@ -225,7 +225,7 @@ ModelType.__setattr__ = ModelType._immutable  # type: ignore[method-assign, assi
 
 
 @enum.unique
-class EventType(str, ValuesEnumMixin, enum.Enum):
+class EventType(ValuesEnumMixin, enum.StrEnum):
     DISCONNECT = "disconnect"
     FACTORY_RESET = "factoryReset"
     PROVISION = "provision"
@@ -332,7 +332,7 @@ class EventType(str, ValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class StateType(str, ValuesEnumMixin, enum.Enum):
+class StateType(ValuesEnumMixin, enum.StrEnum):
     CONNECTED = "CONNECTED"
     CONNECTING = "CONNECTING"
     DISCONNECTED = "DISCONNECTED"
@@ -348,7 +348,7 @@ class ProtectWSPayloadFormat(int, enum.Enum):
 
 
 @enum.unique
-class SmartDetectObjectType(str, ValuesEnumMixin, enum.Enum):
+class SmartDetectObjectType(ValuesEnumMixin, enum.StrEnum):
     PERSON = "person"
     ANIMAL = "animal"
     VEHICLE = "vehicle"
@@ -374,7 +374,7 @@ class SmartDetectObjectType(str, ValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class SmartDetectAudioType(str, ValuesEnumMixin, enum.Enum):
+class SmartDetectAudioType(ValuesEnumMixin, enum.StrEnum):
     SMOKE = "alrmSmoke"
     CMONX = "alrmCmonx"
     SMOKE_CMONX = "smoke_cmonx"
@@ -388,7 +388,7 @@ class SmartDetectAudioType(str, ValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class DetectionColor(str, ValuesEnumMixin, enum.Enum):
+class DetectionColor(ValuesEnumMixin, enum.StrEnum):
     BLACK = "black"
     BLUE = "blue"
     BROWN = "brown"
@@ -416,7 +416,7 @@ OBJECT_TO_AUDIO_MAP = {
 
 
 @enum.unique
-class DoorbellMessageType(str, ValuesEnumMixin, enum.Enum):
+class DoorbellMessageType(ValuesEnumMixin, enum.StrEnum):
     LEAVE_PACKAGE_AT_DOOR = "LEAVE_PACKAGE_AT_DOOR"
     DO_NOT_DISTURB = "DO_NOT_DISTURB"
     CUSTOM_MESSAGE = "CUSTOM_MESSAGE"
@@ -424,14 +424,14 @@ class DoorbellMessageType(str, ValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class LightModeEnableType(str, ValuesEnumMixin, enum.Enum):
+class LightModeEnableType(ValuesEnumMixin, enum.StrEnum):
     DARK = "dark"
     ALWAYS = "fulltime"
     NIGHT = "night"
 
 
 @enum.unique
-class LightModeType(str, ValuesEnumMixin, enum.Enum):
+class LightModeType(ValuesEnumMixin, enum.StrEnum):
     MOTION = "motion"
     WHEN_DARK = "always"
     MANUAL = "off"
@@ -439,7 +439,7 @@ class LightModeType(str, ValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class VideoMode(str, ValuesEnumMixin, enum.Enum):
+class VideoMode(ValuesEnumMixin, enum.StrEnum):
     DEFAULT = "default"
     HIGH_FPS = "highFps"
     HOMEKIT = "homekit"
@@ -452,13 +452,13 @@ class VideoMode(str, ValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class AudioStyle(str, UnknownValuesEnumMixin, enum.Enum):
+class AudioStyle(UnknownValuesEnumMixin, enum.StrEnum):
     NATURE = "nature"
     NOISE_REDUCED = "noiseReduced"
 
 
 @enum.unique
-class RecordingMode(str, ValuesEnumMixin, enum.Enum):
+class RecordingMode(ValuesEnumMixin, enum.StrEnum):
     ADAPTIVE = "adaptive"
     ALWAYS = "always"
     NEVER = "never"
@@ -467,28 +467,28 @@ class RecordingMode(str, ValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class AnalyticsOption(str, ValuesEnumMixin, enum.Enum):
+class AnalyticsOption(ValuesEnumMixin, enum.StrEnum):
     NONE = "none"
     ANONYMOUS = "anonymous"
     FULL = "full"
 
 
 @enum.unique
-class RecordingType(str, ValuesEnumMixin, enum.Enum):
+class RecordingType(ValuesEnumMixin, enum.StrEnum):
     TIMELAPSE = "timelapse"
     CONTINUOUS = "rotating"
     DETECTIONS = "detections"
 
 
 @enum.unique
-class ResolutionStorageType(str, ValuesEnumMixin, enum.Enum):
+class ResolutionStorageType(ValuesEnumMixin, enum.StrEnum):
     UHD = "4K"
     HD = "HD"
     FREE = "free"
 
 
 @enum.unique
-class IRLEDMode(str, UnknownValuesEnumMixin, enum.Enum):
+class IRLEDMode(UnknownValuesEnumMixin, enum.StrEnum):
     AUTO = "auto"
     ON = "on"
     AUTO_NO_LED = "autoFilterOnly"
@@ -499,7 +499,7 @@ class IRLEDMode(str, UnknownValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class MountType(str, ValuesEnumMixin, enum.Enum):
+class MountType(ValuesEnumMixin, enum.StrEnum):
     NONE = "none"
     LEAK = "leak"
     DOOR = "door"
@@ -508,14 +508,14 @@ class MountType(str, ValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class SensorType(str, ValuesEnumMixin, enum.Enum):
+class SensorType(ValuesEnumMixin, enum.StrEnum):
     TEMPERATURE = "temperature"
     LIGHT = "light"
     HUMIDITY = "humidity"
 
 
 @enum.unique
-class SensorStatusType(str, UnknownValuesEnumMixin, enum.Enum):
+class SensorStatusType(UnknownValuesEnumMixin, enum.StrEnum):
     OFFLINE = "offline"
     UNKNOWN = "unknown"
     SAFE = "safe"
@@ -525,7 +525,7 @@ class SensorStatusType(str, UnknownValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class SleepStateType(str, ValuesEnumMixin, enum.Enum):
+class SleepStateType(ValuesEnumMixin, enum.StrEnum):
     DISCONNECTED = "disconnected"
     AWAKE = "awake"
     START_SLEEP = "goingToSleep"
@@ -534,7 +534,7 @@ class SleepStateType(str, ValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class AutoExposureMode(str, ValuesEnumMixin, enum.Enum):
+class AutoExposureMode(ValuesEnumMixin, enum.StrEnum):
     MANUAL = "manual"
     AUTO = "auto"
     NONE = "none"
@@ -544,7 +544,7 @@ class AutoExposureMode(str, ValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class FocusMode(str, ValuesEnumMixin, enum.Enum):
+class FocusMode(ValuesEnumMixin, enum.StrEnum):
     MANUAL = "manual"
     AUTO = "auto"
     NONE = "none"
@@ -553,7 +553,7 @@ class FocusMode(str, ValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class MountPosition(str, UnknownValuesEnumMixin, enum.Enum):
+class MountPosition(UnknownValuesEnumMixin, enum.StrEnum):
     CEILING = "ceiling"
     WALL = "wall"
     DESK = "desk"
@@ -562,33 +562,33 @@ class MountPosition(str, UnknownValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class GeofencingSetting(str, ValuesEnumMixin, enum.Enum):
+class GeofencingSetting(ValuesEnumMixin, enum.StrEnum):
     OFF = "off"
     ALL_AWAY = "allAway"
 
 
 @enum.unique
-class MotionAlgorithm(str, ValuesEnumMixin, enum.Enum):
+class MotionAlgorithm(ValuesEnumMixin, enum.StrEnum):
     STABLE = "stable"
     ENHANCED = "enhanced"
 
 
 @enum.unique
-class AudioCodecs(str, ValuesEnumMixin, enum.Enum):
+class AudioCodecs(ValuesEnumMixin, enum.StrEnum):
     AAC = "aac"
     VORBIS = "vorbis"
     OPUS = "opus"
 
 
 @enum.unique
-class LowMedHigh(str, ValuesEnumMixin, enum.Enum):
+class LowMedHigh(ValuesEnumMixin, enum.StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
 
 
 @enum.unique
-class StorageType(str, UnknownValuesEnumMixin, enum.Enum):
+class StorageType(UnknownValuesEnumMixin, enum.StrEnum):
     DISK = "hdd"
     RAID = "raid"
     SD_CARD = "sdcard"
@@ -597,7 +597,7 @@ class StorageType(str, UnknownValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class FirmwareReleaseChannel(str, ValuesEnumMixin, enum.Enum):
+class FirmwareReleaseChannel(ValuesEnumMixin, enum.StrEnum):
     INTERNAL = "internal"
     ALPHA = "alpha"
     BETA = "beta"
@@ -613,7 +613,7 @@ class ChimeType(int, enum.Enum):
 
 
 @enum.unique
-class LockStatusType(str, ValuesEnumMixin, enum.Enum):
+class LockStatusType(ValuesEnumMixin, enum.StrEnum):
     OPEN = "OPEN"
     OPENING = "OPENING"
     CLOSED = "CLOSED"
@@ -629,7 +629,7 @@ class LockStatusType(str, ValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class PermissionNode(str, UnknownValuesEnumMixin, enum.Enum):
+class PermissionNode(UnknownValuesEnumMixin, enum.StrEnum):
     CREATE = "create"
     READ = "read"
     WRITE = "write"
@@ -651,14 +651,14 @@ class PermissionNode(str, UnknownValuesEnumMixin, enum.Enum):
 
 
 @enum.unique
-class HDRMode(str, UnknownValuesEnumMixin, enum.Enum):
+class HDRMode(UnknownValuesEnumMixin, enum.StrEnum):
     NONE = "none"
     NORMAL = "normal"
     ALWAYS_ON = "superHdr"
 
 
 @enum.unique
-class LensType(str, enum.Enum):
+class LensType(enum.StrEnum):
     NONE = "none"
     FULL_360 = "360"
     WIDE = "wide"

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any, TypeVar
 
 import orjson
@@ -19,7 +19,7 @@ T = TypeVar("T")
 OPTION_FORCE = typer.Option(False, "-f", "--force", help="Skip confirmation prompt")
 
 
-class OutputFormatEnum(str, Enum):
+class OutputFormatEnum(StrEnum):
     JSON = "json"
     PLAIN = "plain"
 

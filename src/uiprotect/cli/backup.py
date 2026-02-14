@@ -8,7 +8,7 @@ import sys
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -106,7 +106,7 @@ class BackupContext(base.CliContext):
             await conn.run_sync(Base.metadata.create_all)
 
 
-class EventTypeChoice(str, Enum):
+class EventTypeChoice(StrEnum):
     MOTION = d.EventType.MOTION.value
     RING = d.EventType.RING.value
     SMART_DETECT = d.EventType.SMART_DETECT.value
