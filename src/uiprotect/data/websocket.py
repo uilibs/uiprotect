@@ -32,7 +32,7 @@ class WSPacketFrameHeader:
 
 
 @enum.unique
-class WSAction(str, enum.Enum):
+class WSAction(enum.StrEnum):
     ADD = "add"
     UPDATE = "update"
     REMOVE = "remove"
