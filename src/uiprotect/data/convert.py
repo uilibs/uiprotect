@@ -77,13 +77,8 @@ def create_from_unifi_dict(
     When ``model_type`` is provided (e.g. from WS action headers), ``modelKey``
     will be synthesised if absent (Protect 7+).
 
-    A shallow copy of *data* is created so the caller's dict is never mutated.
-
     Raises ``DataDecodeError`` if the model cannot be resolved.
     """
-    # Work on a shallow copy so downstream conversions cannot mutate caller data.
-    data = dict(data)
-
     if model_type is not None:
         if klass is None:
             klass = MODEL_TO_CLASS.get(model_type)

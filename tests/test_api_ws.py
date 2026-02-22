@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
-from contextlib import suppress
 from copy import deepcopy
 from datetime import datetime, timedelta
 from http.cookies import SimpleCookie
@@ -1482,18 +1481,10 @@ async def test_ws_known_model_type_without_class_add(
     packet: WSPacket,
 ):
     """ModelType in enum but not in MODEL_TO_CLASS raises DataDecodeError on add, caught gracefully."""
-    original_create_task = asyncio.create_task
-    refresh_tasks: list[asyncio.Task[None]] = []
+    mock_refresh = AsyncMock()
 
-    def tracking_create_task(coro, **kwargs):
-        task = original_create_task(coro, **kwargs)
-        # Only track refresh_device coroutines
-        if "refresh_device" in coro.__qualname__:
-            refresh_tasks.append(task)
-        return task
-
-    with patch(
-        "uiprotect.data.bootstrap.asyncio.create_task", side_effect=tracking_create_task
+    with patch.object(
+        type(protect_client_no_debug.bootstrap), "refresh_device", mock_refresh
     ):
         messages = _send_ws_packet(
             protect_client_no_debug,
@@ -1505,13 +1496,7 @@ async def test_ws_known_model_type_without_class_add(
         )
 
     assert len(messages) == 0
-    assert len(refresh_tasks) == 1
-
-    # Drain the scheduled refresh task to avoid "Task was destroyed but it is pending!" warnings
-    for task in refresh_tasks:
-        task.cancel()
-        with suppress(asyncio.CancelledError):
-            await task
+    mock_refresh.assert_called_once_with(ModelType.SCHEDULE, "some-schedule-id")
 
 
 @pytest.mark.asyncio()

@@ -48,14 +48,14 @@ class TestCreateFromUnifiDict:
 
     @_skip_no_camera
     def test_model_type_with_missing_model_key(self, camera: dict[str, Any]) -> None:
-        """Protect 7+: modelKey missing from data, model_type provided -> succeed without mutating input."""
+        """Protect 7+: modelKey missing from data, model_type provided -> inject modelKey and succeed."""
         data = deepcopy(camera)
         data.pop("modelKey", None)
 
         obj = create_from_unifi_dict(data, model_type=ModelType.CAMERA)
 
         assert isinstance(obj, Camera)
-        assert "modelKey" not in data
+        assert data["modelKey"] == "camera"
 
     @_skip_no_camera
     def test_model_type_preserves_existing_model_key(
@@ -80,14 +80,14 @@ class TestCreateFromUnifiDict:
 
     @_skip_no_camera
     def test_model_type_with_explicit_klass(self, camera: dict[str, Any]) -> None:
-        """model_type + klass both provided -> succeeds without mutating input."""
+        """model_type + klass both provided -> injects modelKey and succeeds."""
         data = deepcopy(camera)
         data.pop("modelKey", None)
 
         obj = create_from_unifi_dict(data, klass=Camera, model_type=ModelType.CAMERA)
 
         assert isinstance(obj, Camera)
-        assert "modelKey" not in data
+        assert data["modelKey"] == "camera"
 
     def test_unsupported_model_type_raises(self) -> None:
         """model_type not in MODEL_TO_CLASS -> DataDecodeError with 'Unknown modelKey'."""
