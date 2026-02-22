@@ -232,7 +232,7 @@ class SampleDataGenerator:
         self._record_devices_ws_messages = {}
 
         # Start public API websockets if API key is available
-        has_public_api = self.client._api_key is not None
+        has_public_api = self.client.is_api_key_set()
         if has_public_api:
             self.log("Starting public API websockets...")
             events_ws = self.client._get_events_websocket()
@@ -673,8 +673,10 @@ class SampleDataGenerator:
         if msg.type == aiohttp.WSMsgType.TEXT:
             try:
                 data = orjson.loads(msg.data)
-            except Exception:
-                self.log_warning(f"Failed to parse public API WS message: {msg.data}")
+            except (orjson.JSONDecodeError, TypeError) as exc:
+                self.log_warning(
+                    f"Failed to parse public API WS message: {msg.data} ({exc})"
+                )
                 return
 
             if self.anonymize:
