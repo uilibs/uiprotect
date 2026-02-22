@@ -75,18 +75,21 @@ def create_from_unifi_dict(
     Convert a UFP JSON dict to the correct Python class.
 
     When ``model_type`` is provided (e.g. from WS action headers), ``modelKey``
-    will be synthesised if absent (Protect 7+).  The caller's *data* dict is
-    never mutated.
+    will be synthesised if absent (Protect 7+).
+
+    A shallow copy of *data* is created so the caller's dict is never mutated.
 
     Raises ``DataDecodeError`` if the model cannot be resolved.
     """
+    # Work on a shallow copy so downstream conversions cannot mutate caller data.
+    data = dict(data)
+
     if model_type is not None:
         if klass is None:
             klass = MODEL_TO_CLASS.get(model_type)
-        # Protect 7+ may omit modelKey from WS data payloads;
-        # add it via shallow copy so callers don't observe side effects.
+        # Protect 7+ may omit modelKey from WS data payloads; add it if missing.
         if "modelKey" not in data:
-            data = {**data, "modelKey": model_type.value}
+            data["modelKey"] = model_type.value
 
     if "modelKey" not in data:
         raise DataDecodeError("No modelKey")

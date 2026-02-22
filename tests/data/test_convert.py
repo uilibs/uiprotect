@@ -89,6 +89,11 @@ class TestCreateFromUnifiDict:
         assert isinstance(obj, Camera)
         assert "modelKey" not in data
 
+    def test_unsupported_model_type_raises(self) -> None:
+        """model_type not in MODEL_TO_CLASS -> DataDecodeError with 'Unknown modelKey'."""
+        with pytest.raises(DataDecodeError, match="Unknown modelKey"):
+            create_from_unifi_dict({"id": "test123"}, model_type=ModelType.SCHEDULE)
+
     @_skip_no_camera
     def test_fallback_to_get_klass_from_dict(self, camera: dict[str, Any]) -> None:
         """No model_type, no klass -> fall back to get_klass_from_dict."""
