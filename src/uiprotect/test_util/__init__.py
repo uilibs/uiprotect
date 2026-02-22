@@ -252,6 +252,11 @@ class SampleDataGenerator:
 
         self._record_listen_for_events = False
         await self.client.async_disconnect_ws()
+
+        if has_public_api:
+            events_ws.stop()
+            devices_ws.stop()
+
         await self.write_json_file(
             "sample_ws_messages",
             self._record_ws_messages,
@@ -674,8 +679,9 @@ class SampleDataGenerator:
             try:
                 data = orjson.loads(msg.data)
             except (orjson.JSONDecodeError, TypeError) as exc:
+                preview = str(msg.data)[:200]
                 self.log_warning(
-                    f"Failed to parse public API WS message: {msg.data} ({exc})"
+                    f"Failed to parse public API WS message: {preview} ({exc})"
                 )
                 return
 
