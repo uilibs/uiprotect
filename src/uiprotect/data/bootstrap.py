@@ -12,7 +12,7 @@ from aiohttp.client_exceptions import ServerDisconnectedError
 from convertertools import pop_dict_set, pop_dict_tuple
 from pydantic import PrivateAttr, ValidationError
 
-from ..exceptions import ClientError
+from ..exceptions import ClientError, DataDecodeError
 from ..utils import normalize_mac, to_snake_case, utc_now
 from .base import (
     RECENT_EVENT_MAX,
@@ -630,7 +630,7 @@ class Bootstrap(ProtectBaseObject):
                     return self._process_device_update(
                         model_type, action, data, ignore_stats, is_ping_back
                     )
-        except (ValidationError, ValueError) as err:
+        except (DataDecodeError, ValidationError, ValueError) as err:
             self._handle_ws_error(action_action, model_type, action, err)
 
         _LOGGER.debug(
