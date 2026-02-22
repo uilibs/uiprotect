@@ -9,7 +9,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from http.cookies import SimpleCookie
 from typing import TYPE_CHECKING, Any
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -29,6 +29,7 @@ from uiprotect.data.websocket import (
     WSJSONPacketFrame,
     WSSubscriptionMessage,
 )
+from uiprotect.exceptions import DataDecodeError
 from uiprotect.utils import print_ws_stat_summary, to_js_time, utc_now
 from uiprotect.websocket import WebsocketState
 
@@ -1425,3 +1426,105 @@ async def test_auth_websocket_with_no_session(
 
     assert headers is not None
     _assert_auth_cleared(protect_client)
+
+
+def _send_ws_packet(
+    protect_client: ProtectApiClient,
+    packet: WSPacket,
+    action: str,
+    model_key: str,
+    device_id: str,
+    data: dict[str, Any],
+) -> list[WSSubscriptionMessage]:
+    """Build a WS packet from action/data dicts and send it through the client."""
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": action,
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": model_key,
+        "id": device_id,
+    }
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = data
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+
+    messages: list[WSSubscriptionMessage] = []
+    unsub = protect_client.subscribe_websocket(messages.append)
+    protect_client._process_ws_message(msg)
+    unsub()
+    return messages
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize(
+    "model_key",
+    ["automationEvent", "automation", "linkstation", "siren", "smartDetectObjects"],
+)
+async def test_ws_unknown_model_type_ignored(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+    model_key: str,
+):
+    """Unknown model types (not in ModelType enum) are silently ignored."""
+    messages = _send_ws_packet(
+        protect_client_no_debug, packet, "update", model_key, "some-id", {"k": "v"}
+    )
+    assert len(messages) == 0
+
+
+@pytest.mark.asyncio()
+async def test_ws_known_model_type_without_class_add(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+):
+    """ModelType in enum but not in MODEL_TO_CLASS raises DataDecodeError on add, caught gracefully."""
+    mock_refresh = AsyncMock()
+
+    with patch.object(
+        type(protect_client_no_debug.bootstrap), "refresh_device", mock_refresh
+    ):
+        messages = _send_ws_packet(
+            protect_client_no_debug,
+            packet,
+            "add",
+            "schedule",
+            "some-schedule-id",
+            {"id": "some-schedule-id", "modelKey": "schedule", "name": "test"},
+        )
+
+    assert len(messages) == 0
+    mock_refresh.assert_called_once_with(ModelType.SCHEDULE, "some-schedule-id")
+
+
+@pytest.mark.asyncio()
+async def test_ws_known_model_type_without_class_update_ignored(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+):
+    """Known ModelType not in bootstrap_models_types_and_event_set falls through without error on update."""
+    messages = _send_ws_packet(
+        protect_client_no_debug,
+        packet,
+        "update",
+        "schedule",
+        "some-schedule-id",
+        {"name": "updated-name"},
+    )
+    assert len(messages) == 0
+
+
+@pytest.mark.asyncio()
+async def test_refresh_device_catches_data_decode_error(
+    protect_client_no_debug: ProtectApiClient,
+):
+    """refresh_device catches DataDecodeError from get_device for model types without a class."""
+    protect_client = protect_client_no_debug
+    protect_client.get_device = AsyncMock(  # type: ignore[method-assign]
+        side_effect=DataDecodeError("Unknown modelKey"),
+    )
+
+    # Should not raise — DataDecodeError is caught and logged as warning
+    await protect_client.bootstrap.refresh_device(ModelType.SCHEDULE, "some-id")
