@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+from contextlib import suppress
 from copy import deepcopy
 from datetime import datetime, timedelta
 from http.cookies import SimpleCookie
@@ -1505,6 +1506,12 @@ async def test_ws_known_model_type_without_class_add(
 
     assert len(messages) == 0
     assert len(refresh_tasks) == 1
+
+    # Drain the scheduled refresh task to avoid "Task was destroyed but it is pending!" warnings
+    for task in refresh_tasks:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
 
 
 @pytest.mark.asyncio()
