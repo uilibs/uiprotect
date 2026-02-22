@@ -12,6 +12,7 @@ from typing import Any, overload
 
 import aiohttp
 import av
+import orjson
 from PIL import Image
 
 from ..api import ProtectApiClient
@@ -111,6 +112,8 @@ class SampleDataGenerator:
     _record_ws_start_time: float = time.monotonic()
     _record_listen_for_events: bool = False
     _record_ws_messages: dict[str, dict[str, Any]] = {}
+    _record_events_ws_messages: dict[str, Any] = {}
+    _record_devices_ws_messages: dict[str, Any] = {}
     _log: LOG_CALLABLE | None = None
     _log_warning: LOG_CALLABLE | None = None
     _ws_progress: PROGRESS_CALLABLE | None = None
@@ -225,6 +228,21 @@ class SampleDataGenerator:
         self._record_ws_start_time = time.monotonic()
         self._record_listen_for_events = True
         self._record_ws_messages = {}
+        self._record_events_ws_messages = {}
+        self._record_devices_ws_messages = {}
+
+        # Start public API websockets if API key is available
+        has_public_api = self.client._api_key is not None
+        if has_public_api:
+            self.log("Starting public API websockets...")
+            events_ws = self.client._get_events_websocket()
+            events_ws._subscription = self._handle_events_ws_message
+            events_ws.start()
+            devices_ws = self.client._get_devices_websocket()
+            devices_ws._subscription = self._handle_devices_ws_message
+            devices_ws.start()
+        else:
+            self.log("No API key set, skipping public API websocket recording...")
 
         self.log(f"Waiting {self.wait_time} seconds for WS messages...")
         if self._ws_progress is not None:
@@ -239,6 +257,18 @@ class SampleDataGenerator:
             self._record_ws_messages,
             anonymize=False,
         )
+
+        if has_public_api:
+            await self.write_json_file(
+                "sample_ws_events_public",
+                self._record_events_ws_messages,
+                anonymize=False,
+            )
+            await self.write_json_file(
+                "sample_ws_devices_public",
+                self._record_devices_ws_messages,
+                anonymize=False,
+            )
 
     @overload
     async def write_json_file(
@@ -628,3 +658,36 @@ class SampleDataGenerator:
             }
         else:
             self.log_warning(f"Got non-binary message: {msg.type}")
+
+    def _handle_public_api_ws_message(
+        self,
+        msg: aiohttp.WSMessage,
+        store: dict[str, Any],
+    ) -> None:
+        if not self._record_listen_for_events:
+            return
+
+        now = time.monotonic()
+        time_offset = now - self._record_ws_start_time
+
+        if msg.type == aiohttp.WSMsgType.TEXT:
+            try:
+                data = orjson.loads(msg.data)
+            except Exception:
+                self.log_warning(f"Failed to parse public API WS message: {msg.data}")
+                return
+
+            if self.anonymize:
+                data = anonymize_data(data)
+
+            store[str(time_offset)] = data
+        else:
+            self.log_warning(
+                f"Got non-text public API WS message: {msg.type}",
+            )
+
+    def _handle_events_ws_message(self, msg: aiohttp.WSMessage) -> None:
+        self._handle_public_api_ws_message(msg, self._record_events_ws_messages)
+
+    def _handle_devices_ws_message(self, msg: aiohttp.WSMessage) -> None:
+        self._handle_public_api_ws_message(msg, self._record_devices_ws_messages)
