@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.2.1 (2026-02-22)
+
+### Bug fixes
+
+
+- Protect7 missing modelkey ([`0aeb5d3`](https://github.com/uilibs/uiprotect/commit/0aeb5d39185894077f573a9ad27aebbf9d7d83bc))
+
+
 ## v10.2.0 (2026-02-22)
 
 ### Features
