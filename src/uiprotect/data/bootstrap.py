@@ -666,7 +666,13 @@ class Bootstrap(ProtectBaseObject):
                 device: ProtectModelWithId = await self._api.get_nvr()
             else:
                 device = await self._api.get_device(model_type, device_id)
-        except (ValidationError, TimeoutError, ClientError, ServerDisconnectedError):
+        except (
+            DataDecodeError,
+            ValidationError,
+            TimeoutError,
+            ClientError,
+            ServerDisconnectedError,
+        ):
             _LOGGER.warning("Failed to refresh model: %s %s", model_type, device_id)
             return
 

@@ -1425,3 +1425,99 @@ async def test_auth_websocket_with_no_session(
 
     assert headers is not None
     _assert_auth_cleared(protect_client)
+
+
+def _send_ws_packet(
+    protect_client: ProtectApiClient,
+    packet: WSPacket,
+    action: str,
+    model_key: str,
+    device_id: str,
+    data: dict[str, Any],
+) -> list[WSSubscriptionMessage]:
+    """Build a WS packet from action/data dicts and send it through the client."""
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": action,
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": model_key,
+        "id": device_id,
+    }
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = data
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+
+    messages: list[WSSubscriptionMessage] = []
+    unsub = protect_client.subscribe_websocket(messages.append)
+    protect_client._process_ws_message(msg)
+    unsub()
+    return messages
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize(
+    "model_key",
+    ["automationEvent", "automation", "linkstation", "siren", "smartDetectObjects"],
+)
+async def test_ws_unknown_model_type_ignored(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+    model_key: str,
+):
+    """Unknown model types (not in ModelType enum) are silently ignored."""
+    messages = _send_ws_packet(
+        protect_client_no_debug, packet, "update", model_key, "some-id", {"k": "v"}
+    )
+    assert len(messages) == 0
+
+
+@pytest.mark.asyncio()
+async def test_ws_known_model_type_without_class_add(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+):
+    """ModelType in enum but not in MODEL_TO_CLASS raises DataDecodeError on add, caught gracefully."""
+    original_create_task = asyncio.create_task
+    refresh_tasks: list[asyncio.Task[None]] = []
+
+    def tracking_create_task(coro, **kwargs):
+        task = original_create_task(coro, **kwargs)
+        # Only track refresh_device coroutines
+        if "refresh_device" in coro.__qualname__:
+            refresh_tasks.append(task)
+        return task
+
+    with patch(
+        "uiprotect.data.bootstrap.asyncio.create_task", side_effect=tracking_create_task
+    ):
+        messages = _send_ws_packet(
+            protect_client_no_debug,
+            packet,
+            "add",
+            "schedule",
+            "some-schedule-id",
+            {"id": "some-schedule-id", "modelKey": "schedule", "name": "test"},
+        )
+
+    assert len(messages) == 0
+    assert len(refresh_tasks) == 1
+
+
+@pytest.mark.asyncio()
+async def test_ws_known_model_type_without_class_update_ignored(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+):
+    """Known ModelType not in bootstrap_models_types_and_event_set falls through without error on update."""
+    messages = _send_ws_packet(
+        protect_client_no_debug,
+        packet,
+        "update",
+        "schedule",
+        "some-schedule-id",
+        {"name": "updated-name"},
+    )
+    assert len(messages) == 0
