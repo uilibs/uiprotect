@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.2.0 (2026-02-22)
+
+### Features
+
+
+- Record public api websockets during sample data generation ([`35c30d2`](https://github.com/uilibs/uiprotect/commit/35c30d2f7760ac880bf48a36c44f13b188ae2f62))
+
+
 ## v10.1.0 (2026-01-31)
 
 ### Features
