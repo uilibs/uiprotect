@@ -75,11 +75,16 @@ def create_from_unifi_dict(
     Helper method to read the `modelKey` from a UFP JSON dict and convert to currect Python class.
     Will raise `DataDecodeError` if the `modelKey` is for an unknown object.
     """
+    if model_type is not None:
+        # Ensure modelKey is set in data for downstream processing
+        # (Protect 7+ may omit modelKey from WS data payloads)
+        if "modelKey" not in data:
+            data["modelKey"] = model_type.value
+        if klass is None:
+            klass = MODEL_TO_CLASS.get(model_type)
+
     if "modelKey" not in data:
         raise DataDecodeError("No modelKey")
-
-    if model_type is not None and klass is None:
-        klass = MODEL_TO_CLASS.get(model_type)
 
     if klass is None:
         klass = get_klass_from_dict(data)
