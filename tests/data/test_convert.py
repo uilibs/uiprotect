@@ -34,7 +34,6 @@ class TestGetKlassFromDict:
         with pytest.raises(DataDecodeError, match="Unknown modelKey"):
             get_klass_from_dict({"modelKey": "totallyFakeModel"})
 
-    @_skip_no_camera
     def test_known_model_key_returns_class(self) -> None:
         assert get_klass_from_dict({"modelKey": "camera"}) is Camera
 
@@ -48,15 +47,15 @@ class TestCreateFromUnifiDict:
             create_from_unifi_dict({"id": "test123"})
 
     @_skip_no_camera
-    def test_model_type_injects_missing_model_key(self, camera: dict) -> None:
-        """Protect 7+: modelKey missing from data, model_type provided → inject and succeed."""
+    def test_model_type_with_missing_model_key(self, camera: dict) -> None:
+        """Protect 7+: modelKey missing from data, model_type provided → succeed without mutating input."""
         data = deepcopy(camera)
         data.pop("modelKey", None)
 
         obj = create_from_unifi_dict(data, model_type=ModelType.CAMERA)
 
         assert isinstance(obj, Camera)
-        assert data["modelKey"] == "camera"
+        assert "modelKey" not in data
 
     @_skip_no_camera
     def test_model_type_preserves_existing_model_key(self, camera: dict) -> None:
@@ -78,17 +77,15 @@ class TestCreateFromUnifiDict:
         assert isinstance(obj, Camera)
 
     @_skip_no_camera
-    def test_model_type_with_explicit_klass_injects_model_key(
-        self, camera: dict
-    ) -> None:
-        """model_type + klass both provided → modelKey injected, klass not overwritten."""
+    def test_model_type_with_explicit_klass(self, camera: dict) -> None:
+        """model_type + klass both provided → succeeds without mutating input."""
         data = deepcopy(camera)
         data.pop("modelKey", None)
 
         obj = create_from_unifi_dict(data, klass=Camera, model_type=ModelType.CAMERA)
 
         assert isinstance(obj, Camera)
-        assert data["modelKey"] == "camera"
+        assert "modelKey" not in data
 
     @_skip_no_camera
     def test_fallback_to_get_klass_from_dict(self, camera: dict) -> None:
