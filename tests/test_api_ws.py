@@ -9,7 +9,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from http.cookies import SimpleCookie
 from typing import TYPE_CHECKING, Any
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -29,6 +29,7 @@ from uiprotect.data.websocket import (
     WSJSONPacketFrame,
     WSSubscriptionMessage,
 )
+from uiprotect.exceptions import DataDecodeError
 from uiprotect.utils import print_ws_stat_summary, to_js_time, utc_now
 from uiprotect.websocket import WebsocketState
 
@@ -1521,3 +1522,17 @@ async def test_ws_known_model_type_without_class_update_ignored(
         {"name": "updated-name"},
     )
     assert len(messages) == 0
+
+
+@pytest.mark.asyncio()
+async def test_refresh_device_catches_data_decode_error(
+    protect_client_no_debug: ProtectApiClient,
+):
+    """refresh_device catches DataDecodeError from get_device for model types without a class."""
+    protect_client = protect_client_no_debug
+    protect_client.get_device = AsyncMock(  # type: ignore[method-assign]
+        side_effect=DataDecodeError("Unknown modelKey"),
+    )
+
+    # Should not raise — DataDecodeError is caught and logged as warning
+    await protect_client.bootstrap.refresh_device(ModelType.SCHEDULE, "some-id")
