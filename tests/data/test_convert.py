@@ -92,10 +92,14 @@ class TestCreateFromUnifiDict:
 
     def test_unsupported_model_type_returns_none(self) -> None:
         """model_type not in MODEL_TO_CLASS (e.g. Protect 7 automation types) -> None, not an error."""
-        result = create_from_unifi_dict({"id": "test123"}, model_type=ModelType.SCHEDULE)
+        result = create_from_unifi_dict(
+            {"id": "test123"}, model_type=ModelType.SCHEDULE
+        )
         assert result is None
 
-    def test_unsupported_model_type_logs_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_unsupported_model_type_logs_debug(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Unknown model_type emits a DEBUG log so operators can diagnose without noise."""
         with caplog.at_level(logging.DEBUG, logger="uiprotect.data.convert"):
             create_from_unifi_dict({"id": "test123"}, model_type=ModelType.SCHEDULE)
