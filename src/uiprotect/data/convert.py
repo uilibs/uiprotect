@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, cast
 
 from uiprotect.data.base import ProtectModelWithId
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
     from ..api import ProtectApiClient
     from ..data.base import ProtectModel
 
+_LOGGER = logging.getLogger(__name__)
 
 MODEL_TO_CLASS: dict[str, type[ProtectModel]] = {
     ModelType.EVENT: Event,
@@ -70,7 +72,7 @@ def create_from_unifi_dict(
     api: ProtectApiClient | None = None,
     klass: type[ProtectModel] | None = None,
     model_type: ModelType | None = None,
-) -> ProtectModel:
+) -> ProtectModel | None:
     """
     Convert a UFP JSON dict to the correct Python class.
 
@@ -79,7 +81,12 @@ def create_from_unifi_dict(
 
     A shallow copy of *data* is created so the caller's dict is never mutated.
 
-    Raises ``DataDecodeError`` if the model cannot be resolved.
+    Returns ``None`` for model types introduced in newer Protect firmware that
+    this library does not yet support, so callers can skip them gracefully
+    instead of raising ``DataDecodeError``.
+
+    Raises ``DataDecodeError`` if the model cannot be resolved and no
+    ``model_type`` was supplied (i.e. the payload itself is malformed).
     """
     # Work on a shallow copy so downstream conversions cannot mutate caller data.
     data = dict(data)
@@ -90,6 +97,12 @@ def create_from_unifi_dict(
         # Protect 7+ may omit modelKey from WS data payloads; add it if missing.
         if "modelKey" not in data:
             data["modelKey"] = model_type.value
+        # If klass is still None the model type is unknown to this library version
+        # (e.g. automationIdleTracks, automationEvent introduced in Protect 7).
+        # Log at DEBUG and return None so the caller can skip gracefully.
+        if klass is None:
+            _LOGGER.debug("Skipping unknown model type: %s", model_type)
+            return None
 
     if "modelKey" not in data:
         raise DataDecodeError("No modelKey")

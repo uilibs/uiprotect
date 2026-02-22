@@ -351,6 +351,8 @@ class Bootstrap(ProtectBaseObject):
         data: dict[str, Any],
     ) -> WSSubscriptionMessage | None:
         obj = create_from_unifi_dict(data, api=self._api, model_type=model_type)
+        if obj is None:
+            return None
         if model_type is ModelType.EVENT:
             if TYPE_CHECKING:
                 assert isinstance(obj, Event)
@@ -414,6 +416,8 @@ class Bootstrap(ProtectBaseObject):
         action_type = action["action"]
         if action_type == "add":
             add_obj = create_from_unifi_dict(data, api=self._api, model_type=model_type)
+            if add_obj is None:
+                return None
             if TYPE_CHECKING:
                 model_class = MODEL_TO_CLASS.get(model_type)
                 assert model_class is not None and isinstance(add_obj, model_class)
