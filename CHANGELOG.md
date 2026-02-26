@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.2.2 (2026-02-26)
+
+### Bug fixes
+
+
+- Handle duplicate camelcase/snake_case keys from protect 7.x ([`c6d5532`](https://github.com/uilibs/uiprotect/commit/c6d553292e0cdbd7cf03f8950ace108fb88252ed))
+
+
 ## v10.2.1 (2026-02-22)
 
 ### Bug fixes
