@@ -1205,7 +1205,7 @@ def test_protect7_duplicate_snake_and_camel_case_keys():
     one after converting it to snake_case.  When two keys map to the same
     snake_case result the second pop would raise a ``KeyError``.
 
-    Regression test for https://github.com/uilibs/uiprotect/issues/164109
+    Regression test for https://github.com/home-assistant/core/issues/164109
     """
     # Real payload fragment from a Protect 7.x controller websocket message.
     # Both "hallwayMode" (camelCase) and "hallway_mode" (already snake_case)
