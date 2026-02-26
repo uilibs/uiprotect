@@ -315,6 +315,10 @@ class ProtectBaseObject(BaseModel):
         # convert to snake_case and remove extra fields
         _fields = cls.model_fields
         for key in data.copy():
+            if key not in data:
+                # key may have already been consumed by a previous
+                # iteration when two keys map to the same snake_case key
+                continue
             current_key = key
             if current_key in remaps:
                 # remap keys that will not be converted correctly by snake_case convert

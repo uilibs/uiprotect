@@ -44,6 +44,7 @@ from uiprotect.data import (
     create_from_unifi_dict,
 )
 from uiprotect.data.devices import LCDMessage
+from uiprotect.data.nvr import EventMetadata
 from uiprotect.data.types import RecordingType, ResolutionStorageType
 from uiprotect.data.user import CloudAccount
 from uiprotect.exceptions import BadRequest, NotAuthorized, StreamError
@@ -1195,4 +1196,29 @@ def test_unknown_storage_type(
     set_debug()
 
 
-# TalkbackStream tests moved to tests/test_stream.py for comprehensive coverage
+def test_protect7_duplicate_snake_and_camel_case_keys():
+    """
+    Protect 7.x firmware sends both camelCase and snake_case variants of the
+    same key in event metadata (e.g. ``hallwayMode`` *and* ``hallway_mode``).
+
+    ``unifi_dict_to_dict`` iterates over a snapshot of the keys and pops each
+    one after converting it to snake_case.  When two keys map to the same
+    snake_case result the second pop would raise a ``KeyError``.
+
+    Regression test for https://github.com/uilibs/uiprotect/issues/164109
+    """
+    # Real payload fragment from a Protect 7.x controller websocket message.
+    # Both "hallwayMode" (camelCase) and "hallway_mode" (already snake_case)
+    # are present in the same dict.
+    data: dict[str, Any] = {
+        "sensorId": "abc123",
+        "hallwayMode": None,
+        "hallway_mode": "disabled",
+        "type": "motion",
+    }
+
+    # Must not raise KeyError
+    result = EventMetadata.unifi_dict_to_dict(data)
+
+    assert result["sensor_id"] == "abc123"
+    assert result["type"] == "motion"
