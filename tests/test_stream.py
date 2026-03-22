@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import threading
 from collections.abc import Callable, Generator
 from pathlib import Path
@@ -588,3 +589,36 @@ async def test_run_until_complete_unexpected_error(mock_camera: Mock, audio_file
 
         with pytest.raises(StreamError, match="Unexpected error"):
             await stream.run_until_complete()
+
+
+@pytest.mark.asyncio
+async def test_stop_during_run_until_complete(mock_camera: Mock, audio_file: str):
+    """
+    Test that stop() works while run_until_complete() is awaiting the thread.
+
+    Regression test: run_until_complete() holds the asyncio lock while waiting
+    for the thread to join. If stop() also needs the lock before setting the
+    stop event, a deadlock occurs (the thread never exits because stop_event
+    is never set). The fix: stop() sets _stop_event before acquiring the lock.
+    """
+
+    def wait_for_stop(self: TalkbackStream) -> None:
+        self._stop_event.wait()
+
+    with patch.object(TalkbackStream, "_stream_audio_sync", wait_for_stop):
+        stream = TalkbackStream(mock_camera, audio_file)
+        await stream.start()
+        assert stream.is_running
+
+        # run_until_complete acquires the lock and awaits thread.join() in the
+        # executor. A single event-loop yield is enough for it to reach that
+        # state because the lock is uncontested and _start_thread_if_needed is
+        # synchronous, but we sleep a bit longer for robustness on slow CI.
+        run_task = asyncio.create_task(stream.run_until_complete())
+        await asyncio.sleep(0.1)
+
+        # stop() must signal the thread even though run_until_complete holds the lock
+        await asyncio.wait_for(stream.stop(), timeout=5.0)
+        await asyncio.wait_for(run_task, timeout=5.0)
+
+        assert not stream.is_running

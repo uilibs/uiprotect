@@ -316,8 +316,12 @@ class TalkbackStream:
 
     async def stop(self) -> None:
         """Stop the audio stream gracefully and wait for completion."""
+        # Signal the thread to stop BEFORE acquiring the lock.
+        # run_until_complete() holds the lock while awaiting thread.join(),
+        # so acquiring the lock first would deadlock when both are called
+        # concurrently (e.g. HA play_audio + stop from media player).
+        self._stop_event.set()
         async with self._lock:
-            self._stop_event.set()
             if self._thread is not None:
                 await self._wait_for_thread()
                 self._thread = None
