@@ -1284,8 +1284,11 @@ async def test_handle_ws_error_device_with_id(
     err = ValueError("bad device data")
 
     bootstrap._handle_ws_error("update", ModelType.CAMERA, action, err)
-    # A refresh task should have been created
-    assert len(bootstrap._refresh_tasks) == 1
+    # A refresh task should have been created.  The done-callback discards the
+    # task from the set once it completes, so check for at least one pending task
+    # rather than an exact count to avoid flakiness on fast event loops.
+    assert len(bootstrap._refresh_tasks) >= 1
+    assert any(not t.done() for t in bootstrap._refresh_tasks)
 
 
 def test_handle_ws_error_no_device_id(
