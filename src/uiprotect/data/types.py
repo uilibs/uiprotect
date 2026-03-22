@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+import logging
 import types
 from collections.abc import Callable, Coroutine, Sequence
 from functools import cache, lru_cache
@@ -12,6 +13,8 @@ from pydantic.types import StringConstraints
 from pydantic_extra_types.color import Color  # noqa: F401
 
 from .._compat import cached_property
+
+_LOGGER = logging.getLogger(__name__)
 
 KT = TypeVar("KT")
 VT = TypeVar("VT")
@@ -113,8 +116,11 @@ class ValuesEnumMixin:
 class UnknownValuesEnumMixin(ValuesEnumMixin):
     @classmethod
     def _missing_(cls, value: Any) -> Any | None:
-        # value always set in superclass _missing
-        return super()._missing_(value) or cls._values_normalized.get("unknown")  # type: ignore[union-attr]
+        result = super()._missing_(value)
+        if result is None:
+            _LOGGER.debug("Unknown %s value: %s", cls.__name__, value)
+            result = cls._values_normalized.get("unknown")  # type: ignore[union-attr]
+        return result
 
 
 @enum.unique
@@ -455,6 +461,7 @@ class VideoMode(ValuesEnumMixin, enum.StrEnum):
 class AudioStyle(UnknownValuesEnumMixin, enum.StrEnum):
     NATURE = "nature"
     NOISE_REDUCED = "noiseReduced"
+    UNKNOWN = "unknown"
 
 
 @enum.unique
@@ -499,19 +506,21 @@ class IRLEDMode(UnknownValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
-class MountType(ValuesEnumMixin, enum.StrEnum):
+class MountType(UnknownValuesEnumMixin, enum.StrEnum):
     NONE = "none"
     LEAK = "leak"
     DOOR = "door"
     WINDOW = "window"
     GARAGE = "garage"
+    UNKNOWN = "unknown"
 
 
 @enum.unique
-class SensorType(ValuesEnumMixin, enum.StrEnum):
+class SensorType(UnknownValuesEnumMixin, enum.StrEnum):
     TEMPERATURE = "temperature"
     LIGHT = "light"
     HUMIDITY = "humidity"
+    UNKNOWN = "unknown"
 
 
 @enum.unique
@@ -655,6 +664,7 @@ class HDRMode(UnknownValuesEnumMixin, enum.StrEnum):
     NONE = "none"
     NORMAL = "normal"
     ALWAYS_ON = "superHdr"
+    UNKNOWN = "unknown"
 
 
 @enum.unique

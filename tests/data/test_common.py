@@ -1222,3 +1222,80 @@ def test_protect7_duplicate_snake_and_camel_case_keys():
 
     assert result["sensor_id"] == "abc123"
     assert result["type"] == "motion"
+
+
+def test_event_metadata_collapse_keys_text_format():
+    """Collapse keys with standard {"text": "value"} format are correctly unwrapped."""
+    data: dict[str, Any] = {
+        "sensorType": {"text": "temperature"},
+        "mountType": {"text": "door"},
+        "status": {"text": "safe"},
+    }
+    result = EventMetadata.unifi_dict_to_dict(data)
+    assert result["sensor_type"] == "temperature"
+    assert result["mount_type"] == "door"
+    assert result["status"] == "safe"
+
+
+def test_event_metadata_collapse_keys_unexpected_format():
+    """Collapse keys with unexpected dict format (no 'text' key) are dropped gracefully."""
+    data: dict[str, Any] = {
+        "sensorType": {"newFormat": "temperature", "extra": 123},
+        "sensorId": "abc123",
+    }
+    result = EventMetadata.unifi_dict_to_dict(data)
+    # Malformed key should be dropped
+    assert "sensor_type" not in result
+    # Other keys should still be processed
+    assert result["sensor_id"] == "abc123"
+
+
+def test_event_metadata_collapse_keys_non_dict_passthrough():
+    """Collapse keys that are plain strings (not dicts) pass through unchanged."""
+    data: dict[str, Any] = {
+        "sensorType": "temperature",
+        "type": "motion",
+    }
+    result = EventMetadata.unifi_dict_to_dict(data)
+    assert result["sensor_type"] == "temperature"
+    assert result["type"] == "motion"
+
+
+def test_handle_ws_error_event_model(
+    protect_client: ProtectApiClient,
+):
+    """_handle_ws_error logs event errors without triggering a device refresh."""
+    bootstrap = protect_client.bootstrap
+    action = {"action": "update", "id": "event123", "modelKey": "event"}
+    err = ValueError("bad event data")
+
+    # Should not raise, should not create refresh tasks
+    bootstrap._handle_ws_error("update", ModelType.EVENT, action, err)
+    assert len(bootstrap._refresh_tasks) == 0
+
+
+@pytest.mark.asyncio()
+async def test_handle_ws_error_device_with_id(
+    protect_client: ProtectApiClient,
+):
+    """_handle_ws_error triggers a device refresh when device_id is present."""
+    bootstrap = protect_client.bootstrap
+    action = {"action": "update", "id": "some_device_id", "modelKey": "camera"}
+    err = ValueError("bad device data")
+
+    bootstrap._handle_ws_error("update", ModelType.CAMERA, action, err)
+    # A refresh task should have been created
+    assert len(bootstrap._refresh_tasks) == 1
+
+
+def test_handle_ws_error_no_device_id(
+    protect_client: ProtectApiClient,
+):
+    """_handle_ws_error handles missing device ID gracefully without crashing."""
+    bootstrap = protect_client.bootstrap
+    action = {"action": "update", "modelKey": "camera"}  # no "id" key
+    err = KeyError("id")
+
+    # Must not raise — this was a bug before the fix
+    bootstrap._handle_ws_error("update", ModelType.CAMERA, action, err)
+    assert len(bootstrap._refresh_tasks) == 0

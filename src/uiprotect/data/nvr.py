@@ -325,7 +325,15 @@ class EventMetadata(ProtectBaseObject):
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         for key in cls._collapse_keys.intersection(data):
             if isinstance(data[key], dict):
-                data[key] = data[key]["text"]
+                if "text" in data[key]:
+                    data[key] = data[key]["text"]
+                else:
+                    _LOGGER.debug(
+                        "Unexpected format for EventMetadata key %s: %s",
+                        key,
+                        data[key],
+                    )
+                    del data[key]
 
         return super().unifi_dict_to_dict(data)
 
