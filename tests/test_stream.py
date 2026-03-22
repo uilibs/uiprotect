@@ -622,3 +622,26 @@ async def test_stop_during_run_until_complete(mock_camera: Mock, audio_file: str
         await asyncio.wait_for(run_task, timeout=5.0)
 
         assert not stream.is_running
+
+
+@pytest.mark.asyncio
+async def test_start_does_not_clobber_pending_stop(mock_camera: Mock, audio_file: str):
+    """
+    Test that start() does not clear a pending stop signal.
+
+    Regression test: stop() sets _stop_event before acquiring the lock.
+    If a concurrent start() acquires the lock first and clears the event,
+    the thread would never exit and stop() would hang waiting for thread.join().
+    The fix: _start_thread_if_needed() returns without clearing/starting when
+    _stop_event is already set.
+    """
+    stream = TalkbackStream(mock_camera, audio_file)
+
+    # Simulate a pending stop signal (as if stop() was called but hasn't
+    # acquired the lock yet).
+    stream._stop_event.set()
+
+    # start() should not clobber the event or start a new thread.
+    await stream.start()
+    assert not stream.is_running
+    assert stream._stop_event.is_set()

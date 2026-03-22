@@ -294,7 +294,10 @@ class TalkbackStream:
             if raise_if_running:
                 raise StreamError("Stream already started")
             return
-        self._stop_event.clear()
+        # Don't clear a pending stop signal — stop() sets the event before
+        # acquiring the lock, so a concurrent start() must not clobber it.
+        if self._stop_event.is_set():
+            return
         self._error = None
         self._thread = threading.Thread(
             target=self._stream_audio_sync,
