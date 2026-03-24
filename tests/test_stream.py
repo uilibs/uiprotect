@@ -570,7 +570,9 @@ async def test_stop_event_is_set_on_stop(mock_camera: Mock, audio_file: str):
         assert stream.is_running
 
         await stream.stop()
-        assert stream._stop_event.is_set()
+        assert not stream.is_running
+        # stop_event is cleared after cleanup so the stream can be restarted
+        assert not stream._stop_event.is_set()
         assert not stream.is_running
 
 
