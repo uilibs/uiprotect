@@ -645,3 +645,83 @@ async def test_start_does_not_clobber_pending_stop(mock_camera: Mock, audio_file
     await stream.start()
     assert not stream.is_running
     assert stream._stop_event.is_set()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_start_during_stop_does_not_deadlock(
+    mock_camera: Mock, audio_file: str
+) -> None:
+    """
+    Prove the race condition: stop() sets _stop_event, then a concurrent
+    start() acquires the lock first and clears _stop_event via the old
+    _start_thread_if_needed code path. The streaming thread never sees the
+    stop signal, so run_until_complete() never returns and stop() deadlocks
+    on thread.join().
+
+    Timeline of the bug:
+      1. run_until_complete() holds the lock, thread waits on _stop_event
+      2. stop() sets _stop_event (before lock)
+      3. start() races in, acquires lock, clears _stop_event, starts new thread
+      4. stop() finally gets lock, calls thread.join() on new thread that
+         never exits → deadlock
+
+    The fix makes _start_thread_if_needed() bail out when _stop_event is set.
+    """
+
+    # Gate that lets us control exactly when the thread finishes
+    def wait_for_stop(self: TalkbackStream) -> None:
+        self._stop_event.wait()
+
+    with patch.object(TalkbackStream, "_stream_audio_sync", wait_for_stop):
+        stream = TalkbackStream(mock_camera, audio_file)
+        await stream.start()
+        assert stream.is_running
+
+        # Kick off run_until_complete which holds the lock while joining thread
+        run_task = asyncio.create_task(stream.run_until_complete())
+        await asyncio.sleep(0.1)  # let it acquire the lock and block on join
+
+        # Simulate the race: stop() sets _stop_event before getting the lock,
+        # but a concurrent start() sneaks in after the event is set.
+        # We do this manually to deterministically reproduce the ordering.
+        stream._stop_event.set()  # stop() step 1: signal thread
+
+        # The thread will now exit because _stop_event is set, which unblocks
+        # run_until_complete. Wait for it to release the lock.
+        await asyncio.wait_for(run_task, timeout=5.0)
+
+        # Now start() races in while _stop_event is still set.
+        # With the bug: start() would clear _stop_event and start a new thread.
+        # With the fix: start() sees _stop_event is set and bails out.
+        await stream.start()
+
+        # With the fix: no new thread was started
+        assert not stream.is_running
+        assert stream._stop_event.is_set()
+
+        # Now complete stop() — should not deadlock
+        await asyncio.wait_for(stream.stop(), timeout=5.0)
+        assert not stream.is_running
+
+
+@pytest.mark.asyncio
+async def test_restart_after_stop(mock_camera: Mock, audio_file: str) -> None:
+    """Test that a stream can be started again after being stopped."""
+
+    def wait_for_stop(self: TalkbackStream) -> None:
+        self._stop_event.wait()
+
+    with patch.object(TalkbackStream, "_stream_audio_sync", wait_for_stop):
+        stream = TalkbackStream(mock_camera, audio_file)
+
+        # First cycle: start then stop
+        await stream.start()
+        assert stream.is_running
+        await asyncio.wait_for(stream.stop(), timeout=5.0)
+        assert not stream.is_running
+
+        # Second cycle: start must work again after stop
+        await stream.start()
+        assert stream.is_running
+        await asyncio.wait_for(stream.stop(), timeout=5.0)
+        assert not stream.is_running

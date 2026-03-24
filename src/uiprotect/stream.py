@@ -328,6 +328,7 @@ class TalkbackStream:
             if self._thread is not None:
                 await self._wait_for_thread()
                 self._thread = None
+            self._stop_event.clear()
 
     async def run_until_complete(self) -> None:
         """Run the stream until it completes naturally."""
