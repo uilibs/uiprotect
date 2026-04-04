@@ -625,6 +625,62 @@ def test_ended_event_does_not_overwrite_active(camera_obj: Camera):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_no_prior_tracking_prefers_active_event(camera_obj: Camera):
+    """When no event is tracked yet and an ended event arrives, prefer an active event in bootstrap.events."""
+    now = utc_now()
+
+    camera_obj.last_smart_detect_event_id = None
+    camera_obj.last_smart_detect = None
+    camera_obj.last_smart_detect_event_ids = {}
+    camera_obj.last_smart_detects = {}
+    camera_obj.is_smart_detected = True
+
+    bootstrap = camera_obj.api.bootstrap
+
+    # Insert an active event directly into bootstrap.events (bypassing process_event
+    # so that last_smart_detect_event_ids remains empty for PERSON)
+    active_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="active_event",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=10),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    bootstrap.events["active_event"] = active_event
+
+    # Verify no prior tracking
+    assert (
+        camera_obj.last_smart_detect_event_ids.get(SmartDetectObjectType.PERSON) is None
+    )
+
+    # Ended event arrives — should find and track the active event instead
+    ended_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="ended_event",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=15),
+        end=now - timedelta(seconds=12),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    bootstrap.process_event(ended_event)
+
+    # Should track the active event, not the ended one
+    assert (
+        camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.PERSON]
+        == "active_event"
+    )
+    event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PERSON)
+    assert event is not None
+    assert event.end is None
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 def test_camera_smart_audio_events(camera_obj: Camera):
     now = utc_now()
 
