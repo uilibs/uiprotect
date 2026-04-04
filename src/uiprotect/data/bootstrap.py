@@ -35,7 +35,7 @@ from .devices import (
     Viewer,
 )
 from .nvr import NVR, Event, Liveview
-from .types import EventType, FixSizeOrderedDict, ModelType
+from .types import EventType, FixSizeOrderedDict, ModelType, SmartDetectObjectType
 from .user import Group, Keyrings, UlpUserKeyringBase, UlpUsers, User
 from .websocket import (
     WSAction,
@@ -134,6 +134,24 @@ _CAMERA_SMART_AND_LINE_EVENTS = {
 _CAMERA_SMART_AUDIO_EVENT = EventType.SMART_AUDIO_DETECT
 
 
+def _find_active_smart_event(
+    camera: Camera,
+    smart_type: SmartDetectObjectType,
+    exclude_id: str,
+) -> Event | None:
+    """Find any still-active smart detection event for this camera and type."""
+    for event in camera._api.bootstrap.events.values():
+        if (
+            event.id != exclude_id
+            and event.camera_id == camera.id
+            and event.end is None
+            and event.type in _CAMERA_SMART_AND_LINE_EVENTS
+            and smart_type in event.smart_detect_types
+        ):
+            return event
+    return None
+
+
 def _process_camera_event(event: Event, camera: Camera) -> None:
     event_type = event.type
     dt_attr, event_attr = CAMERA_EVENT_ATTR_MAP[event_type]
@@ -144,8 +162,26 @@ def _process_camera_event(event: Event, camera: Camera) -> None:
     setattr(camera, dt_attr, event_start)
     if event_type in _CAMERA_SMART_AND_LINE_EVENTS:
         for smart_type in event.smart_detect_types:
-            camera.last_smart_detect_event_ids[smart_type] = event_id
-            camera.last_smart_detects[smart_type] = event_start
+            if event.end is None:
+                # Active event — always track it
+                camera.last_smart_detect_event_ids[smart_type] = event_id
+                camera.last_smart_detects[smart_type] = event_start
+            else:
+                # Event ended
+                current_id = camera.last_smart_detect_event_ids.get(smart_type)
+                if current_id == event_id:
+                    # Our tracked event ended — find a replacement
+                    replacement = _find_active_smart_event(camera, smart_type, event_id)
+                    if replacement is not None:
+                        camera.last_smart_detect_event_ids[smart_type] = replacement.id
+                        camera.last_smart_detects[smart_type] = replacement.start
+                elif current_id is None:
+                    # No event previously tracked for this type —
+                    # track the ended event as last known
+                    camera.last_smart_detect_event_ids[smart_type] = event_id
+                    camera.last_smart_detects[smart_type] = event_start
+                # If current_id is set and != event_id, another event
+                # is already tracked — do nothing
     elif event_type is _CAMERA_SMART_AUDIO_EVENT:
         for smart_type in event.smart_detect_types:
             if (audio_type := smart_type.audio_type) is None:

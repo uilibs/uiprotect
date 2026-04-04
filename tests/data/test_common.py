@@ -258,6 +258,373 @@ def test_camera_smart_events(camera_obj: Camera):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_concurrent_smart_detect_zone_and_line(camera_obj: Camera):
+    """Test sensor stays ON when zone event ends but line event is still active."""
+    now = utc_now()
+
+    camera_obj.last_smart_detect_event_id = None
+    camera_obj.last_smart_detect = None
+    camera_obj.last_smart_detect_event_ids = {}
+    camera_obj.last_smart_detects = {}
+    camera_obj.is_smart_detected = True
+
+    bootstrap = camera_obj.api.bootstrap
+
+    # Both events start (active, end=None)
+    zone_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="zone_event_1",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=10),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    line_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="line_event_1",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=10),
+        type=EventType.SMART_DETECT_LINE,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+
+    bootstrap.process_event(zone_event)
+    bootstrap.process_event(line_event)
+
+    # Line event should be tracked (last processed active event)
+    assert (
+        camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.PERSON]
+        == "line_event_1"
+    )
+
+    # Zone event ends
+    zone_event_ended = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="zone_event_1",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=10),
+        end=now - timedelta(seconds=5),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    bootstrap.process_event(zone_event_ended)
+
+    # Line event is still active and tracked — sensor should stay ON
+    assert (
+        camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.PERSON]
+        == "line_event_1"
+    )
+    event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PERSON)
+    assert event is not None
+    assert event.end is None
+
+    # Line event ends
+    line_event_ended = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="line_event_1",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=10),
+        end=now - timedelta(seconds=3),
+        type=EventType.SMART_DETECT_LINE,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    bootstrap.process_event(line_event_ended)
+
+    # No active event left — tracked event is now ended
+    event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PERSON)
+    assert event is not None
+    assert event.end is not None
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_tracked_event_ends_replaced_by_active(camera_obj: Camera):
+    """Test that when the tracked event ends, it's replaced by another active event."""
+    now = utc_now()
+
+    camera_obj.last_smart_detect_event_id = None
+    camera_obj.last_smart_detect = None
+    camera_obj.last_smart_detect_event_ids = {}
+    camera_obj.last_smart_detects = {}
+    camera_obj.is_smart_detected = True
+
+    bootstrap = camera_obj.api.bootstrap
+
+    # Zone event starts first and is tracked
+    zone_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="zone_event_1",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=10),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    bootstrap.process_event(zone_event)
+    assert (
+        camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.PERSON]
+        == "zone_event_1"
+    )
+
+    # Line event starts — overwrites tracking
+    line_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="line_event_1",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=9),
+        type=EventType.SMART_DETECT_LINE,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    bootstrap.process_event(line_event)
+    assert (
+        camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.PERSON]
+        == "line_event_1"
+    )
+
+    # Line event (tracked) ends — should be replaced by zone_event_1
+    line_event_ended = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="line_event_1",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=9),
+        end=now - timedelta(seconds=5),
+        type=EventType.SMART_DETECT_LINE,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    bootstrap.process_event(line_event_ended)
+
+    # Should now track zone_event_1 (still active)
+    assert (
+        camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.PERSON]
+        == "zone_event_1"
+    )
+    event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PERSON)
+    assert event is not None
+    assert event.end is None
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_concurrent_different_smart_types(camera_obj: Camera):
+    """Test that different smart types are tracked independently."""
+    now = utc_now()
+
+    camera_obj.last_smart_detect_event_id = None
+    camera_obj.last_smart_detect = None
+    camera_obj.last_smart_detect_event_ids = {}
+    camera_obj.last_smart_detects = {}
+    camera_obj.is_smart_detected = True
+
+    bootstrap = camera_obj.api.bootstrap
+
+    person_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="person_event",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=10),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    vehicle_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="vehicle_event",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=8),
+        type=EventType.SMART_DETECT_LINE,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.VEHICLE],
+        smart_detect_event_ids=[],
+    )
+
+    bootstrap.process_event(person_event)
+    bootstrap.process_event(vehicle_event)
+
+    assert (
+        camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.PERSON]
+        == "person_event"
+    )
+    assert (
+        camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.VEHICLE]
+        == "vehicle_event"
+    )
+
+    # Person event ends — should not affect vehicle tracking
+    person_ended = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="person_event",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=10),
+        end=now - timedelta(seconds=5),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    bootstrap.process_event(person_ended)
+
+    # Person event ended, no replacement
+    event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PERSON)
+    assert event is not None
+    assert event.end is not None
+
+    # Vehicle still active and tracked
+    assert (
+        camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.VEHICLE]
+        == "vehicle_event"
+    )
+    event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.VEHICLE)
+    assert event is not None
+    assert event.end is None
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_multiple_zones_same_smart_type(camera_obj: Camera):
+    """Test two smartDetectZone events for the same type (e.g. person in two zones)."""
+    now = utc_now()
+
+    camera_obj.last_smart_detect_event_id = None
+    camera_obj.last_smart_detect = None
+    camera_obj.last_smart_detect_event_ids = {}
+    camera_obj.last_smart_detects = {}
+    camera_obj.is_smart_detected = True
+
+    bootstrap = camera_obj.api.bootstrap
+
+    zone1_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="zone1_event",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=10),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    zone2_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="zone2_event",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=9),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+
+    bootstrap.process_event(zone1_event)
+    bootstrap.process_event(zone2_event)
+
+    # zone2 is tracked (last active event processed)
+    assert (
+        camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.PERSON]
+        == "zone2_event"
+    )
+
+    # zone2 (tracked) ends — should be replaced by zone1 (still active)
+    zone2_ended = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="zone2_event",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=9),
+        end=now - timedelta(seconds=5),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    bootstrap.process_event(zone2_ended)
+
+    assert (
+        camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.PERSON]
+        == "zone1_event"
+    )
+    event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PERSON)
+    assert event is not None
+    assert event.end is None
+
+    # zone1 ends too — no replacement
+    zone1_ended = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="zone1_event",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=10),
+        end=now - timedelta(seconds=3),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    bootstrap.process_event(zone1_ended)
+
+    event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PERSON)
+    assert event is not None
+    assert event.end is not None
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_ended_event_does_not_overwrite_active(camera_obj: Camera):
+    """Test that an ended event for a non-tracked ID does not overwrite an active one."""
+    now = utc_now()
+
+    camera_obj.last_smart_detect_event_id = None
+    camera_obj.last_smart_detect = None
+    camera_obj.last_smart_detect_event_ids = {}
+    camera_obj.last_smart_detects = {}
+    camera_obj.is_smart_detected = True
+
+    bootstrap = camera_obj.api.bootstrap
+
+    # Active event is tracked
+    active_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="active_event",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=10),
+        type=EventType.SMART_DETECT_LINE,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    bootstrap.process_event(active_event)
+
+    # A different ended event arrives — should NOT overwrite the active tracking
+    ended_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="ended_event",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=15),
+        end=now - timedelta(seconds=12),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    bootstrap.process_event(ended_event)
+
+    # Active event should still be tracked
+    assert (
+        camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.PERSON]
+        == "active_event"
+    )
+    event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PERSON)
+    assert event is not None
+    assert event.end is None
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 def test_camera_smart_audio_events(camera_obj: Camera):
     now = utc_now()
 
