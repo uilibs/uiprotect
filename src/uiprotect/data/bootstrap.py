@@ -176,10 +176,16 @@ def _process_camera_event(event: Event, camera: Camera) -> None:
                         camera.last_smart_detect_event_ids[smart_type] = replacement.id
                         camera.last_smart_detects[smart_type] = replacement.start
                 elif current_id is None:
-                    # No event previously tracked for this type —
-                    # track the ended event as last known
-                    camera.last_smart_detect_event_ids[smart_type] = event_id
-                    camera.last_smart_detects[smart_type] = event_start
+                    # No event previously tracked — prefer an active event
+                    # over the ended one (another concurrent event may exist)
+                    active = _find_active_smart_event(camera, smart_type, event_id)
+                    if active is not None:
+                        camera.last_smart_detect_event_ids[smart_type] = active.id
+                        camera.last_smart_detects[smart_type] = active.start
+                    else:
+                        # No active event — store ended event as last known
+                        camera.last_smart_detect_event_ids[smart_type] = event_id
+                        camera.last_smart_detects[smart_type] = event_start
                 # If current_id is set and != event_id, another event
                 # is already tracked — do nothing
     elif event_type is _CAMERA_SMART_AUDIO_EVENT:
