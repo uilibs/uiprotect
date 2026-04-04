@@ -176,14 +176,21 @@ def test_events(raw_events):
         compare_devices(event)
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_camera_smart_events(camera_obj: Camera):
-    now = utc_now()
-
+@pytest.fixture
+def reset_smart_detect(camera_obj: Camera):
+    """Reset smart detection state on camera and clear bootstrap events for test isolation."""
     camera_obj.last_smart_detect_event_id = None
     camera_obj.last_smart_detect = None
     camera_obj.last_smart_detect_event_ids = {}
     camera_obj.last_smart_detects = {}
+    camera_obj.is_smart_detected = True
+    camera_obj.api.bootstrap.events.clear()
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_camera_smart_events(camera_obj: Camera, reset_smart_detect: None):
+    now = utc_now()
+
     events = [
         Event(  # type: ignore[call-arg]
             api=camera_obj.api,
@@ -258,15 +265,11 @@ def test_camera_smart_events(camera_obj: Camera):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_concurrent_smart_detect_zone_and_line(camera_obj: Camera):
+def test_concurrent_smart_detect_zone_and_line(
+    camera_obj: Camera, reset_smart_detect: None
+):
     """Test sensor stays ON when zone event ends but line event is still active."""
     now = utc_now()
-
-    camera_obj.last_smart_detect_event_id = None
-    camera_obj.last_smart_detect = None
-    camera_obj.last_smart_detect_event_ids = {}
-    camera_obj.last_smart_detects = {}
-    camera_obj.is_smart_detected = True
 
     bootstrap = camera_obj.api.bootstrap
 
@@ -345,15 +348,11 @@ def test_concurrent_smart_detect_zone_and_line(camera_obj: Camera):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_tracked_event_ends_replaced_by_active(camera_obj: Camera):
+def test_tracked_event_ends_replaced_by_active(
+    camera_obj: Camera, reset_smart_detect: None
+):
     """Test that when the tracked event ends, it's replaced by another active event."""
     now = utc_now()
-
-    camera_obj.last_smart_detect_event_id = None
-    camera_obj.last_smart_detect = None
-    camera_obj.last_smart_detect_event_ids = {}
-    camera_obj.last_smart_detects = {}
-    camera_obj.is_smart_detected = True
 
     bootstrap = camera_obj.api.bootstrap
 
@@ -416,15 +415,9 @@ def test_tracked_event_ends_replaced_by_active(camera_obj: Camera):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_concurrent_different_smart_types(camera_obj: Camera):
+def test_concurrent_different_smart_types(camera_obj: Camera, reset_smart_detect: None):
     """Test that different smart types are tracked independently."""
     now = utc_now()
-
-    camera_obj.last_smart_detect_event_id = None
-    camera_obj.last_smart_detect = None
-    camera_obj.last_smart_detect_event_ids = {}
-    camera_obj.last_smart_detects = {}
-    camera_obj.is_smart_detected = True
 
     bootstrap = camera_obj.api.bootstrap
 
@@ -491,15 +484,9 @@ def test_concurrent_different_smart_types(camera_obj: Camera):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_multiple_zones_same_smart_type(camera_obj: Camera):
+def test_multiple_zones_same_smart_type(camera_obj: Camera, reset_smart_detect: None):
     """Test two smartDetectZone events for the same type (e.g. person in two zones)."""
     now = utc_now()
-
-    camera_obj.last_smart_detect_event_id = None
-    camera_obj.last_smart_detect = None
-    camera_obj.last_smart_detect_event_ids = {}
-    camera_obj.last_smart_detects = {}
-    camera_obj.is_smart_detected = True
 
     bootstrap = camera_obj.api.bootstrap
 
@@ -575,15 +562,11 @@ def test_multiple_zones_same_smart_type(camera_obj: Camera):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_ended_event_does_not_overwrite_active(camera_obj: Camera):
+def test_ended_event_does_not_overwrite_active(
+    camera_obj: Camera, reset_smart_detect: None
+):
     """Test that an ended event for a non-tracked ID does not overwrite an active one."""
     now = utc_now()
-
-    camera_obj.last_smart_detect_event_id = None
-    camera_obj.last_smart_detect = None
-    camera_obj.last_smart_detect_event_ids = {}
-    camera_obj.last_smart_detects = {}
-    camera_obj.is_smart_detected = True
 
     bootstrap = camera_obj.api.bootstrap
 
@@ -625,15 +608,11 @@ def test_ended_event_does_not_overwrite_active(camera_obj: Camera):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_no_prior_tracking_prefers_active_event(camera_obj: Camera):
+def test_no_prior_tracking_prefers_active_event(
+    camera_obj: Camera, reset_smart_detect: None
+):
     """When no event is tracked yet and an ended event arrives, prefer an active event in bootstrap.events."""
     now = utc_now()
-
-    camera_obj.last_smart_detect_event_id = None
-    camera_obj.last_smart_detect = None
-    camera_obj.last_smart_detect_event_ids = {}
-    camera_obj.last_smart_detects = {}
-    camera_obj.is_smart_detected = True
 
     bootstrap = camera_obj.api.bootstrap
 
