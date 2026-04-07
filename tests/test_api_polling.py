@@ -50,6 +50,7 @@ def _reset_events(camera: Camera) -> None:
     camera.last_nfc_card_scanned = None
     camera.last_smart_detects = {}
     camera.last_smart_detect_event_ids = {}
+    camera._active_smart_detect_events = {}
 
 
 @pytest.mark.asyncio()
