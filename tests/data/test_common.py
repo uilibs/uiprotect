@@ -840,6 +840,65 @@ def test_active_event_survives_bootstrap_events_eviction(
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_find_active_cleans_stale_in_place_mutations(
+    camera_obj: Camera,
+    reset_smart_detect: None,
+):
+    """Stale events (end set via in-place mutation) are cleaned from the active index."""
+    now = utc_now()
+
+    bootstrap = camera_obj.api.bootstrap
+
+    event_a = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="event_a",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=10),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    event_b = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="event_b",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=9),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+
+    bootstrap.process_event(event_a)
+    bootstrap.process_event(event_b)
+
+    # Both in active index
+    active = camera_obj._active_smart_detect_events[SmartDetectObjectType.PERSON]
+    assert len(active) == 2
+
+    # Simulate in-place mutation (as update_from_dict does via WS update)
+    event_a.end = now - timedelta(seconds=5)
+
+    # Trigger _find_active_smart_event via an ended event for event_b
+    event_b_ended = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="event_b",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=9),
+        end=now - timedelta(seconds=3),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    bootstrap.process_event(event_b_ended)
+
+    # event_a was stale (end set in-place) — should be cleaned from active index
+    assert SmartDetectObjectType.PERSON not in camera_obj._active_smart_detect_events
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 def test_camera_smart_audio_events(camera_obj: Camera):
     now = utc_now()
 
