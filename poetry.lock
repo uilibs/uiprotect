@@ -3344,14 +3344,14 @@ files = [
 
 [[package]]
 name = "types-dateparser"
-version = "1.3.0.20260323"
+version = "1.4.0.20260328"
 description = "Typing stubs for dateparser"
 optional = false
 python-versions = ">=3.10"
 groups = ["dev"]
 files = [
-    {file = "types_dateparser-1.3.0.20260323-py3-none-any.whl", hash = "sha256:898bccc5fe82957d22cee34edc781cca3442d43828ca90d8cda9625198e652cb"},
-    {file = "types_dateparser-1.3.0.20260323.tar.gz", hash = "sha256:3918dd41c9a69681e14f0e7796efa819897b0b3510a7c837e7da3f9354c333fe"},
+    {file = "types_dateparser-1.4.0.20260328-py3-none-any.whl", hash = "sha256:f8a6f195282dddd0897a33d04e02ff418b3d13c5fec57da54b9de4363788945a"},
+    {file = "types_dateparser-1.4.0.20260328.tar.gz", hash = "sha256:c6beef9fec92e8a253605d8c841d56de80cee39663d8c70ececfa50b617e9880"},
 ]
 
 [[package]]
@@ -3890,4 +3890,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "608fea8cec30923ed77cae73a94e8bacced29ca1433184964df2500762843e14"
+content-hash = "88651263ba74fb142f14cab9e88b840aa871bce0ae0b04375471279cca30bc7b"
