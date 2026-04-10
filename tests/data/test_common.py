@@ -304,6 +304,9 @@ def test_concurrent_smart_detect_zone_and_line(
         camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.PERSON]
         == "line_event_1"
     )
+    # Both top-level and per-type sensor state should report ON.
+    assert camera_obj.is_smart_currently_detected is True
+    assert camera_obj.is_person_currently_detected is True
 
     # Zone event ends
     zone_event_ended = Event(  # type: ignore[call-arg]
@@ -327,6 +330,9 @@ def test_concurrent_smart_detect_zone_and_line(
     event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PERSON)
     assert event is not None
     assert event.end is None
+    # Sensor state must stay ON during the overlap — this is the HA regression.
+    assert camera_obj.is_smart_currently_detected is True
+    assert camera_obj.is_person_currently_detected is True
 
     # Line event ends
     line_event_ended = Event(  # type: ignore[call-arg]
@@ -342,10 +348,12 @@ def test_concurrent_smart_detect_zone_and_line(
     )
     bootstrap.process_event(line_event_ended)
 
-    # No active event left — tracked event is now ended
+    # No active event left — tracked event is now ended and sensor flips OFF.
     event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PERSON)
     assert event is not None
     assert event.end is not None
+    assert camera_obj.is_smart_currently_detected is False
+    assert camera_obj.is_person_currently_detected is False
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")

@@ -136,10 +136,14 @@ def _find_active_smart_event(
     smart_type: SmartDetectObjectType,
 ) -> Event | None:
     """
-    Find the oldest still-active smart detection event for this camera and type.
+    Find the first-registered still-active smart detection event for this type.
 
-    Uses the per-camera active event index for O(active_events_per_type) lookup.
-    Completely independent of bootstrap.events.
+    Returns the earliest-inserted non-ended event in
+    ``camera._active_smart_detect_events[smart_type]``. Since Python dicts
+    preserve insertion order and active events are appended as they arrive,
+    this matches "oldest by processing order" — not "oldest by event start
+    time". Runs in O(active_events_per_type) and is independent of
+    ``bootstrap.events``.
     """
     active = camera._active_smart_detect_events.get(smart_type)
     if not active:
@@ -238,13 +242,14 @@ def _process_smart_detect_event(event: Event, camera: Camera) -> None:
 
 def _process_camera_event(event: Event, camera: Camera) -> None:
     event_type = event.type
-    dt_attr, event_attr = CAMERA_EVENT_ATTR_MAP[event_type]
-    event_id = event.id
-    event_start = event.start
 
     if event_type in _CAMERA_SMART_AND_LINE_EVENTS:
         _process_smart_detect_event(event, camera)
         return
+
+    dt_attr, event_attr = CAMERA_EVENT_ATTR_MAP[event_type]
+    event_id = event.id
+    event_start = event.start
 
     setattr(camera, event_attr, event_id)
     setattr(camera, dt_attr, event_start)
