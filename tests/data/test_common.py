@@ -43,6 +43,7 @@ from uiprotect.data import (
     WSPacket,
     create_from_unifi_dict,
 )
+from uiprotect.data.bootstrap import MAX_EVENT_HISTORY_IN_STATE_MACHINE
 from uiprotect.data.devices import LCDMessage
 from uiprotect.data.nvr import EventMetadata
 from uiprotect.data.types import RecordingType, ResolutionStorageType
@@ -301,6 +302,41 @@ def test_camera_smart_audio_events(camera_obj: Camera):
     assert camera_obj.last_smoke_detect_event.id == "test_event_1"
     assert camera_obj.last_cmonx_detect_event is not None
     assert camera_obj.last_cmonx_detect_event.id == "test_event_2"
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_bootstrap_events_are_bounded(camera_obj: Camera):
+    """
+    Bootstrap.events must evict old entries so the in-memory cache is bounded.
+
+    Previously this dict was an unbounded ``FixSizeOrderedDict()`` — every
+    incoming event accumulated forever. The cap is
+    ``MAX_EVENT_HISTORY_IN_STATE_MACHINE`` and is enforced by
+    ``FixSizeOrderedDict.__setitem__``.
+    """
+    bootstrap = camera_obj.api.bootstrap
+    bootstrap.events.clear()
+    now = utc_now()
+
+    # Push one more event than the cap — the oldest should be evicted.
+    overfill = MAX_EVENT_HISTORY_IN_STATE_MACHINE + 10
+    for i in range(overfill):
+        event = Event(  # type: ignore[call-arg]
+            api=camera_obj.api,
+            id=f"bounded_event_{i}",
+            camera_id=camera_obj.id,
+            start=now - timedelta(seconds=overfill - i),
+            type=EventType.MOTION,
+            score=0,
+            smart_detect_types=[],
+            smart_detect_event_ids=[],
+        )
+        bootstrap.process_event(event)
+
+    assert len(bootstrap.events) == MAX_EVENT_HISTORY_IN_STATE_MACHINE
+    # Oldest insertions evicted, newest retained.
+    assert "bounded_event_0" not in bootstrap.events
+    assert f"bounded_event_{overfill - 1}" in bootstrap.events
 
 
 def test_bootstrap(bootstrap: dict[str, Any]):
