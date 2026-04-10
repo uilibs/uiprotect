@@ -1084,6 +1084,9 @@ class Camera(ProtectMotionDeviceModel):
     last_smart_detect_event_ids: dict[SmartDetectObjectType, str] = {}
     last_smart_audio_detect_event_ids: dict[SmartDetectAudioType, str] = {}
     talkback_stream: TalkbackStream | None = None
+    _active_smart_detect_events: dict[SmartDetectObjectType, dict[str, Event]] = (
+        PrivateAttr(default_factory=dict)
+    )
 
     @classmethod
     @cache
@@ -1239,6 +1242,10 @@ class Camera(ProtectMotionDeviceModel):
         """Get the last smart detect event id."""
         if (last_smart_detect_event_id := self.last_smart_detect_event_id) is None:
             return None
+        # Check per-camera active index first (immune to bootstrap.events eviction)
+        for active in self._active_smart_detect_events.values():
+            if event := active.get(last_smart_detect_event_id):
+                return event
         return self._api.bootstrap.events.get(last_smart_detect_event_id)
 
     @property
@@ -1280,9 +1287,14 @@ class Camera(ProtectMotionDeviceModel):
         smart_type: SmartDetectObjectType,
     ) -> Event | None:
         """Get the last smart detect event for given type."""
-        if event_id := self.last_smart_detect_event_ids.get(smart_type):
-            return self._api.bootstrap.events.get(event_id)
-        return None
+        event_id = self.last_smart_detect_event_ids.get(smart_type)
+        if not event_id:
+            return None
+        # Prefer the per-camera active index (immune to bootstrap.events eviction)
+        active = self._active_smart_detect_events.get(smart_type)
+        if active and (event := active.get(event_id)):
+            return event
+        return self._api.bootstrap.events.get(event_id)
 
     @property
     def last_smart_audio_detect_event(self) -> Event | None:
