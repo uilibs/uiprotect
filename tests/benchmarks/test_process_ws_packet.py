@@ -99,10 +99,9 @@ async def test_process_ws_packet_with_stats(
     bootstrap = benchmark_bootstrap
     bootstrap.capture_ws_stats = True
     process = bootstrap.process_ws_packet
-    ws_stats = bootstrap._ws_stats
 
     def _setup() -> None:
-        ws_stats.clear()
+        bootstrap.clear_ws_stats()
         reset_ws_packets(ws_packets, ws_packet_templates)
 
     def _run() -> None:
@@ -113,7 +112,7 @@ async def test_process_ws_packet_with_stats(
         benchmark.pedantic(_run, setup=_setup, rounds=_ROUNDS)
     finally:
         bootstrap.capture_ws_stats = False
-        ws_stats.clear()
+        bootstrap.clear_ws_stats()
 
 
 @pytest.mark.asyncio
