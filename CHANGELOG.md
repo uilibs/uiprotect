@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.2.4 (2026-04-10)
+
+### Performance improvements
+
+
+- Add codspeed benchmarks for websocket packet processing ([`65a97df`](https://github.com/uilibs/uiprotect/commit/65a97df05d5b558d19019f8e79cfa794a6a46f32))
+
+
 ## v10.2.3 (2026-03-24)
 
 ### Bug fixes
