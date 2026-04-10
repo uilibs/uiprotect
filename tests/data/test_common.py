@@ -775,11 +775,17 @@ def test_replacement_prefers_first_processed_active_event(
 
     bootstrap = camera_obj.api.bootstrap
 
+    # Intentionally set start times so chronological order does NOT match
+    # processing order: zone1 is processed first but has the newest start,
+    # zone2 is processed second but has the oldest start. This guarantees
+    # the assertion below truly validates processing-order precedence — an
+    # implementation that picked "oldest by start time" would fall back to
+    # zone2 instead of zone1 and fail the test.
     zone1_event = Event(  # type: ignore[call-arg]
         api=camera_obj.api,
         id="zone1_event",
         camera_id=camera_obj.id,
-        start=now - timedelta(seconds=11),
+        start=now - timedelta(seconds=8),
         type=EventType.SMART_DETECT,
         score=100,
         smart_detect_types=[SmartDetectObjectType.PERSON],
@@ -789,7 +795,7 @@ def test_replacement_prefers_first_processed_active_event(
         api=camera_obj.api,
         id="zone2_event",
         camera_id=camera_obj.id,
-        start=now - timedelta(seconds=10),
+        start=now - timedelta(seconds=11),
         type=EventType.SMART_DETECT,
         score=100,
         smart_detect_types=[SmartDetectObjectType.PERSON],
