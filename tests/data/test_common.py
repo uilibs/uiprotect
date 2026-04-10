@@ -349,6 +349,73 @@ def test_concurrent_smart_detect_zone_and_line(
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_singular_last_smart_detect_event_id_not_overwritten_by_ended(
+    camera_obj: Camera, reset_smart_detect: None
+):
+    """
+    Ended smart event must not overwrite the singular last_smart_detect_event_id.
+
+    Protect v7 emits a SMART_DETECT and SMART_DETECT_LINE simultaneously. When one
+    ends while the other is still active, the singular ``last_smart_detect_event_id``
+    (used by ``Camera.is_smart_currently_detected`` and ``last_smart_detect_event``)
+    must not be overwritten with the ended event's id — otherwise the sensor flips
+    OFF for the overlap window.
+    """
+    now = utc_now()
+    bootstrap = camera_obj.api.bootstrap
+
+    zone_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="zone_event_1",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=10),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    line_event = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="line_event_1",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=10),
+        type=EventType.SMART_DETECT_LINE,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+
+    bootstrap.process_event(zone_event)
+    bootstrap.process_event(line_event)
+
+    assert camera_obj.last_smart_detect_event_id == "line_event_1"
+    last = camera_obj.last_smart_detect_event
+    assert last is not None
+    assert last.end is None
+
+    # Zone event ends — line event is still active.
+    zone_event_ended = Event(  # type: ignore[call-arg]
+        api=camera_obj.api,
+        id="zone_event_1",
+        camera_id=camera_obj.id,
+        start=now - timedelta(seconds=10),
+        end=now - timedelta(seconds=5),
+        type=EventType.SMART_DETECT,
+        score=100,
+        smart_detect_types=[SmartDetectObjectType.PERSON],
+        smart_detect_event_ids=[],
+    )
+    bootstrap.process_event(zone_event_ended)
+
+    # The singular field must still reference an active event, not the ended one.
+    assert camera_obj.last_smart_detect_event_id == "line_event_1"
+    last = camera_obj.last_smart_detect_event
+    assert last is not None
+    assert last.id == "line_event_1"
+    assert last.end is None
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 def test_tracked_event_ends_replaced_by_active(
     camera_obj: Camera, reset_smart_detect: None
 ):
