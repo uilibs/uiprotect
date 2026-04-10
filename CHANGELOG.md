@@ -1,5 +1,49 @@
 # Changelog
 
+## v10.2.5 (2026-04-10)
+
+### Bug fixes
+
+
+- Keep sensor on when concurrent smart detect events overlap ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
+
+
+- Keep sensor on when concurrent smart detect events overlap ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
+
+
+- Prefer active event over ended when no tracking exists ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
+
+
+- Keep sensor on when concurrent smart detect events overlap ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
+
+
+- Overlap edge case ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
+
+
+- Bound bootstrap.events to prevent unbounded memory growth ([`386f806`](https://github.com/uilibs/uiprotect/commit/386f806944d23dfc508e6f703937168cd704265c))
+
+
+### Testing
+
+
+- Add coverage for current_id=none with active event branch ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
+
+
+- Cover stale event cleanup in active index ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
+
+
+- Decouple processing-order assertion from timestamp order ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
+
+
+- Assert sensor state during concurrent smart-detect overlap ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
+
+
+### Refactoring
+
+
+- Extract reset_smart_detect fixture to reduce duplication ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
+
+
 ## v10.2.4 (2026-04-10)
 
 ### Performance improvements
