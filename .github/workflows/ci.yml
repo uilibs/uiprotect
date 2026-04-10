@@ -89,7 +89,7 @@ jobs:
         uses: CodSpeedHQ/action@v4
         with:
           run: poetry run pytest tests/benchmarks --no-cov -o addopts="" --codspeed
-          mode: instrumentation
+          mode: simulation
 
   release:
     needs:
