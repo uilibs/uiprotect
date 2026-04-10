@@ -10,6 +10,7 @@
   <a href="https://codecov.io/gh/uilibs/uiprotect">
     <img src="https://img.shields.io/codecov/c/github/uilibs/uiprotect.svg?logo=codecov&logoColor=fff&style=flat-square" alt="Test coverage percentage">
   </a>
+  <a href="https://codspeed.io/uilibs/uiprotect?utm_source=badge"><img src="https://img.shields.io/endpoint?url=https://codspeed.io/badge.json" alt="CodSpeed Badge"/></a>
 </p>
 <p align="center">
   <a href="https://python-poetry.org/">
