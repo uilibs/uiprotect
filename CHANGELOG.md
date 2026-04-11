@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.2.6 (2026-04-11)
+
+### Bug fixes
+
+
+- Add missing max_event_history_in_state_machine import in bootstrap.py ([`63dce4c`](https://github.com/uilibs/uiprotect/commit/63dce4c8ae6d1e2e0d319993cd1097fb2a961603))
+
+
 ## v10.2.5 (2026-04-10)
 
 ### Bug fixes
