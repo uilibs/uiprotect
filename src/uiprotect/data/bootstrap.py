@@ -34,7 +34,7 @@ from .devices import (
     Sensor,
     Viewer,
 )
-from .nvr import NVR, Event, Liveview
+from .nvr import MAX_EVENT_HISTORY_IN_STATE_MACHINE, NVR, Event, Liveview
 from .types import EventType, FixSizeOrderedDict, ModelType, SmartDetectObjectType
 from .user import Group, Keyrings, UlpUserKeyringBase, UlpUsers, User
 from .websocket import (
