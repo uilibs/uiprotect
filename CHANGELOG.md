@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.3.1 (2026-04-23)
+
+### Bug fixes
+
+
+- Add missing public event websocket types ([`8460c84`](https://github.com/uilibs/uiprotect/commit/8460c8453489e375a6dfa7230f8dafb0a03dae6a))
+
+
 ## v10.3.0 (2026-04-23)
 
 ### Features
