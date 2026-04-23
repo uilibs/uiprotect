@@ -16,7 +16,7 @@ from uuid import UUID
 import aiofiles
 import orjson
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 from pydantic.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized
@@ -361,11 +361,15 @@ class Event(ProtectModelWithId):
     type: EventType
     start: datetime
     end: datetime | None = None
-    score: int
+    # ``score`` / ``smart_detect_*`` are always present on the private API
+    # but the Public Integration API websocket omits them on minimal
+    # payloads (motion start, doorbell ring, etc.). Defaults keep the
+    # strict model constructable from either source.
+    score: int = 0
     heatmap_id: str | None = None
     camera_id: str | None = None
-    smart_detect_types: list[SmartDetectObjectType]
-    smart_detect_event_ids: list[str]
+    smart_detect_types: list[SmartDetectObjectType] = Field(default_factory=list)
+    smart_detect_event_ids: list[str] = Field(default_factory=list)
     thumbnail_id: str | None = None
     user_id: str | None = None
     timestamp: datetime | None = None

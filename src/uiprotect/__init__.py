@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .api import ProtectApiClient, calculate_retry_delay, parse_retry_after
-from .exceptions import Invalid, NotAuthorized, NvrError
+from .exceptions import GlobalAlarmManagerError, Invalid, NotAuthorized, NvrError
 from .utils import (
     get_nested_attr,
     get_nested_attr_as_bool,
@@ -14,6 +14,7 @@ from .utils import (
 )
 
 __all__ = [
+    "GlobalAlarmManagerError",
     "Invalid",
     "NotAuthorized",
     "NvrError",

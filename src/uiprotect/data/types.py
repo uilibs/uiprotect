@@ -146,6 +146,10 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
     ULP_USER = "ulpUser"
     RINGTONE = "ringtone"
     KEYRING = "keyring"
+    # Public API only. Intentionally NOT part of
+    # `_bootstrap_model_types` so the private bootstrap path is unchanged.
+    SIREN = "siren"
+    RELAY = "relay"
     UNKNOWN = "unknown"
 
     bootstrap_model_types: tuple[ModelType, ...]

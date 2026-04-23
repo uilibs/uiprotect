@@ -18,6 +18,7 @@ from .devices import (
     Viewer,
 )
 from .nvr import NVR, Event, Liveview
+from .public_devices import Relay, Siren
 from .types import ModelType
 from .user import CloudAccount, Group, Keyring, UlpUser, User, UserLocation
 
@@ -44,6 +45,10 @@ MODEL_TO_CLASS: dict[str, type[ProtectModel]] = {
     ModelType.AIPORT: AiPort,
     ModelType.KEYRING: Keyring,
     ModelType.ULP_USER: UlpUser,
+    # Public API only. These are not produced by the private
+    # bootstrap, so private-API callers remain unaffected.
+    ModelType.SIREN: Siren,
+    ModelType.RELAY: Relay,
 }
 
 

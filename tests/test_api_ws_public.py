@@ -127,7 +127,13 @@ async def test_subscribe_devices_websocket_state(
 async def test_process_events_ws_message_add(
     protect_client_no_debug: ProtectApiClient,
 ) -> None:
-    """Test processing events websocket message with ADD action."""
+    """
+    Test processing events websocket message with ADD action.
+
+    Without a materialised public bootstrap, events are not cached — the
+    subscription message carries ``new_obj=None`` and callers must use
+    ``changed_data``.
+    """
     messages: list[WSSubscriptionMessage] = []
 
     def capture_ws(message: WSSubscriptionMessage) -> None:
@@ -135,7 +141,6 @@ async def test_process_events_ws_message_add(
 
     unsub = protect_client_no_debug.subscribe_events_websocket(capture_ws)
 
-    # Create a mock websocket message (JSON format for public API)
     msg = create_mock_ws_message(
         '{"type":"add","item":{"id":"test-event-123","modelKey":"event","type":"motion","start":1234567890}}'
     )
@@ -146,13 +151,8 @@ async def test_process_events_ws_message_add(
     assert messages[0].action == WSAction.ADD
     assert messages[0].changed_data["id"] == "test-event-123"
     assert messages[0].changed_data["modelKey"] == "event"
-
-    # Test that a real Event object was created
-    assert messages[0].new_obj is not None
-    assert messages[0].new_obj.id == "test-event-123"
-    assert messages[0].new_obj.model.value == "event"
-
-    # Test update_id is set correctly
+    # No cache materialised → no cached object built.
+    assert messages[0].new_obj is None
     assert messages[0].new_update_id == "test-event-123"
 
     unsub()
@@ -364,11 +364,15 @@ async def test_process_events_ws_message_object_creation_failure(
 
 
 @pytest.mark.asyncio()
-async def test_process_events_ws_message_object_creation_failure_debug(
+async def test_process_events_ws_message_without_cache_emits_none_obj_events(
     protect_client: ProtectApiClient,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test processing events websocket message when object creation fails with debug logging."""
+    """
+    Without a materialised cache, event add/update messages emit ``new_obj=None``.
+
+    The raw payload is still forwarded via ``changed_data`` so subscribers
+    can react without opting into the :class:`PublicBootstrap` event cache.
+    """
     messages: list[WSSubscriptionMessage] = []
 
     def capture_ws(message: WSSubscriptionMessage) -> None:
@@ -376,34 +380,17 @@ async def test_process_events_ws_message_object_creation_failure_debug(
 
     unsub = protect_client.subscribe_events_websocket(capture_ws)
 
-    # Create a mock websocket message with invalid data that will cause object creation to fail
     msg = create_mock_ws_message(
         '{"type":"add","item":{"id":"test-event-123","modelKey":"event","invalid_field":"bad_data"}}'
     )
 
-    # Patch create_from_unifi_dict to raise an exception
-    with (
-        patch(
-            "uiprotect.api.create_from_unifi_dict",
-            side_effect=Exception("Object creation failed"),
-        ),
-        caplog.at_level(logging.DEBUG),
-    ):
-        protect_client._process_events_ws_message(msg)
+    protect_client._process_events_ws_message(msg)
 
     assert len(messages) == 1
     assert messages[0].action == WSAction.ADD
     assert messages[0].changed_data["id"] == "test-event-123"
-
-    # Object creation should have failed gracefully
     assert messages[0].new_obj is None
     assert messages[0].old_obj is None
-
-    # Check that debug log message was created
-    assert any(
-        "Could not create object from public API data" in record.message
-        for record in caplog.records
-    )
 
     unsub()
 
@@ -1253,11 +1240,17 @@ async def test_process_devices_ws_message_unknown_model_debug(
 
 
 @pytest.mark.asyncio()
-async def test_process_devices_ws_message_object_creation_failure_debug(
+async def test_process_devices_ws_message_without_cache_emits_none_obj(
     protect_client: ProtectApiClient,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test processing devices websocket message when object creation fails with debug logging."""
+    """
+    Without a materialised public bootstrap, ``new_obj`` is ``None``.
+
+    The public devices WS handler no longer eagerly constructs model
+    instances via ``create_from_unifi_dict`` — consumers that haven't opted
+    into :meth:`update_public` must use ``changed_data`` (the raw payload).
+    """
     messages: list[WSSubscriptionMessage] = []
 
     def capture_ws(message: WSSubscriptionMessage) -> None:
@@ -1265,33 +1258,17 @@ async def test_process_devices_ws_message_object_creation_failure_debug(
 
     unsub = protect_client.subscribe_devices_websocket(capture_ws)
 
-    # Create a mock websocket message with invalid data that will cause object creation to fail
     msg = create_mock_ws_message(
         '{"type":"add","item":{"id":"test-device-123","modelKey":"camera","invalid_field":"bad_data"}}'
     )
 
-    # Patch create_from_unifi_dict to raise an exception
-    with (
-        patch(
-            "uiprotect.api.create_from_unifi_dict",
-            side_effect=Exception("Object creation failed"),
-        ),
-        caplog.at_level(logging.DEBUG),
-    ):
+    with caplog.at_level(logging.DEBUG):
         protect_client._process_devices_ws_message(msg)
 
     assert len(messages) == 1
     assert messages[0].action == WSAction.ADD
     assert messages[0].changed_data["id"] == "test-device-123"
-
-    # Object creation should have failed gracefully
     assert messages[0].new_obj is None
     assert messages[0].old_obj is None
-
-    # Check that debug log message was created
-    assert any(
-        "Could not create object from public API data" in record.message
-        for record in caplog.records
-    )
 
     unsub()

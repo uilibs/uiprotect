@@ -5,6 +5,9 @@ import aiohttp
 from typer.testing import CliRunner
 
 from uiprotect.cli import _is_ssl_error, app
+from uiprotect.cli.arm import app as arm_app
+from uiprotect.cli.relays import app as relay_app
+from uiprotect.cli.sirens import app as siren_app
 
 runner = CliRunner()
 
@@ -52,3 +55,65 @@ def test_is_ssl_error_with_non_ssl_exceptions():
     assert _is_ssl_error(RuntimeError("connection refused")) is False
     assert _is_ssl_error(aiohttp.ClientError("generic error")) is False
     assert _is_ssl_error(ConnectionError("network error")) is False
+
+
+# ---------------------------------------------------------------------------
+# New Public-API sub-app smoke tests (no server needed)
+# ---------------------------------------------------------------------------
+
+
+def test_root_help_shows_public_subcommands() -> None:
+    """Top-level --help must list the new public-API sub-apps."""
+    result = runner.invoke(app, ["--help"])
+    assert result.exit_code == 0
+    assert "sirens" in result.stdout
+    assert "relays" in result.stdout
+    assert "arm" in result.stdout
+
+
+def test_sirens_help() -> None:
+    """``sirens --help`` renders without error."""
+    result = runner.invoke(siren_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+
+
+def test_relays_help() -> None:
+    """``relays --help`` renders without error."""
+    result = runner.invoke(relay_app, ["--help"])
+    assert result.exit_code == 0
+    assert "activate" in result.stdout
+
+
+def test_arm_help() -> None:
+    """``arm --help`` renders without error."""
+    result = runner.invoke(arm_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+
+
+def test_relays_activate_rejects_invalid_state() -> None:
+    """``activate --state bad`` must exit with code 1 before any API call."""
+    result = runner.invoke(relay_app, ["activate", "relay-id", "0", "--state", "bad"])
+    assert result.exit_code == 1
+    assert "--state must be" in result.stdout
+
+
+def test_relays_activate_rejects_pulse_without_on_state() -> None:
+    """``--pulse-duration-ms`` with ``--state off`` must exit with code 1."""
+    result = runner.invoke(
+        relay_app,
+        ["activate", "relay-id", "0", "--state", "off", "--pulse-duration-ms", "500"],
+    )
+    assert result.exit_code == 1
+    assert "--pulse-duration-ms requires" in result.stdout
+
+
+def test_relays_activate_rejects_pulse_without_any_state() -> None:
+    """``--pulse-duration-ms`` without a state must exit with code 1."""
+    result = runner.invoke(
+        relay_app,
+        ["activate", "relay-id", "0", "--pulse-duration-ms", "500"],
+    )
+    assert result.exit_code == 1
+    assert "--pulse-duration-ms requires" in result.stdout
