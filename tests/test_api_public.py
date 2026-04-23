@@ -722,6 +722,44 @@ async def test_get_arm_manager_settings_fetches_nvr_when_no_cache(
     )
 
 
+@pytest.mark.asyncio()
+async def test_get_arm_manager_settings_returns_none_when_nvr_has_no_arm_mode(
+    protect_client: ProtectApiClient,
+) -> None:
+    protect_client._public_bootstrap = None
+    protect_client.api_request_obj = AsyncMock(return_value={})
+
+    result = await protect_client.get_arm_manager_settings_public()
+
+    assert result is None
+    protect_client.api_request_obj.assert_called_once_with(
+        url="/v1/nvrs", public_api=True
+    )
+
+
+@pytest.mark.asyncio()
+async def test_set_current_arm_profile_updates_arm_mode_profile_id(
+    protect_client: ProtectApiClient,
+) -> None:
+    protect_client.api_request_raw = AsyncMock(return_value=None)
+    protect_client._public_bootstrap = PublicBootstrap()
+    pb = protect_client.public_bootstrap
+    pb.arm_mode = NvrArmMode.from_unifi_dict(
+        status="disabled",
+        armProfileId=None,
+        armedAt=None,
+        willBeArmedAt=None,
+        breachDetectedAt=None,
+        breachEventCount=0,
+        breachTriggerEventId=None,
+        breachEventId=None,
+    )
+
+    await protect_client.set_current_arm_profile_public(PROFILE_ID)
+
+    assert pb.arm_mode.arm_profile_id == PROFILE_ID
+
+
 # ---------------------------------------------------------------------------
 # Typed settings are forwarded as plain dict
 # ---------------------------------------------------------------------------
