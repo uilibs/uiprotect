@@ -11,7 +11,7 @@ import re
 import sys
 import time
 import warnings
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import partial
 from http import HTTPStatus, cookies
@@ -716,12 +716,18 @@ class BaseApiClient:
             if status == HTTPStatus.TOO_MANY_REQUESTS.value:
                 _LOGGER.debug("Too many requests - Login is rate limited: %s", response)
                 raise NvrError(msg % (url, status, reason))
-            if (
-                status >= HTTPStatus.BAD_REQUEST.value
-                and status < HTTPStatus.INTERNAL_SERVER_ERROR.value
-            ):
+            # Handle 400 Bad Request specifically; check for global alarm
+            # manager error (returned when alarm-manager is not local, e.g.
+            # set to global instead), but treat other 4xx as generic bad request.
+            if status == HTTPStatus.BAD_REQUEST.value:
                 if "global alarm manager" in reason.lower():
                     raise GlobalAlarmManagerError(msg % (url, status, reason))
+                raise BadRequest(msg % (url, status, reason))
+            # Other 4xx client errors also raise BadRequest
+            if (
+                status > HTTPStatus.BAD_REQUEST.value
+                and status < HTTPStatus.INTERNAL_SERVER_ERROR.value
+            ):
                 raise BadRequest(msg % (url, status, reason))
             raise NvrError(msg % (url, status, reason))
 
@@ -3475,64 +3481,42 @@ class ProtectApiClient(BaseApiClient):
         # Remember the caller's choice so reconnect re-syncs honour it.
         self._last_update_public_include_arm_profiles = include_arm_profiles
 
-        # NVR first, separately — consumers typically need it for
-        # ``DeviceInfo`` and it's very cheap (single object).
-        nvr_coro = self.get_nvr_public()
+        # Bind coroutines to their labels and attribute names to avoid
+        # manual index synchronization bugs.
+        endpoints = [
+            (self.get_nvr_public(), "nvr", "nvr"),
+            (self.get_cameras_public(), "cameras", "cameras"),
+            (self.get_lights_public(), "lights", "lights"),
+            (self.get_chimes_public(), "chimes", "chimes"),
+            (self.get_sensors_public(), "sensors", "sensors"),
+            (self.get_sirens_public(), "sirens", "sirens"),
+            (self.get_relays_public(), "relays", "relays"),
+        ]
 
-        # Order matters only for logging/result placement below.
-        coros: list[Coroutine[Any, Any, Any]] = [
-            nvr_coro,
-            self.get_cameras_public(),
-            self.get_lights_public(),
-            self.get_chimes_public(),
-            self.get_sensors_public(),
-            self.get_sirens_public(),
-            self.get_relays_public(),
-        ]
-        labels = [
-            "nvr",
-            "cameras",
-            "lights",
-            "chimes",
-            "sensors",
-            "sirens",
-            "relays",
-        ]
         if include_arm_profiles:
             # ``get_arm_profiles_public`` writes into ``pb`` itself on
             # success; we gather it for concurrency and to swallow failures.
-            # ``armMode`` is part of the NVR response and is already parsed
-            # by ``get_nvr_public()`` — no separate settings call needed.
-            coros.append(self.get_arm_profiles_public())
-            labels.append("arm-profiles")
+            # ``armMode`` is part of the NVR response; no separate call needed.
+            endpoints.append(
+                (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles")
+            )
 
-        results = await asyncio.gather(*coros, return_exceptions=True)
+        results = await asyncio.gather(
+            *[coro for coro, _, _ in endpoints], return_exceptions=True
+        )
 
-        nvr_result = results[0]
-        if isinstance(nvr_result, BaseException):
-            _log_or_raise("nvr", nvr_result)
-        else:
-            pb.nvr = nvr_result
-
-        # 1..6: device stores. Merge per-id so concurrent WS applies during
-        # the HTTP fetch window are preserved for any device not present in
-        # the returned list.
-        device_attrs = ("cameras", "lights", "chimes", "sensors", "sirens", "relays")
-        for label, attr, result in zip(
-            labels[1:7],
-            device_attrs,
-            results[1:7],
-            strict=True,
-        ):
+        # Process results with their corresponding labels and attributes.
+        for (_, label, attr), result in zip(endpoints, results, strict=True):
             if isinstance(result, BaseException):
                 _log_or_raise(label, result)
                 continue
-            pb.apply_fetch_result(attr, result)
-
-        # Arm-profile results have already been applied by their methods;
-        # only log any failures so the user sees which endpoint was skipped.
-        for label, result in zip(labels[7:], results[7:], strict=True):
-            if isinstance(result, BaseException):
-                _log_or_raise(label, result)
+            if attr == "arm_profiles":
+                # arm_profiles are already applied by get_arm_profiles_public;
+                # skip here to avoid overwriting the in-place dict.
+                continue
+            if attr == "nvr":
+                pb.nvr = result  # type: ignore[assignment]
+            else:
+                pb.apply_fetch_result(attr, result)  # type: ignore[arg-type]
 
         return pb
