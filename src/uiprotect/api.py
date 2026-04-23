@@ -1149,7 +1149,6 @@ class ProtectApiClient(BaseApiClient):
     _devices_ws_state_subscriptions: list[Callable[[WebsocketState], None]]
     _bootstrap: Bootstrap | None = None
     _public_bootstrap: PublicBootstrap | None = None
-    _public_resync_task: asyncio.Task[None] | None = None
     # True after the first time the devices WS transitions to CONNECTED; used
     # to distinguish the *initial* connect from a *reconnect*. Only the
     # latter triggers an automatic `update_public()` resync.
@@ -3155,6 +3154,18 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Sirens
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _build_named_led_patch_body(
+        *, name: str | None = None, led_is_enabled: bool | None = None
+    ) -> dict[str, Any]:
+        """Build common PATCH body for resources with name + ledSettings."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if led_is_enabled is not None:
+            body["ledSettings"] = {"isEnabled": led_is_enabled}
+        return body
+
     async def get_sirens_public(self) -> list[Siren]:
         """Get all sirens using public API."""
         data = await self.api_request_list(url="/v1/sirens", public_api=True)
@@ -3174,13 +3185,12 @@ class ProtectApiClient(BaseApiClient):
         led_is_enabled: bool | None = None,
     ) -> Siren:
         """Patch siren settings using public API."""
-        body: dict[str, Any] = {}
-        if name is not None:
-            body["name"] = name
+        body = self._build_named_led_patch_body(
+            name=name,
+            led_is_enabled=led_is_enabled,
+        )
         if volume is not None:
             body["volume"] = volume
-        if led_is_enabled is not None:
-            body["ledSettings"] = {"isEnabled": led_is_enabled}
 
         if not body:
             raise BadRequest("At least one parameter must be provided")
@@ -3251,11 +3261,10 @@ class ProtectApiClient(BaseApiClient):
         led_is_enabled: bool | None = None,
     ) -> Relay:
         """Patch relay settings using public API."""
-        body: dict[str, Any] = {}
-        if name is not None:
-            body["name"] = name
-        if led_is_enabled is not None:
-            body["ledSettings"] = {"isEnabled": led_is_enabled}
+        body = self._build_named_led_patch_body(
+            name=name,
+            led_is_enabled=led_is_enabled,
+        )
 
         if not body:
             raise BadRequest("At least one parameter must be provided")
