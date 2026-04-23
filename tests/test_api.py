@@ -48,7 +48,12 @@ from uiprotect.data import (
 )
 from uiprotect.data.devices import LEDSettings
 from uiprotect.data.types import Version, VideoMode
-from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
+from uiprotect.exceptions import (
+    BadRequest,
+    GlobalAlarmManagerError,
+    NotAuthorized,
+    NvrError,
+)
 from uiprotect.stream import TalkbackSession
 from uiprotect.utils import decode_token_cookie, to_js_time
 
@@ -3221,6 +3226,24 @@ async def test_raise_for_status_status_codes():
 
             # Should not raise with raise_exception=False
             await api._raise_for_status(response, raise_exception=False)
+
+
+@pytest.mark.asyncio
+async def test_raise_for_status_global_alarm_manager_error() -> None:
+    """400 with global alarm manager reason raises GlobalAlarmManagerError."""
+    api = ProtectApiClient("test.com", 443, "username", "password")
+    response = Mock()
+    response.status = 400
+    response.url = "https://test.com/api/test"
+
+    with (
+        patch(
+            "uiprotect.api.get_response_reason",
+            return_value="Global alarm manager is configured",
+        ),
+        pytest.raises(GlobalAlarmManagerError),
+    ):
+        await api._raise_for_status(response, raise_exception=True)
 
 
 @pytest.mark.asyncio

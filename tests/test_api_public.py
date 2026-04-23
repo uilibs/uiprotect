@@ -904,6 +904,38 @@ async def test_arm_manager_settings_from_nvr_arm_mode(
     assert pb.arm_mode is None
 
 
+@pytest.mark.asyncio()
+@patch("uiprotect.api.NVR.from_unifi_dict")
+async def test_get_nvr_public_sets_arm_mode_when_present(
+    mock_nvr_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_nvr_ctor.return_value = Mock(id="nvr-1")
+    protect_client._public_bootstrap = PublicBootstrap()
+    pb = protect_client.public_bootstrap
+    pb.arm_mode = None
+    protect_client.api_request_obj = AsyncMock(
+        return_value={
+            "id": "nvr-1",
+            "armMode": {
+                "status": "armed",
+                "armProfileId": PROFILE_ID,
+                "armedAt": None,
+                "willBeArmedAt": None,
+                "breachDetectedAt": None,
+                "breachEventCount": 0,
+                "breachTriggerEventId": None,
+                "breachEventId": None,
+            },
+        }
+    )
+
+    await protect_client.get_nvr_public()
+
+    assert pb.arm_mode is not None
+    assert pb.arm_mode.arm_profile_id == PROFILE_ID
+
+
 def test_ws_handler_without_cache_emits_none_obj(
     protect_client: ProtectApiClient,
 ) -> None:
