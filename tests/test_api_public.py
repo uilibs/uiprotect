@@ -12,7 +12,7 @@ import orjson
 import pytest
 
 from uiprotect.data import ArmProfile, NvrArmMode, PublicBootstrap, Relay, Siren
-from uiprotect.data.types import ModelType
+from uiprotect.data.types import EventType, ModelType
 from uiprotect.exceptions import BadRequest
 from uiprotect.websocket import WebsocketState
 
@@ -1149,6 +1149,87 @@ def test_events_ws_motion_minimal_add_and_end_update(
     assert new2 is not None and new2.end is not None
     # And the cache-stored copy reflects the merge.
     assert pb.events["evt-motion-1"].end is not None
+
+
+def test_events_ws_sensor_button_pressed_add(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Public API events WS accepts ``sensorButtonPressed`` payloads."""
+    pb = PublicBootstrap()
+    protect_client._public_bootstrap = pb
+
+    new_event, old_event = pb.process_events_ws_message(
+        protect_client,
+        {
+            "type": "add",
+            "item": {
+                "id": "evt-sensor-button-1",
+                "modelKey": "event",
+                "type": "sensorButtonPressed",
+                "start": 1700000000000,
+                "device": SENSOR_ID,
+                "metadata": {
+                    "button": {
+                        "text": "alarmHubButton",
+                    }
+                },
+            },
+        },
+    )
+
+    assert old_event is None
+    assert new_event is not None
+    assert new_event.type is EventType.SENSOR_BUTTON_PRESSED
+    assert new_event.id == "evt-sensor-button-1"
+    assert pb.events["evt-sensor-button-1"].type is EventType.SENSOR_BUTTON_PRESSED
+
+
+@pytest.mark.parametrize(
+    ("event_type", "expected"),
+    [
+        ("sensorSmokeTest", EventType.SENSOR_SMOKE_TEST),
+        ("sensorTamper", EventType.SENSOR_TAMPER),
+        ("relayInputChanged", EventType.RELAY_INPUT_CHANGED),
+        ("alarmHubMotion", EventType.ALARM_HUB_MOTION),
+        ("alarmHubEntryOpened", EventType.ALARM_HUB_ENTRY_OPENED),
+        ("alarmHubEntryClosed", EventType.ALARM_HUB_ENTRY_CLOSED),
+        ("alarmHubRelaySwitched", EventType.ALARM_HUB_RELAY_SWITCHED),
+        ("alarmHubButtonPress", EventType.ALARM_HUB_BUTTON_PRESS),
+        ("alarmHubSmoke", EventType.ALARM_HUB_SMOKE),
+        ("alarmHubGlassBreak", EventType.ALARM_HUB_GLASS_BREAK),
+        ("alarmHubTamper", EventType.ALARM_HUB_TAMPER),
+        ("alarmHubBatteryConnected", EventType.ALARM_HUB_BATTERY_CONNECTED),
+        ("alarmHubBatteryLow", EventType.ALARM_HUB_BATTERY_LOW),
+        ("smartDetectLoiterZone", EventType.SMART_DETECT_LOITER),
+    ],
+)
+def test_events_ws_add_supports_additional_public_event_types(
+    protect_client: ProtectApiClient,
+    event_type: str,
+    expected: EventType,
+) -> None:
+    """Public API events WS can parse additional event types from the spec."""
+    pb = PublicBootstrap()
+    protect_client._public_bootstrap = pb
+
+    event_id = f"evt-{event_type}"
+    new_event, old_event = pb.process_events_ws_message(
+        protect_client,
+        {
+            "type": "add",
+            "item": {
+                "id": event_id,
+                "modelKey": "event",
+                "type": event_type,
+                "start": 1700000000000,
+            },
+        },
+    )
+
+    assert old_event is None
+    assert new_event is not None
+    assert new_event.type is expected
+    assert pb.events[event_id].type is expected
 
 
 def test_events_ws_add_evicts_oldest(
