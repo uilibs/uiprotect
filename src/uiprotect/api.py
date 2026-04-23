@@ -144,7 +144,15 @@ _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
 
 
 def _log_or_raise(label: str, exc: BaseException) -> None:
-    """Log expected endpoint-unavailable errors; re-raise anything unexpected."""
+    """
+    Log expected endpoint-unavailable errors; re-raise anything unexpected.
+
+    NvrError and BadRequest are treated as expected failures for optional Public
+    API endpoints (e.g., alarm-manager, sirens, relays) that may not exist on
+    all systems. Connection errors or timeouts are logged at DEBUG level and
+    aggregated in the response; any other exception type is re-raised as a
+    critical failure (e.g., JSON decode errors, missing required fields).
+    """
     if isinstance(exc, (BadRequest, NvrError)):
         _LOGGER.debug("%s endpoint unavailable: %s", label, exc)
     else:
