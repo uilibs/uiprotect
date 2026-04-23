@@ -30,8 +30,8 @@ def status(ctx: typer.Context) -> None:
     """Show current arm manager settings (active profile + alarm state)."""
 
     async def _fetch() -> None:
-        settings = await ctx.obj.protect.get_arm_manager_settings_public()
-        base.print_unifi_obj(settings, ctx.obj.output_format)
+        arm_mode = await ctx.obj.protect.get_arm_manager_settings_public()
+        base.print_unifi_obj(arm_mode, ctx.obj.output_format)
 
     base.run(ctx, _fetch())
 

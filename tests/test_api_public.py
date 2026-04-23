@@ -11,7 +11,7 @@ import aiohttp
 import orjson
 import pytest
 
-from uiprotect.data import ArmProfile, PublicBootstrap, Relay, Siren
+from uiprotect.data import ArmProfile, NvrArmMode, PublicBootstrap, Relay, Siren
 from uiprotect.data.types import ModelType
 from uiprotect.exceptions import BadRequest
 from uiprotect.websocket import WebsocketState
@@ -37,7 +37,6 @@ def _mock_update_public_endpoints(client: ProtectApiClient, **overrides: Any) ->
         "get_sirens_public": AsyncMock(return_value=[]),
         "get_relays_public": AsyncMock(return_value=[]),
         "get_arm_profiles_public": AsyncMock(return_value=[]),
-        "get_arm_manager_settings_public": AsyncMock(return_value=Mock()),
     }
     defaults.update(overrides)
     for name, value in defaults.items():
@@ -287,11 +286,12 @@ async def test_set_current_arm_profile_updates_cache(
     protect_client: ProtectApiClient,
 ) -> None:
     protect_client.api_request_raw = AsyncMock(return_value=None)
-    # Materialise the cache first so state tracking is observable.
+    # Without an arm_mode in the cache the profile_id update is a no-op.
     protect_client._public_bootstrap = PublicBootstrap()
     pb = protect_client.public_bootstrap
     await protect_client.set_current_arm_profile_public(PROFILE_ID)
-    assert pb.current_arm_profile_id == PROFILE_ID
+    # arm_mode is None (global alarm manager) — no crash, no state change.
+    assert pb.arm_mode is None
 
 
 @pytest.mark.asyncio()
@@ -301,10 +301,20 @@ async def test_enable_disable_arm_alarm_tracks_state(
     protect_client.api_request_raw = AsyncMock(return_value=None)
     protect_client._public_bootstrap = PublicBootstrap()
     pb = protect_client.public_bootstrap
+    pb.arm_mode = NvrArmMode.from_unifi_dict(
+        status="disabled",
+        armProfileId=None,
+        armedAt=None,
+        willBeArmedAt=None,
+        breachDetectedAt=None,
+        breachEventCount=0,
+        breachTriggerEventId=None,
+        breachEventId=None,
+    )
     await protect_client.enable_arm_alarm_public()
-    assert pb.arm_alarm_enabled is True
+    assert pb.arm_mode.status == "arming"
     await protect_client.disable_arm_alarm_public()
-    assert pb.arm_alarm_enabled is False
+    assert pb.arm_mode.status == "disabled"
 
 
 @pytest.mark.asyncio()
@@ -539,7 +549,6 @@ async def test_update_public_tolerates_missing_endpoints(
         get_sirens_public=AsyncMock(side_effect=BadRequest("404")),
         get_relays_public=AsyncMock(side_effect=BadRequest("404")),
         get_arm_profiles_public=AsyncMock(side_effect=BadRequest("404")),
-        get_arm_manager_settings_public=AsyncMock(side_effect=BadRequest("404")),
     )
 
     pb = await protect_client.update_public()
@@ -563,7 +572,6 @@ async def test_update_public_tolerates_every_endpoint_failing(
         get_sirens_public=AsyncMock(side_effect=BadRequest("X")),
         get_relays_public=AsyncMock(side_effect=BadRequest("X")),
         get_arm_profiles_public=AsyncMock(side_effect=BadRequest("X")),
-        get_arm_manager_settings_public=AsyncMock(side_effect=BadRequest("X")),
     )
 
     pb = await protect_client.update_public()
@@ -650,43 +658,56 @@ async def test_send_alarm_webhook_quotes_id(
 
 
 # ---------------------------------------------------------------------------
-# Arm-manager settings endpoint
+# Arm-manager settings (from NVR armMode)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio()
-async def test_get_arm_manager_settings_populates_cache(
+async def test_get_arm_manager_settings_returns_from_cache(
     protect_client: ProtectApiClient,
 ) -> None:
-    protect_client.api_request_obj = AsyncMock(
-        return_value={"armProfileId": PROFILE_ID, "isEnabled": True}
-    )
     protect_client._public_bootstrap = PublicBootstrap()
     pb = protect_client.public_bootstrap
-    settings = await protect_client.get_arm_manager_settings_public()
-    assert settings.arm_profile_id == PROFILE_ID
-    assert settings.is_enabled is True
-    assert pb.current_arm_profile_id == PROFILE_ID
-    assert pb.arm_alarm_enabled is True
+    arm_mode = NvrArmMode.from_unifi_dict(
+        status="armed",
+        armProfileId=PROFILE_ID,
+        armedAt=None,
+        willBeArmedAt=None,
+        breachDetectedAt=None,
+        breachEventCount=0,
+        breachTriggerEventId=None,
+        breachEventId=None,
+    )
+    pb.arm_mode = arm_mode
+    result = await protect_client.get_arm_manager_settings_public()
+    assert result is arm_mode
 
 
 @pytest.mark.asyncio()
-async def test_update_public_fetches_arm_manager_settings(
+async def test_get_arm_manager_settings_fetches_nvr_when_no_cache(
     protect_client: ProtectApiClient,
 ) -> None:
-    _mock_update_public_endpoints(protect_client)
-    await protect_client.update_public()
-    protect_client.get_arm_manager_settings_public.assert_awaited_once()
-
-
-@pytest.mark.asyncio()
-async def test_update_public_skips_arm_when_disabled(
-    protect_client: ProtectApiClient,
-) -> None:
-    _mock_update_public_endpoints(protect_client)
-    await protect_client.update_public(include_arm_profiles=False)
-    protect_client.get_arm_profiles_public.assert_not_called()
-    protect_client.get_arm_manager_settings_public.assert_not_called()
+    protect_client._public_bootstrap = None
+    protect_client.api_request_obj = AsyncMock(
+        return_value={
+            "armMode": {
+                "status": "disabled",
+                "armProfileId": PROFILE_ID,
+                "armedAt": None,
+                "willBeArmedAt": None,
+                "breachDetectedAt": None,
+                "breachEventCount": 0,
+                "breachTriggerEventId": None,
+                "breachEventId": None,
+            }
+        }
+    )
+    result = await protect_client.get_arm_manager_settings_public()
+    assert result is not None
+    assert result.arm_profile_id == PROFILE_ID
+    protect_client.api_request_obj.assert_called_once_with(
+        url="/v1/nvrs", public_api=True
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -809,20 +830,28 @@ async def test_update_public_creates_cache(
 
 
 @pytest.mark.asyncio()
-async def test_arm_manager_settings_overwrites_both_fields(
+@patch("uiprotect.api.NVR.from_unifi_dict")
+async def test_arm_manager_settings_from_nvr_arm_mode(
+    mock_nvr_ctor: Mock,
     protect_client: ProtectApiClient,
 ) -> None:
-    """Response is truth: both fields always overwrite the cache."""
+    """NVR armMode=None leaves bootstrap.arm_mode as None."""
+    mock_nvr_ctor.return_value = Mock(id="nvr-1")
     protect_client._public_bootstrap = PublicBootstrap()
     pb = protect_client.public_bootstrap
-    pb.current_arm_profile_id = "old"
-    pb.arm_alarm_enabled = True
-    protect_client.api_request_obj = AsyncMock(
-        return_value={"armProfileId": None, "isEnabled": None}
+    pb.arm_mode = NvrArmMode.from_unifi_dict(
+        status="armed",
+        armProfileId="old",
+        armedAt=None,
+        willBeArmedAt=None,
+        breachDetectedAt=None,
+        breachEventCount=0,
+        breachTriggerEventId=None,
+        breachEventId=None,
     )
-    await protect_client.get_arm_manager_settings_public()
-    assert pb.current_arm_profile_id is None
-    assert pb.arm_alarm_enabled is None
+    protect_client.api_request_obj = AsyncMock(return_value={"id": "nvr-1"})
+    await protect_client.get_nvr_public()
+    assert pb.arm_mode is None
 
 
 def test_ws_handler_without_cache_emits_none_obj(
@@ -874,7 +903,6 @@ async def test_update_public_runs_concurrently(
         "get_arm_profiles_public",
     ):
         setattr(protect_client, name, _slow_empty)
-    protect_client.get_arm_manager_settings_public = AsyncMock(return_value=Mock())
     await protect_client.update_public()
     assert peak >= 7
 
@@ -1713,9 +1741,8 @@ async def test_update_public_records_include_arm_profiles(
     _mock_update_public_endpoints(protect_client)
     await protect_client.update_public(include_arm_profiles=False)
     assert protect_client._last_update_public_include_arm_profiles is False
-    # Arm-profile endpoints must NOT be called when opted out.
+    # Arm-profile endpoint must NOT be called when opted out.
     protect_client.get_arm_profiles_public.assert_not_called()
-    protect_client.get_arm_manager_settings_public.assert_not_called()
 
     await protect_client.update_public(include_arm_profiles=True)
     assert protect_client._last_update_public_include_arm_profiles is True

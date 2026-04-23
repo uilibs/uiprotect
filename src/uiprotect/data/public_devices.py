@@ -284,15 +284,20 @@ class ArmProfile(ProtectBaseObject):
     updated_at: datetime | None = None
 
 
-class ArmManagerSettings(ProtectBaseObject):
+class NvrArmMode(ProtectBaseObject):
     """
-    Current arm-manager state from ``GET /v1/arm-profiles/settings``.
+    Current arm-manager state embedded in the NVR object (``armMode`` field).
 
-    Both fields are ``Optional`` because the endpoint may be absent on
-    installations where the local alarm manager is not provisioned, and
-    forward-compatibility with future fields is preserved by not enforcing
-    presence here.
+    Returned by ``GET /v1/nvrs`` as part of the NVR payload.  All fields
+    that may legitimately be ``null`` on the wire are typed as ``Optional``
+    for forward-compatibility.
     """
 
+    status: str  # "arming" | "armed" | "breach" | "disabled"
     arm_profile_id: str | None = None
-    is_enabled: bool | None = None
+    armed_at: int | None = None
+    will_be_armed_at: int | None = None
+    breach_detected_at: int | None = None
+    breach_event_count: int = 0
+    breach_trigger_event_id: str | None = None
+    breach_event_id: str | None = None

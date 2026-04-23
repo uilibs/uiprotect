@@ -34,10 +34,11 @@ def run(ctx: typer.Context, func: Coroutine[Any, Any, T]) -> T:
     """Helper method to call async function and clean up API client"""
 
     async def callback() -> T:
-        return_value = await func
-        await ctx.obj.protect.close_session()
-        await ctx.obj.protect.close_public_api_session()
-        return return_value
+        try:
+            return await func
+        finally:
+            await ctx.obj.protect.close_session()
+            await ctx.obj.protect.close_public_api_session()
 
     try:
         return run_async(callback())

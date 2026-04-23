@@ -33,8 +33,8 @@ from .nvr import (
 )
 from .public_bootstrap import PublicBootstrap
 from .public_devices import (
-    ArmManagerSettings,
     ArmProfile,
+    NvrArmMode,
     PublicArmSchedule,
     PublicArmScheduleDict,
     PublicLedSettings,
@@ -112,7 +112,6 @@ __all__ = [
     "WS_HEADER_SIZE",
     "AiPort",
     "AnalyticsOption",
-    "ArmManagerSettings",
     "ArmProfile",
     "AudioStyle",
     "Bootstrap",
@@ -147,6 +146,7 @@ __all__ = [
     "ModelType",
     "MountType",
     "NVRLocation",
+    "NvrArmMode",
     "PTZPatrol",
     "PTZPosition",
     "PTZPreset",

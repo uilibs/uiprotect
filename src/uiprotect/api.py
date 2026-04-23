@@ -38,7 +38,6 @@ from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
 from ._compat import cached_property
 from .data import (
     NVR,
-    ArmManagerSettings,
     ArmProfile,
     Bootstrap,
     Bridge,
@@ -50,6 +49,7 @@ from .data import (
     Light,
     Liveview,
     ModelType,
+    NvrArmMode,
     ProtectAdoptableDeviceModel,
     ProtectModel,
     PublicArmScheduleDict,
@@ -74,7 +74,7 @@ from .data import (
 from .data.base import ProtectModelWithId
 from .data.devices import AiPort, Chime
 from .data.types import IteratorCallback, ProgressCallback, PTZPatrol, PTZPreset
-from .exceptions import BadRequest, NotAuthorized, NvrError
+from .exceptions import BadRequest, GlobalAlarmManagerError, NotAuthorized, NvrError
 from .stream import TalkbackSession
 from .utils import (
     decode_token_cookie,
@@ -720,6 +720,8 @@ class BaseApiClient:
                 status >= HTTPStatus.BAD_REQUEST.value
                 and status < HTTPStatus.INTERNAL_SERVER_ERROR.value
             ):
+                if "global alarm manager" in reason.lower():
+                    raise GlobalAlarmManagerError(msg % (url, status, reason))
                 raise BadRequest(msg % (url, status, reason))
             raise NvrError(msg % (url, status, reason))
 
@@ -2868,7 +2870,18 @@ class ProtectApiClient(BaseApiClient):
     async def get_nvr_public(self) -> NVR:
         """Get NVR information using public API."""
         data = await self.api_request_obj(url="/v1/nvrs", public_api=True)
-        return NVR.from_unifi_dict(**data, api=self)
+        nvr = NVR.from_unifi_dict(**data, api=self)
+        # Parse ``armMode`` separately — it is a Public API concept and does
+        # not belong on the private NVR model.
+        arm_mode_data = data.get("armMode")
+        if self._public_bootstrap is not None:
+            if arm_mode_data is not None:
+                self._public_bootstrap.arm_mode = NvrArmMode.from_unifi_dict(
+                    **arm_mode_data, api=self
+                )
+            else:
+                self._public_bootstrap.arm_mode = None
+        return nvr
 
     async def get_lights_public(self) -> list[Light]:
         """Get all lights using public API."""
@@ -3375,27 +3388,21 @@ class ProtectApiClient(BaseApiClient):
         if self._public_bootstrap is not None:
             self._public_bootstrap.arm_profiles.pop(profile_id, None)
 
-    async def get_arm_manager_settings_public(self) -> ArmManagerSettings:
+    async def get_arm_manager_settings_public(self) -> NvrArmMode | None:
         """
-        Read current arm-manager state (``GET /v1/arm-profiles/settings``).
+        Return current arm-manager state from the NVR cache.
 
-        Populates :attr:`PublicBootstrap.current_arm_profile_id` and
-        :attr:`PublicBootstrap.arm_alarm_enabled` if the cache is
-        materialised.
+        The arm-manager state is embedded in the NVR object (``armMode``
+        field of ``GET /v1/nvrs``) — there is no dedicated GET endpoint.
+        If the bootstrap cache is not yet populated, fetches the NVR now.
         """
-        data = await self.api_request_obj(
-            url="/v1/arm-profiles/settings",
-            public_api=True,
-        )
-        settings = ArmManagerSettings.from_unifi_dict(**data, api=self)
         if self._public_bootstrap is not None:
-            # Response-is-truth: overwrite both fields unconditionally. A
-            # profile id of ``None`` is a legitimate state (no profile
-            # selected); conflating it with "missing key" would silently
-            # mask arm-manager de-provisioning from consumers.
-            self._public_bootstrap.current_arm_profile_id = settings.arm_profile_id
-            self._public_bootstrap.arm_alarm_enabled = settings.is_enabled
-        return settings
+            return self._public_bootstrap.arm_mode
+        nvr_data = await self.api_request_obj(url="/v1/nvrs", public_api=True)
+        arm_mode_data = nvr_data.get("armMode")
+        if arm_mode_data is None:
+            return None
+        return NvrArmMode.from_unifi_dict(**arm_mode_data, api=self)
 
     async def set_current_arm_profile_public(self, profile_id: str) -> None:
         """Set the currently selected arm profile."""
@@ -3405,8 +3412,11 @@ class ProtectApiClient(BaseApiClient):
             json={"armProfileId": profile_id},
             public_api=True,
         )
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.current_arm_profile_id = profile_id
+        if (
+            self._public_bootstrap is not None
+            and self._public_bootstrap.arm_mode is not None
+        ):
+            self._public_bootstrap.arm_mode.arm_profile_id = profile_id
 
     async def enable_arm_alarm_public(self) -> None:
         """Enable the arm alarm with the currently selected profile."""
@@ -3415,8 +3425,11 @@ class ProtectApiClient(BaseApiClient):
             method="post",
             public_api=True,
         )
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.arm_alarm_enabled = True
+        if (
+            self._public_bootstrap is not None
+            and self._public_bootstrap.arm_mode is not None
+        ):
+            self._public_bootstrap.arm_mode.status = "arming"
 
     async def disable_arm_alarm_public(self) -> None:
         """Disable the arm alarm."""
@@ -3425,8 +3438,11 @@ class ProtectApiClient(BaseApiClient):
             method="post",
             public_api=True,
         )
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.arm_alarm_enabled = False
+        if (
+            self._public_bootstrap is not None
+            and self._public_bootstrap.arm_mode is not None
+        ):
+            self._public_bootstrap.arm_mode.status = "disabled"
 
     # ------------------------------------------------------------------
     # Public API: Bootstrap (opt-in)
@@ -3483,13 +3499,12 @@ class ProtectApiClient(BaseApiClient):
             "relays",
         ]
         if include_arm_profiles:
-            # ``get_arm_profiles_public`` / ``get_arm_manager_settings_public``
-            # write into ``pb`` themselves on success; we still gather them
-            # for concurrency and to swallow per-endpoint failures.
-            coros.extend(
-                [self.get_arm_profiles_public(), self.get_arm_manager_settings_public()]
-            )
-            labels.extend(["arm-profiles", "arm-profiles/settings"])
+            # ``get_arm_profiles_public`` writes into ``pb`` itself on
+            # success; we gather it for concurrency and to swallow failures.
+            # ``armMode`` is part of the NVR response and is already parsed
+            # by ``get_nvr_public()`` — no separate settings call needed.
+            coros.append(self.get_arm_profiles_public())
+            labels.append("arm-profiles")
 
         results = await asyncio.gather(*coros, return_exceptions=True)
 

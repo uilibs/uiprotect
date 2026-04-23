@@ -37,5 +37,9 @@ class NotAuthorized(PermissionError, BadRequest):
     """Wrong username, password or permission error."""
 
 
+class GlobalAlarmManagerError(BadRequest):
+    """Operation not available when global alarm manager is enabled."""
+
+
 class NvrError(ClientError):
     """Other error."""

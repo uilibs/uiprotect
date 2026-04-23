@@ -36,7 +36,7 @@ from .base import ProtectModelWithId
 from .convert import create_from_unifi_dict
 from .devices import Camera, Chime, Light, Sensor
 from .nvr import NVR, Event
-from .public_devices import ArmProfile, Relay, Siren
+from .public_devices import ArmProfile, NvrArmMode, Relay, Siren
 from .types import ModelType
 
 if TYPE_CHECKING:
@@ -105,8 +105,10 @@ class PublicBootstrap:
 
     # Arm manager state.
     arm_profiles: dict[str, ArmProfile] = field(default_factory=dict)
-    current_arm_profile_id: str | None = None
-    arm_alarm_enabled: bool | None = None
+    # Populated from the ``armMode`` field of ``GET /v1/nvrs``.
+    # ``None`` when the local alarm manager is not provisioned (e.g. global
+    # alarm manager is active or no alarm manager is configured).
+    arm_mode: NvrArmMode | None = None
 
     # ------------------------------------------------------------------
     # Lookup helpers
