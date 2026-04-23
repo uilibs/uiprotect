@@ -63,10 +63,6 @@ _DEVICE_STORES: dict[ModelType, str] = {
     ModelType.RELAY: "relays",
 }
 
-# One-shot per (ModelType, first_key_of_diff) rate-limit for merge warnings
-# so a persistent schema mismatch doesn't flood the HA log.
-_warned_merge_failures: set[tuple[str, str]] = set()
-
 
 @dataclass
 class PublicBootstrap:
@@ -109,6 +105,15 @@ class PublicBootstrap:
     # ``None`` when the local alarm manager is not provisioned (e.g. global
     # alarm manager is active or no alarm manager is configured).
     arm_mode: NvrArmMode | None = None
+
+    # Per-instance one-shot warning dedupe for merge/add failures.
+    # This must not be module-global because callers can have multiple
+    # Protect servers in one process.
+    _warned_merge_failures: set[tuple[str, str]] = field(
+        default_factory=set,
+        init=False,
+        repr=False,
+    )
 
     # ------------------------------------------------------------------
     # Lookup helpers
@@ -260,6 +265,7 @@ class PublicBootstrap:
                 )
             except Exception as err:
                 _warn_once(
+                    self._warned_merge_failures,
                     ("add", model_type.value),
                     "Could not create %s from public API add payload: %s",
                     model_type.value,
@@ -280,7 +286,7 @@ class PublicBootstrap:
                     obj_id,
                 )
                 return None, None
-            merged = _merge(old, item)
+            merged = _merge(old, item, self._warned_merge_failures)
             if merged is not None:
                 slot.put(obj_id, merged)
                 return merged, old
@@ -364,17 +370,21 @@ def _parse_ws_envelope(
     return action_type, item, obj_id
 
 
-def _warn_once(key: tuple[str, str], msg: str, *args: Any) -> None:
+def _warn_once(
+    warned_keys: set[tuple[str, str]], key: tuple[str, str], msg: str, *args: Any
+) -> None:
     """Emit ``msg % args`` at WARNING on first occurrence, DEBUG afterwards."""
-    if key in _warned_merge_failures:
+    if key in warned_keys:
         _LOGGER.debug(msg, *args)
         return
-    _warned_merge_failures.add(key)
+    warned_keys.add(key)
     _LOGGER.warning(msg, *args)
 
 
 def _merge(
-    old_obj: ProtectModelWithId, item: dict[str, Any]
+    old_obj: ProtectModelWithId,
+    item: dict[str, Any],
+    warned_keys: set[tuple[str, str]],
 ) -> ProtectModelWithId | None:
     """
     Merge a partial WS payload into a copy of ``old_obj``.
@@ -405,6 +415,7 @@ def _merge(
         # to DEBUG to avoid flooding.
         first_key = next(iter(payload), "?")
         _warn_once(
+            warned_keys,
             (type(old_obj).__name__, first_key),
             "Failed to merge public WS update for %s (fields=%s): %s",
             type(old_obj).__name__,

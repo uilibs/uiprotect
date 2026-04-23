@@ -511,6 +511,18 @@ def test_public_bootstrap_ignores_unknown_model(
     assert old is None
 
 
+def test_public_bootstrap_warning_state_is_per_instance() -> None:
+    """Warning dedupe keys must not leak across multiple client instances."""
+    first = PublicBootstrap()
+    second = PublicBootstrap()
+
+    key = ("add", "siren")
+    first._warned_merge_failures.add(key)
+
+    assert key in first._warned_merge_failures
+    assert key not in second._warned_merge_failures
+
+
 # ---------------------------------------------------------------------------
 # update_public wires everything together
 # ---------------------------------------------------------------------------
