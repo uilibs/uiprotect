@@ -20,6 +20,7 @@ from ..test_util import SampleDataGenerator
 from ..utils import get_local_timezone, run_async
 from ..utils import profile_ws as profile_ws_job
 from .aiports import app as aiports_app
+from .arm import app as arm_app
 from .base import CliContext, OutputFormatEnum
 from .cameras import app as camera_app
 from .chimes import app as chime_app
@@ -28,7 +29,9 @@ from .events import app as event_app
 from .lights import app as light_app
 from .liveviews import app as liveview_app
 from .nvr import app as nvr_app
+from .relays import app as relay_app
 from .sensors import app as sensor_app
+from .sirens import app as siren_app
 from .viewers import app as viewer_app
 
 try:
@@ -45,20 +48,21 @@ try:
 except ImportError:
     embed = termcolor = get_config = None  # type: ignore[assignment]
 
+# Sub-apps that only use the public API (API key) and do not need username/password
+_PUBLIC_ONLY_COMMANDS: frozenset[str] = frozenset({"sirens", "relays", "arm"})
+
 OPTION_USERNAME = typer.Option(
-    ...,
+    None,
     "--username",
     "-U",
-    help="UniFi Protect username",
-    prompt=True,
+    help="UniFi Protect username (not required for public API commands: sirens, relays, arm)",
     envvar="UFP_USERNAME",
 )
 OPTION_PASSWORD = typer.Option(
-    ...,
+    None,
     "--password",
     "-P",
-    help="UniFi Protect password",
-    prompt=True,
+    help="UniFi Protect password (not required for public API commands: sirens, relays, arm)",
     hide_input=True,
     envvar="UFP_PASSWORD",
 )
@@ -139,6 +143,9 @@ app.add_typer(light_app, name="lights")
 app.add_typer(sensor_app, name="sensors")
 app.add_typer(viewer_app, name="viewers")
 app.add_typer(aiports_app, name="aiports")
+app.add_typer(siren_app, name="sirens")
+app.add_typer(relay_app, name="relays")
+app.add_typer(arm_app, name="arm")
 
 if backup_app is not None:
     app.add_typer(backup_app, name="backup")
@@ -168,8 +175,8 @@ async def _connect_and_bootstrap(protect: ProtectApiClient) -> None:
 @app.callback()
 def main(
     ctx: typer.Context,
-    username: str = OPTION_USERNAME,
-    password: str = OPTION_PASSWORD,
+    username: str | None = OPTION_USERNAME,
+    password: str | None = OPTION_PASSWORD,
     api_key: str | None = OPTION_API_KEY,
     address: str = OPTION_ADDRESS,
     port: int = OPTION_PORT,
@@ -181,11 +188,21 @@ def main(
     # preload the timezone before any async code runs
     get_local_timezone()
 
+    is_public_only = ctx.invoked_subcommand in _PUBLIC_ONLY_COMMANDS
+
+    if not is_public_only:
+        # Private API commands require username and password.
+        # Prompt interactively if not supplied via option/env.
+        if not username:
+            username = typer.prompt("Username")
+        if not password:
+            password = typer.prompt("Password", hide_input=True)
+
     protect = ProtectApiClient(
         address,
         port,
-        username,
-        password,
+        username or "",
+        password or "",
         api_key,
         verify_ssl=verify_ssl,
         ignore_unadopted=not include_unadopted,
@@ -196,40 +213,43 @@ def main(
         await protect.close_session()
         await protect.close_public_api_session()
 
-    try:
-        run_async(_connect_and_bootstrap(protect))
-    except Exception as exc:
-        # Always close the session on error to avoid "Unclosed client session" warning
-        run_async(close_protect())
+    if not is_public_only:
+        try:
+            run_async(_connect_and_bootstrap(protect))
+        except Exception as exc:
+            # Always close the session on error to avoid "Unclosed client session" warning
+            run_async(close_protect())
 
-        if verify_ssl and _is_ssl_error(exc):
-            typer.secho(
-                "SSL certificate verification failed. "
-                "This is common with self-signed certificates on UniFi devices.",
-                fg="yellow",
-            )
-            if typer.confirm("Would you like to disable SSL verification and retry?"):
-                # Create new client with SSL disabled
-                protect = ProtectApiClient(
-                    address,
-                    port,
-                    username,
-                    password,
-                    api_key,
-                    verify_ssl=False,
-                    ignore_unadopted=not include_unadopted,
-                )
-                run_async(_connect_and_bootstrap(protect))
+            if verify_ssl and _is_ssl_error(exc):
                 typer.secho(
-                    "Connected successfully with SSL verification disabled.\n"
-                    "Tip: Use --no-verify-ssl to skip this prompt in the future.",
-                    fg="green",
+                    "SSL certificate verification failed. "
+                    "This is common with self-signed certificates on UniFi devices.",
+                    fg="yellow",
                 )
+                if typer.confirm(
+                    "Would you like to disable SSL verification and retry?"
+                ):
+                    # Create new client with SSL disabled
+                    protect = ProtectApiClient(
+                        address,
+                        port,
+                        username or "",
+                        password or "",
+                        api_key,
+                        verify_ssl=False,
+                        ignore_unadopted=not include_unadopted,
+                    )
+                    run_async(_connect_and_bootstrap(protect))
+                    typer.secho(
+                        "Connected successfully with SSL verification disabled.\n"
+                        "Tip: Use --no-verify-ssl to skip this prompt in the future.",
+                        fg="green",
+                    )
+                else:
+                    typer.secho("Connection aborted.", fg="red")
+                    raise typer.Exit(code=1) from exc
             else:
-                typer.secho("Connection aborted.", fg="red")
-                raise typer.Exit(code=1) from exc
-        else:
-            raise
+                raise
 
     ctx.obj = CliContext(protect=protect, output_format=output_format)
 

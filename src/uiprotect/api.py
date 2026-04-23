@@ -11,7 +11,7 @@ import re
 import sys
 import time
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from datetime import datetime, timedelta
 from functools import partial
 from http import HTTPStatus, cookies
@@ -19,7 +19,7 @@ from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict, cast
-from urllib.parse import SplitResult
+from urllib.parse import SplitResult, quote
 
 import aiofiles
 import aiohttp
@@ -38,6 +38,8 @@ from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
 from ._compat import cached_property
 from .data import (
     NVR,
+    ArmManagerSettings,
+    ArmProfile,
     Bootstrap,
     Bridge,
     Camera,
@@ -50,7 +52,16 @@ from .data import (
     ModelType,
     ProtectAdoptableDeviceModel,
     ProtectModel,
+    PublicArmScheduleDict,
+    PublicBootstrap,
+    PublicSensorAlarmSettings,
+    PublicSensorHumiditySettings,
+    PublicSensorLightSettings,
+    PublicSensorMotionSettings,
+    PublicSensorTemperatureSettings,
+    Relay,
     Sensor,
+    Siren,
     SmartDetectObjectType,
     SmartDetectTrack,
     Version,
@@ -131,7 +142,21 @@ If your Protect instance has a lot of events, this request will take much longer
 _LOGGER = logging.getLogger(__name__)
 _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
 
+
+def _log_or_raise(label: str, exc: BaseException) -> None:
+    """Log expected endpoint-unavailable errors; re-raise anything unexpected."""
+    if isinstance(exc, (BadRequest, NvrError)):
+        _LOGGER.debug("%s endpoint unavailable: %s", label, exc)
+    else:
+        raise exc
+
+
 NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
+
+# Minimum interval (seconds) between two automatic public-bootstrap resyncs
+# triggered by devices-websocket reconnects. Guards against reconnect storms
+# on flaky networks or controller reboots.
+PUBLIC_RESYNC_MIN_INTERVAL = 10.0
 
 
 def calculate_retry_delay(attempt: int, retry_after: float | None = None) -> float:
@@ -259,6 +284,7 @@ class BaseApiClient:
     _private_websocket: Websocket | None = None
     _events_websocket: Websocket | None = None
     _devices_websocket: Websocket | None = None
+    _public_resync_task: asyncio.Task[None] | None = None
 
     private_api_path: str = "/proxy/protect/api/"
     public_api_path: str = "/proxy/protect/integration"
@@ -468,6 +494,7 @@ class BaseApiClient:
     async def close_session(self) -> None:
         """Closing and deletes all client sessions."""
         await self._cancel_update_task()
+        await self._cancel_public_resync_task()
         if self._session is not None:
             await self._session.close()
             self._session = None
@@ -488,6 +515,13 @@ class BaseApiClient:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._update_task
             self._update_task = None
+
+    async def _cancel_public_resync_task(self) -> None:
+        if self._public_resync_task is not None:
+            self._public_resync_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._public_resync_task
+            self._public_resync_task = None
 
     def set_header(self, key: str, value: str | None) -> None:
         """Set header."""
@@ -1098,6 +1132,15 @@ class ProtectApiClient(BaseApiClient):
     _events_ws_state_subscriptions: list[Callable[[WebsocketState], None]]
     _devices_ws_state_subscriptions: list[Callable[[WebsocketState], None]]
     _bootstrap: Bootstrap | None = None
+    _public_bootstrap: PublicBootstrap | None = None
+    _public_resync_task: asyncio.Task[None] | None = None
+    # True after the first time the devices WS transitions to CONNECTED; used
+    # to distinguish the *initial* connect from a *reconnect*. Only the
+    # latter triggers an automatic `update_public()` resync.
+    _devices_ws_has_been_connected: bool = False
+    # Monotonic timestamp of the last successful/attempted reconnect resync,
+    # used to debounce a flapping websocket into a single refresh.
+    _last_public_resync: float = 0.0
     _last_update_dt: datetime | None = None
     _connection_host: IPv4Address | IPv6Address | str | None = None
 
@@ -1209,6 +1252,28 @@ class ProtectApiClient(BaseApiClient):
             raise BadRequest("Client not initialized, run `update` first")
 
         return self._bootstrap
+
+    @property
+    def public_bootstrap(self) -> PublicBootstrap:
+        """
+        In-memory cache of Public Integration API resources.
+
+        Must be populated via :meth:`update_public` first; raises
+        :class:`BadRequest` otherwise. This is a conscious mirror of
+        :attr:`bootstrap` so that merely *reading* the property never changes
+        WS-handler semantics (which keys off ``_public_bootstrap is not
+        None``).
+        """
+        if self._public_bootstrap is None:
+            raise BadRequest(
+                "Public bootstrap not initialized, run `update_public` first"
+            )
+        return self._public_bootstrap
+
+    @property
+    def has_public_bootstrap(self) -> bool:
+        """Whether :meth:`update_public` has been called at least once."""
+        return self._public_bootstrap is not None
 
     @property
     def connection_host(self) -> IPv4Address | IPv6Address | str:
@@ -1370,14 +1435,20 @@ class ProtectApiClient(BaseApiClient):
         self.emit_message(processed_message)
 
     def _process_events_ws_message(self, msg: aiohttp.WSMessage) -> None:
-        """Process events websocket message (Public API - JSON format)."""
+        """
+        Process events websocket message (Public API - JSON format).
+
+        ``add`` messages contain a full :class:`Event` payload; ``update``
+        messages carry a partial diff (typically ``end``) that is merged
+        into the cached event by :class:`PublicBootstrap`.
+        """
         if msg.type != aiohttp.WSMsgType.TEXT:
             _LOGGER.debug("Ignoring non-text websocket message: %s", msg.type)
             return
 
         try:
             data = orjson.loads(msg.data)
-            action_type = data.get("type")  # "update", "add", "remove"
+            action_type = data.get("type")
             item = data.get("item", {})
             model_key = item.get("modelKey")
 
@@ -1385,27 +1456,26 @@ class ProtectApiClient(BaseApiClient):
                 _LOGGER.debug("Invalid public API websocket message: %s", data)
                 return
 
-            # Create a WSSubscriptionMessage similar to private WS
             model_type = ModelType.from_string(model_key)
 
             if model_type is ModelType.UNKNOWN:
                 _LOGGER.debug("Unknown model type in public API message: %s", model_key)
                 return
 
-            # Create proper objects from the data
-            new_obj: ProtectModelWithId | None = None
-            old_obj: ProtectModelWithId | None = None
+            # Respect ``subscribed_models`` for the events WS too.
+            if self._subscribed_models and model_type not in self._subscribed_models:
+                return
+
             update_id = item.get("id", "")
 
-            if action_type in ("add", "update"):
-                try:
-                    new_obj = cast(
-                        ProtectModelWithId, create_from_unifi_dict(item, api=self)
-                    )
-                except Exception:
-                    _LOGGER.debug(
-                        "Could not create object from public API data: %s", item
-                    )
+            new_obj: ProtectModelWithId | None = None
+            old_obj: ProtectModelWithId | None = None
+            if self._public_bootstrap is not None and model_type is ModelType.EVENT:
+                new_event, old_event = self._public_bootstrap.process_events_ws_message(
+                    self, data
+                )
+                new_obj = new_event
+                old_obj = old_event
 
             msg_obj = WSSubscriptionMessage(
                 action=WSAction(action_type),
@@ -1416,10 +1486,8 @@ class ProtectApiClient(BaseApiClient):
             )
 
             self.emit_events_message(msg_obj)
-        except Exception as e:
-            _LOGGER.exception(
-                "Error processing public API events websocket message: %s", e
-            )
+        except Exception:
+            _LOGGER.exception("Error processing public API events websocket message")
 
     def _process_devices_ws_message(self, msg: aiohttp.WSMessage) -> None:
         """Process devices websocket message (Public API - JSON format)."""
@@ -1444,20 +1512,26 @@ class ProtectApiClient(BaseApiClient):
                 _LOGGER.debug("Unknown model type in public API message: %s", model_key)
                 return
 
-            # Create proper objects from the data
-            new_obj: ProtectModelWithId | None = None
-            old_obj: ProtectModelWithId | None = None
+            # Respect the ``subscribed_models`` filter that callers pass in.
+            # Empty set means "all" (matches private-WS behaviour).
+            if self._subscribed_models and model_type not in self._subscribed_models:
+                return
+
             update_id = item.get("id", "")
 
-            if action_type in ("add", "update"):
-                try:
-                    new_obj = cast(
-                        ProtectModelWithId, create_from_unifi_dict(item, api=self)
-                    )
-                except Exception:
-                    _LOGGER.debug(
-                        "Could not create object from public API data: %s", item
-                    )
+            # Apply the change to the PublicBootstrap cache when it has been
+            # materialised via `update_public`. Without that opt-in, the
+            # subscription message carries ``new_obj=None`` and subscribers
+            # must fall back to ``changed_data`` (the raw payload). This
+            # preserves legacy behaviour exactly and avoids producing
+            # partially-validated model instances for consumers that haven't
+            # opted into the cache.
+            new_obj: ProtectModelWithId | None = None
+            old_obj: ProtectModelWithId | None = None
+            if self._public_bootstrap is not None:
+                _, new_obj, old_obj = self._public_bootstrap.process_devices_ws_message(
+                    self, data
+                )
 
             msg_obj = WSSubscriptionMessage(
                 action=WSAction(action_type),
@@ -1468,10 +1542,8 @@ class ProtectApiClient(BaseApiClient):
             )
 
             self.emit_devices_message(msg_obj)
-        except Exception as e:
-            _LOGGER.exception(
-                "Error processing public API devices websocket message: %s", e
-            )
+        except Exception:
+            _LOGGER.exception("Error processing public API devices websocket message")
 
     async def _get_event_paginate(  # noqa: PLR0912
         self,
@@ -1854,6 +1926,32 @@ class ProtectApiClient(BaseApiClient):
 
     def _on_devices_websocket_state_change(self, state: WebsocketState) -> None:
         """Devices Websocket state changed."""
+        # On *reconnect* any add/update/remove emitted while we were offline
+        # is lost — schedule a background `update_public()` to re-sync the
+        # public bootstrap cache. No-op when the cache was never
+        # materialised (callers not using the cache) or
+        # on the very first connect (the caller is expected to prime the
+        # cache via `update_public()` themselves). Flapping websockets are
+        # debounced via :attr:`PUBLIC_RESYNC_MIN_INTERVAL` so a reconnect
+        # storm collapses into a single refresh.
+        if state is WebsocketState.CONNECTED:
+            if not self._devices_ws_has_been_connected:
+                self._devices_ws_has_been_connected = True
+            elif self._public_bootstrap is not None and (
+                self._public_resync_task is None or self._public_resync_task.done()
+            ):
+                now = time.monotonic()
+                if now - self._last_public_resync >= PUBLIC_RESYNC_MIN_INTERVAL:
+                    self._last_public_resync = now
+                    self._public_resync_task = asyncio.create_task(
+                        self._resync_public_bootstrap()
+                    )
+                else:
+                    _LOGGER.debug(
+                        "Skipping public bootstrap resync (debounced, last was %.1fs ago)",
+                        now - self._last_public_resync,
+                    )
+
         for sub in self._devices_ws_state_subscriptions:
             try:
                 sub(state)
@@ -1861,6 +1959,13 @@ class ProtectApiClient(BaseApiClient):
                 _LOGGER.exception(
                     "Exception while running devices websocket state handler"
                 )
+
+    async def _resync_public_bootstrap(self) -> None:
+        """Re-sync the public bootstrap cache after a websocket reconnect."""
+        try:
+            await self.update_public()
+        except Exception:
+            _LOGGER.exception("Failed to resync public bootstrap after reconnect")
 
     async def get_bootstrap(self) -> Bootstrap:
         """
@@ -2151,13 +2256,27 @@ class ProtectApiClient(BaseApiClient):
         self,
         camera_id: str,
         high_quality: bool = False,
+        package: bool = False,
     ) -> bytes | None:
-        """Gets snapshot for a camera using public api."""
+        """
+        Gets snapshot for a camera using public api.
+
+        Args:
+            camera_id: Camera ID.
+            high_quality: Force 1080P+ resolution.
+            package: If ``True``, fetch from the package camera (only supported
+                on cameras with ``hasPackageCamera: true``). Requires Protect
+                on the NVR.
+
+        """
+        params: dict[str, Any] = {"highQuality": pybool_to_json_bool(high_quality)}
+        if package:
+            params["channel"] = "package"
         return await self.api_request_raw(
             public_api=True,
             raise_exception=False,
             url=f"/v1/cameras/{camera_id}/snapshot",
-            params={"highQuality": pybool_to_json_bool(high_quality)},
+            params=params,
         )
 
     async def create_camera_rtsps_streams(
@@ -2933,3 +3052,448 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
         )
         return TalkbackSession.from_unifi_dict(**data)
+
+    # ------------------------------------------------------------------
+    # Public API: Sensors
+    # ------------------------------------------------------------------
+
+    async def get_sensors_public(self) -> list[Sensor]:
+        """Get all sensors using public API."""
+        data = await self.api_request_list(url="/v1/sensors", public_api=True)
+        return [Sensor.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_sensor_public(self, sensor_id: str) -> Sensor:
+        """Get a specific sensor using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/sensors/{sensor_id}", public_api=True
+        )
+        return Sensor.from_unifi_dict(**data, api=self)
+
+    async def update_sensor_public(
+        self,
+        sensor_id: str,
+        *,
+        name: str | None = None,
+        light_settings: PublicSensorLightSettings | None = None,
+        humidity_settings: PublicSensorHumiditySettings | None = None,
+        temperature_settings: PublicSensorTemperatureSettings | None = None,
+        motion_settings: PublicSensorMotionSettings | None = None,
+        alarm_settings: PublicSensorAlarmSettings | None = None,
+    ) -> Sensor:
+        """
+        Patch sensor settings using public API.
+
+        Each ``*_settings`` argument is a :class:`~typing.TypedDict` with
+        ``total=False`` — pass only the keys you want to change.
+        """
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if light_settings is not None:
+            body["lightSettings"] = dict(light_settings)
+        if humidity_settings is not None:
+            body["humiditySettings"] = dict(humidity_settings)
+        if temperature_settings is not None:
+            body["temperatureSettings"] = dict(temperature_settings)
+        if motion_settings is not None:
+            body["motionSettings"] = dict(motion_settings)
+        if alarm_settings is not None:
+            body["alarmSettings"] = dict(alarm_settings)
+
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+
+        result = await self.api_request_obj(
+            url=f"/v1/sensors/{sensor_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        return Sensor.from_unifi_dict(**result, api=self)
+
+    # ------------------------------------------------------------------
+    # Public API: Sirens
+    # ------------------------------------------------------------------
+
+    async def get_sirens_public(self) -> list[Siren]:
+        """Get all sirens using public API."""
+        data = await self.api_request_list(url="/v1/sirens", public_api=True)
+        return [Siren.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_siren_public(self, siren_id: str) -> Siren:
+        """Get a specific siren using public API."""
+        data = await self.api_request_obj(url=f"/v1/sirens/{siren_id}", public_api=True)
+        return Siren.from_unifi_dict(**data, api=self)
+
+    async def update_siren_public(
+        self,
+        siren_id: str,
+        *,
+        name: str | None = None,
+        volume: int | None = None,
+        led_is_enabled: bool | None = None,
+    ) -> Siren:
+        """Patch siren settings using public API."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if volume is not None:
+            body["volume"] = volume
+        if led_is_enabled is not None:
+            body["ledSettings"] = {"isEnabled": led_is_enabled}
+
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+
+        result = await self.api_request_obj(
+            url=f"/v1/sirens/{siren_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        return Siren.from_unifi_dict(**result, api=self)
+
+    async def play_siren_public(
+        self, siren_id: str, *, duration: int | None = None
+    ) -> None:
+        """Activate a siren. ``duration`` is in seconds (5/10/20/30)."""
+        body: dict[str, Any] = {}
+        if duration is not None:
+            body["duration"] = duration
+        await self.api_request_raw(
+            url=f"/v1/sirens/{siren_id}/play",
+            method="post",
+            public_api=True,
+            json=body or None,
+        )
+
+    async def stop_siren_public(self, siren_id: str) -> None:
+        """Stop an active siren."""
+        await self.api_request_raw(
+            url=f"/v1/sirens/{siren_id}/stop",
+            method="post",
+            public_api=True,
+        )
+
+    async def test_siren_sound_public(
+        self, siren_id: str, *, volume: int | None = None
+    ) -> None:
+        """Test the siren sound (5 seconds)."""
+        body: dict[str, Any] = {}
+        if volume is not None:
+            body["volume"] = volume
+        await self.api_request_raw(
+            url=f"/v1/sirens/{siren_id}/test-sound",
+            method="post",
+            public_api=True,
+            json=body or None,
+        )
+
+    # ------------------------------------------------------------------
+    # Public API: Relays
+    # ------------------------------------------------------------------
+
+    async def get_relays_public(self) -> list[Relay]:
+        """Get all relays using public API."""
+        data = await self.api_request_list(url="/v1/relays", public_api=True)
+        return [Relay.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_relay_public(self, relay_id: str) -> Relay:
+        """Get a specific relay using public API."""
+        data = await self.api_request_obj(url=f"/v1/relays/{relay_id}", public_api=True)
+        return Relay.from_unifi_dict(**data, api=self)
+
+    async def update_relay_public(
+        self,
+        relay_id: str,
+        *,
+        name: str | None = None,
+        led_is_enabled: bool | None = None,
+    ) -> Relay:
+        """Patch relay settings using public API."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if led_is_enabled is not None:
+            body["ledSettings"] = {"isEnabled": led_is_enabled}
+
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+
+        result = await self.api_request_obj(
+            url=f"/v1/relays/{relay_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        return Relay.from_unifi_dict(**result, api=self)
+
+    async def activate_relay_output_public(
+        self,
+        relay_id: str,
+        output_id: int,
+        *,
+        state: Literal["on", "off"] | None = None,
+        pulse_duration_ms: int | None = None,
+    ) -> None:
+        """
+        Activate, toggle or pulse a relay output.
+
+        Omit ``state`` to toggle the current state. ``pulse_duration_ms`` is
+        only valid together with ``state='on'``; the output will auto-turn
+        off after the given milliseconds.
+        """
+        if pulse_duration_ms is not None and state != "on":
+            raise BadRequest("pulse_duration_ms may only be combined with state='on'")
+        body: dict[str, Any] = {}
+        if state is not None:
+            body["state"] = state
+        if pulse_duration_ms is not None:
+            body["pulseDuration"] = pulse_duration_ms
+        await self.api_request_raw(
+            url=f"/v1/relays/{relay_id}/outputs/{output_id}/activate",
+            method="post",
+            public_api=True,
+            json=body or None,
+        )
+
+    # ------------------------------------------------------------------
+    # Public API: Alarm manager webhook
+    # ------------------------------------------------------------------
+
+    async def send_alarm_webhook_public(self, trigger_id: str) -> None:
+        """Fire the alarm-manager webhook for the given trigger id."""
+        if not trigger_id:
+            raise BadRequest("trigger_id is required")
+        await self.api_request_raw(
+            url=f"/v1/alarm-manager/webhook/{quote(trigger_id, safe='')}",
+            method="post",
+            public_api=True,
+        )
+
+    # ------------------------------------------------------------------
+    # Public API: Arm profiles (local alarm manager only)
+    # ------------------------------------------------------------------
+
+    async def get_arm_profiles_public(self) -> list[ArmProfile]:
+        """Get all arm profiles."""
+        data = await self.api_request_list(url="/v1/arm-profiles", public_api=True)
+        profiles = [ArmProfile.from_unifi_dict(**item, api=self) for item in data]
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.arm_profiles = {p.id: p for p in profiles}
+        return profiles
+
+    async def create_arm_profile_public(
+        self,
+        *,
+        name: str,
+        automations: list[str],
+        schedules: list[PublicArmScheduleDict],
+        record_everything: bool,
+        activation_delay: int,
+    ) -> ArmProfile:
+        """Create a new arm profile."""
+        body = {
+            "name": name,
+            "automations": automations,
+            "schedules": [dict(s) for s in schedules],
+            "recordEverything": record_everything,
+            "activationDelay": activation_delay,
+        }
+        data = await self.api_request_obj(
+            url="/v1/arm-profiles",
+            method="post",
+            json=body,
+            public_api=True,
+        )
+        profile = ArmProfile.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.arm_profiles[profile.id] = profile
+        return profile
+
+    async def update_arm_profile_public(
+        self,
+        profile_id: str,
+        *,
+        name: str | None = None,
+        automations: list[str] | None = None,
+        schedules: list[PublicArmScheduleDict] | None = None,
+        record_everything: bool | None = None,
+        activation_delay: int | None = None,
+    ) -> ArmProfile:
+        """Update an existing arm profile (partial update)."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if automations is not None:
+            body["automations"] = automations
+        if schedules is not None:
+            body["schedules"] = [dict(s) for s in schedules]
+        if record_everything is not None:
+            body["recordEverything"] = record_everything
+        if activation_delay is not None:
+            body["activationDelay"] = activation_delay
+
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+
+        data = await self.api_request_obj(
+            url=f"/v1/arm-profiles/{profile_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        profile = ArmProfile.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.arm_profiles[profile.id] = profile
+        return profile
+
+    async def delete_arm_profile_public(self, profile_id: str) -> None:
+        """Delete an arm profile."""
+        await self.api_request_raw(
+            url=f"/v1/arm-profiles/{profile_id}",
+            method="delete",
+            public_api=True,
+        )
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.arm_profiles.pop(profile_id, None)
+
+    async def get_arm_manager_settings_public(self) -> ArmManagerSettings:
+        """
+        Read current arm-manager state (``GET /v1/arm-profiles/settings``).
+
+        Populates :attr:`PublicBootstrap.current_arm_profile_id` and
+        :attr:`PublicBootstrap.arm_alarm_enabled` if the cache is
+        materialised.
+        """
+        data = await self.api_request_obj(
+            url="/v1/arm-profiles/settings",
+            public_api=True,
+        )
+        settings = ArmManagerSettings.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            # Response-is-truth: overwrite both fields unconditionally. A
+            # profile id of ``None`` is a legitimate state (no profile
+            # selected); conflating it with "missing key" would silently
+            # mask arm-manager de-provisioning from consumers.
+            self._public_bootstrap.current_arm_profile_id = settings.arm_profile_id
+            self._public_bootstrap.arm_alarm_enabled = settings.is_enabled
+        return settings
+
+    async def set_current_arm_profile_public(self, profile_id: str) -> None:
+        """Set the currently selected arm profile."""
+        await self.api_request_raw(
+            url="/v1/arm-profiles/settings",
+            method="patch",
+            json={"armProfileId": profile_id},
+            public_api=True,
+        )
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.current_arm_profile_id = profile_id
+
+    async def enable_arm_alarm_public(self) -> None:
+        """Enable the arm alarm with the currently selected profile."""
+        await self.api_request_raw(
+            url="/v1/arm-profiles/enable",
+            method="post",
+            public_api=True,
+        )
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.arm_alarm_enabled = True
+
+    async def disable_arm_alarm_public(self) -> None:
+        """Disable the arm alarm."""
+        await self.api_request_raw(
+            url="/v1/arm-profiles/disable",
+            method="post",
+            public_api=True,
+        )
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.arm_alarm_enabled = False
+
+    # ------------------------------------------------------------------
+    # Public API: Bootstrap (opt-in)
+    # ------------------------------------------------------------------
+
+    async def update_public(
+        self,
+        *,
+        include_arm_profiles: bool = True,
+    ) -> PublicBootstrap:
+        """
+        Populate :attr:`public_bootstrap` from the Public Integration API.
+
+        This is opt-in and completely independent of :meth:`update` / the
+        private bootstrap. Safe to call multiple times — the cache is
+        replaced on each call. All endpoint fetches run concurrently.
+
+        Each endpoint is requested best-effort; endpoints that the NVR
+        doesn't (yet) expose are logged at ``DEBUG`` and ignored rather than raised, so
+        a partial public bootstrap is always returned.
+        """
+        if self._public_bootstrap is None:
+            self._public_bootstrap = PublicBootstrap()
+        pb = self._public_bootstrap
+
+        # NVR first, separately — consumers typically need it for
+        # ``DeviceInfo`` and it's very cheap (single object).
+        nvr_coro = self.get_nvr_public()
+
+        # Order matters only for logging/result placement below.
+        coros: list[Coroutine[Any, Any, Any]] = [
+            nvr_coro,
+            self.get_cameras_public(),
+            self.get_lights_public(),
+            self.get_chimes_public(),
+            self.get_sensors_public(),
+            self.get_sirens_public(),
+            self.get_relays_public(),
+        ]
+        labels = [
+            "nvr",
+            "cameras",
+            "lights",
+            "chimes",
+            "sensors",
+            "sirens",
+            "relays",
+        ]
+        if include_arm_profiles:
+            # ``get_arm_profiles_public`` / ``get_arm_manager_settings_public``
+            # write into ``pb`` themselves on success; we still gather them
+            # for concurrency and to swallow per-endpoint failures.
+            coros.extend(
+                [self.get_arm_profiles_public(), self.get_arm_manager_settings_public()]
+            )
+            labels.extend(["arm-profiles", "arm-profiles/settings"])
+
+        results = await asyncio.gather(*coros, return_exceptions=True)
+
+        nvr_result = results[0]
+        if isinstance(nvr_result, BaseException):
+            _log_or_raise("nvr", nvr_result)
+        else:
+            pb.nvr = nvr_result
+
+        # 1..6: device stores. Merge per-id so concurrent WS applies during
+        # the HTTP fetch window are preserved for any device not present in
+        # the returned list.
+        device_attrs = ("cameras", "lights", "chimes", "sensors", "sirens", "relays")
+        for label, attr, result in zip(
+            labels[1:7],
+            device_attrs,
+            results[1:7],
+            strict=True,
+        ):
+            if isinstance(result, BaseException):
+                _log_or_raise(label, result)
+                continue
+            pb.apply_fetch_result(attr, result)
+
+        # Arm-profile results have already been applied by their methods;
+        # only log any failures so the user sees which endpoint was skipped.
+        for label, result in zip(labels[7:], results[7:], strict=True):
+            if isinstance(result, BaseException):
+                _log_or_raise(label, result)
+
+        return pb
