@@ -10,10 +10,13 @@ Consumers (e.g. Home Assistant) should:
 1. ``subscribe_devices_websocket(callback)`` / ``subscribe_events_websocket(callback)``
 2. ``await update_public()`` to prime the cache
 
-That ordering guarantees no WS message is lost between priming and
-subscribing — any message that arrives before ``update_public()`` completes
-is dropped at the ``PublicBootstrap`` layer (cache not materialised yet);
-any message after is applied to the fresh cache.
+That ordering guarantees subscribers are registered before priming starts.
+WS messages that arrive while ``update_public()`` is still priming are still
+delivered to subscribers (via ``changed_data``), but they may not yet be
+applied to the in-memory :class:`PublicBootstrap` cache (an ``update`` for
+an object not in the cache is dropped — the cache catches up on the next
+``update_public()`` / reconnect refresh). Messages that arrive after priming
+are merged into the fresh cache normally.
 
 WS messages carry partial diffs for ``update`` actions; the cache therefore
 *merges* updates into the existing in-memory object instead of reconstructing
@@ -228,6 +231,16 @@ class PublicBootstrap:
 
         ``slot`` abstracts over the storage shape (single-object NVR vs.
         id-keyed dict) so all three handlers share one code path.
+
+        Return value semantics ``(new, old)``:
+
+        * ``add`` success → ``(new, old)`` (``old`` is whatever was cached).
+        * ``add`` failure → ``(None, old)`` — cache untouched.
+        * ``remove`` → ``(None, old)`` — ``old`` removed from cache.
+        * ``update`` on unknown id → ``(None, None)`` — cache untouched.
+        * ``update`` merge success → ``(merged, old)``.
+        * ``update`` merge failure → ``(None, old)`` — cache still contains
+          ``old``; subscribers should not treat this as a delete.
         """
         obj_id = item["id"]
         old = slot.get(obj_id)

@@ -64,6 +64,9 @@ def activate(
     if state is not None and state not in ("on", "off"):
         typer.secho("--state must be 'on' or 'off'", fg="red")
         raise typer.Exit(1)
+    if pulse_duration_ms is not None and state != "on":
+        typer.secho("--pulse-duration-ms requires --state on", fg="red")
+        raise typer.Exit(1)
     base.run(
         ctx,
         ctx.obj.protect.activate_relay_output_public(

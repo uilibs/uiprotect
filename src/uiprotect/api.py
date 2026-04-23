@@ -1438,9 +1438,11 @@ class ProtectApiClient(BaseApiClient):
         """
         Process events websocket message (Public API - JSON format).
 
-        ``add`` messages contain a full :class:`Event` payload; ``update``
-        messages carry a partial diff (typically ``end``) that is merged
-        into the cached event by :class:`PublicBootstrap`.
+        ``add`` payloads may be minimal/partial (e.g. motion start without
+        ``score`` / ``smartDetect*``), but must still be constructable as an
+        :class:`Event` — see the defaults on :class:`Event` for the optional
+        fields. ``update`` messages carry partial diffs (typically ``end``)
+        that are merged into the cached event by :class:`PublicBootstrap`.
         """
         if msg.type != aiohttp.WSMsgType.TEXT:
             _LOGGER.debug("Ignoring non-text websocket message: %s", msg.type)
@@ -1942,6 +1944,11 @@ class ProtectApiClient(BaseApiClient):
             ):
                 now = time.monotonic()
                 if now - self._last_public_resync >= PUBLIC_RESYNC_MIN_INTERVAL:
+                    # Deliberately updated *before* the task runs (not after
+                    # success) so a flapping WS combined with a persistently
+                    # failing NVR cannot spin up a continuous resync storm.
+                    # Trade-off: a single failed attempt suppresses the next
+                    # reconnect within the debounce window.
                     self._last_public_resync = now
                     self._public_resync_task = asyncio.create_task(
                         self._resync_public_bootstrap()
@@ -3424,12 +3431,17 @@ class ProtectApiClient(BaseApiClient):
         Populate :attr:`public_bootstrap` from the Public Integration API.
 
         This is opt-in and completely independent of :meth:`update` / the
-        private bootstrap. Safe to call multiple times — the cache is
-        replaced on each call. All endpoint fetches run concurrently.
+        private bootstrap. Safe to call multiple times — the
+        :class:`PublicBootstrap` instance is created on first use and then
+        updated in place on subsequent calls. All endpoint fetches run
+        concurrently.
 
         Each endpoint is requested best-effort; endpoints that the NVR
-        doesn't (yet) expose are logged at ``DEBUG`` and ignored rather than raised, so
-        a partial public bootstrap is always returned.
+        doesn't (yet) expose (``BadRequest`` / ``NvrError``) are logged at
+        ``DEBUG`` and ignored, and a partial public bootstrap is returned.
+        If an endpoint fails, its previously cached data is left unchanged
+        (not cleared). Unexpected exceptions (e.g. validation errors from a
+        new server payload) propagate to the caller.
         """
         if self._public_bootstrap is None:
             self._public_bootstrap = PublicBootstrap()
