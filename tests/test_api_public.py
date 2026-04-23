@@ -1490,12 +1490,11 @@ def test_merge_exception_and_warn_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A merge that raises triggers WARNING once, then DEBUG."""
-    from uiprotect.data import public_bootstrap as pb_mod  # noqa: PLC0415
-
     siren = _build_siren(protect_client)
     pb = protect_client.public_bootstrap
-    # Reset the WARNING tracker so we can reliably see the first-occurrence path.
-    monkeypatch.setattr(pb_mod, "_warned_merge_failures", set())
+    # Reset the per-instance WARNING tracker so we can reliably see the
+    # first-occurrence path.
+    pb._warned_merge_failures.clear()
 
     def _boom(self: Any, cleaned: dict[str, Any]) -> None:
         raise RuntimeError("boom")
