@@ -535,8 +535,7 @@ class BaseApiClient:
         # If a subclass tracks queued follow-up resync work, clear it before
         # cancellation so shutdown cannot re-schedule a new task in a
         # ``finally`` block.
-        if hasattr(self, "_public_resync_pending"):
-            self._public_resync_pending = False
+        self._public_resync_pending = False
         if self._public_resync_task is not None:
             self._public_resync_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
