@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.3.0 (2026-04-23)
+
+### Features
+
+
+- Add some public integration api endpoints ([`687d4bc`](https://github.com/uilibs/uiprotect/commit/687d4bcebf9bae22ba807ba1c7b10a9b506dab81))
+
+
 ## v10.2.6 (2026-04-11)
 
 ### Bug fixes
