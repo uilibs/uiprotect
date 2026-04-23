@@ -387,13 +387,13 @@ def _merge(
     warned_keys: set[tuple[str, str]],
 ) -> ProtectModelWithId | None:
     """
-    Merge a partial WS payload into a copy of ``old_obj``.
+    Merge a partial WS payload into ``old_obj`` in place.
 
     Drops ``id`` / ``modelKey`` (identity fields, never changed via update),
     feeds the remaining camelCase payload through the object's own
     :meth:`ProtectBaseObject.unifi_dict_to_dict` (which remaps keys, snake-
     cases and coerces types) and then applies the cleaned diff via
-    :meth:`update_from_dict`. Returns the updated copy, the original
+    :meth:`update_from_dict`. Returns the updated object, the original
     object (for empty / no-op payloads), or ``None`` if the payload could
     not be applied.
     """
@@ -404,11 +404,7 @@ def _merge(
         cleaned = type(old_obj).unifi_dict_to_dict(dict(payload))
         if not cleaned:
             return old_obj
-        # ``deep=True`` so nested models (e.g. ``Camera.feature_flags``,
-        # ``Siren.siren_status``) are copy-on-write and subscribers can
-        # safely diff ``old_obj`` vs ``new_obj`` without aliasing.
-        new_obj = old_obj.model_copy(deep=True)
-        new_obj.update_from_dict(cleaned)
+        old_obj.update_from_dict(cleaned)
     except Exception as err:
         # First occurrence per (ModelType, first-diff-key) is WARNING so a
         # schema break is visible in HA logs; subsequent occurrences drop
@@ -423,4 +419,4 @@ def _merge(
             err,
         )
         return None
-    return new_obj
+    return old_obj

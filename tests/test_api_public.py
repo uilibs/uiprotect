@@ -998,9 +998,10 @@ async def test_camera_motion_start_partial_ws_update(
         },
     )
 
-    assert old is camera  # caller can diff pre/post
+    assert old is camera
+    assert new is camera
     assert new is not None and new.is_motion_detected is True  # type: ignore[attr-defined]
-    # Cache now holds the merged copy.
+    # Cache now holds the same object, updated in place.
     assert pb.cameras[camera.id].is_motion_detected is True
 
 
