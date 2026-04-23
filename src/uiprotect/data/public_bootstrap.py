@@ -115,6 +115,11 @@ class PublicBootstrap:
         repr=False,
     )
 
+    def __post_init__(self) -> None:
+        """Validate cache bounds used by event eviction logic."""
+        if self.max_event_cache_size < 0:
+            raise ValueError("max_event_cache_size must be >= 0")
+
     # ------------------------------------------------------------------
     # Lookup helpers
     # ------------------------------------------------------------------
@@ -280,6 +285,9 @@ class PublicBootstrap:
                 # Update for an object not in the cache — typical when the
                 # cache hasn't been primed yet. Drop; the reconnect hook /
                 # next ``update_public`` refetches full state.
+                # NOTE: returns ``(None, None)`` — distinct from a
+                # merge-failure on a *known* id, which returns ``(None, old)``
+                # (cache entry preserved; only the diff could not be applied).
                 _LOGGER.debug(
                     "Public WS update for unknown %s id=%s; needs full refresh",
                     model_type.value,
@@ -322,7 +330,7 @@ class PublicBootstrap:
         def _put(obj_id: str, obj: ProtectModelWithId) -> None:
             events[obj_id] = cast(Event, obj)
             events.move_to_end(obj_id)
-            while len(events) > limit:
+            while events and len(events) > limit:
                 events.popitem(last=False)
 
         def _delete(obj_id: str) -> None:

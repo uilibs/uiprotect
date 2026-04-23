@@ -249,7 +249,8 @@ def main(
                     typer.secho("Connection aborted.", fg="red")
                     raise typer.Exit(code=1) from exc
             else:
-                raise
+                typer.secho(f"Connection failed: {exc}", fg="red")
+                raise typer.Exit(code=1) from exc
 
     ctx.obj = CliContext(protect=protect, output_format=output_format)
 

@@ -143,15 +143,22 @@ _LOGGER = logging.getLogger(__name__)
 _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
 
 
+# Substring present in the 400 error reason returned by the NVR when the
+# alarm-manager endpoint is *not local* (i.e. set to Global instead of Local).
+# Matched case-insensitively so minor server-side capitalisation changes are
+# tolerated. Extracted as a constant to make the match visible and easy to update.
+_GLOBAL_ALARM_MANAGER_REASON = "global alarm manager"
+
+
 def _log_or_raise(label: str, exc: BaseException) -> None:
     """
     Log expected endpoint-unavailable errors; re-raise anything unexpected.
 
-    NvrError and BadRequest are treated as expected failures for optional Public
-    API endpoints (e.g., alarm-manager, sirens, relays) that may not exist on
-    all systems. Connection errors or timeouts are logged at DEBUG level and
-    aggregated in the response; any other exception type is re-raised as a
-    critical failure (e.g., JSON decode errors, missing required fields).
+    ``NvrError`` and ``BadRequest`` are treated as expected failures for
+    optional Public API endpoints (e.g., alarm-manager, sirens, relays) that
+    may not exist on all systems.  Any other exception type is re-raised
+    immediately — the caller must handle it (e.g. ``CancelledError``,
+    validation errors from an updated server payload).
     """
     if isinstance(exc, (BadRequest, NvrError)):
         _LOGGER.debug("%s endpoint unavailable: %s", label, exc)
@@ -733,7 +740,7 @@ class BaseApiClient:
             # manager error (returned when alarm-manager is not local, e.g.
             # set to global instead), but treat other 4xx as generic bad request.
             if status == HTTPStatus.BAD_REQUEST.value:
-                if "global alarm manager" in reason.lower():
+                if _GLOBAL_ALARM_MANAGER_REASON in reason.lower():
                     raise GlobalAlarmManagerError(msg % (url, status, reason))
                 raise BadRequest(msg % (url, status, reason))
             # Other 4xx client errors also raise BadRequest
