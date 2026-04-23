@@ -15,8 +15,9 @@ are ``Optional``.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
+from ..exceptions import BadRequest
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import ModelType
 
@@ -129,6 +130,17 @@ class Siren(ProtectModelWithId):
     connection_type: str
     wireless_connection_state: PublicWirelessConnectionState | None = None
 
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        # The generic private-API mutation path (``queue_update`` /
+        # ``save_device``) does not know how to route patches to the Public
+        # Integration endpoints; consumers must use the dedicated
+        # ``update_siren_public`` / ``play`` / ``stop`` / ``test_sound``
+        # helpers instead.
+        raise BadRequest(
+            "Siren mutations must go through the dedicated public API helpers "
+            "(e.g. play/stop/set_name/set_volume/set_status_light)."
+        )
+
     @property
     def is_active(self) -> bool:
         """Whether the siren is currently playing."""
@@ -196,6 +208,15 @@ class Relay(ProtectModelWithId):
     outputs: list[PublicRelayOutput]
     inputs: list[PublicRelayInput]
     wireless_connection_state: PublicWirelessConnectionState | None = None
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        # See :meth:`Siren._api_update` — consumers must use
+        # ``update_relay_public`` / ``activate_relay_output_public`` (or the
+        # helper methods on this class).
+        raise BadRequest(
+            "Relay mutations must go through the dedicated public API helpers "
+            "(e.g. activate_output/set_name/set_status_light)."
+        )
 
     def get_output(self, output_id: int) -> PublicRelayOutput | None:
         """Return the output with the given id, or ``None`` if not found."""

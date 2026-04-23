@@ -1141,6 +1141,10 @@ class ProtectApiClient(BaseApiClient):
     # Monotonic timestamp of the last successful/attempted reconnect resync,
     # used to debounce a flapping websocket into a single refresh.
     _last_public_resync: float = 0.0
+    # ``include_arm_profiles`` from the most recent explicit
+    # :meth:`update_public` call, so reconnect re-syncs honour the caller's
+    # original opt-out (systems without the alarm-manager endpoints).
+    _last_update_public_include_arm_profiles: bool = True
     _last_update_dt: datetime | None = None
     _connection_host: IPv4Address | IPv6Address | str | None = None
 
@@ -1970,7 +1974,9 @@ class ProtectApiClient(BaseApiClient):
     async def _resync_public_bootstrap(self) -> None:
         """Re-sync the public bootstrap cache after a websocket reconnect."""
         try:
-            await self.update_public()
+            await self.update_public(
+                include_arm_profiles=self._last_update_public_include_arm_profiles,
+            )
         except Exception:
             _LOGGER.exception("Failed to resync public bootstrap after reconnect")
 
@@ -3287,7 +3293,11 @@ class ProtectApiClient(BaseApiClient):
         data = await self.api_request_list(url="/v1/arm-profiles", public_api=True)
         profiles = [ArmProfile.from_unifi_dict(**item, api=self) for item in data]
         if self._public_bootstrap is not None:
-            self._public_bootstrap.arm_profiles = {p.id: p for p in profiles}
+            # Update in place to preserve dict identity for consumers holding
+            # a reference to ``public_bootstrap.arm_profiles``.
+            arm_profiles = self._public_bootstrap.arm_profiles
+            arm_profiles.clear()
+            arm_profiles.update({p.id: p for p in profiles})
         return profiles
 
     async def create_arm_profile_public(
@@ -3446,6 +3456,8 @@ class ProtectApiClient(BaseApiClient):
         if self._public_bootstrap is None:
             self._public_bootstrap = PublicBootstrap()
         pb = self._public_bootstrap
+        # Remember the caller's choice so reconnect re-syncs honour it.
+        self._last_update_public_include_arm_profiles = include_arm_profiles
 
         # NVR first, separately — consumers typically need it for
         # ``DeviceInfo`` and it's very cheap (single object).

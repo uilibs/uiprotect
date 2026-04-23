@@ -887,7 +887,7 @@ async def test_ws_reconnect_schedules_resync(
     protect_client._public_bootstrap = PublicBootstrap()
     update_called = asyncio.Event()
 
-    async def _fake_update() -> PublicBootstrap:
+    async def _fake_update(*, include_arm_profiles: bool = True) -> PublicBootstrap:
         update_called.set()
         return protect_client.public_bootstrap
 
@@ -1101,7 +1101,7 @@ async def test_reconnect_resync_is_debounced(
     protect_client._public_bootstrap = PublicBootstrap()
     call_count = 0
 
-    async def _fake_update() -> PublicBootstrap:
+    async def _fake_update(*, include_arm_profiles: bool = True) -> PublicBootstrap:
         nonlocal call_count
         call_count += 1
         return protect_client.public_bootstrap
@@ -1680,3 +1680,73 @@ def test_process_events_ws_message_invalid_envelope_early_return(
         protect_client._subscribed_models = set()
 
     assert captured == []
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.ArmProfile.from_unifi_dict")
+async def test_get_arm_profiles_preserves_dict_identity(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    """Refreshing arm profiles must update the dict in place, not replace it."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    pb = protect_client.public_bootstrap
+    original_dict = pb.arm_profiles
+    # Seed with a stale entry that must be evicted after refresh.
+    pb.arm_profiles["stale"] = Mock(id="stale")
+
+    mock_ctor.side_effect = [Mock(id=PROFILE_ID)]
+    protect_client.api_request_list = AsyncMock(return_value=[{"id": PROFILE_ID}])
+
+    await protect_client.get_arm_profiles_public()
+
+    assert pb.arm_profiles is original_dict  # identity preserved
+    assert "stale" not in pb.arm_profiles
+    assert PROFILE_ID in pb.arm_profiles
+
+
+@pytest.mark.asyncio()
+async def test_update_public_records_include_arm_profiles(
+    protect_client: ProtectApiClient,
+) -> None:
+    """``update_public`` persists the ``include_arm_profiles`` flag for resyncs."""
+    _mock_update_public_endpoints(protect_client)
+    await protect_client.update_public(include_arm_profiles=False)
+    assert protect_client._last_update_public_include_arm_profiles is False
+    # Arm-profile endpoints must NOT be called when opted out.
+    protect_client.get_arm_profiles_public.assert_not_called()
+    protect_client.get_arm_manager_settings_public.assert_not_called()
+
+    await protect_client.update_public(include_arm_profiles=True)
+    assert protect_client._last_update_public_include_arm_profiles is True
+
+
+@pytest.mark.asyncio()
+async def test_resync_public_bootstrap_honours_last_include_arm_profiles(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Reconnect resync must use the last caller-specified ``include_arm_profiles``."""
+    protect_client._last_update_public_include_arm_profiles = False
+    protect_client.update_public = AsyncMock(return_value=PublicBootstrap())  # type: ignore[method-assign]
+    await protect_client._resync_public_bootstrap()
+    protect_client.update_public.assert_awaited_once_with(include_arm_profiles=False)
+
+
+@pytest.mark.asyncio()
+async def test_siren_api_update_rejects_generic_mutations(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Generic mutation path must fail loudly for Public API sirens."""
+    siren = _build_siren(protect_client)
+    with pytest.raises(BadRequest, match="Siren mutations"):
+        await siren._api_update({"name": "new"})
+
+
+@pytest.mark.asyncio()
+async def test_relay_api_update_rejects_generic_mutations(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Generic mutation path must fail loudly for Public API relays."""
+    relay = _build_relay(protect_client)
+    with pytest.raises(BadRequest, match="Relay mutations"):
+        await relay._api_update({"name": "new"})
