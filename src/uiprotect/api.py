@@ -525,6 +525,11 @@ class BaseApiClient:
             self._update_task = None
 
     async def _cancel_public_resync_task(self) -> None:
+        # If a subclass tracks queued follow-up resync work, clear it before
+        # cancellation so shutdown cannot re-schedule a new task in a
+        # ``finally`` block.
+        if hasattr(self, "_public_resync_pending"):
+            self._public_resync_pending = False
         if self._public_resync_task is not None:
             self._public_resync_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -1160,6 +1165,10 @@ class ProtectApiClient(BaseApiClient):
     # :meth:`update_public` call, so reconnect re-syncs honour the caller's
     # original opt-out (systems without the alarm-manager endpoints).
     _last_update_public_include_arm_profiles: bool = True
+    # Set when another reconnect happens while a public resync task is
+    # still running; consumed in ``_resync_public_bootstrap`` to run one
+    # follow-up refresh.
+    _public_resync_pending: bool = False
     _last_update_dt: datetime | None = None
     _connection_host: IPv4Address | IPv6Address | str | None = None
 
@@ -1958,25 +1967,29 @@ class ProtectApiClient(BaseApiClient):
         if state is WebsocketState.CONNECTED:
             if not self._devices_ws_has_been_connected:
                 self._devices_ws_has_been_connected = True
-            elif self._public_bootstrap is not None and (
-                self._public_resync_task is None or self._public_resync_task.done()
-            ):
-                now = time.monotonic()
-                if now - self._last_public_resync >= PUBLIC_RESYNC_MIN_INTERVAL:
-                    # Deliberately updated *before* the task runs (not after
-                    # success) so a flapping WS combined with a persistently
-                    # failing NVR cannot spin up a continuous resync storm.
-                    # Trade-off: a single failed attempt suppresses the next
-                    # reconnect within the debounce window.
-                    self._last_public_resync = now
-                    self._public_resync_task = asyncio.create_task(
-                        self._resync_public_bootstrap()
-                    )
+            elif self._public_bootstrap is not None:
+                if (
+                    self._public_resync_task is not None
+                    and not self._public_resync_task.done()
+                ):
+                    self._public_resync_pending = True
                 else:
-                    _LOGGER.debug(
-                        "Skipping public bootstrap resync (debounced, last was %.1fs ago)",
-                        now - self._last_public_resync,
-                    )
+                    now = time.monotonic()
+                    if now - self._last_public_resync >= PUBLIC_RESYNC_MIN_INTERVAL:
+                        # Deliberately updated *before* the task runs (not after
+                        # success) so a flapping WS combined with a persistently
+                        # failing NVR cannot spin up a continuous resync storm.
+                        # Trade-off: a single failed attempt suppresses the next
+                        # reconnect within the debounce window.
+                        self._last_public_resync = now
+                        self._public_resync_task = asyncio.create_task(
+                            self._resync_public_bootstrap()
+                        )
+                    else:
+                        _LOGGER.debug(
+                            "Skipping public bootstrap resync (debounced, last was %.1fs ago)",
+                            now - self._last_public_resync,
+                        )
 
         for sub in self._devices_ws_state_subscriptions:
             try:
@@ -1994,6 +2007,13 @@ class ProtectApiClient(BaseApiClient):
             )
         except Exception:
             _LOGGER.exception("Failed to resync public bootstrap after reconnect")
+        finally:
+            if self._public_resync_pending:
+                self._public_resync_pending = False
+                self._last_public_resync = time.monotonic()
+                self._public_resync_task = asyncio.create_task(
+                    self._resync_public_bootstrap()
+                )
 
     async def get_bootstrap(self) -> Bootstrap:
         """

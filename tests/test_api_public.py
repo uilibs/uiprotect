@@ -1175,6 +1175,33 @@ def test_events_ws_add_evicts_oldest(
     assert list(pb.events) == ["evt-1", "evt-2"]
 
 
+def test_public_bootstrap_rejects_negative_event_cache_size() -> None:
+    with pytest.raises(ValueError, match="max_event_cache_size must be >= 0"):
+        PublicBootstrap(max_event_cache_size=-1)
+
+
+def test_events_ws_add_zero_cache_size_keeps_cache_empty(
+    protect_client: ProtectApiClient,
+) -> None:
+    pb = PublicBootstrap(max_event_cache_size=0)
+    protect_client._public_bootstrap = pb
+
+    pb.process_events_ws_message(
+        protect_client,
+        {
+            "type": "add",
+            "item": {
+                "id": "evt-0",
+                "modelKey": "event",
+                "type": "motion",
+                "start": 1700000000000,
+            },
+        },
+    )
+
+    assert pb.events == {}
+
+
 def test_nvr_ws_partial_update_merges_in_place(
     protect_client: ProtectApiClient,
 ) -> None:
@@ -1232,6 +1259,50 @@ async def test_reconnect_resync_is_debounced(
     protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
     await asyncio.sleep(0)
     assert call_count == 1
+
+
+@pytest.mark.asyncio()
+async def test_reconnect_queues_follow_up_resync_while_running(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Reconnect during active resync queues exactly one follow-up refresh."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    first_started = asyncio.Event()
+    release_first = asyncio.Event()
+    call_count = 0
+
+    async def _fake_update(*, include_arm_profiles: bool = True) -> PublicBootstrap:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            first_started.set()
+            await release_first.wait()
+        return protect_client.public_bootstrap
+
+    protect_client.update_public = _fake_update  # type: ignore[assignment]
+
+    # Initial connect — no resync.
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    # First reconnect starts first resync run.
+    protect_client._on_devices_websocket_state_change(WebsocketState.DISCONNECTED)
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    await asyncio.wait_for(first_started.wait(), timeout=1.0)
+
+    # Another reconnect during the active task should queue one follow-up.
+    protect_client._on_devices_websocket_state_change(WebsocketState.DISCONNECTED)
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    assert protect_client._public_resync_pending is True
+
+    # Complete first run; queued second run should happen once.
+    release_first.set()
+    if protect_client._public_resync_task is not None:
+        await protect_client._public_resync_task
+    await asyncio.sleep(0)
+    if protect_client._public_resync_task is not None:
+        await protect_client._public_resync_task
+
+    assert call_count == 2
+    assert protect_client._public_resync_pending is False
 
 
 @pytest.mark.asyncio()
