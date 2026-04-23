@@ -1149,3 +1149,534 @@ async def test_subscribed_models_filters_devices_ws(
         assert got == []
     finally:
         unsub()
+
+
+# ---------------------------------------------------------------------------
+# Device action helpers (public_devices.py)
+# ---------------------------------------------------------------------------
+
+
+def _build_siren(protect_client: ProtectApiClient, siren_id: str = SIREN_ID) -> Siren:
+    pb = PublicBootstrap()
+    protect_client._public_bootstrap = pb
+    pb.process_devices_ws_message(
+        protect_client,
+        {
+            "type": "add",
+            "item": {
+                "id": siren_id,
+                "modelKey": "siren",
+                "state": "CONNECTED",
+                "name": "Siren",
+                "mac": "AA",
+                "volume": 50,
+                "ledSettings": {"isEnabled": True},
+                "sirenStatus": {
+                    "isActive": False,
+                    "activatedAt": None,
+                    "duration": None,
+                },
+                "connectionType": "lora",
+                "wirelessConnectionState": {
+                    "signalState": {"signalQuality": 80, "signalStrength": -50},
+                    "batteryStatus": {"percentage": 100, "isLow": False},
+                    "bridge": None,
+                },
+            },
+        },
+    )
+    return pb.sirens[siren_id]
+
+
+def _build_relay(protect_client: ProtectApiClient, relay_id: str = RELAY_ID) -> Relay:
+    pb = protect_client._public_bootstrap or PublicBootstrap()
+    protect_client._public_bootstrap = pb
+    pb.process_devices_ws_message(
+        protect_client,
+        {
+            "type": "add",
+            "item": {
+                "id": relay_id,
+                "modelKey": "relay",
+                "state": "CONNECTED",
+                "name": "Relay",
+                "mac": "BB",
+                "ledSettings": {"isEnabled": True},
+                "outputs": [
+                    {
+                        "id": 0,
+                        "name": "Out0",
+                        "type": "relay",
+                        "delay": 0,
+                        "pulseDuration": 500,
+                        "state": "off",
+                        "rebootState": "off",
+                    }
+                ],
+                "inputs": [],
+            },
+        },
+    )
+    return pb.relays[relay_id]
+
+
+@pytest.mark.asyncio()
+async def test_siren_device_action_helpers(
+    protect_client: ProtectApiClient,
+) -> None:
+    siren = _build_siren(protect_client)
+    protect_client.play_siren_public = AsyncMock()
+    protect_client.stop_siren_public = AsyncMock()
+    protect_client.test_siren_sound_public = AsyncMock()
+    protect_client.update_siren_public = AsyncMock(return_value=siren)
+
+    await siren.play(duration=5)
+    protect_client.play_siren_public.assert_awaited_once_with(SIREN_ID, duration=5)
+
+    await siren.stop()
+    protect_client.stop_siren_public.assert_awaited_once_with(SIREN_ID)
+
+    await siren.test_sound(volume=70)
+    protect_client.test_siren_sound_public.assert_awaited_once_with(SIREN_ID, volume=70)
+
+    assert await siren.set_name("New") is siren
+    protect_client.update_siren_public.assert_awaited_with(SIREN_ID, name="New")
+    assert await siren.set_volume(33) is siren
+    protect_client.update_siren_public.assert_awaited_with(SIREN_ID, volume=33)
+    assert await siren.set_status_light(False) is siren
+    protect_client.update_siren_public.assert_awaited_with(
+        SIREN_ID, led_is_enabled=False
+    )
+
+
+@pytest.mark.asyncio()
+async def test_relay_device_action_helpers(
+    protect_client: ProtectApiClient,
+) -> None:
+    relay = _build_relay(protect_client)
+    protect_client.activate_relay_output_public = AsyncMock()
+    protect_client.update_relay_public = AsyncMock(return_value=relay)
+
+    await relay.activate_output(0, state="on", pulse_duration_ms=200)
+    protect_client.activate_relay_output_public.assert_awaited_once_with(
+        RELAY_ID, 0, state="on", pulse_duration_ms=200
+    )
+
+    assert await relay.set_name("R1") is relay
+    protect_client.update_relay_public.assert_awaited_with(RELAY_ID, name="R1")
+    assert await relay.set_status_light(True) is relay
+    protect_client.update_relay_public.assert_awaited_with(
+        RELAY_ID, led_is_enabled=True
+    )
+
+
+# ---------------------------------------------------------------------------
+# PublicBootstrap edge cases
+# ---------------------------------------------------------------------------
+
+
+def test_public_bootstrap_get_and_unknown_model(
+    protect_client: ProtectApiClient,
+) -> None:
+    """``PublicBootstrap.get`` returns cached obj for known type, ``None`` otherwise."""
+    siren = _build_siren(protect_client)
+    pb = protect_client.public_bootstrap
+    assert pb.get(ModelType.SIREN, SIREN_ID) is siren
+    assert pb.get(ModelType.SIREN, "missing") is None
+    # ModelType.UNKNOWN (or any type not in _DEVICE_STORES) → None.
+    assert pb.get(ModelType.UNKNOWN, SIREN_ID) is None
+
+
+def test_apply_fetch_result_removes_stale_entries(
+    protect_client: ProtectApiClient,
+) -> None:
+    siren = _build_siren(protect_client)
+    pb = protect_client.public_bootstrap
+    # Pretend the HTTP fetch returned an empty list → the cached siren is stale.
+    pb.apply_fetch_result("sirens", [])
+    assert SIREN_ID not in pb.sirens
+    # Reinsert via fetch.
+    pb.apply_fetch_result("sirens", [siren])
+    assert pb.sirens[SIREN_ID] is siren
+
+
+def test_process_devices_ws_message_invalid_envelope(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Missing ``type`` / ``modelKey`` / ``id`` short-circuits to ``(None, None, None)``."""
+    pb = PublicBootstrap()
+    # Missing type.
+    assert pb.process_devices_ws_message(
+        protect_client, {"item": {"id": "x", "modelKey": "siren"}}
+    ) == (None, None, None)
+    # Missing modelKey.
+    assert pb.process_devices_ws_message(
+        protect_client, {"type": "add", "item": {"id": "x"}}
+    ) == (None, None, None)
+    # Missing id.
+    assert pb.process_devices_ws_message(
+        protect_client, {"type": "add", "item": {"modelKey": "siren"}}
+    ) == (None, None, None)
+    # Completely missing item.
+    assert pb.process_devices_ws_message(protect_client, {"type": "add"}) == (
+        None,
+        None,
+        None,
+    )
+
+
+def test_process_events_ws_message_invalid_or_non_event(
+    protect_client: ProtectApiClient,
+) -> None:
+    pb = PublicBootstrap()
+    # Invalid envelope.
+    assert pb.process_events_ws_message(protect_client, {}) == (None, None)
+    # Non-event modelKey routed to the events handler.
+    assert pb.process_events_ws_message(
+        protect_client,
+        {"type": "add", "item": {"id": "x", "modelKey": "siren"}},
+    ) == (None, None)
+
+
+def test_apply_action_add_creation_failure(
+    protect_client: ProtectApiClient,
+) -> None:
+    """``create_from_unifi_dict`` raising → cache untouched, ``_warn_once`` fires."""
+    pb = PublicBootstrap()
+    protect_client._public_bootstrap = pb
+    # A ``siren`` payload missing required fields triggers a validation error.
+    mt, new, old = pb.process_devices_ws_message(
+        protect_client,
+        {
+            "type": "add",
+            "item": {"id": "bad-siren", "modelKey": "siren"},
+        },
+    )
+    assert mt is ModelType.SIREN
+    assert new is None and old is None
+    assert "bad-siren" not in pb.sirens
+
+
+def test_nvr_ws_remove_clears_slot(
+    protect_client: ProtectApiClient,
+) -> None:
+    pb = PublicBootstrap()
+    protect_client._public_bootstrap = pb
+    # First an NVR update to populate (reuse existing merge-in-place logic).
+    # Simplest: set the slot directly, then issue a remove envelope.
+    pb.nvr = Mock(id="nvr-1")
+    mt, new, old = pb.process_devices_ws_message(
+        protect_client,
+        {"type": "remove", "item": {"id": "nvr-1", "modelKey": "nvr"}},
+    )
+    assert mt is ModelType.NVR
+    assert new is None and old is not None
+    assert pb.nvr is None
+
+
+def test_events_ws_remove_clears_cache(
+    protect_client: ProtectApiClient,
+) -> None:
+    pb = PublicBootstrap()
+    protect_client._public_bootstrap = pb
+    pb.process_events_ws_message(
+        protect_client,
+        {
+            "type": "add",
+            "item": {
+                "id": "evt-rm",
+                "modelKey": "event",
+                "type": "motion",
+                "start": 1700000000000,
+            },
+        },
+    )
+    new, old = pb.process_events_ws_message(
+        protect_client,
+        {"type": "remove", "item": {"id": "evt-rm", "modelKey": "event"}},
+    )
+    assert new is None
+    assert old is not None
+    assert "evt-rm" not in pb.events
+
+
+def test_apply_action_unknown_action_falls_through(
+    protect_client: ProtectApiClient,
+) -> None:
+    """An unrecognized action returns ``(None, old)`` without touching the cache."""
+    siren = _build_siren(protect_client)
+    pb = protect_client.public_bootstrap
+    mt, new, old = pb.process_devices_ws_message(
+        protect_client,
+        {"type": "weird", "item": {"id": SIREN_ID, "modelKey": "siren"}},
+    )
+    assert mt is ModelType.SIREN
+    assert new is None
+    assert old is siren
+    assert pb.sirens[SIREN_ID] is siren
+
+
+def test_merge_empty_and_no_op_payloads(
+    protect_client: ProtectApiClient,
+) -> None:
+    siren = _build_siren(protect_client)
+    pb = protect_client.public_bootstrap
+    # Empty payload (only identity fields) → merge returns original.
+    _, new, old = pb.process_devices_ws_message(
+        protect_client,
+        {"type": "update", "item": {"id": SIREN_ID, "modelKey": "siren"}},
+    )
+    assert new is siren
+    assert old is siren
+    # Payload with a camelCase key that ``unifi_dict_to_dict`` drops (unknown)
+    # → cleaned is empty → returns original.
+    _, new, old = pb.process_devices_ws_message(
+        protect_client,
+        {
+            "type": "update",
+            "item": {
+                "id": SIREN_ID,
+                "modelKey": "siren",
+                "totallyUnknownField": 123,
+            },
+        },
+    )
+    assert new is siren
+
+
+def test_merge_exception_and_warn_once(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A merge that raises triggers WARNING once, then DEBUG."""
+    from uiprotect.data import public_bootstrap as pb_mod  # noqa: PLC0415
+
+    siren = _build_siren(protect_client)
+    pb = protect_client.public_bootstrap
+    # Reset the WARNING tracker so we can reliably see the first-occurrence path.
+    monkeypatch.setattr(pb_mod, "_warned_merge_failures", set())
+
+    def _boom(self: Any, cleaned: dict[str, Any]) -> None:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(type(siren), "update_from_dict", _boom)
+
+    update = {
+        "type": "update",
+        "item": {"id": SIREN_ID, "modelKey": "siren", "volume": 10},
+    }
+    # First call → WARNING path in _warn_once.
+    _, new, old = pb.process_devices_ws_message(protect_client, update)
+    assert new is None
+    assert old is siren  # cache still contains the old value.
+    assert pb.sirens[SIREN_ID] is siren
+    # Second call → DEBUG path (already warned for this key).
+    _, new2, _ = pb.process_devices_ws_message(protect_client, update)
+    assert new2 is None
+
+
+def test_parse_ws_envelope_none_item() -> None:
+    """Direct test of ``_parse_ws_envelope`` for the ``data['item'] is None`` path."""
+    from uiprotect.data.public_bootstrap import _parse_ws_envelope  # noqa: PLC0415
+
+    assert _parse_ws_envelope({"type": "add", "item": None}) == (None, {}, None)
+    assert _parse_ws_envelope({}) == (None, {}, None)
+
+
+# ---------------------------------------------------------------------------
+# Additional api.py Public API coverage
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Siren.from_unifi_dict")
+async def test_get_siren_public(
+    mock_ctor: Mock, protect_client: ProtectApiClient
+) -> None:
+    mock_ctor.return_value = Mock(id=SIREN_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": SIREN_ID})
+    result = await protect_client.get_siren_public(SIREN_ID)
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["url"] == f"/v1/sirens/{SIREN_ID}"
+    assert result.id == SIREN_ID
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Siren.from_unifi_dict")
+async def test_update_siren_public_name_only(
+    mock_ctor: Mock, protect_client: ProtectApiClient
+) -> None:
+    mock_ctor.return_value = Mock(id=SIREN_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": SIREN_ID})
+    await protect_client.update_siren_public(SIREN_ID, name="Front")
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["json"] == {"name": "Front"}
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Relay.from_unifi_dict")
+async def test_get_relays_and_relay_public(
+    mock_ctor: Mock, protect_client: ProtectApiClient
+) -> None:
+    mock_ctor.side_effect = [Mock(id=RELAY_ID), Mock(id=RELAY_ID)]
+    protect_client.api_request_list = AsyncMock(return_value=[{"id": RELAY_ID}])
+    protect_client.api_request_obj = AsyncMock(return_value={"id": RELAY_ID})
+
+    relays = await protect_client.get_relays_public()
+    assert len(relays) == 1
+    assert relays[0].id == RELAY_ID
+    _, kwargs = protect_client.api_request_list.call_args
+    assert kwargs["url"] == "/v1/relays"
+
+    relay = await protect_client.get_relay_public(RELAY_ID)
+    assert relay.id == RELAY_ID
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["url"] == f"/v1/relays/{RELAY_ID}"
+
+
+@pytest.mark.asyncio()
+async def test_update_relay_public_empty(
+    protect_client: ProtectApiClient,
+) -> None:
+    with pytest.raises(BadRequest):
+        await protect_client.update_relay_public(RELAY_ID)
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.ArmProfile.from_unifi_dict")
+async def test_update_arm_profile_all_params_updates_cache(
+    mock_ctor: Mock, protect_client: ProtectApiClient
+) -> None:
+    """Exercises ``automations`` / ``recordEverything`` / ``activationDelay`` + cache upsert."""
+    profile = Mock(id=PROFILE_ID)
+    mock_ctor.return_value = profile
+    protect_client.api_request_obj = AsyncMock(return_value={"id": PROFILE_ID})
+    protect_client._public_bootstrap = PublicBootstrap()
+    pb = protect_client.public_bootstrap
+
+    await protect_client.update_arm_profile_public(
+        PROFILE_ID,
+        automations=["a1"],
+        record_everything=True,
+        activation_delay=30,
+    )
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["json"] == {
+        "automations": ["a1"],
+        "recordEverything": True,
+        "activationDelay": 30,
+    }
+    assert pb.arm_profiles[PROFILE_ID] is profile
+
+
+def test_process_devices_ws_message_uses_cache_when_materialised(
+    protect_client: ProtectApiClient,
+) -> None:
+    """When ``_public_bootstrap`` exists, ``new_obj`` comes from the cache."""
+    captured: list[Any] = []
+    protect_client._devices_ws_subscriptions.append(captured.append)
+    _build_siren(protect_client)  # populates the cache with SIREN_ID
+    msg = aiohttp.WSMessage(
+        aiohttp.WSMsgType.TEXT,
+        orjson.dumps(
+            {
+                "type": "update",
+                "item": {"id": SIREN_ID, "modelKey": "siren", "volume": 11},
+            }
+        ).decode(),
+        None,
+    )
+    protect_client._process_devices_ws_message(msg)
+    assert len(captured) == 1
+    assert captured[0].new_obj is not None
+    assert captured[0].new_obj.volume == 11
+    assert captured[0].old_obj is not None
+
+
+@pytest.mark.asyncio()
+async def test_process_events_ws_message_uses_cache_when_materialised(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Events WS pipes cached ``new_obj`` / ``old_obj`` from ``PublicBootstrap``."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    captured: list[Any] = []
+    protect_client._events_ws_subscriptions.append(captured.append)
+    msg = aiohttp.WSMessage(
+        aiohttp.WSMsgType.TEXT,
+        orjson.dumps(
+            {
+                "type": "add",
+                "item": {
+                    "id": "evt-cache",
+                    "modelKey": "event",
+                    "type": "motion",
+                    "start": 1700000000000,
+                },
+            }
+        ).decode(),
+        None,
+    )
+    protect_client._process_events_ws_message(msg)
+    assert len(captured) == 1
+    assert captured[0].new_obj is not None
+    assert captured[0].new_obj.id == "evt-cache"
+
+
+@pytest.mark.asyncio()
+async def test_resync_public_bootstrap_logs_on_failure(
+    protect_client: ProtectApiClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """``_resync_public_bootstrap`` swallows and logs any ``update_public`` exception."""
+    protect_client.update_public = AsyncMock(side_effect=RuntimeError("offline"))  # type: ignore[method-assign]
+    with caplog.at_level("ERROR"):
+        await protect_client._resync_public_bootstrap()
+    assert "Failed to resync public bootstrap after reconnect" in caplog.text
+
+
+@pytest.mark.asyncio()
+async def test_update_public_reraises_unexpected_exception(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Unexpected (non-``BadRequest``/``NvrError``) endpoint failures propagate."""
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(side_effect=RuntimeError("boom")),
+    )
+    with pytest.raises(RuntimeError, match="boom"):
+        await protect_client.update_public()
+
+
+def test_process_events_ws_message_invalid_envelope_early_return(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Events WS short-circuits on missing ``type`` / ``modelKey``."""
+    captured: list[Any] = []
+    protect_client._events_ws_subscriptions.append(captured.append)
+    for payload in (
+        {"item": {"id": "x", "modelKey": "event"}},  # missing type
+        {"type": "add", "item": {"id": "x"}},  # missing modelKey
+        {"type": "add", "item": {"id": "x", "modelKey": "totally_unknown"}},
+    ):
+        msg = aiohttp.WSMessage(
+            aiohttp.WSMsgType.TEXT,
+            orjson.dumps(payload).decode(),
+            None,
+        )
+        protect_client._process_events_ws_message(msg)
+
+    # Covers the ``_subscribed_models`` filter branch (early return).
+    protect_client._subscribed_models = {ModelType.CAMERA}
+    try:
+        msg = aiohttp.WSMessage(
+            aiohttp.WSMsgType.TEXT,
+            orjson.dumps(
+                {"type": "add", "item": {"id": "x", "modelKey": "event"}}
+            ).decode(),
+            None,
+        )
+        protect_client._process_events_ws_message(msg)
+    finally:
+        protect_client._subscribed_models = set()
+
+    assert captured == []
