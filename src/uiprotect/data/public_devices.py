@@ -227,10 +227,9 @@ class Relay(ProtectModelWithId):
 
     def __getitem__(self, output_id: int) -> PublicRelayOutput:
         """Return the output with the given id; raises :class:`KeyError` if unknown."""
-        for out in self.outputs:
-            if out.id == output_id:
-                return out
-        raise KeyError(output_id)
+        if (out := self.get_output(output_id)) is None:
+            raise KeyError(output_id)
+        return out
 
     async def activate_output(
         self,
