@@ -1169,10 +1169,6 @@ class ProtectApiClient(BaseApiClient):
     # Monotonic timestamp of the last successful/attempted reconnect resync,
     # used to debounce a flapping websocket into a single refresh.
     _last_public_resync: float = 0.0
-    # ``include_arm_profiles`` from the most recent explicit
-    # :meth:`update_public` call, so reconnect re-syncs honour the caller's
-    # original opt-out (systems without the alarm-manager endpoints).
-    _last_update_public_include_arm_profiles: bool = True
     # Set when another reconnect happens while a public resync task is
     # still running; consumed in ``_resync_public_bootstrap`` to run one
     # follow-up refresh.
@@ -2010,9 +2006,7 @@ class ProtectApiClient(BaseApiClient):
     async def _resync_public_bootstrap(self) -> None:
         """Re-sync the public bootstrap cache after a websocket reconnect."""
         try:
-            await self.update_public(
-                include_arm_profiles=self._last_update_public_include_arm_profiles,
-            )
+            await self.update_public()
         except Exception:
             _LOGGER.exception("Failed to resync public bootstrap after reconnect")
         finally:
@@ -3487,11 +3481,7 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Bootstrap (opt-in)
     # ------------------------------------------------------------------
 
-    async def update_public(
-        self,
-        *,
-        include_arm_profiles: bool = True,
-    ) -> PublicBootstrap:
+    async def update_public(self) -> PublicBootstrap:
         """
         Populate :attr:`public_bootstrap` from the Public Integration API.
 
@@ -3511,11 +3501,12 @@ class ProtectApiClient(BaseApiClient):
         if self._public_bootstrap is None:
             self._public_bootstrap = PublicBootstrap()
         pb = self._public_bootstrap
-        # Remember the caller's choice so reconnect re-syncs honour it.
-        self._last_update_public_include_arm_profiles = include_arm_profiles
 
         # Bind coroutines to their labels and attribute names to avoid
         # manual index synchronization bugs.
+        # ``get_arm_profiles_public`` writes into ``pb`` itself on success;
+        # we gather it for concurrency and to swallow failures.
+        # ``armMode`` is part of the NVR response; no separate call needed.
         endpoints = [
             (self.get_nvr_public(), "nvr", "nvr"),
             (self.get_cameras_public(), "cameras", "cameras"),
@@ -3524,15 +3515,8 @@ class ProtectApiClient(BaseApiClient):
             (self.get_sensors_public(), "sensors", "sensors"),
             (self.get_sirens_public(), "sirens", "sirens"),
             (self.get_relays_public(), "relays", "relays"),
+            (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles"),
         ]
-
-        if include_arm_profiles:
-            # ``get_arm_profiles_public`` writes into ``pb`` itself on
-            # success; we gather it for concurrency and to swallow failures.
-            # ``armMode`` is part of the NVR response; no separate call needed.
-            endpoints.append(
-                (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles")
-            )
 
         results = await asyncio.gather(
             *[coro for coro, _, _ in endpoints], return_exceptions=True
