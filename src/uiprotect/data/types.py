@@ -641,6 +641,26 @@ class ChimeType(int, enum.Enum):
 
 
 @enum.unique
+class NvrArmModeStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Arm-manager status values embedded in the NVR ``armMode`` field."""
+
+    ARMING = "arming"
+    ARMED = "armed"
+    BREACH = "breach"
+    DISABLED = "disabled"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class RelayOutputState(UnknownValuesEnumMixin, enum.StrEnum):
+    """State of a single relay output channel."""
+
+    ON = "on"
+    OFF = "off"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
 class LockStatusType(ValuesEnumMixin, enum.StrEnum):
     OPEN = "OPEN"
     OPENING = "OPENING"

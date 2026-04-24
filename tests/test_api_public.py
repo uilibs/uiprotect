@@ -11,7 +11,15 @@ import aiohttp
 import orjson
 import pytest
 
-from uiprotect.data import ArmProfile, NvrArmMode, PublicBootstrap, Relay, Siren
+from uiprotect.data import (
+    ArmProfile,
+    NvrArmModeStatus,
+    PublicBootstrap,
+    PublicNVR,
+    Relay,
+    RelayOutputState,
+    Siren,
+)
 from uiprotect.data.types import EventType, ModelType
 from uiprotect.exceptions import BadRequest
 from uiprotect.websocket import WebsocketState
@@ -24,12 +32,52 @@ SENSOR_ID = "66d025b301ebc903e80003ea"
 SIREN_ID = "672094f900e26303e800062a"
 RELAY_ID = "66d025b301ebc903e80003eb"
 PROFILE_ID = "6878d82800155803e45928e0"
+NVR_ID = "66d025b301ebc903e80003ec"
+
+# Minimal raw payload matching the Public API NVR schema (v7.0 — no armMode).
+_NVR_RAW_BASE: dict[str, Any] = {
+    "id": NVR_ID,
+    "modelKey": "nvr",
+    "name": "Test NVR",
+    "doorbellSettings": {
+        "defaultMessageText": "WELCOME",
+        "defaultMessageResetTimeoutMs": 60000,
+        "customMessages": [],
+        "customImages": [],
+    },
+}
+
+
+def _make_public_nvr(
+    client: ProtectApiClient,
+    arm_mode: dict[str, Any] | None = None,
+) -> PublicNVR:
+    """Build a minimal :class:`PublicNVR` instance for use in tests."""
+    raw = dict(_NVR_RAW_BASE)
+    if arm_mode is not None:
+        raw["armMode"] = arm_mode
+    return PublicNVR.from_unifi_dict(**raw, api=client)
+
+
+def _arm_mode_raw(
+    status: str = "disabled", profile_id: str | None = None
+) -> dict[str, Any]:
+    return {
+        "status": status,
+        "armProfileId": profile_id,
+        "armedAt": None,
+        "willBeArmedAt": None,
+        "breachDetectedAt": None,
+        "breachEventCount": 0,
+        "breachTriggerEventId": None,
+        "breachEventId": None,
+    }
 
 
 def _mock_update_public_endpoints(client: ProtectApiClient, **overrides: Any) -> None:
     """Stub every endpoint ``update_public`` calls. Overrides win over defaults."""
     defaults: dict[str, Any] = {
-        "get_nvr_public": AsyncMock(return_value=Mock(id="nvr-1")),
+        "get_nvr_public": AsyncMock(return_value=_make_public_nvr(client)),
         "get_cameras_public": AsyncMock(return_value=[]),
         "get_lights_public": AsyncMock(return_value=[]),
         "get_chimes_public": AsyncMock(return_value=[]),
@@ -301,20 +349,11 @@ async def test_enable_disable_arm_alarm_tracks_state(
     protect_client.api_request_raw = AsyncMock(return_value=None)
     protect_client._public_bootstrap = PublicBootstrap()
     pb = protect_client.public_bootstrap
-    pb.arm_mode = NvrArmMode.from_unifi_dict(
-        status="disabled",
-        armProfileId=None,
-        armedAt=None,
-        willBeArmedAt=None,
-        breachDetectedAt=None,
-        breachEventCount=0,
-        breachTriggerEventId=None,
-        breachEventId=None,
-    )
+    pb.nvr = _make_public_nvr(protect_client, arm_mode=_arm_mode_raw("disabled"))
     await protect_client.enable_arm_alarm_public()
-    assert pb.arm_mode.status == "arming"
+    assert pb.arm_mode.status == NvrArmModeStatus.ARMING
     await protect_client.disable_arm_alarm_public()
-    assert pb.arm_mode.status == "disabled"
+    assert pb.arm_mode.status == NvrArmModeStatus.DISABLED
 
 
 @pytest.mark.asyncio()
@@ -398,6 +437,8 @@ def test_relay_model_from_unifi_dict() -> None:
     out = relay.get_output(0)
     assert out is not None
     assert out.name == "Garage Door"
+    assert out.state is RelayOutputState.OFF
+    assert out.reboot_state is RelayOutputState.OFF
     assert relay.get_output(5) is None
 
 
@@ -649,9 +690,36 @@ def test_relay_getitem_and_get_output() -> None:
         inputs=[],
     )
     assert relay[1].name == "Out B"
+    assert relay[1].state is RelayOutputState.ON
+    assert relay[0].state is RelayOutputState.OFF
     assert relay.get_output(1) is not None
     with pytest.raises(KeyError):
         relay[99]
+
+
+def test_relay_output_unknown_state_does_not_raise() -> None:
+    """Forward-compat: an unknown output state from newer firmware coerces to UNKNOWN."""
+    relay = Relay.from_unifi_dict(
+        id=RELAY_ID,
+        modelKey="relay",
+        state="CONNECTED",
+        name="R",
+        mac="AA",
+        ledSettings={"isEnabled": True},
+        outputs=[
+            {
+                "id": 0,
+                "name": None,
+                "type": None,
+                "delay": None,
+                "pulseDuration": None,
+                "state": "totally_new_state_from_future_firmware",
+                "rebootState": None,
+            }
+        ],
+        inputs=[],
+    )
+    assert relay.outputs[0].state is RelayOutputState.UNKNOWN
 
 
 # ---------------------------------------------------------------------------
@@ -680,19 +748,13 @@ async def test_get_arm_manager_settings_returns_from_cache(
 ) -> None:
     protect_client._public_bootstrap = PublicBootstrap()
     pb = protect_client.public_bootstrap
-    arm_mode = NvrArmMode.from_unifi_dict(
-        status="armed",
-        armProfileId=PROFILE_ID,
-        armedAt=None,
-        willBeArmedAt=None,
-        breachDetectedAt=None,
-        breachEventCount=0,
-        breachTriggerEventId=None,
-        breachEventId=None,
+    pb.nvr = _make_public_nvr(
+        protect_client, arm_mode=_arm_mode_raw("armed", PROFILE_ID)
     )
-    pb.arm_mode = arm_mode
     result = await protect_client.get_arm_manager_settings_public()
-    assert result is arm_mode
+    assert result is pb.nvr.arm_mode
+    assert result is not None
+    assert result.arm_profile_id == PROFILE_ID
 
 
 @pytest.mark.asyncio()
@@ -700,26 +762,14 @@ async def test_get_arm_manager_settings_fetches_nvr_when_no_cache(
     protect_client: ProtectApiClient,
 ) -> None:
     protect_client._public_bootstrap = None
-    protect_client.api_request_obj = AsyncMock(
-        return_value={
-            "armMode": {
-                "status": "disabled",
-                "armProfileId": PROFILE_ID,
-                "armedAt": None,
-                "willBeArmedAt": None,
-                "breachDetectedAt": None,
-                "breachEventCount": 0,
-                "breachTriggerEventId": None,
-                "breachEventId": None,
-            }
-        }
+    arm_mode = _arm_mode_raw("disabled", PROFILE_ID)
+    protect_client.get_nvr_public = AsyncMock(
+        return_value=_make_public_nvr(protect_client, arm_mode=arm_mode)
     )
     result = await protect_client.get_arm_manager_settings_public()
     assert result is not None
     assert result.arm_profile_id == PROFILE_ID
-    protect_client.api_request_obj.assert_called_once_with(
-        url="/v1/nvrs", public_api=True
-    )
+    protect_client.get_nvr_public.assert_called_once()
 
 
 @pytest.mark.asyncio()
@@ -727,14 +777,14 @@ async def test_get_arm_manager_settings_returns_none_when_nvr_has_no_arm_mode(
     protect_client: ProtectApiClient,
 ) -> None:
     protect_client._public_bootstrap = None
-    protect_client.api_request_obj = AsyncMock(return_value={})
+    protect_client.get_nvr_public = AsyncMock(
+        return_value=_make_public_nvr(protect_client, arm_mode=None)
+    )
 
     result = await protect_client.get_arm_manager_settings_public()
 
     assert result is None
-    protect_client.api_request_obj.assert_called_once_with(
-        url="/v1/nvrs", public_api=True
-    )
+    protect_client.get_nvr_public.assert_called_once()
 
 
 @pytest.mark.asyncio()
@@ -744,16 +794,7 @@ async def test_set_current_arm_profile_updates_arm_mode_profile_id(
     protect_client.api_request_raw = AsyncMock(return_value=None)
     protect_client._public_bootstrap = PublicBootstrap()
     pb = protect_client.public_bootstrap
-    pb.arm_mode = NvrArmMode.from_unifi_dict(
-        status="disabled",
-        armProfileId=None,
-        armedAt=None,
-        willBeArmedAt=None,
-        breachDetectedAt=None,
-        breachEventCount=0,
-        breachTriggerEventId=None,
-        breachEventId=None,
-    )
+    pb.nvr = _make_public_nvr(protect_client, arm_mode=_arm_mode_raw("disabled"))
 
     await protect_client.set_current_arm_profile_public(PROFILE_ID)
 
@@ -880,60 +921,31 @@ async def test_update_public_creates_cache(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.api.NVR.from_unifi_dict")
 async def test_arm_manager_settings_from_nvr_arm_mode(
-    mock_nvr_ctor: Mock,
     protect_client: ProtectApiClient,
 ) -> None:
-    """NVR armMode=None leaves bootstrap.arm_mode as None."""
-    mock_nvr_ctor.return_value = Mock(id="nvr-1")
-    protect_client._public_bootstrap = PublicBootstrap()
-    pb = protect_client.public_bootstrap
-    pb.arm_mode = NvrArmMode.from_unifi_dict(
-        status="armed",
-        armProfileId="old",
-        armedAt=None,
-        willBeArmedAt=None,
-        breachDetectedAt=None,
-        breachEventCount=0,
-        breachTriggerEventId=None,
-        breachEventId=None,
-    )
-    protect_client.api_request_obj = AsyncMock(return_value={"id": "nvr-1"})
-    await protect_client.get_nvr_public()
-    assert pb.arm_mode is None
+    """get_nvr_public with no armMode in payload → returned PublicNVR.arm_mode is None."""
+    protect_client.api_request_obj = AsyncMock(return_value=dict(_NVR_RAW_BASE))
+    result = await protect_client.get_nvr_public()
+
+    assert isinstance(result, PublicNVR)
+    assert result.arm_mode is None
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.api.NVR.from_unifi_dict")
 async def test_get_nvr_public_sets_arm_mode_when_present(
-    mock_nvr_ctor: Mock,
     protect_client: ProtectApiClient,
 ) -> None:
-    mock_nvr_ctor.return_value = Mock(id="nvr-1")
-    protect_client._public_bootstrap = PublicBootstrap()
-    pb = protect_client.public_bootstrap
-    pb.arm_mode = None
-    protect_client.api_request_obj = AsyncMock(
-        return_value={
-            "id": "nvr-1",
-            "armMode": {
-                "status": "armed",
-                "armProfileId": PROFILE_ID,
-                "armedAt": None,
-                "willBeArmedAt": None,
-                "breachDetectedAt": None,
-                "breachEventCount": 0,
-                "breachTriggerEventId": None,
-                "breachEventId": None,
-            },
-        }
-    )
+    """get_nvr_public with armMode in payload → returned PublicNVR.arm_mode is populated."""
+    raw = dict(_NVR_RAW_BASE)
+    raw["armMode"] = _arm_mode_raw("armed", PROFILE_ID)
+    protect_client.api_request_obj = AsyncMock(return_value=raw)
 
-    await protect_client.get_nvr_public()
+    result = await protect_client.get_nvr_public()
 
-    assert pb.arm_mode is not None
-    assert pb.arm_mode.arm_profile_id == PROFILE_ID
+    assert isinstance(result, PublicNVR)
+    assert result.arm_mode is not None
+    assert result.arm_mode.arm_profile_id == PROFILE_ID
 
 
 def test_ws_handler_without_cache_emits_none_obj(
