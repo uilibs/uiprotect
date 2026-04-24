@@ -327,7 +327,7 @@ class PublicBootstrap:
             self.nvr = None
 
         def _factory(item: dict[str, Any], api: ProtectApiClient) -> PublicNVR:
-            return PublicNVR.from_unifi_dict(**item, api=api)
+            return PublicNVR.from_unifi_dict(api=api, **item)
 
         return _Slot(_get, _put, _delete, factory=_factory)
 

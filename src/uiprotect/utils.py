@@ -169,7 +169,15 @@ def from_js_time(num: float | str | datetime) -> datetime:
         return num
 
     if isinstance(num, str) and "T" in num:
-        return datetime.fromisoformat(num)
+        iso_num = num[:-1] + "+00:00" if num.endswith("Z") else num
+        try:
+            dt = datetime.fromisoformat(iso_num)
+        except ValueError:
+            pass
+        else:
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=UTC)
+            return dt
 
     return datetime.fromtimestamp(int(num) / 1000, tz=UTC)
 
