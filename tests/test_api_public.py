@@ -461,6 +461,27 @@ def test_arm_profile_model_from_unifi_dict() -> None:
     assert len(profile.schedules) == 1
 
 
+def test_arm_profile_model_iso_timestamps() -> None:
+    """API returns ISO-8601 strings for createdAt/updatedAt — must parse correctly."""
+    profile = ArmProfile.from_unifi_dict(
+        id=PROFILE_ID,
+        name="Day",
+        automations=[],
+        creator="user-1",
+        schedules=[],
+        recordEverything=False,
+        activationDelay=0,
+        createdAt="2026-04-23T18:15:43.213Z",
+        updatedAt="2026-04-24T09:00:00.000Z",
+    )
+    assert profile.created_at is not None
+    assert profile.updated_at is not None
+    assert profile.created_at.year == 2026
+    assert profile.created_at.month == 4
+    assert profile.created_at.day == 23
+    assert profile.updated_at.day == 24
+
+
 # ---------------------------------------------------------------------------
 # PublicBootstrap WS apply
 # ---------------------------------------------------------------------------

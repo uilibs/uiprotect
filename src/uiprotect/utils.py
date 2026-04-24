@@ -164,9 +164,12 @@ def utc_now() -> datetime:
 
 
 def from_js_time(num: float | str | datetime) -> datetime:
-    """Converts Javascript timestamp to Python datetime"""
+    """Converts Javascript timestamp or ISO-8601 string to Python datetime"""
     if isinstance(num, datetime):
         return num
+
+    if isinstance(num, str) and "T" in num:
+        return datetime.fromisoformat(num)
 
     return datetime.fromtimestamp(int(num) / 1000, tz=UTC)
 
