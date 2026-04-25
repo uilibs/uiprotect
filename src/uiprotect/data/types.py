@@ -653,7 +653,27 @@ class NvrArmModeStatus(UnknownValuesEnumMixin, enum.StrEnum):
 
 @enum.unique
 class RelayOutputState(UnknownValuesEnumMixin, enum.StrEnum):
-    """State of a single relay output channel."""
+    """State of a single relay output channel (``state`` field)."""
+
+    ON = "on"
+    OFF = "off"
+    OFF_OTP = "offOtp"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class RelayOutputRebootState(UnknownValuesEnumMixin, enum.StrEnum):
+    """State the relay output is set to after a reboot/power cycle (``rebootState`` field)."""
+
+    RESTORE = "restore"
+    ON = "on"
+    OFF = "off"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class RelayInputState(UnknownValuesEnumMixin, enum.StrEnum):
+    """State of a single relay input channel."""
 
     ON = "on"
     OFF = "off"

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -17,6 +18,7 @@ from uiprotect.data import (
     PublicBootstrap,
     PublicNVR,
     Relay,
+    RelayOutputRebootState,
     RelayOutputState,
     Siren,
 )
@@ -53,7 +55,7 @@ def _make_public_nvr(
     arm_mode: dict[str, Any] | None = None,
 ) -> PublicNVR:
     """Build a minimal :class:`PublicNVR` instance for use in tests."""
-    raw = dict(_NVR_RAW_BASE)
+    raw = deepcopy(_NVR_RAW_BASE)
     if arm_mode is not None:
         raw["armMode"] = arm_mode
     return PublicNVR.from_unifi_dict(**raw, api=client)
@@ -438,7 +440,7 @@ def test_relay_model_from_unifi_dict() -> None:
     assert out is not None
     assert out.name == "Garage Door"
     assert out.state is RelayOutputState.OFF
-    assert out.reboot_state is RelayOutputState.OFF
+    assert out.reboot_state is RelayOutputRebootState.OFF
     assert relay.get_output(5) is None
 
 
@@ -942,11 +944,11 @@ async def test_update_public_creates_cache(
 
 
 @pytest.mark.asyncio()
-async def test_arm_manager_settings_from_nvr_arm_mode(
+async def test_get_nvr_public_returns_none_arm_mode_when_absent(
     protect_client: ProtectApiClient,
 ) -> None:
     """get_nvr_public with no armMode in payload → returned PublicNVR.arm_mode is None."""
-    protect_client.api_request_obj = AsyncMock(return_value=dict(_NVR_RAW_BASE))
+    protect_client.api_request_obj = AsyncMock(return_value=deepcopy(_NVR_RAW_BASE))
     result = await protect_client.get_nvr_public()
 
     assert isinstance(result, PublicNVR)
@@ -958,7 +960,7 @@ async def test_get_nvr_public_sets_arm_mode_when_present(
     protect_client: ProtectApiClient,
 ) -> None:
     """get_nvr_public with armMode in payload → returned PublicNVR.arm_mode is populated."""
-    raw = dict(_NVR_RAW_BASE)
+    raw = deepcopy(_NVR_RAW_BASE)
     raw["armMode"] = _arm_mode_raw("armed", PROFILE_ID)
     protect_client.api_request_obj = AsyncMock(return_value=raw)
 

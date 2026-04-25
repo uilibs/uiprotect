@@ -169,15 +169,9 @@ def from_js_time(num: float | str | datetime) -> datetime:
         return num
 
     if isinstance(num, str) and "T" in num:
-        iso_num = num[:-1] + "+00:00" if num.endswith("Z") else num
-        try:
-            dt = datetime.fromisoformat(iso_num)
-        except ValueError:
-            pass
-        else:
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=UTC)
-            return dt
+        # ISO-8601 path — Python 3.11+ handles a trailing "Z" natively.
+        dt = datetime.fromisoformat(num)
+        return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
     return datetime.fromtimestamp(int(num) / 1000, tz=UTC)
 

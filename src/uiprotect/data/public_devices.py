@@ -19,7 +19,13 @@ from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 from ..exceptions import BadRequest
 from .base import ProtectBaseObject, ProtectModelWithId
-from .types import ModelType, NvrArmModeStatus, RelayOutputState
+from .types import (
+    ModelType,
+    NvrArmModeStatus,
+    RelayInputState,
+    RelayOutputRebootState,
+    RelayOutputState,
+)
 
 if TYPE_CHECKING:
     pass
@@ -179,14 +185,14 @@ class PublicRelayOutput(ProtectBaseObject):
     type: str | None = None
     delay: int | None = None
     pulse_duration: int | None = None
-    state: RelayOutputState
-    reboot_state: RelayOutputState | None = None
+    state: RelayOutputState | None = None
+    reboot_state: RelayOutputRebootState | None = None
 
 
 class PublicRelayInput(ProtectBaseObject):
     id: int
-    name: str
-    state: str
+    name: str | None = None
+    state: RelayInputState | None = None
     action_trigger: str | None = None
     action_type: str | None = None
     action_output_id: int | None = None
