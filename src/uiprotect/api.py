@@ -50,10 +50,12 @@ from .data import (
     Liveview,
     ModelType,
     NvrArmMode,
+    NvrArmModeStatus,
     ProtectAdoptableDeviceModel,
     ProtectModel,
     PublicArmScheduleDict,
     PublicBootstrap,
+    PublicNVR,
     PublicSensorAlarmSettings,
     PublicSensorHumiditySettings,
     PublicSensorLightSettings,
@@ -1151,6 +1153,11 @@ class ProtectApiClient(BaseApiClient):
 
     _minimum_score: int
     _subscribed_models: set[ModelType]
+    # ``None`` means "inherit ``_subscribed_models``"; an explicit (possibly
+    # empty) set overrides the global filter for that websocket. An empty set
+    # therefore means "allow all models" — matching the private-WS behaviour.
+    _events_ws_subscribed_models: set[ModelType] | None
+    _devices_ws_subscribed_models: set[ModelType] | None
     _ignore_stats: bool
     _ws_subscriptions: list[Callable[[WSSubscriptionMessage], None]]
     _events_ws_subscriptions: list[Callable[[WSSubscriptionMessage], None]]
@@ -1167,10 +1174,6 @@ class ProtectApiClient(BaseApiClient):
     # Monotonic timestamp of the last successful/attempted reconnect resync,
     # used to debounce a flapping websocket into a single refresh.
     _last_public_resync: float = 0.0
-    # ``include_arm_profiles`` from the most recent explicit
-    # :meth:`update_public` call, so reconnect re-syncs honour the caller's
-    # original opt-out (systems without the alarm-manager endpoints).
-    _last_update_public_include_arm_profiles: bool = True
     # Set when another reconnect happens while a public resync task is
     # still running; consumed in ``_resync_public_bootstrap`` to run one
     # follow-up refresh.
@@ -1197,6 +1200,8 @@ class ProtectApiClient(BaseApiClient):
         override_connection_host: bool = False,
         minimum_score: int = 0,
         subscribed_models: set[ModelType] | None = None,
+        events_ws_subscribed_models: set[ModelType] | None = None,
+        devices_ws_subscribed_models: set[ModelType] | None = None,
         ignore_stats: bool = False,
         ignore_unadopted: bool = True,
         debug: bool = False,
@@ -1222,6 +1227,10 @@ class ProtectApiClient(BaseApiClient):
 
         self._minimum_score = minimum_score
         self._subscribed_models = subscribed_models or set()
+        # Preserve ``None`` vs. empty-set distinction: ``None`` inherits from
+        # ``_subscribed_models``; an explicit empty set means "allow all".
+        self._events_ws_subscribed_models = events_ws_subscribed_models
+        self._devices_ws_subscribed_models = devices_ws_subscribed_models
         self._ignore_stats = ignore_stats
         self._ws_subscriptions = []
         self._events_ws_subscriptions = []
@@ -1499,7 +1508,14 @@ class ProtectApiClient(BaseApiClient):
                 return
 
             # Respect ``subscribed_models`` for the events WS too.
-            if self._subscribed_models and model_type not in self._subscribed_models:
+            # ``None`` => inherit the global filter; an explicit (possibly
+            # empty) per-WS set overrides it.
+            _events_filter = (
+                self._subscribed_models
+                if self._events_ws_subscribed_models is None
+                else self._events_ws_subscribed_models
+            )
+            if _events_filter and model_type not in _events_filter:
                 return
 
             update_id = item.get("id", "")
@@ -1550,7 +1566,14 @@ class ProtectApiClient(BaseApiClient):
 
             # Respect the ``subscribed_models`` filter that callers pass in.
             # Empty set means "all" (matches private-WS behaviour).
-            if self._subscribed_models and model_type not in self._subscribed_models:
+            # ``None`` => inherit the global filter; an explicit (possibly
+            # empty) per-WS set overrides it.
+            _devices_filter = (
+                self._subscribed_models
+                if self._devices_ws_subscribed_models is None
+                else self._devices_ws_subscribed_models
+            )
+            if _devices_filter and model_type not in _devices_filter:
                 return
 
             update_id = item.get("id", "")
@@ -2008,9 +2031,7 @@ class ProtectApiClient(BaseApiClient):
     async def _resync_public_bootstrap(self) -> None:
         """Re-sync the public bootstrap cache after a websocket reconnect."""
         try:
-            await self.update_public(
-                include_arm_profiles=self._last_update_public_include_arm_profiles,
-            )
+            await self.update_public()
         except Exception:
             _LOGGER.exception("Failed to resync public bootstrap after reconnect")
         finally:
@@ -2906,21 +2927,10 @@ class ProtectApiClient(BaseApiClient):
 
     # Public API Methods
 
-    async def get_nvr_public(self) -> NVR:
+    async def get_nvr_public(self) -> PublicNVR:
         """Get NVR information using public API."""
         data = await self.api_request_obj(url="/v1/nvrs", public_api=True)
-        nvr = NVR.from_unifi_dict(**data, api=self)
-        # Parse ``armMode`` separately — it is a Public API concept and does
-        # not belong on the private NVR model.
-        arm_mode_data = data.get("armMode")
-        if self._public_bootstrap is not None:
-            if arm_mode_data is not None:
-                self._public_bootstrap.arm_mode = NvrArmMode.from_unifi_dict(
-                    **arm_mode_data, api=self
-                )
-            else:
-                self._public_bootstrap.arm_mode = None
-        return nvr
+        return PublicNVR.from_unifi_dict(**data, api=self)
 
     async def get_lights_public(self) -> list[Light]:
         """Get all lights using public API."""
@@ -3443,15 +3453,14 @@ class ProtectApiClient(BaseApiClient):
 
         The arm-manager state is embedded in the NVR object (``armMode``
         field of ``GET /v1/nvrs``) — there is no dedicated GET endpoint.
-        If the bootstrap cache is not yet populated, fetches the NVR now.
+        If the bootstrap cache is not yet populated, fetches the NVR now
+        via :meth:`get_nvr_public` so the full ``PublicNVR`` is always
+        constructed through the same code path.
         """
         if self._public_bootstrap is not None:
             return self._public_bootstrap.arm_mode
-        nvr_data = await self.api_request_obj(url="/v1/nvrs", public_api=True)
-        arm_mode_data = nvr_data.get("armMode")
-        if arm_mode_data is None:
-            return None
-        return NvrArmMode.from_unifi_dict(**arm_mode_data, api=self)
+        nvr = await self.get_nvr_public()
+        return nvr.arm_mode
 
     async def set_current_arm_profile_public(self, profile_id: str) -> None:
         """Set the currently selected arm profile."""
@@ -3478,7 +3487,7 @@ class ProtectApiClient(BaseApiClient):
             self._public_bootstrap is not None
             and self._public_bootstrap.arm_mode is not None
         ):
-            self._public_bootstrap.arm_mode.status = "arming"
+            self._public_bootstrap.arm_mode.status = NvrArmModeStatus.ARMING
 
     async def disable_arm_alarm_public(self) -> None:
         """Disable the arm alarm."""
@@ -3491,17 +3500,13 @@ class ProtectApiClient(BaseApiClient):
             self._public_bootstrap is not None
             and self._public_bootstrap.arm_mode is not None
         ):
-            self._public_bootstrap.arm_mode.status = "disabled"
+            self._public_bootstrap.arm_mode.status = NvrArmModeStatus.DISABLED
 
     # ------------------------------------------------------------------
     # Public API: Bootstrap (opt-in)
     # ------------------------------------------------------------------
 
-    async def update_public(
-        self,
-        *,
-        include_arm_profiles: bool = True,
-    ) -> PublicBootstrap:
+    async def update_public(self) -> PublicBootstrap:
         """
         Populate :attr:`public_bootstrap` from the Public Integration API.
 
@@ -3521,11 +3526,12 @@ class ProtectApiClient(BaseApiClient):
         if self._public_bootstrap is None:
             self._public_bootstrap = PublicBootstrap()
         pb = self._public_bootstrap
-        # Remember the caller's choice so reconnect re-syncs honour it.
-        self._last_update_public_include_arm_profiles = include_arm_profiles
 
         # Bind coroutines to their labels and attribute names to avoid
         # manual index synchronization bugs.
+        # ``get_arm_profiles_public`` writes into ``pb`` itself on success;
+        # we gather it for concurrency and to swallow failures.
+        # ``armMode`` is part of the NVR response; no separate call needed.
         endpoints = [
             (self.get_nvr_public(), "nvr", "nvr"),
             (self.get_cameras_public(), "cameras", "cameras"),
@@ -3534,15 +3540,8 @@ class ProtectApiClient(BaseApiClient):
             (self.get_sensors_public(), "sensors", "sensors"),
             (self.get_sirens_public(), "sirens", "sirens"),
             (self.get_relays_public(), "relays", "relays"),
+            (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles"),
         ]
-
-        if include_arm_profiles:
-            # ``get_arm_profiles_public`` writes into ``pb`` itself on
-            # success; we gather it for concurrency and to swallow failures.
-            # ``armMode`` is part of the NVR response; no separate call needed.
-            endpoints.append(
-                (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles")
-            )
 
         results = await asyncio.gather(
             *[coro for coro, _, _ in endpoints], return_exceptions=True

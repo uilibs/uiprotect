@@ -3322,21 +3322,26 @@ async def test_get_nvr_public_success():
         verify_ssl=False,
     )
 
-    # Mock a simple valid object instead of trying to create full NVR
-    mock_nvr = Mock()
-    mock_nvr.id = "663d0a9d001d8803e40003ea"
-    mock_nvr.name = "Test NVR"
+    client.api_request_obj = AsyncMock(
+        return_value={
+            "id": "663d0a9d001d8803e40003ea",
+            "modelKey": "nvr",
+            "name": "Test NVR",
+            "doorbellSettings": {
+                "defaultMessageText": "WELCOME",
+                "defaultMessageResetTimeoutMs": 60000,
+                "customMessages": [],
+                "customImages": [],
+            },
+        }
+    )
 
-    # Mock the NVR.from_unifi_dict method to return our mock
-    with patch("uiprotect.data.nvr.NVR.from_unifi_dict", return_value=mock_nvr):
-        client.api_request_obj = AsyncMock(return_value={"id": "test"})
+    result = await client.get_nvr_public()
 
-        result = await client.get_nvr_public()
-
-        assert result is not None
-        assert result.id == "663d0a9d001d8803e40003ea"
-        assert result.name == "Test NVR"
-        client.api_request_obj.assert_called_with(url="/v1/nvrs", public_api=True)
+    assert result is not None
+    assert result.id == "663d0a9d001d8803e40003ea"
+    assert result.name == "Test NVR"
+    client.api_request_obj.assert_called_with(url="/v1/nvrs", public_api=True)
 
 
 @pytest.mark.asyncio()

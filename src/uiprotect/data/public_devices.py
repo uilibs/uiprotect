@@ -19,7 +19,13 @@ from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 from ..exceptions import BadRequest
 from .base import ProtectBaseObject, ProtectModelWithId
-from .types import ModelType
+from .types import (
+    ModelType,
+    NvrArmModeStatus,
+    RelayInputState,
+    RelayOutputRebootState,
+    RelayOutputState,
+)
 
 if TYPE_CHECKING:
     pass
@@ -175,18 +181,18 @@ class Siren(ProtectModelWithId):
 
 class PublicRelayOutput(ProtectBaseObject):
     id: int
-    name: str
-    type: str
-    delay: int
-    pulse_duration: int
-    state: str
-    reboot_state: str
+    name: str | None = None
+    type: str | None = None
+    delay: int | None = None
+    pulse_duration: int | None = None
+    state: RelayOutputState | None = None
+    reboot_state: RelayOutputRebootState | None = None
 
 
 class PublicRelayInput(ProtectBaseObject):
     id: int
-    name: str
-    state: str
+    name: str | None = None
+    state: RelayInputState | None = None
     action_trigger: str | None = None
     action_type: str | None = None
     action_output_id: int | None = None
@@ -292,7 +298,7 @@ class NvrArmMode(ProtectBaseObject):
     for forward-compatibility.
     """
 
-    status: str  # "arming" | "armed" | "breach" | "disabled"
+    status: NvrArmModeStatus
     arm_profile_id: str | None = None
     armed_at: int | None = None
     will_be_armed_at: int | None = None
@@ -300,3 +306,61 @@ class NvrArmMode(ProtectBaseObject):
     breach_event_count: int = 0
     breach_trigger_event_id: str | None = None
     breach_event_id: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Public NVR
+# ---------------------------------------------------------------------------
+
+
+class PublicDoorbellCustomImage(ProtectBaseObject):
+    """A custom doorbell image entry (preview GIF + full sprite PNG)."""
+
+    preview: str
+    sprite: str
+
+
+class PublicDoorbellSettings(ProtectBaseObject):
+    """
+    Doorbell settings exposed by the Public Integration API (``GET /v1/nvrs``).
+
+    Intentionally separate from the private :class:`~uiprotect.data.nvr.DoorbellSettings`
+    which carries additional private-API-only fields (``allMessages``, typed
+    timedelta, etc.).
+
+    All fields have defaults because the ``doorbellSettings`` OpenAPI schema
+    declares no ``required`` array — fields may be absent on older firmware or
+    in partial WS update diffs.
+    """
+
+    default_message_text: str = ""
+    default_message_reset_timeout_ms: int = 0
+    custom_messages: list[str] = []
+    custom_images: list[PublicDoorbellCustomImage] = []
+
+
+class PublicNVR(ProtectModelWithId):
+    """
+    NVR device as exposed by the Public Integration API (``GET /v1/nvrs``).
+
+    This model reflects the public schema: ``id``, ``modelKey``, ``name``,
+    ``doorbellSettings``, and optionally ``armMode``.
+
+    ``name`` is nullable — the API schema declares it as ``oneOf: [string, null]``.
+
+    ``doorbell_settings`` is ``None`` on older firmware that does not yet
+    expose the ``doorbellSettings`` key, and is absent from WS partial-update
+    diffs (which only require ``id`` + ``modelKey``).
+
+    ``arm_mode`` is ``None`` when the firmware does not yet expose the alarm
+    manager (older releases) and also ``None`` when the alarm manager is set
+    to global (server returns ``armMode: null``).  WS device-update diffs that
+    include ``armMode`` are handled automatically by
+    :meth:`~uiprotect.data.base.ProtectBaseObject.update_from_dict` without
+    any manual extraction.
+    """
+
+    model: ModelType | None = ModelType.NVR
+    name: str | None = None
+    doorbell_settings: PublicDoorbellSettings | None = None
+    arm_mode: NvrArmMode | None = None

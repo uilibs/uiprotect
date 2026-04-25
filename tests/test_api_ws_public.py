@@ -11,6 +11,7 @@ import orjson
 import pytest
 
 from uiprotect.api import BaseApiClient
+from uiprotect.data import NvrArmModeStatus, PublicBootstrap, PublicNVR
 from uiprotect.data.websocket import WSAction, WSSubscriptionMessage
 from uiprotect.exceptions import NotAuthorized
 from uiprotect.websocket import WebsocketState
@@ -1272,3 +1273,195 @@ async def test_process_devices_ws_message_without_cache_emits_none_obj(
     assert messages[0].old_obj is None
 
     unsub()
+
+
+# ---------------------------------------------------------------------------
+# NVR WS updates (PublicNVR — devices websocket)
+# ---------------------------------------------------------------------------
+
+_NVR_ID = "66d025b301ebc903e80003ec"
+
+_NVR_ADD_PAYLOAD = {
+    "type": "add",
+    "item": {
+        "id": _NVR_ID,
+        "modelKey": "nvr",
+        "name": "Test NVR",
+        "doorbellSettings": {
+            "defaultMessageText": "WELCOME",
+            "defaultMessageResetTimeoutMs": 60000,
+            "customMessages": [],
+            "customImages": [],
+        },
+    },
+}
+
+_ARM_MODE_ARMED = {
+    "status": "armed",
+    "armProfileId": "profile-abc",
+    "armedAt": 1700000000000,
+    "willBeArmedAt": None,
+    "breachDetectedAt": None,
+    "breachEventCount": 0,
+    "breachTriggerEventId": None,
+    "breachEventId": None,
+}
+
+
+@pytest.mark.asyncio()
+async def test_nvr_ws_add_populates_public_bootstrap(
+    protect_client: ProtectApiClient,
+) -> None:
+    """NVR add message via devices WS creates a PublicNVR in the bootstrap."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    pb = protect_client.public_bootstrap
+    assert pb.nvr is None
+
+    msg = create_mock_ws_message(orjson.dumps(_NVR_ADD_PAYLOAD).decode())
+    protect_client._process_devices_ws_message(msg)
+
+    assert isinstance(pb.nvr, PublicNVR)
+    assert pb.nvr.id == _NVR_ID
+    assert pb.nvr.name == "Test NVR"
+
+
+@pytest.mark.asyncio()
+async def test_nvr_ws_add_with_arm_mode_populates_arm_mode(
+    protect_client: ProtectApiClient,
+) -> None:
+    """NVR add with armMode → pb.arm_mode is populated via PublicNVR.arm_mode."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    pb = protect_client.public_bootstrap
+
+    payload = dict(_NVR_ADD_PAYLOAD)
+    payload["item"] = dict(payload["item"])
+    payload["item"]["armMode"] = _ARM_MODE_ARMED
+
+    msg = create_mock_ws_message(orjson.dumps(payload).decode())
+    protect_client._process_devices_ws_message(msg)
+
+    assert pb.arm_mode is not None
+    assert pb.arm_mode.status == NvrArmModeStatus.ARMED
+    assert pb.arm_mode.arm_profile_id == "profile-abc"
+
+
+@pytest.mark.asyncio()
+async def test_nvr_ws_update_arm_mode_merges_into_nvr(
+    protect_client: ProtectApiClient,
+) -> None:
+    """NVR update diff with armMode updates pb.nvr.arm_mode in place."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    pb = protect_client.public_bootstrap
+
+    # Prime the cache with an add that has no armMode (older firmware without alarm manager support).
+    msg_add = create_mock_ws_message(orjson.dumps(_NVR_ADD_PAYLOAD).decode())
+    protect_client._process_devices_ws_message(msg_add)
+    assert pb.nvr is not None
+    assert pb.arm_mode is None
+
+    # Now receive an update diff that includes armMode (newer firmware with alarm manager support).
+    update_payload = {
+        "type": "update",
+        "item": {
+            "id": _NVR_ID,
+            "modelKey": "nvr",
+            "armMode": _ARM_MODE_ARMED,
+        },
+    }
+    msg_update = create_mock_ws_message(orjson.dumps(update_payload).decode())
+    protect_client._process_devices_ws_message(msg_update)
+
+    assert pb.arm_mode is not None
+    assert pb.arm_mode.status == NvrArmModeStatus.ARMED
+    assert pb.arm_mode.arm_profile_id == "profile-abc"
+
+
+@pytest.mark.asyncio()
+async def test_nvr_ws_update_without_arm_mode_leaves_existing_arm_mode(
+    protect_client: ProtectApiClient,
+) -> None:
+    """NVR update diff WITHOUT armMode (v7.0) leaves existing arm_mode untouched."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    pb = protect_client.public_bootstrap
+
+    # Prime with armed NVR.
+    add_payload = dict(_NVR_ADD_PAYLOAD)
+    add_payload["item"] = dict(add_payload["item"])
+    add_payload["item"]["armMode"] = _ARM_MODE_ARMED
+    protect_client._process_devices_ws_message(
+        create_mock_ws_message(orjson.dumps(add_payload).decode())
+    )
+    assert pb.arm_mode is not None
+    assert pb.arm_mode.status == NvrArmModeStatus.ARMED
+
+    # Receive a v7.0-style update that does NOT include armMode.
+    update_payload = {
+        "type": "update",
+        "item": {"id": _NVR_ID, "modelKey": "nvr", "name": "Renamed NVR"},
+    }
+    protect_client._process_devices_ws_message(
+        create_mock_ws_message(orjson.dumps(update_payload).decode())
+    )
+
+    # name updated, arm_mode unchanged.
+    assert pb.nvr.name == "Renamed NVR"
+    assert pb.arm_mode.status == NvrArmModeStatus.ARMED
+
+
+@pytest.mark.asyncio()
+async def test_nvr_ws_update_arm_mode_emits_subscription_message(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Subscribers receive a WSSubscriptionMessage with the updated PublicNVR as new_obj."""
+    protect_client._public_bootstrap = PublicBootstrap()
+
+    # Prime.
+    protect_client._process_devices_ws_message(
+        create_mock_ws_message(orjson.dumps(_NVR_ADD_PAYLOAD).decode())
+    )
+
+    messages: list[WSSubscriptionMessage] = []
+    unsub = protect_client.subscribe_devices_websocket(messages.append)
+
+    update_payload = {
+        "type": "update",
+        "item": {"id": _NVR_ID, "modelKey": "nvr", "armMode": _ARM_MODE_ARMED},
+    }
+    protect_client._process_devices_ws_message(
+        create_mock_ws_message(orjson.dumps(update_payload).decode())
+    )
+
+    assert len(messages) == 1
+    msg = messages[0]
+    assert msg.action == WSAction.UPDATE
+    assert isinstance(msg.new_obj, PublicNVR)
+    assert msg.new_obj.arm_mode is not None
+    assert msg.new_obj.arm_mode.status == NvrArmModeStatus.ARMED
+
+    unsub()
+
+
+@pytest.mark.asyncio()
+async def test_nvr_ws_unknown_arm_mode_status_does_not_raise(
+    protect_client: ProtectApiClient,
+) -> None:
+    """
+    Forward-compat: an unknown armMode status from a newer firmware must not
+    raise a ValidationError — it should coerce to NvrArmModeStatus.UNKNOWN.
+    """
+    protect_client._public_bootstrap = PublicBootstrap()
+    pb = protect_client.public_bootstrap
+
+    payload = dict(_NVR_ADD_PAYLOAD)
+    payload["item"] = dict(payload["item"])
+    payload["item"]["armMode"] = {
+        **_ARM_MODE_ARMED,
+        "status": "totally_new_status_from_future_firmware",
+    }
+
+    msg = create_mock_ws_message(orjson.dumps(payload).decode())
+    # Must not raise.
+    protect_client._process_devices_ws_message(msg)
+
+    assert pb.arm_mode is not None
+    assert pb.arm_mode.status == NvrArmModeStatus.UNKNOWN

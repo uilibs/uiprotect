@@ -35,8 +35,8 @@ from typing import TYPE_CHECKING, Any, cast
 from .base import ProtectModelWithId
 from .convert import create_from_unifi_dict
 from .devices import Camera, Chime, Light, Sensor
-from .nvr import NVR, Event
-from .public_devices import ArmProfile, NvrArmMode, Relay, Siren
+from .nvr import Event
+from .public_devices import ArmProfile, NvrArmMode, PublicNVR, Relay, Siren
 from .types import ModelType
 
 if TYPE_CHECKING:
@@ -83,7 +83,7 @@ class PublicBootstrap:
     # NVR metadata (populated by ``update_public``). Useful for HA's
     # ``DeviceInfo``. Merged in place by :meth:`process_devices_ws_message`
     # when an ``nvr`` update arrives.
-    nvr: NVR | None = None
+    nvr: PublicNVR | None = None
 
     # Device stores (indexed by id). Only the device classes that the
     # Public Integration API actually exposes are kept here.
@@ -101,10 +101,6 @@ class PublicBootstrap:
 
     # Arm manager state.
     arm_profiles: dict[str, ArmProfile] = field(default_factory=dict)
-    # Populated from the ``armMode`` field of ``GET /v1/nvrs``.
-    # ``None`` when the local alarm manager is not provisioned (e.g. global
-    # alarm manager is active or no alarm manager is configured).
-    arm_mode: NvrArmMode | None = None
 
     # Per-instance one-shot warning dedupe for merge/add failures.
     # This must not be module-global because callers can have multiple
@@ -114,6 +110,17 @@ class PublicBootstrap:
         init=False,
         repr=False,
     )
+
+    @property
+    def arm_mode(self) -> NvrArmMode | None:
+        """
+        Current arm-manager state. Shortcut for ``nvr.arm_mode``.
+
+        Returns ``None`` when the NVR cache hasn't been primed yet, when the
+        firmware does not expose the alarm manager, or when the alarm
+        manager is set to global.
+        """
+        return self.nvr.arm_mode if self.nvr is not None else None
 
     def __post_init__(self) -> None:
         """Validate cache bounds used by event eviction logic."""
@@ -158,7 +165,6 @@ class PublicBootstrap:
         for obj in objs:
             store[obj.id] = obj
 
-    # ------------------------------------------------------------------
     # ------------------------------------------------------------------
     # WS message handlers
     # ------------------------------------------------------------------
@@ -264,10 +270,13 @@ class PublicBootstrap:
 
         if action_type == "add":
             try:
-                new = cast(
-                    ProtectModelWithId,
-                    create_from_unifi_dict(item, api=api, model_type=model_type),
-                )
+                if slot.factory is not None:
+                    new = slot.factory(item, api)
+                else:
+                    new = cast(
+                        ProtectModelWithId,
+                        create_from_unifi_dict(item, api=api, model_type=model_type),
+                    )
             except Exception as err:
                 _warn_once(
                     self._warned_merge_failures,
@@ -312,12 +321,15 @@ class PublicBootstrap:
             return self.nvr
 
         def _put(_id: str, obj: ProtectModelWithId) -> None:
-            self.nvr = cast(NVR, obj)
+            self.nvr = cast(PublicNVR, obj)
 
         def _delete(_id: str) -> None:
             self.nvr = None
 
-        return _Slot(_get, _put, _delete)
+        def _factory(item: dict[str, Any], api: ProtectApiClient) -> PublicNVR:
+            return PublicNVR.from_unifi_dict(api=api, **item)
+
+        return _Slot(_get, _put, _delete, factory=_factory)
 
     def _events_slot(self) -> _Slot:
         """Return a slot around :attr:`events` with LRU eviction."""
@@ -346,6 +358,12 @@ class _Slot:
     get: Callable[[str], ProtectModelWithId | None]
     put: Callable[[str, ProtectModelWithId], None]
     delete: Callable[[str], None]
+    # Optional override for the ``add`` action; receives the raw item dict and
+    # the ``ProtectApiClient`` instance.  When ``None`` the generic
+    # ``create_from_unifi_dict`` path is used.
+    factory: Callable[[dict[str, Any], ProtectApiClient], ProtectModelWithId] | None = (
+        None
+    )
 
 
 def _dict_slot(store: dict[str, ProtectModelWithId]) -> _Slot:
