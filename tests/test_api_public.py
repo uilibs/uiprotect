@@ -23,7 +23,7 @@ from uiprotect.data import (
     RelayOutputState,
     Siren,
 )
-from uiprotect.data.types import EventType, ModelType
+from uiprotect.data.types import EventType, ModelType, SirenDuration
 from uiprotect.exceptions import BadRequest
 from uiprotect.websocket import WebsocketState
 
@@ -1658,6 +1658,27 @@ async def test_siren_device_action_helpers(
     protect_client.test_siren_sound_public = AsyncMock()
     protect_client.update_siren_public = AsyncMock(return_value=siren)
 
+    # Siren built with activatedAt=None: turn_off_at is None, fallback to server flag.
+    assert siren.siren_status.turn_off_at is None
+    assert siren.is_active is False
+
+    # play() with no args: _normalize_siren_duration(None) → SirenDuration.FIVE
+    await siren.play()
+    protect_client.play_siren_public.assert_awaited_with(
+        SIREN_ID, duration=SirenDuration.FIVE
+    )
+
+    # play() with a SirenDuration enum: returned as-is
+    await siren.play(duration=SirenDuration.TEN)
+    protect_client.play_siren_public.assert_awaited_with(
+        SIREN_ID, duration=SirenDuration.TEN
+    )
+
+    # play() with an invalid int: _normalize_siren_duration raises BadRequest
+    with pytest.raises(BadRequest):
+        await siren.play(duration=99)
+
+    protect_client.play_siren_public.reset_mock()
     await siren.play(duration=5)
     protect_client.play_siren_public.assert_awaited_once_with(SIREN_ID, duration=5)
 
