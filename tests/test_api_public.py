@@ -216,7 +216,7 @@ async def test_play_siren_public(protect_client: ProtectApiClient) -> None:
 
 
 @pytest.mark.asyncio()
-async def test_play_siren_public_no_body(
+async def test_play_siren_public_default_duration(
     protect_client: ProtectApiClient,
 ) -> None:
     """Without explicit duration, the default SirenDuration.FIVE must be sent."""
@@ -409,8 +409,8 @@ async def test_update_arm_profile_empty(
 
 def test_siren_model_from_unifi_dict() -> None:
     # activatedAt is Unix-ms; duration is in seconds (matching SirenDuration values).
-    # Use a future timestamp so is_active returns True.
-    activated_at_ms = int((time.time() + 10) * 1000)  # 10 s in the future
+    # Use a timestamp safely in the future so is_active stays True throughout the test.
+    activated_at_ms = int((time.time() + 60) * 1000)
     siren = Siren.from_unifi_dict(
         id=SIREN_ID,
         modelKey="siren",
@@ -456,7 +456,7 @@ def test_siren_model_from_unifi_dict() -> None:
     # Manual stop before the timer elapsed: server clears isActive but may
     # leave activatedAt/duration populated. The clock check would still say
     # "active"; the server flag must win.
-    future_at_ms = int((time.time() + 10) * 1000)
+    future_at_ms = int((time.time() + 60) * 1000)
     siren_stopped = Siren.from_unifi_dict(
         id=SIREN_ID,
         modelKey="siren",
@@ -598,15 +598,15 @@ def test_public_bootstrap_applies_add_and_update(
     assert new.name == "Siren"  # type: ignore[attr-defined]
 
     # Partial update of a nested model (``sirenStatus.isActive``).
-    # activatedAt is Unix-ms; duration is in seconds — use current time so
-    # turn_off_at lies in the future and is_active returns True.
-    now_ms = int(time.time() * 1000)
+    # activatedAt is Unix-ms; duration is in seconds — use a timestamp safely
+    # in the future so turn_off_at lies in the future for the whole test.
+    future_ms = int((time.time() + 60) * 1000)
     status_payload: dict[str, Any] = {
         "type": "update",
         "item": {
             "id": SIREN_ID,
             "modelKey": "siren",
-            "sirenStatus": {"isActive": True, "activatedAt": now_ms, "duration": 5},
+            "sirenStatus": {"isActive": True, "activatedAt": future_ms, "duration": 5},
         },
     }
     mt, new, old = pb.process_devices_ws_message(protect_client, status_payload)

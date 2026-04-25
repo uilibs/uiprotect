@@ -14,7 +14,7 @@ are ``Optional``.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 from ..exceptions import BadRequest
@@ -126,14 +126,18 @@ class PublicSirenStatus(ProtectBaseObject):
         """
         When the siren is expected to stop playing.
 
-        Returns ``None`` when ``activated_at`` or ``duration`` is not set
-        (i.e. while the siren is idle).  Derived from the websocket payload so
-        no extra API call is needed — HA can compare against ``datetime.now(UTC)``
-        instead of maintaining its own timer.
+        Returns ``None`` when the siren is idle — either because ``activated_at``
+        / ``duration`` are not set, or because ``is_active`` is ``False`` (e.g.
+        after a manual stop, where the server may leave the timing fields
+        populated). Derived from the websocket payload so no extra API call is
+        needed — HA can compare against ``datetime.now(UTC)`` instead of
+        maintaining its own timer.
         """
-        if self.activated_at is None or self.duration is None:
+        if not self.is_active or self.activated_at is None or self.duration is None:
             return None
-        return datetime.fromtimestamp(self.activated_at / 1000 + self.duration, tz=UTC)
+        return datetime.fromtimestamp(self.activated_at / 1000, tz=UTC) + timedelta(
+            seconds=self.duration
+        )
 
 
 class Siren(ProtectModelWithId):
@@ -169,15 +173,15 @@ class Siren(ProtectModelWithId):
 
         The server does not emit a stop event when the siren finishes its
         timed run, so ``sirenStatus.isActive`` in the WS payload stays
-        ``True`` until the next update. We therefore AND the server flag
-        with a clock check against ``turn_off_at``: a manual stop clears
-        ``isActive`` immediately, and a timed expiry is caught by the
-        clock check even though the server flag is still ``True``.
-        If no timing information is present we fall back to the raw server flag.
+        ``True`` until the next update. ``turn_off_at`` is only set while
+        the server flag is true and the timing fields are populated, so a
+        clock check against it catches the timed-expiry case. A manual stop
+        clears the server flag and ``turn_off_at`` becomes ``None``,
+        falling back to the (now-false) server flag.
         """
         turn_off_at = self.siren_status.turn_off_at
         if turn_off_at is not None:
-            return self.siren_status.is_active and datetime.now(UTC) < turn_off_at
+            return datetime.now(UTC) < turn_off_at
         return self.siren_status.is_active
 
     async def play(self, duration: int | SirenDuration | None = None) -> None:
