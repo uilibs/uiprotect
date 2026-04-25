@@ -227,6 +227,26 @@ async def test_play_siren_public_no_body(
 
 
 @pytest.mark.asyncio()
+async def test_play_siren_public_enum_duration(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Passing a SirenDuration enum value directly should be forwarded as-is."""
+    protect_client.api_request_raw = AsyncMock(return_value=None)
+    await protect_client.play_siren_public(SIREN_ID, duration=SirenDuration.TWENTY)
+    _, kwargs = protect_client.api_request_raw.call_args
+    assert kwargs["json"] == {"duration": SirenDuration.TWENTY}
+
+
+@pytest.mark.asyncio()
+async def test_play_siren_public_invalid_duration(
+    protect_client: ProtectApiClient,
+) -> None:
+    """An integer that is not a valid SirenDuration value must raise BadRequest."""
+    with pytest.raises(BadRequest):
+        await protect_client.play_siren_public(SIREN_ID, duration=99)
+
+
+@pytest.mark.asyncio()
 async def test_stop_siren_public(protect_client: ProtectApiClient) -> None:
     protect_client.api_request_raw = AsyncMock(return_value=None)
     await protect_client.stop_siren_public(SIREN_ID)
