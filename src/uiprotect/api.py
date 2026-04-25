@@ -75,7 +75,13 @@ from .data import (
 )
 from .data.base import ProtectModelWithId
 from .data.devices import AiPort, Chime
-from .data.types import IteratorCallback, ProgressCallback, PTZPatrol, PTZPreset
+from .data.types import (
+    IteratorCallback,
+    ProgressCallback,
+    PTZPatrol,
+    PTZPreset,
+    SirenDuration,
+)
 from .exceptions import BadRequest, GlobalAlarmManagerError, NotAuthorized, NvrError
 from .stream import TalkbackSession
 from .utils import (
@@ -3240,17 +3246,14 @@ class ProtectApiClient(BaseApiClient):
         return Siren.from_unifi_dict(**result, api=self)
 
     async def play_siren_public(
-        self, siren_id: str, *, duration: int | None = None
+        self, siren_id: str, *, duration: SirenDuration = SirenDuration.FIVE
     ) -> None:
-        """Activate a siren. ``duration`` is in seconds (5/10/20/30)."""
-        body: dict[str, Any] = {}
-        if duration is not None:
-            body["duration"] = duration
+        """Activate a siren. ``duration`` is one of :class:`SirenDuration` (5/10/20/30 s)."""
         await self.api_request_raw(
             url=f"/v1/sirens/{siren_id}/play",
             method="post",
             public_api=True,
-            json=body or None,
+            json={"duration": duration},
         )
 
     async def stop_siren_public(self, siren_id: str) -> None:
@@ -3272,7 +3275,7 @@ class ProtectApiClient(BaseApiClient):
             url=f"/v1/sirens/{siren_id}/test-sound",
             method="post",
             public_api=True,
-            json=body or None,
+            json=body,
         )
 
     # ------------------------------------------------------------------

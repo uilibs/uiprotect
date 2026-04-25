@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock, patch
@@ -218,10 +219,11 @@ async def test_play_siren_public(protect_client: ProtectApiClient) -> None:
 async def test_play_siren_public_no_body(
     protect_client: ProtectApiClient,
 ) -> None:
+    """Without explicit duration, the default SirenDuration.FIVE must be sent."""
     protect_client.api_request_raw = AsyncMock(return_value=None)
     await protect_client.play_siren_public(SIREN_ID)
     _, kwargs = protect_client.api_request_raw.call_args
-    assert kwargs["json"] is None
+    assert kwargs["json"] == {"duration": 5}
 
 
 @pytest.mark.asyncio()
@@ -386,6 +388,9 @@ async def test_update_arm_profile_empty(
 
 
 def test_siren_model_from_unifi_dict() -> None:
+    # activatedAt is Unix-ms; duration is in seconds (matching SirenDuration values).
+    # Use a future timestamp so is_active returns True.
+    activated_at_ms = int(time.time() * 1000)
     siren = Siren.from_unifi_dict(
         id=SIREN_ID,
         modelKey="siren",
@@ -394,7 +399,7 @@ def test_siren_model_from_unifi_dict() -> None:
         mac="AA:BB:CC:DD:EE:FF",
         volume=80,
         ledSettings={"isEnabled": True},
-        sirenStatus={"isActive": True, "activatedAt": 1, "duration": 5000},
+        sirenStatus={"isActive": True, "activatedAt": activated_at_ms, "duration": 5},
         connectionType="lora",
         wirelessConnectionState={
             "signalState": {"signalQuality": 85, "signalStrength": -45},
@@ -406,6 +411,27 @@ def test_siren_model_from_unifi_dict() -> None:
     assert siren.model is ModelType.SIREN
     assert siren.volume == 80
     assert siren.is_active is True
+
+    # When the timer has expired the siren should appear inactive even if
+    # sirenStatus.isActive is still True (server sends no stop event).
+    expired_at_ms = int((time.time() - 10) * 1000)  # 10 s in the past
+    siren_expired = Siren.from_unifi_dict(
+        id=SIREN_ID,
+        modelKey="siren",
+        state="CONNECTED",
+        name="Front Siren",
+        mac="AA:BB:CC:DD:EE:FF",
+        volume=80,
+        ledSettings={"isEnabled": True},
+        sirenStatus={"isActive": True, "activatedAt": expired_at_ms, "duration": 5},
+        connectionType="lora",
+        wirelessConnectionState={
+            "signalState": {"signalQuality": 85, "signalStrength": -45},
+            "batteryStatus": {"percentage": 90, "isLow": False},
+            "bridge": None,
+        },
+    )
+    assert siren_expired.is_active is False
 
 
 def test_relay_model_from_unifi_dict() -> None:
@@ -530,12 +556,15 @@ def test_public_bootstrap_applies_add_and_update(
     assert new.name == "Siren"  # type: ignore[attr-defined]
 
     # Partial update of a nested model (``sirenStatus.isActive``).
+    # activatedAt is Unix-ms; duration is in seconds — use current time so
+    # turn_off_at lies in the future and is_active returns True.
+    now_ms = int(time.time() * 1000)
     status_payload: dict[str, Any] = {
         "type": "update",
         "item": {
             "id": SIREN_ID,
             "modelKey": "siren",
-            "sirenStatus": {"isActive": True, "activatedAt": 1234, "duration": 30},
+            "sirenStatus": {"isActive": True, "activatedAt": now_ms, "duration": 5},
         },
     }
     mt, new, old = pb.process_devices_ws_message(protect_client, status_payload)
