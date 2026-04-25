@@ -657,6 +657,27 @@ async def test_update_public_tolerates_every_endpoint_failing(
     assert pb.nvr is None
 
 
+@pytest.mark.asyncio()
+async def test_update_public_tolerates_arm_profiles_failure(
+    protect_client: ProtectApiClient,
+) -> None:
+    """
+    Firmware without alarm-manager endpoints: get_arm_profiles_public raises;
+    update_public must still complete, leave arm_profiles empty, and not propagate.
+    """
+    _mock_update_public_endpoints(
+        protect_client,
+        get_arm_profiles_public=AsyncMock(side_effect=BadRequest("404")),
+    )
+
+    pb = await protect_client.update_public()
+
+    assert pb.arm_profiles == {}
+    assert pb.nvr is not None
+    assert pb.arm_mode is None
+    protect_client.get_arm_profiles_public.assert_awaited_once()
+
+
 # ---------------------------------------------------------------------------
 # Relay pulse guard & dict access
 # ---------------------------------------------------------------------------
