@@ -390,7 +390,7 @@ async def test_update_arm_profile_empty(
 def test_siren_model_from_unifi_dict() -> None:
     # activatedAt is Unix-ms; duration is in seconds (matching SirenDuration values).
     # Use a future timestamp so is_active returns True.
-    activated_at_ms = int(time.time() * 1000)
+    activated_at_ms = int((time.time() + 10) * 1000)  # 10 s in the future
     siren = Siren.from_unifi_dict(
         id=SIREN_ID,
         modelKey="siren",

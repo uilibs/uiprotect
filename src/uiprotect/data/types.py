@@ -640,6 +640,7 @@ class ChimeType(int, enum.Enum):
     DIGITAL = 1000
 
 
+@enum.unique
 class SirenDuration(int, enum.Enum):
     """Valid siren play durations in seconds (as accepted by the public API)."""
 

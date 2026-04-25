@@ -3246,14 +3246,26 @@ class ProtectApiClient(BaseApiClient):
         return Siren.from_unifi_dict(**result, api=self)
 
     async def play_siren_public(
-        self, siren_id: str, *, duration: SirenDuration = SirenDuration.FIVE
+        self, siren_id: str, *, duration: SirenDuration | int | None = None
     ) -> None:
-        """Activate a siren. ``duration`` is one of :class:`SirenDuration` (5/10/20/30 s)."""
+        """Activate a siren. ``duration`` may be a supported integer or :class:`SirenDuration`; defaults to 5 seconds."""
+        if duration is None:
+            norm_duration = SirenDuration.FIVE
+        elif isinstance(duration, SirenDuration):
+            norm_duration = duration
+        else:
+            try:
+                norm_duration = SirenDuration(duration)
+            except ValueError as err:
+                raise BadRequest(
+                    "duration must be one of the supported siren durations "
+                    f"{', '.join(str(item.value) for item in SirenDuration)} seconds"
+                ) from err
         await self.api_request_raw(
             url=f"/v1/sirens/{siren_id}/play",
             method="post",
             public_api=True,
-            json={"duration": duration},
+            json={"duration": norm_duration},
         )
 
     async def stop_siren_public(self, siren_id: str) -> None:

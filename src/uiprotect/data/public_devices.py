@@ -180,9 +180,26 @@ class Siren(ProtectModelWithId):
             return datetime.now(UTC) < turn_off_at
         return self.siren_status.is_active
 
-    async def play(self, duration: SirenDuration = SirenDuration.FIVE) -> None:
-        """Play the siren. ``duration`` is one of :class:`SirenDuration`; defaults to 5 seconds."""
-        await self._api.play_siren_public(self.id, duration=duration)
+    def _normalize_siren_duration(
+        self, duration: int | SirenDuration | None
+    ) -> SirenDuration:
+        if duration is None:
+            return SirenDuration.FIVE
+        if isinstance(duration, SirenDuration):
+            return duration
+        try:
+            return SirenDuration(duration)
+        except ValueError as err:
+            raise BadRequest(
+                "duration must be one of the supported siren durations "
+                f"{', '.join(str(item.value) for item in SirenDuration)} seconds"
+            ) from err
+
+    async def play(self, duration: int | SirenDuration | None = None) -> None:
+        """Play the siren. ``duration`` may be a supported integer or :class:`SirenDuration`; defaults to 5 seconds."""
+        await self._api.play_siren_public(
+            self.id, duration=self._normalize_siren_duration(duration)
+        )
 
     async def stop(self) -> None:
         """Stop an active siren."""
