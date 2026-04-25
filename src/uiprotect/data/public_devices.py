@@ -327,12 +327,16 @@ class PublicDoorbellSettings(ProtectBaseObject):
     Intentionally separate from the private :class:`~uiprotect.data.nvr.DoorbellSettings`
     which carries additional private-API-only fields (``allMessages``, typed
     timedelta, etc.).
+
+    All fields have defaults because the ``doorbellSettings`` OpenAPI schema
+    declares no ``required`` array — fields may be absent on older firmware or
+    in partial WS update diffs.
     """
 
-    default_message_text: str
-    default_message_reset_timeout_ms: int
-    custom_messages: list[str]
-    custom_images: list[PublicDoorbellCustomImage]
+    default_message_text: str = ""
+    default_message_reset_timeout_ms: int = 0
+    custom_messages: list[str] = []
+    custom_images: list[PublicDoorbellCustomImage] = []
 
 
 class PublicNVR(ProtectModelWithId):
@@ -341,6 +345,12 @@ class PublicNVR(ProtectModelWithId):
 
     This model reflects the public schema: ``id``, ``modelKey``, ``name``,
     ``doorbellSettings``, and optionally ``armMode``.
+
+    ``name`` is nullable — the API schema declares it as ``oneOf: [string, null]``.
+
+    ``doorbell_settings`` is ``None`` on older firmware that does not yet
+    expose the ``doorbellSettings`` key, and is absent from WS partial-update
+    diffs (which only require ``id`` + ``modelKey``).
 
     ``arm_mode`` is ``None`` when the firmware does not yet expose the alarm
     manager (older releases) and also ``None`` when the alarm manager is set
@@ -352,5 +362,5 @@ class PublicNVR(ProtectModelWithId):
 
     model: ModelType | None = ModelType.NVR
     name: str | None = None
-    doorbell_settings: PublicDoorbellSettings
+    doorbell_settings: PublicDoorbellSettings | None = None
     arm_mode: NvrArmMode | None = None
