@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.4.0 (2026-04-25)
+
+### Features
+
+
+- Add publicnvr, nvrarmmodestatus and relayoutputstate enums ([`2c92650`](https://github.com/uilibs/uiprotect/commit/2c926509342374092f1bb436e9c5973b56a0efef))
+
+
 ## v10.3.1 (2026-04-23)
 
 ### Bug fixes
