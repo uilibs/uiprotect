@@ -453,6 +453,28 @@ def test_siren_model_from_unifi_dict() -> None:
     )
     assert siren_expired.is_active is False
 
+    # Manual stop before the timer elapsed: server clears isActive but may
+    # leave activatedAt/duration populated. The clock check would still say
+    # "active"; the server flag must win.
+    future_at_ms = int((time.time() + 10) * 1000)
+    siren_stopped = Siren.from_unifi_dict(
+        id=SIREN_ID,
+        modelKey="siren",
+        state="CONNECTED",
+        name="Front Siren",
+        mac="AA:BB:CC:DD:EE:FF",
+        volume=80,
+        ledSettings={"isEnabled": True},
+        sirenStatus={"isActive": False, "activatedAt": future_at_ms, "duration": 5},
+        connectionType="lora",
+        wirelessConnectionState={
+            "signalState": {"signalQuality": 85, "signalStrength": -45},
+            "batteryStatus": {"percentage": 90, "isLow": False},
+            "bridge": None,
+        },
+    )
+    assert siren_stopped.is_active is False
+
 
 def test_relay_model_from_unifi_dict() -> None:
     relay = Relay.from_unifi_dict(
@@ -1682,21 +1704,15 @@ async def test_siren_device_action_helpers(
     assert siren.siren_status.turn_off_at is None
     assert siren.is_active is False
 
-    # play() with no args: _normalize_siren_duration(None) → SirenDuration.FIVE
+    # play() forwards duration unchanged; play_siren_public is the single
+    # validation/normalization site (covered by test_play_siren_public_*).
     await siren.play()
-    protect_client.play_siren_public.assert_awaited_with(
-        SIREN_ID, duration=SirenDuration.FIVE
-    )
+    protect_client.play_siren_public.assert_awaited_with(SIREN_ID, duration=None)
 
-    # play() with a SirenDuration enum: returned as-is
     await siren.play(duration=SirenDuration.TEN)
     protect_client.play_siren_public.assert_awaited_with(
         SIREN_ID, duration=SirenDuration.TEN
     )
-
-    # play() with an invalid int: _normalize_siren_duration raises BadRequest
-    with pytest.raises(BadRequest):
-        await siren.play(duration=99)
 
     protect_client.play_siren_public.reset_mock()
     await siren.play(duration=5)

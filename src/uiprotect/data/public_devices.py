@@ -169,37 +169,20 @@ class Siren(ProtectModelWithId):
 
         The server does not emit a stop event when the siren finishes its
         timed run, so ``sirenStatus.isActive`` in the WS payload stays
-        ``True`` until the next update. We therefore derive the real state
-        from ``turn_off_at`` when it is available: if the calculated end time
-        is still in the future the siren is still active; once it has passed
-        the siren has stopped regardless of what the server field says.
+        ``True`` until the next update. We therefore AND the server flag
+        with a clock check against ``turn_off_at``: a manual stop clears
+        ``isActive`` immediately, and a timed expiry is caught by the
+        clock check even though the server flag is still ``True``.
         If no timing information is present we fall back to the raw server flag.
         """
         turn_off_at = self.siren_status.turn_off_at
         if turn_off_at is not None:
-            return datetime.now(UTC) < turn_off_at
+            return self.siren_status.is_active and datetime.now(UTC) < turn_off_at
         return self.siren_status.is_active
-
-    def _normalize_siren_duration(
-        self, duration: int | SirenDuration | None
-    ) -> SirenDuration:
-        if duration is None:
-            return SirenDuration.FIVE
-        if isinstance(duration, SirenDuration):
-            return duration
-        try:
-            return SirenDuration(duration)
-        except ValueError as err:
-            raise BadRequest(
-                "duration must be one of the supported siren durations "
-                f"{', '.join(str(item.value) for item in SirenDuration)} seconds"
-            ) from err
 
     async def play(self, duration: int | SirenDuration | None = None) -> None:
         """Play the siren. ``duration`` may be a supported integer or :class:`SirenDuration`; defaults to 5 seconds."""
-        await self._api.play_siren_public(
-            self.id, duration=self._normalize_siren_duration(duration)
-        )
+        await self._api.play_siren_public(self.id, duration=duration)
 
     async def stop(self) -> None:
         """Stop an active siren."""
