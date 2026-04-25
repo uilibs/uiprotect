@@ -1153,8 +1153,11 @@ class ProtectApiClient(BaseApiClient):
 
     _minimum_score: int
     _subscribed_models: set[ModelType]
-    _events_ws_subscribed_models: set[ModelType]
-    _devices_ws_subscribed_models: set[ModelType]
+    # ``None`` means "inherit ``_subscribed_models``"; an explicit (possibly
+    # empty) set overrides the global filter for that websocket. An empty set
+    # therefore means "allow all models" — matching the private-WS behaviour.
+    _events_ws_subscribed_models: set[ModelType] | None
+    _devices_ws_subscribed_models: set[ModelType] | None
     _ignore_stats: bool
     _ws_subscriptions: list[Callable[[WSSubscriptionMessage], None]]
     _events_ws_subscriptions: list[Callable[[WSSubscriptionMessage], None]]
@@ -1224,8 +1227,10 @@ class ProtectApiClient(BaseApiClient):
 
         self._minimum_score = minimum_score
         self._subscribed_models = subscribed_models or set()
-        self._events_ws_subscribed_models = events_ws_subscribed_models or set()
-        self._devices_ws_subscribed_models = devices_ws_subscribed_models or set()
+        # Preserve ``None`` vs. empty-set distinction: ``None`` inherits from
+        # ``_subscribed_models``; an explicit empty set means "allow all".
+        self._events_ws_subscribed_models = events_ws_subscribed_models
+        self._devices_ws_subscribed_models = devices_ws_subscribed_models
         self._ignore_stats = ignore_stats
         self._ws_subscriptions = []
         self._events_ws_subscriptions = []
@@ -1503,8 +1508,12 @@ class ProtectApiClient(BaseApiClient):
                 return
 
             # Respect ``subscribed_models`` for the events WS too.
+            # ``None`` => inherit the global filter; an explicit (possibly
+            # empty) per-WS set overrides it.
             _events_filter = (
-                self._events_ws_subscribed_models or self._subscribed_models
+                self._subscribed_models
+                if self._events_ws_subscribed_models is None
+                else self._events_ws_subscribed_models
             )
             if _events_filter and model_type not in _events_filter:
                 return
@@ -1557,8 +1566,12 @@ class ProtectApiClient(BaseApiClient):
 
             # Respect the ``subscribed_models`` filter that callers pass in.
             # Empty set means "all" (matches private-WS behaviour).
+            # ``None`` => inherit the global filter; an explicit (possibly
+            # empty) per-WS set overrides it.
             _devices_filter = (
-                self._devices_ws_subscribed_models or self._subscribed_models
+                self._subscribed_models
+                if self._devices_ws_subscribed_models is None
+                else self._devices_ws_subscribed_models
             )
             if _devices_filter and model_type not in _devices_filter:
                 return

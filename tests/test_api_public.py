@@ -1506,7 +1506,7 @@ async def test_devices_ws_subscribed_models_overrides_subscribed_models(
         # CAMERA is filtered out because devices_ws_subscribed_models={RELAY}
         assert got == []
     finally:
-        protect_client_no_debug._devices_ws_subscribed_models = set()
+        protect_client_no_debug._devices_ws_subscribed_models = None
         unsub()
 
 
@@ -1546,7 +1546,7 @@ async def test_events_ws_subscribed_models_overrides_subscribed_models(
         # CAMERA is filtered out because events_ws_subscribed_models={EVENT}
         assert got == []
     finally:
-        protect_client_no_debug._events_ws_subscribed_models = set()
+        protect_client_no_debug._events_ws_subscribed_models = None
         unsub()
 
 
