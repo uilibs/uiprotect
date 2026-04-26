@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.4.1 (2026-04-26)
+
+### Bug fixes
+
+
+- Always send json body; add sirenduration enum and turn_off_at ([`d89d8ac`](https://github.com/uilibs/uiprotect/commit/d89d8ac11cd1f968de532dd310aa6753e78140cf))
+
+
 ## v10.4.0 (2026-04-25)
 
 ### Features
