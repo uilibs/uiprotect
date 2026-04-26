@@ -14,7 +14,7 @@ are ``Optional``.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 from ..exceptions import BadRequest
@@ -25,6 +25,7 @@ from .types import (
     RelayInputState,
     RelayOutputRebootState,
     RelayOutputState,
+    SirenDuration,
 )
 
 if TYPE_CHECKING:
@@ -120,6 +121,24 @@ class PublicSirenStatus(ProtectBaseObject):
     activated_at: int | None = None
     duration: int | None = None
 
+    @property
+    def turn_off_at(self) -> datetime | None:
+        """
+        When the siren is expected to stop playing.
+
+        Returns ``None`` when the siren is idle — either because ``activated_at``
+        / ``duration`` are not set, or because ``is_active`` is ``False`` (e.g.
+        after a manual stop, where the server may leave the timing fields
+        populated). Derived from the websocket payload so no extra API call is
+        needed — HA can compare against ``datetime.now(UTC)`` instead of
+        maintaining its own timer.
+        """
+        if not self.is_active or self.activated_at is None or self.duration is None:
+            return None
+        return datetime.fromtimestamp(self.activated_at / 1000, tz=UTC) + timedelta(
+            seconds=self.duration
+        )
+
 
 class Siren(ProtectModelWithId):
     """Public API siren device."""
@@ -149,11 +168,24 @@ class Siren(ProtectModelWithId):
 
     @property
     def is_active(self) -> bool:
-        """Whether the siren is currently playing."""
+        """
+        Whether the siren is currently playing.
+
+        The server does not emit a stop event when the siren finishes its
+        timed run, so ``sirenStatus.isActive`` in the WS payload stays
+        ``True`` until the next update. ``turn_off_at`` is only set while
+        the server flag is true and the timing fields are populated, so a
+        clock check against it catches the timed-expiry case. A manual stop
+        clears the server flag and ``turn_off_at`` becomes ``None``,
+        falling back to the (now-false) server flag.
+        """
+        turn_off_at = self.siren_status.turn_off_at
+        if turn_off_at is not None:
+            return datetime.now(UTC) < turn_off_at
         return self.siren_status.is_active
 
-    async def play(self, duration: int | None = None) -> None:
-        """Play the siren. ``duration`` is in seconds; ``None`` uses the server default."""
+    async def play(self, duration: int | SirenDuration | None = None) -> None:
+        """Play the siren. ``duration`` may be a supported integer or :class:`SirenDuration`; defaults to 5 seconds."""
         await self._api.play_siren_public(self.id, duration=duration)
 
     async def stop(self) -> None:

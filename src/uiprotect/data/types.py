@@ -641,6 +641,16 @@ class ChimeType(int, enum.Enum):
 
 
 @enum.unique
+class SirenDuration(int, enum.Enum):
+    """Valid siren play durations in seconds (as accepted by the public API)."""
+
+    FIVE = 5
+    TEN = 10
+    TWENTY = 20
+    THIRTY = 30
+
+
+@enum.unique
 class NvrArmModeStatus(UnknownValuesEnumMixin, enum.StrEnum):
     """Arm-manager status values embedded in the NVR ``armMode`` field."""
 
