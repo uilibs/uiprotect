@@ -2512,7 +2512,7 @@ class ProtectApiClient(BaseApiClient):
         video clips, otherwise the full video must be downloaded to memory before
         being written.
 
-        Providing the `fps` parameter creates a "timelapse" export wtih the given FPS
+        Providing the `fps` parameter creates a "timelapse" export with the given FPS
         value. Protect app gives the options for 60x (fps=4), 120x (fps=8), 300x
         (fps=20), and 600x (fps=40).
         """
