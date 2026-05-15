@@ -36,6 +36,14 @@ def patched_camera_response(protect_client: ProtectApiClient) -> Iterator[Mock]:
         yield mock_create
 
 
+@pytest.fixture
+def camera(camera_obj: Camera | None) -> Camera:
+    """Unwrap camera_obj, skipping the test when test data is absent."""
+    if camera_obj is None:
+        pytest.skip("Missing camera test data")
+    return camera_obj  # type: ignore[return-value]
+
+
 # =============================================================================
 # GET CAMERA TESTS
 # =============================================================================
@@ -331,253 +339,184 @@ def _osd_updated_mock(camera_obj: Camera) -> Mock:  # type: ignore[type-arg]
     return m
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+# --- LED ---
+
+
 @pytest.mark.asyncio()
-async def test_camera_set_status_light_public(camera_obj: Camera | None) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_led_status = True
-    camera_obj.use_global = False
-    updated = _led_updated_mock(camera_obj)
-    camera_obj._api.update_camera_public = AsyncMock(return_value=updated)
+async def test_camera_set_status_light_public(camera: Camera) -> None:
+    camera.feature_flags.has_led_status = True
+    camera.use_global = False
+    updated = _led_updated_mock(camera)
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
 
-    await camera_obj.set_status_light_public(True)
+    await camera.set_status_light_public(True)
 
-    camera_obj._api.update_camera_public.assert_called_once_with(
-        camera_obj.id, led_is_enabled=True
+    camera._api.update_camera_public.assert_called_once_with(
+        camera.id, led_is_enabled=True
     )
-    assert camera_obj.led_settings == updated.led_settings
+    assert camera.led_settings == updated.led_settings
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_camera_set_status_light_public_no_led(
-    camera_obj: Camera | None,
-) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_led_status = False
+async def test_camera_set_welcome_led_public(camera: Camera) -> None:
+    camera.feature_flags.has_led_status = True
+    camera.led_settings.welcome_led = False
+    updated = _led_updated_mock(camera)
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
 
-    with pytest.raises(BadRequest, match="does not have status light"):
-        await camera_obj.set_status_light_public(True)
+    await camera.set_welcome_led_public(True)
 
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_welcome_led_public(camera_obj: Camera | None) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_led_status = True
-    camera_obj.led_settings.welcome_led = False
-    updated = _led_updated_mock(camera_obj)
-    camera_obj._api.update_camera_public = AsyncMock(return_value=updated)
-
-    await camera_obj.set_welcome_led_public(True)
-
-    camera_obj._api.update_camera_public.assert_called_once_with(
-        camera_obj.id, led_welcome_led=True
+    camera._api.update_camera_public.assert_called_once_with(
+        camera.id, led_welcome_led=True
     )
-    assert camera_obj.led_settings == updated.led_settings
+    assert camera.led_settings == updated.led_settings
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_camera_set_welcome_led_public_no_led_status(
-    camera_obj: Camera | None,
-) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_led_status = False
-
-    with pytest.raises(BadRequest, match="does not have status light"):
-        await camera_obj.set_welcome_led_public(True)
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_welcome_led_public_not_supported(
-    camera_obj: Camera | None,
-) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_led_status = True
-    camera_obj.led_settings.welcome_led = None
+async def test_camera_set_welcome_led_public_not_supported(camera: Camera) -> None:
+    camera.feature_flags.has_led_status = True
+    camera.led_settings.welcome_led = None
 
     with pytest.raises(BadRequest, match="does not have welcome LED"):
-        await camera_obj.set_welcome_led_public(True)
+        await camera.set_welcome_led_public(True)
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_camera_set_flood_led_public(camera_obj: Camera | None) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_led_status = True
-    camera_obj.led_settings.flood_led = False
-    updated = _led_updated_mock(camera_obj)
-    camera_obj._api.update_camera_public = AsyncMock(return_value=updated)
+async def test_camera_set_flood_led_public(camera: Camera) -> None:
+    camera.feature_flags.has_led_status = True
+    camera.led_settings.flood_led = False
+    updated = _led_updated_mock(camera)
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
 
-    await camera_obj.set_flood_led_public(True)
+    await camera.set_flood_led_public(True)
 
-    camera_obj._api.update_camera_public.assert_called_once_with(
-        camera_obj.id, led_flood_led=True
+    camera._api.update_camera_public.assert_called_once_with(
+        camera.id, led_flood_led=True
     )
-    assert camera_obj.led_settings == updated.led_settings
+    assert camera.led_settings == updated.led_settings
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_camera_set_flood_led_public_no_led_status(
-    camera_obj: Camera | None,
-) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_led_status = False
-
-    with pytest.raises(BadRequest, match="does not have status light"):
-        await camera_obj.set_flood_led_public(True)
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_flood_led_public_not_supported(
-    camera_obj: Camera | None,
-) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_led_status = True
-    camera_obj.led_settings.flood_led = None
+async def test_camera_set_flood_led_public_not_supported(camera: Camera) -> None:
+    camera.feature_flags.has_led_status = True
+    camera.led_settings.flood_led = None
 
     with pytest.raises(BadRequest, match="does not have flood LED"):
-        await camera_obj.set_flood_led_public(True)
+        await camera.set_flood_led_public(True)
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    "method",
+    ["set_status_light_public", "set_welcome_led_public", "set_flood_led_public"],
+)
 @pytest.mark.asyncio()
-async def test_camera_set_hdr_mode_public(camera_obj: Camera | None) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_hdr = True
-    updated = _hdr_updated_mock(camera_obj, hdr_on=True)
-    camera_obj._api.update_camera_public = AsyncMock(return_value=updated)
+async def test_camera_set_led_public_no_led_status(camera: Camera, method: str) -> None:
+    camera.feature_flags.has_led_status = False
 
-    await camera_obj.set_hdr_mode_public(PublicHdrMode.AUTO)
-
-    camera_obj._api.update_camera_public.assert_called_once_with(
-        camera_obj.id, hdr_type=PublicHdrMode.AUTO
-    )
-    assert camera_obj.hdr_mode == updated.hdr_mode
+    with pytest.raises(BadRequest, match="does not have status light"):
+        await getattr(camera, method)(True)
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+# --- HDR ---
+
+
+@pytest.mark.parametrize(
+    ("mode", "hdr_on"),
+    [
+        (PublicHdrMode.AUTO, True),
+        (PublicHdrMode.ON, True),
+        (PublicHdrMode.OFF, False),
+    ],
+)
 @pytest.mark.asyncio()
-async def test_camera_set_hdr_mode_public_on(
-    camera_obj: Camera | None,
+async def test_camera_set_hdr_mode_public(
+    camera: Camera, mode: PublicHdrMode, hdr_on: bool
 ) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_hdr = True
-    camera_obj._api.update_camera_public = AsyncMock(
-        return_value=_hdr_updated_mock(camera_obj, hdr_on=True)
+    camera.feature_flags.has_hdr = True
+    camera._api.update_camera_public = AsyncMock(
+        return_value=_hdr_updated_mock(camera, hdr_on)
     )
 
-    await camera_obj.set_hdr_mode_public(PublicHdrMode.ON)
+    await camera.set_hdr_mode_public(mode)
 
-    camera_obj._api.update_camera_public.assert_called_once_with(
-        camera_obj.id, hdr_type=PublicHdrMode.ON
-    )
+    camera._api.update_camera_public.assert_called_once_with(camera.id, hdr_type=mode)
+    assert camera.hdr_mode == hdr_on
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_camera_set_hdr_mode_public_no_hdr(camera_obj: Camera | None) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_hdr = False
+async def test_camera_set_hdr_mode_public_no_hdr(camera: Camera) -> None:
+    camera.feature_flags.has_hdr = False
 
     with pytest.raises(BadRequest, match="does not have HDR"):
-        await camera_obj.set_hdr_mode_public(PublicHdrMode.ON)
+        await camera.set_hdr_mode_public(PublicHdrMode.ON)
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_camera_set_hdr_mode_public_updates_isp_settings(
-    camera_obj: Camera | None,
-) -> None:
+async def test_camera_set_hdr_mode_public_updates_isp_settings(camera: Camera) -> None:
     """isp_settings.hdr_mode is updated when it is not None."""
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_hdr = True
-    camera_obj.isp_settings.hdr_mode = HDRMode.NORMAL  # make it non-None
-    camera_obj._api.update_camera_public = AsyncMock(
-        return_value=_hdr_updated_mock(camera_obj, hdr_on=True)
+    camera.feature_flags.has_hdr = True
+    camera.isp_settings.hdr_mode = HDRMode.NORMAL
+    camera._api.update_camera_public = AsyncMock(
+        return_value=_hdr_updated_mock(camera, hdr_on=True)
     )
 
-    await camera_obj.set_hdr_mode_public(PublicHdrMode.ON)
+    await camera.set_hdr_mode_public(PublicHdrMode.ON)
 
-    assert camera_obj.hdr_mode is True
-    assert camera_obj.isp_settings.hdr_mode == HDRMode.ALWAYS_ON
+    assert camera.hdr_mode is True
+    assert camera.isp_settings.hdr_mode == HDRMode.ALWAYS_ON
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+# --- Video mode ---
+
+
 @pytest.mark.asyncio()
-async def test_camera_set_video_mode_public(camera_obj: Camera | None) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.video_modes = [VideoMode.DEFAULT]
+async def test_camera_set_video_mode_public(camera: Camera) -> None:
+    camera.feature_flags.video_modes = [VideoMode.DEFAULT]
     updated = _video_updated_mock(VideoMode.DEFAULT)
-    camera_obj._api.update_camera_public = AsyncMock(return_value=updated)
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
 
-    await camera_obj.set_video_mode_public(VideoMode.DEFAULT)
+    await camera.set_video_mode_public(VideoMode.DEFAULT)
 
-    camera_obj._api.update_camera_public.assert_called_once_with(
-        camera_obj.id, video_mode=VideoMode.DEFAULT.value
+    camera._api.update_camera_public.assert_called_once_with(
+        camera.id, video_mode=VideoMode.DEFAULT.value
     )
-    assert camera_obj.video_mode == VideoMode.DEFAULT
+    assert camera.video_mode == VideoMode.DEFAULT
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_camera_set_video_mode_public_unsupported(
-    camera_obj: Camera | None,
-) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.video_modes = []
+async def test_camera_set_video_mode_public_unsupported(camera: Camera) -> None:
+    camera.feature_flags.video_modes = []
 
     with pytest.raises(BadRequest, match="Camera does not have"):
-        await camera_obj.set_video_mode_public(VideoMode.HIGH_FPS)
+        await camera.set_video_mode_public(VideoMode.HIGH_FPS)
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+# --- Mic volume ---
+
+
 @pytest.mark.asyncio()
-async def test_camera_set_mic_volume_public(camera_obj: Camera | None) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_mic = True
+async def test_camera_set_mic_volume_public(camera: Camera) -> None:
+    camera.feature_flags.has_mic = True
     updated = _mic_updated_mock(75)
-    camera_obj._api.update_camera_public = AsyncMock(return_value=updated)
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
 
-    await camera_obj.set_mic_volume_public(75)
+    await camera.set_mic_volume_public(75)
 
-    camera_obj._api.update_camera_public.assert_called_once_with(
-        camera_obj.id, mic_volume=75
-    )
-    assert camera_obj.mic_volume == 75
+    camera._api.update_camera_public.assert_called_once_with(camera.id, mic_volume=75)
+    assert camera.mic_volume == 75
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_camera_set_mic_volume_public_no_mic(camera_obj: Camera | None) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_mic = False
+async def test_camera_set_mic_volume_public_no_mic(camera: Camera) -> None:
+    camera.feature_flags.has_mic = False
 
     with pytest.raises(BadRequest, match="does not have mic"):
-        await camera_obj.set_mic_volume_public(50)
+        await camera.set_mic_volume_public(50)
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+# --- OSD ---
+
+
 @pytest.mark.parametrize(
     ("method", "kwarg"),
     [
@@ -588,81 +527,54 @@ async def test_camera_set_mic_volume_public_no_mic(camera_obj: Camera | None) ->
     ],
 )
 @pytest.mark.asyncio()
-async def test_camera_set_osd_public(
-    camera_obj: Camera | None,
-    method: str,
-    kwarg: str,
-) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.use_global = False
-    updated = _osd_updated_mock(camera_obj)
-    camera_obj._api.update_camera_public = AsyncMock(return_value=updated)
+async def test_camera_set_osd_public(camera: Camera, method: str, kwarg: str) -> None:
+    camera.use_global = False
+    updated = _osd_updated_mock(camera)
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
 
-    await getattr(camera_obj, method)(True)
+    await getattr(camera, method)(True)
 
-    camera_obj._api.update_camera_public.assert_called_once_with(
-        camera_obj.id, **{kwarg: True}
-    )
-    assert camera_obj.osd_settings == updated.osd_settings
+    camera._api.update_camera_public.assert_called_once_with(camera.id, **{kwarg: True})
+    assert camera.osd_settings == updated.osd_settings
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_camera_set_osd_overlay_location_public(
-    camera_obj: Camera | None,
-) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.use_global = False
-    updated = _osd_updated_mock(camera_obj)
-    camera_obj._api.update_camera_public = AsyncMock(return_value=updated)
+async def test_camera_set_osd_overlay_location_public(camera: Camera) -> None:
+    camera.use_global = False
+    updated = _osd_updated_mock(camera)
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
 
-    await camera_obj.set_osd_overlay_location_public(OsdOverlayLocation.TOP_LEFT)
+    await camera.set_osd_overlay_location_public(OsdOverlayLocation.TOP_LEFT)
 
-    camera_obj._api.update_camera_public.assert_called_once_with(
-        camera_obj.id, osd_overlay_location=OsdOverlayLocation.TOP_LEFT
+    camera._api.update_camera_public.assert_called_once_with(
+        camera.id, osd_overlay_location=OsdOverlayLocation.TOP_LEFT
     )
-    assert camera_obj.osd_settings == updated.osd_settings
+    assert camera.osd_settings == updated.osd_settings
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_osd_overlay_location_public_use_global(
-    camera_obj: Camera | None,
-) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.use_global = True
-
-    with pytest.raises(BadRequest, match="global recording settings"):
-        await camera_obj.set_osd_overlay_location_public(OsdOverlayLocation.TOP_LEFT)
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize(
-    "method",
+    ("method", "arg"),
     [
-        "set_osd_name_public",
-        "set_osd_date_public",
-        "set_osd_logo_public",
-        "set_osd_nerd_mode_public",
+        ("set_osd_name_public", True),
+        ("set_osd_date_public", True),
+        ("set_osd_logo_public", True),
+        ("set_osd_nerd_mode_public", True),
+        ("set_osd_overlay_location_public", OsdOverlayLocation.TOP_LEFT),
     ],
 )
 @pytest.mark.asyncio()
 async def test_camera_set_osd_public_use_global(
-    camera_obj: Camera | None,
-    method: str,
+    camera: Camera, method: str, arg: Any
 ) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.use_global = True
+    camera.use_global = True
 
     with pytest.raises(BadRequest, match="global recording settings"):
-        await getattr(camera_obj, method)(True)
+        await getattr(camera, method)(arg)
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+# --- Smart detect object types ---
+
+
 @pytest.mark.parametrize(
     ("method", "obj_type"),
     [
@@ -676,70 +588,62 @@ async def test_camera_set_osd_public_use_global(
 )
 @pytest.mark.asyncio()
 async def test_camera_set_object_detection_public_enable(
-    camera_obj: Camera | None,
-    method: str,
-    obj_type: SmartDetectObjectType,
+    camera: Camera, method: str, obj_type: SmartDetectObjectType
 ) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_smart_detect = True
-    camera_obj.use_global = False
-    camera_obj.feature_flags.smart_detect_types = [obj_type]
-    camera_obj.smart_detect_settings.object_types = []
+    camera.feature_flags.has_smart_detect = True
+    camera.use_global = False
+    camera.feature_flags.smart_detect_types = [obj_type]
+    camera.smart_detect_settings.object_types = []
     updated = Mock()
     updated.smart_detect_settings.object_types = [obj_type]
-    camera_obj._api.update_camera_public = AsyncMock(return_value=updated)
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
 
-    await getattr(camera_obj, method)(True)
+    await getattr(camera, method)(True)
 
-    camera_obj._api.update_camera_public.assert_called_once_with(
-        camera_obj.id, smart_detect_object_types=[obj_type]
+    camera._api.update_camera_public.assert_called_once_with(
+        camera.id, smart_detect_object_types=[obj_type]
     )
-    assert camera_obj.smart_detect_settings.object_types == [obj_type]
+    assert camera.smart_detect_settings.object_types == [obj_type]
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_camera_set_object_detection_public_no_smart_detect(
-    camera_obj: Camera | None,
-) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_smart_detect = False
+async def test_camera_set_object_detection_public_disable(camera: Camera) -> None:
+    camera.feature_flags.has_smart_detect = True
+    camera.use_global = False
+    camera.feature_flags.smart_detect_types = [SmartDetectObjectType.PERSON]
+    camera.smart_detect_settings.object_types = [SmartDetectObjectType.PERSON]
+    updated = Mock()
+    updated.smart_detect_settings.object_types = []
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
 
-    with pytest.raises(BadRequest, match="does not have smart detections"):
-        await camera_obj.set_person_detection_public(True)
+    await camera.set_person_detection_public(False)
+
+    camera._api.update_camera_public.assert_called_once_with(
+        camera.id, smart_detect_object_types=[]
+    )
+    assert camera.smart_detect_settings.object_types == []
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_camera_set_object_detection_public_use_global(
-    camera_obj: Camera | None,
-) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_smart_detect = True
-    camera_obj.use_global = True
+async def test_camera_set_object_detection_public_unsupported(camera: Camera) -> None:
+    camera.feature_flags.smart_detect_types = []
 
-    with pytest.raises(BadRequest, match="global recording settings"):
-        await camera_obj.set_person_detection_public(True)
+    with pytest.raises(BadRequest, match="does not support"):
+        await camera.set_person_detection_public(True)
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
 async def test_camera_set_object_detection_public_consecutive_calls(
-    camera_obj: Camera | None,
+    camera: Camera,
 ) -> None:
     """Consecutive enable calls must not clobber each other's state."""
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_smart_detect = True
-    camera_obj.use_global = False
-    camera_obj.feature_flags.smart_detect_types = [
+    camera.feature_flags.has_smart_detect = True
+    camera.use_global = False
+    camera.feature_flags.smart_detect_types = [
         SmartDetectObjectType.PERSON,
         SmartDetectObjectType.VEHICLE,
     ]
-    camera_obj.smart_detect_settings.object_types = []
+    camera.smart_detect_settings.object_types = []
 
     after_person = Mock()
     after_person.smart_detect_settings.object_types = [SmartDetectObjectType.PERSON]
@@ -748,20 +652,20 @@ async def test_camera_set_object_detection_public_consecutive_calls(
         SmartDetectObjectType.PERSON,
         SmartDetectObjectType.VEHICLE,
     ]
-    camera_obj._api.update_camera_public = AsyncMock(
+    camera._api.update_camera_public = AsyncMock(
         side_effect=[after_person, after_vehicle]
     )
 
-    await camera_obj.set_person_detection_public(True)
-    await camera_obj.set_vehicle_detection_public(True)
+    await camera.set_person_detection_public(True)
+    await camera.set_vehicle_detection_public(True)
 
-    calls = camera_obj._api.update_camera_public.call_args_list
+    calls = camera._api.update_camera_public.call_args_list
     assert calls[0] == (
-        (camera_obj.id,),
+        (camera.id,),
         {"smart_detect_object_types": [SmartDetectObjectType.PERSON]},
     )
     assert calls[1] == (
-        (camera_obj.id,),
+        (camera.id,),
         {
             "smart_detect_object_types": [
                 SmartDetectObjectType.PERSON,
@@ -771,43 +675,9 @@ async def test_camera_set_object_detection_public_consecutive_calls(
     )
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_object_detection_public_disable(
-    camera_obj: Camera | None,
-) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_smart_detect = True
-    camera_obj.use_global = False
-    camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.PERSON]
-    camera_obj.smart_detect_settings.object_types = [SmartDetectObjectType.PERSON]
-    updated = Mock()
-    updated.smart_detect_settings.object_types = []
-    camera_obj._api.update_camera_public = AsyncMock(return_value=updated)
-
-    await camera_obj.set_person_detection_public(False)
-
-    camera_obj._api.update_camera_public.assert_called_once_with(
-        camera_obj.id, smart_detect_object_types=[]
-    )
-    assert camera_obj.smart_detect_settings.object_types == []
+# --- Smart detect audio types ---
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_object_detection_public_unsupported(
-    camera_obj: Camera | None,
-) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.smart_detect_types = []
-
-    with pytest.raises(BadRequest, match="does not support"):
-        await camera_obj.set_person_detection_public(True)
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize(
     ("method", "audio_type"),
     [
@@ -824,88 +694,79 @@ async def test_camera_set_object_detection_public_unsupported(
 )
 @pytest.mark.asyncio()
 async def test_camera_set_audio_detection_public_enable(
-    camera_obj: Camera | None,
-    method: str,
-    audio_type: SmartDetectAudioType,
+    camera: Camera, method: str, audio_type: SmartDetectAudioType
 ) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_smart_detect = True
-    camera_obj.use_global = False
-    camera_obj.feature_flags.smart_detect_audio_types = [audio_type]
-    camera_obj.smart_detect_settings.audio_types = []
+    camera.feature_flags.has_smart_detect = True
+    camera.use_global = False
+    camera.feature_flags.smart_detect_audio_types = [audio_type]
+    camera.smart_detect_settings.audio_types = []
     updated = Mock()
     updated.smart_detect_settings.audio_types = [audio_type]
-    camera_obj._api.update_camera_public = AsyncMock(return_value=updated)
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
 
-    await getattr(camera_obj, method)(True)
+    await getattr(camera, method)(True)
 
-    camera_obj._api.update_camera_public.assert_called_once_with(
-        camera_obj.id, smart_detect_audio_types=[audio_type]
+    camera._api.update_camera_public.assert_called_once_with(
+        camera.id, smart_detect_audio_types=[audio_type]
     )
-    assert camera_obj.smart_detect_settings.audio_types == [audio_type]
+    assert camera.smart_detect_settings.audio_types == [audio_type]
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_camera_set_audio_detection_public_disable(
-    camera_obj: Camera | None,
-) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_smart_detect = True
-    camera_obj.use_global = False
-    camera_obj.feature_flags.smart_detect_audio_types = [SmartDetectAudioType.SMOKE]
-    camera_obj.smart_detect_settings.audio_types = [SmartDetectAudioType.SMOKE]
+async def test_camera_set_audio_detection_public_disable(camera: Camera) -> None:
+    camera.feature_flags.has_smart_detect = True
+    camera.use_global = False
+    camera.feature_flags.smart_detect_audio_types = [SmartDetectAudioType.SMOKE]
+    camera.smart_detect_settings.audio_types = [SmartDetectAudioType.SMOKE]
     updated = Mock()
     updated.smart_detect_settings.audio_types = []
-    camera_obj._api.update_camera_public = AsyncMock(return_value=updated)
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
 
-    await camera_obj.set_smoke_detection_public(False)
+    await camera.set_smoke_detection_public(False)
 
-    camera_obj._api.update_camera_public.assert_called_once_with(
-        camera_obj.id, smart_detect_audio_types=[]
+    camera._api.update_camera_public.assert_called_once_with(
+        camera.id, smart_detect_audio_types=[]
     )
-    assert camera_obj.smart_detect_settings.audio_types == []
+    assert camera.smart_detect_settings.audio_types == []
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_camera_set_audio_detection_public_unsupported(
-    camera_obj: Camera | None,
-) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_smart_detect = True
-    camera_obj.use_global = False
-    camera_obj.feature_flags.smart_detect_audio_types = None
+async def test_camera_set_audio_detection_public_unsupported(camera: Camera) -> None:
+    camera.feature_flags.has_smart_detect = True
+    camera.use_global = False
+    camera.feature_flags.smart_detect_audio_types = None
 
     with pytest.raises(BadRequest, match="does not support"):
-        await camera_obj.set_smoke_detection_public(True)
+        await camera.set_smoke_detection_public(True)
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+# --- Smart detect guards ---
+
+
+@pytest.mark.parametrize(
+    "method",
+    ["set_person_detection_public", "set_smoke_detection_public"],
+)
 @pytest.mark.asyncio()
-async def test_camera_set_audio_detection_public_no_smart_detect(
-    camera_obj: Camera | None,
+async def test_camera_set_detection_public_no_smart_detect(
+    camera: Camera, method: str
 ) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_smart_detect = False
+    camera.feature_flags.has_smart_detect = False
 
     with pytest.raises(BadRequest, match="does not have smart detections"):
-        await camera_obj.set_smoke_detection_public(True)
+        await getattr(camera, method)(True)
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    "method",
+    ["set_person_detection_public", "set_smoke_detection_public"],
+)
 @pytest.mark.asyncio()
-async def test_camera_set_audio_detection_public_use_global(
-    camera_obj: Camera | None,
+async def test_camera_set_detection_public_use_global(
+    camera: Camera, method: str
 ) -> None:
-    if camera_obj is None:
-        pytest.skip("No camera_obj found")
-    camera_obj.feature_flags.has_smart_detect = True
-    camera_obj.use_global = True
+    camera.feature_flags.has_smart_detect = True
+    camera.use_global = True
 
     with pytest.raises(BadRequest, match="global recording settings"):
-        await camera_obj.set_smoke_detection_public(True)
+        await getattr(camera, method)(True)
