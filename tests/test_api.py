@@ -1286,7 +1286,9 @@ async def test_get_event_thumbnail_strips_legacy_prefix(
     protect_client: ProtectApiClient,
 ):
     """Legacy thumbnail IDs of the form 'e-<event_id>' should have the prefix stripped."""
-    data = await protect_client.get_event_thumbnail("e-4028adde-42c6-4873-a49e-94da9bd22190")
+    data = await protect_client.get_event_thumbnail(
+        "e-4028adde-42c6-4873-a49e-94da9bd22190"
+    )
     assert data is not None
 
     protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
