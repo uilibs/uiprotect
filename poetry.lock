@@ -1113,7 +1113,7 @@ version = "4.0.12"
 description = "Git Object Database"
 optional = false
 python-versions = ">=3.7"
-groups = ["dev", "docs"]
+groups = ["docs"]
 files = [
     {file = "gitdb-4.0.12-py3-none-any.whl", hash = "sha256:67073e15955400952c6565cc3e707c554a4eea2e428946f7a4c162fab9bd9bcf"},
     {file = "gitdb-4.0.12.tar.gz", hash = "sha256:5ef71f855d191a3326fcfbc0d5da835f26b13fbcba60c32c21091c349ffdb571"},
@@ -1128,7 +1128,7 @@ version = "3.1.50"
 description = "GitPython is a Python library used to interact with Git repositories"
 optional = false
 python-versions = ">=3.7"
-groups = ["dev", "docs"]
+groups = ["docs"]
 files = [
     {file = "gitpython-3.1.50-py3-none-any.whl", hash = "sha256:d352abe2908d07355014abdd21ddf798c2a961469239afec4962e9da884858f9"},
     {file = "gitpython-3.1.50.tar.gz", hash = "sha256:80da2d12504d52e1f998772dc5baf6e553f8d2fcfe1fcc226c9d9a2ee3372dcc"},
@@ -1694,14 +1694,14 @@ files = [
 
 [[package]]
 name = "mkdocstrings"
-version = "1.0.3"
+version = "1.0.4"
 description = "Automatic documentation from sources, for MkDocs."
 optional = false
 python-versions = ">=3.10"
 groups = ["docs"]
 files = [
-    {file = "mkdocstrings-1.0.3-py3-none-any.whl", hash = "sha256:0d66d18430c2201dc7fe85134277382baaa15e6b30979f3f3bdbabd6dbdb6046"},
-    {file = "mkdocstrings-1.0.3.tar.gz", hash = "sha256:ab670f55040722b49bb45865b2e93b824450fb4aef638b00d7acb493a9020434"},
+    {file = "mkdocstrings-1.0.4-py3-none-any.whl", hash = "sha256:63464b4b29053514f32a1dbbf604e52876d5e638111b0c295ab7ed3cac73ca9b"},
+    {file = "mkdocstrings-1.0.4.tar.gz", hash = "sha256:3969a6515b77db65fd097b53c1b7aa4ae840bd71a2ee62a6a3e89503446d7172"},
 ]
 
 [package.dependencies]
@@ -3207,7 +3207,7 @@ version = "5.0.2"
 description = "A pure Python implementation of a sliding window memory map manager"
 optional = false
 python-versions = ">=3.7"
-groups = ["dev", "docs"]
+groups = ["docs"]
 files = [
     {file = "smmap-5.0.2-py3-none-any.whl", hash = "sha256:b30115f0def7d7531d22a0fb6502488d879e75b260a9db4d0819cfb25403af5e"},
     {file = "smmap-5.0.2.tar.gz", hash = "sha256:26ea65a03958fa0c8a1c7e8c7a58fdc77221b8910f6be2131affade476898ad5"},
@@ -4033,4 +4033,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "5da1d2f0e45a1e741864dd3f32b15c745d9ebc5f68a571a689e077f3f631cb1e"
+content-hash = "fcc71084a31e0ed705cf6c60570123406bce16264f289875a83a8be303b5ff94"
