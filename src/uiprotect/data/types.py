@@ -737,12 +737,29 @@ class HDRMode(UnknownValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
+class PublicHdrMode(enum.StrEnum):
+    AUTO = "auto"
+    ON = "on"
+    OFF = "off"
+
+
+@enum.unique
 class LensType(enum.StrEnum):
     NONE = "none"
     FULL_360 = "360"
     WIDE = "wide"
     TELESCOPIC = "tele"
     DLSR_17 = "m43"
+
+
+@enum.unique
+class OsdOverlayLocation(enum.StrEnum):
+    TOP_LEFT = "topLeft"
+    TOP_MIDDLE = "topMiddle"
+    TOP_RIGHT = "topRight"
+    BOTTOM_LEFT = "bottomLeft"
+    BOTTOM_MIDDLE = "bottomMiddle"
+    BOTTOM_RIGHT = "bottomRight"
 
 
 DoorbellText = Annotated[str, StringConstraints(max_length=30)]
