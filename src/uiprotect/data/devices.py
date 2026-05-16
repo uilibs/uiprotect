@@ -2233,7 +2233,7 @@ class Camera(ProtectMotionDeviceModel):
 
         See https://github.com/uilibs/uiprotect/issues/685.
         """
-        from ..api import RTSPSStreams
+        from ..api import RTSPSStreams  # noqa: PLC0415  # avoid circular import
 
         streams: dict[str, str | None] = {}
         for label, channel in (
