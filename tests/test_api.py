@@ -3157,9 +3157,15 @@ def test_camera_get_rtsps_streams_from_bootstrap():
 
     result = camera.get_rtsps_streams_from_bootstrap()
 
-    assert result.get_stream_url("high") == "rtsps://192.168.15.239:7441/highAlias?enableSrtp"
+    assert (
+        result.get_stream_url("high")
+        == "rtsps://192.168.15.239:7441/highAlias?enableSrtp"
+    )
     assert result.get_stream_url("medium") is None
-    assert result.get_stream_url("low") == "rtsps://192.168.15.239:7441/lowAlias?enableSrtp"
+    assert (
+        result.get_stream_url("low")
+        == "rtsps://192.168.15.239:7441/lowAlias?enableSrtp"
+    )
     assert result.get_stream_url("package") is None
     assert set(result.get_available_stream_qualities()) == {"high", "medium", "low"}
     assert set(result.get_active_stream_qualities()) == {"high", "low"}
@@ -3190,7 +3196,12 @@ def test_camera_get_rtsps_streams_from_bootstrap_with_package():
     result = camera.get_rtsps_streams_from_bootstrap()
 
     assert result.get_stream_url("package") == "rtsps://host:7441/package?enableSrtp"
-    assert set(result.get_active_stream_qualities()) == {"high", "medium", "low", "package"}
+    assert set(result.get_active_stream_qualities()) == {
+        "high",
+        "medium",
+        "low",
+        "package",
+    }
 
 
 def test_camera_get_rtsps_streams_from_bootstrap_no_channels():

@@ -2222,7 +2222,8 @@ class Camera(ProtectMotionDeviceModel):
         return await self._api.get_camera_rtsps_streams(self.id)
 
     def get_rtsps_streams_from_bootstrap(self) -> RTSPSStreams:
-        """Build RTSPSStreams from local bootstrap channel data.
+        """
+        Build RTSPSStreams from local bootstrap channel data.
 
         Unlike :meth:`get_rtsps_streams`, this does not hit the API: stream
         URLs are derived from each :class:`CameraChannel`'s ``rtsps_url``
