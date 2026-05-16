@@ -2221,6 +2221,30 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._api.get_camera_rtsps_streams(self.id)
 
+    def get_rtsps_streams_from_bootstrap(self) -> RTSPSStreams:
+        """Build RTSPSStreams from local bootstrap channel data.
+
+        Unlike :meth:`get_rtsps_streams`, this does not hit the API: stream
+        URLs are derived from each :class:`CameraChannel`'s ``rtsps_url``
+        property. This works for cameras hosted on a secondary NVR in a
+        stacked setup, where the primary NVR's public API returns 404
+        because it does not own the camera.
+
+        See https://github.com/uilibs/uiprotect/issues/685.
+        """
+        from ..api import RTSPSStreams
+
+        streams: dict[str, str | None] = {}
+        for label, channel in (
+            ("high", self.high_camera_channel),
+            ("medium", self.medium_camera_channel),
+            ("low", self.low_camera_channel),
+            ("package", self.package_camera_channel),
+        ):
+            if channel is not None:
+                streams[label] = channel.rtsps_url
+        return RTSPSStreams(api=self._api, **streams)
+
     async def delete_rtsps_streams(self, qualities: list[str] | str) -> bool:
         """Deletes RTSPS streams for camera using public API."""
         if self._api._api_key is None:
