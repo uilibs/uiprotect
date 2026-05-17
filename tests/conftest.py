@@ -958,9 +958,6 @@ def compare_objs(obj_type, expected, actual):
         del expected["elementInfo"]
     elif obj_type == ModelType.NVR.value:
         # TODO: fields that still need implemented
-        del expected["errorCode"]
-        del expected["wifiSettings"]
-        del expected["smartDetectAgreement"]
         expected.pop("dbRecoveryOptions", None)
         expected.pop("portStatus", None)
         expected.pop("cameraCapacity", None)
