@@ -997,6 +997,23 @@ class CameraAudioSettings(ProtectBaseObject):
     style: list[AudioStyle]
 
 
+class StreamSharing(ProtectBaseObject):
+    enabled: bool
+    token: str | None = None
+    share_link: str | None = None
+    expires: datetime | None = None
+    shared_by_user_id: str | None = None
+    shared_by_user: dict[str, Any] | None = None
+    max_streams: int | None = None
+
+    @classmethod
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "expires": convert_to_datetime,
+        } | super().unifi_dict_conversions()
+
+
 @lru_cache
 def _chime_type_from_total_seconds(total_seconds: float) -> ChimeType:
     if total_seconds == 0.3:
@@ -1079,10 +1096,12 @@ class Camera(ProtectMotionDeviceModel):
     # apRssi read only
     # elementInfo read only
 
+    # requires 2.11.13+
+    stream_sharing: StreamSharing | None = None
+
     # TODO:
     # lastPrivacyZonePositionId
     # smartDetectLines
-    # streamSharing read only
     # stopStreamLevel
     # uplinkDevice
     # recordingSchedulesV2
@@ -1148,6 +1167,7 @@ class Camera(ProtectMotionDeviceModel):
             "lenses",
             "isPoorNetwork",
             "featureFlags",
+            "streamSharing",
         }
 
     @classmethod
@@ -1213,6 +1233,8 @@ class Camera(ProtectMotionDeviceModel):
         )
         if "lcdMessage" in data and data["lcdMessage"] is None:
             data["lcdMessage"] = {}
+
+        pop_dict_set_if_none(data, {"streamSharing"})
 
         return data
 
