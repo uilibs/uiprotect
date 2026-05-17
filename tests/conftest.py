@@ -830,9 +830,7 @@ def compare_objs(obj_type, expected, actual):
         # field no longer exists on newer cameras
         expected.pop("elementInfo", None)
         del expected["apRssi"]
-        del expected["lastPrivacyZonePositionId"]
         expected.pop("recordingSchedules", None)
-        del expected["smartDetectLines"]
         expected.pop("streamSharing", None)
         expected.pop("stopStreamLevel", None)
         expected.pop("uplinkDevice", None)
