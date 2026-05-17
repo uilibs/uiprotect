@@ -70,6 +70,7 @@ from .data import (
     SmartDetectObjectType,
     SmartDetectTrack,
     Version,
+    VideoMode,
     Viewer,
     WSAction,
     WSPacket,
@@ -132,10 +133,17 @@ class PublicApiChimePatchRequest(TypedDict, total=False):
 
 
 class CameraPublicApiLcdMessageRequest(TypedDict, total=False):
-    """Type for lcdMessage in PATCH /v1/cameras/{id} request body (Public API)."""
+    """
+    Type for lcdMessage in PATCH /v1/cameras/{id} request body (Public API).
+
+    Per the integration spec, ``type`` is always required.  ``text`` is required
+    for CUSTOM_MESSAGE and IMAGE; ``resetAt`` is optional for all variants (UNIX
+    timestamp in ms; omit to use the NVR default, pass ``None`` for "forever").
+    """
 
     type: str
     text: str
+    resetAt: int | None
 
 
 TOKEN_COOKIE_MAX_EXP_SECONDS = 60
@@ -3029,7 +3037,7 @@ class ProtectApiClient(BaseApiClient):
         *,
         name: str | None = None,
         hdr_type: PublicHdrMode | None = None,
-        video_mode: str | None = None,
+        video_mode: VideoMode | None = None,
         led_is_enabled: bool | None = None,
         led_welcome_led: bool | None = None,
         led_flood_led: bool | None = None,
@@ -3069,8 +3077,8 @@ class ProtectApiClient(BaseApiClient):
         if led:
             body["ledSettings"] = led
         if mic_volume is not None:
-            if not 0 <= mic_volume <= 100:
-                raise BadRequest("mic_volume must be between 0 and 100")
+            if not 1 <= mic_volume <= 100:
+                raise BadRequest("mic_volume must be between 1 and 100")
             body["micVolume"] = mic_volume
         detect: dict[str, Any] = {}
         if smart_detect_object_types is not None:

@@ -50,7 +50,7 @@ def get_field_type(annotation: type[Any] | None) -> tuple[type | None, Any]:
     return origin, annotation
 
 
-DEFAULT = "DEFAULT_VALUE"
+DEFAULT: Literal["DEFAULT_VALUE"] = "DEFAULT_VALUE"
 DEFAULT_TYPE = Literal["DEFAULT_VALUE"]
 EventCategories = Literal[
     "critical",

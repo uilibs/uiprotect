@@ -84,7 +84,11 @@ from .types import (
 from .user import User
 
 if TYPE_CHECKING:
-    from ..api import PublicApiChimeRingSettingRequest, RTSPSStreams
+    from ..api import (
+        CameraPublicApiLcdMessageRequest,
+        PublicApiChimeRingSettingRequest,
+        RTSPSStreams,
+    )
     from .nvr import Event, Liveview
 
 PRIVACY_ZONE_NAME = "pyufp_privacy_zone"
@@ -396,7 +400,9 @@ class OSDSettings(ProtectBaseObject):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-        pop_dict_set_if_none(data, {"overlayLocation"})
+        # overlayLocation is public-API-only; always strip it from private-API payloads
+        # to avoid rejection by endpoints that don't accept unknown fields.
+        data.pop("overlayLocation", None)
         return data
 
 
@@ -2891,7 +2897,7 @@ class Camera(ProtectMotionDeviceModel):
         """Set video mode via public API."""
         if mode not in self.feature_flags.video_modes:
             raise BadRequest(f"Camera does not have {mode}")
-        updated = await self._api.update_camera_public(self.id, video_mode=mode.value)
+        updated = await self._api.update_camera_public(self.id, video_mode=mode)
         self.video_mode = updated.video_mode
 
     async def set_mic_volume_public(self, level: int) -> None:
@@ -2900,6 +2906,41 @@ class Camera(ProtectMotionDeviceModel):
             raise BadRequest("Camera does not have mic")
         updated = await self._api.update_camera_public(self.id, mic_volume=level)
         self.mic_volume = updated.mic_volume
+
+    async def set_lcd_message_public(
+        self,
+        text_type: DoorbellMessageType,
+        text: str | None = None,
+        reset_at: datetime | None | DEFAULT_TYPE = DEFAULT,
+    ) -> None:
+        """
+        Set doorbell LCD message via public API.
+
+        ``text`` is required for CUSTOM_MESSAGE and IMAGE, and must be omitted
+        for DO_NOT_DISTURB and LEAVE_PACKAGE_AT_DOOR.  ``reset_at`` controls
+        when the message is cleared: omit for the NVR default, pass ``None``
+        for "forever", or pass a specific datetime.
+        """
+        if not self.feature_flags.has_lcd_screen:
+            raise BadRequest("Camera does not have an LCD screen")
+        _TYPES_REQUIRING_TEXT = {
+            DoorbellMessageType.CUSTOM_MESSAGE,
+            DoorbellMessageType.IMAGE,
+        }
+        if text_type in _TYPES_REQUIRING_TEXT:
+            if text is None:
+                raise BadRequest(f"{text_type} requires text")
+        elif text is not None:
+            raise BadRequest(f"{text_type} does not accept text")
+        message: CameraPublicApiLcdMessageRequest = {"type": text_type}
+        if text is not None:
+            message["text"] = text
+        if isinstance(reset_at, datetime):
+            message["resetAt"] = to_js_time(reset_at)
+        elif reset_at is None:
+            message["resetAt"] = None
+        updated = await self._api.update_camera_public(self.id, lcd_message=message)
+        self.lcd_message = updated.lcd_message
 
     async def set_osd_name_public(self, enabled: bool) -> None:
         """Toggle name overlay (OSD) via public API."""

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock, patch
@@ -11,6 +12,7 @@ import pytest
 from tests.conftest import TEST_CAMERA_EXISTS, read_camera_json_file
 from uiprotect.data import Camera, OsdOverlayLocation, PublicHdrMode
 from uiprotect.data.types import (
+    DoorbellMessageType,
     HDRMode,
     PercentInt,
     SmartDetectAudioType,
@@ -105,7 +107,7 @@ async def test_get_camera_public_success(
         ({"led_welcome_led": False}, {"ledSettings": {"welcomeLed": False}}),
         ({"led_flood_led": True}, {"ledSettings": {"floodLed": True}}),
         ({"mic_volume": 80}, {"micVolume": 80}),
-        ({"mic_volume": 0}, {"micVolume": 0}),
+        ({"mic_volume": 1}, {"micVolume": 1}),
         (
             {
                 "osd_name_enabled": True,
@@ -179,10 +181,13 @@ async def test_update_camera_public_payloads(
 async def test_update_camera_public_mic_volume_out_of_range(
     protect_client: ProtectApiClient,
 ) -> None:
-    with pytest.raises(BadRequest, match="mic_volume must be between 0 and 100"):
+    with pytest.raises(BadRequest, match="mic_volume must be between 1 and 100"):
         await protect_client.update_camera_public(CAMERA_ID, mic_volume=101)
 
-    with pytest.raises(BadRequest, match="mic_volume must be between 0 and 100"):
+    with pytest.raises(BadRequest, match="mic_volume must be between 1 and 100"):
+        await protect_client.update_camera_public(CAMERA_ID, mic_volume=0)
+
+    with pytest.raises(BadRequest, match="mic_volume must be between 1 and 100"):
         await protect_client.update_camera_public(CAMERA_ID, mic_volume=-1)
 
 
@@ -290,11 +295,7 @@ async def test_update_camera_public_audio_types_passed_through(
     protect_client.api_request_obj.assert_called_once_with(
         url=f"/v1/cameras/{CAMERA_ID}",
         method="patch",
-        json={
-            "smartDetectSettings": {
-                "audioTypes": [SmartDetectAudioType.SMOKE, SmartDetectAudioType.CMONX]
-            }
-        },
+        json={"smartDetectSettings": {"audioTypes": ["alrmSmoke", "alrmCmonx"]}},
         public_api=True,
     )
 
@@ -570,6 +571,122 @@ async def test_camera_set_osd_public_use_global(
 
     with pytest.raises(BadRequest, match="global recording settings"):
         await getattr(camera, method)(arg)
+
+
+# --- LCD message ---
+
+
+@pytest.mark.parametrize(
+    ("text_type", "text", "expected_payload"),
+    [
+        (
+            DoorbellMessageType.CUSTOM_MESSAGE,
+            "Hi",
+            {"type": "CUSTOM_MESSAGE", "text": "Hi"},
+        ),
+        (
+            DoorbellMessageType.IMAGE,
+            "abc123.png",
+            {"type": "IMAGE", "text": "abc123.png"},
+        ),
+        (
+            DoorbellMessageType.DO_NOT_DISTURB,
+            None,
+            {"type": "DO_NOT_DISTURB"},
+        ),
+        (
+            DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR,
+            None,
+            {"type": "LEAVE_PACKAGE_AT_DOOR"},
+        ),
+    ],
+)
+@pytest.mark.asyncio()
+async def test_camera_set_lcd_message_public(
+    camera: Camera,
+    text_type: DoorbellMessageType,
+    text: str | None,
+    expected_payload: dict[str, str],
+) -> None:
+    camera.feature_flags.has_lcd_screen = True
+    updated = Mock()
+    updated.lcd_message = None
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
+
+    await camera.set_lcd_message_public(text_type, text=text)
+
+    camera._api.update_camera_public.assert_called_once_with(
+        camera.id, lcd_message=expected_payload
+    )
+    assert camera.lcd_message == updated.lcd_message
+
+
+@pytest.mark.asyncio()
+async def test_camera_set_lcd_message_public_with_reset_at(camera: Camera) -> None:
+    camera.feature_flags.has_lcd_screen = True
+    updated = Mock()
+    updated.lcd_message = None
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
+    reset = dt.datetime(2026, 1, 1, 12, 0, 0, tzinfo=dt.UTC)
+
+    await camera.set_lcd_message_public(
+        DoorbellMessageType.DO_NOT_DISTURB, reset_at=reset
+    )
+
+    call_kwargs = camera._api.update_camera_public.call_args
+    assert "resetAt" in call_kwargs.kwargs["lcd_message"]
+
+
+@pytest.mark.asyncio()
+async def test_camera_set_lcd_message_public_reset_at_none(camera: Camera) -> None:
+    camera.feature_flags.has_lcd_screen = True
+    updated = Mock()
+    updated.lcd_message = None
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
+
+    await camera.set_lcd_message_public(
+        DoorbellMessageType.DO_NOT_DISTURB, reset_at=None
+    )
+
+    call_kwargs = camera._api.update_camera_public.call_args
+    assert call_kwargs.kwargs["lcd_message"]["resetAt"] is None
+
+
+@pytest.mark.asyncio()
+async def test_camera_set_lcd_message_public_no_lcd(camera: Camera) -> None:
+    camera.feature_flags.has_lcd_screen = False
+
+    with pytest.raises(BadRequest, match="does not have an LCD screen"):
+        await camera.set_lcd_message_public(
+            DoorbellMessageType.CUSTOM_MESSAGE, text="x"
+        )
+
+
+@pytest.mark.parametrize(
+    ("text_type", "text", "match"),
+    [
+        (DoorbellMessageType.CUSTOM_MESSAGE, None, "CUSTOM_MESSAGE requires text"),
+        (DoorbellMessageType.IMAGE, None, "IMAGE requires text"),
+        (
+            DoorbellMessageType.DO_NOT_DISTURB,
+            "oops",
+            "DO_NOT_DISTURB does not accept text",
+        ),
+        (
+            DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR,
+            "oops",
+            "LEAVE_PACKAGE_AT_DOOR does not accept text",
+        ),
+    ],
+)
+@pytest.mark.asyncio()
+async def test_camera_set_lcd_message_public_validation(
+    camera: Camera, text_type: DoorbellMessageType, text: str | None, match: str
+) -> None:
+    camera.feature_flags.has_lcd_screen = True
+
+    with pytest.raises(BadRequest, match=match):
+        await camera.set_lcd_message_public(text_type, text=text)
 
 
 # --- Smart detect object types ---
