@@ -2390,6 +2390,42 @@ async def test_update_auth_config_no_tmp_leftover(tmp_path: Path) -> None:
 @pytest.mark.skipif(
     sys.platform == "win32", reason="POSIX file modes only meaningful on Unix"
 )
+async def test_update_auth_config_cleans_tmp_on_replace_failure(
+    tmp_path: Path,
+) -> None:
+    """If os.replace raises, the .tmp file must be removed and the error re-raised."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path / "ufp",
+    )
+
+    cookie: SimpleCookie = SimpleCookie()
+    cookie["TOKEN"] = "secret-token-value"  # noqa: S105
+    cookie["TOKEN"]["path"] = "/"
+    client._last_token_cookie = cookie["TOKEN"]
+    client.set_header("x-csrf-token", "csrf-token-value")
+
+    with (
+        patch(
+            "uiprotect.api.os.replace", side_effect=OSError("boom")
+        ),
+        pytest.raises(OSError, match="boom"),
+    ):
+        await client._update_auth_config(cookie["TOKEN"])
+
+    leftovers = list((tmp_path / "ufp").glob("*.tmp"))
+    assert leftovers == []
+
+
+@pytest.mark.asyncio()
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX file modes only meaningful on Unix"
+)
 async def test_clear_session_preserves_file_mode_0600(tmp_path: Path) -> None:
     """clear_session rewrites the file but keeps owner-only perms."""
     client = ProtectApiClient(
