@@ -307,7 +307,9 @@ async def test_light_set_name_public(light_obj: Light) -> None:
 @pytest.mark.parametrize("status", [True, False])
 @pytest.mark.asyncio()
 async def test_light_set_flood_light_public(light_obj: Light, status: bool) -> None:
-    updated_on = light_obj.light_on_settings.model_copy(update={"is_led_force_on": status})
+    updated_on = light_obj.light_on_settings.model_copy(
+        update={"is_led_force_on": status}
+    )
     light_obj.api.update_light_public = AsyncMock(
         return_value=light_obj.model_copy(update={"light_on_settings": updated_on}),
     )
@@ -329,7 +331,9 @@ async def test_light_set_status_light_public(light_obj: Light, status: bool) -> 
         update={"is_indicator_enabled": status},
     )
     light_obj.api.update_light_public = AsyncMock(
-        return_value=light_obj.model_copy(update={"light_device_settings": updated_device}),
+        return_value=light_obj.model_copy(
+            update={"light_device_settings": updated_device}
+        ),
     )
 
     await light_obj.set_status_light_public(status)
@@ -353,7 +357,9 @@ async def test_light_set_led_level_public(light_obj: Light, level: int) -> None:
         assert not light_obj.api.update_light_public.called
         return
 
-    updated_device = light_obj.light_device_settings.model_copy(update={"led_level": level})
+    updated_device = light_obj.light_device_settings.model_copy(
+        update={"led_level": level}
+    )
     light_obj.api.update_light_public.return_value = light_obj.copy(
         update={"light_device_settings": updated_device},
     )
@@ -368,9 +374,7 @@ async def test_light_set_led_level_public(light_obj: Light, level: int) -> None:
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("sensitivity", [1, 100, -10])
 @pytest.mark.asyncio()
-async def test_light_set_sensitivity_public(
-    light_obj: Light, sensitivity: int
-) -> None:
+async def test_light_set_sensitivity_public(light_obj: Light, sensitivity: int) -> None:
     light_obj.api.update_light_public = AsyncMock()
 
     if sensitivity == -10:
@@ -404,9 +408,7 @@ async def test_light_set_sensitivity_public(
     ],
 )
 @pytest.mark.asyncio()
-async def test_light_set_duration_public(
-    light_obj: Light, duration: timedelta
-) -> None:
+async def test_light_set_duration_public(light_obj: Light, duration: timedelta) -> None:
     light_obj.api.update_light_public = AsyncMock()
 
     if int(duration.total_seconds()) in {1, 1000}:
