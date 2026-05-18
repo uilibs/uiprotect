@@ -2416,9 +2416,7 @@ async def test_update_auth_config_cleans_tmp_on_replace_failure(
     client.set_header("x-csrf-token", "csrf-token-value")
 
     with (
-        patch(
-            "uiprotect.api.os.replace", side_effect=OSError("boom")
-        ),
+        patch("uiprotect.api.os.replace", side_effect=OSError("boom")),
         pytest.raises(OSError, match="boom"),
     ):
         await client._update_auth_config(cookie["TOKEN"])
