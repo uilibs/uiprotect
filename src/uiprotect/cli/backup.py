@@ -4,6 +4,7 @@ import asyncio
 import logging
 import math
 import os
+import re
 import sys
 import time
 from dataclasses import dataclass
@@ -35,6 +36,7 @@ from sqlalchemy.orm import Mapped, declarative_base, relationship
 from .. import data as d
 from ..api import ProtectApiClient
 from ..cli import base
+from ..exceptions import BadRequest
 from ..utils import (
     format_duration,
     get_local_timezone,
@@ -49,6 +51,25 @@ app = typer.Typer(rich_markup_mode="rich")
 Base = declarative_base()
 
 _LOGGER = logging.getLogger(__name__)
+
+_SLUG_BAD = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def _safe_slug(value: str, sep: str) -> str:
+    """Sanitize a server-supplied string for safe use in a filesystem path."""
+    cleaned = _SLUG_BAD.sub(sep, value).strip(sep + "./")
+    return cleaned or "unknown"
+
+
+def _safe_join(base: Path, file_path: str) -> Path:
+    """Join ``file_path`` onto ``base`` and refuse paths escaping ``base``."""
+    candidate = (base / file_path).resolve()
+    base_resolved = base.resolve()
+    if not candidate.is_relative_to(base_resolved):
+        raise BadRequest(
+            f"refusing to use path outside output dir: {candidate}",
+        )
+    return candidate
 
 
 def _on_db_connect(dbapi_con, connection_record) -> None:  # type: ignore[no-untyped-def]
@@ -168,11 +189,13 @@ class Event(Base):  # type: ignore[valid-type,misc]
             display_name = ""
             length = timedelta(seconds=0)
             if camera is not None:
-                camera_slug = (
-                    camera.display_name.lower().replace(" ", ctx.seperator)
-                    + ctx.seperator
+                raw_name = camera.display_name
+                safe_name = _safe_slug(
+                    raw_name.lower().replace(" ", ctx.seperator),
+                    ctx.seperator,
                 )
-                display_name = camera.display_name
+                camera_slug = safe_name + ctx.seperator
+                display_name = _safe_slug(raw_name, ctx.seperator)
             if self.end is not None:
                 length = self.end - self.start
 
@@ -244,7 +267,7 @@ class Event(Base):  # type: ignore[valid-type,misc]
     def get_thumbnail_path(self, ctx: BackupContext) -> Path:
         context = self.get_file_context(ctx)
         file_path = ctx.thumbnail_format.format(**context)
-        return ctx.output / file_path
+        return _safe_join(ctx.output, file_path)
 
     def get_existing_thumbnail_path(self, ctx: BackupContext) -> Path | None:
         context = self.get_glob_file_context(ctx)
@@ -258,7 +281,7 @@ class Event(Base):  # type: ignore[valid-type,misc]
     def get_gif_path(self, ctx: BackupContext) -> Path:
         context = self.get_file_context(ctx)
         file_path = ctx.gif_format.format(**context)
-        return ctx.output / file_path
+        return _safe_join(ctx.output, file_path)
 
     def get_existing_gif_path(self, ctx: BackupContext) -> Path | None:
         context = self.get_glob_file_context(ctx)
@@ -272,7 +295,7 @@ class Event(Base):  # type: ignore[valid-type,misc]
     def get_event_path(self, ctx: BackupContext) -> Path:
         context = self.get_file_context(ctx)
         file_path = ctx.event_format.format(**context)
-        return ctx.output / file_path
+        return _safe_join(ctx.output, file_path)
 
     def get_existing_event_path(self, ctx: BackupContext) -> Path | None:
         context = self.get_glob_file_context(ctx)
@@ -486,15 +509,23 @@ async def _prune_events(ctx: BackupContext) -> int:
             select(Event).join(EventSmartType).where(Event.start_naive < ctx.start),
         )
         for event in track(result.unique().scalars(), description="Pruning Events"):
-            thumb_path = event.get_thumbnail_path(ctx)
-            if thumb_path.exists():
-                _LOGGER.debug("Delete file %s", thumb_path)
-                await aos.remove(thumb_path)
+            try:
+                thumb_path = event.get_thumbnail_path(ctx)
+            except BadRequest as exc:
+                _LOGGER.warning("Skipping prune of thumbnail: %s", exc)
+            else:
+                if thumb_path.exists():
+                    _LOGGER.debug("Delete file %s", thumb_path)
+                    await aos.remove(thumb_path)
 
-            event_path = event.get_event_path(ctx)
-            if event_path.exists():
-                _LOGGER.debug("Delete file %s", event_path)
-                await aos.remove(event_path)
+            try:
+                event_path = event.get_event_path(ctx)
+            except BadRequest as exc:
+                _LOGGER.warning("Skipping prune of event video: %s", exc)
+            else:
+                if event_path.exists():
+                    _LOGGER.debug("Delete file %s", event_path)
+                    await aos.remove(event_path)
 
             if event.event_type in {
                 d.EventType.SMART_DETECT.value,
