@@ -938,10 +938,18 @@ class BaseApiClient:
         payload = orjson.dumps(config, option=orjson.OPT_INDENT_2)
         tmp = self.config_file.with_suffix(self.config_file.suffix + ".tmp")
         try:
-            async with aiofiles.open(tmp, "wb") as f:
-                await f.write(payload)
             if sys.platform != "win32":
-                os.chmod(tmp, 0o600)
+                # open(2) with explicit mode so the kernel applies 0o600 at
+                # creation. chmod-after-open would leave a window where the
+                # bearer cookie is world-readable under a typical 0o022 umask.
+                fd = os.open(
+                    tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600
+                )
+                with os.fdopen(fd, "wb") as f:
+                    f.write(payload)
+            else:
+                async with aiofiles.open(tmp, "wb") as f:
+                    await f.write(payload)
             os.replace(tmp, self.config_file)
         except BaseException:
             with contextlib.suppress(FileNotFoundError):

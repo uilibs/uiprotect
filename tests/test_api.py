@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import sys
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -2259,6 +2260,43 @@ async def test_update_auth_config_writes_file_with_mode_0600(tmp_path: Path) -> 
     config_file = client.config_file
     assert config_file.exists()
     assert (config_file.stat().st_mode & 0o777) == 0o600
+
+
+@pytest.mark.asyncio()
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX file modes only meaningful on Unix"
+)
+async def test_update_auth_config_tmp_file_never_world_readable(
+    tmp_path: Path,
+) -> None:
+    """The .tmp file must be 0o600 from creation, before os.replace runs."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path / "ufp",
+    )
+
+    cookie: SimpleCookie = SimpleCookie()
+    cookie["TOKEN"] = "secret-token-value"  # noqa: S105
+    cookie["TOKEN"]["path"] = "/"
+    client._last_token_cookie = cookie["TOKEN"]
+    client.set_header("x-csrf-token", "csrf-token-value")
+
+    captured_modes: list[int] = []
+    real_replace = os.replace
+
+    def capturing_replace(src: Any, dst: Any) -> None:
+        captured_modes.append(os.stat(src).st_mode & 0o777)
+        real_replace(src, dst)
+
+    with patch("uiprotect.api.os.replace", side_effect=capturing_replace):
+        await client._update_auth_config(cookie["TOKEN"])
+
+    assert captured_modes == [0o600]
 
 
 @pytest.mark.asyncio()
