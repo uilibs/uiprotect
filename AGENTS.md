@@ -231,16 +231,17 @@ live leg is optional and is not gated for typical PRs.
 
 ## Reporting security issues
 
-Suspected security vulnerabilities go through GitHub's private
-vulnerability reporting flow on the
-[uilibs/uiprotect](https://github.com/uilibs/uiprotect) repo,
-not public issues or pull requests. The library holds credentials
-for users' UniFi Protect consoles, so a bug class disclosed in a
-public PR title is a credible information leak even before a
-patch ships. If a user describes what sounds like a vulnerability
-in chat, point them at the private reporting route instead of
-opening a public issue, PR, or commit that names the bug class
-and the affected code path.
+Suspected security vulnerabilities go through GitHub's [private
+vulnerability reporting][gh-report], not public issues or pull
+requests. The policy is spelled out in [SECURITY.md](SECURITY.md).
+The library holds credentials for users' UniFi Protect consoles,
+so a bug class disclosed in a public PR title is a credible
+information leak even before a patch ships. If a user describes
+what sounds like a vulnerability in chat, point them at that
+route instead of opening a public issue, PR, or commit that
+names the bug class and the affected code path.
+
+[gh-report]: https://github.com/uilibs/uiprotect/security/advisories/new
 
 ## Things not to do
 
