@@ -1,5 +1,19 @@
 # Changelog
 
+## v10.5.0 (2026-05-18)
+
+### Features
+
+
+- Add public api methods for camera configuration ([`d7e9fb6`](https://github.com/uilibs/uiprotect/commit/d7e9fb65aa074c9917eeff12b93ed70a4fdf930d))
+
+
+### Documentation
+
+
+- Add agents.md orientation file for llm contributors ([`c0172a5`](https://github.com/uilibs/uiprotect/commit/c0172a56a38de23c4702cbfef3dc502048c1a0b3))
+
+
 ## v10.4.1 (2026-04-26)
 
 ### Bug fixes
