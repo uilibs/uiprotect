@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 from copy import deepcopy
 from datetime import datetime, timedelta
+from http.cookies import SimpleCookie
 from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
 from typing import TYPE_CHECKING, Any
@@ -2312,6 +2314,165 @@ async def test_authenticate_with_session_storage(
     session = next(iter(sessions.values()))
     assert session["csrf"] == "stored-csrf-token-67890"
     assert "TOKEN" in session["cookiename"]
+
+
+@pytest.mark.asyncio()
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX file modes only meaningful on Unix"
+)
+async def test_update_auth_config_writes_file_with_mode_0600(tmp_path: Path) -> None:
+    """Pin that the persisted session file is created with owner-only perms."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path / "ufp",
+    )
+
+    cookie: SimpleCookie = SimpleCookie()
+    cookie["TOKEN"] = "secret-token-value"  # noqa: S105
+    cookie["TOKEN"]["path"] = "/"
+    client._last_token_cookie = cookie["TOKEN"]
+    client.set_header("x-csrf-token", "csrf-token-value")
+
+    await client._update_auth_config(cookie["TOKEN"])
+
+    config_file = client.config_file
+    assert config_file.exists()
+    assert (config_file.stat().st_mode & 0o777) == 0o600
+
+
+@pytest.mark.asyncio()
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX file modes only meaningful on Unix"
+)
+async def test_update_auth_config_creates_dir_with_mode_0700(tmp_path: Path) -> None:
+    """Pin that the config directory is created owner-only."""
+    config_dir = tmp_path / "ufp"
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=config_dir,
+    )
+
+    cookie: SimpleCookie = SimpleCookie()
+    cookie["TOKEN"] = "secret-token-value"  # noqa: S105
+    cookie["TOKEN"]["path"] = "/"
+    client._last_token_cookie = cookie["TOKEN"]
+    client.set_header("x-csrf-token", "csrf-token-value")
+
+    await client._update_auth_config(cookie["TOKEN"])
+
+    assert config_dir.is_dir()
+    assert (config_dir.stat().st_mode & 0o777) == 0o700
+
+
+@pytest.mark.asyncio()
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX file modes only meaningful on Unix"
+)
+async def test_update_auth_config_tightens_preexisting_dir(tmp_path: Path) -> None:
+    """An existing world-readable config dir is tightened to owner-only on write."""
+    config_dir = tmp_path / "ufp"
+    config_dir.mkdir(mode=0o755)
+
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=config_dir,
+    )
+
+    cookie: SimpleCookie = SimpleCookie()
+    cookie["TOKEN"] = "secret-token-value"  # noqa: S105
+    cookie["TOKEN"]["path"] = "/"
+    client._last_token_cookie = cookie["TOKEN"]
+    client.set_header("x-csrf-token", "csrf-token-value")
+
+    await client._update_auth_config(cookie["TOKEN"])
+
+    assert (config_dir.stat().st_mode & 0o777) == 0o700
+
+
+@pytest.mark.asyncio()
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX file modes only meaningful on Unix"
+)
+async def test_update_auth_config_no_tmp_leftover(tmp_path: Path) -> None:
+    """Atomic write must not leave a .tmp file behind."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path / "ufp",
+    )
+
+    cookie: SimpleCookie = SimpleCookie()
+    cookie["TOKEN"] = "secret-token-value"  # noqa: S105
+    cookie["TOKEN"]["path"] = "/"
+    client._last_token_cookie = cookie["TOKEN"]
+    client.set_header("x-csrf-token", "csrf-token-value")
+
+    await client._update_auth_config(cookie["TOKEN"])
+
+    leftovers = list((tmp_path / "ufp").glob("*.tmp"))
+    assert leftovers == []
+
+
+@pytest.mark.asyncio()
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX file modes only meaningful on Unix"
+)
+async def test_clear_session_preserves_file_mode_0600(tmp_path: Path) -> None:
+    """clear_session rewrites the file but keeps owner-only perms."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path,
+    )
+
+    session_hash = get_user_hash(str(client._url), "test_user")
+    config = {
+        "sessions": {
+            session_hash: {
+                "metadata": {"path": "/"},
+                "cookiename": "TOKEN",
+                "value": "some_token_value",
+                "csrf": "some-csrf-token",
+            },
+            "other_session_hash": {
+                "metadata": {"path": "/"},
+                "cookiename": "TOKEN",
+                "value": "other_token",
+                "csrf": "other-csrf",
+            },
+        }
+    }
+    config_file = tmp_path / "unifi_protect.json"
+    config_file.write_bytes(orjson.dumps(config))
+    config_file.chmod(0o644)
+
+    await client.clear_session()
+
+    assert config_file.exists()
+    assert (config_file.stat().st_mode & 0o777) == 0o600
 
 
 @pytest.mark.asyncio()
