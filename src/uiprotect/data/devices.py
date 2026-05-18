@@ -64,12 +64,14 @@ from .types import (
     MotionAlgorithm,
     MountPosition,
     MountType,
+    OsdOverlayLocation,
     Percent,
     PercentInt,
     PermissionNode,
     ProgressCallback,
     PTZPatrol,
     PTZPreset,
+    PublicHdrMode,
     RecordingMode,
     RepeatTimes,
     SensorStatusType,
@@ -82,7 +84,11 @@ from .types import (
 from .user import User
 
 if TYPE_CHECKING:
-    from ..api import PublicApiChimeRingSettingRequest, RTSPSStreams
+    from ..api import (
+        CameraPublicApiLcdMessageRequest,
+        PublicApiChimeRingSettingRequest,
+        RTSPSStreams,
+    )
     from .nvr import Event, Liveview
 
 PRIVACY_ZONE_NAME = "pyufp_privacy_zone"
@@ -386,6 +392,18 @@ class OSDSettings(ProtectBaseObject):
     is_date_enabled: bool
     is_logo_enabled: bool
     is_debug_enabled: bool
+    overlay_location: OsdOverlayLocation | None = None
+
+    def unifi_dict(
+        self,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
+    ) -> dict[str, Any]:
+        data = super().unifi_dict(data=data, exclude=exclude)
+        # overlayLocation is public-API-only; always strip it from private-API payloads
+        # to avoid rejection by endpoints that don't accept unknown fields.
+        data.pop("overlayLocation", None)
+        return data
 
 
 class LEDSettings(ProtectBaseObject):
@@ -1142,7 +1160,7 @@ class Camera(ProtectMotionDeviceModel):
     @model_validator(mode="after")
     def _set_channel_parents(self) -> Camera:
         """Set parent camera reference in channels after initialization."""
-        for channel in self.channels:
+        for channel in getattr(self, "channels", ()):
             channel._parent = self
         return self
 
@@ -2831,6 +2849,276 @@ class Camera(ProtectMotionDeviceModel):
         """Stop the active PTZ patrol using public API."""
         self._check_ptz_public_api()
         await self._api.ptz_patrol_stop_public(self.id)
+
+    async def set_status_light_public(self, enabled: bool) -> None:
+        """Set status LED via public API."""
+        if not self.feature_flags.has_led_status:
+            raise BadRequest("Camera does not have status light")
+        updated = await self._api.update_camera_public(self.id, led_is_enabled=enabled)
+        self.led_settings = updated.led_settings
+
+    async def set_welcome_led_public(self, enabled: bool) -> None:
+        """Set welcome LED via public API."""
+        if not self.feature_flags.has_led_status:
+            raise BadRequest("Camera does not have status light")
+        if self.led_settings.welcome_led is None:
+            raise BadRequest("Camera does not have welcome LED")
+        updated = await self._api.update_camera_public(self.id, led_welcome_led=enabled)
+        self.led_settings = updated.led_settings
+
+    async def set_flood_led_public(self, enabled: bool) -> None:
+        """Set flood LED via public API."""
+        if not self.feature_flags.has_led_status:
+            raise BadRequest("Camera does not have status light")
+        if self.led_settings.flood_led is None:
+            raise BadRequest("Camera does not have flood LED")
+        updated = await self._api.update_camera_public(self.id, led_flood_led=enabled)
+        self.led_settings = updated.led_settings
+
+    async def set_hdr_mode_public(self, mode: PublicHdrMode) -> None:
+        """Set HDR mode via public API."""
+        if not self.feature_flags.has_hdr:
+            raise BadRequest("Camera does not have HDR")
+        await self._api.update_camera_public(self.id, hdr_type=mode)
+        # The public API response uses 'hdrType', not 'hdrMode'/'ispSettings',
+        # so we derive the local state update directly from the mode we sent.
+        hdr_on = mode != PublicHdrMode.OFF
+        if hasattr(self, "hdr_mode"):
+            self.hdr_mode = hdr_on
+        isp = getattr(self, "isp_settings", None)
+        if isp is not None:
+            isp_hdr = getattr(isp, "hdr_mode", None)
+            if isp_hdr is not None:
+                isp.hdr_mode = (
+                    HDRMode.ALWAYS_ON if mode == PublicHdrMode.ON else HDRMode.NORMAL
+                )
+
+    async def set_video_mode_public(self, mode: VideoMode) -> None:
+        """Set video mode via public API."""
+        if mode not in self.feature_flags.video_modes:
+            raise BadRequest(f"Camera does not have {mode}")
+        updated = await self._api.update_camera_public(self.id, video_mode=mode)
+        self.video_mode = updated.video_mode
+
+    async def set_mic_volume_public(self, level: int) -> None:
+        """Set microphone volume via public API."""
+        if not self.feature_flags.has_mic:
+            raise BadRequest("Camera does not have mic")
+        updated = await self._api.update_camera_public(self.id, mic_volume=level)
+        self.mic_volume = updated.mic_volume
+
+    async def set_lcd_message_public(
+        self,
+        text_type: DoorbellMessageType,
+        text: str | None = None,
+        reset_at: datetime | None | DEFAULT_TYPE = DEFAULT,
+    ) -> None:
+        """
+        Set doorbell LCD message via public API.
+
+        ``text`` is required for CUSTOM_MESSAGE and IMAGE, and must be omitted
+        for DO_NOT_DISTURB and LEAVE_PACKAGE_AT_DOOR.  ``reset_at`` controls
+        when the message is cleared: omit for the NVR default, pass ``None``
+        for "forever", or pass a specific datetime.
+        """
+        if not self.feature_flags.has_lcd_screen:
+            raise BadRequest("Camera does not have an LCD screen")
+        _TYPES_REQUIRING_TEXT = {
+            DoorbellMessageType.CUSTOM_MESSAGE,
+            DoorbellMessageType.IMAGE,
+        }
+        if text_type in _TYPES_REQUIRING_TEXT:
+            if text is None:
+                raise BadRequest(f"{text_type} requires text")
+        elif text is not None:
+            raise BadRequest(f"{text_type} does not accept text")
+        message: CameraPublicApiLcdMessageRequest = {"type": text_type}
+        if text is not None:
+            message["text"] = text
+        if isinstance(reset_at, datetime):
+            message["resetAt"] = to_js_time(reset_at)
+        elif reset_at is None:
+            message["resetAt"] = None
+        updated = await self._api.update_camera_public(self.id, lcd_message=message)
+        self.lcd_message = updated.lcd_message
+
+    async def set_osd_name_public(self, enabled: bool) -> None:
+        """Toggle name overlay (OSD) via public API."""
+        if self.use_global:
+            raise BadRequest("Camera is using global recording settings.")
+        updated = await self._api.update_camera_public(
+            self.id, osd_name_enabled=enabled
+        )
+        self.osd_settings = updated.osd_settings
+
+    async def set_osd_date_public(self, enabled: bool) -> None:
+        """Toggle date overlay (OSD) via public API."""
+        if self.use_global:
+            raise BadRequest("Camera is using global recording settings.")
+        updated = await self._api.update_camera_public(
+            self.id, osd_date_enabled=enabled
+        )
+        self.osd_settings = updated.osd_settings
+
+    async def set_osd_logo_public(self, enabled: bool) -> None:
+        """Toggle logo overlay (OSD) via public API."""
+        if self.use_global:
+            raise BadRequest("Camera is using global recording settings.")
+        updated = await self._api.update_camera_public(
+            self.id, osd_logo_enabled=enabled
+        )
+        self.osd_settings = updated.osd_settings
+
+    async def set_osd_nerd_mode_public(self, enabled: bool) -> None:
+        """Toggle bitrate/debug overlay (OSD) via public API."""
+        if self.use_global:
+            raise BadRequest("Camera is using global recording settings.")
+        updated = await self._api.update_camera_public(
+            self.id, osd_nerd_mode_enabled=enabled
+        )
+        self.osd_settings = updated.osd_settings
+
+    async def set_osd_overlay_location_public(
+        self,
+        location: OsdOverlayLocation,
+    ) -> None:
+        """Set OSD overlay location via public API."""
+        if self.use_global:
+            raise BadRequest("Camera is using global recording settings.")
+        updated = await self._api.update_camera_public(
+            self.id, osd_overlay_location=location
+        )
+        self.osd_settings = updated.osd_settings
+
+    async def set_person_detection_public(self, enabled: bool) -> None:
+        """Toggle person smart detection via public API."""
+        await self._set_smart_detect_type_public(SmartDetectObjectType.PERSON, enabled)
+
+    async def set_vehicle_detection_public(self, enabled: bool) -> None:
+        """Toggle vehicle smart detection via public API."""
+        await self._set_smart_detect_type_public(SmartDetectObjectType.VEHICLE, enabled)
+
+    async def set_package_detection_public(self, enabled: bool) -> None:
+        """Toggle package smart detection via public API."""
+        await self._set_smart_detect_type_public(SmartDetectObjectType.PACKAGE, enabled)
+
+    async def set_license_plate_detection_public(self, enabled: bool) -> None:
+        """Toggle license plate smart detection via public API."""
+        await self._set_smart_detect_type_public(
+            SmartDetectObjectType.LICENSE_PLATE, enabled
+        )
+
+    async def set_animal_detection_public(self, enabled: bool) -> None:
+        """Toggle animal smart detection via public API."""
+        await self._set_smart_detect_type_public(SmartDetectObjectType.ANIMAL, enabled)
+
+    async def set_face_detection_public(self, enabled: bool) -> None:
+        """Toggle face smart detection via public API."""
+        await self._set_smart_detect_type_public(SmartDetectObjectType.FACE, enabled)
+
+    async def _set_smart_detect_type_public(
+        self, obj_type: SmartDetectObjectType, enabled: bool
+    ) -> None:
+        if not getattr(self.feature_flags, "has_smart_detect", True):
+            raise BadRequest("Camera does not have smart detections")
+        if self.use_global:
+            raise BadRequest("Camera is using global recording settings.")
+        if obj_type not in self.feature_flags.smart_detect_types:
+            raise BadRequest(f"Camera does not support {obj_type} detection")
+        # Lock serializes concurrent callers that each read-modify-PATCH the full
+        # list. Without the lock two concurrent calls could clobber each other's
+        # change (last PATCH wins). Same pattern as the private queue_update path.
+        async with self._update_sync.lock:
+            types = list(self.smart_detect_settings.object_types)
+            if enabled and obj_type not in types:
+                types.append(obj_type)
+            elif not enabled and obj_type in types:
+                types.remove(obj_type)
+            updated = await self._api.update_camera_public(
+                self.id, smart_detect_object_types=types
+            )
+            self.smart_detect_settings.object_types = (
+                updated.smart_detect_settings.object_types
+            )
+
+    async def set_smoke_detection_public(self, enabled: bool) -> None:
+        """Toggle smoke audio detection via public API."""
+        await self._set_smart_detect_audio_type_public(
+            SmartDetectAudioType.SMOKE, enabled
+        )
+
+    async def set_co_detection_public(self, enabled: bool) -> None:
+        """Toggle CO audio detection via public API."""
+        await self._set_smart_detect_audio_type_public(
+            SmartDetectAudioType.CMONX, enabled
+        )
+
+    async def set_siren_detection_public(self, enabled: bool) -> None:
+        """Toggle siren audio detection via public API."""
+        await self._set_smart_detect_audio_type_public(
+            SmartDetectAudioType.SIREN, enabled
+        )
+
+    async def set_baby_cry_detection_public(self, enabled: bool) -> None:
+        """Toggle baby cry audio detection via public API."""
+        await self._set_smart_detect_audio_type_public(
+            SmartDetectAudioType.BABY_CRY, enabled
+        )
+
+    async def set_speaking_detection_public(self, enabled: bool) -> None:
+        """Toggle speaking audio detection via public API."""
+        await self._set_smart_detect_audio_type_public(
+            SmartDetectAudioType.SPEAK, enabled
+        )
+
+    async def set_bark_detection_public(self, enabled: bool) -> None:
+        """Toggle bark audio detection via public API."""
+        await self._set_smart_detect_audio_type_public(
+            SmartDetectAudioType.BARK, enabled
+        )
+
+    async def set_burglar_detection_public(self, enabled: bool) -> None:
+        """Toggle burglar audio detection via public API."""
+        await self._set_smart_detect_audio_type_public(
+            SmartDetectAudioType.BURGLAR, enabled
+        )
+
+    async def set_car_horn_detection_public(self, enabled: bool) -> None:
+        """Toggle car horn audio detection via public API."""
+        await self._set_smart_detect_audio_type_public(
+            SmartDetectAudioType.CAR_HORN, enabled
+        )
+
+    async def set_glass_break_detection_public(self, enabled: bool) -> None:
+        """Toggle glass break audio detection via public API."""
+        await self._set_smart_detect_audio_type_public(
+            SmartDetectAudioType.GLASS_BREAK, enabled
+        )
+
+    async def _set_smart_detect_audio_type_public(
+        self, audio_type: SmartDetectAudioType, enabled: bool
+    ) -> None:
+        if not getattr(self.feature_flags, "has_smart_detect", True):
+            raise BadRequest("Camera does not have smart detections")
+        if self.use_global:
+            raise BadRequest("Camera is using global recording settings.")
+        audio_types = self.feature_flags.smart_detect_audio_types
+        if audio_types is None or audio_type not in audio_types:
+            raise BadRequest(f"Camera does not support {audio_type} audio detection")
+        # Lock serializes concurrent callers; same rationale as
+        # _set_smart_detect_type_public above.
+        async with self._update_sync.lock:
+            types = list(self.smart_detect_settings.audio_types or [])
+            if enabled and audio_type not in types:
+                types.append(audio_type)
+            elif not enabled and audio_type in types:
+                types.remove(audio_type)
+            updated = await self._api.update_camera_public(
+                self.id, smart_detect_audio_types=types
+            )
+            self.smart_detect_settings.audio_types = (
+                updated.smart_detect_settings.audio_types
+            )
 
     # endregion
 

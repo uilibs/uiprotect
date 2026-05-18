@@ -51,10 +51,12 @@ from .data import (
     ModelType,
     NvrArmMode,
     NvrArmModeStatus,
+    OsdOverlayLocation,
     ProtectAdoptableDeviceModel,
     ProtectModel,
     PublicArmScheduleDict,
     PublicBootstrap,
+    PublicHdrMode,
     PublicNVR,
     PublicSensorAlarmSettings,
     PublicSensorHumiditySettings,
@@ -64,9 +66,11 @@ from .data import (
     Relay,
     Sensor,
     Siren,
+    SmartDetectAudioType,
     SmartDetectObjectType,
     SmartDetectTrack,
     Version,
+    VideoMode,
     Viewer,
     WSAction,
     WSPacket,
@@ -126,6 +130,20 @@ class PublicApiChimePatchRequest(TypedDict, total=False):
     name: str
     cameraIds: list[str]
     ringSettings: list[PublicApiChimeRingSettingRequest]
+
+
+class CameraPublicApiLcdMessageRequest(TypedDict, total=False):
+    """
+    Type for lcdMessage in PATCH /v1/cameras/{id} request body (Public API).
+
+    Per the integration spec, ``type`` is always required.  ``text`` is required
+    for CUSTOM_MESSAGE and IMAGE; ``resetAt`` is optional for all variants (UNIX
+    timestamp in ms; omit to use the NVR default, pass ``None`` for "forever").
+    """
+
+    type: str
+    text: str
+    resetAt: int | None
 
 
 TOKEN_COOKIE_MAX_EXP_SECONDS = 60
@@ -3013,6 +3031,83 @@ class ProtectApiClient(BaseApiClient):
         )
         return Camera.from_unifi_dict(**data, api=self)
 
+    async def update_camera_public(
+        self,
+        camera_id: str,
+        *,
+        name: str | None = None,
+        hdr_type: PublicHdrMode | None = None,
+        video_mode: VideoMode | None = None,
+        led_is_enabled: bool | None = None,
+        led_welcome_led: bool | None = None,
+        led_flood_led: bool | None = None,
+        mic_volume: int | None = None,
+        smart_detect_object_types: list[SmartDetectObjectType] | None = None,
+        smart_detect_audio_types: list[SmartDetectAudioType] | None = None,
+        lcd_message: CameraPublicApiLcdMessageRequest | None = None,
+        osd_name_enabled: bool | None = None,
+        osd_date_enabled: bool | None = None,
+        osd_logo_enabled: bool | None = None,
+        osd_nerd_mode_enabled: bool | None = None,
+        osd_overlay_location: OsdOverlayLocation | None = None,
+    ) -> Camera:
+        """
+        Patch camera settings using public API.
+
+        Returns a fresh Camera object deserialized from the PATCH response.
+        The returned object is not merged into the bootstrap cache; callers
+        that need cache consistency should update the relevant fields manually
+        (as the device-level convenience methods already do).
+        """
+        body = self._filter_none(
+            (
+                ("name", name),
+                ("hdrType", hdr_type),
+                ("videoMode", video_mode),
+                ("lcdMessage", lcd_message),
+            )
+        )
+        led = self._filter_none(
+            (
+                ("isEnabled", led_is_enabled),
+                ("welcomeLed", led_welcome_led),
+                ("floodLed", led_flood_led),
+            )
+        )
+        if led:
+            body["ledSettings"] = led
+        if mic_volume is not None:
+            if not 1 <= mic_volume <= 100:
+                raise BadRequest("mic_volume must be between 1 and 100")
+            body["micVolume"] = mic_volume
+        detect: dict[str, Any] = {}
+        if smart_detect_object_types is not None:
+            detect["objectTypes"] = list(smart_detect_object_types)
+        if smart_detect_audio_types is not None:
+            detect["audioTypes"] = list(smart_detect_audio_types)
+        if detect:
+            body["smartDetectSettings"] = detect
+        osd = self._filter_none(
+            (
+                ("isNameEnabled", osd_name_enabled),
+                ("isDateEnabled", osd_date_enabled),
+                ("isLogoEnabled", osd_logo_enabled),
+                ("isDebugEnabled", osd_nerd_mode_enabled),
+                ("overlayLocation", osd_overlay_location),
+            )
+        )
+        if osd:
+            body["osdSettings"] = osd
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        result = await self.api_request_obj(
+            url=f"/v1/cameras/{camera_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        return Camera.from_unifi_dict(**result, api=self)
+
     async def get_chimes_public(self) -> list[Chime]:
         """Get all chimes using public API."""
         data = await self.api_request_list(url="/v1/chimes", public_api=True)
@@ -3207,6 +3302,11 @@ class ProtectApiClient(BaseApiClient):
         if led_is_enabled is not None:
             body["ledSettings"] = {"isEnabled": led_is_enabled}
         return body
+
+    @staticmethod
+    def _filter_none(items: tuple[tuple[str, Any], ...]) -> dict[str, Any]:
+        """Return a dict from key-value pairs, dropping any pair whose value is None."""
+        return {k: v for k, v in items if v is not None}
 
     async def get_sirens_public(self) -> list[Siren]:
         """Get all sirens using public API."""
