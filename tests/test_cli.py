@@ -1,5 +1,5 @@
 import ssl
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 from typer.testing import CliRunner
@@ -117,3 +117,117 @@ def test_relays_activate_rejects_pulse_without_any_state() -> None:
     )
     assert result.exit_code == 1
     assert "--pulse-duration-ms requires" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# SSL verification failure behaviour
+# ---------------------------------------------------------------------------
+
+
+_BASE_AUTH_ARGS = [
+    "--username",
+    "u",
+    "--password",
+    "p",
+    "--address",
+    "192.0.2.10",
+]
+
+
+def test_ssl_failure_does_not_prompt_or_retry() -> None:
+    """SSL failure must exit 1 without offering to disable verification."""
+    with (
+        patch("uiprotect.cli.ProtectApiClient") as client_cls,
+        patch(
+            "uiprotect.cli._connect_and_bootstrap", new_callable=AsyncMock
+        ) as connect,
+        patch(
+            "uiprotect.cli._get_cert_fingerprint",
+            return_value="AA:BB:CC",
+        ),
+    ):
+        client_cls.return_value = MagicMock(
+            close_session=AsyncMock(),
+            close_public_api_session=AsyncMock(),
+        )
+        connect.side_effect = ssl.SSLCertVerificationError("certificate verify failed")
+        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "get-meta-info"])
+
+    assert result.exit_code == 1
+    output = result.stdout + (result.stderr or "")
+    assert "Would you like to disable" not in output
+    assert "Tip:" not in output
+    assert client_cls.call_count == 1
+    kwargs = client_cls.call_args.kwargs
+    assert kwargs.get("verify_ssl") is True
+
+
+def test_ssl_failure_prints_fingerprint_and_instructions() -> None:
+    """Operator-visible output must show fingerprint and --no-verify-ssl."""
+    with (
+        patch("uiprotect.cli.ProtectApiClient") as client_cls,
+        patch(
+            "uiprotect.cli._connect_and_bootstrap", new_callable=AsyncMock
+        ) as connect,
+        patch(
+            "uiprotect.cli._get_cert_fingerprint",
+            return_value="DE:AD:BE:EF",
+        ),
+    ):
+        client_cls.return_value = MagicMock(
+            close_session=AsyncMock(),
+            close_public_api_session=AsyncMock(),
+        )
+        connect.side_effect = ssl.SSLCertVerificationError("certificate verify failed")
+        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "get-meta-info"])
+
+    assert result.exit_code == 1
+    output = result.stdout + (result.stderr or "")
+    assert "DE:AD:BE:EF" in output
+    assert "--no-verify-ssl" in output
+
+
+def test_ssl_failure_when_fingerprint_unavailable() -> None:
+    """Missing fingerprint must still exit 1 with --no-verify-ssl guidance."""
+    with (
+        patch("uiprotect.cli.ProtectApiClient") as client_cls,
+        patch(
+            "uiprotect.cli._connect_and_bootstrap", new_callable=AsyncMock
+        ) as connect,
+        patch(
+            "uiprotect.cli._get_cert_fingerprint",
+            return_value=None,
+        ),
+    ):
+        client_cls.return_value = MagicMock(
+            close_session=AsyncMock(),
+            close_public_api_session=AsyncMock(),
+        )
+        connect.side_effect = ssl.SSLCertVerificationError("certificate verify failed")
+        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "get-meta-info"])
+
+    assert result.exit_code == 1
+    output = result.stdout + (result.stderr or "")
+    assert "--no-verify-ssl" in output
+    assert client_cls.call_count == 1
+
+
+def test_non_ssl_failure_still_exits_with_message() -> None:
+    """Non-SSL connection failures keep their existing exit-1 path."""
+    with (
+        patch("uiprotect.cli.ProtectApiClient") as client_cls,
+        patch(
+            "uiprotect.cli._connect_and_bootstrap", new_callable=AsyncMock
+        ) as connect,
+    ):
+        client_cls.return_value = MagicMock(
+            close_session=AsyncMock(),
+            close_public_api_session=AsyncMock(),
+        )
+        connect.side_effect = RuntimeError("boom")
+        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "get-meta-info"])
+
+    assert result.exit_code == 1
+    output = result.stdout + (result.stderr or "")
+    assert "Connection failed" in output
+    assert client_cls.call_count == 1
