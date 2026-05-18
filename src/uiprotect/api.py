@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import hashlib
 import logging
+import os
 import random
 import re
 import sys
@@ -924,12 +925,33 @@ class BaseApiClient:
                 await self._update_auth_config(self._last_token_cookie)
             self._last_token_cookie_decode = None
 
+    async def _write_config_atomic(self, config: dict[str, Any]) -> None:
+        """Persist auth config with owner-only perms via tmp-file + rename."""
+        await aos.makedirs(self.config_dir, exist_ok=True)
+        # Tighten the dir even if it pre-existed with looser perms (e.g. 0o755
+        # from an older umask, or pre-fix installs). The file contains a valid
+        # bearer cookie; the dir is not allowed to be world-traversable.
+        if sys.platform != "win32":
+            with contextlib.suppress(OSError):
+                os.chmod(self.config_dir, 0o700)
+
+        payload = orjson.dumps(config, option=orjson.OPT_INDENT_2)
+        tmp = self.config_file.with_suffix(self.config_file.suffix + ".tmp")
+        try:
+            async with aiofiles.open(tmp, "wb") as f:
+                await f.write(payload)
+            if sys.platform != "win32":
+                os.chmod(tmp, 0o600)
+            os.replace(tmp, self.config_file)
+        except BaseException:
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(tmp)
+            raise
+
     async def _update_auth_config(self, cookie: Morsel[str]) -> None:
         """Updates auth cookie on disk for persistent sessions."""
         if self._last_token_cookie is None:
             return
-
-        await aos.makedirs(self.config_dir, exist_ok=True)
 
         config: dict[str, Any] = {}
         session_hash = get_user_hash(str(self._url), self._username)
@@ -952,8 +974,7 @@ class BaseApiClient:
             "csrf": self.headers.get("x-csrf-token") if self.headers else None,
         }
 
-        async with aiofiles.open(self.config_file, "wb") as f:
-            await f.write(orjson.dumps(config, option=orjson.OPT_INDENT_2))
+        await self._write_config_atomic(config)
 
     async def _load_session(self) -> None:
         if self._session is None:
@@ -1062,8 +1083,7 @@ class BaseApiClient:
         if "sessions" in config and session_hash in config["sessions"]:
             del config["sessions"][session_hash]
 
-            async with aiofiles.open(self.config_file, "wb") as f:
-                await f.write(orjson.dumps(config, option=orjson.OPT_INDENT_2))
+            await self._write_config_atomic(config)
 
             _LOGGER.debug("Cleared session for %s", session_hash)
 
