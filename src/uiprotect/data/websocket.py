@@ -20,6 +20,20 @@ if TYPE_CHECKING:
     from .base import ProtectModelWithId
 
 WS_HEADER_SIZE = 8
+MAX_WS_FRAME = 32 * 1024 * 1024
+
+
+def _safe_inflate(buf: bytes) -> bytes:
+    """Inflate with a MAX_WS_FRAME cap to block deflate bombs."""
+    decompressor = zlib.decompressobj()
+    try:
+        out = decompressor.decompress(buf, MAX_WS_FRAME)
+        if decompressor.unconsumed_tail:
+            raise WSDecodeError("websocket frame exceeds max size")
+        out += decompressor.flush()
+    except zlib.error as err:
+        raise WSDecodeError("invalid websocket deflate stream") from err
+    return out
 
 
 @dataclass(slots=True)
@@ -65,9 +79,9 @@ class BaseWSPacketFrame:
         return f"<{self.__class__.__name__} header={self.header} data={self.data}>"
 
     def set_data_from_binary(self, data: bytes) -> None:
-        self.data = data
         if self.header is not None and self.header.deflated:
-            self.data = zlib.decompress(self.data)
+            data = _safe_inflate(data)
+        self.data = data
 
     def get_binary_from_data(self) -> bytes:
         raise NotImplementedError
@@ -112,6 +126,11 @@ class BaseWSPacketFrame:
             )
         except struct.error as e:
             raise WSDecodeError from e
+
+        if payload_size < 0 or header_end + payload_size > len(data):
+            raise WSDecodeError(
+                f"invalid websocket frame payload_size: {payload_size}",
+            )
 
         if klass is None:
             frame = WSRawPacketFrame.klass_from_format(payload_format)()
@@ -167,7 +186,7 @@ class WSJSONPacketFrame(BaseWSPacketFrame):
 
     def set_data_from_binary(self, data: bytes) -> None:
         if self.header is not None and self.header.deflated:
-            data = zlib.decompress(data)
+            data = _safe_inflate(data)
 
         self.data = orjson.loads(data)
 
