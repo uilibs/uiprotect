@@ -10,7 +10,7 @@ from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import aiohttp
 import orjson
@@ -3133,6 +3133,94 @@ async def test_camera_get_rtsps_streams_no_api_key():
         NotAuthorized, match="Cannot get RTSPS streams without an API key"
     ):
         await camera.get_rtsps_streams()
+
+
+def test_camera_get_rtsps_streams_from_bootstrap():
+    """Build RTSPSStreams from bootstrap channel data (stacked-NVR fallback)."""
+    camera = MagicMock(spec=Camera)
+    camera._api = MagicMock()
+
+    high = MagicMock()
+    high.rtsps_url = "rtsps://192.168.15.239:7441/highAlias?enableSrtp"
+    medium = MagicMock()
+    medium.rtsps_url = None
+    low = MagicMock()
+    low.rtsps_url = "rtsps://192.168.15.239:7441/lowAlias?enableSrtp"
+    camera.high_camera_channel = high
+    camera.medium_camera_channel = medium
+    camera.low_camera_channel = low
+    camera.package_camera_channel = None
+
+    camera.get_rtsps_streams_from_bootstrap = (
+        Camera.get_rtsps_streams_from_bootstrap.__get__(camera, Camera)
+    )
+
+    result = camera.get_rtsps_streams_from_bootstrap()
+
+    assert (
+        result.get_stream_url("high")
+        == "rtsps://192.168.15.239:7441/highAlias?enableSrtp"
+    )
+    assert result.get_stream_url("medium") is None
+    assert (
+        result.get_stream_url("low")
+        == "rtsps://192.168.15.239:7441/lowAlias?enableSrtp"
+    )
+    assert result.get_stream_url("package") is None
+    assert set(result.get_available_stream_qualities()) == {"high", "medium", "low"}
+    assert set(result.get_active_stream_qualities()) == {"high", "low"}
+
+
+def test_camera_get_rtsps_streams_from_bootstrap_with_package():
+    """Doorbells expose a package channel; include it when present."""
+    camera = MagicMock(spec=Camera)
+    camera._api = MagicMock()
+
+    high = MagicMock()
+    high.rtsps_url = "rtsps://host:7441/high?enableSrtp"
+    medium = MagicMock()
+    medium.rtsps_url = "rtsps://host:7441/medium?enableSrtp"
+    low = MagicMock()
+    low.rtsps_url = "rtsps://host:7441/low?enableSrtp"
+    package = MagicMock()
+    package.rtsps_url = "rtsps://host:7441/package?enableSrtp"
+    camera.high_camera_channel = high
+    camera.medium_camera_channel = medium
+    camera.low_camera_channel = low
+    camera.package_camera_channel = package
+
+    camera.get_rtsps_streams_from_bootstrap = (
+        Camera.get_rtsps_streams_from_bootstrap.__get__(camera, Camera)
+    )
+
+    result = camera.get_rtsps_streams_from_bootstrap()
+
+    assert result.get_stream_url("package") == "rtsps://host:7441/package?enableSrtp"
+    assert set(result.get_active_stream_qualities()) == {
+        "high",
+        "medium",
+        "low",
+        "package",
+    }
+
+
+def test_camera_get_rtsps_streams_from_bootstrap_no_channels():
+    """Cameras with no usable channels return an empty RTSPSStreams."""
+    camera = MagicMock(spec=Camera)
+    camera._api = MagicMock()
+    camera.high_camera_channel = None
+    camera.medium_camera_channel = None
+    camera.low_camera_channel = None
+    camera.package_camera_channel = None
+
+    camera.get_rtsps_streams_from_bootstrap = (
+        Camera.get_rtsps_streams_from_bootstrap.__get__(camera, Camera)
+    )
+
+    result = camera.get_rtsps_streams_from_bootstrap()
+
+    assert result.get_available_stream_qualities() == []
+    assert result.get_active_stream_qualities() == []
 
 
 @pytest.mark.asyncio
