@@ -678,6 +678,44 @@ async def test_get_nvr(protect_client: ProtectApiClient, nvr):
 
 
 @pytest.mark.asyncio()
+async def test_camera_stream_sharing_modeled(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Camera.stream_sharing models the bootstrap streamSharing block."""
+    # UI Intercom is the only camera in the fixture that exposes streamSharing.
+    shared = next(
+        c for c in protect_client.bootstrap.cameras.values() if c.stream_sharing
+    )
+
+    assert shared.stream_sharing is not None
+    assert shared.stream_sharing.enabled is False
+    assert shared.stream_sharing.token is None
+    assert shared.stream_sharing.share_link is None
+    assert shared.stream_sharing.expires is None
+    assert shared.stream_sharing.shared_by_user_id is None
+    assert shared.stream_sharing.shared_by_user is None
+    assert shared.stream_sharing.max_streams is None
+
+    dumped = shared.unifi_dict()
+    assert dumped["streamSharing"] == {
+        "enabled": False,
+        "token": None,
+        "shareLink": None,
+        "expires": None,
+        "sharedByUserId": None,
+        "sharedByUser": None,
+        "maxStreams": None,
+    }
+
+    # Cameras without streamSharing in the bootstrap should not invent the key
+    # when serialized.
+    unshared = next(
+        c for c in protect_client.bootstrap.cameras.values() if c.stream_sharing is None
+    )
+    assert "streamSharing" not in unshared.unifi_dict()
+
+
+@pytest.mark.asyncio()
 async def test_bootstrap(protect_client: ProtectApiClient):
     """Verifies lookup of all object via ID"""
     await check_bootstrap(protect_client.bootstrap)

@@ -833,7 +833,6 @@ def compare_objs(obj_type, expected, actual):
         del expected["lastPrivacyZonePositionId"]
         expected.pop("recordingSchedules", None)
         del expected["smartDetectLines"]
-        expected.pop("streamSharing", None)
         expected.pop("stopStreamLevel", None)
         expected.pop("uplinkDevice", None)
         expected.pop("recordingSchedulesV2", None)
