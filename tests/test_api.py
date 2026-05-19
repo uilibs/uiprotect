@@ -678,6 +678,57 @@ async def test_get_nvr(protect_client: ProtectApiClient, nvr):
 
 
 @pytest.mark.asyncio()
+async def test_camera_last_privacy_zone_position_id_modeled(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Camera.last_privacy_zone_position_id loads and round-trips."""
+    for cam in protect_client.bootstrap.cameras.values():
+        assert cam.last_privacy_zone_position_id is None
+        assert "lastPrivacyZonePositionId" in cam.unifi_dict()
+
+
+@pytest.mark.asyncio()
+async def test_camera_smart_detect_lines_modeled(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Camera.smart_detect_lines loads from bootstrap and round-trips."""
+    for cam in protect_client.bootstrap.cameras.values():
+        assert cam.smart_detect_lines == []
+        assert cam.unifi_dict()["smartDetectLines"] == []
+
+
+@pytest.mark.asyncio()
+async def test_aiport_smart_detect_lines_modeled(
+    protect_client: ProtectApiClient,
+) -> None:
+    """AiPort.smart_detect_lines parses populated rule list and round-trips."""
+    aiport = next(iter(protect_client.bootstrap.aiports.values()))
+
+    assert len(aiport.smart_detect_lines) == 2
+    line = aiport.smart_detect_lines[0]
+    assert line.id == 3
+    assert line.name == "New Crossing Line"
+    assert line.sensitivity == 50
+    assert line.direction == "BA"
+    assert line.is_target_counting is False
+    assert line.is_trigger_light_enabled is False
+    assert {t.value for t in line.object_types} == {"person", "vehicle", "animal"}
+    assert line.plan.auto_reset == "none"
+    assert line.plan.time is None
+
+    dumped = aiport.unifi_dict()["smartDetectLines"]
+    assert len(dumped) == 2
+    assert dumped[0]["id"] == 3
+    assert dumped[0]["direction"] == "BA"
+    assert dumped[0]["plan"] == {
+        "autoReset": "none",
+        "time": None,
+        "weekDay": None,
+        "date": None,
+    }
+
+
+@pytest.mark.asyncio()
 async def test_bootstrap(protect_client: ProtectApiClient):
     """Verifies lookup of all object via ID"""
     await check_bootstrap(protect_client.bootstrap)
