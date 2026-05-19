@@ -1035,6 +1035,24 @@ class GlobalRecordingSettings(ProtectBaseObject):
     # recordingSchedulesV2
 
 
+class WifiSettings(ProtectBaseObject):
+    use_third_party_wifi: bool
+    ssid: str | None = None
+    password: str | None = None
+
+
+class SmartDetectAgreement(ProtectBaseObject):
+    status: str
+    last_update_at: datetime | None = None
+
+    @classmethod
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "lastUpdateAt": convert_to_datetime,
+        } | super().unifi_dict_conversions()
+
+
 class NVR(ProtectDeviceModel):
     can_auto_update: bool
     is_stats_gathering_enabled: bool
@@ -1107,11 +1125,11 @@ class NVR(ProtectDeviceModel):
     smart_detection: NVRSmartDetection | None = None
     is_ucore_stacked: bool | None = None
     global_camera_settings: GlobalRecordingSettings | None = None
+    error_code: str | None = None
+    wifi_settings: WifiSettings | None = None
+    smart_detect_agreement: SmartDetectAgreement | None = None
 
     # TODO:
-    # errorCode   read only
-    # wifiSettings
-    # smartDetectAgreement
     # dbRecoveryOptions
     # portStatus
     # cameraCapacity
@@ -1148,6 +1166,7 @@ class NVR(ProtectDeviceModel):
             "isRecycling",
             "avgMotions",
             "streamSharingAvailable",
+            "errorCode",
         }
 
     @classmethod

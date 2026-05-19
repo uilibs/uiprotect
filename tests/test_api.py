@@ -678,6 +678,35 @@ async def test_get_nvr(protect_client: ProtectApiClient, nvr):
 
 
 @pytest.mark.asyncio()
+async def test_nvr_wifi_and_smart_detect_agreement(
+    protect_client: ProtectApiClient,
+) -> None:
+    """NVR exposes wifi_settings, smart_detect_agreement, and error_code from bootstrap."""
+    nvr = protect_client.bootstrap.nvr
+
+    assert nvr.error_code is None
+    assert nvr.wifi_settings is not None
+    assert nvr.wifi_settings.use_third_party_wifi is False
+    assert nvr.wifi_settings.ssid is None
+    assert nvr.wifi_settings.password is None
+
+    assert nvr.smart_detect_agreement is not None
+    assert nvr.smart_detect_agreement.status == "agreed"
+    assert nvr.smart_detect_agreement.last_update_at is not None
+
+    # Round-trip back to UniFi dict format preserves the original keys.
+    dumped = nvr.unifi_dict()
+    assert dumped["errorCode"] is None
+    assert dumped["wifiSettings"] == {
+        "useThirdPartyWifi": False,
+        "ssid": None,
+        "password": None,
+    }
+    assert dumped["smartDetectAgreement"]["status"] == "agreed"
+    assert isinstance(dumped["smartDetectAgreement"]["lastUpdateAt"], int)
+
+
+@pytest.mark.asyncio()
 async def test_bootstrap(protect_client: ProtectApiClient):
     """Verifies lookup of all object via ID"""
     await check_bootstrap(protect_client.bootstrap)
