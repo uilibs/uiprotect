@@ -10,13 +10,20 @@ concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+env:
+  UV_PYTHON_PREFERENCE: only-managed
+
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
       - name: Install poetry
-        run: pipx install poetry
+        run: uv tool install poetry
       - uses: actions/setup-python@v6
         with:
           python-version: 3.x
@@ -61,8 +68,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
       - name: Install poetry
-        run: pipx install poetry
+        run: uv tool install poetry
       - name: Set up Python
         uses: actions/setup-python@v6
         id: setup-python
@@ -86,8 +97,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
       - name: Install poetry
-        run: pipx install poetry
+        run: uv tool install poetry
       - name: Set up Python 3.13
         uses: actions/setup-python@v6
         with:
