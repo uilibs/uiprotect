@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import logging
 import ssl
 import sys
@@ -165,6 +166,19 @@ def _is_ssl_error(exc: BaseException) -> bool:
     return False
 
 
+def _get_cert_fingerprint(host: str, port: int) -> str | None:
+    """Return the SHA-256 fingerprint of the server's leaf certificate, or None."""
+    try:
+        pem = ssl.get_server_certificate((host, port), timeout=5)
+    except (OSError, ssl.SSLError):
+        return None
+    if not pem:
+        return None
+    der = ssl.PEM_cert_to_DER_cert(pem)
+    digest = hashlib.sha256(der).hexdigest().upper()
+    return ":".join(digest[i : i + 2] for i in range(0, len(digest), 2))
+
+
 async def _connect_and_bootstrap(protect: ProtectApiClient) -> None:
     """Connect to the Protect API and fetch bootstrap data."""
     protect._bootstrap = await protect.get_bootstrap()
@@ -222,35 +236,33 @@ def main(
 
             if verify_ssl and _is_ssl_error(exc):
                 typer.secho(
-                    "SSL certificate verification failed. "
-                    "This is common with self-signed certificates on UniFi devices.",
-                    fg="yellow",
+                    f"SSL certificate verification failed for {address}:{port}.",
+                    fg="red",
+                    err=True,
                 )
-                if typer.confirm(
-                    "Would you like to disable SSL verification and retry?"
-                ):
-                    # Create new client with SSL disabled
-                    protect = ProtectApiClient(
-                        address,
-                        port,
-                        username or "",
-                        password or "",
-                        api_key,
-                        verify_ssl=False,
-                        ignore_unadopted=not include_unadopted,
-                    )
-                    run_async(_connect_and_bootstrap(protect))
+                fingerprint = _get_cert_fingerprint(address, port)
+                if fingerprint:
                     typer.secho(
-                        "Connected successfully with SSL verification disabled.\n"
-                        "Tip: Use --no-verify-ssl to skip this prompt in the future.",
-                        fg="green",
+                        f"  Server certificate SHA-256: {fingerprint}",
+                        err=True,
                     )
-                else:
-                    typer.secho("Connection aborted.", fg="red")
-                    raise typer.Exit(code=1) from exc
-            else:
-                typer.secho(f"Connection failed: {exc}", fg="red")
+                typer.secho(
+                    "Refusing to retry with verification disabled — sending "
+                    "credentials over an unauthenticated TLS channel would "
+                    "expose them to any on-path attacker.",
+                    fg="red",
+                    err=True,
+                )
+                typer.secho(
+                    "If you have verified the fingerprint above out-of-band "
+                    "(e.g. via the UniFi Protect console), rerun the command "
+                    "with --no-verify-ssl to skip verification for this "
+                    "invocation.",
+                    err=True,
+                )
                 raise typer.Exit(code=1) from exc
+            typer.secho(f"Connection failed: {exc}", fg="red")
+            raise typer.Exit(code=1) from exc
 
     ctx.obj = CliContext(protect=protect, output_format=output_format)
 
