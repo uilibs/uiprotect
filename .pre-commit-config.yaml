@@ -9,11 +9,6 @@ ci:
   skip: [mypy]
 
 repos:
-  - repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.15.1
-    hooks:
-      - id: commitizen
-        stages: [commit-msg]
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
