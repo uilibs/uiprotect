@@ -122,7 +122,10 @@ jobs:
       - lint
 
     runs-on: ubuntu-latest
-    environment: release
+    # Only enter the protected 'release' environment when actually releasing
+    # from main; PR dry-runs would otherwise be blocked by the env's
+    # main-only branch policy.
+    environment: ${{ github.ref_name == 'main' && 'release' || '' }}
     concurrency:
       group: release-${{ github.head_ref || github.ref }}
       cancel-in-progress: false
@@ -135,7 +138,10 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.head_ref || github.ref_name }}
-          token: ${{ secrets.BOT_ACCESS_TOKEN }}
+          # Fall back to GITHUB_TOKEN on dependabot PRs, where
+          # secrets.BOT_ACCESS_TOKEN is not exposed and would otherwise
+          # leave actions/checkout's `token` input empty.
+          token: ${{ secrets.BOT_ACCESS_TOKEN || github.token }}
 
       - name: Setup Git
         run: |
