@@ -233,6 +233,33 @@ live leg is optional and is not gated for typical PRs.
 | `tests/conftest.py`                      | Fixture wiring: builds a mock `ProtectApiClient` from `sample_data/`             |
 | `templates/`                             | Rich templates used by the CLI for human-readable output                         |
 
+## API strategy
+
+The project is migrating from the **private API** (reverse-engineered,
+undocumented endpoints under `/api/…` and the binary WebSocket stream;
+models in `src/uiprotect/data/devices.py`) to the **Public Integration
+API** (Ubiquiti's officially documented REST API under
+`/integration/v1/…`; models in `src/uiprotect/data/public_devices.py`
+and `src/uiprotect/data/public_bootstrap.py`; tests under
+`tests/test_api_*_public.py`).
+
+**Do not implement new features on the private API.** If a capability
+is missing from the public API, the right answer is to wait for or
+request the public endpoint — not to add it via the private path.
+Derive shapes from the existing public models and tests in this repo.
+
+**Deprecate private-API counterparts when the public API is feature-
+complete for a given capability.** Once a device method or endpoint is
+fully covered by the public API, mark the corresponding private-API
+method with a `DeprecationWarning` pointing to the public replacement.
+
+**Remove private-API code that the Home Assistant integration no longer
+uses.** Before removing a private-API method or model, check whether
+the latest released version of the HA integration still references it:
+search `homeassistant/components/unifiprotect/` in the
+`home-assistant/core` GitHub repository. If the symbol does not
+appear there, it is safe to remove.
+
 ## Reporting security issues
 
 Suspected security vulnerabilities go through GitHub's [private
