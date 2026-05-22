@@ -10,13 +10,20 @@ concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+env:
+  UV_PYTHON_PREFERENCE: only-managed
+
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
       - name: Install poetry
-        run: pipx install poetry
+        run: uv tool install poetry
       - uses: actions/setup-python@v6
         with:
           python-version: 3.x
@@ -26,16 +33,26 @@ jobs:
           poetry install
       - uses: pre-commit/action@v3.0.1
 
-  # Make sure commit messages follow the conventional commits convention:
+  # Make sure the PR title follows the conventional commits convention:
   # https://www.conventionalcommits.org
-  commitlint:
-    name: Lint Commit Messages
+  # PRs are squash-merged, so the PR title becomes the commit on main and
+  # drives python-semantic-release's version bump.
+  pr-title:
+    name: Lint PR Title
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: amannn/action-semantic-pull-request@v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          fetch-depth: 0
-      - uses: wagoid/commitlint-github-action@v6.2.1
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" found in the pull request title "{title}"
+            didn't match the configured pattern. Please ensure that the subject
+            starts with a lowercase character.
 
   test:
     strategy:
@@ -51,8 +68,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
       - name: Install poetry
-        run: pipx install poetry
+        run: uv tool install poetry
       - name: Set up Python
         uses: actions/setup-python@v6
         id: setup-python
@@ -76,8 +97,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
       - name: Install poetry
-        run: pipx install poetry
+        run: uv tool install poetry
       - name: Set up Python 3.13
         uses: actions/setup-python@v6
         with:
@@ -95,10 +120,12 @@ jobs:
     needs:
       - test
       - lint
-      - commitlint
 
     runs-on: ubuntu-latest
-    environment: release
+    # Only enter the protected 'release' environment when actually releasing
+    # from main; PR dry-runs would otherwise be blocked by the env's
+    # main-only branch policy.
+    environment: ${{ github.ref_name == 'main' && 'release' || '' }}
     concurrency:
       group: release-${{ github.head_ref || github.ref }}
       cancel-in-progress: false
@@ -111,7 +138,10 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.head_ref || github.ref_name }}
-          token: ${{ secrets.BOT_ACCESS_TOKEN }}
+          # Fall back to GITHUB_TOKEN on dependabot PRs, where
+          # secrets.BOT_ACCESS_TOKEN is not exposed and would otherwise
+          # leave actions/checkout's `token` input empty.
+          token: ${{ secrets.BOT_ACCESS_TOKEN || github.token }}
 
       - name: Setup Git
         run: |
