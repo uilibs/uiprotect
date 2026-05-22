@@ -107,7 +107,7 @@ if "partitioned" not in cookies.Morsel._reserved:  # type: ignore[attr-defined]
     cookies.Morsel._flags.add("partitioned")  # type: ignore[attr-defined]
 
 
-async def _async_warm_nvr_timezone(nvr_data: dict[str, Any] | None) -> None:
+async def _async_warm_nvr_timezone(nvr_data: dict[str, Any]) -> None:
     """
     Warm zoneinfo's cache for ``nvr_data["timezone"]`` off the event loop.
 
@@ -116,8 +116,6 @@ async def _async_warm_nvr_timezone(nvr_data: dict[str, Any] | None) -> None:
     the loop. Awaiting :func:`async_get_time_zone` here primes ZoneInfo's
     internal cache so the later sync construction is a free hit.
     """
-    if not nvr_data:
-        return
     tz_name = nvr_data.get("timezone")
     if isinstance(tz_name, str):
         await async_get_time_zone(tz_name)
@@ -2090,7 +2088,7 @@ class ProtectApiClient(BaseApiClient):
         This is a great alternative if you need metadata about the NVR without connecting to the Websocket
         """
         data = await self.api_request_obj("bootstrap")
-        await _async_warm_nvr_timezone(data.get("nvr"))
+        await _async_warm_nvr_timezone(data["nvr"])
         return Bootstrap.from_unifi_dict(**data, api=self)
 
     async def get_devices_raw(self, model_type: ModelType) -> list[dict[str, Any]]:
