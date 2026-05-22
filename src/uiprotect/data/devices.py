@@ -173,6 +173,11 @@ class Light(ProtectMotionDeviceModel):
 
     async def set_flood_light(self, enabled: bool) -> None:
         """Sets the flood light (force on) for the light"""
+        warnings.warn(
+            "set_flood_light is deprecated, use set_flood_light_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         def callback() -> None:
             self.light_on_settings.is_led_force_on = enabled
@@ -181,6 +186,11 @@ class Light(ProtectMotionDeviceModel):
 
     async def set_status_light(self, enabled: bool) -> None:
         """Sets the status indicator light for the light"""
+        warnings.warn(
+            "set_status_light is deprecated, use set_status_light_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         def callback() -> None:
             self.light_device_settings.is_indicator_enabled = enabled
@@ -189,6 +199,11 @@ class Light(ProtectMotionDeviceModel):
 
     async def set_led_level(self, led_level: int) -> None:
         """Sets the LED level for the light"""
+        warnings.warn(
+            "set_led_level is deprecated, use set_led_level_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         def callback() -> None:
             self.light_device_settings.led_level = LEDLevel(led_level)
@@ -207,6 +222,11 @@ class Light(ProtectMotionDeviceModel):
 
     async def set_sensitivity(self, sensitivity: int) -> None:
         """Sets motion sensitivity"""
+        warnings.warn(
+            "set_sensitivity is deprecated, use set_sensitivity_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         def callback() -> None:
             self.light_device_settings.pir_sensitivity = PercentInt(sensitivity)
@@ -215,6 +235,11 @@ class Light(ProtectMotionDeviceModel):
 
     async def set_duration(self, duration: timedelta) -> None:
         """Sets motion sensitivity"""
+        warnings.warn(
+            "set_duration is deprecated, use set_duration_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if duration.total_seconds() < 15 or duration.total_seconds() > 900:
             raise BadRequest("Duration outside of 15s to 900s range")
 
@@ -241,6 +266,11 @@ class Light(ProtectMotionDeviceModel):
             sensitivity: PIR Motion sensitivity
 
         """
+        warnings.warn(
+            "set_light_settings is deprecated, use set_light_settings_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if duration is not None and (
             duration.total_seconds() < 15 or duration.total_seconds() > 900
         ):
