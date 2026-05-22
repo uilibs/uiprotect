@@ -1,5 +1,22 @@
 # Changelog
 
+## v10.5.1 (2026-05-22)
+
+### Bug fixes
+
+
+- Catch blocking io in async tests with blockbuster ([`afbdbb7`](https://github.com/uilibs/uiprotect/commit/afbdbb7900092cc93eb4370b51833d3166c99182))
+
+
+### Documentation
+
+
+- Document api migration strategy in agents.md ([`d5df437`](https://github.com/uilibs/uiprotect/commit/d5df4378b81b122262ef032d4b80278012f8bc7d))
+
+
+- Add security.md with private vulnerability reporting policy ([`55a61c5`](https://github.com/uilibs/uiprotect/commit/55a61c5f406f090789885cc0f52f7a6f7f2e7ec1))
+
+
 ## v10.5.0 (2026-05-18)
 
 ### Features
