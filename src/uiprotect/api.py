@@ -10,6 +10,7 @@ import os
 import random
 import re
 import sys
+import tempfile
 import time
 import warnings
 from datetime import datetime, timedelta
@@ -1104,7 +1105,14 @@ class BaseApiClient:
 
     async def _write_config_atomic(self, config: dict[str, Any]) -> None:
         """Persist auth config with owner-only perms via tmp-file + rename."""
-        await aos.makedirs(self.config_dir, exist_ok=True)
+        payload = orjson.dumps(config, option=orjson.OPT_INDENT_2)
+        # Offload the blocking filesystem work to a worker thread so we
+        # don't stall the event loop for callers like Home Assistant.
+        await asyncio.to_thread(self._write_payload_atomic, payload)
+
+    def _write_payload_atomic(self, payload: bytes) -> None:
+        """Sync helper: replace config file with payload at mode 0o600."""
+        os.makedirs(self.config_dir, exist_ok=True)
         # Tighten the dir even if it pre-existed with looser perms (e.g. 0o755
         # from an older umask, or pre-fix installs). The file contains a valid
         # bearer cookie; the dir is not allowed to be world-traversable.
@@ -1112,15 +1120,14 @@ class BaseApiClient:
             with contextlib.suppress(OSError):
                 os.chmod(self.config_dir, 0o700)
 
-        payload = orjson.dumps(config, option=orjson.OPT_INDENT_2)
-        tmp = self.config_file.with_suffix(self.config_file.suffix + ".tmp")
+        # tempfile.mkstemp creates a unique file at mode 0o600 from the
+        # kernel call, so the bearer cookie is never world-readable. The
+        # unique name also avoids two concurrent writers colliding on a
+        # shared .tmp path.
+        fd, tmp = tempfile.mkstemp(
+            prefix="unifi_protect.", suffix=".tmp", dir=str(self.config_dir)
+        )
         try:
-            # open(2) with explicit mode so the kernel applies 0o600 at
-            # creation. chmod-after-open would leave a window where the
-            # bearer cookie is world-readable under a typical 0o022 umask.
-            # On Windows the mode argument is largely ignored, but the call
-            # itself works and keeps a single code path.
-            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             with os.fdopen(fd, "wb") as f:
                 f.write(payload)
             os.replace(tmp, self.config_file)
