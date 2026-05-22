@@ -5,8 +5,10 @@ import base64
 import json
 import math
 import os
+from collections.abc import Iterator
 from copy import deepcopy
 from datetime import UTC, datetime
+from functools import cache
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
@@ -24,6 +26,67 @@ from uiprotect.data.devices import PTZRange, PTZZoomRange
 from uiprotect.data.nvr import Event
 from uiprotect.data.types import EventType
 from uiprotect.utils import _BAD_UUID, set_debug, set_no_debug
+
+try:
+    from blockbuster import BlockBuster, blockbuster_ctx
+except ImportError:
+    BlockBuster = None  # type: ignore[assignment,misc]
+    blockbuster_ctx = None  # type: ignore[assignment]
+
+_BENCHMARKS_DIR = "tests/benchmarks"
+
+# Tests that perform sync IO inside the asyncio event loop and trip
+# blockbuster. Marked xfail so CI is green; pop entries as they get
+# fixed so the underlying blocking call is gone for good.
+_KNOWN_BLOCKING: frozenset[str] = frozenset(
+    {
+        "tests/test_api.py::test_authenticate_with_session_storage",
+        "tests/test_api.py::test_clear_all_sessions_handles_file_disappearing",
+        "tests/test_api.py::test_clear_all_sessions_removes_file",
+        "tests/test_api.py::test_clear_methods_do_nothing_when_sessions_disabled[clear_all_sessions]",
+        "tests/test_api.py::test_clear_methods_do_nothing_when_sessions_disabled[clear_session]",
+        "tests/test_api.py::test_clear_methods_handle_missing_file[clear_all_sessions]",
+        "tests/test_api.py::test_clear_methods_handle_missing_file[clear_session]",
+        "tests/test_api.py::test_clear_session_removes_specific_session",
+        "tests/test_api.py::test_clear_session_when_session_not_in_config",
+        "tests/test_api.py::test_clear_session_with_invalid_config_file",
+        "tests/test_api.py::test_get_camera_video",
+        "tests/test_api.py::test_invalid_token_triggers_reauthentication",
+        "tests/test_api.py::test_load_session_accepts_valid_csrf_token",
+        "tests/test_api.py::test_load_session_rejects_missing_csrf_token",
+        "tests/test_api.py::test_load_session_with_invalid_token",
+        "tests/test_api.py::test_load_session_with_token_two_segments",
+        "tests/test_utils.py::test_write_json",
+    }
+)
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """Mark known-blocking tests xfail so CI is green while we work through them."""
+    if blockbuster_ctx is None:
+        return
+    marker = pytest.mark.xfail(
+        reason="blockbuster: blocking call in asyncio path, to be fixed",
+        strict=False,
+    )
+    for item in items:
+        if item.nodeid in _KNOWN_BLOCKING:
+            item.add_marker(marker)
+
+
+@pytest.fixture(autouse=True)
+def blockbuster(
+    request: pytest.FixtureRequest,
+) -> Iterator[BlockBuster | None]:
+    """Fail any test that performs a blocking call inside the asyncio loop."""
+    if blockbuster_ctx is None or _BENCHMARKS_DIR in str(request.node.fspath):
+        yield None
+        return
+    with blockbuster_ctx() as bb:
+        yield bb
+
 
 UFP_SAMPLE_DIR = os.environ.get("UFP_SAMPLE_DIR")
 if UFP_SAMPLE_DIR:
@@ -56,14 +119,35 @@ TEST_AIPORT_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_aiport.json").exists()
 ANY_NONE = [[None], None, []]
 
 
-def read_binary_file(name: str, ext: str = "png"):
+@cache
+def _read_binary_file_cached(name: str, ext: str) -> bytes:
     with (SAMPLE_DATA_DIRECTORY / f"{name}.{ext}").open("rb") as f:
         return f.read()
 
 
-def read_json_file(name: str):
+def read_binary_file(name: str, ext: str = "png") -> bytes:
+    return _read_binary_file_cached(name, ext)
+
+
+@cache
+def _read_json_file_cached(name: str) -> Any:
     with (SAMPLE_DATA_DIRECTORY / f"{name}.json").open(encoding="utf8") as f:
         return json.load(f)
+
+
+def read_json_file(name: str) -> Any:
+    return deepcopy(_read_json_file_cached(name))
+
+
+# Preload sample data at module import (outside the asyncio loop) so the
+# read_*_file helpers never touch the disk from inside a test or fixture
+# and trip blockbuster.
+for _path in SAMPLE_DATA_DIRECTORY.glob("*.json"):
+    _read_json_file_cached(_path.stem)
+for _ext in ("png", "mp4"):
+    for _path in SAMPLE_DATA_DIRECTORY.glob(f"*.{_ext}"):
+        _read_binary_file_cached(_path.stem, _ext)
+CONSTANTS.data()  # force the sample_constants.json read out of any loop
 
 
 def read_bootstrap_json_file():

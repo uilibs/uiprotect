@@ -48,6 +48,7 @@ typer = ">=0.12.3"
 convertertools = ">=0.5.0"
 propcache = ">=0.5.2"
 pydantic-extra-types = ">=2.10.1"
+aiozoneinfo = "^0.2.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=9.0.3,<10"
@@ -64,6 +65,7 @@ types-aiofiles = ">=25.1.0.20260409,<26.0.0.0"
 types-dateparser = "^1.4.0.20260508"
 mypy = "^2.1.0"
 pre-commit = "^4.6.0"
+blockbuster = ">=1.5.5,<2.0.0"
 
 [tool.poetry.group.docs]
 optional = true
