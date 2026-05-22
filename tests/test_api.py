@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import sys
+import tempfile
 from copy import deepcopy
 from datetime import datetime, timedelta
 from http.cookies import SimpleCookie
@@ -2274,7 +2275,7 @@ async def test_update_auth_config_writes_file_with_mode_0600(tmp_path: Path) -> 
 async def test_update_auth_config_tmp_file_never_world_readable(
     tmp_path: Path,
 ) -> None:
-    """The .tmp file must be 0o600 from creation, before os.replace runs."""
+    """The tmp file must be 0o600 from kernel-creation, before any write."""
     client = ProtectApiClient(
         "127.0.0.1",
         0,
@@ -2292,13 +2293,14 @@ async def test_update_auth_config_tmp_file_never_world_readable(
     client.set_header("x-csrf-token", "csrf-token-value")
 
     captured_modes: list[int] = []
-    real_replace = os.replace
+    real_mkstemp = tempfile.mkstemp
 
-    def capturing_replace(src: Any, dst: Any) -> None:
-        captured_modes.append(os.stat(src).st_mode & 0o777)
-        real_replace(src, dst)
+    def capturing_mkstemp(*args: Any, **kwargs: Any) -> tuple[int, str]:
+        fd, path = real_mkstemp(*args, **kwargs)
+        captured_modes.append(os.fstat(fd).st_mode & 0o777)
+        return fd, path
 
-    with patch("uiprotect.api.os.replace", side_effect=capturing_replace):
+    with patch("uiprotect.api.tempfile.mkstemp", side_effect=capturing_mkstemp):
         await client._update_auth_config(cookie["TOKEN"])
 
     assert captured_modes == [0o600]
