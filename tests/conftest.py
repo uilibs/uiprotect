@@ -14,6 +14,7 @@ from tempfile import NamedTemporaryFile
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 
+import aiofiles
 import aiohttp
 import av
 import pytest
@@ -38,27 +39,7 @@ _BENCHMARKS_DIR = "tests/benchmarks"
 # Tests that perform sync IO inside the asyncio event loop and trip
 # blockbuster. Marked xfail so CI is green; pop entries as they get
 # fixed so the underlying blocking call is gone for good.
-_KNOWN_BLOCKING: frozenset[str] = frozenset(
-    {
-        "tests/test_api.py::test_authenticate_with_session_storage",
-        "tests/test_api.py::test_clear_all_sessions_handles_file_disappearing",
-        "tests/test_api.py::test_clear_all_sessions_removes_file",
-        "tests/test_api.py::test_clear_methods_do_nothing_when_sessions_disabled[clear_all_sessions]",
-        "tests/test_api.py::test_clear_methods_do_nothing_when_sessions_disabled[clear_session]",
-        "tests/test_api.py::test_clear_methods_handle_missing_file[clear_all_sessions]",
-        "tests/test_api.py::test_clear_methods_handle_missing_file[clear_session]",
-        "tests/test_api.py::test_clear_session_removes_specific_session",
-        "tests/test_api.py::test_clear_session_when_session_not_in_config",
-        "tests/test_api.py::test_clear_session_with_invalid_config_file",
-        "tests/test_api.py::test_get_camera_video",
-        "tests/test_api.py::test_invalid_token_triggers_reauthentication",
-        "tests/test_api.py::test_load_session_accepts_valid_csrf_token",
-        "tests/test_api.py::test_load_session_rejects_missing_csrf_token",
-        "tests/test_api.py::test_load_session_with_invalid_token",
-        "tests/test_api.py::test_load_session_with_token_two_segments",
-        "tests/test_utils.py::test_write_json",
-    }
-)
+_KNOWN_BLOCKING: frozenset[str] = frozenset()
 
 
 def pytest_collection_modifyitems(
@@ -148,6 +129,30 @@ for _ext in ("png", "mp4"):
     for _path in SAMPLE_DATA_DIRECTORY.glob(f"*.{_ext}"):
         _read_binary_file_cached(_path.stem, _ext)
 CONSTANTS.data()  # force the sample_constants.json read out of any loop
+
+
+async def async_write_bytes(path: Path, data: bytes) -> None:
+    """Write ``data`` to ``path`` without blocking the event loop."""
+    async with aiofiles.open(path, "wb") as f:
+        await f.write(data)
+
+
+async def async_read_bytes(path: Path) -> bytes:
+    """Read ``path`` as bytes without blocking the event loop."""
+    async with aiofiles.open(path, "rb") as f:
+        return await f.read()
+
+
+async def async_write_text(path: Path, text: str) -> None:
+    """Write ``text`` to ``path`` without blocking the event loop."""
+    async with aiofiles.open(path, "w") as f:
+        await f.write(text)
+
+
+async def async_read_text(path: Path) -> str:
+    """Read ``path`` as text without blocking the event loop."""
+    async with aiofiles.open(path) as f:
+        return await f.read()
 
 
 def read_bootstrap_json_file():
