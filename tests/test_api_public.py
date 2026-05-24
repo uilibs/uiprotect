@@ -15,6 +15,7 @@ import pytest
 
 from uiprotect.data import (
     ArmProfile,
+    Fob,
     NvrArmModeStatus,
     PublicBootstrap,
     PublicNVR,
@@ -22,6 +23,7 @@ from uiprotect.data import (
     RelayOutputRebootState,
     RelayOutputState,
     Siren,
+    Speaker,
 )
 from uiprotect.data.types import EventType, ModelType, SirenDuration
 from uiprotect.exceptions import BadRequest
@@ -34,6 +36,8 @@ if TYPE_CHECKING:
 SENSOR_ID = "66d025b301ebc903e80003ea"
 SIREN_ID = "672094f900e26303e800062a"
 RELAY_ID = "66d025b301ebc903e80003eb"
+SPEAKER_ID = "66d025b301ebc903e80003ed"
+FOB_ID = "66d025b301ebc903e80003ee"
 PROFILE_ID = "6878d82800155803e45928e0"
 NVR_ID = "66d025b301ebc903e80003ec"
 
@@ -87,6 +91,8 @@ def _mock_update_public_endpoints(client: ProtectApiClient, **overrides: Any) ->
         "get_sensors_public": AsyncMock(return_value=[]),
         "get_sirens_public": AsyncMock(return_value=[]),
         "get_relays_public": AsyncMock(return_value=[]),
+        "get_speakers_public": AsyncMock(return_value=[]),
+        "get_fobs_public": AsyncMock(return_value=[]),
         "get_arm_profiles_public": AsyncMock(return_value=[]),
     }
     defaults.update(overrides)
@@ -2207,3 +2213,317 @@ async def test_relay_api_update_rejects_generic_mutations(
     relay = _build_relay(protect_client)
     with pytest.raises(BadRequest, match="Relay mutations"):
         await relay._api_update({"name": "new"})
+
+
+# ---------------------------------------------------------------------------
+# Speakers
+# ---------------------------------------------------------------------------
+
+
+def _build_speaker(
+    protect_client: ProtectApiClient, speaker_id: str = SPEAKER_ID
+) -> Speaker:
+    pb = protect_client._public_bootstrap or PublicBootstrap()
+    protect_client._public_bootstrap = pb
+    pb.process_devices_ws_message(
+        protect_client,
+        {
+            "type": "add",
+            "item": {
+                "id": speaker_id,
+                "modelKey": "speaker",
+                "state": "CONNECTED",
+                "name": "Speaker",
+                "mac": "CC",
+                "volume": 50,
+                "micVolume": 40,
+                "isMicEnabled": True,
+                "speakerState": {"status": "idle", "mode": "listen"},
+                "featureFlags": {"hasMic": True},
+            },
+        },
+    )
+    return pb.speakers[speaker_id]
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Speaker.from_unifi_dict")
+async def test_get_speakers_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.side_effect = [Mock(id=SPEAKER_ID)]
+    protect_client.api_request_list = AsyncMock(return_value=[{"id": SPEAKER_ID}])
+    await protect_client.get_speakers_public()
+    protect_client.api_request_list.assert_called_with(
+        url="/v1/speakers", public_api=True
+    )
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Speaker.from_unifi_dict")
+async def test_get_speaker_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=SPEAKER_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": SPEAKER_ID})
+    await protect_client.get_speaker_public(SPEAKER_ID)
+    protect_client.api_request_obj.assert_called_with(
+        url=f"/v1/speakers/{SPEAKER_ID}", public_api=True
+    )
+
+
+@pytest.mark.asyncio()
+async def test_update_speaker_public_requires_args(
+    protect_client: ProtectApiClient,
+) -> None:
+    with pytest.raises(BadRequest):
+        await protect_client.update_speaker_public(SPEAKER_ID)
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Speaker.from_unifi_dict")
+async def test_update_speaker_public_body(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=SPEAKER_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": SPEAKER_ID})
+    await protect_client.update_speaker_public(
+        SPEAKER_ID,
+        name="patio",
+        volume=70,
+        mic_volume=30,
+        is_mic_enabled=False,
+    )
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["method"] == "patch"
+    assert kwargs["url"] == f"/v1/speakers/{SPEAKER_ID}"
+    assert kwargs["json"] == {
+        "name": "patio",
+        "volume": 70,
+        "micVolume": 30,
+        "isMicEnabled": False,
+    }
+
+
+@pytest.mark.asyncio()
+async def test_test_speaker_sound_public(protect_client: ProtectApiClient) -> None:
+    protect_client.api_request_raw = AsyncMock(return_value=None)
+    await protect_client.test_speaker_sound_public(SPEAKER_ID, volume=60)
+    _, kwargs = protect_client.api_request_raw.call_args
+    assert kwargs["url"] == f"/v1/speakers/{SPEAKER_ID}/test-sound"
+    assert kwargs["method"] == "post"
+    assert kwargs["json"] == {"volume": 60}
+
+
+def test_speaker_model_from_unifi_dict() -> None:
+    speaker = Speaker.from_unifi_dict(
+        id=SPEAKER_ID,
+        modelKey="speaker",
+        state="CONNECTED",
+        name="Patio Speaker",
+        mac="AA:BB:CC:DD:EE:FF",
+        volume=55,
+        micVolume=35,
+        isMicEnabled=True,
+        speakerState={"status": "playing", "mode": "talk"},
+        featureFlags={"hasMic": True},
+    )
+    assert speaker.id == SPEAKER_ID
+    assert speaker.model is ModelType.SPEAKER
+    assert speaker.volume == 55
+    assert speaker.mic_volume == 35
+    assert speaker.is_mic_enabled is True
+    assert speaker.speaker_state.status == "playing"
+    assert speaker.speaker_state.mode == "talk"
+    assert speaker.feature_flags.has_mic is True
+
+
+@pytest.mark.asyncio()
+async def test_speaker_api_update_rejects_generic_mutations(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Generic mutation path must fail loudly for Public API speakers."""
+    speaker = _build_speaker(protect_client)
+    with pytest.raises(BadRequest, match="Speaker mutations"):
+        await speaker._api_update({"name": "new"})
+
+
+def test_public_bootstrap_applies_speaker_add_and_update(
+    protect_client: ProtectApiClient,
+) -> None:
+    pb = PublicBootstrap()
+    add_payload = {
+        "type": "add",
+        "item": {
+            "id": SPEAKER_ID,
+            "modelKey": "speaker",
+            "state": "CONNECTED",
+            "name": "Speaker",
+            "mac": "CC",
+            "volume": 50,
+            "micVolume": 40,
+            "isMicEnabled": True,
+            "speakerState": {"status": "idle", "mode": "listen"},
+            "featureFlags": {"hasMic": True},
+        },
+    }
+    mt, new, old = pb.process_devices_ws_message(protect_client, add_payload)
+    assert mt is ModelType.SPEAKER
+    assert new is not None and new.id == SPEAKER_ID
+    assert old is None
+    assert SPEAKER_ID in pb.speakers
+
+    update_payload: dict[str, Any] = {
+        "type": "update",
+        "item": {"id": SPEAKER_ID, "modelKey": "speaker", "volume": 5},
+    }
+    mt, new, old = pb.process_devices_ws_message(protect_client, update_payload)
+    assert new is not None and new.volume == 5  # type: ignore[attr-defined]
+    assert new.name == "Speaker"  # type: ignore[attr-defined]
+
+
+# ---------------------------------------------------------------------------
+# Fobs
+# ---------------------------------------------------------------------------
+
+
+def _build_fob(protect_client: ProtectApiClient, fob_id: str = FOB_ID) -> Fob:
+    pb = protect_client._public_bootstrap or PublicBootstrap()
+    protect_client._public_bootstrap = pb
+    pb.process_devices_ws_message(
+        protect_client,
+        {
+            "type": "add",
+            "item": {
+                "id": fob_id,
+                "modelKey": "fob",
+                "state": "CONNECTED",
+                "name": "Fob",
+                "mac": "DD",
+                "awayState": "ONLINE",
+                "featureFlags": {"buttons": ["arm", "disarm"]},
+                "wirelessConnectionState": {
+                    "signalState": {"signalQuality": 80, "signalStrength": -50},
+                    "batteryStatus": {"percentage": 90, "isLow": False},
+                    "bridge": None,
+                },
+            },
+        },
+    )
+    return pb.fobs[fob_id]
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Fob.from_unifi_dict")
+async def test_get_fobs_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.side_effect = [Mock(id=FOB_ID)]
+    protect_client.api_request_list = AsyncMock(return_value=[{"id": FOB_ID}])
+    await protect_client.get_fobs_public()
+    protect_client.api_request_list.assert_called_with(url="/v1/fobs", public_api=True)
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Fob.from_unifi_dict")
+async def test_get_fob_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=FOB_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": FOB_ID})
+    await protect_client.get_fob_public(FOB_ID)
+    protect_client.api_request_obj.assert_called_with(
+        url=f"/v1/fobs/{FOB_ID}", public_api=True
+    )
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Fob.from_unifi_dict")
+async def test_update_fob_public_body(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=FOB_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": FOB_ID})
+    await protect_client.update_fob_public(FOB_ID, name="keyring")
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["method"] == "patch"
+    assert kwargs["url"] == f"/v1/fobs/{FOB_ID}"
+    assert kwargs["json"] == {"name": "keyring"}
+
+
+def test_fob_model_from_unifi_dict() -> None:
+    fob = Fob.from_unifi_dict(
+        id=FOB_ID,
+        modelKey="fob",
+        state="CONNECTED",
+        name="Front Fob",
+        mac="AA:BB:CC:DD:EE:FF",
+        awayState="ONLINE",
+        featureFlags={"buttons": ["arm", "disarm", "panic"]},
+        wirelessConnectionState={
+            "signalState": {"signalQuality": None, "signalStrength": None},
+            "batteryStatus": {"percentage": None, "isLow": False},
+            "bridge": None,
+        },
+    )
+    assert fob.id == FOB_ID
+    assert fob.model is ModelType.FOB
+    assert fob.away_state == "ONLINE"
+    assert fob.feature_flags.buttons == ["arm", "disarm", "panic"]
+    # Nullable signal/battery readings (no recent heartbeat) must parse.
+    assert fob.wireless_connection_state is not None
+    assert fob.wireless_connection_state.signal_state is not None
+    assert fob.wireless_connection_state.signal_state.signal_quality is None
+    assert fob.wireless_connection_state.battery_status is not None
+    assert fob.wireless_connection_state.battery_status.percentage is None
+
+
+@pytest.mark.asyncio()
+async def test_fob_api_update_rejects_generic_mutations(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Generic mutation path must fail loudly for Public API fobs."""
+    fob = _build_fob(protect_client)
+    with pytest.raises(BadRequest, match="Fob mutations"):
+        await fob._api_update({"name": "new"})
+
+
+def test_public_bootstrap_applies_fob_add_and_update(
+    protect_client: ProtectApiClient,
+) -> None:
+    pb = PublicBootstrap()
+    add_payload = {
+        "type": "add",
+        "item": {
+            "id": FOB_ID,
+            "modelKey": "fob",
+            "state": "CONNECTED",
+            "name": "Fob",
+            "mac": "DD",
+            "awayState": "ONLINE",
+            "featureFlags": {"buttons": ["arm"]},
+            "wirelessConnectionState": {
+                "signalState": {"signalQuality": 80, "signalStrength": -50},
+                "batteryStatus": {"percentage": 90, "isLow": False},
+                "bridge": None,
+            },
+        },
+    }
+    mt, new, old = pb.process_devices_ws_message(protect_client, add_payload)
+    assert mt is ModelType.FOB
+    assert new is not None and new.id == FOB_ID
+    assert FOB_ID in pb.fobs
+
+    update_payload: dict[str, Any] = {
+        "type": "update",
+        "item": {"id": FOB_ID, "modelKey": "fob", "awayState": "DEVICE_LOST"},
+    }
+    mt, new, old = pb.process_devices_ws_message(protect_client, update_payload)
+    assert new is not None and new.away_state == "DEVICE_LOST"  # type: ignore[attr-defined]
+    assert new.name == "Fob"  # type: ignore[attr-defined]

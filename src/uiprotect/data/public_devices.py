@@ -89,12 +89,14 @@ class PublicSensorAlarmSettings(TypedDict, total=False):
 
 
 class PublicSignalState(ProtectBaseObject):
-    signal_quality: int
-    signal_strength: int
+    # Nullable on the wire for fobs (no recent heartbeat → no signal reading).
+    signal_quality: int | None = None
+    signal_strength: int | None = None
 
 
 class PublicWirelessBatteryStatus(ProtectBaseObject):
-    percentage: int
+    # ``percentage`` is nullable on the wire for fobs that have not reported.
+    percentage: int | None = None
     is_low: bool
 
 
@@ -288,6 +290,94 @@ class Relay(ProtectModelWithId):
 
     async def set_status_light(self, enabled: bool) -> Relay:
         return await self._api.update_relay_public(self.id, led_is_enabled=enabled)
+
+
+# ---------------------------------------------------------------------------
+# Speaker
+# ---------------------------------------------------------------------------
+
+
+class PublicSpeakerState(ProtectBaseObject):
+    # ``status`` / ``mode`` are typed as ``str`` (not enums) so unknown server
+    # values from future firmware don't raise — matching ``state`` elsewhere.
+    status: str
+    mode: str
+
+
+class PublicSpeakerFeatureFlags(ProtectBaseObject):
+    has_mic: bool
+
+
+class Speaker(ProtectModelWithId):
+    """Public API speaker device."""
+
+    model: ModelType | None = ModelType.SPEAKER
+    state: str
+    name: str
+    mac: str
+    volume: int
+    mic_volume: int
+    is_mic_enabled: bool
+    speaker_state: PublicSpeakerState
+    feature_flags: PublicSpeakerFeatureFlags
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        # See :meth:`Siren._api_update` — consumers must use the dedicated
+        # public API helpers.
+        raise BadRequest(
+            "Speaker mutations must go through the dedicated public API helpers "
+            "(e.g. test_sound/set_name/set_volume/set_mic_volume/set_mic_enabled)."
+        )
+
+    async def test_sound(self, volume: int | None = None) -> None:
+        """Play the speaker test sound at the given volume."""
+        await self._api.test_speaker_sound_public(self.id, volume=volume)
+
+    async def set_name(self, name: str) -> Speaker:
+        return await self._api.update_speaker_public(self.id, name=name)
+
+    async def set_volume(self, volume: int) -> Speaker:
+        return await self._api.update_speaker_public(self.id, volume=volume)
+
+    async def set_mic_volume(self, mic_volume: int) -> Speaker:
+        return await self._api.update_speaker_public(self.id, mic_volume=mic_volume)
+
+    async def set_mic_enabled(self, enabled: bool) -> Speaker:
+        return await self._api.update_speaker_public(self.id, is_mic_enabled=enabled)
+
+
+# ---------------------------------------------------------------------------
+# Fob (wireless key fob)
+# ---------------------------------------------------------------------------
+
+
+class PublicFobFeatureFlags(ProtectBaseObject):
+    # ``buttons`` is the list of physical buttons the fob exposes; typed as
+    # ``list[str]`` so unknown future button kinds don't raise.
+    buttons: list[str]
+
+
+class Fob(ProtectModelWithId):
+    """Public API key-fob device."""
+
+    model: ModelType | None = ModelType.FOB
+    state: str
+    name: str
+    mac: str
+    away_state: str
+    feature_flags: PublicFobFeatureFlags
+    wireless_connection_state: PublicWirelessConnectionState | None = None
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        # See :meth:`Siren._api_update` — consumers must use the dedicated
+        # public API helpers.
+        raise BadRequest(
+            "Fob mutations must go through the dedicated public API helpers "
+            "(e.g. set_name)."
+        )
+
+    async def set_name(self, name: str) -> Fob:
+        return await self._api.update_fob_public(self.id, name=name)
 
 
 # ---------------------------------------------------------------------------

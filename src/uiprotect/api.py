@@ -47,6 +47,7 @@ from .data import (
     Event,
     EventCategories,
     EventType,
+    Fob,
     Light,
     Liveview,
     ModelType,
@@ -70,6 +71,7 @@ from .data import (
     SmartDetectAudioType,
     SmartDetectObjectType,
     SmartDetectTrack,
+    Speaker,
     Version,
     VideoMode,
     Viewer,
@@ -3475,6 +3477,89 @@ class ProtectApiClient(BaseApiClient):
         )
 
     # ------------------------------------------------------------------
+    # Public API: Speakers
+    # ------------------------------------------------------------------
+
+    async def get_speakers_public(self) -> list[Speaker]:
+        """Get all speakers using public API."""
+        data = await self.api_request_list(url="/v1/speakers", public_api=True)
+        return [Speaker.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_speaker_public(self, speaker_id: str) -> Speaker:
+        """Get a specific speaker using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/speakers/{speaker_id}", public_api=True
+        )
+        return Speaker.from_unifi_dict(**data, api=self)
+
+    async def update_speaker_public(
+        self,
+        speaker_id: str,
+        *,
+        name: str | None = None,
+        volume: int | None = None,
+        mic_volume: int | None = None,
+        is_mic_enabled: bool | None = None,
+    ) -> Speaker:
+        """Patch speaker settings using public API."""
+        body = self._filter_none(
+            (
+                ("name", name),
+                ("volume", volume),
+                ("micVolume", mic_volume),
+                ("isMicEnabled", is_mic_enabled),
+            )
+        )
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+
+        result = await self.api_request_obj(
+            url=f"/v1/speakers/{speaker_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        return Speaker.from_unifi_dict(**result, api=self)
+
+    async def test_speaker_sound_public(
+        self, speaker_id: str, *, volume: int | None = None
+    ) -> None:
+        """Play the speaker test sound at the given volume."""
+        body: dict[str, Any] = {}
+        if volume is not None:
+            body["volume"] = volume
+        await self.api_request_raw(
+            url=f"/v1/speakers/{speaker_id}/test-sound",
+            method="post",
+            public_api=True,
+            json=body,
+        )
+
+    # ------------------------------------------------------------------
+    # Public API: Fobs
+    # ------------------------------------------------------------------
+
+    async def get_fobs_public(self) -> list[Fob]:
+        """Get all key fobs using public API."""
+        data = await self.api_request_list(url="/v1/fobs", public_api=True)
+        return [Fob.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_fob_public(self, fob_id: str) -> Fob:
+        """Get a specific key fob using public API."""
+        data = await self.api_request_obj(url=f"/v1/fobs/{fob_id}", public_api=True)
+        return Fob.from_unifi_dict(**data, api=self)
+
+    async def update_fob_public(self, fob_id: str, *, name: str) -> Fob:
+        """Patch key-fob settings using public API."""
+        result = await self.api_request_obj(
+            url=f"/v1/fobs/{fob_id}",
+            method="patch",
+            json={"name": name},
+            public_api=True,
+        )
+        return Fob.from_unifi_dict(**result, api=self)
+
+    # ------------------------------------------------------------------
     # Public API: Alarm manager webhook
     # ------------------------------------------------------------------
 
@@ -3672,6 +3757,8 @@ class ProtectApiClient(BaseApiClient):
             (self.get_sensors_public(), "sensors", "sensors"),
             (self.get_sirens_public(), "sirens", "sirens"),
             (self.get_relays_public(), "relays", "relays"),
+            (self.get_speakers_public(), "speakers", "speakers"),
+            (self.get_fobs_public(), "fobs", "fobs"),
             (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles"),
         ]
 
