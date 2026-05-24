@@ -41,6 +41,7 @@ from .public_devices import (
     Fob,
     NvrArmMode,
     PublicBridge,
+    PublicLinkStation,
     PublicLiveview,
     PublicNVR,
     PublicViewer,
@@ -74,6 +75,7 @@ _DEVICE_STORES: dict[ModelType, str] = {
     ModelType.RELAY: "relays",
     ModelType.SPEAKER: "speakers",
     ModelType.FOB: "fobs",
+    ModelType.LINKSTATION: "link_stations",
 }
 
 
@@ -108,6 +110,9 @@ class PublicBootstrap:
     relays: dict[str, Relay] = field(default_factory=dict)
     speakers: dict[str, Speaker] = field(default_factory=dict)
     fobs: dict[str, Fob] = field(default_factory=dict)
+    # Both /v1/link-stations and /v1/alarm-hubs return ``linkstation`` objects
+    # (alarm hubs are the ``is_alarm_hub`` subset); cached together here.
+    link_stations: dict[str, PublicLinkStation] = field(default_factory=dict)
     # Populated by ``update_public`` only. These model keys are also served by
     # the private bootstrap, so they are intentionally absent from
     # ``_DEVICE_STORES`` (the shared ``MODEL_TO_CLASS`` would route websocket

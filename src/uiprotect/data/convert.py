@@ -18,7 +18,7 @@ from .devices import (
     Viewer,
 )
 from .nvr import NVR, Event, Liveview
-from .public_devices import Fob, Relay, Siren, Speaker
+from .public_devices import Fob, PublicLinkStation, Relay, Siren, Speaker
 from .types import ModelType
 from .user import CloudAccount, Group, Keyring, UlpUser, User, UserLocation
 
@@ -51,6 +51,7 @@ MODEL_TO_CLASS: dict[str, type[ProtectModel]] = {
     ModelType.RELAY: Relay,
     ModelType.SPEAKER: Speaker,
     ModelType.FOB: Fob,
+    ModelType.LINKSTATION: PublicLinkStation,
 }
 
 

@@ -20,6 +20,7 @@ from uiprotect.data import (
     PublicBootstrap,
     PublicBridge,
     PublicFile,
+    PublicLinkStation,
     PublicLiveview,
     PublicNVR,
     PublicViewer,
@@ -45,6 +46,7 @@ FOB_ID = "66d025b301ebc903e80003ee"
 BRIDGE_ID = "66d025b301ebc903e80003ef"
 VIEWER_ID = "66d025b301ebc903e80003f0"
 LIVEVIEW_ID = "66d025b301ebc903e80003f1"
+LINK_STATION_ID = "66d025b301ebc903e80003f2"
 PROFILE_ID = "6878d82800155803e45928e0"
 NVR_ID = "66d025b301ebc903e80003ec"
 
@@ -103,6 +105,7 @@ def _mock_update_public_endpoints(client: ProtectApiClient, **overrides: Any) ->
         "get_bridges_public": AsyncMock(return_value=[]),
         "get_viewers_public": AsyncMock(return_value=[]),
         "get_liveviews_public": AsyncMock(return_value=[]),
+        "get_link_stations_public": AsyncMock(return_value=[]),
         "get_arm_profiles_public": AsyncMock(return_value=[]),
     }
     defaults.update(overrides)
@@ -2907,3 +2910,166 @@ def test_public_file_model_optional_original_name() -> None:
         path="/files/animations/x.gif",
     )
     assert file.original_name is None
+
+
+# ---------------------------------------------------------------------------
+# Link stations / Alarm hubs
+# ---------------------------------------------------------------------------
+
+_ALARM_HUB_BLOB = {
+    "armed": "off",
+    "battery": {
+        "charging": "off",
+        "connection": "connected",
+        "voltage": 12.1,
+        "batteryStatus": "ok",
+    },
+    "connector": {"emergency": {"+": "connected", "-": "disconnected"}},
+}
+
+
+def _link_station_item(link_station_id: str = LINK_STATION_ID) -> dict[str, Any]:
+    return {
+        "id": link_station_id,
+        "modelKey": "linkstation",
+        "state": "CONNECTED",
+        "name": "Hub",
+        "mac": "EE",
+        "isAlarmHub": True,
+        "ledSettings": {"isEnabled": True},
+        "lastEvent": None,
+        "alarmHub": _ALARM_HUB_BLOB,
+    }
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicLinkStation.from_unifi_dict")
+async def test_get_link_stations_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.side_effect = [Mock(id=LINK_STATION_ID)]
+    protect_client.api_request_list = AsyncMock(return_value=[{"id": LINK_STATION_ID}])
+    await protect_client.get_link_stations_public()
+    protect_client.api_request_list.assert_called_with(
+        url="/v1/link-stations", public_api=True
+    )
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicLinkStation.from_unifi_dict")
+async def test_get_alarm_hubs_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.side_effect = [Mock(id=LINK_STATION_ID)]
+    protect_client.api_request_list = AsyncMock(return_value=[{"id": LINK_STATION_ID}])
+    await protect_client.get_alarm_hubs_public()
+    protect_client.api_request_list.assert_called_with(
+        url="/v1/alarm-hubs", public_api=True
+    )
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicLinkStation.from_unifi_dict")
+async def test_update_link_station_public_body(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=LINK_STATION_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": LINK_STATION_ID})
+    await protect_client.update_link_station_public(LINK_STATION_ID, name="garage")
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["method"] == "patch"
+    assert kwargs["url"] == f"/v1/link-stations/{LINK_STATION_ID}"
+    assert kwargs["json"] == {"name": "garage"}
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicLinkStation.from_unifi_dict")
+async def test_update_alarm_hub_public_body(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=LINK_STATION_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": LINK_STATION_ID})
+    await protect_client.update_alarm_hub_public(LINK_STATION_ID, name="garage")
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["url"] == f"/v1/alarm-hubs/{LINK_STATION_ID}"
+    assert kwargs["json"] == {"name": "garage"}
+
+
+@pytest.mark.asyncio()
+async def test_trigger_alarm_hub_output_public(
+    protect_client: ProtectApiClient,
+) -> None:
+    protect_client.api_request_raw = AsyncMock(return_value=None)
+    await protect_client.trigger_alarm_hub_output_public(
+        LINK_STATION_ID, "1", enable=True, delay=0, duration=5000
+    )
+    _, kwargs = protect_client.api_request_raw.call_args
+    assert kwargs["method"] == "post"
+    assert kwargs["url"] == f"/v1/alarm-hubs/{LINK_STATION_ID}/outputs/1/trigger"
+    assert kwargs["json"] == {"enable": True, "delay": 0, "duration": 5000}
+
+
+@pytest.mark.asyncio()
+async def test_trigger_alarm_hub_output_public_empty_body(
+    protect_client: ProtectApiClient,
+) -> None:
+    protect_client.api_request_raw = AsyncMock(return_value=None)
+    await protect_client.trigger_alarm_hub_output_public(LINK_STATION_ID, "1")
+    _, kwargs = protect_client.api_request_raw.call_args
+    assert kwargs["json"] is None
+
+
+def test_public_link_station_model_from_unifi_dict() -> None:
+    ls = PublicLinkStation.from_unifi_dict(**_link_station_item())
+    assert ls.id == LINK_STATION_ID
+    assert ls.model is ModelType.LINKSTATION
+    assert ls.is_alarm_hub is True
+    assert ls.led_settings.is_enabled is True
+    assert ls.last_event is None
+    # The deeply-nested alarmHub status is preserved verbatim, including the
+    # ``+`` / ``-`` connector keys that are not valid Python identifiers.
+    assert ls.alarm_hub == _ALARM_HUB_BLOB
+    assert ls.alarm_hub["connector"]["emergency"]["+"] == "connected"
+
+
+def test_public_link_station_model_without_alarm_hub() -> None:
+    item = _link_station_item()
+    item["isAlarmHub"] = False
+    item["lastEvent"] = 1700000000000
+    del item["alarmHub"]
+    ls = PublicLinkStation.from_unifi_dict(**item)
+    assert ls.is_alarm_hub is False
+    assert ls.last_event == 1700000000000
+    assert ls.alarm_hub is None
+
+
+@pytest.mark.asyncio()
+async def test_link_station_api_update_rejects_generic_mutations(
+    protect_client: ProtectApiClient,
+) -> None:
+    ls = PublicLinkStation.from_unifi_dict(api=protect_client, **_link_station_item())
+    with pytest.raises(BadRequest, match="Link station mutations"):
+        await ls._api_update({"name": "new"})
+
+
+def test_public_bootstrap_applies_link_station_add_and_update(
+    protect_client: ProtectApiClient,
+) -> None:
+    pb = PublicBootstrap()
+    add_payload = {"type": "add", "item": _link_station_item()}
+    mt, new, _old = pb.process_devices_ws_message(protect_client, add_payload)
+    assert mt is ModelType.LINKSTATION
+    assert new is not None and new.id == LINK_STATION_ID
+    assert LINK_STATION_ID in pb.link_stations
+
+    update_payload: dict[str, Any] = {
+        "type": "update",
+        "item": {"id": LINK_STATION_ID, "modelKey": "linkstation", "name": "Renamed"},
+    }
+    _mt, new, _old = pb.process_devices_ws_message(protect_client, update_payload)
+    assert new is not None and new.name == "Renamed"  # type: ignore[attr-defined]
+    assert new.is_alarm_hub is True  # type: ignore[attr-defined]

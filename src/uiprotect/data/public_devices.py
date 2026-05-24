@@ -489,6 +489,58 @@ class PublicLiveview(ProtectModelWithId):
 
 
 # ---------------------------------------------------------------------------
+# Link station / Alarm hub
+# ---------------------------------------------------------------------------
+
+
+class PublicLinkStation(ProtectModelWithId):
+    """
+    Public API link station / alarm hub device.
+
+    Served by both ``/v1/link-stations`` and ``/v1/alarm-hubs`` (alarm hubs
+    are the subset with ``is_alarm_hub`` true). The deeply-nested ``alarmHub``
+    status blob is kept as a raw mapping — it contains free-form objects and
+    keys that are not valid Python identifiers (``+`` / ``-`` on the emergency
+    connector), so it is not modelled field-by-field.
+    """
+
+    model: ModelType | None = ModelType.LINKSTATION
+    state: str
+    name: str
+    mac: str
+    is_alarm_hub: bool
+    led_settings: PublicLedSettings
+    last_event: int | None = None
+    alarm_hub: dict[str, Any] | None = None
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        raise BadRequest(
+            "Link station mutations must go through the dedicated public API "
+            "helpers (e.g. set_name/trigger_output)."
+        )
+
+    async def set_name(self, name: str) -> PublicLinkStation:
+        return await self._api.update_link_station_public(self.id, name=name)
+
+    async def trigger_output(
+        self,
+        output_id: str,
+        *,
+        enable: bool | None = None,
+        delay: int | None = None,
+        duration: int | None = None,
+    ) -> None:
+        """Trigger an alarm-hub output channel."""
+        await self._api.trigger_alarm_hub_output_public(
+            self.id,
+            output_id,
+            enable=enable,
+            delay=delay,
+            duration=duration,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Files (device asset uploads — NOT a device, has no ``modelKey``)
 # ---------------------------------------------------------------------------
 

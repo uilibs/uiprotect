@@ -61,6 +61,7 @@ from .data import (
     PublicBridge,
     PublicFile,
     PublicHdrMode,
+    PublicLinkStation,
     PublicLiveview,
     PublicNVR,
     PublicSensorAlarmSettings,
@@ -3749,6 +3750,78 @@ class ProtectApiClient(BaseApiClient):
         return [PublicFile.from_unifi_dict(**item) for item in data]
 
     # ------------------------------------------------------------------
+    # Public API: Link stations / Alarm hubs
+    # ------------------------------------------------------------------
+
+    async def get_link_stations_public(self) -> list[PublicLinkStation]:
+        """Get all link stations using public API."""
+        data = await self.api_request_list(url="/v1/link-stations", public_api=True)
+        return [PublicLinkStation.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_link_station_public(self, link_station_id: str) -> PublicLinkStation:
+        """Get a specific link station using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/link-stations/{link_station_id}", public_api=True
+        )
+        return PublicLinkStation.from_unifi_dict(**data, api=self)
+
+    async def update_link_station_public(
+        self, link_station_id: str, *, name: str
+    ) -> PublicLinkStation:
+        """Patch link-station settings using public API."""
+        result = await self.api_request_obj(
+            url=f"/v1/link-stations/{link_station_id}",
+            method="patch",
+            json={"name": name},
+            public_api=True,
+        )
+        return PublicLinkStation.from_unifi_dict(**result, api=self)
+
+    async def get_alarm_hubs_public(self) -> list[PublicLinkStation]:
+        """Get all alarm hubs (the ``is_alarm_hub`` link stations) using public API."""
+        data = await self.api_request_list(url="/v1/alarm-hubs", public_api=True)
+        return [PublicLinkStation.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_alarm_hub_public(self, alarm_hub_id: str) -> PublicLinkStation:
+        """Get a specific alarm hub using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/alarm-hubs/{alarm_hub_id}", public_api=True
+        )
+        return PublicLinkStation.from_unifi_dict(**data, api=self)
+
+    async def update_alarm_hub_public(
+        self, alarm_hub_id: str, *, name: str
+    ) -> PublicLinkStation:
+        """Patch alarm-hub settings using public API."""
+        result = await self.api_request_obj(
+            url=f"/v1/alarm-hubs/{alarm_hub_id}",
+            method="patch",
+            json={"name": name},
+            public_api=True,
+        )
+        return PublicLinkStation.from_unifi_dict(**result, api=self)
+
+    async def trigger_alarm_hub_output_public(
+        self,
+        alarm_hub_id: str,
+        output_id: str,
+        *,
+        enable: bool | None = None,
+        delay: int | None = None,
+        duration: int | None = None,
+    ) -> None:
+        """Trigger an alarm-hub output channel using public API."""
+        body = self._filter_none(
+            (("enable", enable), ("delay", delay), ("duration", duration))
+        )
+        await self.api_request_raw(
+            url=f"/v1/alarm-hubs/{alarm_hub_id}/outputs/{output_id}/trigger",
+            method="post",
+            public_api=True,
+            json=body or None,
+        )
+
+    # ------------------------------------------------------------------
     # Public API: Alarm manager webhook
     # ------------------------------------------------------------------
 
@@ -3951,6 +4024,7 @@ class ProtectApiClient(BaseApiClient):
             (self.get_bridges_public(), "bridges", "bridges"),
             (self.get_viewers_public(), "viewers", "viewers"),
             (self.get_liveviews_public(), "liveviews", "liveviews"),
+            (self.get_link_stations_public(), "link-stations", "link_stations"),
             (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles"),
         ]
 
