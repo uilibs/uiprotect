@@ -260,6 +260,20 @@ search `homeassistant/components/unifiprotect/` in the
 `home-assistant/core` GitHub repository. If the symbol does not
 appear there, it is safe to remove.
 
+## Public Integration API spec
+
+The OpenAPI spec is not committed (Ubiquiti's IP). Fetch it on demand — no
+auth or console access needed:
+
+```bash
+python scripts/fetch_openapi.py                    # latest release
+python scripts/fetch_openapi.py --version 7.0.104  # pin to a version
+```
+
+Output: `openapi/integration.json` (gitignored) — request/response shapes,
+required fields, enums, and allowed HTTP methods for every `/integration/v1/…`
+endpoint. If the file is absent, run the script first.
+
 ## Reporting security issues
 
 Suspected security vulnerabilities go through GitHub's [private
