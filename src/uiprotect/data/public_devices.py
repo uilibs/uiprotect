@@ -489,6 +489,22 @@ class PublicLiveview(ProtectModelWithId):
 
 
 # ---------------------------------------------------------------------------
+# Files (device asset uploads — NOT a device, has no ``modelKey``)
+# ---------------------------------------------------------------------------
+
+
+class PublicFile(ProtectBaseObject):
+    """A device asset file entry returned by ``GET /v1/files/{fileType}``."""
+
+    name: str
+    # ``animations`` is the only documented asset file type; typed as ``str``
+    # for forward compatibility.
+    type: str
+    path: str
+    original_name: str | None = None
+
+
+# ---------------------------------------------------------------------------
 # Arm profile (NOT a device — has no ``modelKey``)
 # ---------------------------------------------------------------------------
 

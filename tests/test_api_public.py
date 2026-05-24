@@ -19,6 +19,7 @@ from uiprotect.data import (
     NvrArmModeStatus,
     PublicBootstrap,
     PublicBridge,
+    PublicFile,
     PublicLiveview,
     PublicNVR,
     PublicViewer,
@@ -2827,3 +2828,82 @@ async def test_update_public_populates_get_only_stores(
     assert BRIDGE_ID in pb.bridges
     assert VIEWER_ID in pb.viewers
     assert LIVEVIEW_ID in pb.liveviews
+
+
+# ---------------------------------------------------------------------------
+# Camera: permanently disable mic
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Camera.from_unifi_dict")
+async def test_disable_camera_mic_permanently_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id="cam-1")
+    protect_client.api_request_obj = AsyncMock(return_value={"id": "cam-1"})
+    await protect_client.disable_camera_mic_permanently_public("cam-1")
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["method"] == "post"
+    assert kwargs["url"] == "/v1/cameras/cam-1/disable-mic-permanently"
+    assert kwargs["public_api"] is True
+
+
+# ---------------------------------------------------------------------------
+# Files
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicFile.from_unifi_dict")
+async def test_get_files_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.side_effect = [Mock(name="a.gif")]
+    protect_client.api_request_list = AsyncMock(
+        return_value=[
+            {"name": "a.gif", "type": "animations", "path": "/p/a.gif"},
+        ]
+    )
+    await protect_client.get_files_public()
+    protect_client.api_request_list.assert_called_with(
+        url="/v1/files/animations", public_api=True
+    )
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicFile.from_unifi_dict")
+async def test_get_files_public_custom_type(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.side_effect = []
+    protect_client.api_request_list = AsyncMock(return_value=[])
+    await protect_client.get_files_public("animations")
+    protect_client.api_request_list.assert_called_with(
+        url="/v1/files/animations", public_api=True
+    )
+
+
+def test_public_file_model_from_unifi_dict() -> None:
+    file = PublicFile.from_unifi_dict(
+        name="welcome.gif",
+        type="animations",
+        path="/files/animations/welcome.gif",
+        originalName="welcome.gif",
+    )
+    assert file.name == "welcome.gif"
+    assert file.type == "animations"
+    assert file.path == "/files/animations/welcome.gif"
+    assert file.original_name == "welcome.gif"
+
+
+def test_public_file_model_optional_original_name() -> None:
+    file = PublicFile.from_unifi_dict(
+        name="x.gif",
+        type="animations",
+        path="/files/animations/x.gif",
+    )
+    assert file.original_name is None

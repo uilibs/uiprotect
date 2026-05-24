@@ -59,6 +59,7 @@ from .data import (
     PublicArmScheduleDict,
     PublicBootstrap,
     PublicBridge,
+    PublicFile,
     PublicHdrMode,
     PublicLiveview,
     PublicNVR,
@@ -3138,6 +3139,20 @@ class ProtectApiClient(BaseApiClient):
         )
         return Camera.from_unifi_dict(**result, api=self)
 
+    async def disable_camera_mic_permanently_public(self, camera_id: str) -> Camera:
+        """
+        Permanently disable a camera's microphone using public API.
+
+        This is irreversible on the device — the mic cannot be re-enabled
+        through the API afterwards. Returns the updated camera.
+        """
+        result = await self.api_request_obj(
+            url=f"/v1/cameras/{camera_id}/disable-mic-permanently",
+            method="post",
+            public_api=True,
+        )
+        return Camera.from_unifi_dict(**result, api=self)
+
     async def get_chimes_public(self) -> list[Chime]:
         """Get all chimes using public API."""
         data = await self.api_request_list(url="/v1/chimes", public_api=True)
@@ -3721,6 +3736,17 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
         )
         return PublicLiveview.from_unifi_dict(**data, api=self)
+
+    # ------------------------------------------------------------------
+    # Public API: Files (device asset uploads)
+    # ------------------------------------------------------------------
+
+    async def get_files_public(self, file_type: str = "animations") -> list[PublicFile]:
+        """List uploaded device asset files of the given type (e.g. ``animations``)."""
+        data = await self.api_request_list(
+            url=f"/v1/files/{file_type}", public_api=True
+        )
+        return [PublicFile.from_unifi_dict(**item) for item in data]
 
     # ------------------------------------------------------------------
     # Public API: Alarm manager webhook
