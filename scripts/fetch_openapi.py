@@ -9,15 +9,39 @@ from __future__ import annotations
 
 import argparse
 import io
-import json
 import sys
 import tarfile
 import urllib.request
 from pathlib import Path
 
+import orjson
+
 FIRMWARE_API = "https://fw-update.ubnt.com/api/v2/firmware-latest"
 SPEC_MEMBER = "./usr/share/unifi-protect/app/fixtures/integration/openapi.json"
 DEFAULT_OUTPUT = Path(__file__).resolve().parent.parent / "openapi" / "integration.json"
+
+
+def fetch_spec(version: str | None = None, output: Path = DEFAULT_OUTPUT) -> None:
+    """Download the unifi-protect deb and extract the integration OpenAPI spec."""
+    url, ver = _get_download_url(version)
+    print(f"unifi-protect {ver}", file=sys.stderr)
+    print(f"Downloading (~74 MB): {url}", file=sys.stderr)
+
+    with urllib.request.urlopen(url, timeout=60) as resp:  # noqa: S310
+        deb_bytes = resp.read()
+
+    print("Extracting spec …", file=sys.stderr)
+    spec_bytes = _extract_from_deb(deb_bytes)
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(spec_bytes)
+    spec = orjson.loads(spec_bytes)
+    print(
+        f"Written {output}  "
+        f"(version {spec['info']['version']}, "
+        f"{len(spec['paths'])} paths)",
+        file=sys.stderr,
+    )
 
 
 def _get_download_url(version: str | None) -> tuple[str, str]:
@@ -27,7 +51,10 @@ def _get_download_url(version: str | None) -> tuple[str, str]:
         "filter=eq~~platform~~uos-deb11-arm64",
     ]
     if version:
-        major, minor, patch = version.split(".")
+        parts = version.split(".")
+        if len(parts) != 3:
+            raise ValueError(f"version must be MAJOR.MINOR.PATCH, got {version!r}")
+        major, minor, patch = parts
         params += [
             f"filter=eq~~version_major~~{major}",
             f"filter=eq~~version_minor~~{minor}",
@@ -37,8 +64,8 @@ def _get_download_url(version: str | None) -> tuple[str, str]:
         params.append("filter=eq~~channel~~release")
 
     url = f"{FIRMWARE_API}?{'&'.join(params)}"
-    with urllib.request.urlopen(url) as resp:  # noqa: S310
-        data = json.loads(resp.read())
+    with urllib.request.urlopen(url, timeout=60) as resp:  # noqa: S310
+        data = orjson.loads(resp.read())
 
     entries = data["_embedded"]["firmware"]
     if not entries:
@@ -64,33 +91,11 @@ def _extract_from_deb(deb_bytes: bytes) -> bytes:
         if name.startswith("data.tar"):
             with tarfile.open(fileobj=io.BytesIO(member_data)) as tf:
                 f = tf.extractfile(tf.getmember(SPEC_MEMBER))
-                assert f is not None
+                if f is None:
+                    raise RuntimeError(f"{SPEC_MEMBER!r} is not a regular file in deb")
                 return f.read()
 
     raise FileNotFoundError(f"{SPEC_MEMBER!r} not found in deb")
-
-
-def fetch_spec(version: str | None = None, output: Path = DEFAULT_OUTPUT) -> None:
-    """Download the unifi-protect deb and extract the integration OpenAPI spec."""
-    url, ver = _get_download_url(version)
-    print(f"unifi-protect {ver}", file=sys.stderr)
-    print(f"Downloading (~74 MB): {url}", file=sys.stderr)
-
-    with urllib.request.urlopen(url) as resp:  # noqa: S310
-        deb_bytes = resp.read()
-
-    print("Extracting spec …", file=sys.stderr)
-    spec_bytes = _extract_from_deb(deb_bytes)
-
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_bytes(spec_bytes)
-    spec = json.loads(spec_bytes)
-    print(
-        f"Written {output}  "
-        f"(version {spec['info']['version']}, "
-        f"{len(spec['paths'])} paths)",
-        file=sys.stderr,
-    )
 
 
 if __name__ == "__main__":
