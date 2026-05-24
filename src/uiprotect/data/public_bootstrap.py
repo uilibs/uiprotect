@@ -40,7 +40,10 @@ from .public_devices import (
     ArmProfile,
     Fob,
     NvrArmMode,
+    PublicBridge,
+    PublicLiveview,
     PublicNVR,
+    PublicViewer,
     Relay,
     Siren,
     Speaker,
@@ -105,6 +108,13 @@ class PublicBootstrap:
     relays: dict[str, Relay] = field(default_factory=dict)
     speakers: dict[str, Speaker] = field(default_factory=dict)
     fobs: dict[str, Fob] = field(default_factory=dict)
+    # Populated by ``update_public`` only. These model keys are also served by
+    # the private bootstrap, so they are intentionally absent from
+    # ``_DEVICE_STORES`` (the shared ``MODEL_TO_CLASS`` would route websocket
+    # diffs to the private models) — there is no live WS merge for them.
+    bridges: dict[str, PublicBridge] = field(default_factory=dict)
+    viewers: dict[str, PublicViewer] = field(default_factory=dict)
+    liveviews: dict[str, PublicLiveview] = field(default_factory=dict)
 
     # Events received via the events websocket (:meth:`process_events_ws_message`).
     # Bounded by :attr:`max_event_cache_size`; oldest events are evicted first.

@@ -58,13 +58,16 @@ from .data import (
     ProtectModel,
     PublicArmScheduleDict,
     PublicBootstrap,
+    PublicBridge,
     PublicHdrMode,
+    PublicLiveview,
     PublicNVR,
     PublicSensorAlarmSettings,
     PublicSensorHumiditySettings,
     PublicSensorLightSettings,
     PublicSensorMotionSettings,
     PublicSensorTemperatureSettings,
+    PublicViewer,
     Relay,
     Sensor,
     Siren,
@@ -147,6 +150,14 @@ class PublicApiChimePatchRequest(TypedDict, total=False):
     name: str
     cameraIds: list[str]
     ringSettings: list[PublicApiChimeRingSettingRequest]
+
+
+class PublicApiLiveviewSlotRequest(TypedDict, total=False):
+    """Type for slots items in POST/PATCH /v1/liveviews request body (Public API)."""
+
+    cameras: list[str]
+    cycleMode: str
+    cycleInterval: int
 
 
 class CameraPublicApiLcdMessageRequest(TypedDict, total=False):
@@ -3560,6 +3571,158 @@ class ProtectApiClient(BaseApiClient):
         return Fob.from_unifi_dict(**result, api=self)
 
     # ------------------------------------------------------------------
+    # Public API: Bridges
+    # ------------------------------------------------------------------
+
+    async def get_bridges_public(self) -> list[PublicBridge]:
+        """Get all bridges using public API."""
+        data = await self.api_request_list(url="/v1/bridges", public_api=True)
+        return [PublicBridge.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_bridge_public(self, bridge_id: str) -> PublicBridge:
+        """Get a specific bridge using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/bridges/{bridge_id}", public_api=True
+        )
+        return PublicBridge.from_unifi_dict(**data, api=self)
+
+    async def update_bridge_public(self, bridge_id: str, *, name: str) -> PublicBridge:
+        """Patch bridge settings using public API."""
+        result = await self.api_request_obj(
+            url=f"/v1/bridges/{bridge_id}",
+            method="patch",
+            json={"name": name},
+            public_api=True,
+        )
+        return PublicBridge.from_unifi_dict(**result, api=self)
+
+    # ------------------------------------------------------------------
+    # Public API: Viewers
+    # ------------------------------------------------------------------
+
+    async def get_viewers_public(self) -> list[PublicViewer]:
+        """Get all viewers using public API."""
+        data = await self.api_request_list(url="/v1/viewers", public_api=True)
+        return [PublicViewer.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_viewer_public(self, viewer_id: str) -> PublicViewer:
+        """Get a specific viewer using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/viewers/{viewer_id}", public_api=True
+        )
+        return PublicViewer.from_unifi_dict(**data, api=self)
+
+    async def update_viewer_public(
+        self,
+        viewer_id: str,
+        *,
+        name: str | None = None,
+        liveview: str | None = None,
+    ) -> PublicViewer:
+        """Patch viewer settings using public API."""
+        body = self._filter_none((("name", name), ("liveview", liveview)))
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        result = await self.api_request_obj(
+            url=f"/v1/viewers/{viewer_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        return PublicViewer.from_unifi_dict(**result, api=self)
+
+    # ------------------------------------------------------------------
+    # Public API: Liveviews
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_liveview_body(
+        *,
+        name: str | None = None,
+        layout: int | None = None,
+        slots: list[PublicApiLiveviewSlotRequest] | None = None,
+        is_default: bool | None = None,
+        is_global: bool | None = None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if layout is not None:
+            body["layout"] = layout
+        if slots is not None:
+            body["slots"] = [dict(s) for s in slots]
+        if is_default is not None:
+            body["isDefault"] = is_default
+        if is_global is not None:
+            body["isGlobal"] = is_global
+        return body
+
+    async def get_liveviews_public(self) -> list[PublicLiveview]:
+        """Get all liveviews using public API."""
+        data = await self.api_request_list(url="/v1/liveviews", public_api=True)
+        return [PublicLiveview.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_liveview_public(self, liveview_id: str) -> PublicLiveview:
+        """Get a specific liveview using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/liveviews/{liveview_id}", public_api=True
+        )
+        return PublicLiveview.from_unifi_dict(**data, api=self)
+
+    async def create_liveview_public(
+        self,
+        *,
+        name: str,
+        layout: int,
+        slots: list[PublicApiLiveviewSlotRequest],
+        is_default: bool | None = None,
+        is_global: bool | None = None,
+    ) -> PublicLiveview:
+        """Create a new liveview using public API."""
+        body = self._build_liveview_body(
+            name=name,
+            layout=layout,
+            slots=slots,
+            is_default=is_default,
+            is_global=is_global,
+        )
+        data = await self.api_request_obj(
+            url="/v1/liveviews",
+            method="post",
+            json=body,
+            public_api=True,
+        )
+        return PublicLiveview.from_unifi_dict(**data, api=self)
+
+    async def update_liveview_public(
+        self,
+        liveview_id: str,
+        *,
+        name: str | None = None,
+        layout: int | None = None,
+        slots: list[PublicApiLiveviewSlotRequest] | None = None,
+        is_default: bool | None = None,
+        is_global: bool | None = None,
+    ) -> PublicLiveview:
+        """Patch liveview settings using public API."""
+        body = self._build_liveview_body(
+            name=name,
+            layout=layout,
+            slots=slots,
+            is_default=is_default,
+            is_global=is_global,
+        )
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        data = await self.api_request_obj(
+            url=f"/v1/liveviews/{liveview_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        return PublicLiveview.from_unifi_dict(**data, api=self)
+
+    # ------------------------------------------------------------------
     # Public API: Alarm manager webhook
     # ------------------------------------------------------------------
 
@@ -3759,6 +3922,9 @@ class ProtectApiClient(BaseApiClient):
             (self.get_relays_public(), "relays", "relays"),
             (self.get_speakers_public(), "speakers", "speakers"),
             (self.get_fobs_public(), "fobs", "fobs"),
+            (self.get_bridges_public(), "bridges", "bridges"),
+            (self.get_viewers_public(), "viewers", "viewers"),
+            (self.get_liveviews_public(), "liveviews", "liveviews"),
             (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles"),
         ]
 

@@ -381,6 +381,114 @@ class Fob(ProtectModelWithId):
 
 
 # ---------------------------------------------------------------------------
+# Bridge
+# ---------------------------------------------------------------------------
+
+
+class PublicBridge(ProtectModelWithId):
+    """
+    Public API bridge device.
+
+    Distinct from the private :class:`~uiprotect.data.devices.Bridge` — the
+    public schema exposes ``clients`` / ``maxClients`` (absent from the
+    private model) and omits the adoption/firmware fields, so reusing the
+    private model would silently drop those fields.
+    """
+
+    model: ModelType | None = ModelType.BRIDGE
+    state: str
+    name: str
+    mac: str
+    platform: str | None = None
+    clients: list[str] = []
+    max_clients: int
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        raise BadRequest(
+            "Bridge mutations must go through the dedicated public API helpers "
+            "(e.g. set_name)."
+        )
+
+    async def set_name(self, name: str) -> PublicBridge:
+        return await self._api.update_bridge_public(self.id, name=name)
+
+
+# ---------------------------------------------------------------------------
+# Viewer
+# ---------------------------------------------------------------------------
+
+
+class PublicViewer(ProtectModelWithId):
+    """
+    Public API viewer (Viewport) device.
+
+    Distinct from the private :class:`~uiprotect.data.devices.Viewer` — the
+    public schema names the assigned liveview ``liveview`` (the private model
+    expects ``liveviewId``), so reusing the private model would drop the
+    assignment.
+    """
+
+    model: ModelType | None = ModelType.VIEWPORT
+    state: str
+    name: str
+    mac: str
+    # The id of the liveview currently shown; ``None`` when unset.
+    liveview: str | None = None
+    stream_limit: int
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        raise BadRequest(
+            "Viewer mutations must go through the dedicated public API helpers "
+            "(e.g. set_name/set_liveview)."
+        )
+
+    async def set_name(self, name: str) -> PublicViewer:
+        return await self._api.update_viewer_public(self.id, name=name)
+
+    async def set_liveview(self, liveview_id: str) -> PublicViewer:
+        return await self._api.update_viewer_public(self.id, liveview=liveview_id)
+
+
+# ---------------------------------------------------------------------------
+# Liveview
+# ---------------------------------------------------------------------------
+
+
+class PublicLiveviewSlot(ProtectBaseObject):
+    cameras: list[str]
+    # ``motion`` / ``time``; typed as ``str`` for forward compatibility.
+    cycle_mode: str
+    cycle_interval: int
+
+
+class PublicLiveview(ProtectModelWithId):
+    """
+    Public API liveview.
+
+    Distinct from the private :class:`~uiprotect.data.nvr.Liveview` — the
+    public schema names the owner ``owner`` (the private model expects
+    ``owner``→``owner_id``), so reusing the private model would drop it.
+    """
+
+    model: ModelType | None = ModelType.LIVEVIEW
+    name: str
+    is_default: bool
+    is_global: bool
+    owner: str
+    layout: int
+    slots: list[PublicLiveviewSlot]
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        raise BadRequest(
+            "Liveview mutations must go through the dedicated public API helpers "
+            "(e.g. set_name)."
+        )
+
+    async def set_name(self, name: str) -> PublicLiveview:
+        return await self._api.update_liveview_public(self.id, name=name)
+
+
+# ---------------------------------------------------------------------------
 # Arm profile (NOT a device — has no ``modelKey``)
 # ---------------------------------------------------------------------------
 
