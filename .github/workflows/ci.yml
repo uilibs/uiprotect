@@ -138,7 +138,11 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.head_ref || github.ref_name }}
-          # Fall back to GITHUB_TOKEN on dependabot PRs, where
+          # On fork PRs the head branch lives on the contributor's
+          # repository, not the base repo, so explicitly target the head
+          # repo (falls back to the base repo on push events).
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          # Fall back to GITHUB_TOKEN on dependabot / fork PRs, where
           # secrets.BOT_ACCESS_TOKEN is not exposed and would otherwise
           # leave actions/checkout's `token` input empty.
           token: ${{ secrets.BOT_ACCESS_TOKEN || github.token }}
