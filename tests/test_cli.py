@@ -6,6 +6,7 @@ from typer.testing import CliRunner
 
 from uiprotect.cli import _is_ssl_error, app
 from uiprotect.cli.arm import app as arm_app
+from uiprotect.cli.fobs import app as fob_app
 from uiprotect.cli.relays import app as relay_app
 from uiprotect.cli.sirens import app as siren_app
 
@@ -68,6 +69,7 @@ def test_root_help_shows_public_subcommands() -> None:
     assert result.exit_code == 0
     assert "sirens" in result.stdout
     assert "relays" in result.stdout
+    assert "fobs" in result.stdout
     assert "arm" in result.stdout
 
 
@@ -83,6 +85,14 @@ def test_relays_help() -> None:
     result = runner.invoke(relay_app, ["--help"])
     assert result.exit_code == 0
     assert "activate" in result.stdout
+
+
+def test_fobs_help() -> None:
+    """``fobs --help`` renders without error."""
+    result = runner.invoke(fob_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+    assert "set-name" in result.stdout
 
 
 def test_arm_help() -> None:
