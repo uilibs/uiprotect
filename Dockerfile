@@ -91,23 +91,22 @@ WORKDIR /workspaces/uiprotect/
 
 FROM python:3.13-slim-bookworm AS devcontainer
 
-RUN apt-get update && apt-get install -y \
-    curl \
-    git \
-    build-essential \
-    bash \
-    locales \
+ARG TARGETPLATFORM
+
+RUN --mount=type=cache,mode=0755,id=apt-$TARGETPLATFORM,target=/var/lib/apt/lists \
+    apt-get update -qq \
+    && apt-get install -yqq curl git build-essential bash locales \
     && sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen \
     && locale-gen en_US.UTF-8 \
-    && update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
-    && rm -rf /var/lib/apt/lists/*
+    && update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 
 SHELL ["/bin/bash", "-c"]
 
-RUN curl -sSL https://install.python-poetry.org | POETRY_VERSION=2.2.1 python3 -
+RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
+    curl -sSL https://install.python-poetry.org | POETRY_VERSION=2.2.1 python3 -
 
 ENV PATH="/root/.local/bin:${PATH}"
 
@@ -116,4 +115,5 @@ WORKDIR /workspace
 ENV POETRY_VIRTUALENVS_CREATE=false
 
 COPY pyproject.toml poetry.lock* ./
-RUN poetry install --no-root
+RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
+    poetry install --with dev --no-root
