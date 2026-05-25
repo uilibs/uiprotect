@@ -15,7 +15,10 @@ import pytest
 
 from uiprotect.data import (
     ArmProfile,
+    DeviceState,
     Fob,
+    FobAwayState,
+    FobButton,
     NvrArmModeStatus,
     PublicBootstrap,
     PublicNVR,
@@ -573,7 +576,7 @@ def test_relay_model_from_unifi_dict() -> None:
 
 
 def test_fob_model_from_unifi_dict_unreported() -> None:
-    """A freshly-paired fob reports null signal/battery; the model must accept it."""
+    """Freshly-paired fob (null signal/battery) parses; state/away/buttons coerce to enums."""
     fob = Fob.from_unifi_dict(
         id=FOB_ID,
         modelKey="fob",
@@ -590,25 +593,37 @@ def test_fob_model_from_unifi_dict_unreported() -> None:
     )
     assert fob.id == FOB_ID
     assert fob.model is ModelType.FOB
-    assert fob.away_state == "ONLINE"
-    assert fob.feature_flags.buttons == ["arm", "disarm", "panic"]
-    assert fob.wireless_connection_state is not None
+    assert fob.state is DeviceState.CONNECTED
+    assert fob.away_state is FobAwayState.ONLINE
+    assert fob.feature_flags.buttons == [
+        FobButton.ARM,
+        FobButton.DISARM,
+        FobButton.PANIC,
+    ]
     assert fob.wireless_connection_state.signal_state.signal_quality is None
     assert fob.wireless_connection_state.signal_state.signal_strength is None
     assert fob.wireless_connection_state.battery_status.percentage is None
     assert fob.wireless_connection_state.battery_status.is_low is False
 
-    # A fob with no wirelessConnectionState at all defaults to None.
-    fob_no_wireless = Fob.from_unifi_dict(
+    # Unknown server values (future firmware) coerce to the ``UNKNOWN`` member
+    # rather than raising.
+    fob_unknown = Fob.from_unifi_dict(
         id=FOB_ID,
         modelKey="fob",
-        state="CONNECTING",
+        state="REBOOTING",
         name="Bare Fob",
         mac="AA:BB:CC:DD:EE:FF",
-        awayState="DEVICE_LOST",
-        featureFlags={"buttons": []},
+        awayState="FORGOTTEN",
+        featureFlags={"buttons": ["teleport"]},
+        wirelessConnectionState={
+            "signalState": {"signalQuality": None, "signalStrength": None},
+            "batteryStatus": {"percentage": None, "isLow": False},
+            "bridge": None,
+        },
     )
-    assert fob_no_wireless.wireless_connection_state is None
+    assert fob_unknown.state is DeviceState.UNKNOWN
+    assert fob_unknown.away_state is FobAwayState.UNKNOWN
+    assert fob_unknown.feature_flags.buttons == [FobButton.UNKNOWN]
 
 
 def test_public_bootstrap_applies_fob_add_and_update(

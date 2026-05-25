@@ -20,6 +20,9 @@ from typing import TYPE_CHECKING, Any, Literal, TypedDict
 from ..exceptions import BadRequest
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import (
+    DeviceState,
+    FobAwayState,
+    FobButton,
     ModelType,
     NvrArmModeStatus,
     RelayInputState,
@@ -299,23 +302,25 @@ class Relay(ProtectModelWithId):
 
 
 class PublicFobFeatureFlags(ProtectBaseObject):
-    # ``buttons`` is typed as ``list[str]`` (not an enum) so unknown future
-    # button kinds from newer firmware don't raise.
-    buttons: list[str]
+    # ``FobButton`` carries an ``unknown`` member, so button kinds added by
+    # newer firmware coerce to ``FobButton.UNKNOWN`` instead of raising.
+    buttons: list[FobButton]
 
 
 class Fob(ProtectModelWithId):
     """Public API key fob device."""
 
     model: ModelType | None = ModelType.FOB
-    # ``state`` / ``away_state`` use documented enum value spaces but are typed
-    # as ``str`` so unknown server values (future firmware) don't raise.
-    state: str
+    # ``DeviceState`` / ``FobAwayState`` carry an ``unknown`` member, so values
+    # added by newer firmware coerce to the ``UNKNOWN`` member rather than
+    # raising. ``wireless_connection_state`` (and the battery status it carries)
+    # is required by the spec — a fob is always a wireless battery device.
+    state: DeviceState
     name: str
     mac: str
-    away_state: str
+    away_state: FobAwayState
     feature_flags: PublicFobFeatureFlags
-    wireless_connection_state: PublicWirelessConnectionState | None = None
+    wireless_connection_state: PublicWirelessConnectionState
 
 
 # ---------------------------------------------------------------------------
