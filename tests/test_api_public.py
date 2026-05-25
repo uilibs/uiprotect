@@ -625,6 +625,23 @@ def test_fob_model_from_unifi_dict_unreported() -> None:
     assert fob_unknown.away_state is FobAwayState.UNKNOWN
     assert fob_unknown.feature_flags.buttons == [FobButton.UNKNOWN]
 
+    # ``name`` is nullable on the wire.
+    fob_null_name = Fob.from_unifi_dict(
+        id=FOB_ID,
+        modelKey="fob",
+        state="CONNECTED",
+        name=None,
+        mac="AA:BB:CC:DD:EE:FF",
+        awayState="ONLINE",
+        featureFlags={"buttons": ["arm"]},
+        wirelessConnectionState={
+            "signalState": {"signalQuality": None, "signalStrength": None},
+            "batteryStatus": {"percentage": None, "isLow": False},
+            "bridge": None,
+        },
+    )
+    assert fob_null_name.name is None
+
 
 def test_public_bootstrap_applies_fob_add_and_update(
     protect_client: ProtectApiClient,
@@ -663,6 +680,14 @@ def test_public_bootstrap_applies_fob_add_and_update(
     assert new is not None and new.away_state == "DEVICE_LOST"  # type: ignore[attr-defined]
     # Other fields preserved from the cached object.
     assert new.name == "Fob"  # type: ignore[attr-defined]
+
+    # A ``name: null`` partial update must merge, not drop the frame.
+    name_null_payload: dict[str, Any] = {
+        "type": "update",
+        "item": {"id": FOB_ID, "modelKey": "fob", "name": None},
+    }
+    _, new, _ = pb.process_devices_ws_message(protect_client, name_null_payload)
+    assert new is not None and new.name is None  # type: ignore[attr-defined]
 
 
 def test_arm_profile_model_from_unifi_dict() -> None:

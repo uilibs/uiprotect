@@ -316,7 +316,8 @@ class Fob(ProtectModelWithId):
     # raising. ``wireless_connection_state`` (and the battery status it carries)
     # is required by the spec — a fob is always a wireless battery device.
     state: DeviceState
-    name: str
+    # Nullable on the wire and in WS partial-updates.
+    name: str | None = None
     mac: str
     away_state: FobAwayState
     feature_flags: PublicFobFeatureFlags
