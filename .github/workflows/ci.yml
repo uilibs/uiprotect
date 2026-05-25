@@ -120,6 +120,12 @@ jobs:
     needs:
       - test
       - lint
+    # Skip the dry-run on fork PRs: the branch lives in the fork so the
+    # checkout below cannot resolve it, and PSR can't push tags from a fork
+    # anyway.  Push-to-main runs are always included.
+    if: |
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
 
     runs-on: ubuntu-latest
     # Only enter the protected 'release' environment when actually releasing
