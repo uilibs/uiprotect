@@ -15,6 +15,7 @@ import pytest
 
 from uiprotect.data import (
     ArmProfile,
+    Fob,
     NvrArmModeStatus,
     PublicBootstrap,
     PublicNVR,
@@ -34,6 +35,7 @@ if TYPE_CHECKING:
 SENSOR_ID = "66d025b301ebc903e80003ea"
 SIREN_ID = "672094f900e26303e800062a"
 RELAY_ID = "66d025b301ebc903e80003eb"
+FOB_ID = "66d025b301ebc903e80003ed"
 PROFILE_ID = "6878d82800155803e45928e0"
 NVR_ID = "66d025b301ebc903e80003ec"
 
@@ -87,6 +89,7 @@ def _mock_update_public_endpoints(client: ProtectApiClient, **overrides: Any) ->
         "get_sensors_public": AsyncMock(return_value=[]),
         "get_sirens_public": AsyncMock(return_value=[]),
         "get_relays_public": AsyncMock(return_value=[]),
+        "get_fobs_public": AsyncMock(return_value=[]),
         "get_arm_profiles_public": AsyncMock(return_value=[]),
     }
     defaults.update(overrides)
@@ -332,6 +335,63 @@ async def test_update_relay_public(
 
 
 # ---------------------------------------------------------------------------
+# Fobs
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Fob.from_unifi_dict")
+async def test_get_fobs_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.side_effect = [Mock(id=FOB_ID)]
+    protect_client.api_request_list = AsyncMock(return_value=[{"id": FOB_ID}])
+    result = await protect_client.get_fobs_public()
+    protect_client.api_request_list.assert_called_with(url="/v1/fobs", public_api=True)
+    assert len(result) == 1
+    assert result[0].id == FOB_ID
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Fob.from_unifi_dict")
+async def test_get_fob_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=FOB_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": FOB_ID})
+    result = await protect_client.get_fob_public(FOB_ID)
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["url"] == f"/v1/fobs/{FOB_ID}"
+    assert kwargs["public_api"] is True
+    assert result.id == FOB_ID
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Fob.from_unifi_dict")
+async def test_update_fob_public_body(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=FOB_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": FOB_ID})
+    await protect_client.update_fob_public(FOB_ID, name="Front Fob")
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["url"] == f"/v1/fobs/{FOB_ID}"
+    assert kwargs["method"] == "patch"
+    assert kwargs["json"] == {"name": "Front Fob"}
+
+
+@pytest.mark.asyncio()
+async def test_update_fob_public_empty(
+    protect_client: ProtectApiClient,
+) -> None:
+    with pytest.raises(BadRequest):
+        await protect_client.update_fob_public(FOB_ID)
+
+
+# ---------------------------------------------------------------------------
 # Alarm webhook + arm profiles
 # ---------------------------------------------------------------------------
 
@@ -512,6 +572,84 @@ def test_relay_model_from_unifi_dict() -> None:
     assert relay.get_output(5) is None
 
 
+def test_fob_model_from_unifi_dict_unreported() -> None:
+    """A freshly-paired fob reports null signal/battery; the model must accept it."""
+    fob = Fob.from_unifi_dict(
+        id=FOB_ID,
+        modelKey="fob",
+        state="CONNECTED",
+        name="Front Fob",
+        mac="AA:BB:CC:DD:EE:FF",
+        awayState="ONLINE",
+        featureFlags={"buttons": ["arm", "disarm", "panic"]},
+        wirelessConnectionState={
+            "signalState": {"signalQuality": None, "signalStrength": None},
+            "batteryStatus": {"percentage": None, "isLow": False},
+            "bridge": None,
+        },
+    )
+    assert fob.id == FOB_ID
+    assert fob.model is ModelType.FOB
+    assert fob.away_state == "ONLINE"
+    assert fob.feature_flags.buttons == ["arm", "disarm", "panic"]
+    assert fob.wireless_connection_state is not None
+    assert fob.wireless_connection_state.signal_state.signal_quality is None
+    assert fob.wireless_connection_state.signal_state.signal_strength is None
+    assert fob.wireless_connection_state.battery_status.percentage is None
+    assert fob.wireless_connection_state.battery_status.is_low is False
+
+    # A fob with no wirelessConnectionState at all defaults to None.
+    fob_no_wireless = Fob.from_unifi_dict(
+        id=FOB_ID,
+        modelKey="fob",
+        state="CONNECTING",
+        name="Bare Fob",
+        mac="AA:BB:CC:DD:EE:FF",
+        awayState="DEVICE_LOST",
+        featureFlags={"buttons": []},
+    )
+    assert fob_no_wireless.wireless_connection_state is None
+
+
+def test_public_bootstrap_applies_fob_add_and_update(
+    protect_client: ProtectApiClient,
+) -> None:
+    pb = PublicBootstrap()
+    add_payload = {
+        "type": "add",
+        "item": {
+            "id": FOB_ID,
+            "modelKey": "fob",
+            "state": "CONNECTED",
+            "name": "Fob",
+            "mac": "AA",
+            "awayState": "ONLINE",
+            "featureFlags": {"buttons": ["arm", "disarm"]},
+            "wirelessConnectionState": {
+                "signalState": {"signalQuality": None, "signalStrength": None},
+                "batteryStatus": {"percentage": None, "isLow": False},
+                "bridge": None,
+            },
+        },
+    }
+    mt, new, old = pb.process_devices_ws_message(protect_client, add_payload)
+    assert mt is ModelType.FOB
+    assert new is not None and new.id == FOB_ID
+    assert old is None
+    assert FOB_ID in pb.fobs
+
+    # Partial update — only the changed field on the wire.
+    update_payload: dict[str, Any] = {
+        "type": "update",
+        "item": {"id": FOB_ID, "modelKey": "fob", "awayState": "DEVICE_LOST"},
+    }
+    mt, new, old = pb.process_devices_ws_message(protect_client, update_payload)
+    assert old is not None
+    assert new is not None and new.away_state == "DEVICE_LOST"  # type: ignore[attr-defined]
+    # Other fields preserved from the cached object.
+    assert new.name == "Fob"  # type: ignore[attr-defined]
+
+
 def test_arm_profile_model_from_unifi_dict() -> None:
     profile = ArmProfile.from_unifi_dict(
         id=PROFILE_ID,
@@ -674,6 +812,7 @@ async def test_update_public_populates_cache(
         get_sensors_public=AsyncMock(return_value=[Mock(id="s1")]),
         get_sirens_public=AsyncMock(return_value=[Mock(id="si1")]),
         get_relays_public=AsyncMock(return_value=[Mock(id="r1")]),
+        get_fobs_public=AsyncMock(return_value=[Mock(id="fb1")]),
     )
 
     pb = await protect_client.update_public()
@@ -682,6 +821,7 @@ async def test_update_public_populates_cache(
     assert "s1" in pb.sensors
     assert "si1" in pb.sirens
     assert "r1" in pb.relays
+    assert "fb1" in pb.fobs
     protect_client.get_arm_profiles_public.assert_awaited_once()
     assert pb.nvr is not None
 

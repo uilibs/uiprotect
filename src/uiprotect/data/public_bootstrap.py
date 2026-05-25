@@ -36,7 +36,7 @@ from .base import ProtectModelWithId
 from .convert import create_from_unifi_dict
 from .devices import Camera, Chime, Light, Sensor
 from .nvr import Event
-from .public_devices import ArmProfile, NvrArmMode, PublicNVR, Relay, Siren
+from .public_devices import ArmProfile, Fob, NvrArmMode, PublicNVR, Relay, Siren
 from .types import ModelType
 
 if TYPE_CHECKING:
@@ -61,6 +61,7 @@ _DEVICE_STORES: dict[ModelType, str] = {
     ModelType.CHIME: "chimes",
     ModelType.SIREN: "sirens",
     ModelType.RELAY: "relays",
+    ModelType.FOB: "fobs",
 }
 
 
@@ -93,6 +94,7 @@ class PublicBootstrap:
     chimes: dict[str, Chime] = field(default_factory=dict)
     sirens: dict[str, Siren] = field(default_factory=dict)
     relays: dict[str, Relay] = field(default_factory=dict)
+    fobs: dict[str, Fob] = field(default_factory=dict)
 
     # Events received via the events websocket (:meth:`process_events_ws_message`).
     # Bounded by :attr:`max_event_cache_size`; oldest events are evicted first.

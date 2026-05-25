@@ -89,12 +89,15 @@ class PublicSensorAlarmSettings(TypedDict, total=False):
 
 
 class PublicSignalState(ProtectBaseObject):
-    signal_quality: int
-    signal_strength: int
+    # Nullable on the wire: a freshly-paired wireless device (e.g. a key fob)
+    # has not yet reported its Bluetooth signal.
+    signal_quality: int | None = None
+    signal_strength: int | None = None
 
 
 class PublicWirelessBatteryStatus(ProtectBaseObject):
-    percentage: int
+    # Nullable on the wire until the device first reports its battery level.
+    percentage: int | None = None
     is_low: bool
 
 
@@ -288,6 +291,31 @@ class Relay(ProtectModelWithId):
 
     async def set_status_light(self, enabled: bool) -> Relay:
         return await self._api.update_relay_public(self.id, led_is_enabled=enabled)
+
+
+# ---------------------------------------------------------------------------
+# Fob
+# ---------------------------------------------------------------------------
+
+
+class PublicFobFeatureFlags(ProtectBaseObject):
+    # ``buttons`` is typed as ``list[str]`` (not an enum) so unknown future
+    # button kinds from newer firmware don't raise.
+    buttons: list[str]
+
+
+class Fob(ProtectModelWithId):
+    """Public API key fob device."""
+
+    model: ModelType | None = ModelType.FOB
+    # ``state`` / ``away_state`` use documented enum value spaces but are typed
+    # as ``str`` so unknown server values (future firmware) don't raise.
+    state: str
+    name: str
+    mac: str
+    away_state: str
+    feature_flags: PublicFobFeatureFlags
+    wireless_connection_state: PublicWirelessConnectionState | None = None
 
 
 # ---------------------------------------------------------------------------

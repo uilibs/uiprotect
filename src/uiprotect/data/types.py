@@ -150,6 +150,7 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
     # `_bootstrap_model_types` so the private bootstrap path is unchanged.
     SIREN = "siren"
     RELAY = "relay"
+    FOB = "fob"
     UNKNOWN = "unknown"
 
     bootstrap_model_types: tuple[ModelType, ...]
