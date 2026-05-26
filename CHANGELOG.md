@@ -1,5 +1,31 @@
 # Changelog
 
+## v10.6.0 (2026-05-26)
+
+### Features
+
+
+- Add public api fobs endpoint group (list/get/update) ([`514d87e`](https://github.com/uilibs/uiprotect/commit/514d87ec0114f9ac148c6108d13a8cdfd0fc56f8))
+
+
+### Documentation
+
+
+- Add script and agent instructions to fetch integration openapi spec ([`fe16ee0`](https://github.com/uilibs/uiprotect/commit/fe16ee02e8a48d001ee0374d1ac42ae1c15da2cb))
+
+
+- Document api migration strategy in agents.md ([`fe16ee0`](https://github.com/uilibs/uiprotect/commit/fe16ee02e8a48d001ee0374d1ac42ae1c15da2cb))
+
+
+- Add script and agent instructions to fetch integration openapi spec ([`fe16ee0`](https://github.com/uilibs/uiprotect/commit/fe16ee02e8a48d001ee0374d1ac42ae1c15da2cb))
+
+
+### Testing
+
+
+- Port session and video tests off sync io ([`a7deac1`](https://github.com/uilibs/uiprotect/commit/a7deac15360f949f5a51cedf179810d464bc86b3))
+
+
 ## v10.5.1 (2026-05-22)
 
 ### Bug fixes
