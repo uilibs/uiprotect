@@ -20,6 +20,9 @@ from typing import TYPE_CHECKING, Any, Literal, TypedDict
 from ..exceptions import BadRequest
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import (
+    DeviceState,
+    FobAwayState,
+    FobButton,
     ModelType,
     NvrArmModeStatus,
     RelayInputState,
@@ -89,12 +92,15 @@ class PublicSensorAlarmSettings(TypedDict, total=False):
 
 
 class PublicSignalState(ProtectBaseObject):
-    signal_quality: int
-    signal_strength: int
+    # Nullable on the wire: a freshly-paired wireless device (e.g. a key fob)
+    # has not yet reported its Bluetooth signal.
+    signal_quality: int | None = None
+    signal_strength: int | None = None
 
 
 class PublicWirelessBatteryStatus(ProtectBaseObject):
-    percentage: int
+    # Nullable on the wire until the device first reports its battery level.
+    percentage: int | None = None
     is_low: bool
 
 
@@ -288,6 +294,34 @@ class Relay(ProtectModelWithId):
 
     async def set_status_light(self, enabled: bool) -> Relay:
         return await self._api.update_relay_public(self.id, led_is_enabled=enabled)
+
+
+# ---------------------------------------------------------------------------
+# Fob
+# ---------------------------------------------------------------------------
+
+
+class PublicFobFeatureFlags(ProtectBaseObject):
+    # ``FobButton`` carries an ``unknown`` member, so button kinds added by
+    # newer firmware coerce to ``FobButton.UNKNOWN`` instead of raising.
+    buttons: list[FobButton]
+
+
+class Fob(ProtectModelWithId):
+    """Public API key fob device."""
+
+    model: ModelType | None = ModelType.FOB
+    # ``DeviceState`` / ``FobAwayState`` carry an ``unknown`` member, so values
+    # added by newer firmware coerce to the ``UNKNOWN`` member rather than
+    # raising. ``wireless_connection_state`` (and the battery status it carries)
+    # is required by the spec — a fob is always a wireless battery device.
+    state: DeviceState
+    # Nullable on the wire and in WS partial-updates.
+    name: str | None = None
+    mac: str
+    away_state: FobAwayState
+    feature_flags: PublicFobFeatureFlags
+    wireless_connection_state: PublicWirelessConnectionState
 
 
 # ---------------------------------------------------------------------------

@@ -47,6 +47,7 @@ from .data import (
     Event,
     EventCategories,
     EventType,
+    Fob,
     Light,
     Liveview,
     ModelType,
@@ -3475,6 +3476,32 @@ class ProtectApiClient(BaseApiClient):
         )
 
     # ------------------------------------------------------------------
+    # Public API: Fobs
+    # ------------------------------------------------------------------
+
+    async def get_fobs_public(self) -> list[Fob]:
+        """Get all key fobs using public API."""
+        data = await self.api_request_list(url="/v1/fobs", public_api=True)
+        return [Fob.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_fob_public(self, fob_id: str) -> Fob:
+        """Get a specific key fob using public API."""
+        data = await self.api_request_obj(url=f"/v1/fobs/{fob_id}", public_api=True)
+        return Fob.from_unifi_dict(**data, api=self)
+
+    async def update_fob_public(self, fob_id: str, *, name: str | None = None) -> Fob:
+        """Patch key-fob settings using public API."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        result = await self.api_request_obj(
+            url=f"/v1/fobs/{fob_id}", method="patch", json=body, public_api=True
+        )
+        return Fob.from_unifi_dict(**result, api=self)
+
+    # ------------------------------------------------------------------
     # Public API: Alarm manager webhook
     # ------------------------------------------------------------------
 
@@ -3672,6 +3699,7 @@ class ProtectApiClient(BaseApiClient):
             (self.get_sensors_public(), "sensors", "sensors"),
             (self.get_sirens_public(), "sirens", "sirens"),
             (self.get_relays_public(), "relays", "relays"),
+            (self.get_fobs_public(), "fobs", "fobs"),
             (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles"),
         ]
 
