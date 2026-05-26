@@ -29,6 +29,8 @@ from .types import (
     RelayOutputRebootState,
     RelayOutputState,
     SirenDuration,
+    SpeakerMode,
+    SpeakerStatus,
 )
 
 if TYPE_CHECKING:
@@ -322,6 +324,62 @@ class Fob(ProtectModelWithId):
     away_state: FobAwayState
     feature_flags: PublicFobFeatureFlags
     wireless_connection_state: PublicWirelessConnectionState
+
+
+# ---------------------------------------------------------------------------
+# Speaker
+# ---------------------------------------------------------------------------
+
+
+class PublicSpeakerFeatureFlags(ProtectBaseObject):
+    has_mic: bool
+
+
+class PublicSpeakerState(ProtectBaseObject):
+    # ``SpeakerStatus`` / ``SpeakerMode`` carry an ``unknown`` member, so values
+    # added by newer firmware coerce to ``UNKNOWN`` instead of raising.
+    status: SpeakerStatus
+    mode: SpeakerMode
+
+
+class Speaker(ProtectModelWithId):
+    """Public API speaker device."""
+
+    model: ModelType | None = ModelType.SPEAKER
+    state: DeviceState
+    # Nullable on the wire and in WS partial-updates.
+    name: str | None = None
+    mac: str
+    volume: int
+    mic_volume: int
+    is_mic_enabled: bool
+    speaker_state: PublicSpeakerState
+    feature_flags: PublicSpeakerFeatureFlags
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        # See :meth:`Siren._api_update` — consumers must use
+        # ``update_speaker_public`` / ``test_speaker_sound_public`` (or the
+        # helper methods on this class).
+        raise BadRequest(
+            "Speaker mutations must go through the dedicated public API helpers "
+            "(e.g. set_name/set_volume/set_mic_volume/set_mic_enabled/test_sound)."
+        )
+
+    async def set_name(self, name: str) -> Speaker:
+        return await self._api.update_speaker_public(self.id, name=name)
+
+    async def set_volume(self, volume: int) -> Speaker:
+        return await self._api.update_speaker_public(self.id, volume=volume)
+
+    async def set_mic_volume(self, mic_volume: int) -> Speaker:
+        return await self._api.update_speaker_public(self.id, mic_volume=mic_volume)
+
+    async def set_mic_enabled(self, enabled: bool) -> Speaker:
+        return await self._api.update_speaker_public(self.id, is_mic_enabled=enabled)
+
+    async def test_sound(self, volume: int | None = None) -> None:
+        """Test the speaker sound at the given volume."""
+        await self._api.test_speaker_sound_public(self.id, volume=volume)
 
 
 # ---------------------------------------------------------------------------

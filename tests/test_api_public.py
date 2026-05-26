@@ -22,10 +22,15 @@ from uiprotect.data import (
     NvrArmModeStatus,
     PublicBootstrap,
     PublicNVR,
+    PublicSpeakerFeatureFlags,
+    PublicSpeakerState,
     Relay,
     RelayOutputRebootState,
     RelayOutputState,
     Siren,
+    Speaker,
+    SpeakerMode,
+    SpeakerStatus,
 )
 from uiprotect.data.types import EventType, ModelType, SirenDuration
 from uiprotect.exceptions import BadRequest
@@ -39,6 +44,7 @@ SENSOR_ID = "66d025b301ebc903e80003ea"
 SIREN_ID = "672094f900e26303e800062a"
 RELAY_ID = "66d025b301ebc903e80003eb"
 FOB_ID = "66d025b301ebc903e80003ed"
+SPEAKER_ID = "66d025b301ebc903e80003ee"
 PROFILE_ID = "6878d82800155803e45928e0"
 NVR_ID = "66d025b301ebc903e80003ec"
 
@@ -93,6 +99,7 @@ def _mock_update_public_endpoints(client: ProtectApiClient, **overrides: Any) ->
         "get_sirens_public": AsyncMock(return_value=[]),
         "get_relays_public": AsyncMock(return_value=[]),
         "get_fobs_public": AsyncMock(return_value=[]),
+        "get_speakers_public": AsyncMock(return_value=[]),
         "get_arm_profiles_public": AsyncMock(return_value=[]),
     }
     defaults.update(overrides)
@@ -395,6 +402,111 @@ async def test_update_fob_public_empty(
 
 
 # ---------------------------------------------------------------------------
+# Speakers
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Speaker.from_unifi_dict")
+async def test_get_speakers_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.side_effect = [Mock(id=SPEAKER_ID)]
+    protect_client.api_request_list = AsyncMock(return_value=[{"id": SPEAKER_ID}])
+    result = await protect_client.get_speakers_public()
+    protect_client.api_request_list.assert_called_with(
+        url="/v1/speakers", public_api=True
+    )
+    assert len(result) == 1
+    assert result[0].id == SPEAKER_ID
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Speaker.from_unifi_dict")
+async def test_get_speaker_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=SPEAKER_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": SPEAKER_ID})
+    result = await protect_client.get_speaker_public(SPEAKER_ID)
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["url"] == f"/v1/speakers/{SPEAKER_ID}"
+    assert kwargs["public_api"] is True
+    assert result.id == SPEAKER_ID
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Speaker.from_unifi_dict")
+async def test_update_speaker_public_body(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=SPEAKER_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": SPEAKER_ID})
+    await protect_client.update_speaker_public(
+        SPEAKER_ID,
+        name="Lobby",
+        volume=70,
+        mic_volume=40,
+        is_mic_enabled=False,
+    )
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["url"] == f"/v1/speakers/{SPEAKER_ID}"
+    assert kwargs["method"] == "patch"
+    assert kwargs["json"] == {
+        "name": "Lobby",
+        "volume": 70,
+        "micVolume": 40,
+        "isMicEnabled": False,
+    }
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.Speaker.from_unifi_dict")
+async def test_update_speaker_public_partial(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=SPEAKER_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": SPEAKER_ID})
+    await protect_client.update_speaker_public(SPEAKER_ID, mic_volume=20)
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["json"] == {"micVolume": 20}
+
+
+@pytest.mark.asyncio()
+async def test_update_speaker_public_empty(
+    protect_client: ProtectApiClient,
+) -> None:
+    with pytest.raises(BadRequest):
+        await protect_client.update_speaker_public(SPEAKER_ID)
+
+
+@pytest.mark.asyncio()
+async def test_test_speaker_sound_public(
+    protect_client: ProtectApiClient,
+) -> None:
+    protect_client.api_request_raw = AsyncMock(return_value=None)
+    await protect_client.test_speaker_sound_public(SPEAKER_ID, volume=70)
+    _, kwargs = protect_client.api_request_raw.call_args
+    assert kwargs["url"] == f"/v1/speakers/{SPEAKER_ID}/test-sound"
+    assert kwargs["method"] == "post"
+    assert kwargs["json"] == {"volume": 70}
+
+
+@pytest.mark.asyncio()
+async def test_test_speaker_sound_public_no_volume(
+    protect_client: ProtectApiClient,
+) -> None:
+    protect_client.api_request_raw = AsyncMock(return_value=None)
+    await protect_client.test_speaker_sound_public(SPEAKER_ID)
+    _, kwargs = protect_client.api_request_raw.call_args
+    assert kwargs["json"] == {}
+
+
+# ---------------------------------------------------------------------------
 # Alarm webhook + arm profiles
 # ---------------------------------------------------------------------------
 
@@ -691,6 +803,87 @@ def test_public_bootstrap_applies_fob_add_and_update(
     assert new is not None and new.name is None  # type: ignore[attr-defined]
 
 
+def _speaker_raw(**overrides: Any) -> dict[str, Any]:
+    raw: dict[str, Any] = {
+        "id": SPEAKER_ID,
+        "modelKey": "speaker",
+        "state": "CONNECTED",
+        "name": "Lobby Speaker",
+        "mac": "AA:BB:CC:DD:EE:FF",
+        "volume": 80,
+        "micVolume": 50,
+        "isMicEnabled": True,
+        "speakerState": {"status": "idle", "mode": "listen"},
+        "featureFlags": {"hasMic": True},
+    }
+    raw.update(overrides)
+    return raw
+
+
+def test_speaker_model_from_unifi_dict() -> None:
+    raw = _speaker_raw(name=None)
+    speaker = Speaker.from_unifi_dict(**raw)
+    assert speaker.id == SPEAKER_ID
+    assert speaker.model is ModelType.SPEAKER
+    assert speaker.state is DeviceState.CONNECTED
+    assert speaker.name is None
+    assert speaker.mac == "AA:BB:CC:DD:EE:FF"
+    assert speaker.volume == 80
+    assert speaker.mic_volume == 50
+    assert speaker.is_mic_enabled is True
+    assert isinstance(speaker.speaker_state, PublicSpeakerState)
+    assert speaker.speaker_state.status is SpeakerStatus.IDLE
+    assert speaker.speaker_state.mode is SpeakerMode.LISTEN
+    assert isinstance(speaker.feature_flags, PublicSpeakerFeatureFlags)
+    assert speaker.feature_flags.has_mic is True
+
+
+def test_speaker_model_unknown_values() -> None:
+    """Unknown server values for ``state`` / ``speakerState`` coerce to ``UNKNOWN``."""
+    raw = _speaker_raw(
+        state="REBOOTING",
+        speakerState={"status": "encoding", "mode": "ambient"},
+    )
+    speaker = Speaker.from_unifi_dict(**raw)
+    assert speaker.state is DeviceState.UNKNOWN
+    assert speaker.speaker_state.status is SpeakerStatus.UNKNOWN
+    assert speaker.speaker_state.mode is SpeakerMode.UNKNOWN
+
+
+def test_public_bootstrap_applies_speaker_add_and_update(
+    protect_client: ProtectApiClient,
+) -> None:
+    pb = PublicBootstrap()
+    add_payload = {"type": "add", "item": _speaker_raw()}
+    mt, new, old = pb.process_devices_ws_message(protect_client, add_payload)
+    assert mt is ModelType.SPEAKER
+    assert new is not None and new.id == SPEAKER_ID
+    assert old is None
+    assert SPEAKER_ID in pb.speakers
+
+    # Partial update — only the changed field on the wire. Verify untouched
+    # sub-models survive the merge.
+    update_payload: dict[str, Any] = {
+        "type": "update",
+        "item": {"id": SPEAKER_ID, "modelKey": "speaker", "volume": 90},
+    }
+    mt, new, old = pb.process_devices_ws_message(protect_client, update_payload)
+    assert old is not None
+    assert new is not None
+    assert new.volume == 90  # type: ignore[attr-defined]
+    assert new.name == "Lobby Speaker"  # type: ignore[attr-defined]
+    assert new.speaker_state.status is SpeakerStatus.IDLE  # type: ignore[attr-defined]
+    assert new.feature_flags.has_mic is True  # type: ignore[attr-defined]
+
+    # A ``name: null`` partial update must merge as ``None``.
+    name_null_payload: dict[str, Any] = {
+        "type": "update",
+        "item": {"id": SPEAKER_ID, "modelKey": "speaker", "name": None},
+    }
+    _, new, _ = pb.process_devices_ws_message(protect_client, name_null_payload)
+    assert new is not None and new.name is None  # type: ignore[attr-defined]
+
+
 def test_arm_profile_model_from_unifi_dict() -> None:
     profile = ArmProfile.from_unifi_dict(
         id=PROFILE_ID,
@@ -854,6 +1047,7 @@ async def test_update_public_populates_cache(
         get_sirens_public=AsyncMock(return_value=[Mock(id="si1")]),
         get_relays_public=AsyncMock(return_value=[Mock(id="r1")]),
         get_fobs_public=AsyncMock(return_value=[Mock(id="fb1")]),
+        get_speakers_public=AsyncMock(return_value=[Mock(id="sp1")]),
     )
 
     pb = await protect_client.update_public()
@@ -863,6 +1057,7 @@ async def test_update_public_populates_cache(
     assert "si1" in pb.sirens
     assert "r1" in pb.relays
     assert "fb1" in pb.fobs
+    assert "sp1" in pb.speakers
     protect_client.get_arm_profiles_public.assert_awaited_once()
     assert pb.nvr is not None
 
