@@ -576,7 +576,7 @@ def test_relay_model_from_unifi_dict() -> None:
 
 
 def test_fob_model_from_unifi_dict_unreported() -> None:
-    """Freshly-paired fob (null signal/battery) parses; state/away/buttons coerce to enums."""
+    """Null signal/battery parses; state/away/buttons coerce to enums."""
     fob = Fob.from_unifi_dict(
         id=FOB_ID,
         modelKey="fob",
@@ -677,7 +677,8 @@ def test_public_bootstrap_applies_fob_add_and_update(
     }
     mt, new, old = pb.process_devices_ws_message(protect_client, update_payload)
     assert old is not None
-    assert new is not None and new.away_state == "DEVICE_LOST"  # type: ignore[attr-defined]
+    assert new is not None
+    assert new.away_state == "DEVICE_LOST"  # type: ignore[attr-defined]
     # Other fields preserved from the cached object.
     assert new.name == "Fob"  # type: ignore[attr-defined]
 

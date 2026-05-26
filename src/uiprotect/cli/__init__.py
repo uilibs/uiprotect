@@ -56,14 +56,20 @@ OPTION_USERNAME = typer.Option(
     None,
     "--username",
     "-U",
-    help="UniFi Protect username (not required for public API commands: sirens, relays, fobs, arm)",
+    help=(
+        "UniFi Protect username (not required for public API commands: "
+        "sirens, relays, fobs, arm)"
+    ),
     envvar="UFP_USERNAME",
 )
 OPTION_PASSWORD = typer.Option(
     None,
     "--password",
     "-P",
-    help="UniFi Protect password (not required for public API commands: sirens, relays, fobs, arm)",
+    help=(
+        "UniFi Protect password (not required for public API commands: "
+        "sirens, relays, fobs, arm)"
+    ),
     hide_input=True,
     envvar="UFP_PASSWORD",
 )
