@@ -2131,6 +2131,55 @@ async def test_relay_device_action_helpers(
     )
 
 
+def _build_speaker(
+    protect_client: ProtectApiClient, speaker_id: str = SPEAKER_ID
+) -> Speaker:
+    pb = protect_client._public_bootstrap or PublicBootstrap()
+    protect_client._public_bootstrap = pb
+    pb.process_devices_ws_message(
+        protect_client,
+        {"type": "add", "item": _speaker_raw(id=speaker_id)},
+    )
+    return pb.speakers[speaker_id]
+
+
+@pytest.mark.asyncio()
+async def test_speaker_device_action_helpers(
+    protect_client: ProtectApiClient,
+) -> None:
+    speaker = _build_speaker(protect_client)
+    protect_client.update_speaker_public = AsyncMock(return_value=speaker)
+    protect_client.test_speaker_sound_public = AsyncMock()
+
+    assert await speaker.set_name("Lobby") is speaker
+    protect_client.update_speaker_public.assert_awaited_with(SPEAKER_ID, name="Lobby")
+    assert await speaker.set_volume(60) is speaker
+    protect_client.update_speaker_public.assert_awaited_with(SPEAKER_ID, volume=60)
+    assert await speaker.set_mic_volume(30) is speaker
+    protect_client.update_speaker_public.assert_awaited_with(
+        SPEAKER_ID, mic_volume=30
+    )
+    assert await speaker.set_mic_enabled(False) is speaker
+    protect_client.update_speaker_public.assert_awaited_with(
+        SPEAKER_ID, is_mic_enabled=False
+    )
+
+    await speaker.test_sound(volume=55)
+    protect_client.test_speaker_sound_public.assert_awaited_once_with(
+        SPEAKER_ID, volume=55
+    )
+
+
+@pytest.mark.asyncio()
+async def test_speaker_api_update_rejects_generic_mutations(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Generic mutation path must fail loudly for Public API speakers."""
+    speaker = _build_speaker(protect_client)
+    with pytest.raises(BadRequest, match="Speaker mutations"):
+        await speaker._api_update({"name": "new"})
+
+
 # ---------------------------------------------------------------------------
 # PublicBootstrap edge cases
 # ---------------------------------------------------------------------------
