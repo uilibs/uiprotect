@@ -151,6 +151,7 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
     SIREN = "siren"
     RELAY = "relay"
     FOB = "fob"
+    SPEAKER = "speaker"
     UNKNOWN = "unknown"
 
     bootstrap_model_types: tuple[ModelType, ...]
@@ -726,6 +727,27 @@ class FobButton(UnknownValuesEnumMixin, enum.StrEnum):
     RIGHT = "right"
     INPUT1 = "input1"
     INPUT2 = "input2"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class SpeakerStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API speaker runtime status (``speakerState.status`` field)."""
+
+    IDLE = "idle"
+    STREAMING = "streaming"
+    PLAYING = "playing"
+    TTS_PLAYING = "tts_playing"
+    UPLOADING = "uploading"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class SpeakerMode(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API speaker mode (``speakerState.mode`` field)."""
+
+    LISTEN = "listen"
+    TALK = "talk"
     UNKNOWN = "unknown"
 
 

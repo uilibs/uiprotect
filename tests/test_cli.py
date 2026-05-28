@@ -9,6 +9,7 @@ from uiprotect.cli.arm import app as arm_app
 from uiprotect.cli.fobs import app as fob_app
 from uiprotect.cli.relays import app as relay_app
 from uiprotect.cli.sirens import app as siren_app
+from uiprotect.cli.speakers import app as speaker_app
 
 runner = CliRunner()
 
@@ -70,6 +71,7 @@ def test_root_help_shows_public_subcommands() -> None:
     assert "sirens" in result.stdout
     assert "relays" in result.stdout
     assert "fobs" in result.stdout
+    assert "speakers" in result.stdout
     assert "arm" in result.stdout
 
 
@@ -93,6 +95,19 @@ def test_fobs_help() -> None:
     assert result.exit_code == 0
     assert "list" in result.stdout
     assert "set-name" in result.stdout
+
+
+def test_speakers_help() -> None:
+    """``speakers --help`` renders without error."""
+    result = runner.invoke(speaker_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+    assert "show" in result.stdout
+    assert "set-name" in result.stdout
+    assert "set-volume" in result.stdout
+    assert "set-mic-volume" in result.stdout
+    assert "set-mic-enabled" in result.stdout
+    assert "test-sound" in result.stdout
 
 
 def test_arm_help() -> None:
