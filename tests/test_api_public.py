@@ -2156,9 +2156,7 @@ async def test_speaker_device_action_helpers(
     assert await speaker.set_volume(60) is speaker
     protect_client.update_speaker_public.assert_awaited_with(SPEAKER_ID, volume=60)
     assert await speaker.set_mic_volume(30) is speaker
-    protect_client.update_speaker_public.assert_awaited_with(
-        SPEAKER_ID, mic_volume=30
-    )
+    protect_client.update_speaker_public.assert_awaited_with(SPEAKER_ID, mic_volume=30)
     assert await speaker.set_mic_enabled(False) is speaker
     protect_client.update_speaker_public.assert_awaited_with(
         SPEAKER_ID, is_mic_enabled=False
