@@ -40,6 +40,7 @@ from .public_devices import (
     ArmProfile,
     Fob,
     NvrArmMode,
+    PublicLiveview,
     PublicNVR,
     Relay,
     Siren,
@@ -105,6 +106,11 @@ class PublicBootstrap:
     relays: dict[str, Relay] = field(default_factory=dict)
     fobs: dict[str, Fob] = field(default_factory=dict)
     speakers: dict[str, Speaker] = field(default_factory=dict)
+    # ``liveviews`` is deliberately kept out of :data:`_DEVICE_STORES` because
+    # ``ModelType.LIVEVIEW`` is already owned by the private ``Liveview`` in
+    # ``MODEL_TO_CLASS``. The WS handler routes to this store via an explicit
+    # branch with a ``PublicLiveview``-aware factory.
+    liveviews: dict[str, PublicLiveview] = field(default_factory=dict)
 
     # Events received via the events websocket (:meth:`process_events_ws_message`).
     # Bounded by :attr:`max_event_cache_size`; oldest events are evicted first.
@@ -144,6 +150,8 @@ class PublicBootstrap:
     # ------------------------------------------------------------------
 
     def _store_for(self, model_type: ModelType) -> dict[str, ProtectModelWithId] | None:
+        if model_type is ModelType.LIVEVIEW:
+            return cast("dict[str, ProtectModelWithId]", self.liveviews)
         attr = _DEVICE_STORES.get(model_type)
         if attr is None:
             return None
@@ -209,6 +217,15 @@ class PublicBootstrap:
         if model_type is ModelType.NVR:
             new, old = self._apply_action(
                 api, action_type, item, model_type, self._nvr_slot()
+            )
+            return model_type, new, old
+
+        # Liveview shares ``ModelType.LIVEVIEW`` with the private ``Liveview``
+        # class in ``MODEL_TO_CLASS``; route to ``PublicLiveview`` via a
+        # dedicated factory before the generic ``_store_for`` lookup.
+        if model_type is ModelType.LIVEVIEW:
+            new, old = self._apply_action(
+                api, action_type, item, model_type, self._liveviews_slot()
             )
             return model_type, new, old
 
@@ -343,6 +360,17 @@ class PublicBootstrap:
 
         return _Slot(_get, _put, _delete, factory=_factory)
 
+    def _liveviews_slot(self) -> _Slot:
+        """Return a slot around :attr:`liveviews` with a public-API factory."""
+
+        def _factory(item: dict[str, Any], api: ProtectApiClient) -> PublicLiveview:
+            return PublicLiveview.from_unifi_dict(api=api, **item)
+
+        return _dict_slot(
+            cast("dict[str, ProtectModelWithId]", self.liveviews),
+            factory=_factory,
+        )
+
     def _events_slot(self) -> _Slot:
         """Return a slot around :attr:`events` with LRU eviction."""
         events = self.events
@@ -378,7 +406,11 @@ class _Slot:
     )
 
 
-def _dict_slot(store: dict[str, ProtectModelWithId]) -> _Slot:
+def _dict_slot(
+    store: dict[str, ProtectModelWithId],
+    factory: Callable[[dict[str, Any], ProtectApiClient], ProtectModelWithId]
+    | None = None,
+) -> _Slot:
     """Return a slot backed by an id-keyed dict."""
 
     def _delete(obj_id: str) -> None:
@@ -388,6 +420,7 @@ def _dict_slot(store: dict[str, ProtectModelWithId]) -> _Slot:
         store.get,
         store.__setitem__,
         _delete,
+        factory=factory,
     )
 
 

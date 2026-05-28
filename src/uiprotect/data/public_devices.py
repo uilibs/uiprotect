@@ -15,6 +15,7 @@ are ``Optional``.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from functools import cache
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 from ..exceptions import BadRequest
@@ -86,6 +87,14 @@ class PublicSensorMotionSettings(TypedDict, total=False):
 
 class PublicSensorAlarmSettings(TypedDict, total=False):
     isEnabled: bool
+
+
+class PublicLiveviewSlotDict(TypedDict):
+    """Liveview slot (write shape)."""
+
+    cameras: list[str]
+    cycleMode: str
+    cycleInterval: int
 
 
 # ---------------------------------------------------------------------------
@@ -488,3 +497,46 @@ class PublicNVR(ProtectModelWithId):
     name: str | None = None
     doorbell_settings: PublicDoorbellSettings | None = None
     arm_mode: NvrArmMode | None = None
+
+
+# ---------------------------------------------------------------------------
+# Liveview
+# ---------------------------------------------------------------------------
+
+
+class PublicLiveviewSlot(ProtectBaseObject):
+    """One slot in a public-API liveview (read shape)."""
+
+    camera_ids: list[str]
+    cycle_mode: str
+    cycle_interval: int
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {**super()._get_unifi_remaps(), "cameras": "cameraIds"}
+
+
+class PublicLiveview(ProtectModelWithId):
+    """
+    Public API liveview.
+
+    ``owner`` is a flat ``userId`` string (the spec types it as ``$ref: userId``,
+    which is ``type: string``) — not an embedded user object. ``layout`` is the
+    number of slots the liveview contains (spec: number, 1..26); the field name
+    matches the wire key exactly.
+    """
+
+    model: ModelType | None = ModelType.LIVEVIEW
+    name: str
+    is_default: bool
+    is_global: bool
+    owner: str
+    layout: int
+    slots: list[PublicLiveviewSlot]
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        raise BadRequest(
+            "Liveview mutations must go through the dedicated public API helpers "
+            "(create_liveview_public / update_liveview_public)."
+        )
