@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.7.0 (2026-05-28)
+
+### Features
+
+
+- Add public api speakers endpoint group (list/get/update/test-sound) ([`a5f6068`](https://github.com/uilibs/uiprotect/commit/a5f606811dd37b2fe21538d86f158b39f3ca24b0))
+
+
 ## v10.6.0 (2026-05-26)
 
 ### Features
