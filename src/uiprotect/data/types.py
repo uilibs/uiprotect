@@ -752,6 +752,15 @@ class SpeakerMode(UnknownValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
+class LiveviewCycleMode(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API liveview slot cycle mode (``slots[].cycleMode`` field)."""
+
+    MOTION = "motion"
+    TIME = "time"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
 class LockStatusType(ValuesEnumMixin, enum.StrEnum):
     OPEN = "OPEN"
     OPENING = "OPENING"

@@ -24,6 +24,7 @@ from .types import (
     DeviceState,
     FobAwayState,
     FobButton,
+    LiveviewCycleMode,
     ModelType,
     NvrArmModeStatus,
     RelayInputState,
@@ -93,7 +94,7 @@ class PublicLiveviewSlotDict(TypedDict):
     """Liveview slot (write shape)."""
 
     cameras: list[str]
-    cycleMode: str
+    cycleMode: LiveviewCycleMode
     cycleInterval: int
 
 
@@ -508,7 +509,9 @@ class PublicLiveviewSlot(ProtectBaseObject):
     """One slot in a public-API liveview (read shape)."""
 
     camera_ids: list[str]
-    cycle_mode: str
+    # ``LiveviewCycleMode`` carries an ``unknown`` member, so values added by
+    # newer firmware coerce to ``UNKNOWN`` instead of raising.
+    cycle_mode: LiveviewCycleMode
     cycle_interval: int
 
     @classmethod
