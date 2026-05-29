@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 from uiprotect.cli import _is_ssl_error, app
 from uiprotect.cli.arm import app as arm_app
 from uiprotect.cli.fobs import app as fob_app
+from uiprotect.cli.liveviews import app as liveview_app
 from uiprotect.cli.relays import app as relay_app
 from uiprotect.cli.sirens import app as siren_app
 from uiprotect.cli.speakers import app as speaker_app
@@ -72,6 +73,7 @@ def test_root_help_shows_public_subcommands() -> None:
     assert "relays" in result.stdout
     assert "fobs" in result.stdout
     assert "speakers" in result.stdout
+    assert "liveviews" in result.stdout
     assert "arm" in result.stdout
 
 
@@ -115,6 +117,63 @@ def test_arm_help() -> None:
     result = runner.invoke(arm_app, ["--help"])
     assert result.exit_code == 0
     assert "list" in result.stdout
+
+
+def test_liveviews_help() -> None:
+    """``liveviews --help`` renders without error."""
+    result = runner.invoke(liveview_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+    assert "show" in result.stdout
+    assert "create" in result.stdout
+    assert "update" in result.stdout
+
+
+def test_liveviews_create_rejects_invalid_slots_json() -> None:
+    """``create --slots <bad-json>`` must exit with code 1 before any API call."""
+    result = runner.invoke(
+        liveview_app,
+        [
+            "create",
+            "--name",
+            "X",
+            "--owner",
+            "u1",
+            "--layout",
+            "1",
+            "--slots",
+            "not-json",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "--slots must be valid JSON" in result.stdout
+
+
+def test_liveviews_create_rejects_non_array_slots() -> None:
+    """``--slots`` must be a JSON array, not an object."""
+    result = runner.invoke(
+        liveview_app,
+        [
+            "create",
+            "--name",
+            "X",
+            "--owner",
+            "u1",
+            "--layout",
+            "1",
+            "--slots",
+            '{"foo": 1}',
+        ],
+    )
+    assert result.exit_code == 1
+    assert "--slots must be a JSON array" in result.stdout
+
+
+def test_liveviews_update_rejects_empty_args() -> None:
+    """``update <id>`` without any field must exit with code 1."""
+    result = runner.invoke(liveview_app, ["update", "lv-1"])
+    assert result.exit_code == 1
+    assert "At least one field must be provided" in result.stdout
 
 
 def test_relays_activate_rejects_invalid_state() -> None:

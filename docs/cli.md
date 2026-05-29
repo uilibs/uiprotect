@@ -80,7 +80,7 @@ For any subcommand you can use `uiprotect COMMAND --help`
 | `events`               | Events CLI.                                                      |
 | `generate-sample-data` | Generates sample data for UniFi Protect instance.                |
 | `lights`               | Lights device CLI.                                               |
-| `liveviews`            | Liveviews CLI.                                                   |
+| `liveviews`            | Liveview commands (Public API).                                  |
 | `nvr`                  | NVR device CLI.                                                  |
 | `profile-ws`           | Profiles Websocket messages for UniFi Protect instance.          |
 | `sensors`              | Sensors device CLI.                                              |
@@ -89,19 +89,19 @@ For any subcommand you can use `uiprotect COMMAND --help`
 
 #### Multiple Item CLI Commands
 
-All adoptable device CLIs, event and liveview CLI work on the idea you have multiple cameras, multiple lights, multiple events or multiple liveviews. As such, they have four variations:
+All adoptable device CLIs and the event CLI work on the idea you have multiple cameras, multiple lights or multiple events. As such, they have four variations:
 
 ```bash
-# list all devices (or events/liveviews)
+# list all devices (or events)
 uiprotect cameras
 
-# list short list of all devices (or events/liveviews)
+# list short list of all devices (or events)
 uiprotect cameras list-ids
 
-# list a specific device (or event/liveview)
+# list a specific device (or event)
 uiprotect cameras DEVICE_ID
 
-# run a command against a specific device (or event/liveview)
+# run a command against a specific device (or event)
 uiprotect cameras DEVICE_ID COMMAND
 ```
 
