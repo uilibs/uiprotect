@@ -52,7 +52,7 @@ except ImportError:
 
 # Sub-apps that only use the public API (API key) and do not need username/password
 _PUBLIC_ONLY_COMMANDS: frozenset[str] = frozenset(
-    {"sirens", "relays", "fobs", "speakers", "arm"}
+    {"sirens", "relays", "fobs", "speakers", "liveviews", "arm"}
 )
 
 OPTION_USERNAME = typer.Option(
@@ -61,7 +61,7 @@ OPTION_USERNAME = typer.Option(
     "-U",
     help=(
         "UniFi Protect username (not required for public API commands: "
-        "sirens, relays, fobs, speakers, arm)"
+        "sirens, relays, fobs, speakers, liveviews, arm)"
     ),
     envvar="UFP_USERNAME",
 )
@@ -71,7 +71,7 @@ OPTION_PASSWORD = typer.Option(
     "-P",
     help=(
         "UniFi Protect password (not required for public API commands: "
-        "sirens, relays, fobs, speakers, arm)"
+        "sirens, relays, fobs, speakers, liveviews, arm)"
     ),
     hide_input=True,
     envvar="UFP_PASSWORD",

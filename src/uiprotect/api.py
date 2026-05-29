@@ -59,6 +59,8 @@ from .data import (
     PublicArmScheduleDict,
     PublicBootstrap,
     PublicHdrMode,
+    PublicLiveview,
+    PublicLiveviewSlotDict,
     PublicNVR,
     PublicSensorAlarmSettings,
     PublicSensorHumiditySettings,
@@ -3562,6 +3564,97 @@ class ProtectApiClient(BaseApiClient):
         )
 
     # ------------------------------------------------------------------
+    # Public API: Liveviews
+    # ------------------------------------------------------------------
+
+    async def get_liveviews_public(self) -> list[PublicLiveview]:
+        """Get all liveviews using public API."""
+        data = await self.api_request_list(url="/v1/liveviews", public_api=True)
+        return [PublicLiveview.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_liveview_public(self, liveview_id: str) -> PublicLiveview:
+        """Get a specific liveview using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/liveviews/{liveview_id}", public_api=True
+        )
+        liveview = PublicLiveview.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.liveviews[liveview.id] = liveview
+        return liveview
+
+    async def create_liveview_public(
+        self,
+        *,
+        name: str,
+        is_default: bool,
+        is_global: bool,
+        owner: str,
+        layout: int,
+        slots: list[PublicLiveviewSlotDict],
+    ) -> PublicLiveview:
+        """Create a new liveview using public API."""
+        if not 1 <= layout <= 26:
+            raise BadRequest("layout must be between 1 and 26")
+        body: dict[str, Any] = {
+            "name": name,
+            "isDefault": is_default,
+            "isGlobal": is_global,
+            "owner": owner,
+            "layout": layout,
+            "slots": [dict(s) for s in slots],
+        }
+        data = await self.api_request_obj(
+            url="/v1/liveviews",
+            method="post",
+            json=body,
+            public_api=True,
+        )
+        liveview = PublicLiveview.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.liveviews[liveview.id] = liveview
+        return liveview
+
+    async def update_liveview_public(
+        self,
+        liveview_id: str,
+        *,
+        name: str | None = None,
+        is_default: bool | None = None,
+        is_global: bool | None = None,
+        owner: str | None = None,
+        layout: int | None = None,
+        slots: list[PublicLiveviewSlotDict] | None = None,
+    ) -> PublicLiveview:
+        """Patch an existing liveview (partial update) using public API."""
+        if layout is not None and not 1 <= layout <= 26:
+            raise BadRequest("layout must be between 1 and 26")
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if is_default is not None:
+            body["isDefault"] = is_default
+        if is_global is not None:
+            body["isGlobal"] = is_global
+        if owner is not None:
+            body["owner"] = owner
+        if layout is not None:
+            body["layout"] = layout
+        if slots is not None:
+            body["slots"] = [dict(s) for s in slots]
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        data = await self.api_request_obj(
+            url=f"/v1/liveviews/{liveview_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        liveview = PublicLiveview.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.liveviews[liveview.id] = liveview
+        return liveview
+
+    # ------------------------------------------------------------------
     # Public API: Alarm manager webhook
     # ------------------------------------------------------------------
 
@@ -3761,6 +3854,7 @@ class ProtectApiClient(BaseApiClient):
             (self.get_relays_public(), "relays", "relays"),
             (self.get_fobs_public(), "fobs", "fobs"),
             (self.get_speakers_public(), "speakers", "speakers"),
+            (self.get_liveviews_public(), "liveviews", "liveviews"),
             (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles"),
         ]
 

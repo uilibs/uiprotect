@@ -80,7 +80,7 @@ For any subcommand you can use `uiprotect COMMAND --help`
 | `events`               | Events CLI.                                                      |
 | `generate-sample-data` | Generates sample data for UniFi Protect instance.                |
 | `lights`               | Lights device CLI.                                               |
-| `liveviews`            | Liveviews CLI.                                                   |
+| `liveviews`            | Liveview commands (Public API).                                  |
 | `nvr`                  | NVR device CLI.                                                  |
 | `profile-ws`           | Profiles Websocket messages for UniFi Protect instance.          |
 | `sensors`              | Sensors device CLI.                                              |
@@ -89,19 +89,19 @@ For any subcommand you can use `uiprotect COMMAND --help`
 
 #### Multiple Item CLI Commands
 
-All adoptable device CLIs, event and liveview CLI work on the idea you have multiple cameras, multiple lights, multiple events or multiple liveviews. As such, they have four variations:
+All adoptable device CLIs and the event CLI work on the idea you have multiple cameras, multiple lights or multiple events. As such, they have four variations:
 
 ```bash
-# list all devices (or events/liveviews)
+# list all devices (or events)
 uiprotect cameras
 
-# list short list of all devices (or events/liveviews)
+# list short list of all devices (or events)
 uiprotect cameras list-ids
 
-# list a specific device (or event/liveview)
+# list a specific device (or event)
 uiprotect cameras DEVICE_ID
 
-# run a command against a specific device (or event/liveview)
+# run a command against a specific device (or event)
 uiprotect cameras DEVICE_ID COMMAND
 ```
 
@@ -177,6 +177,42 @@ Adoptable devices (Cameras, Chimes, Doorlocks, Lights, Sensors, Viewers) all hav
 | `reboot`       | Reboots the device.                               |
 | `unadopt`      | Unadopt/Unmanage adopted device.                  |
 | `update`       | Updates the device.                               |
+
+#### Liveviews CLI
+
+The `liveviews` command group is driven by the Public Integration API and
+authenticates with an API key only (no username/password required). It exposes
+four subcommands:
+
+| Command  | Description                                  |
+| -------- | -------------------------------------------- |
+| `list`   | List all liveviews.                          |
+| `show`   | Show a single liveview by ID.                |
+| `create` | Create a new liveview.                       |
+| `update` | Patch an existing liveview (partial update). |
+
+```bash
+# list all liveviews
+uiprotect liveviews list
+
+# show a single liveview
+uiprotect liveviews show LIVEVIEW_ID
+
+# create a new liveview
+uiprotect liveviews create \
+  --name "Garage" \
+  --owner USER_ID \
+  --layout 4 \
+  --slots '[{"cameras":["CAMERA_ID"],"cycleMode":"motion","cycleInterval":10}]'
+
+# patch an existing liveview
+uiprotect liveviews update LIVEVIEW_ID --name "New name"
+```
+
+`--slots` takes a JSON array of slot objects with keys `cameras`, `cycleMode`
+(`motion` or `time`), and `cycleInterval`. `--layout` must be between 1 and 26.
+See `uiprotect liveviews --help` (and `--help` on each subcommand) for the
+full flag list.
 
 #### Backup CLI
 

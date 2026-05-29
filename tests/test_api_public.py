@@ -19,8 +19,11 @@ from uiprotect.data import (
     Fob,
     FobAwayState,
     FobButton,
+    Liveview,
     NvrArmModeStatus,
     PublicBootstrap,
+    PublicLiveview,
+    PublicLiveviewSlot,
     PublicNVR,
     PublicSpeakerFeatureFlags,
     PublicSpeakerState,
@@ -32,7 +35,13 @@ from uiprotect.data import (
     SpeakerMode,
     SpeakerStatus,
 )
-from uiprotect.data.types import EventType, ModelType, SirenDuration
+from uiprotect.data.convert import create_from_unifi_dict
+from uiprotect.data.types import (
+    EventType,
+    LiveviewCycleMode,
+    ModelType,
+    SirenDuration,
+)
 from uiprotect.exceptions import BadRequest
 from uiprotect.websocket import WebsocketState
 
@@ -47,6 +56,8 @@ FOB_ID = "66d025b301ebc903e80003ed"
 SPEAKER_ID = "66d025b301ebc903e80003ee"
 PROFILE_ID = "6878d82800155803e45928e0"
 NVR_ID = "66d025b301ebc903e80003ec"
+LIVEVIEW_ID = "d65bb41c14d6aa92bfa4a6d1"
+OWNER_ID = "4c5f03a8c8bd48ad8e066285"
 
 # Minimal raw payload matching the Public API NVR schema (v7.0 — no armMode).
 _NVR_RAW_BASE: dict[str, Any] = {
@@ -100,6 +111,7 @@ def _mock_update_public_endpoints(client: ProtectApiClient, **overrides: Any) ->
         "get_relays_public": AsyncMock(return_value=[]),
         "get_fobs_public": AsyncMock(return_value=[]),
         "get_speakers_public": AsyncMock(return_value=[]),
+        "get_liveviews_public": AsyncMock(return_value=[]),
         "get_arm_profiles_public": AsyncMock(return_value=[]),
     }
     defaults.update(overrides)
@@ -2630,3 +2642,343 @@ async def test_relay_api_update_rejects_generic_mutations(
     relay = _build_relay(protect_client)
     with pytest.raises(BadRequest, match="Relay mutations"):
         await relay._api_update({"name": "new"})
+
+
+# ---------------------------------------------------------------------------
+# Liveviews
+# ---------------------------------------------------------------------------
+
+
+def _liveview_raw(**overrides: Any) -> dict[str, Any]:
+    raw: dict[str, Any] = {
+        "id": LIVEVIEW_ID,
+        "modelKey": "liveview",
+        "name": "Garage",
+        "isDefault": False,
+        "isGlobal": True,
+        "owner": OWNER_ID,
+        "layout": 1,
+        "slots": [
+            {
+                "cameras": ["cam-1", "cam-2"],
+                "cycleMode": "motion",
+                "cycleInterval": 10,
+            }
+        ],
+    }
+    raw.update(overrides)
+    return raw
+
+
+def test_liveview_model_from_unifi_dict() -> None:
+    raw = _liveview_raw(
+        layout=4,
+        slots=[
+            {
+                "cameras": ["cam-1", "cam-2", "cam-3"],
+                "cycleMode": "motion",
+                "cycleInterval": 10,
+            },
+            {
+                "cameras": ["cam-4"],
+                "cycleMode": "time",
+                "cycleInterval": 30,
+            },
+        ],
+    )
+    liveview = PublicLiveview.from_unifi_dict(**raw)
+    assert liveview.id == LIVEVIEW_ID
+    assert liveview.model is ModelType.LIVEVIEW
+    assert liveview.name == "Garage"
+    assert liveview.is_default is False
+    assert liveview.is_global is True
+    assert liveview.owner == OWNER_ID
+    assert liveview.layout == 4
+    assert len(liveview.slots) == 2
+    assert isinstance(liveview.slots[0], PublicLiveviewSlot)
+    assert liveview.slots[0].camera_ids == ["cam-1", "cam-2", "cam-3"]
+    assert liveview.slots[0].cycle_mode is LiveviewCycleMode.MOTION
+    assert liveview.slots[0].cycle_interval == 10
+    assert liveview.slots[1].camera_ids == ["cam-4"]
+    assert liveview.slots[1].cycle_mode is LiveviewCycleMode.TIME
+
+
+def test_liveview_model_does_not_collide_with_private() -> None:
+    """``PublicLiveview`` and private ``Liveview`` are distinct types."""
+    raw = _liveview_raw()
+    assert PublicLiveview is not Liveview
+    public = PublicLiveview.from_unifi_dict(**raw)
+    assert isinstance(public, PublicLiveview)
+    # The private bootstrap path must still resolve ``liveview`` modelKey to
+    # the private ``Liveview`` class via ``MODEL_TO_CLASS``.
+    private_raw = dict(raw)
+    # Private Liveview uses ``ownerId`` (remapped from ``owner``); the dict
+    # path already accepts ``owner`` via the remap on the private side.
+    private = create_from_unifi_dict(private_raw)
+    assert isinstance(private, Liveview)
+    assert not isinstance(private, PublicLiveview)
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicLiveview.from_unifi_dict")
+async def test_get_liveviews_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.side_effect = [Mock(id=LIVEVIEW_ID), Mock(id="other")]
+    protect_client.api_request_list = AsyncMock(
+        return_value=[{"id": LIVEVIEW_ID}, {"id": "other"}]
+    )
+    # Initialize public bootstrap to verify the list getter does NOT write to it.
+    pb = protect_client._public_bootstrap = PublicBootstrap()
+
+    result = await protect_client.get_liveviews_public()
+
+    protect_client.api_request_list.assert_called_with(
+        url="/v1/liveviews", public_api=True
+    )
+    assert len(result) == 2
+    assert result[0].id == LIVEVIEW_ID
+    # Cache-write policy: list getter does not touch public_bootstrap.
+    assert protect_client._public_bootstrap is pb
+    assert pb.liveviews == {}
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicLiveview.from_unifi_dict")
+async def test_get_liveview_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=LIVEVIEW_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": LIVEVIEW_ID})
+
+    result = await protect_client.get_liveview_public(LIVEVIEW_ID)
+
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["url"] == f"/v1/liveviews/{LIVEVIEW_ID}"
+    assert kwargs["public_api"] is True
+    assert result.id == LIVEVIEW_ID
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicLiveview.from_unifi_dict")
+async def test_get_liveview_public_writes_pb(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    obj = Mock(id=LIVEVIEW_ID)
+    mock_ctor.return_value = obj
+    protect_client.api_request_obj = AsyncMock(return_value={"id": LIVEVIEW_ID})
+    pb = protect_client._public_bootstrap = PublicBootstrap()
+
+    await protect_client.get_liveview_public(LIVEVIEW_ID)
+
+    assert pb.liveviews[LIVEVIEW_ID] is obj
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicLiveview.from_unifi_dict")
+async def test_create_liveview_public_body(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    new_id = "new-liveview-id"
+    obj = Mock(id=new_id)
+    mock_ctor.return_value = obj
+    protect_client.api_request_obj = AsyncMock(return_value={"id": new_id})
+    pb = protect_client._public_bootstrap = PublicBootstrap()
+
+    await protect_client.create_liveview_public(
+        name="X",
+        is_default=False,
+        is_global=True,
+        owner="u1",
+        layout=4,
+        slots=[
+            {
+                "cameras": ["c1"],
+                "cycleMode": "motion",
+                "cycleInterval": 10,
+            }
+        ],
+    )
+
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["url"] == "/v1/liveviews"
+    assert kwargs["method"] == "post"
+    assert kwargs["public_api"] is True
+    assert kwargs["json"] == {
+        "name": "X",
+        "isDefault": False,
+        "isGlobal": True,
+        "owner": "u1",
+        "layout": 4,
+        "slots": [{"cameras": ["c1"], "cycleMode": "motion", "cycleInterval": 10}],
+    }
+    # No id, no modelKey in the create body.
+    assert "id" not in kwargs["json"]
+    assert "modelKey" not in kwargs["json"]
+    assert pb.liveviews[new_id] is obj
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicLiveview.from_unifi_dict")
+async def test_update_liveview_public_partial(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    obj = Mock(id=LIVEVIEW_ID)
+    mock_ctor.return_value = obj
+    protect_client.api_request_obj = AsyncMock(return_value={"id": LIVEVIEW_ID})
+    pb = protect_client._public_bootstrap = PublicBootstrap()
+
+    await protect_client.update_liveview_public(LIVEVIEW_ID, name="new")
+
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["url"] == f"/v1/liveviews/{LIVEVIEW_ID}"
+    assert kwargs["method"] == "patch"
+    assert kwargs["json"] == {"name": "new"}
+    assert pb.liveviews[LIVEVIEW_ID] is obj
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicLiveview.from_unifi_dict")
+async def test_update_liveview_public_full_body(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=LIVEVIEW_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": LIVEVIEW_ID})
+    await protect_client.update_liveview_public(
+        LIVEVIEW_ID,
+        name="N",
+        is_default=True,
+        is_global=False,
+        owner="u9",
+        layout=9,
+        slots=[
+            {
+                "cameras": ["a", "b"],
+                "cycleMode": "time",
+                "cycleInterval": 5,
+            }
+        ],
+    )
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["json"] == {
+        "name": "N",
+        "isDefault": True,
+        "isGlobal": False,
+        "owner": "u9",
+        "layout": 9,
+        "slots": [{"cameras": ["a", "b"], "cycleMode": "time", "cycleInterval": 5}],
+    }
+
+
+@pytest.mark.asyncio()
+async def test_update_liveview_public_empty(
+    protect_client: ProtectApiClient,
+) -> None:
+    with pytest.raises(BadRequest):
+        await protect_client.update_liveview_public(LIVEVIEW_ID)
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("bad_layout", [0, 27, -1])
+async def test_create_liveview_public_rejects_invalid_layout(
+    protect_client: ProtectApiClient,
+    bad_layout: int,
+) -> None:
+    with pytest.raises(BadRequest, match="layout must be between 1 and 26"):
+        await protect_client.create_liveview_public(
+            name="X",
+            is_default=False,
+            is_global=True,
+            owner="u1",
+            layout=bad_layout,
+            slots=[],
+        )
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("bad_layout", [0, 27, -1])
+async def test_update_liveview_public_rejects_invalid_layout(
+    protect_client: ProtectApiClient,
+    bad_layout: int,
+) -> None:
+    with pytest.raises(BadRequest, match="layout must be between 1 and 26"):
+        await protect_client.update_liveview_public(LIVEVIEW_ID, layout=bad_layout)
+
+
+def test_public_bootstrap_applies_liveview_add_and_update(
+    protect_client: ProtectApiClient,
+) -> None:
+    pb = PublicBootstrap()
+    add_payload = {"type": "add", "item": _liveview_raw()}
+    mt, new, old = pb.process_devices_ws_message(protect_client, add_payload)
+    assert mt is ModelType.LIVEVIEW
+    assert new is not None and new.id == LIVEVIEW_ID
+    assert isinstance(new, PublicLiveview)
+    assert not isinstance(new, Liveview)
+    assert old is None
+    assert LIVEVIEW_ID in pb.liveviews
+
+    # Partial WS update — only ``layout`` on the wire. Untouched fields
+    # (slots, owner) must survive the in-place merge.
+    update_payload: dict[str, Any] = {
+        "type": "update",
+        "item": {"id": LIVEVIEW_ID, "modelKey": "liveview", "layout": 4},
+    }
+    mt, new, old = pb.process_devices_ws_message(protect_client, update_payload)
+    assert old is not None
+    assert new is not None
+    assert new.layout == 4  # type: ignore[attr-defined]
+    assert new.owner == OWNER_ID  # type: ignore[attr-defined]
+    assert len(new.slots) == 1  # type: ignore[attr-defined]
+    assert new.slots[0].camera_ids == ["cam-1", "cam-2"]  # type: ignore[attr-defined]
+
+
+def test_public_bootstrap_liveview_get_lookup(
+    protect_client: ProtectApiClient,
+) -> None:
+    pb = PublicBootstrap()
+    pb.process_devices_ws_message(
+        protect_client, {"type": "add", "item": _liveview_raw()}
+    )
+    fetched = pb.get(ModelType.LIVEVIEW, LIVEVIEW_ID)
+    assert fetched is not None
+    assert fetched is pb.liveviews[LIVEVIEW_ID]
+    assert isinstance(fetched, PublicLiveview)
+
+
+@pytest.mark.asyncio()
+async def test_update_public_populates_liveviews(
+    protect_client: ProtectApiClient,
+) -> None:
+    lv1 = Mock(id="lv-1")
+    lv2 = Mock(id="lv-2")
+    _mock_update_public_endpoints(
+        protect_client,
+        get_liveviews_public=AsyncMock(return_value=[lv1, lv2]),
+    )
+
+    pb = await protect_client.update_public()
+
+    assert "lv-1" in pb.liveviews
+    assert "lv-2" in pb.liveviews
+
+    # Drop ``lv-1`` from a subsequent fetch — ``apply_fetch_result`` removes
+    # stale entries via the standard list-fetch path (no special-case).
+    protect_client.get_liveviews_public = AsyncMock(return_value=[lv2])
+    pb = await protect_client.update_public()
+    assert "lv-1" not in pb.liveviews
+    assert "lv-2" in pb.liveviews
+
+
+@pytest.mark.asyncio()
+async def test_liveview_api_update_rejects_generic_mutations() -> None:
+    """Generic mutation path must fail loudly for Public API liveviews."""
+    liveview = PublicLiveview.from_unifi_dict(**_liveview_raw())
+    with pytest.raises(BadRequest, match="Liveview mutations"):
+        await liveview._api_update({"name": "new"})
