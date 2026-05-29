@@ -3593,6 +3593,8 @@ class ProtectApiClient(BaseApiClient):
         slots: list[PublicLiveviewSlotDict],
     ) -> PublicLiveview:
         """Create a new liveview using public API."""
+        if not 1 <= layout <= 26:
+            raise BadRequest("layout must be between 1 and 26")
         body: dict[str, Any] = {
             "name": name,
             "isDefault": is_default,
@@ -3624,6 +3626,8 @@ class ProtectApiClient(BaseApiClient):
         slots: list[PublicLiveviewSlotDict] | None = None,
     ) -> PublicLiveview:
         """Patch an existing liveview (partial update) using public API."""
+        if layout is not None and not 1 <= layout <= 26:
+            raise BadRequest("layout must be between 1 and 26")
         body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name

@@ -169,6 +169,26 @@ def test_liveviews_create_rejects_non_array_slots() -> None:
     assert "--slots must be a JSON array" in result.stdout
 
 
+def test_liveviews_create_rejects_non_object_slot_entries() -> None:
+    """``--slots`` entries must be JSON objects, not scalars."""
+    result = runner.invoke(
+        liveview_app,
+        [
+            "create",
+            "--name",
+            "X",
+            "--owner",
+            "u1",
+            "--layout",
+            "1",
+            "--slots",
+            '["bad"]',
+        ],
+    )
+    assert result.exit_code == 1
+    assert "--slots entries must be JSON objects" in result.stdout
+
+
 def test_liveviews_update_rejects_empty_args() -> None:
     """``update <id>`` without any field must exit with code 1."""
     result = runner.invoke(liveview_app, ["update", "lv-1"])

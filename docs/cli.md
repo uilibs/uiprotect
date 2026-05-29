@@ -178,6 +178,42 @@ Adoptable devices (Cameras, Chimes, Doorlocks, Lights, Sensors, Viewers) all hav
 | `unadopt`      | Unadopt/Unmanage adopted device.                  |
 | `update`       | Updates the device.                               |
 
+#### Liveviews CLI
+
+The `liveviews` command group is driven by the Public Integration API and
+authenticates with an API key only (no username/password required). It exposes
+four subcommands:
+
+| Command  | Description                                          |
+| -------- | ---------------------------------------------------- |
+| `list`   | List all liveviews.                                  |
+| `show`   | Show a single liveview by ID.                        |
+| `create` | Create a new liveview.                               |
+| `update` | Patch an existing liveview (partial update).         |
+
+```bash
+# list all liveviews
+uiprotect liveviews list
+
+# show a single liveview
+uiprotect liveviews show LIVEVIEW_ID
+
+# create a new liveview
+uiprotect liveviews create \
+  --name "Garage" \
+  --owner USER_ID \
+  --layout 4 \
+  --slots '[{"cameras":["CAMERA_ID"],"cycleMode":"motion","cycleInterval":10}]'
+
+# patch an existing liveview
+uiprotect liveviews update LIVEVIEW_ID --name "New name"
+```
+
+`--slots` takes a JSON array of slot objects with keys `cameras`, `cycleMode`
+(`motion` or `time`), and `cycleInterval`. `--layout` must be between 1 and 26.
+See `uiprotect liveviews --help` (and `--help` on each subcommand) for the
+full flag list.
+
 #### Backup CLI
 
 ```bash

@@ -28,6 +28,9 @@ def _parse_slots(raw: str) -> list[PublicLiveviewSlotDict]:
     if not isinstance(data, list):
         typer.secho("--slots must be a JSON array of slot objects", fg="red")
         raise typer.Exit(1)
+    if any(not isinstance(slot, dict) for slot in data):
+        typer.secho("--slots entries must be JSON objects", fg="red")
+        raise typer.Exit(1)
     return data
 
 

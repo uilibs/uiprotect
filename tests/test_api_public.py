@@ -36,7 +36,12 @@ from uiprotect.data import (
     SpeakerStatus,
 )
 from uiprotect.data.convert import create_from_unifi_dict
-from uiprotect.data.types import EventType, ModelType, SirenDuration
+from uiprotect.data.types import (
+    EventType,
+    LiveviewCycleMode,
+    ModelType,
+    SirenDuration,
+)
 from uiprotect.exceptions import BadRequest
 from uiprotect.websocket import WebsocketState
 
@@ -2692,10 +2697,10 @@ def test_liveview_model_from_unifi_dict() -> None:
     assert len(liveview.slots) == 2
     assert isinstance(liveview.slots[0], PublicLiveviewSlot)
     assert liveview.slots[0].camera_ids == ["cam-1", "cam-2", "cam-3"]
-    assert liveview.slots[0].cycle_mode == "motion"
+    assert liveview.slots[0].cycle_mode is LiveviewCycleMode.MOTION
     assert liveview.slots[0].cycle_interval == 10
     assert liveview.slots[1].camera_ids == ["cam-4"]
-    assert liveview.slots[1].cycle_mode == "time"
+    assert liveview.slots[1].cycle_mode is LiveviewCycleMode.TIME
 
 
 def test_liveview_model_does_not_collide_with_private() -> None:
@@ -2735,6 +2740,7 @@ async def test_get_liveviews_public(
     assert len(result) == 2
     assert result[0].id == LIVEVIEW_ID
     # Cache-write policy: list getter does not touch public_bootstrap.
+    assert protect_client._public_bootstrap is pb
     assert pb.liveviews == {}
 
 
@@ -2876,6 +2882,33 @@ async def test_update_liveview_public_empty(
 ) -> None:
     with pytest.raises(BadRequest):
         await protect_client.update_liveview_public(LIVEVIEW_ID)
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("bad_layout", [0, 27, -1])
+async def test_create_liveview_public_rejects_invalid_layout(
+    protect_client: ProtectApiClient,
+    bad_layout: int,
+) -> None:
+    with pytest.raises(BadRequest, match="layout must be between 1 and 26"):
+        await protect_client.create_liveview_public(
+            name="X",
+            is_default=False,
+            is_global=True,
+            owner="u1",
+            layout=bad_layout,
+            slots=[],
+        )
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("bad_layout", [0, 27, -1])
+async def test_update_liveview_public_rejects_invalid_layout(
+    protect_client: ProtectApiClient,
+    bad_layout: int,
+) -> None:
+    with pytest.raises(BadRequest, match="layout must be between 1 and 26"):
+        await protect_client.update_liveview_public(LIVEVIEW_ID, layout=bad_layout)
 
 
 def test_public_bootstrap_applies_liveview_add_and_update(
