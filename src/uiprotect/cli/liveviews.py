@@ -58,7 +58,9 @@ def create(
     ctx: typer.Context,
     name: str = typer.Option(..., "--name", help="Liveview name"),
     owner: str = typer.Option(..., "--owner", help="Owner user ID"),
-    layout: int = typer.Option(..., "--layout", help="Slot count (1-26)", min=1, max=26),
+    layout: int = typer.Option(
+        ..., "--layout", help="Slot count (1-26)", min=1, max=26
+    ),
     slots: str = typer.Option(
         ...,
         "--slots",
