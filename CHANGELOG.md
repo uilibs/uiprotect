@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.8.0 (2026-05-29)
+
+### Features
+
+
+- Add public api liveviews endpoint group (list/get/update/create) ([`8153836`](https://github.com/uilibs/uiprotect/commit/8153836efa6dc1c4b7a8360ef923a3ef6cbe0a9e))
+
+
 ## v10.7.0 (2026-05-28)
 
 ### Features
