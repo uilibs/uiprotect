@@ -50,6 +50,7 @@ from uiprotect.data import (
     PTZPreset,
     create_from_unifi_dict,
 )
+from uiprotect.data.base import WifiConnectionState
 from uiprotect.data.devices import LEDSettings
 from uiprotect.data.types import Version, VideoMode
 from uiprotect.exceptions import (
@@ -4011,3 +4012,10 @@ async def test_create_talkback_session_public(protect_client: ProtectApiClient):
         method="post",
         public_api=True,
     )
+
+
+def test_wifi_connection_state_coerces_int_experience():
+    """Integer experience values from the server are coerced to str."""
+    state = WifiConnectionState(experience=100)
+    assert state.experience == "100"
+    assert isinstance(state.experience, str)
