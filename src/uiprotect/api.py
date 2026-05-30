@@ -1404,8 +1404,15 @@ class ProtectApiClient(BaseApiClient):
 
             try:
                 await self.poll_events()
-            except Exception as err:
+            except (
+                BadRequest,
+                NotAuthorized,
+                NvrError,
+                GlobalAlarmManagerError,
+            ) as err:
                 _LOGGER.debug("Failed to poll events after bootstrap: %s", err)
+            except Exception:
+                _LOGGER.exception("Failed to poll events after bootstrap")
 
             # Set connection host if not set via override_connection_host
             if self._connection_host is None:
