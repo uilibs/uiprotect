@@ -648,6 +648,30 @@ async def test_force_update_no_user_keyring_access(protect_client: ProtectApiCli
 
 
 @pytest.mark.asyncio()
+async def test_poll_events_known_error_during_update(protect_client: ProtectApiClient):
+    protect_client._bootstrap = None
+    with patch(
+        "uiprotect.api.ProtectApiClient.poll_events",
+        side_effect=NvrError("connection failed"),
+    ):
+        bootstrap = await protect_client.update()
+    assert bootstrap is not None
+
+
+@pytest.mark.asyncio()
+async def test_poll_events_unexpected_error_during_update(
+    protect_client: ProtectApiClient,
+):
+    protect_client._bootstrap = None
+    with patch(
+        "uiprotect.api.ProtectApiClient.poll_events",
+        side_effect=RuntimeError("unexpected"),
+    ):
+        bootstrap = await protect_client.update()
+    assert bootstrap is not None
+
+
+@pytest.mark.asyncio()
 async def test_force_update_user_keyring_internal_error(
     protect_client: ProtectApiClient,
 ):
