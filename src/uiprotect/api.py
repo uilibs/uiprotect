@@ -1402,6 +1402,11 @@ class ProtectApiClient(BaseApiClient):
             self.__dict__.pop("bootstrap", None)
             self._bootstrap = bootstrap
 
+            try:
+                await self.poll_events()
+            except Exception as err:
+                _LOGGER.debug("Failed to poll events after bootstrap: %s", err)
+
             # Set connection host if not set via override_connection_host
             if self._connection_host is None:
                 await self._async_set_connection_host_from_bootstrap(bootstrap)

@@ -570,7 +570,7 @@ async def test_force_update_with_nfc_fingerprint_version(
         ) as get_bootstrap_mock,
         patch(
             "uiprotect.api.ProtectApiClient.api_request_list",
-            side_effect=lambda endpoint: {
+            side_effect=lambda endpoint, **kwargs: {
                 "keyrings": [
                     {
                         "deviceType": "camera",
@@ -604,7 +604,7 @@ async def test_force_update_with_nfc_fingerprint_version(
         assert api_request_list_mock.called
         api_request_list_mock.assert_any_call("keyrings")
         api_request_list_mock.assert_any_call("ulp-users")
-        assert api_request_list_mock.call_count == 2
+        assert api_request_list_mock.call_count == 3
 
     assert protect_client.bootstrap
     assert original_bootstrap != protect_client.bootstrap
@@ -638,7 +638,7 @@ async def test_force_update_no_user_keyring_access(protect_client: ProtectApiCli
         assert api_request_list_mock.called
         api_request_list_mock.assert_any_call("keyrings")
         api_request_list_mock.assert_any_call("ulp-users")
-        assert api_request_list_mock.call_count == 2
+        assert api_request_list_mock.call_count == 3
 
     assert protect_client.bootstrap
     assert original_bootstrap != protect_client.bootstrap

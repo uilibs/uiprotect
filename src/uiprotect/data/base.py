@@ -875,6 +875,8 @@ class BluetoothConnectionState(WirelessConnectionState):
 
 
 class WifiConnectionState(WirelessConnectionState):
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
     phy_rate: float | None = None
     channel: int | None = None
     frequency: int | None = None
