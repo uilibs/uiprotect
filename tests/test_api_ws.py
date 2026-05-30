@@ -19,7 +19,7 @@ from tests.conftest import (
     MockDatetime,
     MockWebsocket,
 )
-from uiprotect.data import EventType, WSPacket
+from uiprotect.data import Event, EventType, WSPacket
 from uiprotect.data.base import ProtectModel
 from uiprotect.data.devices import EVENT_PING_INTERVAL, Camera
 from uiprotect.data.types import ModelType
@@ -569,6 +569,70 @@ async def test_ws_event_update(
     bootstrap = protect_client.bootstrap.unifi_dict()
 
     assert bootstrap == bootstrap_before
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.datetime", MockDatetime)
+async def test_ws_event_update_in_flight(
+    protect_client_no_debug: ProtectApiClient,
+    now,
+    camera,
+    packet: WSPacket,
+):
+    """Update packets for events active before WS connect are emitted after seeding via poll_events."""
+    protect_client = protect_client_no_debug
+    camera_id = camera["id"]
+    event_id = "46f37803-d601-4eff-a887-6717460db4f1"
+    expected_updated_id = "d7d12bff-a14a-415b-a7ba-cd2d6a7115ca"
+    start_ms = to_js_time(now - timedelta(seconds=6))
+    end_ms = to_js_time(now)
+
+    seed = Event.from_unifi_dict(
+        api=protect_client,
+        id=event_id,
+        type="smartDetectZone",
+        start=start_ms,
+        score=0,
+        smartDetectTypes=["package"],
+        smartDetectEvents=[],
+        camera=camera_id,
+        partition=None,
+        user=None,
+        metadata={},
+        thumbnail=f"e-{event_id}",
+        heatmap=f"e-{event_id}",
+        modelKey="event",
+    )
+    protect_client.bootstrap.process_event(seed)
+
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": "update",
+        "id": event_id,
+        "modelKey": "event",
+        "newUpdateId": expected_updated_id,
+    }
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {
+        "end": end_ms,
+        "smartDetectTypes": ["package"],
+        "score": 0,
+        "modelKey": "event",
+    }
+
+    received: list[WSSubscriptionMessage] = []
+    protect_client.subscribe_websocket(received.append)
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+    protect_client._process_ws_message(msg)
+
+    assert len(received) == 1
+    assert received[0].action == WSAction.UPDATE
+    assert received[0].new_obj is not None
+    assert received[0].new_obj.id == event_id
+    assert protect_client.bootstrap.events[event_id].end is not None
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
