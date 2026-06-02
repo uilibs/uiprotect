@@ -721,6 +721,19 @@ async def test_trigger_alarm_hub_output_public_no_body(
 
 
 @pytest.mark.asyncio()
+async def test_trigger_alarm_hub_output_public_with_delay(
+    protect_client: ProtectApiClient,
+) -> None:
+    protect_client.api_request_raw = AsyncMock(return_value=None)
+    await protect_client.trigger_alarm_hub_output_public(ALARM_HUB_ID, 0, delay=1000)
+    _, kwargs = protect_client.api_request_raw.call_args
+    assert kwargs["url"] == f"/v1/alarm-hubs/{ALARM_HUB_ID}/outputs/0/trigger"
+    assert kwargs["method"] == "post"
+    assert kwargs["public_api"] is True
+    assert kwargs["json"] == {"delay": 1000}
+
+
+@pytest.mark.asyncio()
 async def test_trigger_alarm_hub_output_public_rejects_negative_delay(
     protect_client: ProtectApiClient,
 ) -> None:
