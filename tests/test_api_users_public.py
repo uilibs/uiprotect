@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 import pytest
 
-from uiprotect.data import PublicUlpUser, PublicUser
+from uiprotect.data import PublicUlpUser, PublicUser, UlpUserStatus
 from uiprotect.data.types import ModelType
+
+SAMPLE_DATA_DIR = Path(__file__).parent / "sample_data"
 
 if TYPE_CHECKING:
     from uiprotect.api import ProtectApiClient
@@ -170,4 +174,34 @@ async def test_public_ulp_user_parses_minimal_payload(
     assert user.first_name == "John"
     assert user.last_name == "Doe"
     assert user.full_name == "John Doe"
-    assert user.status == "DEACTIVATED"
+    assert user.status is UlpUserStatus.DEACTIVATED
+
+
+def test_public_ulp_user_status_round_trip_from_fixture() -> None:
+    payload = json.loads((SAMPLE_DATA_DIR / "sample_ulp_users.json").read_text())
+    active_raw = next(p for p in payload if p["status"] == "ACTIVE")
+    deactivated_raw = next(p for p in payload if p["status"] == "DEACTIVATED")
+
+    active = PublicUlpUser.from_unifi_dict(**active_raw)
+    deactivated = PublicUlpUser.from_unifi_dict(**deactivated_raw)
+
+    assert active.status is UlpUserStatus.ACTIVE
+    assert deactivated.status is UlpUserStatus.DEACTIVATED
+
+    assert active.unifi_dict()["status"] == "ACTIVE"
+    assert deactivated.unifi_dict()["status"] == "DEACTIVATED"
+
+
+def test_public_ulp_user_status_accepts_unknown_value() -> None:
+    payload = {
+        "id": ULP_USER_ID,
+        "modelKey": "ulpUser",
+        "firstName": "John",
+        "lastName": "Doe",
+        "fullName": "John Doe",
+        "status": "SUSPENDED",
+    }
+
+    user = PublicUlpUser.from_unifi_dict(**payload)
+
+    assert user.status is UlpUserStatus.UNKNOWN
