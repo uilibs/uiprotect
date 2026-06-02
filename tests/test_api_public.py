@@ -804,9 +804,9 @@ async def test_link_station_trigger_output_delegates_for_alarm_hub(
 ) -> None:
     ah = LinkStation.from_unifi_dict(**deepcopy(_ALARM_HUB_FIXTURE), api=protect_client)
     protect_client.trigger_alarm_hub_output_public = AsyncMock()
-    await ah.trigger_output(0, enable=True, duration=2000)
+    await ah.trigger_output(0, enable=True, delay=500, duration=2000)
     protect_client.trigger_alarm_hub_output_public.assert_awaited_once_with(
-        ALARM_HUB_ID, 0, enable=True, delay=None, duration=2000
+        ALARM_HUB_ID, 0, enable=True, delay=500, duration=2000
     )
 
 

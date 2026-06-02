@@ -138,6 +138,8 @@ def test_link_stations_trigger_output_rejects_negative_delay() -> None:
         ["trigger-output", "hub-id", "0", "--delay", "-1"],
     )
     assert result.exit_code != 0
+    assert "Invalid value" in result.output
+    assert "--delay" in result.output
 
 
 def test_liveviews_help() -> None:
