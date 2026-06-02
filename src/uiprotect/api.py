@@ -26,6 +26,7 @@ import aiohttp
 import orjson
 from aiofiles import os as aos
 from aiohttp import ClientResponse, CookieJar, client_exceptions
+from aiozoneinfo import async_get_time_zone
 from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
@@ -46,7 +47,9 @@ from .data import (
     Event,
     EventCategories,
     EventType,
+    Fob,
     Light,
+    LinkStation,
     Liveview,
     ModelType,
     NvrArmMode,
@@ -56,19 +59,24 @@ from .data import (
     ProtectModel,
     PublicArmScheduleDict,
     PublicBootstrap,
+    PublicBridge,
     PublicHdrMode,
+    PublicLiveview,
+    PublicLiveviewSlotDict,
     PublicNVR,
     PublicSensorAlarmSettings,
     PublicSensorHumiditySettings,
     PublicSensorLightSettings,
     PublicSensorMotionSettings,
     PublicSensorTemperatureSettings,
+    PublicViewer,
     Relay,
     Sensor,
     Siren,
     SmartDetectAudioType,
     SmartDetectObjectType,
     SmartDetectTrack,
+    Speaker,
     Version,
     VideoMode,
     Viewer,
@@ -104,6 +112,20 @@ if "partitioned" not in cookies.Morsel._reserved:  # type: ignore[attr-defined]
     # See: https://github.com/python/cpython/issues/112713
     cookies.Morsel._reserved["partitioned"] = "partitioned"  # type: ignore[attr-defined]
     cookies.Morsel._flags.add("partitioned")  # type: ignore[attr-defined]
+
+
+async def _async_warm_nvr_timezone(nvr_data: dict[str, Any]) -> None:
+    """
+    Warm zoneinfo's cache for ``nvr_data["timezone"]`` off the event loop.
+
+    ``NVR.unifi_dict_conversions`` constructs ``ZoneInfo(name)`` synchronously
+    during parse; first construction does an ``os.stat`` lookup that blocks
+    the loop. Awaiting :func:`async_get_time_zone` here primes ZoneInfo's
+    internal cache so the later sync construction is a free hit.
+    """
+    tz_name = nvr_data.get("timezone")
+    if isinstance(tz_name, str):
+        await async_get_time_zone(tz_name)
 
 
 class LightPatchRequest(TypedDict, total=False):
@@ -167,6 +189,26 @@ If your Protect instance has a lot of events, this request will take much longer
 
 _LOGGER = logging.getLogger(__name__)
 _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
+
+
+# Sentinel used by ``update_viewer_public`` to distinguish "do not change" (the
+# default) from "explicitly set to null". The viewer's ``liveview`` wire field
+# is legitimately nullable, so a plain ``None`` cannot serve both meanings.
+# A dedicated singleton type keeps the sentinel out of ``Any`` so callers
+# can't accidentally smuggle it through the typed surface.
+class _UnsetType:
+    _instance: _UnsetType | None = None
+
+    def __new__(cls) -> _UnsetType:
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self) -> str:
+        return "<UNSET>"
+
+
+_UNSET: _UnsetType = _UnsetType()
 
 
 # Substring present in the 400 error reason returned by the NVR when the
@@ -2073,6 +2115,7 @@ class ProtectApiClient(BaseApiClient):
         This is a great alternative if you need metadata about the NVR without connecting to the Websocket
         """
         data = await self.api_request_obj("bootstrap")
+        await _async_warm_nvr_timezone(data["nvr"])
         return Bootstrap.from_unifi_dict(**data, api=self)
 
     async def get_devices_raw(self, model_type: ModelType) -> list[dict[str, Any]]:
@@ -2223,6 +2266,7 @@ class ProtectApiClient(BaseApiClient):
         This is a great alternative if you need metadata about the NVR without connecting to the Websocket
         """
         data = await self.api_request_obj("nvr")
+        await _async_warm_nvr_timezone(data)
         return NVR.from_unifi_dict(**data, api=self)
 
     async def get_event(self, event_id: str) -> Event:
@@ -3458,6 +3502,358 @@ class ProtectApiClient(BaseApiClient):
         )
 
     # ------------------------------------------------------------------
+    # Public API: Fobs
+    # ------------------------------------------------------------------
+
+    async def get_fobs_public(self) -> list[Fob]:
+        """Get all key fobs using public API."""
+        data = await self.api_request_list(url="/v1/fobs", public_api=True)
+        return [Fob.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_fob_public(self, fob_id: str) -> Fob:
+        """Get a specific key fob using public API."""
+        data = await self.api_request_obj(url=f"/v1/fobs/{fob_id}", public_api=True)
+        return Fob.from_unifi_dict(**data, api=self)
+
+    async def update_fob_public(self, fob_id: str, *, name: str | None = None) -> Fob:
+        """Patch key-fob settings using public API."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        result = await self.api_request_obj(
+            url=f"/v1/fobs/{fob_id}", method="patch", json=body, public_api=True
+        )
+        return Fob.from_unifi_dict(**result, api=self)
+
+    # ------------------------------------------------------------------
+    # Public API: Speakers
+    # ------------------------------------------------------------------
+
+    async def get_speakers_public(self) -> list[Speaker]:
+        """Get all speakers using public API."""
+        data = await self.api_request_list(url="/v1/speakers", public_api=True)
+        return [Speaker.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_speaker_public(self, speaker_id: str) -> Speaker:
+        """Get a specific speaker using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/speakers/{speaker_id}", public_api=True
+        )
+        return Speaker.from_unifi_dict(**data, api=self)
+
+    async def update_speaker_public(
+        self,
+        speaker_id: str,
+        *,
+        name: str | None = None,
+        volume: int | None = None,
+        mic_volume: int | None = None,
+        is_mic_enabled: bool | None = None,
+    ) -> Speaker:
+        """Patch speaker settings using public API."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if volume is not None:
+            body["volume"] = volume
+        if mic_volume is not None:
+            body["micVolume"] = mic_volume
+        if is_mic_enabled is not None:
+            body["isMicEnabled"] = is_mic_enabled
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        result = await self.api_request_obj(
+            url=f"/v1/speakers/{speaker_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        return Speaker.from_unifi_dict(**result, api=self)
+
+    async def test_speaker_sound_public(
+        self, speaker_id: str, *, volume: int | None = None
+    ) -> None:
+        """Test the speaker sound at the given volume."""
+        body: dict[str, Any] = {}
+        if volume is not None:
+            body["volume"] = volume
+        await self.api_request_raw(
+            url=f"/v1/speakers/{speaker_id}/test-sound",
+            method="post",
+            public_api=True,
+            json=body,
+        )
+
+    # ------------------------------------------------------------------
+    # Public API: Link stations / Alarm hubs
+    # ------------------------------------------------------------------
+
+    async def get_link_stations_public(self) -> list[LinkStation]:
+        """Get all link stations using public API."""
+        data = await self.api_request_list(url="/v1/link-stations", public_api=True)
+        return [LinkStation.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_alarm_hubs_public(self) -> list[LinkStation]:
+        """Get all alarm hubs using public API."""
+        data = await self.api_request_list(url="/v1/alarm-hubs", public_api=True)
+        return [LinkStation.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_link_station_public(self, link_station_id: str) -> LinkStation:
+        """Get a specific link station using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/link-stations/{link_station_id}", public_api=True
+        )
+        return LinkStation.from_unifi_dict(**data, api=self)
+
+    async def get_alarm_hub_public(self, hub_id: str) -> LinkStation:
+        """Get a specific alarm hub using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/alarm-hubs/{hub_id}", public_api=True
+        )
+        return LinkStation.from_unifi_dict(**data, api=self)
+
+    async def update_link_station_public(
+        self, link_station_id: str, *, name: str | None = None
+    ) -> LinkStation:
+        """Patch link station settings using public API."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        result = await self.api_request_obj(
+            url=f"/v1/link-stations/{link_station_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        return LinkStation.from_unifi_dict(**result, api=self)
+
+    async def update_alarm_hub_public(
+        self, hub_id: str, *, name: str | None = None
+    ) -> LinkStation:
+        """Patch alarm hub settings using public API."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        result = await self.api_request_obj(
+            url=f"/v1/alarm-hubs/{hub_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        return LinkStation.from_unifi_dict(**result, api=self)
+
+    async def trigger_alarm_hub_output_public(
+        self,
+        hub_id: str,
+        output_id: int,
+        *,
+        enable: bool | None = None,
+        delay: int | None = None,
+        duration: int | None = None,
+    ) -> None:
+        """Trigger an alarm-hub output channel using public API."""
+        if delay is not None and delay < 0:
+            raise BadRequest("delay must be >= 0")
+        if duration is not None and duration < 0:
+            raise BadRequest("duration must be >= 0")
+        body: dict[str, Any] = {}
+        if enable is not None:
+            body["enable"] = enable
+        if delay is not None:
+            body["delay"] = delay
+        if duration is not None:
+            body["duration"] = duration
+        await self.api_request_raw(
+            url=f"/v1/alarm-hubs/{hub_id}/outputs/{output_id}/trigger",
+            method="post",
+            public_api=True,
+            json=body or None,
+        )
+
+    # ------------------------------------------------------------------
+    # Public API: Bridges
+    # ------------------------------------------------------------------
+
+    async def get_bridges_public(self) -> list[PublicBridge]:
+        """Get all bridges using public API."""
+        data = await self.api_request_list(url="/v1/bridges", public_api=True)
+        return [PublicBridge.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_bridge_public(self, bridge_id: str) -> PublicBridge:
+        """Get a specific bridge using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/bridges/{bridge_id}", public_api=True
+        )
+        bridge = PublicBridge.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.bridges[bridge.id] = bridge
+        return bridge
+
+    async def update_bridge_public(
+        self, bridge_id: str, *, name: str | None = None
+    ) -> PublicBridge:
+        """Patch bridge settings using public API."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        data = await self.api_request_obj(
+            url=f"/v1/bridges/{bridge_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        bridge = PublicBridge.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.bridges[bridge.id] = bridge
+        return bridge
+
+    # ------------------------------------------------------------------
+    # Public API: Viewers
+    # ------------------------------------------------------------------
+
+    async def get_viewers_public(self) -> list[PublicViewer]:
+        """Get all viewers using public API."""
+        data = await self.api_request_list(url="/v1/viewers", public_api=True)
+        return [PublicViewer.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_viewer_public(self, viewer_id: str) -> PublicViewer:
+        """Get a specific viewer using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/viewers/{viewer_id}", public_api=True
+        )
+        viewer = PublicViewer.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.viewers[viewer.id] = viewer
+        return viewer
+
+    async def update_viewer_public(
+        self,
+        viewer_id: str,
+        *,
+        name: str | None = None,
+        liveview: str | None | _UnsetType = _UNSET,
+    ) -> PublicViewer:
+        """Patch viewer settings using public API. Pass ``liveview=None`` to clear."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        # ``liveview`` is genuinely nullable on the wire — distinguish the
+        # default sentinel (no change) from an explicit ``None`` (clear).
+        if liveview is not _UNSET:
+            body["liveview"] = liveview
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        data = await self.api_request_obj(
+            url=f"/v1/viewers/{viewer_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        viewer = PublicViewer.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.viewers[viewer.id] = viewer
+        return viewer
+
+    # ------------------------------------------------------------------
+    # Public API: Liveviews
+    # ------------------------------------------------------------------
+
+    async def get_liveviews_public(self) -> list[PublicLiveview]:
+        """Get all liveviews using public API."""
+        data = await self.api_request_list(url="/v1/liveviews", public_api=True)
+        return [PublicLiveview.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_liveview_public(self, liveview_id: str) -> PublicLiveview:
+        """Get a specific liveview using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/liveviews/{liveview_id}", public_api=True
+        )
+        liveview = PublicLiveview.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.liveviews[liveview.id] = liveview
+        return liveview
+
+    async def create_liveview_public(
+        self,
+        *,
+        name: str,
+        is_default: bool,
+        is_global: bool,
+        owner: str,
+        layout: int,
+        slots: list[PublicLiveviewSlotDict],
+    ) -> PublicLiveview:
+        """Create a new liveview using public API."""
+        if not 1 <= layout <= 26:
+            raise BadRequest("layout must be between 1 and 26")
+        body: dict[str, Any] = {
+            "name": name,
+            "isDefault": is_default,
+            "isGlobal": is_global,
+            "owner": owner,
+            "layout": layout,
+            "slots": [dict(s) for s in slots],
+        }
+        data = await self.api_request_obj(
+            url="/v1/liveviews",
+            method="post",
+            json=body,
+            public_api=True,
+        )
+        liveview = PublicLiveview.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.liveviews[liveview.id] = liveview
+        return liveview
+
+    async def update_liveview_public(
+        self,
+        liveview_id: str,
+        *,
+        name: str | None = None,
+        is_default: bool | None = None,
+        is_global: bool | None = None,
+        owner: str | None = None,
+        layout: int | None = None,
+        slots: list[PublicLiveviewSlotDict] | None = None,
+    ) -> PublicLiveview:
+        """Patch an existing liveview (partial update) using public API."""
+        if layout is not None and not 1 <= layout <= 26:
+            raise BadRequest("layout must be between 1 and 26")
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if is_default is not None:
+            body["isDefault"] = is_default
+        if is_global is not None:
+            body["isGlobal"] = is_global
+        if owner is not None:
+            body["owner"] = owner
+        if layout is not None:
+            body["layout"] = layout
+        if slots is not None:
+            body["slots"] = [dict(s) for s in slots]
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        data = await self.api_request_obj(
+            url=f"/v1/liveviews/{liveview_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        liveview = PublicLiveview.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.liveviews[liveview.id] = liveview
+        return liveview
+
+    # ------------------------------------------------------------------
     # Public API: Alarm manager webhook
     # ------------------------------------------------------------------
 
@@ -3655,6 +4051,12 @@ class ProtectApiClient(BaseApiClient):
             (self.get_sensors_public(), "sensors", "sensors"),
             (self.get_sirens_public(), "sirens", "sirens"),
             (self.get_relays_public(), "relays", "relays"),
+            (self.get_fobs_public(), "fobs", "fobs"),
+            (self.get_speakers_public(), "speakers", "speakers"),
+            (self.get_link_stations_public(), "link-stations", "link_stations"),
+            (self.get_liveviews_public(), "liveviews", "liveviews"),
+            (self.get_bridges_public(), "bridges", "bridges"),
+            (self.get_viewers_public(), "viewers", "viewers"),
             (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles"),
         ]
 

@@ -6,8 +6,15 @@
         "target": "devcontainer"
     },
     "updateRemoteUserUID": true,
-    "features": {},
-    "postCreateCommand": "bash -c 'export LANG=C.UTF-8 LC_ALL=C.UTF-8 && poetry install --with dev --no-interaction --no-ansi && LANG=C.UTF-8 LC_ALL=C.UTF-8 poetry run pre-commit install --install-hooks && echo \"LANG=C.UTF-8\" >> /etc/environment && echo \"LC_ALL=C.UTF-8\" >> /etc/environment'",
+    "features": {
+        "ghcr.io/devcontainers/features/github-cli:1": {}
+    },
+    "initializeCommand": "touch ~/.gitconfig",
+    "postCreateCommand": "poetry install --no-interaction --no-ansi && poetry run pre-commit install --install-hooks",
+    "mounts": [
+        "source=${localEnv:HOME}/.claude,target=/root/.claude,type=bind,consistency=cached",
+        "source=${localEnv:HOME}/.gitconfig,target=/root/.gitconfig,type=bind,consistency=cached"
+    ],
     "remoteUser": "root",
     "containerEnv": {
         "GIT_AUTHOR_NAME": "${localEnv:GIT_AUTHOR_NAME:${localEnv:USER:devcontainer}}",
@@ -16,8 +23,8 @@
         "GIT_COMMITTER_EMAIL": "${localEnv:GIT_COMMITTER_EMAIL:${localEnv:USER:devcontainer}@localhost}"
     },
     "remoteEnv": {
-        "LANG": "C.UTF-8",
-        "LC_ALL": "C.UTF-8"
+        "LANG": "en_US.UTF-8",
+        "LC_ALL": "en_US.UTF-8"
     },
     "customizations": {
         "vscode": {
@@ -67,7 +74,10 @@
                 "esbenp.prettier-vscode",
                 "ms-python.mypy-type-checker",
                 "ms-vscode.test-adapter-converter",
-                "littlefoxteam.vscode-python-test-adapter"
+                "littlefoxteam.vscode-python-test-adapter",
+                "GitHub.vscode-pull-request-github",
+                "usernamehw.errorlens",
+                "anthropic.claude-code"
             ]
         }
     }

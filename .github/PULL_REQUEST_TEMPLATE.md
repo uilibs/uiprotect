@@ -38,7 +38,7 @@
 - [ ] This pull request links relevant issues as `Fixes #0000`
 - [ ] There are new or updated unit tests validating the change
 - [ ] Documentation has been updated to reflect this change
-- [ ] The new commits follow conventions outlined in the [conventional commit spec](https://www.conventionalcommits.org/en/v1.0.0/), such as "fix(api): prevent racing of requests".
+- [ ] The pull request title follows the [conventional commit spec](https://www.conventionalcommits.org/en/v1.0.0/), such as "fix(api): prevent racing of requests" (PRs are squash-merged, so the title becomes the commit on `main`).
 
 > - If pre-commit.ci is failing, try `pre-commit run -a` for further information.
 > - If CI / test is failing, try `poetry run pytest` for further information.

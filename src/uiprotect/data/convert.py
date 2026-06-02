@@ -18,7 +18,7 @@ from .devices import (
     Viewer,
 )
 from .nvr import NVR, Event, Liveview
-from .public_devices import Relay, Siren
+from .public_devices import Fob, LinkStation, Relay, Siren, Speaker
 from .types import ModelType
 from .user import CloudAccount, Group, Keyring, UlpUser, User, UserLocation
 
@@ -49,6 +49,9 @@ MODEL_TO_CLASS: dict[str, type[ProtectModel]] = {
     # bootstrap, so private-API callers remain unaffected.
     ModelType.SIREN: Siren,
     ModelType.RELAY: Relay,
+    ModelType.FOB: Fob,
+    ModelType.SPEAKER: Speaker,
+    ModelType.LINK_STATION: LinkStation,
 }
 
 

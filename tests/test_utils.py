@@ -14,9 +14,11 @@ from uuid import UUID
 
 import jwt
 import pytest
+from aiofiles import os as aos
 from pydantic.fields import FieldInfo
 
 import uiprotect.utils as utils_module
+from tests.conftest import async_read_text
 from uiprotect.data import EventType
 from uiprotect.data.bootstrap import WSStat
 from uiprotect.data.types import (
@@ -700,8 +702,8 @@ def test_print_ws_stat_summary():
 async def test_write_json(tmp_path: Path):
     path = tmp_path / "test.json"
     await write_json(path, {"key": "value"})
-    assert path.exists()
-    assert '"key": "value"' in path.read_text()
+    assert await aos.path.exists(path)
+    assert '"key": "value"' in await async_read_text(path)
 
 
 # --- log_event tests ---
