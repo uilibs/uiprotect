@@ -757,6 +757,17 @@ class UlpUserStatus(UnknownValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
+class ChannelQuality(UnknownValuesEnumMixin, enum.StrEnum):
+    """RTSPS channel quality (``qualities`` field on rtsps-stream endpoints)."""
+
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    PACKAGE = "package"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
 class FobAwayState(UnknownValuesEnumMixin, enum.StrEnum):
     """Key-fob presence/away state (``awayState`` field)."""
 

@@ -43,6 +43,7 @@ from tests.sample_data.constants import CONSTANTS
 from uiprotect.api import ProtectApiClient, RTSPSStreams, get_user_hash
 from uiprotect.data import (
     Camera,
+    ChannelQuality,
     Event,
     EventType,
     ModelType,
@@ -2922,6 +2923,58 @@ async def test_delete_camera_rtsps_streams_failure():
         )
 
         assert result is False
+
+
+@pytest.mark.asyncio
+async def test_camera_rtsps_streams_channel_quality_enum_serialization():
+    """ChannelQuality members serialise to their wire values on both create + delete."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="test_key",
+        verify_ssl=False,
+    )
+
+    with patch.object(
+        client,
+        "api_request_raw",
+        new=AsyncMock(return_value=b'{"high": "rtsps://example.com/high"}'),
+    ) as mock_request:
+        await client.create_camera_rtsps_streams("camera123", ChannelQuality.HIGH)
+        mock_request.assert_called_once_with(
+            public_api=True,
+            url="/v1/cameras/camera123/rtsps-stream",
+            method="POST",
+            json={"qualities": ["high"]},
+        )
+
+    with patch.object(
+        client,
+        "api_request_raw",
+        new=AsyncMock(return_value=b'{"package": "rtsps://example.com/package"}'),
+    ) as mock_request:
+        await client.create_camera_rtsps_streams("camera123", [ChannelQuality.PACKAGE])
+        mock_request.assert_called_once_with(
+            public_api=True,
+            url="/v1/cameras/camera123/rtsps-stream",
+            method="POST",
+            json={"qualities": ["package"]},
+        )
+
+    with patch.object(
+        client, "api_request_raw", new=AsyncMock(return_value=b"")
+    ) as mock_request:
+        await client.delete_camera_rtsps_streams(
+            "camera123", [ChannelQuality.HIGH, ChannelQuality.PACKAGE]
+        )
+        mock_request.assert_called_once_with(
+            public_api=True,
+            url="/v1/cameras/camera123/rtsps-stream",
+            method="DELETE",
+            params=[("qualities", "high"), ("qualities", "package")],
+        )
 
 
 def test_rtsps_streams_class():
