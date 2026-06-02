@@ -448,26 +448,39 @@ async def test_light_set_light_mode_public(
         return_value=light_obj.model_copy(update={"light_mode_settings": updated_mode}),
     )
 
+    original_enable_at = light_obj.light_mode_settings.enable_at
+
     await light_obj.set_light_mode_public(mode, enable_at=enable_at)
 
     sent = light_obj.api.update_light_public.call_args.kwargs["light_mode_settings"]
     assert sent.mode == mode
     if enable_at is not None:
         assert sent.enable_at == enable_at
+    else:
+        assert sent.enable_at == original_enable_at
     assert light_obj.light_mode_settings.mode == mode
 
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize(
     "duration",
-    [None, timedelta(seconds=1), timedelta(seconds=60), timedelta(seconds=1000)],
+    [
+        None,
+        timedelta(seconds=1),
+        timedelta(seconds=15),
+        timedelta(seconds=60),
+        timedelta(seconds=900),
+        timedelta(seconds=1000),
+    ],
 )
 @pytest.mark.parametrize("sensitivity", [None, 1, 100, -10])
+@pytest.mark.parametrize("enable_at", [None, LightModeEnableType.ALWAYS])
 @pytest.mark.asyncio()
 async def test_light_set_light_settings_public(
     light_obj: Light,
     duration: timedelta | None,
     sensitivity: int | None,
+    enable_at: LightModeEnableType | None,
 ) -> None:
     light_obj.api.update_light_public = AsyncMock()
 
@@ -479,6 +492,7 @@ async def test_light_set_light_settings_public(
         with pytest.raises(BadRequest):
             await light_obj.set_light_settings_public(
                 LightModeType.MOTION,
+                enable_at=enable_at,
                 duration=duration,
                 sensitivity=sensitivity,
             )
@@ -488,13 +502,16 @@ async def test_light_set_light_settings_public(
         with pytest.raises(ValidationError):
             await light_obj.set_light_settings_public(
                 LightModeType.MOTION,
+                enable_at=enable_at,
                 duration=duration,
                 sensitivity=sensitivity,
             )
         assert not light_obj.api.update_light_public.called
         return
 
-    mode_update = {"mode": LightModeType.MOTION}
+    mode_update: dict = {"mode": LightModeType.MOTION}
+    if enable_at is not None:
+        mode_update["enable_at"] = enable_at
     updated_mode = light_obj.light_mode_settings.model_copy(update=mode_update)
 
     device_update: dict = {}
@@ -517,13 +534,20 @@ async def test_light_set_light_settings_public(
 
     await light_obj.set_light_settings_public(
         LightModeType.MOTION,
+        enable_at=enable_at,
         duration=duration,
         sensitivity=sensitivity,
     )
 
     kwargs = light_obj.api.update_light_public.call_args.kwargs
     assert kwargs["light_mode_settings"].mode == LightModeType.MOTION
+    if enable_at is not None:
+        assert kwargs["light_mode_settings"].enable_at == enable_at
     if device_update:
         assert kwargs["light_device_settings"] is not None
+        if duration is not None:
+            assert kwargs["light_device_settings"].pir_duration == duration
+        if sensitivity is not None:
+            assert kwargs["light_device_settings"].pir_sensitivity == sensitivity
     else:
         assert kwargs["light_device_settings"] is None
