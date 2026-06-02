@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.10.0 (2026-06-02)
+
+### Features
+
+
+- Add public api bridges and viewers endpoint groups ([`1a0ed11`](https://github.com/uilibs/uiprotect/commit/1a0ed11cc296058a0b2f3314d5df0e26cdea97bf))
+
+
 ## v10.9.0 (2026-06-02)
 
 ### Features
