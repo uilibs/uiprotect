@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
-from uiprotect.data.base import ProtectModelWithId
-
 from ..exceptions import DataDecodeError
 from .devices import (
     AiPort,
@@ -24,7 +22,7 @@ from .user import CloudAccount, Group, Keyring, UlpUser, User, UserLocation
 
 if TYPE_CHECKING:
     from ..api import ProtectApiClient
-    from ..data.base import ProtectModel
+    from ..data.base import ProtectModel, ProtectModelWithId
 
 
 MODEL_TO_CLASS: dict[str, type[ProtectModel]] = {
@@ -104,9 +102,9 @@ def create_from_unifi_dict(
 
 
 def list_from_unifi_list(
-    api: ProtectApiClient, unifi_list: list[dict[str, ProtectModelWithId]]
+    api: ProtectApiClient, unifi_list: list[dict[str, Any]]
 ) -> list[ProtectModelWithId]:
     return [
-        cast(ProtectModelWithId, create_from_unifi_dict(obj_dict, api))
+        cast("ProtectModelWithId", create_from_unifi_dict(obj_dict, api))
         for obj_dict in unifi_list
     ]
