@@ -20,7 +20,7 @@ def list_viewers(ctx: typer.Context) -> None:
 
     async def _fetch() -> None:
         items = await ctx.obj.protect.get_viewers_public()
-        base.print_unifi_list(items)
+        base.print_unifi_list(items, ctx.obj.output_format)
 
     base.run(ctx, _fetch())
 
