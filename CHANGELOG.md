@@ -1,5 +1,19 @@
 # Changelog
 
+## v10.10.2 (2026-06-02)
+
+### Bug fixes
+
+
+- Refuse to retry past tls failure with credentials ([`4c7550b`](https://github.com/uilibs/uiprotect/commit/4c7550b0df880b352c0cac854f4e3a6d3c4f8a5b))
+
+
+### Refactoring
+
+
+- Correct list_from_unifi_list dict value annotation ([`ce1f140`](https://github.com/uilibs/uiprotect/commit/ce1f140f49e8bc54b3fc5a5ef5cfb17be6d801c3))
+
+
 ## v10.10.1 (2026-06-02)
 
 ### Bug fixes
