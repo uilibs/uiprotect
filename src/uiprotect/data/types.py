@@ -704,6 +704,15 @@ class DeviceState(UnknownValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
+class UlpUserStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API UniFi Identity (ULP) user status (``status`` field)."""
+
+    ACTIVE = "ACTIVE"
+    DEACTIVATED = "DEACTIVATED"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
 class FobAwayState(UnknownValuesEnumMixin, enum.StrEnum):
     """Key-fob presence/away state (``awayState`` field)."""
 

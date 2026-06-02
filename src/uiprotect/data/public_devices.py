@@ -33,6 +33,7 @@ from .types import (
     SirenDuration,
     SpeakerMode,
     SpeakerStatus,
+    UlpUserStatus,
 )
 
 if TYPE_CHECKING:
@@ -708,9 +709,7 @@ class PublicUlpUser(ProtectModelWithId):
     first_name: str
     last_name: str
     full_name: str
-    # Wire enum is currently ``{"ACTIVE", "DEACTIVATED"}``; typed as ``str`` so
-    # future server additions don't raise.
-    status: str
+    status: UlpUserStatus
 
 
 # ---------------------------------------------------------------------------
