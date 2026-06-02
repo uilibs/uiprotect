@@ -13,6 +13,7 @@ import aiohttp
 import orjson
 import pytest
 
+from uiprotect.api import _UNSET, _UnsetType
 from uiprotect.data import (
     ArmProfile,
     Bridge,
@@ -3858,7 +3859,5 @@ async def test_viewer_set_liveview_routes_to_viewer_endpoint(
 
 def test_unset_sentinel_repr_and_singleton() -> None:
     """``_UnsetType`` is a singleton; ``repr`` is stable for log/debug output."""
-    from uiprotect.api import _UNSET, _UnsetType
-
     assert _UnsetType() is _UNSET
     assert repr(_UNSET) == "<UNSET>"
