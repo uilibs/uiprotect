@@ -3684,8 +3684,10 @@ async def test_update_viewer_public_name_only(
     mock_ctor: Mock,
     protect_client: ProtectApiClient,
 ) -> None:
-    mock_ctor.return_value = Mock(id=VIEWER_ID)
+    obj = Mock(id=VIEWER_ID)
+    mock_ctor.return_value = obj
     protect_client.api_request_obj = AsyncMock(return_value={"id": VIEWER_ID})
+    pb = protect_client._public_bootstrap = PublicBootstrap()
 
     await protect_client.update_viewer_public(VIEWER_ID, name="kitchen")
 
@@ -3694,6 +3696,7 @@ async def test_update_viewer_public_name_only(
     assert kwargs["method"] == "patch"
     # ``liveview`` must be omitted (no change) when not explicitly passed.
     assert kwargs["json"] == {"name": "kitchen"}
+    assert pb.viewers[VIEWER_ID] is obj
 
 
 @pytest.mark.asyncio()
