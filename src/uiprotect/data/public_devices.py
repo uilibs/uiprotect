@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypedDict
 from ..exceptions import BadRequest
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import (
+    AlarmHubInputType,
     DeviceState,
     FobAwayState,
     FobButton,
@@ -398,6 +399,62 @@ class Speaker(ProtectModelWithId):
 # ---------------------------------------------------------------------------
 
 
+# The full ``alarmHub`` payload is kept as an opaque dict on
+# :attr:`LinkStation.alarm_hub` because its low-level electrical maps use keys
+# that are not valid Python identifiers (``"12v"``, ``"+"``, ``"-"``). The
+# sub-models below type only the useful, well-formed slice of that payload and
+# are surfaced through read-only accessors that parse the raw dict on demand —
+# leaving the opaque dict (and any unmodeled / future keys) untouched.
+
+
+class AlarmHubBattery(ProtectBaseObject):
+    """Backup battery status of an alarm hub (``alarmHub.battery``)."""
+
+    # Typed as ``str`` (not an enum) so unknown server values don't raise.
+    battery_status: str | None = None
+    connection: str | None = None
+    voltage: float | None = None
+
+
+class AlarmHubCover(ProtectBaseObject):
+    """Tamper cover status of an alarm hub (``alarmHub.cover``)."""
+
+    # ``"open"`` / ``"close"`` on the wire; ``str`` for forward-compatibility.
+    status: str | None = None
+    distance: int | None = None
+
+
+class AlarmHubInput(ProtectBaseObject):
+    """
+    A single wired input (zone) on an alarm hub (``alarmHub.input[n]``).
+
+    Unused terminals carry only ``enable`` / ``type`` / ``status``; configured
+    zones additionally carry a ``name``, an :class:`AlarmHubInputType`, the last
+    trigger time and an optional linked camera.
+    """
+
+    # ``"on"`` / ``"off"``; ``"no"`` (normally-open) / ``"nc"`` (normally-closed);
+    # ``"normal"`` when idle. Kept as ``str`` for forward-compatibility.
+    enable: str | None = None
+    type: str | None = None
+    status: str | None = None
+    name: str | None = None
+    input_type: AlarmHubInputType | None = None
+    last_triggered_at: int | None = None
+    camera_id: str | None = None
+
+
+class AlarmHubOutput(ProtectBaseObject):
+    """A single output channel on an alarm hub (``alarmHub.output[n]``)."""
+
+    # ``"on"`` / ``"off"`` for ``active`` / ``enable``; ``"dry"`` etc. for status.
+    active: str | None = None
+    enable: str | None = None
+    status: str | None = None
+    delay: int | None = None
+    duration: int | None = None
+
+
 class LinkStation(ProtectModelWithId):
     """
     Public API link station / alarm hub.
@@ -453,6 +510,47 @@ class LinkStation(ProtectModelWithId):
             delay=delay,
             duration=duration,
         )
+
+    # -- Typed accessors over the opaque ``alarm_hub`` payload --------------
+    #
+    # These parse the raw dict on demand. They return ``None`` / ``{}`` when
+    # this is not an alarm hub (``alarm_hub is None``) or when the relevant key
+    # is absent, so callers never need to guard against the opaque shape.
+
+    @property
+    def alarm_hub_armed(self) -> str | None:
+        """Overall armed state of the hub (``"on"`` / ``"off"``), if present."""
+        if not self.alarm_hub:
+            return None
+        return self.alarm_hub.get("armed")
+
+    @property
+    def alarm_hub_battery(self) -> AlarmHubBattery | None:
+        """Backup-battery status, or ``None`` if not reported."""
+        if not self.alarm_hub or (raw := self.alarm_hub.get("battery")) is None:
+            return None
+        return AlarmHubBattery.from_unifi_dict(**raw)
+
+    @property
+    def alarm_hub_cover(self) -> AlarmHubCover | None:
+        """Tamper-cover status, or ``None`` if not reported."""
+        if not self.alarm_hub or (raw := self.alarm_hub.get("cover")) is None:
+            return None
+        return AlarmHubCover.from_unifi_dict(**raw)
+
+    @property
+    def alarm_hub_inputs(self) -> dict[int, AlarmHubInput]:
+        """Wired inputs (zones) keyed by their integer terminal index."""
+        if not self.alarm_hub or (raw := self.alarm_hub.get("input")) is None:
+            return {}
+        return {int(k): AlarmHubInput.from_unifi_dict(**v) for k, v in raw.items()}
+
+    @property
+    def alarm_hub_outputs(self) -> dict[int, AlarmHubOutput]:
+        """Output channels keyed by their integer terminal index."""
+        if not self.alarm_hub or (raw := self.alarm_hub.get("output")) is None:
+            return {}
+        return {int(k): AlarmHubOutput.from_unifi_dict(**v) for k, v in raw.items()}
 
 
 # ---------------------------------------------------------------------------

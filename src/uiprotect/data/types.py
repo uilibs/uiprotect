@@ -665,6 +665,21 @@ class NvrArmModeStatus(UnknownValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
+class AlarmHubInputType(UnknownValuesEnumMixin, enum.StrEnum):
+    """
+    Kind of wired zone connected to an alarm-hub input (``inputType`` field).
+
+    Only populated for configured inputs; absent on unused terminals. Unknown
+    values (future firmware) coerce to :attr:`UNKNOWN` rather than raising.
+    """
+
+    MOTION = "MOTION"
+    ENTRY = "ENTRY"
+    EMERGENCY_BUTTON = "EMERGENCY_BUTTON"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
 class RelayOutputState(UnknownValuesEnumMixin, enum.StrEnum):
     """State of a single relay output channel (``state`` field)."""
 
