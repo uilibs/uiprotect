@@ -33,6 +33,10 @@ from .nvr import (
 )
 from .public_bootstrap import PublicBootstrap
 from .public_devices import (
+    AlarmHubBattery,
+    AlarmHubCover,
+    AlarmHubInput,
+    AlarmHubOutput,
     ArmProfile,
     Fob,
     LinkStation,
@@ -73,6 +77,7 @@ from .types import (
     DEFAULT,
     DEFAULT_TYPE,
     PTZ_HOME_SLOT,
+    AlarmHubInputType,
     AnalyticsOption,
     AssetFileType,
     AudioStyle,
@@ -146,6 +151,11 @@ __all__ = [
     "PTZ_HOME_SLOT",
     "WS_HEADER_SIZE",
     "AiPort",
+    "AlarmHubBattery",
+    "AlarmHubCover",
+    "AlarmHubInput",
+    "AlarmHubInputType",
+    "AlarmHubOutput",
     "AnalyticsOption",
     "ArmProfile",
     "AssetFileType",

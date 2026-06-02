@@ -665,6 +665,18 @@ class NvrArmModeStatus(UnknownValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
+class AlarmHubInputType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm-hub input zone kind (``alarmHub.input[].inputType`` field)."""
+
+    MOTION = "MOTION"
+    ENTRY = "ENTRY"
+    SMOKE = "SMOKE"
+    GLASS_BREAK = "GLASS_BREAK"
+    EMERGENCY_BUTTON = "EMERGENCY_BUTTON"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
 class RelayOutputState(UnknownValuesEnumMixin, enum.StrEnum):
     """State of a single relay output channel (``state`` field)."""
 
