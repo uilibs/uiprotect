@@ -1,3 +1,4 @@
+import re
 import ssl
 from unittest.mock import MagicMock
 
@@ -14,6 +15,8 @@ from uiprotect.cli.sirens import app as siren_app
 from uiprotect.cli.speakers import app as speaker_app
 
 runner = CliRunner()
+
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def test_help():
@@ -138,8 +141,9 @@ def test_link_stations_trigger_output_rejects_negative_delay() -> None:
         ["trigger-output", "hub-id", "0", "--delay", "-1"],
     )
     assert result.exit_code != 0
-    assert "Invalid value" in result.output
-    assert "--delay" in result.output
+    plain_output = _ANSI_ESCAPE_RE.sub("", result.output)
+    assert "Invalid value" in plain_output
+    assert "--delay" in plain_output
 
 
 def test_liveviews_help() -> None:
