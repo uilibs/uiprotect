@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 import pytest
 
+from tests.conftest import read_json_file
 from uiprotect.data import PublicUlpUser, PublicUser, UlpUserStatus
 from uiprotect.data.types import ModelType
-
-SAMPLE_DATA_DIR = Path(__file__).parent / "sample_data"
 
 if TYPE_CHECKING:
     from uiprotect.api import ProtectApiClient
@@ -178,7 +175,7 @@ async def test_public_ulp_user_parses_minimal_payload(
 
 
 def test_public_ulp_user_status_round_trip_from_fixture() -> None:
-    payload = json.loads((SAMPLE_DATA_DIR / "sample_ulp_users.json").read_text())
+    payload = read_json_file("sample_ulp_users")
     active_raw = next(p for p in payload if p["status"] == "ACTIVE")
     deactivated_raw = next(p for p in payload if p["status"] == "DEACTIVATED")
 
