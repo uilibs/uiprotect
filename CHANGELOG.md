@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.11.0 (2026-06-02)
+
+### Features
+
+
+- Add public users, ulp-users, files, disable-mic endpoints ([`9e6107f`](https://github.com/uilibs/uiprotect/commit/9e6107f06e19d047078ccc08e235ef464fb04b1e))
+
+
 ## v10.10.2 (2026-06-02)
 
 ### Bug fixes
