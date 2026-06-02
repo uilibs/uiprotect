@@ -4102,7 +4102,7 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
             data=form,
         )
-        if raw is None:
+        if not raw:
             raise NvrError("Empty response from upload_file_public")
         return PublicFile.from_unifi_dict(**orjson.loads(raw), api=self)
 

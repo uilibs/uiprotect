@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock
+from unittest.mock import ANY, AsyncMock, patch
 
 import aiohttp
 import orjson
@@ -85,10 +85,19 @@ async def test_upload_file_public_sends_multipart(
     protect_client.api_request_raw = AsyncMock(return_value=response)
 
     payload = b"\x89PNG\r\n\x1a\n"
-    await protect_client.upload_file_public(
-        "animations",
+    with patch.object(aiohttp.FormData, "add_field", autospec=True) as mock_add:
+        await protect_client.upload_file_public(
+            "animations",
+            payload,
+            original_name="welcome.png",
+        )
+
+    mock_add.assert_called_once_with(
+        ANY,
+        "file",
         payload,
-        original_name="welcome.png",
+        filename="welcome.png",
+        content_type="image/png",
     )
 
     protect_client.api_request_raw.assert_called_once()
@@ -96,16 +105,7 @@ async def test_upload_file_public_sends_multipart(
     assert call_kwargs["url"] == "/v1/files/animations"
     assert call_kwargs["method"] == "post"
     assert call_kwargs["public_api"] is True
-
-    form = call_kwargs["data"]
-    assert isinstance(form, aiohttp.FormData)
-    # ``aiohttp.FormData._fields`` is a list of (option-dict, headers-dict, value)
-    # tuples. The shape is stable across aiohttp 3.x.
-    assert len(form._fields) == 1
-    options, _headers, value = form._fields[0]
-    assert options["name"] == "file"
-    assert options["filename"] == "welcome.png"
-    assert value == payload
+    assert isinstance(call_kwargs["data"], aiohttp.FormData)
 
 
 @pytest.mark.asyncio()
@@ -135,10 +135,12 @@ async def test_upload_file_public_parses_response(
 
 
 @pytest.mark.asyncio()
+@pytest.mark.parametrize("empty", [None, b""])
 async def test_upload_file_public_raises_on_empty_response(
     protect_client: ProtectApiClient,
+    empty: bytes | None,
 ) -> None:
-    protect_client.api_request_raw = AsyncMock(return_value=None)
+    protect_client.api_request_raw = AsyncMock(return_value=empty)
 
     with pytest.raises(NvrError, match="Empty response"):
         await protect_client.upload_file_public(
@@ -161,13 +163,22 @@ async def test_upload_file_public_accepts_custom_content_type(
     )
     protect_client.api_request_raw = AsyncMock(return_value=response)
 
-    await protect_client.upload_file_public(
-        "animations",
-        b"RIFF",
-        original_name="ding.wav",
+    payload = b"RIFF"
+    with patch.object(aiohttp.FormData, "add_field", autospec=True) as mock_add:
+        await protect_client.upload_file_public(
+            "animations",
+            payload,
+            original_name="ding.wav",
+            content_type="audio/wave",
+        )
+
+    mock_add.assert_called_once_with(
+        ANY,
+        "file",
+        payload,
+        filename="ding.wav",
         content_type="audio/wave",
     )
-
-    form = protect_client.api_request_raw.call_args.kwargs["data"]
-    _options, headers, _value = form._fields[0]
-    assert headers.get("Content-Type") == "audio/wave"
+    assert isinstance(
+        protect_client.api_request_raw.call_args.kwargs["data"], aiohttp.FormData
+    )
