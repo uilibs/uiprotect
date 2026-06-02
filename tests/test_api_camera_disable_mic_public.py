@@ -1,4 +1,5 @@
-"""Tests for the Public API ``disable-mic-permanently`` camera endpoint.
+"""
+Tests for the Public API ``disable-mic-permanently`` camera endpoint.
 
 Mock-only: the underlying action is irreversible on real hardware, so it must
 never be exercised against a captured fixture or a live device.
