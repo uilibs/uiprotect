@@ -62,10 +62,15 @@ def print_unifi_obj(
         json_output(None)
 
 
-def print_unifi_list(objs: Sequence[ProtectBaseObject]) -> None:
+def print_unifi_list(
+    objs: Sequence[ProtectBaseObject],
+    output_format: OutputFormatEnum = OutputFormatEnum.JSON,
+) -> None:
     """Helper method to print a list of protect objects"""
-    data = [o.unifi_dict() for o in objs]
-    json_output(data)
+    if objs:
+        json_output([o.unifi_dict() for o in objs])
+    elif output_format == OutputFormatEnum.JSON:
+        json_output([])
 
 
 def print_unifi_dict(objs: Mapping[str, ProtectBaseObject]) -> None:

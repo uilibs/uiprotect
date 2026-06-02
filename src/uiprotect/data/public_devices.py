@@ -15,17 +15,24 @@ are ``Optional``.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from functools import cache
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 from ..exceptions import BadRequest
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import (
+    DeviceState,
+    FobAwayState,
+    FobButton,
+    LiveviewCycleMode,
     ModelType,
     NvrArmModeStatus,
     RelayInputState,
     RelayOutputRebootState,
     RelayOutputState,
     SirenDuration,
+    SpeakerMode,
+    SpeakerStatus,
 )
 
 if TYPE_CHECKING:
@@ -83,18 +90,29 @@ class PublicSensorAlarmSettings(TypedDict, total=False):
     isEnabled: bool
 
 
+class PublicLiveviewSlotDict(TypedDict):
+    """Liveview slot (write shape)."""
+
+    cameras: list[str]
+    cycleMode: LiveviewCycleMode
+    cycleInterval: int
+
+
 # ---------------------------------------------------------------------------
 # Shared sub-models (read shape)
 # ---------------------------------------------------------------------------
 
 
 class PublicSignalState(ProtectBaseObject):
-    signal_quality: int
-    signal_strength: int
+    # Nullable on the wire: a freshly-paired wireless device (e.g. a key fob)
+    # has not yet reported its Bluetooth signal.
+    signal_quality: int | None = None
+    signal_strength: int | None = None
 
 
 class PublicWirelessBatteryStatus(ProtectBaseObject):
-    percentage: int
+    # Nullable on the wire until the device first reports its battery level.
+    percentage: int | None = None
     is_low: bool
 
 
@@ -291,6 +309,152 @@ class Relay(ProtectModelWithId):
 
 
 # ---------------------------------------------------------------------------
+# Fob
+# ---------------------------------------------------------------------------
+
+
+class PublicFobFeatureFlags(ProtectBaseObject):
+    # ``FobButton`` carries an ``unknown`` member, so button kinds added by
+    # newer firmware coerce to ``FobButton.UNKNOWN`` instead of raising.
+    buttons: list[FobButton]
+
+
+class Fob(ProtectModelWithId):
+    """Public API key fob device."""
+
+    model: ModelType | None = ModelType.FOB
+    # ``DeviceState`` / ``FobAwayState`` carry an ``unknown`` member, so values
+    # added by newer firmware coerce to the ``UNKNOWN`` member rather than
+    # raising. ``wireless_connection_state`` (and the battery status it carries)
+    # is required by the spec — a fob is always a wireless battery device.
+    state: DeviceState
+    # Nullable on the wire and in WS partial-updates.
+    name: str | None = None
+    mac: str
+    away_state: FobAwayState
+    feature_flags: PublicFobFeatureFlags
+    wireless_connection_state: PublicWirelessConnectionState
+
+
+# ---------------------------------------------------------------------------
+# Speaker
+# ---------------------------------------------------------------------------
+
+
+class PublicSpeakerFeatureFlags(ProtectBaseObject):
+    has_mic: bool
+
+
+class PublicSpeakerState(ProtectBaseObject):
+    # ``SpeakerStatus`` / ``SpeakerMode`` carry an ``unknown`` member, so values
+    # added by newer firmware coerce to ``UNKNOWN`` instead of raising.
+    status: SpeakerStatus
+    mode: SpeakerMode
+
+
+class Speaker(ProtectModelWithId):
+    """Public API speaker device."""
+
+    model: ModelType | None = ModelType.SPEAKER
+    state: DeviceState
+    # Nullable on the wire and in WS partial-updates.
+    name: str | None = None
+    mac: str
+    volume: int
+    mic_volume: int
+    is_mic_enabled: bool
+    speaker_state: PublicSpeakerState
+    feature_flags: PublicSpeakerFeatureFlags
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        # See :meth:`Siren._api_update` — consumers must use
+        # ``update_speaker_public`` / ``test_speaker_sound_public`` (or the
+        # helper methods on this class).
+        raise BadRequest(
+            "Speaker mutations must go through the dedicated public API helpers "
+            "(e.g. set_name/set_volume/set_mic_volume/set_mic_enabled/test_sound)."
+        )
+
+    async def set_name(self, name: str) -> Speaker:
+        return await self._api.update_speaker_public(self.id, name=name)
+
+    async def set_volume(self, volume: int) -> Speaker:
+        return await self._api.update_speaker_public(self.id, volume=volume)
+
+    async def set_mic_volume(self, mic_volume: int) -> Speaker:
+        return await self._api.update_speaker_public(self.id, mic_volume=mic_volume)
+
+    async def set_mic_enabled(self, enabled: bool) -> Speaker:
+        return await self._api.update_speaker_public(self.id, is_mic_enabled=enabled)
+
+    async def test_sound(self, volume: int | None = None) -> None:
+        """Test the speaker sound at the given volume."""
+        await self._api.test_speaker_sound_public(self.id, volume=volume)
+
+
+# ---------------------------------------------------------------------------
+# Link Station / Alarm Hub
+# ---------------------------------------------------------------------------
+
+
+class LinkStation(ProtectModelWithId):
+    """
+    Public API link station / alarm hub.
+
+    A single wire schema (``modelKey: "linkstation"``) covers both the
+    ``/v1/link-stations`` and ``/v1/alarm-hubs`` endpoints. The
+    :attr:`is_alarm_hub` flag distinguishes the two; ``alarm_hub`` is only
+    populated when :attr:`is_alarm_hub` is ``True``.
+    """
+
+    model: ModelType | None = ModelType.LINK_STATION
+    state: DeviceState
+    # Nullable on the wire (spec: ``oneOf [string, null]``).
+    name: str | None = None
+    mac: str
+    is_alarm_hub: bool
+    led_settings: PublicLedSettings
+    # Top-level nullable epoch-ms timestamp of the last event, NOT an Event object.
+    last_event: int | None = None
+    # Opaque dict because the nested ``alarmHub`` payload uses keys that are
+    # not valid Python identifiers (``"12v"``, ``"+"``, ``"-"``); per-leaf
+    # aliasing in pydantic v2 would be more code than payoff.
+    alarm_hub: dict[str, Any] | None = None
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        raise BadRequest(
+            "LinkStation mutations must go through the dedicated public API helpers "
+            "(update_link_station_public / update_alarm_hub_public / "
+            "trigger_alarm_hub_output_public)."
+        )
+
+    async def set_name(self, name: str) -> LinkStation:
+        """Rename via the matching endpoint for the device's role."""
+        if self.is_alarm_hub:
+            return await self._api.update_alarm_hub_public(self.id, name=name)
+        return await self._api.update_link_station_public(self.id, name=name)
+
+    async def trigger_output(
+        self,
+        output_id: int,
+        *,
+        enable: bool | None = None,
+        delay: int | None = None,
+        duration: int | None = None,
+    ) -> None:
+        """Trigger an alarm-hub output channel. Raises if this is not an alarm hub."""
+        if not self.is_alarm_hub:
+            raise BadRequest("Not an alarm hub")
+        await self._api.trigger_alarm_hub_output_public(
+            self.id,
+            output_id,
+            enable=enable,
+            delay=delay,
+            duration=duration,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Arm profile (NOT a device — has no ``modelKey``)
 # ---------------------------------------------------------------------------
 
@@ -396,3 +560,123 @@ class PublicNVR(ProtectModelWithId):
     name: str | None = None
     doorbell_settings: PublicDoorbellSettings | None = None
     arm_mode: NvrArmMode | None = None
+
+
+# ---------------------------------------------------------------------------
+# Liveview
+# ---------------------------------------------------------------------------
+
+
+class PublicLiveviewSlot(ProtectBaseObject):
+    """One slot in a public-API liveview (read shape)."""
+
+    camera_ids: list[str]
+    # ``LiveviewCycleMode`` carries an ``unknown`` member, so values added by
+    # newer firmware coerce to ``UNKNOWN`` instead of raising.
+    cycle_mode: LiveviewCycleMode
+    cycle_interval: int
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {**super()._get_unifi_remaps(), "cameras": "cameraIds"}
+
+
+class PublicLiveview(ProtectModelWithId):
+    """
+    Public API liveview.
+
+    ``owner`` is a flat ``userId`` string (the spec types it as ``$ref: userId``,
+    which is ``type: string``) — not an embedded user object. ``layout`` is the
+    number of slots the liveview contains (spec: number, 1..26); the field name
+    matches the wire key exactly.
+    """
+
+    model: ModelType | None = ModelType.LIVEVIEW
+    name: str
+    is_default: bool
+    is_global: bool
+    owner: str
+    layout: int
+    slots: list[PublicLiveviewSlot]
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        raise BadRequest(
+            "Liveview mutations must go through the dedicated public API helpers "
+            "(create_liveview_public / update_liveview_public)."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Bridge
+# ---------------------------------------------------------------------------
+
+
+class PublicBridge(ProtectModelWithId):
+    """
+    Public API bridge device.
+
+    ``ModelType.BRIDGE`` is already owned by the private :class:`Bridge` class in
+    ``MODEL_TO_CLASS``; this public counterpart is routed via a dedicated factory
+    on :class:`~uiprotect.data.public_bootstrap.PublicBootstrap` instead.
+    """
+
+    model: ModelType | None = ModelType.BRIDGE
+    state: DeviceState
+    name: str | None = None
+    mac: str
+    # ``bridgePlatform`` is typed ``[string, null]`` in the spec.
+    platform: str | None = None
+    clients: list[str]
+    max_clients: int
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        raise BadRequest(
+            "Bridge mutations must go through the dedicated public API helpers "
+            "(update_bridge_public)."
+        )
+
+    async def set_name(self, name: str) -> PublicBridge:
+        return await self._api.update_bridge_public(self.id, name=name)
+
+
+# ---------------------------------------------------------------------------
+# Viewer
+# ---------------------------------------------------------------------------
+
+
+class PublicViewer(ProtectModelWithId):
+    """
+    Public API viewer device.
+
+    ``ModelType.VIEWPORT`` is already owned by the private :class:`Viewer` class
+    in ``MODEL_TO_CLASS``; this public counterpart is routed via a dedicated
+    factory on :class:`~uiprotect.data.public_bootstrap.PublicBootstrap` instead.
+
+    The wire field ``liveview`` is a flat ``liveviewId`` string (nullable);
+    snake-cased to :attr:`liveview_id` via :meth:`_get_unifi_remaps`.
+    """
+
+    model: ModelType | None = ModelType.VIEWPORT
+    state: DeviceState
+    name: str | None = None
+    mac: str
+    liveview_id: str | None = None
+    stream_limit: int
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {**super()._get_unifi_remaps(), "liveview": "liveviewId"}
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        raise BadRequest(
+            "Viewer mutations must go through the dedicated public API helpers "
+            "(update_viewer_public)."
+        )
+
+    async def set_name(self, name: str) -> PublicViewer:
+        return await self._api.update_viewer_public(self.id, name=name)
+
+    async def set_liveview(self, liveview_id: str | None) -> PublicViewer:
+        return await self._api.update_viewer_public(self.id, liveview=liveview_id)

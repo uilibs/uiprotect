@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import aiohttp
 import orjson
 import pytest
+from aiofiles import os as aos
 from PIL import Image
 
 from tests.conftest import (
@@ -31,6 +32,9 @@ from tests.conftest import (
     TEST_VIDEO_EXISTS,
     TEST_VIEWPORT_EXISTS,
     MockDatetime,
+    async_read_bytes,
+    async_write_bytes,
+    async_write_text,
     compare_objs,
     get_time,
     validate_video_file,
@@ -1093,7 +1097,7 @@ async def test_get_package_camera_snapshot_args(protect_client: ProtectApiClient
 @patch("uiprotect.api.datetime", MockDatetime)
 @patch("uiprotect.api.time.time", get_time)
 @pytest.mark.asyncio()
-async def test_get_camera_video(protect_client: ProtectApiClient, now, tmp_binary_file):
+async def test_get_camera_video(protect_client: ProtectApiClient, now, tmp_path: Path):
     camera = next(iter(protect_client.bootstrap.cameras.values()))
     start = now - timedelta(seconds=CONSTANTS["camera_video_length"])
 
@@ -1111,10 +1115,11 @@ async def test_get_camera_video(protect_client: ProtectApiClient, now, tmp_binar
         raise_exception=False,
     )
 
-    tmp_binary_file.write(data)
-    tmp_binary_file.close()
-
-    validate_video_file(tmp_binary_file.name, CONSTANTS["camera_video_length"])
+    out_path = tmp_path / "video.mp4"
+    await async_write_bytes(out_path, data)
+    await asyncio.to_thread(
+        validate_video_file, out_path, CONSTANTS["camera_video_length"]
+    )
 
 
 @pytest.mark.asyncio()
@@ -1232,6 +1237,70 @@ async def test_get_event_thumbnail_args(protect_client: ProtectApiClient):
 
     img = Image.open(BytesIO(data))
     assert img.format in {"PNG", "JPEG"}
+
+
+@pytest.mark.skipif(not TEST_THUMBNAIL_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_event_thumbnail_uuid_with_e_dash(protect_client: ProtectApiClient):
+    """Regression test for #810: event IDs containing 'e-' must not be corrupted."""
+    event_id = "4028adde-42c6-4873-a49e-94da9bd22190"
+    data = await protect_client.get_event_thumbnail(event_id)
+    assert data is not None
+
+    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
+        f"events/{event_id}/thumbnail",
+        params={},
+        raise_exception=False,
+    )
+
+
+@pytest.mark.skipif(not TEST_THUMBNAIL_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_event_animated_thumbnail_uuid_with_e_dash(
+    protect_client: ProtectApiClient,
+):
+    """Regression test for #810: event IDs containing 'e-' must not be corrupted."""
+    event_id = "4028adde-42c6-4873-a49e-94da9bd22190"
+    data = await protect_client.get_event_animated_thumbnail(event_id)
+    assert data is not None
+
+    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
+        f"events/{event_id}/animated-thumbnail",
+        params={"keyFrameOnly": "true", "speedup": 10},
+        raise_exception=False,
+    )
+
+
+@pytest.mark.skipif(not TEST_HEATMAP_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_event_heatmap_uuid_with_e_dash(protect_client: ProtectApiClient):
+    """Regression test for #810: event IDs containing 'e-' must not be corrupted."""
+    event_id = "4028adde-42c6-4873-a49e-94da9bd22190"
+    data = await protect_client.get_event_heatmap(event_id)
+    assert data is not None
+
+    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
+        f"events/{event_id}/heatmap",
+        raise_exception=False,
+    )
+
+
+@pytest.mark.skipif(not TEST_THUMBNAIL_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_event_thumbnail_strips_legacy_prefix(
+    protect_client: ProtectApiClient,
+):
+    """Legacy thumbnail IDs of the form 'e-<event_id>' should have the prefix stripped."""
+    data = await protect_client.get_event_thumbnail(
+        "e-4028adde-42c6-4873-a49e-94da9bd22190"
+    )
+    assert data is not None
+
+    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
+        "events/4028adde-42c6-4873-a49e-94da9bd22190/thumbnail",
+        params={},
+        raise_exception=False,
+    )
 
 
 @pytest.mark.skipif(not TEST_HEATMAP_EXISTS, reason="Missing testdata")
@@ -1738,7 +1807,7 @@ async def test_load_session_rejects_missing_csrf_token(tmp_path: Path) -> None:
     }
 
     config_file = tmp_path / "unifi_protect.json"
-    config_file.write_bytes(orjson.dumps(config))
+    await async_write_bytes(config_file, orjson.dumps(config))
 
     # Try to load the session
     cookie = await client._read_auth_config()
@@ -1775,7 +1844,7 @@ async def test_load_session_accepts_valid_csrf_token(tmp_path: Path) -> None:
     }
 
     config_file = tmp_path / "unifi_protect.json"
-    config_file.write_bytes(orjson.dumps(config))
+    await async_write_bytes(config_file, orjson.dumps(config))
 
     # Try to load the session
     cookie = await client._read_auth_config()
@@ -1815,7 +1884,7 @@ async def test_load_session_with_invalid_token(tmp_path: Path) -> None:
     }
 
     config_file = tmp_path / "unifi_protect.json"
-    config_file.write_bytes(orjson.dumps(config))
+    await async_write_bytes(config_file, orjson.dumps(config))
 
     # Load the session
     cookie = await client._read_auth_config()
@@ -1861,7 +1930,7 @@ async def test_load_session_with_token_two_segments(tmp_path: Path) -> None:
     }
 
     config_file = tmp_path / "unifi_protect.json"
-    config_file.write_bytes(orjson.dumps(config))
+    await async_write_bytes(config_file, orjson.dumps(config))
 
     # Load the session
     cookie = await client._read_auth_config()
@@ -1899,7 +1968,7 @@ async def test_invalid_token_triggers_reauthentication(
     }
 
     config_file = tmp_path / "unifi_protect.json"
-    config_file.write_bytes(orjson.dumps(invalid_config))
+    await async_write_bytes(config_file, orjson.dumps(invalid_config))
 
     # Setup mock for authentication
     mock_auth_response = AsyncMock()
@@ -1929,7 +1998,7 @@ async def test_invalid_token_triggers_reauthentication(
     assert client._is_authenticated is True
 
     # Verify the session file was updated with the new valid token
-    updated_config = orjson.loads(config_file.read_bytes())
+    updated_config = orjson.loads(await async_read_bytes(config_file))
     session_data = updated_config["sessions"][session_hash]
     assert session_data["csrf"] == "new-csrf-token-12345"
     # The new token should be a valid JWT format (3 segments)
@@ -1968,12 +2037,12 @@ async def test_clear_session_removes_specific_session(tmp_path: Path) -> None:
     }
 
     config_file = tmp_path / "unifi_protect.json"
-    config_file.write_bytes(orjson.dumps(config))
+    await async_write_bytes(config_file, orjson.dumps(config))
 
     await client.clear_session()
 
     # File should still exist with the other session intact
-    updated_config = orjson.loads(config_file.read_bytes())
+    updated_config = orjson.loads(await async_read_bytes(config_file))
     assert session_hash not in updated_config["sessions"]
     assert "other_session_hash" in updated_config["sessions"]
     assert client._is_authenticated is False
@@ -2013,11 +2082,11 @@ async def test_clear_all_sessions_removes_file(
     }
 
     config_file = tmp_path / "unifi_protect.json"
-    config_file.write_bytes(orjson.dumps(config))
+    await async_write_bytes(config_file, orjson.dumps(config))
 
     await client.clear_all_sessions()
 
-    assert not config_file.exists()
+    assert not await aos.path.exists(config_file)
     assert client._is_authenticated is False
     assert client._last_token_cookie is None
     assert client._last_token_cookie_decode is None
@@ -2041,13 +2110,13 @@ async def test_clear_methods_do_nothing_when_sessions_disabled(
     )
 
     config_file = tmp_path / "unifi_protect.json"
-    config_file.write_bytes(orjson.dumps({"sessions": {}}))
+    await async_write_bytes(config_file, orjson.dumps({"sessions": {}}))
 
     await getattr(client, clear_method)()
 
     # File should still exist since sessions are disabled
-    assert config_file.exists()
-    config = orjson.loads(config_file.read_bytes())
+    assert await aos.path.exists(config_file)
+    config = orjson.loads(await async_read_bytes(config_file))
     assert config == {"sessions": {}}
 
 
@@ -2066,13 +2135,13 @@ async def test_clear_session_with_invalid_config_file(tmp_path: Path) -> None:
 
     # Create a config file with invalid JSON
     config_file = tmp_path / "unifi_protect.json"
-    config_file.write_text("invalid json content {{{")
+    await async_write_text(config_file, "invalid json content {{{")
 
     # Call clear_session - should handle the exception gracefully
     await client.clear_session()
 
     # File should still exist
-    assert config_file.exists()
+    assert await aos.path.exists(config_file)
 
 
 @pytest.mark.asyncio()
@@ -2099,7 +2168,7 @@ async def test_clear_methods_handle_missing_file(
 
     # No file should exist and no error should be raised
     config_file = tmp_path / "unifi_protect.json"
-    assert not config_file.exists()
+    assert not await aos.path.exists(config_file)
     # Client state should NOT be reset since no file was found
     assert client._is_authenticated is True
     assert client._last_token_cookie == "some_token"  # noqa: S105
@@ -2133,12 +2202,12 @@ async def test_clear_session_when_session_not_in_config(tmp_path: Path) -> None:
     }
 
     config_file = tmp_path / "unifi_protect.json"
-    config_file.write_bytes(orjson.dumps(config))
+    await async_write_bytes(config_file, orjson.dumps(config))
 
     await client.clear_session()
 
     # File should still have the original session
-    updated_config = orjson.loads(config_file.read_bytes())
+    updated_config = orjson.loads(await async_read_bytes(config_file))
     assert "different_hash" in updated_config["sessions"]
     # Client state should NOT be reset since no session was actually removed
     assert client._is_authenticated is True
@@ -2166,7 +2235,7 @@ async def test_clear_all_sessions_handles_file_disappearing(
 
     # Create config file so path.exists() check passes
     config_file = tmp_path / "unifi_protect.json"
-    config_file.write_bytes(orjson.dumps({"sessions": {}}))
+    await async_write_bytes(config_file, orjson.dumps({"sessions": {}}))
 
     # Mock aos.remove to raise FileNotFoundError (race condition simulation)
     mock_remove.side_effect = FileNotFoundError(
@@ -2217,9 +2286,9 @@ async def test_authenticate_with_session_storage(
 
     # Verify session was saved to file
     config_file = tmp_path / "unifi_protect.json"
-    assert config_file.exists()
+    assert await aos.path.exists(config_file)
 
-    config = orjson.loads(config_file.read_bytes())
+    config = orjson.loads(await async_read_bytes(config_file))
     assert "sessions" in config
     sessions = config["sessions"]
     assert len(sessions) == 1

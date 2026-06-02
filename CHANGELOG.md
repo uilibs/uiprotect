@@ -1,5 +1,80 @@
 # Changelog
 
+## v10.10.0 (2026-06-02)
+
+### Features
+
+
+- Add public api bridges and viewers endpoint groups ([`1a0ed11`](https://github.com/uilibs/uiprotect/commit/1a0ed11cc296058a0b2f3314d5df0e26cdea97bf))
+
+
+## v10.9.0 (2026-06-02)
+
+### Features
+
+
+- Add link-stations and alarm-hubs public api endpoints ([`a55887f`](https://github.com/uilibs/uiprotect/commit/a55887ff100e780405d9685ca240675b04d31c4f))
+
+
+## v10.8.0 (2026-05-29)
+
+### Features
+
+
+- Add public api liveviews endpoint group (list/get/update/create) ([`8153836`](https://github.com/uilibs/uiprotect/commit/8153836efa6dc1c4b7a8360ef923a3ef6cbe0a9e))
+
+
+## v10.7.0 (2026-05-28)
+
+### Features
+
+
+- Add public api speakers endpoint group (list/get/update/test-sound) ([`a5f6068`](https://github.com/uilibs/uiprotect/commit/a5f606811dd37b2fe21538d86f158b39f3ca24b0))
+
+
+## v10.6.0 (2026-05-26)
+
+### Features
+
+
+- Add public api fobs endpoint group (list/get/update) ([`514d87e`](https://github.com/uilibs/uiprotect/commit/514d87ec0114f9ac148c6108d13a8cdfd0fc56f8))
+
+
+### Documentation
+
+
+- Add script and agent instructions to fetch integration openapi spec ([`fe16ee0`](https://github.com/uilibs/uiprotect/commit/fe16ee02e8a48d001ee0374d1ac42ae1c15da2cb))
+
+
+- Document api migration strategy in agents.md ([`fe16ee0`](https://github.com/uilibs/uiprotect/commit/fe16ee02e8a48d001ee0374d1ac42ae1c15da2cb))
+
+
+- Add script and agent instructions to fetch integration openapi spec ([`fe16ee0`](https://github.com/uilibs/uiprotect/commit/fe16ee02e8a48d001ee0374d1ac42ae1c15da2cb))
+
+
+### Testing
+
+
+- Port session and video tests off sync io ([`a7deac1`](https://github.com/uilibs/uiprotect/commit/a7deac15360f949f5a51cedf179810d464bc86b3))
+
+
+## v10.5.1 (2026-05-22)
+
+### Bug fixes
+
+
+- Catch blocking io in async tests with blockbuster ([`afbdbb7`](https://github.com/uilibs/uiprotect/commit/afbdbb7900092cc93eb4370b51833d3166c99182))
+
+
+### Documentation
+
+
+- Document api migration strategy in agents.md ([`d5df437`](https://github.com/uilibs/uiprotect/commit/d5df4378b81b122262ef032d4b80278012f8bc7d))
+
+
+- Add security.md with private vulnerability reporting policy ([`55a61c5`](https://github.com/uilibs/uiprotect/commit/55a61c5f406f090789885cc0f52f7a6f7f2e7ec1))
+
+
 ## v10.5.0 (2026-05-18)
 
 ### Features

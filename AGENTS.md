@@ -119,18 +119,22 @@ depending on it.
 
 ## Commit / PR conventions
 
-- **Conventional Commits are enforced.** Pre-commit runs
-  `commitizen` on every commit message and CI runs commitlint
-  with `@commitlint/config-conventional`
-  (`commitlint.config.mjs`). The header / body / footer length
-  caps are all disabled (`header-max-length = [0, "always", Infinity]`),
-  but the _type_ prefix is required: `feat:`, `fix:`, `chore:`,
-  `ci:`, `docs:`, `refactor:`, `test:`, `perf:`, `build:`, etc.
-  `python-semantic-release` excludes `chore*` and `ci*` from the
-  changelog (see `[tool.semantic_release.changelog]` in
-  `pyproject.toml`), so use those prefixes for housekeeping and
-  reserve `feat`/`fix`/`perf` for user-visible changes that
-  should land in `CHANGELOG.md`.
+- **Conventional Commits PR title, lowercase subject.** PRs are
+  squash-merged, so the **PR title** becomes the commit on `main`
+  and is the only string that needs to parse as a Conventional
+  Commit. The repo enforces this via the `pr-title` CI job in
+  `ci.yml` using `amannn/action-semantic-pull-request`. The
+  _type_ prefix is required: `feat:`, `fix:`, `chore:`, `ci:`,
+  `docs:`, `refactor:`, `test:`, `perf:`, `build:`, etc., and
+  the subject (text after `type(scope):`) must start lowercase
+  (enforced by `subjectPattern: ^(?![A-Z]).+$`). Per-commit
+  messages on the PR branch are **not** linted — they get
+  collapsed at squash-merge. `python-semantic-release` excludes
+  `chore*` and `ci*` from the changelog (see
+  `[tool.semantic_release.changelog]` in `pyproject.toml`), so
+  use those prefixes for housekeeping and reserve
+  `feat`/`fix`/`perf` for user-visible changes that should land
+  in `CHANGELOG.md`.
 - **No `Co-Authored-By` trailers from automated agents.** Project
   preference; releases are cut by `python-semantic-release` from
   the commit log, and a trailer from an LLM ends up in the
@@ -146,8 +150,8 @@ depending on it.
   silently leaving rows blank). Reference closing issues with
   `Fixes #NNNN` so the issue auto-closes on merge.
 - Pre-commit runs ruff (lint + format), mypy, prettier,
-  commitizen, poetry-check, and the standard hygiene hooks
-  (trailing whitespace, end-of-file fixer, debug-statements,
+  poetry-check, and the standard hygiene hooks (trailing
+  whitespace, end-of-file fixer, debug-statements,
   detect-private-key, check-toml/xml). Run pre-commit locally
   before pushing; the CI lint job is just `pre-commit run -a`,
   so a green local run = a green CI lint job. The `pre-commit.ci`
@@ -229,6 +233,47 @@ live leg is optional and is not gated for typical PRs.
 | `tests/conftest.py`                      | Fixture wiring: builds a mock `ProtectApiClient` from `sample_data/`             |
 | `templates/`                             | Rich templates used by the CLI for human-readable output                         |
 
+## API strategy
+
+The project is migrating from the **private API** (reverse-engineered,
+undocumented endpoints under `/api/…` and the binary WebSocket stream;
+models in `src/uiprotect/data/devices.py`) to the **Public Integration
+API** (Ubiquiti's officially documented REST API under
+`/integration/v1/…`; models in `src/uiprotect/data/public_devices.py`
+and `src/uiprotect/data/public_bootstrap.py`; tests under
+`tests/test_api_*_public.py`).
+
+**Do not implement new features on the private API.** If a capability
+is missing from the public API, the right answer is to wait for or
+request the public endpoint — not to add it via the private path.
+Derive shapes from the existing public models and tests in this repo.
+
+**Deprecate private-API counterparts when the public API is feature-
+complete for a given capability.** Once a device method or endpoint is
+fully covered by the public API, mark the corresponding private-API
+method with a `DeprecationWarning` pointing to the public replacement.
+
+**Remove private-API code that the Home Assistant integration no longer
+uses.** Before removing a private-API method or model, check whether
+the latest released version of the HA integration still references it:
+search `homeassistant/components/unifiprotect/` in the
+`home-assistant/core` GitHub repository. If the symbol does not
+appear there, it is safe to remove.
+
+## Public Integration API spec
+
+The OpenAPI spec is not committed (Ubiquiti's IP). Fetch it on demand — no
+auth or console access needed:
+
+```bash
+python scripts/fetch_openapi.py                    # latest release
+python scripts/fetch_openapi.py --version 7.0.104  # pin to a version
+```
+
+Output: `openapi/integration.json` (gitignored) — request/response shapes,
+required fields, enums, and allowed HTTP methods for every `/integration/v1/…`
+endpoint. If the file is absent, run the script first.
+
 ## Reporting security issues
 
 Suspected security vulnerabilities go through GitHub's [private
@@ -263,10 +308,11 @@ names the bug class and the affected code path.
   to commits** in this repo. `python-semantic-release` reads the
   commit log when generating the changelog and the trailer
   leaks into release notes.
-- **Don't introduce a commit message that violates Conventional
-  Commits.** The commitizen pre-commit hook and the CI
-  commitlint job will both reject it, and a mis-typed commit
-  bumps the wrong version on the next semantic-release run.
+- **Don't introduce a PR title that violates Conventional
+  Commits.** The `pr-title` CI job will reject it, and because
+  the PR title is what lands on `main` at squash-merge time, a
+  mis-typed title bumps the wrong version on the next
+  semantic-release run.
 - **Don't reach for stdlib `json` in hot paths.** The codebase
   uses `orjson` everywhere; match the existing style.
 - **Don't hand-edit `CHANGELOG.md`.** It is generated by

@@ -150,6 +150,9 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
     # `_bootstrap_model_types` so the private bootstrap path is unchanged.
     SIREN = "siren"
     RELAY = "relay"
+    FOB = "fob"
+    SPEAKER = "speaker"
+    LINK_STATION = "linkstation"
     UNKNOWN = "unknown"
 
     bootstrap_model_types: tuple[ModelType, ...]
@@ -687,6 +690,74 @@ class RelayInputState(UnknownValuesEnumMixin, enum.StrEnum):
 
     ON = "on"
     OFF = "off"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class DeviceState(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API device connection state (``state`` field)."""
+
+    CONNECTED = "CONNECTED"
+    CONNECTING = "CONNECTING"
+    DISCONNECTED = "DISCONNECTED"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class FobAwayState(UnknownValuesEnumMixin, enum.StrEnum):
+    """Key-fob presence/away state (``awayState`` field)."""
+
+    ONLINE = "ONLINE"
+    RECENTLY_SEEN = "RECENTLY_SEEN"
+    NO_RECENT_HEARTBEAT = "NO_RECENT_HEARTBEAT"
+    DEVICE_LOST = "DEVICE_LOST"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class FobButton(UnknownValuesEnumMixin, enum.StrEnum):
+    """Key-fob button kinds (``featureFlags.buttons`` items)."""
+
+    FUNCTION = "function"
+    ALARM_HUB_BUTTON = "alarmHubButton"
+    ARM = "arm"
+    DISARM = "disarm"
+    NIGHT = "night"
+    PANIC = "panic"
+    LEFT = "left"
+    RIGHT = "right"
+    INPUT1 = "input1"
+    INPUT2 = "input2"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class SpeakerStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API speaker runtime status (``speakerState.status`` field)."""
+
+    IDLE = "idle"
+    STREAMING = "streaming"
+    PLAYING = "playing"
+    TTS_PLAYING = "tts_playing"
+    UPLOADING = "uploading"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class SpeakerMode(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API speaker mode (``speakerState.mode`` field)."""
+
+    LISTEN = "listen"
+    TALK = "talk"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class LiveviewCycleMode(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API liveview slot cycle mode (``slots[].cycleMode`` field)."""
+
+    MOTION = "motion"
+    TIME = "time"
     UNKNOWN = "unknown"
 
 

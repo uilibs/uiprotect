@@ -1,3 +1,4 @@
+import re
 import ssl
 from unittest.mock import MagicMock
 
@@ -6,10 +7,18 @@ from typer.testing import CliRunner
 
 from uiprotect.cli import _is_ssl_error, app
 from uiprotect.cli.arm import app as arm_app
+from uiprotect.cli.bridges import app as bridges_app
+from uiprotect.cli.fobs import app as fob_app
+from uiprotect.cli.link_stations import app as link_station_app
+from uiprotect.cli.liveviews import app as liveview_app
 from uiprotect.cli.relays import app as relay_app
 from uiprotect.cli.sirens import app as siren_app
+from uiprotect.cli.speakers import app as speaker_app
+from uiprotect.cli.viewers_public import app as viewer_public_app
 
 runner = CliRunner()
+
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def test_help():
@@ -68,6 +77,12 @@ def test_root_help_shows_public_subcommands() -> None:
     assert result.exit_code == 0
     assert "sirens" in result.stdout
     assert "relays" in result.stdout
+    assert "fobs" in result.stdout
+    assert "speakers" in result.stdout
+    assert "link-stations" in result.stdout
+    assert "liveviews" in result.stdout
+    assert "bridges" in result.stdout
+    assert "viewers-public" in result.stdout
     assert "arm" in result.stdout
 
 
@@ -85,11 +100,150 @@ def test_relays_help() -> None:
     assert "activate" in result.stdout
 
 
+def test_fobs_help() -> None:
+    """``fobs --help`` renders without error."""
+    result = runner.invoke(fob_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+    assert "set-name" in result.stdout
+
+
+def test_speakers_help() -> None:
+    """``speakers --help`` renders without error."""
+    result = runner.invoke(speaker_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+    assert "show" in result.stdout
+    assert "set-name" in result.stdout
+    assert "set-volume" in result.stdout
+    assert "set-mic-volume" in result.stdout
+    assert "set-mic-enabled" in result.stdout
+    assert "test-sound" in result.stdout
+
+
 def test_arm_help() -> None:
     """``arm --help`` renders without error."""
     result = runner.invoke(arm_app, ["--help"])
     assert result.exit_code == 0
     assert "list" in result.stdout
+
+
+def test_link_stations_help() -> None:
+    """``link-stations --help`` renders without error."""
+    result = runner.invoke(link_station_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+    assert "show" in result.stdout
+    assert "set-name" in result.stdout
+    assert "trigger-output" in result.stdout
+
+
+def test_bridges_help() -> None:
+    """``bridges --help`` renders without error."""
+    result = runner.invoke(bridges_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+    assert "show" in result.stdout
+    assert "set-name" in result.stdout
+
+
+def test_viewers_public_help() -> None:
+    """``viewers-public --help`` renders without error."""
+    result = runner.invoke(viewer_public_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+    assert "show" in result.stdout
+    assert "set-name" in result.stdout
+    assert "set-liveview" in result.stdout
+
+
+def test_link_stations_trigger_output_rejects_negative_delay() -> None:
+    """``trigger-output ... --delay -1`` must fail typer's ``min=0`` validator."""
+    result = runner.invoke(
+        link_station_app,
+        ["trigger-output", "hub-id", "0", "--delay", "-1"],
+    )
+    assert result.exit_code != 0
+    plain_output = _ANSI_ESCAPE_RE.sub("", result.output)
+    assert "Invalid value" in plain_output
+    assert "--delay" in plain_output
+
+
+def test_liveviews_help() -> None:
+    """``liveviews --help`` renders without error."""
+    result = runner.invoke(liveview_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+    assert "show" in result.stdout
+    assert "create" in result.stdout
+    assert "update" in result.stdout
+
+
+def test_liveviews_create_rejects_invalid_slots_json() -> None:
+    """``create --slots <bad-json>`` must exit with code 1 before any API call."""
+    result = runner.invoke(
+        liveview_app,
+        [
+            "create",
+            "--name",
+            "X",
+            "--owner",
+            "u1",
+            "--layout",
+            "1",
+            "--slots",
+            "not-json",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "--slots must be valid JSON" in result.stdout
+
+
+def test_liveviews_create_rejects_non_array_slots() -> None:
+    """``--slots`` must be a JSON array, not an object."""
+    result = runner.invoke(
+        liveview_app,
+        [
+            "create",
+            "--name",
+            "X",
+            "--owner",
+            "u1",
+            "--layout",
+            "1",
+            "--slots",
+            '{"foo": 1}',
+        ],
+    )
+    assert result.exit_code == 1
+    assert "--slots must be a JSON array" in result.stdout
+
+
+def test_liveviews_create_rejects_non_object_slot_entries() -> None:
+    """``--slots`` entries must be JSON objects, not scalars."""
+    result = runner.invoke(
+        liveview_app,
+        [
+            "create",
+            "--name",
+            "X",
+            "--owner",
+            "u1",
+            "--layout",
+            "1",
+            "--slots",
+            '["bad"]',
+        ],
+    )
+    assert result.exit_code == 1
+    assert "--slots entries must be JSON objects" in result.stdout
+
+
+def test_liveviews_update_rejects_empty_args() -> None:
+    """``update <id>`` without any field must exit with code 1."""
+    result = runner.invoke(liveview_app, ["update", "lv-1"])
+    assert result.exit_code == 1
+    assert "At least one field must be provided" in result.stdout
 
 
 def test_relays_activate_rejects_invalid_state() -> None:
