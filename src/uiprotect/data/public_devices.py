@@ -680,3 +680,50 @@ class PublicViewer(ProtectModelWithId):
 
     async def set_liveview(self, liveview_id: str | None) -> PublicViewer:
         return await self._api.update_viewer_public(self.id, liveview=liveview_id)
+
+
+# ---------------------------------------------------------------------------
+# User / ULP user (read-only)
+# ---------------------------------------------------------------------------
+
+
+class PublicUser(ProtectModelWithId):
+    """Public API Protect user (read-only)."""
+
+    model: ModelType | None = ModelType.USER
+    name: str
+    # ``firstName``/``lastName``/``email``/``ucoreUserId`` are spec-``required``
+    # but typed ``oneOf [string, null]`` — the server returns the key but the
+    # value may be ``null``. Pydantic field types are therefore ``str | None``.
+    first_name: str | None = None
+    last_name: str | None = None
+    email: str | None = None
+    ucore_user_id: str | None = None
+
+
+class PublicUlpUser(ProtectModelWithId):
+    """Public API UniFi Identity (ULP) user (read-only)."""
+
+    model: ModelType | None = ModelType.ULP_USER
+    first_name: str
+    last_name: str
+    full_name: str
+    # Wire enum is currently ``{"ACTIVE", "DEACTIVATED"}``; typed as ``str`` so
+    # future server additions don't raise.
+    status: str
+
+
+# ---------------------------------------------------------------------------
+# Files (device assets)
+# ---------------------------------------------------------------------------
+
+
+class PublicFile(ProtectBaseObject):
+    """Public API device asset file (``/v1/files/{fileType}``)."""
+
+    name: str
+    # ``assetFileType`` is currently ``{"animations"}``; typed as ``str`` so
+    # future server additions don't raise.
+    type: str
+    path: str
+    original_name: str | None = None
