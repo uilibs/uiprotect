@@ -1239,6 +1239,70 @@ async def test_get_event_thumbnail_args(protect_client: ProtectApiClient):
     assert img.format in {"PNG", "JPEG"}
 
 
+@pytest.mark.skipif(not TEST_THUMBNAIL_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_event_thumbnail_uuid_with_e_dash(protect_client: ProtectApiClient):
+    """Regression test for #810: event IDs containing 'e-' must not be corrupted."""
+    event_id = "4028adde-42c6-4873-a49e-94da9bd22190"
+    data = await protect_client.get_event_thumbnail(event_id)
+    assert data is not None
+
+    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
+        f"events/{event_id}/thumbnail",
+        params={},
+        raise_exception=False,
+    )
+
+
+@pytest.mark.skipif(not TEST_THUMBNAIL_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_event_animated_thumbnail_uuid_with_e_dash(
+    protect_client: ProtectApiClient,
+):
+    """Regression test for #810: event IDs containing 'e-' must not be corrupted."""
+    event_id = "4028adde-42c6-4873-a49e-94da9bd22190"
+    data = await protect_client.get_event_animated_thumbnail(event_id)
+    assert data is not None
+
+    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
+        f"events/{event_id}/animated-thumbnail",
+        params={"keyFrameOnly": "true", "speedup": 10},
+        raise_exception=False,
+    )
+
+
+@pytest.mark.skipif(not TEST_HEATMAP_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_event_heatmap_uuid_with_e_dash(protect_client: ProtectApiClient):
+    """Regression test for #810: event IDs containing 'e-' must not be corrupted."""
+    event_id = "4028adde-42c6-4873-a49e-94da9bd22190"
+    data = await protect_client.get_event_heatmap(event_id)
+    assert data is not None
+
+    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
+        f"events/{event_id}/heatmap",
+        raise_exception=False,
+    )
+
+
+@pytest.mark.skipif(not TEST_THUMBNAIL_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_get_event_thumbnail_strips_legacy_prefix(
+    protect_client: ProtectApiClient,
+):
+    """Legacy thumbnail IDs of the form 'e-<event_id>' should have the prefix stripped."""
+    data = await protect_client.get_event_thumbnail(
+        "e-4028adde-42c6-4873-a49e-94da9bd22190"
+    )
+    assert data is not None
+
+    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
+        "events/4028adde-42c6-4873-a49e-94da9bd22190/thumbnail",
+        params={},
+        raise_exception=False,
+    )
+
+
 @pytest.mark.skipif(not TEST_HEATMAP_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
 async def test_get_event_heatmap(protect_client: ProtectApiClient):

@@ -2692,7 +2692,7 @@ class ProtectApiClient(BaseApiClient):
             params.update({"h": height})
 
         # old thumbnail URL use thumbnail ID, which is just `e-{event_id}`
-        thumbnail_id = thumbnail_id.replace("e-", "")
+        thumbnail_id = thumbnail_id.removeprefix("e-")
         return await self._get_image_with_retry(
             f"events/{thumbnail_id}/thumbnail",
             params=params,
@@ -2728,7 +2728,7 @@ class ProtectApiClient(BaseApiClient):
             params.update({"h": height})
 
         # old thumbnail URL use thumbnail ID, which is just `e-{event_id}`
-        thumbnail_id = thumbnail_id.replace("e-", "")
+        thumbnail_id = thumbnail_id.removeprefix("e-")
         return await self._get_image_with_retry(
             f"events/{thumbnail_id}/animated-thumbnail",
             params=params,
@@ -2749,7 +2749,7 @@ class ProtectApiClient(BaseApiClient):
         your retry timeout will always return None.
         """
         # old heatmap URL use heatmap ID, which is just `e-{event_id}`
-        heatmap_id = heatmap_id.replace("e-", "")
+        heatmap_id = heatmap_id.removeprefix("e-")
         return await self._get_image_with_retry(
             f"events/{heatmap_id}/heatmap",
             retry_timeout=retry_timeout,
