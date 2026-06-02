@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.9.0 (2026-06-02)
+
+### Features
+
+
+- Add link-stations and alarm-hubs public api endpoints ([`a55887f`](https://github.com/uilibs/uiprotect/commit/a55887ff100e780405d9685ca240675b04d31c4f))
+
+
 ## v10.8.0 (2026-05-29)
 
 ### Features
