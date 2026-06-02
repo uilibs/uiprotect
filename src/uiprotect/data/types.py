@@ -694,6 +694,38 @@ class RelayInputState(UnknownValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
+class RelayOutputType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Relay output device type (``outputs[].type`` field)."""
+
+    GARAGE_DOOR = "garageDoor"
+    GATE = "gate"
+    VALVE = "valve"
+    SIREN = "siren"
+    CUSTOM = "custom"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class RelayInputActionTrigger(UnknownValuesEnumMixin, enum.StrEnum):
+    """Relay input action trigger condition (``inputs[].actionTrigger`` field)."""
+
+    SWITCHED_ON = "switchedOn"
+    SWITCHED_OFF = "switchedOff"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class RelayInputActionType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Relay input action effect (``inputs[].actionType`` field)."""
+
+    SET_OUTPUT_ON = "setOutputOn"
+    SET_OUTPUT_OFF = "setOutputOff"
+    TOGGLE_OUTPUT = "toggleOutput"
+    FOLLOW_INPUT = "followInput"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
 class DeviceState(UnknownValuesEnumMixin, enum.StrEnum):
     """Public-API device connection state (``state`` field)."""
 

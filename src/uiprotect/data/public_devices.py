@@ -27,9 +27,12 @@ from .types import (
     LiveviewCycleMode,
     ModelType,
     NvrArmModeStatus,
+    RelayInputActionTrigger,
+    RelayInputActionType,
     RelayInputState,
     RelayOutputRebootState,
     RelayOutputState,
+    RelayOutputType,
     SirenDuration,
     SpeakerMode,
     SpeakerStatus,
@@ -42,8 +45,11 @@ if TYPE_CHECKING:
 
 # Public API connection state. Intentionally *not* ``StateType`` (which is the
 # private-API enum with many values) — the public schema documents only these
-# two values for sirens and relays, and treating it as a ``str`` keeps forward
+# two values for sirens, and treating it as a ``str`` keeps forward
 # compatibility with future server additions without surprising callers.
+# ``Relay.state`` uses the :class:`DeviceState` enum (same forward-compat
+# semantics via ``UnknownValuesEnumMixin``); only ``Siren.state`` still uses
+# the raw-``str`` treatment.
 PublicConnectionState = Literal["CONNECTED", "DISCONNECTED"]
 
 
@@ -233,7 +239,7 @@ class Siren(ProtectModelWithId):
 class PublicRelayOutput(ProtectBaseObject):
     id: int
     name: str | None = None
-    type: str | None = None
+    type: RelayOutputType | None = None
     delay: int | None = None
     pulse_duration: int | None = None
     state: RelayOutputState | None = None
@@ -244,8 +250,8 @@ class PublicRelayInput(ProtectBaseObject):
     id: int
     name: str | None = None
     state: RelayInputState | None = None
-    action_trigger: str | None = None
-    action_type: str | None = None
+    action_trigger: RelayInputActionTrigger | None = None
+    action_type: RelayInputActionType | None = None
     action_output_id: int | None = None
 
 
@@ -258,7 +264,7 @@ class Relay(ProtectModelWithId):
     """
 
     model: ModelType | None = ModelType.RELAY
-    state: str
+    state: DeviceState
     name: str
     mac: str
     led_settings: PublicLedSettings
