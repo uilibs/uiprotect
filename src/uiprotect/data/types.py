@@ -856,6 +856,14 @@ class PublicHdrMode(enum.StrEnum):
 
 
 @enum.unique
+class AssetFileType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API device asset file kind (``/v1/files/{fileType}``)."""
+
+    ANIMATIONS = "animations"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
 class LensType(enum.StrEnum):
     NONE = "none"
     FULL_360 = "360"

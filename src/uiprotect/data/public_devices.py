@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypedDict
 from ..exceptions import BadRequest
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import (
+    AssetFileType,
     DeviceState,
     FobAwayState,
     FobButton,
@@ -727,8 +728,6 @@ class PublicFile(ProtectBaseObject):
     """Public API device asset file (``/v1/files/{fileType}``)."""
 
     name: str
-    # ``assetFileType`` is currently ``{"animations"}``; typed as ``str`` so
-    # future server additions don't raise.
-    type: str
+    type: AssetFileType
     path: str
     original_name: str | None = None
