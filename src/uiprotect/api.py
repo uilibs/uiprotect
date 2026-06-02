@@ -193,7 +193,21 @@ _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
 # Sentinel used by ``update_viewer_public`` to distinguish "do not change" (the
 # default) from "explicitly set to null". The viewer's ``liveview`` wire field
 # is legitimately nullable, so a plain ``None`` cannot serve both meanings.
-_UNSET: Any = object()
+# A dedicated singleton type keeps the sentinel out of ``Any`` so callers
+# can't accidentally smuggle it through the typed surface.
+class _UnsetType:
+    _instance: _UnsetType | None = None
+
+    def __new__(cls) -> _UnsetType:
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self) -> str:
+        return "<UNSET>"
+
+
+_UNSET: _UnsetType = _UnsetType()
 
 
 # Substring present in the 400 error reason returned by the NVR when the
@@ -3724,7 +3738,7 @@ class ProtectApiClient(BaseApiClient):
         viewer_id: str,
         *,
         name: str | None = None,
-        liveview: str | None = _UNSET,
+        liveview: str | None | _UnsetType = _UNSET,
     ) -> PublicViewer:
         """Patch viewer settings using public API. Pass ``liveview=None`` to clear."""
         body: dict[str, Any] = {}

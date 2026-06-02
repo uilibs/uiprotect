@@ -3474,6 +3474,23 @@ async def test_update_bridge_public_empty(
     protect_client.api_request_obj.assert_not_called()
 
 
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicBridge.from_unifi_dict")
+async def test_update_bridge_public_no_bootstrap(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    """``_public_bootstrap is None`` must skip cache writes without raising."""
+    obj = Mock(id=BRIDGE_ID)
+    mock_ctor.return_value = obj
+    protect_client.api_request_obj = AsyncMock(return_value={"id": BRIDGE_ID})
+    protect_client._public_bootstrap = None
+
+    result = await protect_client.update_bridge_public(BRIDGE_ID, name="renamed")
+
+    assert result is obj
+
+
 def test_public_bootstrap_applies_bridge_add_and_update(
     protect_client: ProtectApiClient,
 ) -> None:
