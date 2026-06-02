@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypedDict
 from ..exceptions import BadRequest
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import (
+    AlarmHubInputType,
     AssetFileType,
     DeviceState,
     FobAwayState,
@@ -405,6 +406,48 @@ class Speaker(ProtectModelWithId):
 # ---------------------------------------------------------------------------
 
 
+class AlarmHubBattery(ProtectBaseObject):
+    """Backup battery status of an alarm hub (``alarmHub.battery`` sub-schema)."""
+
+    charging: str
+    connection: str
+    voltage: float | None = None
+    battery_status: str
+
+
+class AlarmHubCover(ProtectBaseObject):
+    """Tamper cover status of an alarm hub (``alarmHub.cover`` sub-schema)."""
+
+    status: str
+    distance: int | None = None
+
+
+class AlarmHubInput(ProtectBaseObject):
+    """A single alarm-hub input zone (``alarmHub.input[<id>]`` sub-schema)."""
+
+    enable: str
+    type: str
+    status: str
+    name: str | None = None
+    # ``inputType`` is the categorical zone kind (motion/entry/smoke/...).
+    # ``AlarmHubInputType`` carries an ``UNKNOWN`` member, so values added
+    # by newer firmware coerce to ``UNKNOWN`` instead of raising.
+    input_type: AlarmHubInputType | None = None
+    last_triggered_at: int | None = None
+    camera_id: str | None = None
+
+
+class AlarmHubOutput(ProtectBaseObject):
+    """A single alarm-hub output channel (``alarmHub.output[<id>]`` sub-schema)."""
+
+    active: str
+    enable: str
+    status: str
+    name: str | None = None
+    delay: int | None = None
+    duration: int | None = None
+
+
 class LinkStation(ProtectModelWithId):
     """
     Public API link station / alarm hub.
@@ -424,9 +467,16 @@ class LinkStation(ProtectModelWithId):
     led_settings: PublicLedSettings
     # Top-level nullable epoch-ms timestamp of the last event, NOT an Event object.
     last_event: int | None = None
-    # Opaque dict because the nested ``alarmHub`` payload uses keys that are
-    # not valid Python identifiers (``"12v"``, ``"+"``, ``"-"``); per-leaf
-    # aliasing in pydantic v2 would be more code than payoff.
+    # Retained as an opaque dict so the electrical sub-sections
+    # (``connector``, ``*MeterStatus``, ``*TerminalStatus``, ``buckboost``,
+    # ...) — whose keys are not valid Python identifiers (``"12v"``, ``"+"``,
+    # ``"-"``) and which the OpenAPI spec itself models as
+    # ``additionalProperties`` maps — survive untouched alongside any
+    # unmodeled / future top-level keys. The well-formed slice
+    # (``armed``/``battery``/``cover``/``input``/``output``) is exposed via
+    # the typed accessors on this class (``alarm_hub_armed``,
+    # ``alarm_hub_battery``, ``alarm_hub_cover``, ``alarm_hub_inputs``,
+    # ``alarm_hub_outputs``).
     alarm_hub: dict[str, Any] | None = None
 
     async def _api_update(self, data: dict[str, Any]) -> None:
@@ -460,6 +510,71 @@ class LinkStation(ProtectModelWithId):
             delay=delay,
             duration=duration,
         )
+
+    # ------------------------------------------------------------------
+    # Typed alarm-hub accessors
+    # ------------------------------------------------------------------
+    #
+    # Re-derived from ``alarm_hub`` on every access so they stay live against
+    # WS updates (which mutate the stored dict in place). The electrical
+    # sub-sections (``connector``, ``*MeterStatus``, ``*TerminalStatus``,
+    # ``buckboost``, ...) remain accessible via the raw ``alarm_hub`` dict.
+
+    @property
+    def alarm_hub_armed(self) -> str | None:
+        """Return the wire-level armed flag (``"on"``/``"off"``), or ``None``."""
+        if not self.is_alarm_hub or self.alarm_hub is None:
+            return None
+        armed = self.alarm_hub.get("armed")
+        return armed if isinstance(armed, str) else None
+
+    @property
+    def alarm_hub_battery(self) -> AlarmHubBattery | None:
+        """Return the typed backup-battery status, or ``None`` when absent."""
+        if not self.is_alarm_hub or self.alarm_hub is None:
+            return None
+        battery = self.alarm_hub.get("battery")
+        if not isinstance(battery, dict):
+            return None
+        return AlarmHubBattery.from_unifi_dict(**battery)
+
+    @property
+    def alarm_hub_cover(self) -> AlarmHubCover | None:
+        """Return the typed tamper-cover status, or ``None`` when absent."""
+        if not self.is_alarm_hub or self.alarm_hub is None:
+            return None
+        cover = self.alarm_hub.get("cover")
+        if not isinstance(cover, dict):
+            return None
+        return AlarmHubCover.from_unifi_dict(**cover)
+
+    @property
+    def alarm_hub_inputs(self) -> dict[int, AlarmHubInput]:
+        """Return input zones keyed by numeric id; non-integer keys are skipped."""
+        if not self.is_alarm_hub or self.alarm_hub is None:
+            return {}
+        raw = self.alarm_hub.get("input")
+        if not isinstance(raw, dict):
+            return {}
+        return {
+            int(key): AlarmHubInput.from_unifi_dict(**value)
+            for key, value in raw.items()
+            if isinstance(key, str) and key.isdigit() and isinstance(value, dict)
+        }
+
+    @property
+    def alarm_hub_outputs(self) -> dict[int, AlarmHubOutput]:
+        """Return output channels keyed by numeric id; non-integer keys are skipped."""
+        if not self.is_alarm_hub or self.alarm_hub is None:
+            return {}
+        raw = self.alarm_hub.get("output")
+        if not isinstance(raw, dict):
+            return {}
+        return {
+            int(key): AlarmHubOutput.from_unifi_dict(**value)
+            for key, value in raw.items()
+            if isinstance(key, str) and key.isdigit() and isinstance(value, dict)
+        }
 
 
 # ---------------------------------------------------------------------------

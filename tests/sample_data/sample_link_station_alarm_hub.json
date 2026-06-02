@@ -1,0 +1,102 @@
+{
+    "id": "alarmhub01alarmhub01alarmhub",
+    "modelKey": "linkstation",
+    "state": "CONNECTED",
+    "name": "Hallway Alarm Hub",
+    "mac": "AABBCCDDEE02",
+    "isAlarmHub": true,
+    "ledSettings": {"isEnabled": true},
+    "lastEvent": 1700000000000,
+    "alarmHub": {
+        "armed": "on",
+        "buckboost": "off",
+        "battery": {
+            "charging": "off",
+            "connection": "connected",
+            "voltage": 12.4,
+            "batteryStatus": "ok"
+        },
+        "cover": {
+            "status": "close",
+            "distance": 3
+        },
+        "input": {
+            "0": {
+                "enable": "on",
+                "type": "no",
+                "eolr": 0,
+                "resistor": 0,
+                "status": "normal",
+                "trigger": 0,
+                "name": "Front Door",
+                "inputType": "ENTRY",
+                "lastTriggeredAt": 1700000010000,
+                "cameraId": "cam01cam01cam01cam01cam01"
+            },
+            "1": {
+                "enable": "on",
+                "type": "nc",
+                "eolr": 1,
+                "resistor": 5,
+                "status": "normal",
+                "trigger": 0,
+                "name": "Smoke Hallway",
+                "inputType": "SMOKE",
+                "lastTriggeredAt": null,
+                "cameraId": null
+            },
+            "2": {
+                "enable": "off",
+                "type": "no",
+                "eolr": 0,
+                "resistor": 0,
+                "status": "normal",
+                "trigger": 0
+            },
+            "3": {
+                "enable": "on",
+                "type": "no",
+                "eolr": 0,
+                "resistor": 0,
+                "status": "normal",
+                "trigger": 0,
+                "name": "Future Panel Button",
+                "inputType": "SOMETHING_NEW"
+            }
+        },
+        "output": {
+            "0": {
+                "enable": "on",
+                "active": "off",
+                "status": "dry",
+                "name": "Siren",
+                "delay": 0,
+                "duration": 30
+            },
+            "1": {
+                "enable": "off",
+                "active": "off",
+                "status": "wet"
+            },
+            "stringly-keyed": {
+                "enable": "on",
+                "active": "off",
+                "status": "dry"
+            }
+        },
+        "connector": {
+            "emergency": {"+": "connected", "-": "connected"},
+            "12v": {"ch0": {"+": "connected", "-": "connected"}}
+        },
+        "currentMeterStatus": {
+            "ch0": {
+                "critical": "normal",
+                "efuse": "normal",
+                "enable": "on",
+                "powerValid": "normal",
+                "timingControl": "normal",
+                "warning": "normal"
+            }
+        }
+    }
+}
