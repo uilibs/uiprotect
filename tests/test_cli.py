@@ -7,12 +7,14 @@ from typer.testing import CliRunner
 
 from uiprotect.cli import _is_ssl_error, app
 from uiprotect.cli.arm import app as arm_app
+from uiprotect.cli.bridges import app as bridges_app
 from uiprotect.cli.fobs import app as fob_app
 from uiprotect.cli.link_stations import app as link_station_app
 from uiprotect.cli.liveviews import app as liveview_app
 from uiprotect.cli.relays import app as relay_app
 from uiprotect.cli.sirens import app as siren_app
 from uiprotect.cli.speakers import app as speaker_app
+from uiprotect.cli.viewers_public import app as viewer_public_app
 
 runner = CliRunner()
 
@@ -79,6 +81,8 @@ def test_root_help_shows_public_subcommands() -> None:
     assert "speakers" in result.stdout
     assert "link-stations" in result.stdout
     assert "liveviews" in result.stdout
+    assert "bridges" in result.stdout
+    assert "viewers-public" in result.stdout
     assert "arm" in result.stdout
 
 
@@ -132,6 +136,25 @@ def test_link_stations_help() -> None:
     assert "show" in result.stdout
     assert "set-name" in result.stdout
     assert "trigger-output" in result.stdout
+
+
+def test_bridges_help() -> None:
+    """``bridges --help`` renders without error."""
+    result = runner.invoke(bridges_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+    assert "show" in result.stdout
+    assert "set-name" in result.stdout
+
+
+def test_viewers_public_help() -> None:
+    """``viewers-public --help`` renders without error."""
+    result = runner.invoke(viewer_public_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+    assert "show" in result.stdout
+    assert "set-name" in result.stdout
+    assert "set-liveview" in result.stdout
 
 
 def test_link_stations_trigger_output_rejects_negative_delay() -> None:

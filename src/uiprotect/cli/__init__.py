@@ -22,6 +22,7 @@ from ..utils import profile_ws as profile_ws_job
 from .aiports import app as aiports_app
 from .arm import app as arm_app
 from .base import CliContext, OutputFormatEnum
+from .bridges import app as bridges_app
 from .cameras import app as camera_app
 from .chimes import app as chime_app
 from .doorlocks import app as doorlock_app
@@ -36,6 +37,7 @@ from .sensors import app as sensor_app
 from .sirens import app as siren_app
 from .speakers import app as speaker_app
 from .viewers import app as viewer_app
+from .viewers_public import app as viewer_public_app
 
 try:
     from .backup import app as backup_app
@@ -52,9 +54,19 @@ except ImportError:
     embed = termcolor = get_config = None  # type: ignore[assignment]
 
 # Sub-apps that only use the public API (API key) and do not need username/password
-_PUBLIC_ONLY_COMMANDS: frozenset[str] = frozenset(
-    {"sirens", "relays", "fobs", "speakers", "link-stations", "liveviews", "arm"}
+_PUBLIC_ONLY_COMMAND_NAMES: tuple[str, ...] = (
+    "sirens",
+    "relays",
+    "fobs",
+    "speakers",
+    "link-stations",
+    "liveviews",
+    "bridges",
+    "viewers-public",
+    "arm",
 )
+_PUBLIC_ONLY_COMMANDS: frozenset[str] = frozenset(_PUBLIC_ONLY_COMMAND_NAMES)
+_PUBLIC_ONLY_COMMANDS_HELP: str = ", ".join(_PUBLIC_ONLY_COMMAND_NAMES)
 
 OPTION_USERNAME = typer.Option(
     None,
@@ -62,7 +74,7 @@ OPTION_USERNAME = typer.Option(
     "-U",
     help=(
         "UniFi Protect username (not required for public API commands: "
-        "sirens, relays, fobs, speakers, link-stations, liveviews, arm)"
+        f"{_PUBLIC_ONLY_COMMANDS_HELP})"
     ),
     envvar="UFP_USERNAME",
 )
@@ -72,7 +84,7 @@ OPTION_PASSWORD = typer.Option(
     "-P",
     help=(
         "UniFi Protect password (not required for public API commands: "
-        "sirens, relays, fobs, speakers, link-stations, liveviews, arm)"
+        f"{_PUBLIC_ONLY_COMMANDS_HELP})"
     ),
     hide_input=True,
     envvar="UFP_PASSWORD",
@@ -153,12 +165,14 @@ app.add_typer(doorlock_app, name="doorlocks")
 app.add_typer(light_app, name="lights")
 app.add_typer(sensor_app, name="sensors")
 app.add_typer(viewer_app, name="viewers")
+app.add_typer(viewer_public_app, name="viewers-public")
 app.add_typer(aiports_app, name="aiports")
 app.add_typer(siren_app, name="sirens")
 app.add_typer(relay_app, name="relays")
 app.add_typer(fob_app, name="fobs")
 app.add_typer(speaker_app, name="speakers")
 app.add_typer(link_station_app, name="link-stations")
+app.add_typer(bridges_app, name="bridges")
 app.add_typer(arm_app, name="arm")
 
 if backup_app is not None:
