@@ -28,6 +28,7 @@ from .doorlocks import app as doorlock_app
 from .events import app as event_app
 from .fobs import app as fob_app
 from .lights import app as light_app
+from .link_stations import app as link_station_app
 from .liveviews import app as liveview_app
 from .nvr import app as nvr_app
 from .relays import app as relay_app
@@ -52,7 +53,7 @@ except ImportError:
 
 # Sub-apps that only use the public API (API key) and do not need username/password
 _PUBLIC_ONLY_COMMANDS: frozenset[str] = frozenset(
-    {"sirens", "relays", "fobs", "speakers", "liveviews", "arm"}
+    {"sirens", "relays", "fobs", "speakers", "link-stations", "liveviews", "arm"}
 )
 
 OPTION_USERNAME = typer.Option(
@@ -61,7 +62,7 @@ OPTION_USERNAME = typer.Option(
     "-U",
     help=(
         "UniFi Protect username (not required for public API commands: "
-        "sirens, relays, fobs, speakers, liveviews, arm)"
+        "sirens, relays, fobs, speakers, link-stations, liveviews, arm)"
     ),
     envvar="UFP_USERNAME",
 )
@@ -71,7 +72,7 @@ OPTION_PASSWORD = typer.Option(
     "-P",
     help=(
         "UniFi Protect password (not required for public API commands: "
-        "sirens, relays, fobs, speakers, liveviews, arm)"
+        "sirens, relays, fobs, speakers, link-stations, liveviews, arm)"
     ),
     hide_input=True,
     envvar="UFP_PASSWORD",
@@ -157,6 +158,7 @@ app.add_typer(siren_app, name="sirens")
 app.add_typer(relay_app, name="relays")
 app.add_typer(fob_app, name="fobs")
 app.add_typer(speaker_app, name="speakers")
+app.add_typer(link_station_app, name="link-stations")
 app.add_typer(arm_app, name="arm")
 
 if backup_app is not None:

@@ -393,6 +393,68 @@ class Speaker(ProtectModelWithId):
 
 
 # ---------------------------------------------------------------------------
+# Link Station / Alarm Hub
+# ---------------------------------------------------------------------------
+
+
+class LinkStation(ProtectModelWithId):
+    """
+    Public API link station / alarm hub.
+
+    A single wire schema (``modelKey: "linkstation"``) covers both the
+    ``/v1/link-stations`` and ``/v1/alarm-hubs`` endpoints. The
+    :attr:`is_alarm_hub` flag distinguishes the two; ``alarm_hub`` is only
+    populated when :attr:`is_alarm_hub` is ``True``.
+    """
+
+    model: ModelType | None = ModelType.LINK_STATION
+    state: DeviceState
+    # Nullable on the wire (spec: ``oneOf [string, null]``).
+    name: str | None = None
+    mac: str
+    is_alarm_hub: bool
+    led_settings: PublicLedSettings
+    # Top-level nullable epoch-ms timestamp of the last event, NOT an Event object.
+    last_event: int | None = None
+    # Opaque dict because the nested ``alarmHub`` payload uses keys that are
+    # not valid Python identifiers (``"12v"``, ``"+"``, ``"-"``); per-leaf
+    # aliasing in pydantic v2 would be more code than payoff.
+    alarm_hub: dict[str, Any] | None = None
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        raise BadRequest(
+            "LinkStation mutations must go through the dedicated public API helpers "
+            "(update_link_station_public / update_alarm_hub_public / "
+            "trigger_alarm_hub_output_public)."
+        )
+
+    async def set_name(self, name: str) -> LinkStation:
+        """Rename via the matching endpoint for the device's role."""
+        if self.is_alarm_hub:
+            return await self._api.update_alarm_hub_public(self.id, name=name)
+        return await self._api.update_link_station_public(self.id, name=name)
+
+    async def trigger_output(
+        self,
+        output_id: int,
+        *,
+        enable: bool | None = None,
+        delay: int | None = None,
+        duration: int | None = None,
+    ) -> None:
+        """Trigger an alarm-hub output channel. Raises if this is not an alarm hub."""
+        if not self.is_alarm_hub:
+            raise BadRequest("Not an alarm hub")
+        await self._api.trigger_alarm_hub_output_public(
+            self.id,
+            output_id,
+            enable=enable,
+            delay=delay,
+            duration=duration,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Arm profile (NOT a device — has no ``modelKey``)
 # ---------------------------------------------------------------------------
 

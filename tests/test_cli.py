@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 from uiprotect.cli import _is_ssl_error, app
 from uiprotect.cli.arm import app as arm_app
 from uiprotect.cli.fobs import app as fob_app
+from uiprotect.cli.link_stations import app as link_station_app
 from uiprotect.cli.liveviews import app as liveview_app
 from uiprotect.cli.relays import app as relay_app
 from uiprotect.cli.sirens import app as siren_app
@@ -73,6 +74,7 @@ def test_root_help_shows_public_subcommands() -> None:
     assert "relays" in result.stdout
     assert "fobs" in result.stdout
     assert "speakers" in result.stdout
+    assert "link-stations" in result.stdout
     assert "liveviews" in result.stdout
     assert "arm" in result.stdout
 
@@ -117,6 +119,25 @@ def test_arm_help() -> None:
     result = runner.invoke(arm_app, ["--help"])
     assert result.exit_code == 0
     assert "list" in result.stdout
+
+
+def test_link_stations_help() -> None:
+    """``link-stations --help`` renders without error."""
+    result = runner.invoke(link_station_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+    assert "show" in result.stdout
+    assert "set-name" in result.stdout
+    assert "trigger-output" in result.stdout
+
+
+def test_link_stations_trigger_output_rejects_negative_delay() -> None:
+    """``trigger-output ... --delay -1`` must fail typer's ``min=0`` validator."""
+    result = runner.invoke(
+        link_station_app,
+        ["trigger-output", "hub-id", "0", "--delay", "-1"],
+    )
+    assert result.exit_code != 0
 
 
 def test_liveviews_help() -> None:
