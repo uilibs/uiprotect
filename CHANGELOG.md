@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.14.0 (2026-06-02)
+
+### Features
+
+
+- Add assetfiletype enum for publicfile.type and files api ([`7560c5f`](https://github.com/uilibs/uiprotect/commit/7560c5faec92897bca20f06680ad4148e3d4e1c0))
+
+
 ## v10.13.0 (2026-06-02)
 
 ### Features
