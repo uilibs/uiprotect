@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from functools import cache
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, TypeVar
 
 from ..exceptions import BadRequest
 from .base import ProtectBaseObject, ProtectModelWithId
@@ -455,6 +455,29 @@ class AlarmHubOutput(ProtectBaseObject):
     duration: int | None = None
 
 
+_AlarmHubChannelT = TypeVar("_AlarmHubChannelT", bound=ProtectBaseObject)
+
+
+def _parse_indexed_channels(
+    raw: dict[str, Any],
+    klass: type[_AlarmHubChannelT],
+) -> dict[int, _AlarmHubChannelT]:
+    """
+    Parse an integer-indexed alarm-hub channel map (``input`` / ``output``).
+
+    Entries whose key is not an integer are skipped rather than raising, so a
+    non-numeric key added by future firmware can't break the whole accessor.
+    """
+    channels: dict[int, _AlarmHubChannelT] = {}
+    for key, value in raw.items():
+        try:
+            index = int(key)
+        except (TypeError, ValueError):
+            continue
+        channels[index] = klass.from_unifi_dict(**value)
+    return channels
+
+
 class LinkStation(ProtectModelWithId):
     """
     Public API link station / alarm hub.
@@ -514,8 +537,8 @@ class LinkStation(ProtectModelWithId):
     # -- Typed accessors over the opaque ``alarm_hub`` payload --------------
     #
     # These parse the raw dict on demand. They return ``None`` / ``{}`` when
-    # this is not an alarm hub (``alarm_hub is None``) or when the relevant key
-    # is absent, so callers never need to guard against the opaque shape.
+    # this is not an alarm hub or when the relevant section is absent or empty,
+    # so callers never need to guard against the opaque shape.
 
     @property
     def alarm_hub_armed(self) -> str | None:
@@ -527,30 +550,30 @@ class LinkStation(ProtectModelWithId):
     @property
     def alarm_hub_battery(self) -> AlarmHubBattery | None:
         """Backup-battery status, or ``None`` if not reported."""
-        if not self.alarm_hub or (raw := self.alarm_hub.get("battery")) is None:
+        if not self.alarm_hub or not (raw := self.alarm_hub.get("battery")):
             return None
         return AlarmHubBattery.from_unifi_dict(**raw)
 
     @property
     def alarm_hub_cover(self) -> AlarmHubCover | None:
         """Tamper-cover status, or ``None`` if not reported."""
-        if not self.alarm_hub or (raw := self.alarm_hub.get("cover")) is None:
+        if not self.alarm_hub or not (raw := self.alarm_hub.get("cover")):
             return None
         return AlarmHubCover.from_unifi_dict(**raw)
 
     @property
     def alarm_hub_inputs(self) -> dict[int, AlarmHubInput]:
         """Wired inputs (zones) keyed by their integer terminal index."""
-        if not self.alarm_hub or (raw := self.alarm_hub.get("input")) is None:
+        if not self.alarm_hub or not (raw := self.alarm_hub.get("input")):
             return {}
-        return {int(k): AlarmHubInput.from_unifi_dict(**v) for k, v in raw.items()}
+        return _parse_indexed_channels(raw, AlarmHubInput)
 
     @property
     def alarm_hub_outputs(self) -> dict[int, AlarmHubOutput]:
         """Output channels keyed by their integer terminal index."""
-        if not self.alarm_hub or (raw := self.alarm_hub.get("output")) is None:
+        if not self.alarm_hub or not (raw := self.alarm_hub.get("output")):
             return {}
-        return {int(k): AlarmHubOutput.from_unifi_dict(**v) for k, v in raw.items()}
+        return _parse_indexed_channels(raw, AlarmHubOutput)
 
 
 # ---------------------------------------------------------------------------

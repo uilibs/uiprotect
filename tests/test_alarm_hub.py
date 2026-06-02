@@ -225,14 +225,36 @@ def test_link_station_accessors_are_empty_when_not_hub() -> None:
     assert ls.alarm_hub_outputs == {}
 
 
-def test_alarm_hub_accessors_with_missing_keys() -> None:
-    # Hub present, but a sparse payload (e.g. older firmware) omits sections.
+@pytest.mark.parametrize(
+    "alarm_hub",
+    [
+        pytest.param({}, id="absent"),
+        # Empty objects must read the same as absent ("no meaningful data").
+        pytest.param(
+            {"battery": {}, "cover": {}, "input": {}, "output": {}}, id="empty"
+        ),
+    ],
+)
+def test_alarm_hub_accessors_when_sections_empty(alarm_hub: dict[str, Any]) -> None:
     fixture = deepcopy(_LINK_STATION_FIXTURE)
     fixture["isAlarmHub"] = True
-    fixture["alarmHub"] = {}
+    fixture["alarmHub"] = alarm_hub
     hub = LinkStation.from_unifi_dict(**fixture)
     assert hub.alarm_hub_armed is None
     assert hub.alarm_hub_battery is None
     assert hub.alarm_hub_cover is None
     assert hub.alarm_hub_inputs == {}
     assert hub.alarm_hub_outputs == {}
+
+
+def test_alarm_hub_non_integer_channel_keys_are_skipped() -> None:
+    # Forward-compat: a non-numeric key must be skipped, not raise.
+    fixture = deepcopy(_LINK_STATION_FIXTURE)
+    fixture["isAlarmHub"] = True
+    fixture["alarmHub"] = {
+        "input": {"0": {"type": "no"}, "meta": {"type": "no"}},
+        "output": {"1": {"status": "dry"}, "summary": {"status": "dry"}},
+    }
+    hub = LinkStation.from_unifi_dict(**fixture)
+    assert set(hub.alarm_hub_inputs) == {0}
+    assert set(hub.alarm_hub_outputs) == {1}
