@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.15.0 (2026-06-02)
+
+### Features
+
+
+- Add channelquality enum for rtsps helpers ([`2187b12`](https://github.com/uilibs/uiprotect/commit/2187b121caa7c86419ae181abbed9272ca50b4ee))
+
+
 ## v10.14.0 (2026-06-02)
 
 ### Features
