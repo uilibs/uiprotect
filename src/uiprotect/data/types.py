@@ -717,6 +717,33 @@ class AlarmHubOutputStatus(UnknownValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
+class AlarmHubConnectionState(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm-hub backup-battery wiring state (``alarmHub.battery.connection`` field)."""
+
+    CONNECTED = "connected"
+    DISCONNECTED = "disconnected"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class AlarmHubInputContactType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm-hub input contact wiring (``alarmHub.input[].type`` field)."""
+
+    NO = "no"
+    NC = "nc"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class OnOffState(UnknownValuesEnumMixin, enum.StrEnum):
+    """Generic on/off wire state used by several alarm-hub fields."""
+
+    ON = "on"
+    OFF = "off"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
 class RelayOutputState(UnknownValuesEnumMixin, enum.StrEnum):
     """State of a single relay output channel (``state`` field)."""
 

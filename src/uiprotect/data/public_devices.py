@@ -22,7 +22,9 @@ from ..exceptions import BadRequest
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import (
     AlarmHubBatteryStatus,
+    AlarmHubConnectionState,
     AlarmHubCoverStatus,
+    AlarmHubInputContactType,
     AlarmHubInputStatus,
     AlarmHubInputType,
     AlarmHubOutputStatus,
@@ -33,6 +35,7 @@ from .types import (
     LiveviewCycleMode,
     ModelType,
     NvrArmModeStatus,
+    OnOffState,
     RelayInputActionTrigger,
     RelayInputActionType,
     RelayInputState,
@@ -413,8 +416,8 @@ class Speaker(ProtectModelWithId):
 class AlarmHubBattery(ProtectBaseObject):
     """Backup battery status of an alarm hub (``alarmHub.battery`` sub-schema)."""
 
-    charging: str
-    connection: str
+    charging: OnOffState
+    connection: AlarmHubConnectionState
     voltage: float | None = None
     battery_status: AlarmHubBatteryStatus
 
@@ -429,8 +432,8 @@ class AlarmHubCover(ProtectBaseObject):
 class AlarmHubInput(ProtectBaseObject):
     """A single alarm-hub input zone (``alarmHub.input[<id>]`` sub-schema)."""
 
-    enable: str
-    type: str
+    enable: OnOffState
+    type: AlarmHubInputContactType
     status: AlarmHubInputStatus
     name: str | None = None
     # ``inputType`` is the categorical zone kind (motion/entry/smoke/...).
@@ -444,8 +447,8 @@ class AlarmHubInput(ProtectBaseObject):
 class AlarmHubOutput(ProtectBaseObject):
     """A single alarm-hub output channel (``alarmHub.output[<id>]`` sub-schema)."""
 
-    active: str
-    enable: str
+    active: OnOffState
+    enable: OnOffState
     status: AlarmHubOutputStatus
     name: str | None = None
     delay: int | None = None
@@ -525,12 +528,14 @@ class LinkStation(ProtectModelWithId):
     # ``buckboost``, ...) remain accessible via the raw ``alarm_hub`` dict.
 
     @property
-    def alarm_hub_armed(self) -> str | None:
-        """Return the wire-level armed flag (``"on"``/``"off"``), or ``None``."""
+    def alarm_hub_armed(self) -> OnOffState | None:
+        """Return the typed armed flag, or ``None`` when the field is absent."""
         if not self.is_alarm_hub or self.alarm_hub is None:
             return None
         armed = self.alarm_hub.get("armed")
-        return armed if isinstance(armed, str) else None
+        if not isinstance(armed, str):
+            return None
+        return OnOffState(armed)
 
     @property
     def alarm_hub_battery(self) -> AlarmHubBattery | None:
