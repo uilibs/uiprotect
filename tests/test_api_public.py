@@ -33,8 +33,11 @@ from uiprotect.data import (
     PublicSpeakerState,
     PublicViewer,
     Relay,
+    RelayInputActionTrigger,
+    RelayInputActionType,
     RelayOutputRebootState,
     RelayOutputState,
+    RelayOutputType,
     Siren,
     Speaker,
     SpeakerMode,
@@ -1042,7 +1045,16 @@ def test_relay_model_from_unifi_dict() -> None:
                 "rebootState": "off",
             }
         ],
-        inputs=[],
+        inputs=[
+            {
+                "id": 0,
+                "name": "Trigger A",
+                "state": "off",
+                "actionTrigger": "switchedOn",
+                "actionType": "toggleOutput",
+                "actionOutputId": 0,
+            }
+        ],
         wirelessConnectionState={
             "signalState": {"signalQuality": 85, "signalStrength": -45},
             "batteryStatus": {"percentage": 90, "isLow": False},
@@ -1051,12 +1063,17 @@ def test_relay_model_from_unifi_dict() -> None:
     )
     assert relay.id == RELAY_ID
     assert relay.model is ModelType.RELAY
+    assert relay.state is DeviceState.CONNECTED
     out = relay.get_output(0)
     assert out is not None
     assert out.name == "Garage Door"
+    assert out.type is RelayOutputType.GARAGE_DOOR
     assert out.state is RelayOutputState.OFF
     assert out.reboot_state is RelayOutputRebootState.OFF
     assert relay.get_output(5) is None
+    inp = relay.inputs[0]
+    assert inp.action_trigger is RelayInputActionTrigger.SWITCHED_ON
+    assert inp.action_type is RelayInputActionType.TOGGLE_OUTPUT
 
 
 def test_fob_model_from_unifi_dict_unreported() -> None:
