@@ -9,7 +9,7 @@ import aiohttp
 import orjson
 import pytest
 
-from uiprotect.data import PublicFile
+from uiprotect.data import AssetFileType, PublicFile
 from uiprotect.exceptions import NvrError
 
 if TYPE_CHECKING:
@@ -182,3 +182,61 @@ async def test_upload_file_public_accepts_custom_content_type(
     assert isinstance(
         protect_client.api_request_raw.call_args.kwargs["data"], aiohttp.FormData
     )
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize(
+    "file_type",
+    [AssetFileType.ANIMATIONS, "animations"],
+)
+async def test_get_files_public_accepts_enum_and_str(
+    protect_client: ProtectApiClient,
+    file_type: AssetFileType | str,
+) -> None:
+    protect_client.api_request_list = AsyncMock(return_value=[])
+
+    await protect_client.get_files_public(file_type)
+
+    protect_client.api_request_list.assert_called_once_with(
+        url="/v1/files/animations", public_api=True
+    )
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize(
+    "file_type",
+    [AssetFileType.ANIMATIONS, "animations"],
+)
+async def test_upload_file_public_accepts_enum_and_str(
+    protect_client: ProtectApiClient,
+    file_type: AssetFileType | str,
+) -> None:
+    response = orjson.dumps(
+        {
+            "name": "abc.png",
+            "type": "animations",
+            "path": "/files/animations/abc.png",
+        }
+    )
+    protect_client.api_request_raw = AsyncMock(return_value=response)
+
+    result = await protect_client.upload_file_public(
+        file_type,
+        b"\x89PNG\r\n\x1a\n",
+        original_name="welcome.png",
+    )
+
+    assert isinstance(result, PublicFile)
+    assert result.type is AssetFileType.ANIMATIONS
+    assert protect_client.api_request_raw.call_args.kwargs["url"] == (
+        "/v1/files/animations"
+    )
+
+
+def test_public_file_type_unknown_value_falls_back() -> None:
+    file = PublicFile.from_unifi_dict(
+        name="x.png",
+        type="future-type",
+        path="/files/future-type/x.png",
+    )
+    assert file.type is AssetFileType.UNKNOWN

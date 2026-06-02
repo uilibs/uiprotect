@@ -91,6 +91,7 @@ from .data import (
 from .data.base import ProtectModelWithId
 from .data.devices import AiPort, Chime
 from .data.types import (
+    AssetFileType,
     IteratorCallback,
     ProgressCallback,
     PTZPatrol,
@@ -4064,7 +4065,9 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Files (device assets)
     # ------------------------------------------------------------------
 
-    async def get_files_public(self, file_type: str = "animations") -> list[PublicFile]:
+    async def get_files_public(
+        self, file_type: AssetFileType | str = AssetFileType.ANIMATIONS
+    ) -> list[PublicFile]:
         """List uploaded device asset files of the given type."""
         data = await self.api_request_list(
             url=f"/v1/files/{file_type}", public_api=True
@@ -4073,7 +4076,7 @@ class ProtectApiClient(BaseApiClient):
 
     async def upload_file_public(
         self,
-        file_type: str,
+        file_type: AssetFileType | str,
         file: bytes,
         original_name: str,
         content_type: str = "image/png",
