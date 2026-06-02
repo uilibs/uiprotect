@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.10.1 (2026-06-02)
+
+### Bug fixes
+
+
+- Stripping of all instances of -e in thumbnail and heatmap generations ([`c4b3fd2`](https://github.com/uilibs/uiprotect/commit/c4b3fd28aa51ba9297f8889d6c6c63f10b8c8d33))
+
+
 ## v10.10.0 (2026-06-02)
 
 ### Features
