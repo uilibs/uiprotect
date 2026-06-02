@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.16.0 (2026-06-02)
+
+### Features
+
+
+- Add typed alarm hub accessors to linkstation ([`5754734`](https://github.com/uilibs/uiprotect/commit/57547349d445804266eb4cad15c1fb14f2d5ca29))
+
+
 ## v10.15.0 (2026-06-02)
 
 ### Features
