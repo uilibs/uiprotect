@@ -327,7 +327,7 @@ async def test_light_set_flood_light_public(light_obj: Light, status: bool) -> N
 @pytest.mark.parametrize("status", [True, False])
 @pytest.mark.asyncio()
 async def test_light_set_status_light_public(light_obj: Light, status: bool) -> None:
-    updated_device = light_obj.light_device_settings.copy(
+    updated_device = light_obj.light_device_settings.model_copy(
         update={"is_indicator_enabled": status},
     )
     light_obj.api.update_light_public = AsyncMock(
@@ -360,7 +360,7 @@ async def test_light_set_led_level_public(light_obj: Light, level: int) -> None:
     updated_device = light_obj.light_device_settings.model_copy(
         update={"led_level": level}
     )
-    light_obj.api.update_light_public.return_value = light_obj.copy(
+    light_obj.api.update_light_public.return_value = light_obj.model_copy(
         update={"light_device_settings": updated_device},
     )
 
@@ -383,10 +383,10 @@ async def test_light_set_sensitivity_public(light_obj: Light, sensitivity: int) 
         assert not light_obj.api.update_light_public.called
         return
 
-    updated_device = light_obj.light_device_settings.copy(
+    updated_device = light_obj.light_device_settings.model_copy(
         update={"pir_sensitivity": sensitivity},
     )
-    light_obj.api.update_light_public.return_value = light_obj.copy(
+    light_obj.api.update_light_public.return_value = light_obj.model_copy(
         update={"light_device_settings": updated_device},
     )
 
@@ -417,10 +417,10 @@ async def test_light_set_duration_public(light_obj: Light, duration: timedelta) 
         assert not light_obj.api.update_light_public.called
         return
 
-    updated_device = light_obj.light_device_settings.copy(
+    updated_device = light_obj.light_device_settings.model_copy(
         update={"pir_duration": duration},
     )
-    light_obj.api.update_light_public.return_value = light_obj.copy(
+    light_obj.api.update_light_public.return_value = light_obj.model_copy(
         update={"light_device_settings": updated_device},
     )
 
@@ -508,7 +508,7 @@ async def test_light_set_light_settings_public(
         else light_obj.light_device_settings
     )
 
-    light_obj.api.update_light_public.return_value = light_obj.copy(
+    light_obj.api.update_light_public.return_value = light_obj.model_copy(
         update={
             "light_mode_settings": updated_mode,
             "light_device_settings": updated_device,
