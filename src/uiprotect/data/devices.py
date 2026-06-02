@@ -3145,13 +3145,20 @@ class Viewer(ProtectAdoptableDeviceModel):
 
     async def set_liveview(self, liveview: Liveview) -> None:
         """
-        Sets the liveview current set for the viewer
+        Set the liveview for this viewer.
 
-        Args:
-        ----
-            liveview: The liveview you want to set
-
+        .. deprecated::
+            Use :meth:`ProtectApiClient.update_viewer_public` instead; the
+            public-API counterpart is feature-complete for renaming and
+            liveview assignment.
         """
+        warnings.warn(
+            "Viewer.set_liveview is deprecated; use "
+            "ProtectApiClient.update_viewer_public(viewer_id, liveview=...) "
+            "instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if self._api is not None and liveview.id not in self._api.bootstrap.liveviews:
             raise BadRequest("Unknown liveview")
 

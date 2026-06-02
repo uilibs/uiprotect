@@ -37,6 +37,7 @@ from .sensors import app as sensor_app
 from .sirens import app as siren_app
 from .speakers import app as speaker_app
 from .viewers import app as viewer_app
+from .viewers_public import app as viewer_public_app
 
 try:
     from .backup import app as backup_app
@@ -62,6 +63,7 @@ _PUBLIC_ONLY_COMMANDS: frozenset[str] = frozenset(
         "link-stations",
         "liveviews",
         "bridges",
+        "viewers-public",
         "arm",
     }
 )
@@ -72,7 +74,7 @@ OPTION_USERNAME = typer.Option(
     "-U",
     help=(
         "UniFi Protect username (not required for public API commands: "
-        "sirens, relays, fobs, speakers, link-stations, liveviews, bridges, arm)"
+        "sirens, relays, fobs, speakers, link-stations, liveviews, bridges, viewers-public, arm)"
     ),
     envvar="UFP_USERNAME",
 )
@@ -82,7 +84,7 @@ OPTION_PASSWORD = typer.Option(
     "-P",
     help=(
         "UniFi Protect password (not required for public API commands: "
-        "sirens, relays, fobs, speakers, link-stations, liveviews, bridges, arm)"
+        "sirens, relays, fobs, speakers, link-stations, liveviews, bridges, viewers-public, arm)"
     ),
     hide_input=True,
     envvar="UFP_PASSWORD",
@@ -163,6 +165,7 @@ app.add_typer(doorlock_app, name="doorlocks")
 app.add_typer(light_app, name="lights")
 app.add_typer(sensor_app, name="sensors")
 app.add_typer(viewer_app, name="viewers")
+app.add_typer(viewer_public_app, name="viewers-public")
 app.add_typer(aiports_app, name="aiports")
 app.add_typer(siren_app, name="sirens")
 app.add_typer(relay_app, name="relays")

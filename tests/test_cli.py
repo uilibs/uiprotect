@@ -14,7 +14,7 @@ from uiprotect.cli.liveviews import app as liveview_app
 from uiprotect.cli.relays import app as relay_app
 from uiprotect.cli.sirens import app as siren_app
 from uiprotect.cli.speakers import app as speaker_app
-from uiprotect.cli.viewers import app as viewer_app
+from uiprotect.cli.viewers_public import app as viewer_public_app
 
 runner = CliRunner()
 
@@ -82,6 +82,7 @@ def test_root_help_shows_public_subcommands() -> None:
     assert "link-stations" in result.stdout
     assert "liveviews" in result.stdout
     assert "bridges" in result.stdout
+    assert "viewers-public" in result.stdout
     assert "arm" in result.stdout
 
 
@@ -146,14 +147,14 @@ def test_bridges_help() -> None:
     assert "set-name" in result.stdout
 
 
-def test_viewers_help() -> None:
-    """``viewers --help`` renders without error and lists public subcommands."""
-    result = runner.invoke(viewer_app, ["--help"])
+def test_viewers_public_help() -> None:
+    """``viewers-public --help`` renders without error."""
+    result = runner.invoke(viewer_public_app, ["--help"])
     assert result.exit_code == 0
-    assert "list-public" in result.stdout
-    assert "show-public" in result.stdout
-    assert "set-name-public" in result.stdout
-    assert "set-liveview-public" in result.stdout
+    assert "list" in result.stdout
+    assert "show" in result.stdout
+    assert "set-name" in result.stdout
+    assert "set-liveview" in result.stdout
 
 
 def test_link_stations_trigger_output_rejects_negative_delay() -> None:
