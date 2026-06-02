@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.12.0 (2026-06-02)
+
+### Features
+
+
+- Add ulpuserstatus enum for publiculpuser.status ([`377d728`](https://github.com/uilibs/uiprotect/commit/377d72838e9919fdfccde9099a35ae2517733821))
+
+
 ## v10.11.0 (2026-06-02)
 
 ### Features
