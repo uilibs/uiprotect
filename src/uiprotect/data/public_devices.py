@@ -605,3 +605,78 @@ class PublicLiveview(ProtectModelWithId):
             "Liveview mutations must go through the dedicated public API helpers "
             "(create_liveview_public / update_liveview_public)."
         )
+
+
+# ---------------------------------------------------------------------------
+# Bridge
+# ---------------------------------------------------------------------------
+
+
+class PublicBridge(ProtectModelWithId):
+    """
+    Public API bridge device.
+
+    ``ModelType.BRIDGE`` is already owned by the private :class:`Bridge` class in
+    ``MODEL_TO_CLASS``; this public counterpart is routed via a dedicated factory
+    on :class:`~uiprotect.data.public_bootstrap.PublicBootstrap` instead.
+    """
+
+    model: ModelType | None = ModelType.BRIDGE
+    state: DeviceState
+    name: str | None = None
+    mac: str
+    # ``bridgePlatform`` is typed ``[string, null]`` in the spec.
+    platform: str | None = None
+    clients: list[str]
+    max_clients: int
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        raise BadRequest(
+            "Bridge mutations must go through the dedicated public API helpers "
+            "(update_bridge_public)."
+        )
+
+    async def set_name(self, name: str) -> PublicBridge:
+        return await self._api.update_bridge_public(self.id, name=name)
+
+
+# ---------------------------------------------------------------------------
+# Viewer
+# ---------------------------------------------------------------------------
+
+
+class PublicViewer(ProtectModelWithId):
+    """
+    Public API viewer device.
+
+    ``ModelType.VIEWPORT`` is already owned by the private :class:`Viewer` class
+    in ``MODEL_TO_CLASS``; this public counterpart is routed via a dedicated
+    factory on :class:`~uiprotect.data.public_bootstrap.PublicBootstrap` instead.
+
+    The wire field ``liveview`` is a flat ``liveviewId`` string (nullable);
+    snake-cased to :attr:`liveview_id` via :meth:`_get_unifi_remaps`.
+    """
+
+    model: ModelType | None = ModelType.VIEWPORT
+    state: DeviceState
+    name: str | None = None
+    mac: str
+    liveview_id: str | None = None
+    stream_limit: int
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {**super()._get_unifi_remaps(), "liveview": "liveviewId"}
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        raise BadRequest(
+            "Viewer mutations must go through the dedicated public API helpers "
+            "(update_viewer_public)."
+        )
+
+    async def set_name(self, name: str) -> PublicViewer:
+        return await self._api.update_viewer_public(self.id, name=name)
+
+    async def set_liveview(self, liveview_id: str | None) -> PublicViewer:
+        return await self._api.update_viewer_public(self.id, liveview=liveview_id)

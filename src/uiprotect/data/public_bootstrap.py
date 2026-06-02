@@ -41,8 +41,10 @@ from .public_devices import (
     Fob,
     LinkStation,
     NvrArmMode,
+    PublicBridge,
     PublicLiveview,
     PublicNVR,
+    PublicViewer,
     Relay,
     Siren,
     Speaker,
@@ -112,11 +114,15 @@ class PublicBootstrap:
     # so a single store catches WS frames for both. Use :attr:`alarm_hubs` for the
     # filtered view.
     link_stations: dict[str, LinkStation] = field(default_factory=dict)
-    # ``liveviews`` is deliberately kept out of :data:`_DEVICE_STORES` because
-    # ``ModelType.LIVEVIEW`` is already owned by the private ``Liveview`` in
-    # ``MODEL_TO_CLASS``. The WS handler routes to this store via an explicit
-    # branch with a ``PublicLiveview``-aware factory.
+    # ``liveviews``, ``bridges`` and ``viewers`` are deliberately kept out of
+    # :data:`_DEVICE_STORES` because their ``ModelType`` values
+    # (``LIVEVIEW`` / ``BRIDGE`` / ``VIEWPORT``) are already owned by the
+    # private ``Liveview`` / ``Bridge`` / ``Viewer`` classes in
+    # ``MODEL_TO_CLASS``. The WS handler routes each to its own store via an
+    # explicit branch with a public-API-aware factory.
     liveviews: dict[str, PublicLiveview] = field(default_factory=dict)
+    bridges: dict[str, PublicBridge] = field(default_factory=dict)
+    viewers: dict[str, PublicViewer] = field(default_factory=dict)
 
     # Events received via the events websocket (:meth:`process_events_ws_message`).
     # Bounded by :attr:`max_event_cache_size`; oldest events are evicted first.
@@ -163,6 +169,10 @@ class PublicBootstrap:
     def _store_for(self, model_type: ModelType) -> dict[str, ProtectModelWithId] | None:
         if model_type is ModelType.LIVEVIEW:
             return cast("dict[str, ProtectModelWithId]", self.liveviews)
+        if model_type is ModelType.BRIDGE:
+            return cast("dict[str, ProtectModelWithId]", self.bridges)
+        if model_type is ModelType.VIEWPORT:
+            return cast("dict[str, ProtectModelWithId]", self.viewers)
         attr = _DEVICE_STORES.get(model_type)
         if attr is None:
             return None
@@ -224,19 +234,14 @@ class PublicBootstrap:
         model_key = item["modelKey"]
         model_type = ModelType.from_string(model_key)
 
-        # NVR is cached in a dedicated single-object slot; devices in dicts.
-        if model_type is ModelType.NVR:
+        # NVR is cached in a dedicated single-object slot; collision-routed
+        # types (Liveview / Bridge / Viewer share their ``ModelType`` with the
+        # private ``MODEL_TO_CLASS`` entries) get their own factory-equipped
+        # slot. Everything else routes through the generic ``_store_for`` dict.
+        custom_slot = self._custom_slot_for(model_type)
+        if custom_slot is not None:
             new, old = self._apply_action(
-                api, action_type, item, model_type, self._nvr_slot()
-            )
-            return model_type, new, old
-
-        # Liveview shares ``ModelType.LIVEVIEW`` with the private ``Liveview``
-        # class in ``MODEL_TO_CLASS``; route to ``PublicLiveview`` via a
-        # dedicated factory before the generic ``_store_for`` lookup.
-        if model_type is ModelType.LIVEVIEW:
-            new, old = self._apply_action(
-                api, action_type, item, model_type, self._liveviews_slot()
+                api, action_type, item, model_type, custom_slot
             )
             return model_type, new, old
 
@@ -251,6 +256,18 @@ class PublicBootstrap:
             api, action_type, item, model_type, _dict_slot(store)
         )
         return model_type, new, old
+
+    def _custom_slot_for(self, model_type: ModelType) -> _Slot | None:
+        """Return the dedicated public-API slot for collision-routed types."""
+        if model_type is ModelType.NVR:
+            return self._nvr_slot()
+        if model_type is ModelType.LIVEVIEW:
+            return self._liveviews_slot()
+        if model_type is ModelType.BRIDGE:
+            return self._bridges_slot()
+        if model_type is ModelType.VIEWPORT:
+            return self._viewers_slot()
+        return None
 
     def process_events_ws_message(
         self,
@@ -379,6 +396,28 @@ class PublicBootstrap:
 
         return _dict_slot(
             cast("dict[str, ProtectModelWithId]", self.liveviews),
+            factory=_factory,
+        )
+
+    def _bridges_slot(self) -> _Slot:
+        """Return a slot around :attr:`bridges` with a public-API factory."""
+
+        def _factory(item: dict[str, Any], api: ProtectApiClient) -> PublicBridge:
+            return PublicBridge.from_unifi_dict(api=api, **item)
+
+        return _dict_slot(
+            cast("dict[str, ProtectModelWithId]", self.bridges),
+            factory=_factory,
+        )
+
+    def _viewers_slot(self) -> _Slot:
+        """Return a slot around :attr:`viewers` with a public-API factory."""
+
+        def _factory(item: dict[str, Any], api: ProtectApiClient) -> PublicViewer:
+            return PublicViewer.from_unifi_dict(api=api, **item)
+
+        return _dict_slot(
+            cast("dict[str, ProtectModelWithId]", self.viewers),
             factory=_factory,
         )
 

@@ -59,6 +59,7 @@ from .data import (
     ProtectModel,
     PublicArmScheduleDict,
     PublicBootstrap,
+    PublicBridge,
     PublicHdrMode,
     PublicLiveview,
     PublicLiveviewSlotDict,
@@ -68,6 +69,7 @@ from .data import (
     PublicSensorLightSettings,
     PublicSensorMotionSettings,
     PublicSensorTemperatureSettings,
+    PublicViewer,
     Relay,
     Sensor,
     Siren,
@@ -187,6 +189,11 @@ If your Protect instance has a lot of events, this request will take much longer
 
 _LOGGER = logging.getLogger(__name__)
 _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
+
+# Sentinel used by ``update_viewer_public`` to distinguish "do not change" (the
+# default) from "explicitly set to null". The viewer's ``liveview`` wire field
+# is legitimately nullable, so a plain ``None`` cannot serve both meanings.
+_UNSET: Any = object()
 
 
 # Substring present in the 400 error reason returned by the NVR when the
@@ -3655,6 +3662,92 @@ class ProtectApiClient(BaseApiClient):
         )
 
     # ------------------------------------------------------------------
+    # Public API: Bridges
+    # ------------------------------------------------------------------
+
+    async def get_bridges_public(self) -> list[PublicBridge]:
+        """Get all bridges using public API."""
+        data = await self.api_request_list(url="/v1/bridges", public_api=True)
+        return [PublicBridge.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_bridge_public(self, bridge_id: str) -> PublicBridge:
+        """Get a specific bridge using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/bridges/{bridge_id}", public_api=True
+        )
+        bridge = PublicBridge.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.bridges[bridge.id] = bridge
+        return bridge
+
+    async def update_bridge_public(
+        self, bridge_id: str, *, name: str | None = None
+    ) -> PublicBridge:
+        """Patch bridge settings using public API."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        data = await self.api_request_obj(
+            url=f"/v1/bridges/{bridge_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        bridge = PublicBridge.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.bridges[bridge.id] = bridge
+        return bridge
+
+    # ------------------------------------------------------------------
+    # Public API: Viewers
+    # ------------------------------------------------------------------
+
+    async def get_viewers_public(self) -> list[PublicViewer]:
+        """Get all viewers using public API."""
+        data = await self.api_request_list(url="/v1/viewers", public_api=True)
+        return [PublicViewer.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_viewer_public(self, viewer_id: str) -> PublicViewer:
+        """Get a specific viewer using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/viewers/{viewer_id}", public_api=True
+        )
+        viewer = PublicViewer.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.viewers[viewer.id] = viewer
+        return viewer
+
+    async def update_viewer_public(
+        self,
+        viewer_id: str,
+        *,
+        name: str | None = None,
+        liveview: str | None = _UNSET,
+    ) -> PublicViewer:
+        """Patch viewer settings using public API. Pass ``liveview=None`` to clear."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        # ``liveview`` is genuinely nullable on the wire — distinguish the
+        # default sentinel (no change) from an explicit ``None`` (clear).
+        if liveview is not _UNSET:
+            body["liveview"] = liveview
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        data = await self.api_request_obj(
+            url=f"/v1/viewers/{viewer_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        viewer = PublicViewer.from_unifi_dict(**data, api=self)
+        if self._public_bootstrap is not None:
+            self._public_bootstrap.viewers[viewer.id] = viewer
+        return viewer
+
+    # ------------------------------------------------------------------
     # Public API: Liveviews
     # ------------------------------------------------------------------
 
@@ -3947,6 +4040,8 @@ class ProtectApiClient(BaseApiClient):
             (self.get_speakers_public(), "speakers", "speakers"),
             (self.get_link_stations_public(), "link-stations", "link_stations"),
             (self.get_liveviews_public(), "liveviews", "liveviews"),
+            (self.get_bridges_public(), "bridges", "bridges"),
+            (self.get_viewers_public(), "viewers", "viewers"),
             (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles"),
         ]
 

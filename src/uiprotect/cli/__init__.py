@@ -22,6 +22,7 @@ from ..utils import profile_ws as profile_ws_job
 from .aiports import app as aiports_app
 from .arm import app as arm_app
 from .base import CliContext, OutputFormatEnum
+from .bridges import app as bridges_app
 from .cameras import app as camera_app
 from .chimes import app as chime_app
 from .doorlocks import app as doorlock_app
@@ -53,7 +54,16 @@ except ImportError:
 
 # Sub-apps that only use the public API (API key) and do not need username/password
 _PUBLIC_ONLY_COMMANDS: frozenset[str] = frozenset(
-    {"sirens", "relays", "fobs", "speakers", "link-stations", "liveviews", "arm"}
+    {
+        "sirens",
+        "relays",
+        "fobs",
+        "speakers",
+        "link-stations",
+        "liveviews",
+        "bridges",
+        "arm",
+    }
 )
 
 OPTION_USERNAME = typer.Option(
@@ -62,7 +72,7 @@ OPTION_USERNAME = typer.Option(
     "-U",
     help=(
         "UniFi Protect username (not required for public API commands: "
-        "sirens, relays, fobs, speakers, link-stations, liveviews, arm)"
+        "sirens, relays, fobs, speakers, link-stations, liveviews, bridges, arm)"
     ),
     envvar="UFP_USERNAME",
 )
@@ -72,7 +82,7 @@ OPTION_PASSWORD = typer.Option(
     "-P",
     help=(
         "UniFi Protect password (not required for public API commands: "
-        "sirens, relays, fobs, speakers, link-stations, liveviews, arm)"
+        "sirens, relays, fobs, speakers, link-stations, liveviews, bridges, arm)"
     ),
     hide_input=True,
     envvar="UFP_PASSWORD",
@@ -159,6 +169,7 @@ app.add_typer(relay_app, name="relays")
 app.add_typer(fob_app, name="fobs")
 app.add_typer(speaker_app, name="speakers")
 app.add_typer(link_station_app, name="link-stations")
+app.add_typer(bridges_app, name="bridges")
 app.add_typer(arm_app, name="arm")
 
 if backup_app is not None:

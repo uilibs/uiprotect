@@ -15,6 +15,7 @@ import pytest
 
 from uiprotect.data import (
     ArmProfile,
+    Bridge,
     DeviceState,
     Fob,
     FobAwayState,
@@ -23,11 +24,13 @@ from uiprotect.data import (
     Liveview,
     NvrArmModeStatus,
     PublicBootstrap,
+    PublicBridge,
     PublicLiveview,
     PublicLiveviewSlot,
     PublicNVR,
     PublicSpeakerFeatureFlags,
     PublicSpeakerState,
+    PublicViewer,
     Relay,
     RelayOutputRebootState,
     RelayOutputState,
@@ -35,8 +38,9 @@ from uiprotect.data import (
     Speaker,
     SpeakerMode,
     SpeakerStatus,
+    Viewer,
 )
-from uiprotect.data.convert import create_from_unifi_dict
+from uiprotect.data.convert import MODEL_TO_CLASS, create_from_unifi_dict
 from uiprotect.data.types import (
     EventType,
     LiveviewCycleMode,
@@ -61,6 +65,8 @@ PROFILE_ID = "6878d82800155803e45928e0"
 NVR_ID = "66d025b301ebc903e80003ec"
 LIVEVIEW_ID = "d65bb41c14d6aa92bfa4a6d1"
 OWNER_ID = "4c5f03a8c8bd48ad8e066285"
+BRIDGE_ID = "66d025b301ebc903e80003f1"
+VIEWER_ID = "66d025b301ebc903e80003f2"
 
 # Minimal raw payload matching the Public API NVR schema (v7.0 — no armMode).
 _NVR_RAW_BASE: dict[str, Any] = {
@@ -116,6 +122,8 @@ def _mock_update_public_endpoints(client: ProtectApiClient, **overrides: Any) ->
         "get_speakers_public": AsyncMock(return_value=[]),
         "get_link_stations_public": AsyncMock(return_value=[]),
         "get_liveviews_public": AsyncMock(return_value=[]),
+        "get_bridges_public": AsyncMock(return_value=[]),
+        "get_viewers_public": AsyncMock(return_value=[]),
         "get_arm_profiles_public": AsyncMock(return_value=[]),
     }
     defaults.update(overrides)
@@ -3333,3 +3341,444 @@ async def test_liveview_api_update_rejects_generic_mutations() -> None:
     liveview = PublicLiveview.from_unifi_dict(**_liveview_raw())
     with pytest.raises(BadRequest, match="Liveview mutations"):
         await liveview._api_update({"name": "new"})
+
+
+# ---------------------------------------------------------------------------
+# Bridges
+# ---------------------------------------------------------------------------
+
+
+def _bridge_raw(**overrides: Any) -> dict[str, Any]:
+    raw: dict[str, Any] = {
+        "id": BRIDGE_ID,
+        "modelKey": "bridge",
+        "state": "CONNECTED",
+        "name": "Bridge 1",
+        "mac": "AABBCCDDEEFF",
+        "platform": "mt7621",
+        "clients": ["112233445566"],
+        "maxClients": 7,
+    }
+    raw.update(overrides)
+    return raw
+
+
+def test_bridge_model_from_unifi_dict() -> None:
+    bridge = PublicBridge.from_unifi_dict(**_bridge_raw())
+    assert bridge.id == BRIDGE_ID
+    assert bridge.model is ModelType.BRIDGE
+    assert bridge.state is DeviceState.CONNECTED
+    assert bridge.name == "Bridge 1"
+    assert bridge.mac == "AABBCCDDEEFF"
+    assert bridge.platform == "mt7621"
+    assert bridge.clients == ["112233445566"]
+    assert bridge.max_clients == 7
+
+
+def test_bridge_model_does_not_collide_with_private() -> None:
+    """``PublicBridge`` and private ``Bridge`` are distinct types."""
+    assert PublicBridge is not Bridge
+    public = PublicBridge.from_unifi_dict(**_bridge_raw())
+    assert isinstance(public, PublicBridge)
+    # ``MODEL_TO_CLASS`` must still resolve ``bridge`` modelKey to the private
+    # ``Bridge`` class — the public-API path is opt-in via PublicBootstrap.
+    assert MODEL_TO_CLASS[ModelType.BRIDGE] is Bridge
+    assert PublicBridge not in MODEL_TO_CLASS.values()
+
+
+def test_bridge_model_preserves_optional_platform() -> None:
+    """``bridgePlatform`` is nullable per the spec."""
+    bridge = PublicBridge.from_unifi_dict(**_bridge_raw(platform=None))
+    assert bridge.platform is None
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicBridge.from_unifi_dict")
+async def test_get_bridges_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.side_effect = [Mock(id=BRIDGE_ID), Mock(id="other")]
+    protect_client.api_request_list = AsyncMock(
+        return_value=[{"id": BRIDGE_ID}, {"id": "other"}]
+    )
+    pb = protect_client._public_bootstrap = PublicBootstrap()
+
+    result = await protect_client.get_bridges_public()
+
+    protect_client.api_request_list.assert_called_with(
+        url="/v1/bridges", public_api=True
+    )
+    assert len(result) == 2
+    # List getter must not write into the cache.
+    assert pb.bridges == {}
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicBridge.from_unifi_dict")
+async def test_get_bridge_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=BRIDGE_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": BRIDGE_ID})
+    await protect_client.get_bridge_public(BRIDGE_ID)
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["url"] == f"/v1/bridges/{BRIDGE_ID}"
+    assert kwargs["public_api"] is True
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicBridge.from_unifi_dict")
+async def test_get_bridge_public_writes_pb(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    obj = Mock(id=BRIDGE_ID)
+    mock_ctor.return_value = obj
+    protect_client.api_request_obj = AsyncMock(return_value={"id": BRIDGE_ID})
+    pb = protect_client._public_bootstrap = PublicBootstrap()
+
+    await protect_client.get_bridge_public(BRIDGE_ID)
+
+    assert pb.bridges[BRIDGE_ID] is obj
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicBridge.from_unifi_dict")
+async def test_update_bridge_public_body(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    obj = Mock(id=BRIDGE_ID)
+    mock_ctor.return_value = obj
+    protect_client.api_request_obj = AsyncMock(return_value={"id": BRIDGE_ID})
+    pb = protect_client._public_bootstrap = PublicBootstrap()
+
+    await protect_client.update_bridge_public(BRIDGE_ID, name="renamed")
+
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["url"] == f"/v1/bridges/{BRIDGE_ID}"
+    assert kwargs["method"] == "patch"
+    assert kwargs["json"] == {"name": "renamed"}
+    assert pb.bridges[BRIDGE_ID] is obj
+
+
+@pytest.mark.asyncio()
+async def test_update_bridge_public_empty(
+    protect_client: ProtectApiClient,
+) -> None:
+    protect_client.api_request_obj = AsyncMock()
+    with pytest.raises(BadRequest):
+        await protect_client.update_bridge_public(BRIDGE_ID)
+    protect_client.api_request_obj.assert_not_called()
+
+
+def test_public_bootstrap_applies_bridge_add_and_update(
+    protect_client: ProtectApiClient,
+) -> None:
+    pb = PublicBootstrap()
+    add_payload = {"type": "add", "item": _bridge_raw()}
+    mt, new, old = pb.process_devices_ws_message(protect_client, add_payload)
+    assert mt is ModelType.BRIDGE
+    assert new is not None and new.id == BRIDGE_ID
+    assert isinstance(new, PublicBridge)
+    assert not isinstance(new, Bridge)
+    assert old is None
+    assert BRIDGE_ID in pb.bridges
+    # The public-API cache must not contaminate other stores.
+    assert BRIDGE_ID not in pb.cameras
+
+    update_payload: dict[str, Any] = {
+        "type": "update",
+        "item": {"id": BRIDGE_ID, "modelKey": "bridge", "maxClients": 12},
+    }
+    mt, new, old = pb.process_devices_ws_message(protect_client, update_payload)
+    assert old is not None
+    assert new is not None
+    assert new.max_clients == 12  # type: ignore[attr-defined]
+    # Untouched fields survive the in-place merge.
+    assert new.clients == ["112233445566"]  # type: ignore[attr-defined]
+    assert new.platform == "mt7621"  # type: ignore[attr-defined]
+
+
+def test_public_bootstrap_bridge_get_lookup(
+    protect_client: ProtectApiClient,
+) -> None:
+    pb = PublicBootstrap()
+    pb.process_devices_ws_message(
+        protect_client, {"type": "add", "item": _bridge_raw()}
+    )
+    fetched = pb.get(ModelType.BRIDGE, BRIDGE_ID)
+    assert fetched is not None
+    assert fetched is pb.bridges[BRIDGE_ID]
+    assert isinstance(fetched, PublicBridge)
+
+
+@pytest.mark.asyncio()
+async def test_update_public_populates_bridges(
+    protect_client: ProtectApiClient,
+) -> None:
+    b1 = Mock(id="b-1")
+    b2 = Mock(id="b-2")
+    _mock_update_public_endpoints(
+        protect_client,
+        get_bridges_public=AsyncMock(return_value=[b1, b2]),
+    )
+
+    pb = await protect_client.update_public()
+
+    assert "b-1" in pb.bridges
+    assert "b-2" in pb.bridges
+
+
+@pytest.mark.asyncio()
+async def test_update_public_tolerates_bridge_endpoint_404(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A 404 on /v1/bridges must not abort the whole refresh."""
+    _mock_update_public_endpoints(
+        protect_client,
+        get_bridges_public=AsyncMock(side_effect=BadRequest("404 Not Found")),
+        get_viewers_public=AsyncMock(return_value=[Mock(id="v-1")]),
+    )
+
+    pb = await protect_client.update_public()
+
+    assert pb.bridges == {}
+    assert "v-1" in pb.viewers
+
+
+@pytest.mark.asyncio()
+async def test_bridge_api_update_rejects_generic_mutations() -> None:
+    """Generic mutation path must fail loudly for Public API bridges."""
+    bridge = PublicBridge.from_unifi_dict(**_bridge_raw())
+    with pytest.raises(BadRequest, match="Bridge mutations"):
+        await bridge._api_update({"name": "new"})
+
+
+# ---------------------------------------------------------------------------
+# Viewers
+# ---------------------------------------------------------------------------
+
+
+def _viewer_raw(**overrides: Any) -> dict[str, Any]:
+    raw: dict[str, Any] = {
+        "id": VIEWER_ID,
+        "modelKey": "viewer",
+        "state": "CONNECTED",
+        "name": "Viewer 1",
+        "mac": "AABBCCDDEE01",
+        "liveview": LIVEVIEW_ID,
+        "streamLimit": 16,
+    }
+    raw.update(overrides)
+    return raw
+
+
+def test_viewer_model_from_unifi_dict() -> None:
+    viewer = PublicViewer.from_unifi_dict(**_viewer_raw())
+    assert viewer.id == VIEWER_ID
+    assert viewer.model is ModelType.VIEWPORT
+    assert viewer.state is DeviceState.CONNECTED
+    assert viewer.name == "Viewer 1"
+    assert viewer.mac == "AABBCCDDEE01"
+    assert viewer.liveview_id == LIVEVIEW_ID
+    assert viewer.stream_limit == 16
+
+
+def test_viewer_model_preserves_null_liveview() -> None:
+    viewer = PublicViewer.from_unifi_dict(**_viewer_raw(liveview=None))
+    assert viewer.liveview_id is None
+
+
+def test_viewer_model_round_trip_emits_liveview_wire_key() -> None:
+    viewer = PublicViewer.from_unifi_dict(**_viewer_raw())
+    wire = viewer.unifi_dict()
+    assert wire["liveview"] == LIVEVIEW_ID
+    assert "liveviewId" not in wire
+
+
+def test_viewer_model_does_not_collide_with_private() -> None:
+    assert PublicViewer is not Viewer
+    public = PublicViewer.from_unifi_dict(**_viewer_raw())
+    assert isinstance(public, PublicViewer)
+    # ``MODEL_TO_CLASS`` must still resolve ``viewer`` modelKey to the private
+    # ``Viewer`` class — the public-API path is opt-in via PublicBootstrap.
+    assert MODEL_TO_CLASS[ModelType.VIEWPORT] is Viewer
+    assert PublicViewer not in MODEL_TO_CLASS.values()
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicViewer.from_unifi_dict")
+async def test_get_viewers_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.side_effect = [Mock(id=VIEWER_ID), Mock(id="other")]
+    protect_client.api_request_list = AsyncMock(
+        return_value=[{"id": VIEWER_ID}, {"id": "other"}]
+    )
+    pb = protect_client._public_bootstrap = PublicBootstrap()
+
+    result = await protect_client.get_viewers_public()
+
+    protect_client.api_request_list.assert_called_with(
+        url="/v1/viewers", public_api=True
+    )
+    assert len(result) == 2
+    assert pb.viewers == {}
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicViewer.from_unifi_dict")
+async def test_get_viewer_public(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=VIEWER_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": VIEWER_ID})
+    await protect_client.get_viewer_public(VIEWER_ID)
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["url"] == f"/v1/viewers/{VIEWER_ID}"
+    assert kwargs["public_api"] is True
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicViewer.from_unifi_dict")
+async def test_get_viewer_public_writes_pb(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    obj = Mock(id=VIEWER_ID)
+    mock_ctor.return_value = obj
+    protect_client.api_request_obj = AsyncMock(return_value={"id": VIEWER_ID})
+    pb = protect_client._public_bootstrap = PublicBootstrap()
+
+    await protect_client.get_viewer_public(VIEWER_ID)
+
+    assert pb.viewers[VIEWER_ID] is obj
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicViewer.from_unifi_dict")
+async def test_update_viewer_public_name_only(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=VIEWER_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": VIEWER_ID})
+
+    await protect_client.update_viewer_public(VIEWER_ID, name="kitchen")
+
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["url"] == f"/v1/viewers/{VIEWER_ID}"
+    assert kwargs["method"] == "patch"
+    # ``liveview`` must be omitted (no change) when not explicitly passed.
+    assert kwargs["json"] == {"name": "kitchen"}
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicViewer.from_unifi_dict")
+async def test_update_viewer_public_explicit_null_liveview(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    """``liveview=None`` must serialize as an explicit null, not be omitted."""
+    mock_ctor.return_value = Mock(id=VIEWER_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": VIEWER_ID})
+
+    await protect_client.update_viewer_public(VIEWER_ID, liveview=None)
+
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["json"] == {"liveview": None}
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicViewer.from_unifi_dict")
+async def test_update_viewer_public_set_liveview(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=VIEWER_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": VIEWER_ID})
+
+    await protect_client.update_viewer_public(VIEWER_ID, liveview="lv-1")
+
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["json"] == {"liveview": "lv-1"}
+
+
+@pytest.mark.asyncio()
+async def test_update_viewer_public_empty(
+    protect_client: ProtectApiClient,
+) -> None:
+    protect_client.api_request_obj = AsyncMock()
+    with pytest.raises(BadRequest):
+        await protect_client.update_viewer_public(VIEWER_ID)
+    protect_client.api_request_obj.assert_not_called()
+
+
+def test_public_bootstrap_applies_viewer_add_and_update(
+    protect_client: ProtectApiClient,
+) -> None:
+    pb = PublicBootstrap()
+    add_payload = {"type": "add", "item": _viewer_raw()}
+    mt, new, old = pb.process_devices_ws_message(protect_client, add_payload)
+    assert mt is ModelType.VIEWPORT
+    assert new is not None and new.id == VIEWER_ID
+    assert isinstance(new, PublicViewer)
+    assert not isinstance(new, Viewer)
+    assert old is None
+    assert VIEWER_ID in pb.viewers
+    assert VIEWER_ID not in pb.cameras
+
+    # Partial update — only the wire ``liveview`` key flips to null.
+    update_payload: dict[str, Any] = {
+        "type": "update",
+        "item": {"id": VIEWER_ID, "modelKey": "viewer", "liveview": None},
+    }
+    mt, new, old = pb.process_devices_ws_message(protect_client, update_payload)
+    assert old is not None
+    assert new is not None
+    assert new.liveview_id is None  # type: ignore[attr-defined]
+    # ``streamLimit`` (untouched) survives the merge.
+    assert new.stream_limit == 16  # type: ignore[attr-defined]
+
+
+def test_public_bootstrap_viewer_get_lookup(
+    protect_client: ProtectApiClient,
+) -> None:
+    pb = PublicBootstrap()
+    pb.process_devices_ws_message(
+        protect_client, {"type": "add", "item": _viewer_raw()}
+    )
+    fetched = pb.get(ModelType.VIEWPORT, VIEWER_ID)
+    assert fetched is not None
+    assert fetched is pb.viewers[VIEWER_ID]
+    assert isinstance(fetched, PublicViewer)
+
+
+@pytest.mark.asyncio()
+async def test_update_public_populates_viewers(
+    protect_client: ProtectApiClient,
+) -> None:
+    v1 = Mock(id="v-1")
+    v2 = Mock(id="v-2")
+    _mock_update_public_endpoints(
+        protect_client,
+        get_viewers_public=AsyncMock(return_value=[v1, v2]),
+    )
+
+    pb = await protect_client.update_public()
+
+    assert "v-1" in pb.viewers
+    assert "v-2" in pb.viewers
+
+
+@pytest.mark.asyncio()
+async def test_viewer_api_update_rejects_generic_mutations() -> None:
+    """Generic mutation path must fail loudly for Public API viewers."""
+    viewer = PublicViewer.from_unifi_dict(**_viewer_raw())
+    with pytest.raises(BadRequest, match="Viewer mutations"):
+        await viewer._api_update({"name": "new"})
