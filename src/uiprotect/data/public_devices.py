@@ -21,7 +21,11 @@ from typing import TYPE_CHECKING, Any, Literal, TypedDict
 from ..exceptions import BadRequest
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import (
+    AlarmHubBatteryStatus,
+    AlarmHubCoverStatus,
+    AlarmHubInputStatus,
     AlarmHubInputType,
+    AlarmHubOutputStatus,
     AssetFileType,
     DeviceState,
     FobAwayState,
@@ -412,13 +416,13 @@ class AlarmHubBattery(ProtectBaseObject):
     charging: str
     connection: str
     voltage: float | None = None
-    battery_status: str
+    battery_status: AlarmHubBatteryStatus
 
 
 class AlarmHubCover(ProtectBaseObject):
     """Tamper cover status of an alarm hub (``alarmHub.cover`` sub-schema)."""
 
-    status: str
+    status: AlarmHubCoverStatus
     distance: int | None = None
 
 
@@ -427,7 +431,7 @@ class AlarmHubInput(ProtectBaseObject):
 
     enable: str
     type: str
-    status: str
+    status: AlarmHubInputStatus
     name: str | None = None
     # ``inputType`` is the categorical zone kind (motion/entry/smoke/...).
     # ``AlarmHubInputType`` carries an ``UNKNOWN`` member, so values added
@@ -442,7 +446,7 @@ class AlarmHubOutput(ProtectBaseObject):
 
     active: str
     enable: str
-    status: str
+    status: AlarmHubOutputStatus
     name: str | None = None
     delay: int | None = None
     duration: int | None = None

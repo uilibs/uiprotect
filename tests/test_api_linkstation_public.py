@@ -7,10 +7,14 @@ from typing import Any
 
 from uiprotect.data import (
     AlarmHubBattery,
+    AlarmHubBatteryStatus,
     AlarmHubCover,
+    AlarmHubCoverStatus,
     AlarmHubInput,
+    AlarmHubInputStatus,
     AlarmHubInputType,
     AlarmHubOutput,
+    AlarmHubOutputStatus,
     LinkStation,
 )
 
@@ -42,14 +46,14 @@ def test_alarm_hub_battery_is_typed() -> None:
     assert battery.charging == "off"
     assert battery.connection == "connected"
     assert battery.voltage == 12.4
-    assert battery.battery_status == "ok"
+    assert battery.battery_status is AlarmHubBatteryStatus.OK
 
 
 def test_alarm_hub_cover_is_typed() -> None:
     ls = LinkStation.from_unifi_dict(**_load_alarm_hub_fixture())
     cover = ls.alarm_hub_cover
     assert isinstance(cover, AlarmHubCover)
-    assert cover.status == "close"
+    assert cover.status is AlarmHubCoverStatus.CLOSE
     assert cover.distance == 3
 
 
@@ -63,6 +67,7 @@ def test_alarm_hub_inputs_keyed_by_int_and_non_numeric_skipped() -> None:
     assert front.name == "Front Door"
     assert front.enable == "on"
     assert front.type == "no"
+    assert front.status is AlarmHubInputStatus.NORMAL
     assert front.input_type is AlarmHubInputType.ENTRY
     assert front.last_triggered_at == 1700000010000
     assert front.camera_id == "cam01cam01cam01cam01cam01"
@@ -83,6 +88,26 @@ def test_alarm_hub_input_unknown_type_falls_back() -> None:
     assert future.input_type is AlarmHubInputType.UNKNOWN
 
 
+def test_alarm_hub_status_enums_coerce_unknown_values() -> None:
+    data = _load_alarm_hub_fixture()
+    data["alarmHub"]["battery"]["batteryStatus"] = "future-state"
+    data["alarmHub"]["cover"]["status"] = "ajar"
+    data["alarmHub"]["input"]["0"]["status"] = "supervised"
+    data["alarmHub"]["output"]["0"]["status"] = "shorted"
+    ls = LinkStation.from_unifi_dict(**data)
+
+    battery = ls.alarm_hub_battery
+    assert battery is not None
+    assert battery.battery_status is AlarmHubBatteryStatus.UNKNOWN
+
+    cover = ls.alarm_hub_cover
+    assert cover is not None
+    assert cover.status is AlarmHubCoverStatus.UNKNOWN
+
+    assert ls.alarm_hub_inputs[0].status is AlarmHubInputStatus.UNKNOWN
+    assert ls.alarm_hub_outputs[0].status is AlarmHubOutputStatus.UNKNOWN
+
+
 def test_alarm_hub_outputs_keyed_by_int_and_non_numeric_skipped() -> None:
     ls = LinkStation.from_unifi_dict(**_load_alarm_hub_fixture())
     outputs = ls.alarm_hub_outputs
@@ -93,12 +118,13 @@ def test_alarm_hub_outputs_keyed_by_int_and_non_numeric_skipped() -> None:
     assert siren.name == "Siren"
     assert siren.enable == "on"
     assert siren.active == "off"
-    assert siren.status == "dry"
+    assert siren.status is AlarmHubOutputStatus.DRY
     assert siren.delay == 0
     assert siren.duration == 30
 
     minimal = outputs[1]
     assert minimal.name is None
+    assert minimal.status is AlarmHubOutputStatus.WET
     assert minimal.delay is None
     assert minimal.duration is None
 

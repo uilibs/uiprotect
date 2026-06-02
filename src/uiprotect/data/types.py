@@ -677,6 +677,46 @@ class AlarmHubInputType(UnknownValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
+class AlarmHubBatteryStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm-hub backup-battery health (``alarmHub.battery.batteryStatus`` field)."""
+
+    OK = "ok"
+    LOW = "low"
+    CRITICAL = "critical"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class AlarmHubInputStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm-hub input zone status (``alarmHub.input[].status`` field)."""
+
+    NORMAL = "normal"
+    ALARM = "alarm"
+    FAULT = "fault"
+    SHORT = "short"
+    CUT = "cut"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class AlarmHubCoverStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm-hub tamper-cover status (``alarmHub.cover.status`` field)."""
+
+    OPEN = "open"
+    CLOSE = "close"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class AlarmHubOutputStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm-hub output channel status (``alarmHub.output[].status`` field)."""
+
+    WET = "wet"
+    DRY = "dry"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
 class RelayOutputState(UnknownValuesEnumMixin, enum.StrEnum):
     """State of a single relay output channel (``state`` field)."""
 
