@@ -35,6 +35,7 @@ from .types import (
     RelayOutputRebootState,
     RelayOutputState,
     RelayOutputType,
+    SirenConnectionType,
     SirenDuration,
     SpeakerMode,
     SpeakerStatus,
@@ -171,15 +172,13 @@ class Siren(ProtectModelWithId):
     """Public API siren device."""
 
     model: ModelType | None = ModelType.SIREN
-    # ``state`` uses :data:`PublicConnectionState` semantically but is typed as
-    # ``str`` so unknown server values (future firmware) don't raise.
-    state: str
+    state: DeviceState
     name: str
     mac: str
     volume: int
     led_settings: PublicLedSettings
     siren_status: PublicSirenStatus
-    connection_type: str
+    connection_type: SirenConnectionType
     wireless_connection_state: PublicWirelessConnectionState | None = None
 
     async def _api_update(self, data: dict[str, Any]) -> None:

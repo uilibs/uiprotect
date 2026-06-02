@@ -39,6 +39,7 @@ from uiprotect.data import (
     RelayOutputState,
     RelayOutputType,
     Siren,
+    SirenConnectionType,
     Speaker,
     SpeakerMode,
     SpeakerStatus,
@@ -1024,6 +1025,59 @@ def test_siren_model_from_unifi_dict() -> None:
         },
     )
     assert siren_stopped.is_active is False
+
+
+def test_siren_state_and_connection_type_round_trip() -> None:
+    activated_at_ms = int((time.time() + 60) * 1000)
+    payload: dict[str, Any] = {
+        "id": SIREN_ID,
+        "modelKey": "siren",
+        "state": "CONNECTED",
+        "name": "Front Siren",
+        "mac": "AA:BB:CC:DD:EE:FF",
+        "volume": 80,
+        "ledSettings": {"isEnabled": True},
+        "sirenStatus": {
+            "isActive": True,
+            "activatedAt": activated_at_ms,
+            "duration": 5,
+        },
+        "connectionType": "lora",
+        "wirelessConnectionState": {
+            "signalState": {"signalQuality": 85, "signalStrength": -45},
+            "batteryStatus": {"percentage": 90, "isLow": False},
+            "bridge": None,
+        },
+    }
+    siren = Siren.from_unifi_dict(**payload)
+    assert siren.state is DeviceState.CONNECTED
+    assert siren.connection_type is SirenConnectionType.LORA
+
+    wire = siren.unifi_dict()
+    assert wire["state"] == "CONNECTED"
+    assert wire["connectionType"] == "lora"
+
+
+def test_siren_state_and_connection_type_coerce_unknown() -> None:
+    activated_at_ms = int((time.time() + 60) * 1000)
+    siren = Siren.from_unifi_dict(
+        id=SIREN_ID,
+        modelKey="siren",
+        state="FUTURE_STATE",
+        name="Front Siren",
+        mac="AA:BB:CC:DD:EE:FF",
+        volume=80,
+        ledSettings={"isEnabled": True},
+        sirenStatus={"isActive": True, "activatedAt": activated_at_ms, "duration": 5},
+        connectionType="future-radio",
+        wirelessConnectionState={
+            "signalState": {"signalQuality": 85, "signalStrength": -45},
+            "batteryStatus": {"percentage": 90, "isLow": False},
+            "bridge": None,
+        },
+    )
+    assert siren.state is DeviceState.UNKNOWN
+    assert siren.connection_type is SirenConnectionType.UNKNOWN
 
 
 def test_relay_model_from_unifi_dict() -> None:

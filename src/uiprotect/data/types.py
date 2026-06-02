@@ -654,6 +654,15 @@ class SirenDuration(int, enum.Enum):
 
 
 @enum.unique
+class SirenConnectionType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API siren wireless connection type (``connectionType`` field)."""
+
+    UCP4 = "ucp4"
+    LORA = "lora"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
 class NvrArmModeStatus(UnknownValuesEnumMixin, enum.StrEnum):
     """Arm-manager status values embedded in the NVR ``armMode`` field."""
 
