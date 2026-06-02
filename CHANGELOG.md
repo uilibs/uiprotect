@@ -1,5 +1,19 @@
 # Changelog
 
+## v10.17.0 (2026-06-02)
+
+### Features
+
+
+- Type alarm hub status fields as enums ([`cc75a00`](https://github.com/uilibs/uiprotect/commit/cc75a0004ab937c099b1e07a8061fab319f0ac5f))
+
+
+### Documentation
+
+
+- Fix typo in get_camera_video ([`8f4cfd5`](https://github.com/uilibs/uiprotect/commit/8f4cfd5f10b22a0b6e532f2709e082de40717a84))
+
+
 ## v10.16.0 (2026-06-02)
 
 ### Features
