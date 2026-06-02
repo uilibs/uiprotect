@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.13.0 (2026-06-02)
+
+### Features
+
+
+- Tighten relay public-api field types to spec enums ([`bf589f8`](https://github.com/uilibs/uiprotect/commit/bf589f8f287916fae3882d3481d9898deaab40f9))
+
+
 ## v10.12.0 (2026-06-02)
 
 ### Features
