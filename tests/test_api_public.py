@@ -1602,6 +1602,42 @@ def test_relay_output_unknown_state_does_not_raise() -> None:
     assert relay.outputs[0].state is RelayOutputState.UNKNOWN
 
 
+def test_relay_unknown_enum_values_do_not_raise() -> None:
+    """Forward-compat: unknown future-firmware values coerce to UNKNOWN for the new enums."""
+    relay = Relay.from_unifi_dict(
+        id=RELAY_ID,
+        modelKey="relay",
+        state="CONNECTED",
+        name="R",
+        mac="AA",
+        ledSettings={"isEnabled": True},
+        outputs=[
+            {
+                "id": 0,
+                "name": None,
+                "type": "newTypeNotYetInSpec",
+                "delay": None,
+                "pulseDuration": None,
+                "state": None,
+                "rebootState": None,
+            }
+        ],
+        inputs=[
+            {
+                "id": 0,
+                "name": None,
+                "state": None,
+                "actionTrigger": "newTriggerNotYetInSpec",
+                "actionType": "newActionNotYetInSpec",
+                "actionOutputId": None,
+            }
+        ],
+    )
+    assert relay.outputs[0].type is RelayOutputType.UNKNOWN
+    assert relay.inputs[0].action_trigger is RelayInputActionTrigger.UNKNOWN
+    assert relay.inputs[0].action_type is RelayInputActionType.UNKNOWN
+
+
 # ---------------------------------------------------------------------------
 # URL-quoting of trigger ids
 # ---------------------------------------------------------------------------

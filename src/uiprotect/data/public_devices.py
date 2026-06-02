@@ -45,8 +45,11 @@ if TYPE_CHECKING:
 
 # Public API connection state. Intentionally *not* ``StateType`` (which is the
 # private-API enum with many values) — the public schema documents only these
-# two values for sirens and relays, and treating it as a ``str`` keeps forward
+# two values for sirens, and treating it as a ``str`` keeps forward
 # compatibility with future server additions without surprising callers.
+# ``Relay.state`` uses the :class:`DeviceState` enum (same forward-compat
+# semantics via ``UnknownValuesEnumMixin``); only ``Siren.state`` still uses
+# the raw-``str`` treatment.
 PublicConnectionState = Literal["CONNECTED", "DISCONNECTED"]
 
 
