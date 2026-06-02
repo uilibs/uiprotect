@@ -3799,3 +3799,66 @@ async def test_viewer_api_update_rejects_generic_mutations() -> None:
     viewer = PublicViewer.from_unifi_dict(**_viewer_raw())
     with pytest.raises(BadRequest, match="Viewer mutations"):
         await viewer._api_update({"name": "new"})
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicViewer.from_unifi_dict")
+async def test_update_viewer_public_no_bootstrap(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    """``_public_bootstrap is None`` must skip cache writes without raising."""
+    obj = Mock(id=VIEWER_ID)
+    mock_ctor.return_value = obj
+    protect_client.api_request_obj = AsyncMock(return_value={"id": VIEWER_ID})
+    protect_client._public_bootstrap = None
+
+    result = await protect_client.update_viewer_public(VIEWER_ID, name="renamed")
+
+    assert result is obj
+
+
+@pytest.mark.asyncio()
+async def test_bridge_set_name_routes_to_bridge_endpoint(
+    protect_client: ProtectApiClient,
+) -> None:
+    bridge = PublicBridge.from_unifi_dict(**_bridge_raw(), api=protect_client)
+    protect_client.update_bridge_public = AsyncMock(return_value=bridge)
+    await bridge.set_name("Renamed")
+    protect_client.update_bridge_public.assert_awaited_once_with(
+        BRIDGE_ID, name="Renamed"
+    )
+
+
+@pytest.mark.asyncio()
+async def test_viewer_set_name_routes_to_viewer_endpoint(
+    protect_client: ProtectApiClient,
+) -> None:
+    viewer = PublicViewer.from_unifi_dict(**_viewer_raw(), api=protect_client)
+    protect_client.update_viewer_public = AsyncMock(return_value=viewer)
+    await viewer.set_name("Renamed")
+    protect_client.update_viewer_public.assert_awaited_once_with(
+        VIEWER_ID, name="Renamed"
+    )
+
+
+@pytest.mark.asyncio()
+async def test_viewer_set_liveview_routes_to_viewer_endpoint(
+    protect_client: ProtectApiClient,
+) -> None:
+    viewer = PublicViewer.from_unifi_dict(**_viewer_raw(), api=protect_client)
+    protect_client.update_viewer_public = AsyncMock(return_value=viewer)
+    await viewer.set_liveview("lv-9")
+    protect_client.update_viewer_public.assert_awaited_once_with(
+        VIEWER_ID, liveview="lv-9"
+    )
+    await viewer.set_liveview(None)
+    protect_client.update_viewer_public.assert_awaited_with(VIEWER_ID, liveview=None)
+
+
+def test_unset_sentinel_repr_and_singleton() -> None:
+    """``_UnsetType`` is a singleton; ``repr`` is stable for log/debug output."""
+    from uiprotect.api import _UNSET, _UnsetType
+
+    assert _UnsetType() is _UNSET
+    assert repr(_UNSET) == "<UNSET>"
