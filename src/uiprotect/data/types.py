@@ -152,6 +152,7 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
     RELAY = "relay"
     FOB = "fob"
     SPEAKER = "speaker"
+    LINK_STATION = "linkstation"
     UNKNOWN = "unknown"
 
     bootstrap_model_types: tuple[ModelType, ...]

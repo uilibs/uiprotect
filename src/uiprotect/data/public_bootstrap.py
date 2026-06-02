@@ -39,6 +39,7 @@ from .nvr import Event
 from .public_devices import (
     ArmProfile,
     Fob,
+    LinkStation,
     NvrArmMode,
     PublicLiveview,
     PublicNVR,
@@ -72,6 +73,7 @@ _DEVICE_STORES: dict[ModelType, str] = {
     ModelType.RELAY: "relays",
     ModelType.FOB: "fobs",
     ModelType.SPEAKER: "speakers",
+    ModelType.LINK_STATION: "link_stations",
 }
 
 
@@ -106,6 +108,10 @@ class PublicBootstrap:
     relays: dict[str, Relay] = field(default_factory=dict)
     fobs: dict[str, Fob] = field(default_factory=dict)
     speakers: dict[str, Speaker] = field(default_factory=dict)
+    # Link stations *and* alarm hubs share one schema (``modelKey: "linkstation"``),
+    # so a single store catches WS frames for both. Use :attr:`alarm_hubs` for the
+    # filtered view.
+    link_stations: dict[str, LinkStation] = field(default_factory=dict)
     # ``liveviews`` is deliberately kept out of :data:`_DEVICE_STORES` because
     # ``ModelType.LIVEVIEW`` is already owned by the private ``Liveview`` in
     # ``MODEL_TO_CLASS``. The WS handler routes to this store via an explicit
@@ -128,6 +134,11 @@ class PublicBootstrap:
         init=False,
         repr=False,
     )
+
+    @property
+    def alarm_hubs(self) -> dict[str, LinkStation]:
+        """Subset of :attr:`link_stations` filtered to alarm hubs."""
+        return {k: v for k, v in self.link_stations.items() if v.is_alarm_hub}
 
     @property
     def arm_mode(self) -> NvrArmMode | None:

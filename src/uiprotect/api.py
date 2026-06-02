@@ -49,6 +49,7 @@ from .data import (
     EventType,
     Fob,
     Light,
+    LinkStation,
     Liveview,
     ModelType,
     NvrArmMode,
@@ -3564,6 +3565,96 @@ class ProtectApiClient(BaseApiClient):
         )
 
     # ------------------------------------------------------------------
+    # Public API: Link stations / Alarm hubs
+    # ------------------------------------------------------------------
+
+    async def get_link_stations_public(self) -> list[LinkStation]:
+        """Get all link stations using public API."""
+        data = await self.api_request_list(url="/v1/link-stations", public_api=True)
+        return [LinkStation.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_alarm_hubs_public(self) -> list[LinkStation]:
+        """Get all alarm hubs using public API."""
+        data = await self.api_request_list(url="/v1/alarm-hubs", public_api=True)
+        return [LinkStation.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_link_station_public(self, link_station_id: str) -> LinkStation:
+        """Get a specific link station using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/link-stations/{link_station_id}", public_api=True
+        )
+        return LinkStation.from_unifi_dict(**data, api=self)
+
+    async def get_alarm_hub_public(self, hub_id: str) -> LinkStation:
+        """Get a specific alarm hub using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/alarm-hubs/{hub_id}", public_api=True
+        )
+        return LinkStation.from_unifi_dict(**data, api=self)
+
+    async def update_link_station_public(
+        self, link_station_id: str, *, name: str | None = None
+    ) -> LinkStation:
+        """Patch link station settings using public API."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        result = await self.api_request_obj(
+            url=f"/v1/link-stations/{link_station_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        return LinkStation.from_unifi_dict(**result, api=self)
+
+    async def update_alarm_hub_public(
+        self, hub_id: str, *, name: str | None = None
+    ) -> LinkStation:
+        """Patch alarm hub settings using public API."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        result = await self.api_request_obj(
+            url=f"/v1/alarm-hubs/{hub_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        return LinkStation.from_unifi_dict(**result, api=self)
+
+    async def trigger_alarm_hub_output_public(
+        self,
+        hub_id: str,
+        output_id: int,
+        *,
+        enable: bool | None = None,
+        delay: int | None = None,
+        duration: int | None = None,
+    ) -> None:
+        """Trigger an alarm-hub output channel using public API."""
+        if delay is not None and delay < 0:
+            raise BadRequest("delay must be >= 0")
+        if duration is not None and duration < 0:
+            raise BadRequest("duration must be >= 0")
+        body: dict[str, Any] = {}
+        if enable is not None:
+            body["enable"] = enable
+        if delay is not None:
+            body["delay"] = delay
+        if duration is not None:
+            body["duration"] = duration
+        await self.api_request_raw(
+            url=f"/v1/alarm-hubs/{hub_id}/outputs/{output_id}/trigger",
+            method="post",
+            public_api=True,
+            json=body or None,
+        )
+
+    # ------------------------------------------------------------------
     # Public API: Liveviews
     # ------------------------------------------------------------------
 
@@ -3854,6 +3945,7 @@ class ProtectApiClient(BaseApiClient):
             (self.get_relays_public(), "relays", "relays"),
             (self.get_fobs_public(), "fobs", "fobs"),
             (self.get_speakers_public(), "speakers", "speakers"),
+            (self.get_link_stations_public(), "link-stations", "link_stations"),
             (self.get_liveviews_public(), "liveviews", "liveviews"),
             (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles"),
         ]

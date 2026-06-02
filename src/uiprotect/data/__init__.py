@@ -35,6 +35,7 @@ from .public_bootstrap import PublicBootstrap
 from .public_devices import (
     ArmProfile,
     Fob,
+    LinkStation,
     NvrArmMode,
     PublicArmSchedule,
     PublicArmScheduleDict,
@@ -169,6 +170,7 @@ __all__ = [
     "Light",
     "LightModeEnableType",
     "LightModeType",
+    "LinkStation",
     "Liveview",
     "LiveviewCycleMode",
     "LockStatusType",
