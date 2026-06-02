@@ -54,19 +54,19 @@ except ImportError:
     embed = termcolor = get_config = None  # type: ignore[assignment]
 
 # Sub-apps that only use the public API (API key) and do not need username/password
-_PUBLIC_ONLY_COMMANDS: frozenset[str] = frozenset(
-    {
-        "sirens",
-        "relays",
-        "fobs",
-        "speakers",
-        "link-stations",
-        "liveviews",
-        "bridges",
-        "viewers-public",
-        "arm",
-    }
+_PUBLIC_ONLY_COMMAND_NAMES: tuple[str, ...] = (
+    "sirens",
+    "relays",
+    "fobs",
+    "speakers",
+    "link-stations",
+    "liveviews",
+    "bridges",
+    "viewers-public",
+    "arm",
 )
+_PUBLIC_ONLY_COMMANDS: frozenset[str] = frozenset(_PUBLIC_ONLY_COMMAND_NAMES)
+_PUBLIC_ONLY_COMMANDS_HELP: str = ", ".join(_PUBLIC_ONLY_COMMAND_NAMES)
 
 OPTION_USERNAME = typer.Option(
     None,
@@ -74,7 +74,7 @@ OPTION_USERNAME = typer.Option(
     "-U",
     help=(
         "UniFi Protect username (not required for public API commands: "
-        "sirens, relays, fobs, speakers, link-stations, liveviews, bridges, viewers-public, arm)"
+        f"{_PUBLIC_ONLY_COMMANDS_HELP})"
     ),
     envvar="UFP_USERNAME",
 )
@@ -84,7 +84,7 @@ OPTION_PASSWORD = typer.Option(
     "-P",
     help=(
         "UniFi Protect password (not required for public API commands: "
-        "sirens, relays, fobs, speakers, link-stations, liveviews, bridges, viewers-public, arm)"
+        f"{_PUBLIC_ONLY_COMMANDS_HELP})"
     ),
     hide_input=True,
     envvar="UFP_PASSWORD",
