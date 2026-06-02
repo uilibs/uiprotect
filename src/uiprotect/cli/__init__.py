@@ -28,6 +28,7 @@ from .cameras import app as camera_app
 from .chimes import app as chime_app
 from .doorlocks import app as doorlock_app
 from .events import app as event_app
+from .files_public import app as files_public_app
 from .fobs import app as fob_app
 from .lights import app as light_app
 from .link_stations import app as link_station_app
@@ -37,6 +38,8 @@ from .relays import app as relay_app
 from .sensors import app as sensor_app
 from .sirens import app as siren_app
 from .speakers import app as speaker_app
+from .ulp_users_public import app as ulp_users_public_app
+from .users_public import app as users_public_app
 from .viewers import app as viewer_app
 from .viewers_public import app as viewer_public_app
 
@@ -64,6 +67,9 @@ _PUBLIC_ONLY_COMMAND_NAMES: tuple[str, ...] = (
     "liveviews",
     "bridges",
     "viewers-public",
+    "users-public",
+    "ulp-users-public",
+    "files-public",
     "arm",
 )
 _PUBLIC_ONLY_COMMANDS: frozenset[str] = frozenset(_PUBLIC_ONLY_COMMAND_NAMES)
@@ -174,6 +180,9 @@ app.add_typer(fob_app, name="fobs")
 app.add_typer(speaker_app, name="speakers")
 app.add_typer(link_station_app, name="link-stations")
 app.add_typer(bridges_app, name="bridges")
+app.add_typer(users_public_app, name="users-public")
+app.add_typer(ulp_users_public_app, name="ulp-users-public")
+app.add_typer(files_public_app, name="files-public")
 app.add_typer(arm_app, name="arm")
 
 if backup_app is not None:

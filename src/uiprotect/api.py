@@ -60,6 +60,7 @@ from .data import (
     PublicArmScheduleDict,
     PublicBootstrap,
     PublicBridge,
+    PublicFile,
     PublicHdrMode,
     PublicLiveview,
     PublicLiveviewSlotDict,
@@ -69,6 +70,8 @@ from .data import (
     PublicSensorLightSettings,
     PublicSensorMotionSettings,
     PublicSensorTemperatureSettings,
+    PublicUlpUser,
+    PublicUser,
     PublicViewer,
     Relay,
     Sensor,
@@ -3273,6 +3276,20 @@ class ProtectApiClient(BaseApiClient):
         )
         return TalkbackSession.from_unifi_dict(**data)
 
+    async def disable_camera_mic_permanently_public(self, camera_id: str) -> Camera:
+        """
+        Permanently disable a camera's microphone.
+
+        Irreversible without a factory reset of the camera. The spec returns
+        the updated camera object (not a 204).
+        """
+        data = await self.api_request_obj(
+            url=f"/v1/cameras/{camera_id}/disable-mic-permanently",
+            method="post",
+            public_api=True,
+        )
+        return Camera.from_unifi_dict(**data, api=self)
+
     # ------------------------------------------------------------------
     # Public API: Sensors
     # ------------------------------------------------------------------
@@ -4012,6 +4029,82 @@ class ProtectApiClient(BaseApiClient):
             and self._public_bootstrap.arm_mode is not None
         ):
             self._public_bootstrap.arm_mode.status = NvrArmModeStatus.DISABLED
+
+    # ------------------------------------------------------------------
+    # Public API: Users
+    # ------------------------------------------------------------------
+
+    async def get_users_public(self) -> list[PublicUser]:
+        """Get all Protect users using public API."""
+        data = await self.api_request_list(url="/v1/users", public_api=True)
+        return [PublicUser.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_user_public(self, user_id: str) -> PublicUser:
+        """Get a specific Protect user using public API."""
+        data = await self.api_request_obj(url=f"/v1/users/{user_id}", public_api=True)
+        return PublicUser.from_unifi_dict(**data, api=self)
+
+    # ------------------------------------------------------------------
+    # Public API: ULP users (UniFi Identity)
+    # ------------------------------------------------------------------
+
+    async def get_ulp_users_public(self) -> list[PublicUlpUser]:
+        """Get all UniFi Identity users using public API."""
+        data = await self.api_request_list(url="/v1/ulp-users", public_api=True)
+        return [PublicUlpUser.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_ulp_user_public(self, ulp_user_id: str) -> PublicUlpUser:
+        """Get a specific UniFi Identity user using public API."""
+        data = await self.api_request_obj(
+            url=f"/v1/ulp-users/{ulp_user_id}", public_api=True
+        )
+        return PublicUlpUser.from_unifi_dict(**data, api=self)
+
+    # ------------------------------------------------------------------
+    # Public API: Files (device assets)
+    # ------------------------------------------------------------------
+
+    async def get_files_public(self, file_type: str = "animations") -> list[PublicFile]:
+        """List uploaded device asset files of the given type."""
+        data = await self.api_request_list(
+            url=f"/v1/files/{file_type}", public_api=True
+        )
+        return [PublicFile.from_unifi_dict(**item, api=self) for item in data]
+
+    async def upload_file_public(
+        self,
+        file_type: str,
+        file: bytes,
+        original_name: str,
+        content_type: str = "image/png",
+    ) -> PublicFile:
+        """
+        Upload a device asset as ``multipart/form-data``.
+
+        The spec accepts ``image/gif``, ``image/jpeg``, ``image/png``,
+        ``audio/mpeg``, ``audio/mp4``, ``audio/wave``, ``audio/x-caf``;
+        ``content_type`` defaults to ``image/png`` for the common
+        doorbell-animation case and must be overridden for other MIME types.
+        ``aiohttp`` sets the multipart ``Content-Type`` header (with boundary)
+        itself when ``data=`` is a :class:`aiohttp.FormData`, so this client
+        never sets a JSON content-type for this call.
+        """
+        form = aiohttp.FormData()
+        form.add_field(
+            "file",
+            file,
+            filename=original_name,
+            content_type=content_type,
+        )
+        raw = await self.api_request_raw(
+            url=f"/v1/files/{file_type}",
+            method="post",
+            public_api=True,
+            data=form,
+        )
+        if raw is None:
+            raise NvrError("Empty response from upload_file_public")
+        return PublicFile.from_unifi_dict(**orjson.loads(raw), api=self)
 
     # ------------------------------------------------------------------
     # Public API: Bootstrap (opt-in)

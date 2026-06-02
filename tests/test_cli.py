@@ -8,12 +8,16 @@ from typer.testing import CliRunner
 from uiprotect.cli import _is_ssl_error, app
 from uiprotect.cli.arm import app as arm_app
 from uiprotect.cli.bridges import app as bridges_app
+from uiprotect.cli.cameras import app as cameras_app
+from uiprotect.cli.files_public import app as files_public_app
 from uiprotect.cli.fobs import app as fob_app
 from uiprotect.cli.link_stations import app as link_station_app
 from uiprotect.cli.liveviews import app as liveview_app
 from uiprotect.cli.relays import app as relay_app
 from uiprotect.cli.sirens import app as siren_app
 from uiprotect.cli.speakers import app as speaker_app
+from uiprotect.cli.ulp_users_public import app as ulp_users_public_app
+from uiprotect.cli.users_public import app as users_public_app
 from uiprotect.cli.viewers_public import app as viewer_public_app
 
 runner = CliRunner()
@@ -83,6 +87,9 @@ def test_root_help_shows_public_subcommands() -> None:
     assert "liveviews" in result.stdout
     assert "bridges" in result.stdout
     assert "viewers-public" in result.stdout
+    assert "users-public" in result.stdout
+    assert "ulp-users-public" in result.stdout
+    assert "files-public" in result.stdout
     assert "arm" in result.stdout
 
 
@@ -155,6 +162,45 @@ def test_viewers_public_help() -> None:
     assert "show" in result.stdout
     assert "set-name" in result.stdout
     assert "set-liveview" in result.stdout
+
+
+def test_users_public_help() -> None:
+    """``users-public --help`` renders without error."""
+    result = runner.invoke(users_public_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+    assert "show" in result.stdout
+
+
+def test_ulp_users_public_help() -> None:
+    """``ulp-users-public --help`` renders without error."""
+    result = runner.invoke(ulp_users_public_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+    assert "show" in result.stdout
+
+
+def test_files_public_help() -> None:
+    """``files-public --help`` renders without error."""
+    result = runner.invoke(files_public_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+    assert "upload" in result.stdout
+
+
+def test_cameras_disable_mic_listed_in_help() -> None:
+    """
+    ``cameras --help`` advertises the new ``disable-mic-permanently`` subcommand.
+
+    The cameras CLI takes an optional positional ``device_id`` before the
+    subcommand, so invoking ``["disable-mic-permanently", "--help"]`` is
+    parsed by typer as ``device_id="disable-mic-permanently"`` followed by
+    the parent's ``--help``; the parent help is what we assert on instead.
+    """
+    result = runner.invoke(cameras_app, ["--help"])
+    assert result.exit_code == 0
+    plain_output = _ANSI_ESCAPE_RE.sub("", result.output)
+    assert "disable-mic-permanently" in plain_output
 
 
 def test_link_stations_trigger_output_rejects_negative_delay() -> None:

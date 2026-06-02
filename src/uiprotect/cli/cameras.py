@@ -705,3 +705,30 @@ def delete_rtsps_streams(
             raise typer.Exit(1) from e
 
     base.run(ctx, delete_streams())
+
+
+@app.command("disable-mic-permanently")
+def disable_mic_permanently(
+    ctx: typer.Context,
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        "-y",
+        help="Skip the interactive confirmation prompt",
+    ),
+) -> None:
+    """Permanently disable the camera microphone (irreversible)."""
+    base.require_device_id(ctx)
+    obj: d.Camera = ctx.obj.device
+
+    if not yes and not typer.confirm(
+        f"Permanently disable the microphone on {obj.id}? "
+        "This cannot be undone without resetting the camera."
+    ):
+        typer.secho("Aborted.", fg="yellow")
+        raise typer.Exit(1)
+
+    async def _disable() -> None:
+        await ctx.obj.protect.disable_camera_mic_permanently_public(obj.id)
+
+    base.run(ctx, _disable())
