@@ -43,6 +43,7 @@ from .data import (
     Bootstrap,
     Bridge,
     Camera,
+    ChannelQuality,
     Doorlock,
     Event,
     EventCategories,
@@ -323,7 +324,11 @@ class RTSPSStreams(ProtectBaseObject):
         return getattr(self, quality, None)
 
     def get_available_stream_qualities(self) -> list[str]:
-        """Get list of available RTSPS stream quality levels (including inactive ones with null values)."""
+        """
+        List available RTSPS quality keys from the server.
+
+        Returns raw strings; may include values not in :class:`ChannelQuality`.
+        """
         if self.__pydantic_extra__ is None:
             return []
         return list(self.__pydantic_extra__.keys())
@@ -2429,13 +2434,13 @@ class ProtectApiClient(BaseApiClient):
     async def create_camera_rtsps_streams(
         self,
         camera_id: str,
-        qualities: list[str] | str,
+        qualities: list[ChannelQuality | str] | ChannelQuality | str,
     ) -> RTSPSStreams | None:
         """Creates RTSPS streams for a camera using public API."""
         if isinstance(qualities, str):
             qualities = [qualities]
 
-        data = {"qualities": qualities}
+        data = {"qualities": [str(q) for q in qualities]}
         response = await self.api_request_raw(
             public_api=True,
             url=f"/v1/cameras/{camera_id}/rtsps-stream",
@@ -2485,14 +2490,14 @@ class ProtectApiClient(BaseApiClient):
     async def delete_camera_rtsps_streams(
         self,
         camera_id: str,
-        qualities: list[str] | str,
+        qualities: list[ChannelQuality | str] | ChannelQuality | str,
     ) -> bool:
         """Deletes RTSPS streams for a camera using public API."""
         if isinstance(qualities, str):
             qualities = [qualities]
 
         # Build query parameters for qualities
-        params = [("qualities", quality) for quality in qualities]
+        params = [("qualities", str(quality)) for quality in qualities]
 
         response = await self.api_request_raw(
             public_api=True,

@@ -43,6 +43,7 @@ from .types import (
     AudioCodecs,
     AudioStyle,
     AutoExposureMode,
+    ChannelQuality,
     ChimeType,
     Color,
     DoorbellMessageType,
@@ -2206,7 +2207,7 @@ class Camera(ProtectMotionDeviceModel):
         )
 
     async def create_rtsps_streams(
-        self, qualities: list[str] | str
+        self, qualities: list[ChannelQuality | str] | ChannelQuality | str
     ) -> RTSPSStreams | None:
         """Creates RTSPS streams for camera using public API."""
         if self._api._api_key is None:
@@ -2221,7 +2222,9 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._api.get_camera_rtsps_streams(self.id)
 
-    async def delete_rtsps_streams(self, qualities: list[str] | str) -> bool:
+    async def delete_rtsps_streams(
+        self, qualities: list[ChannelQuality | str] | ChannelQuality | str
+    ) -> bool:
         """Deletes RTSPS streams for camera using public API."""
         if self._api._api_key is None:
             raise NotAuthorized("Cannot delete RTSPS streams without an API key.")
