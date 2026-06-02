@@ -190,6 +190,7 @@ If your Protect instance has a lot of events, this request will take much longer
 _LOGGER = logging.getLogger(__name__)
 _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
 
+
 # Sentinel used by ``update_viewer_public`` to distinguish "do not change" (the
 # default) from "explicitly set to null". The viewer's ``liveview`` wire field
 # is legitimately nullable, so a plain ``None`` cannot serve both meanings.
