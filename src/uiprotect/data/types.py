@@ -974,7 +974,7 @@ class LensType(enum.StrEnum):
 @enum.unique
 class OsdOverlayLocation(UnknownValuesEnumMixin, enum.StrEnum):
     """
-    On-screen-display overlay corner (``osdSettings.overlayLocation``).
+    On-screen-display overlay location (``osdSettings.overlayLocation``).
 
     Carries an ``UNKNOWN`` member so values added by newer firmware coerce
     to ``UNKNOWN`` instead of raising during ``Camera`` deserialization.
