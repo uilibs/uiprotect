@@ -972,13 +972,21 @@ class LensType(enum.StrEnum):
 
 
 @enum.unique
-class OsdOverlayLocation(enum.StrEnum):
+class OsdOverlayLocation(UnknownValuesEnumMixin, enum.StrEnum):
+    """
+    On-screen-display overlay location (``osdSettings.overlayLocation``).
+
+    Carries an ``UNKNOWN`` member so values added by newer firmware coerce
+    to ``UNKNOWN`` instead of raising during ``Camera`` deserialization.
+    """
+
     TOP_LEFT = "topLeft"
     TOP_MIDDLE = "topMiddle"
     TOP_RIGHT = "topRight"
     BOTTOM_LEFT = "bottomLeft"
     BOTTOM_MIDDLE = "bottomMiddle"
     BOTTOM_RIGHT = "bottomRight"
+    UNKNOWN = "unknown"
 
 
 DoorbellText = Annotated[str, StringConstraints(max_length=30)]

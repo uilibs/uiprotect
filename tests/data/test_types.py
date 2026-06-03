@@ -11,6 +11,7 @@ from uiprotect.data.types import (
     ModelType,
     MountPosition,
     MountType,
+    OsdOverlayLocation,
     PermissionNode,
     SensorStatusType,
     SensorType,
@@ -37,6 +38,8 @@ async def test_model_type_from_string():
         (MountPosition, "ceiling", MountPosition.CEILING),
         (StorageType, "hdd", StorageType.DISK),
         (PermissionNode, "read", PermissionNode.READ),
+        (OsdOverlayLocation, "topLeft", OsdOverlayLocation.TOP_LEFT),
+        (OsdOverlayLocation, "bottomRight", OsdOverlayLocation.BOTTOM_RIGHT),
     ],
 )
 def test_unknown_values_enum_known_value(enum_cls, known_value, known_member):
@@ -56,6 +59,7 @@ def test_unknown_values_enum_known_value(enum_cls, known_value, known_member):
         MountPosition,
         StorageType,
         PermissionNode,
+        OsdOverlayLocation,
     ],
 )
 def test_unknown_values_enum_falls_back_to_unknown(enum_cls):
