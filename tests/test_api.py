@@ -533,7 +533,7 @@ def test_api_client_with_ipv6():
 
 
 @pytest.mark.asyncio()
-async def test_force_update_with_old_Version(protect_client: ProtectApiClient):
+async def test_force_update_with_old_version(protect_client: ProtectApiClient):
     protect_client._bootstrap = None
 
     await protect_client.update()
@@ -2450,7 +2450,7 @@ async def test_public_api_sets_x_api_key_header() -> None:
             self,
             exc_type: type[BaseException] | None,
             exc_val: BaseException | None,
-            exc_tb: Any,
+            exc_tb: object,
         ) -> None:
             return None
 

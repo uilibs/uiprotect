@@ -335,7 +335,8 @@ class Bootstrap(ProtectBaseObject):
                 if key not in optional_fields:
                     data[key] = {}
                     _LOGGER.error(
-                        f"Missing key in bootstrap: {key}. This may be fixed by updating Protect."
+                        "Missing key in bootstrap: %s. This may be fixed by updating Protect.",
+                        key,
                     )
                 continue
             for item in data[key]:

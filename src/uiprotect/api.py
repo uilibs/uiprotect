@@ -17,7 +17,7 @@ from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, Self, TypedDict, cast
 from urllib.parse import SplitResult, quote
 
 import aiofiles
@@ -210,9 +210,9 @@ _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
 # A dedicated singleton type keeps the sentinel out of ``Any`` so callers
 # can't accidentally smuggle it through the typed surface.
 class _UnsetType:
-    _instance: _UnsetType | None = None
+    _instance: Self | None = None
 
-    def __new__(cls) -> _UnsetType:
+    def __new__(cls) -> Self:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance

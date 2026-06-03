@@ -1107,6 +1107,11 @@ def _chime_type_from_total_seconds(total_seconds: float) -> ChimeType:
     return ChimeType.NONE
 
 
+_LCD_TYPES_REQUIRING_TEXT: frozenset[DoorbellMessageType] = frozenset(
+    {DoorbellMessageType.CUSTOM_MESSAGE, DoorbellMessageType.IMAGE}
+)
+
+
 class Camera(ProtectMotionDeviceModel):
     is_deleting: bool
     # Microphone Sensitivity
@@ -3026,11 +3031,7 @@ class Camera(ProtectMotionDeviceModel):
         """
         if not self.feature_flags.has_lcd_screen:
             raise BadRequest("Camera does not have an LCD screen")
-        _TYPES_REQUIRING_TEXT = {
-            DoorbellMessageType.CUSTOM_MESSAGE,
-            DoorbellMessageType.IMAGE,
-        }
-        if text_type in _TYPES_REQUIRING_TEXT:
+        if text_type in _LCD_TYPES_REQUIRING_TEXT:
             if text is None:
                 raise BadRequest(f"{text_type} requires text")
         elif text is not None:

@@ -8,7 +8,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, NamedTuple, cast
+from typing import TYPE_CHECKING, Any, NamedTuple, Self, cast
 from urllib.parse import ParseResult, urlparse
 
 import av
@@ -179,7 +179,7 @@ class TalkbackStream:
         self._lock = asyncio.Lock()
         self._error: BaseException | None = None
 
-    async def __aenter__(self) -> TalkbackStream:
+    async def __aenter__(self) -> Self:
         """Start streaming when entering async context."""
         await self.start()
         return self

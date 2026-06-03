@@ -178,13 +178,16 @@ select = [
     "ERA",  # eradicate (commented-out code)
     "FA",   # flake8-future-annotations
     "FLY",  # flynt (f-string conversion)
+    "G",    # flake8-logging-format
     "ICN",  # flake8-import-conventions
     "INP",  # flake8-no-pep420 (implicit namespace packages)
     "ISC",  # flake8-implicit-str-concat
     "LOG",  # flake8-logging
+    "N",    # pep8-naming
     "PGH",  # pygrep-hooks
     "PIE",  # flake8-pie
     "PTH",  # flake8-use-pathlib
+    "PYI",  # flake8-pyi
     "Q",    # flake8-quotes
     "RSE",  # flake8-raise
     "SLOT", # flake8-slots
@@ -243,6 +246,10 @@ select = [
     "TC001",
     "TC002",
     "TC003",
+]
+"src/uiprotect/exceptions.py" = [
+    # public exception names — renaming would break the API consumers depend on
+    "N818",
 ]
 
 [tool.ruff.lint.isort]
