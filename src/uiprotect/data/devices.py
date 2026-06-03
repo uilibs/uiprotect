@@ -899,6 +899,20 @@ class SmartMotionZone(MotionZone):
         } | super().unifi_dict_conversions()
 
 
+class SmartDetectLinePlan(ProtectBaseObject):
+    auto_reset: str
+    time: str | None = None
+    week_day: str | None = None
+    date: str | None = None
+
+
+class SmartDetectLine(SmartMotionZone):
+    is_trigger_light_enabled: bool
+    direction: str
+    is_target_counting: bool
+    plan: SmartDetectLinePlan
+
+
 class PrivacyMaskCapability(ProtectBaseObject):
     max_masks: int | None = None
     rectangle_only: bool
@@ -1180,9 +1194,10 @@ class Camera(ProtectMotionDeviceModel):
     # apRssi read only
     # elementInfo read only
 
+    last_privacy_zone_position_id: str | None = None
+    smart_detect_lines: list[SmartDetectLine] = []
+
     # TODO:
-    # lastPrivacyZonePositionId
-    # smartDetectLines
     # streamSharing read only
     # stopStreamLevel
     # uplinkDevice

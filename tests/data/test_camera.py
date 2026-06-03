@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 import pytest
 from pydantic import ValidationError
 
-from tests.conftest import TEST_CAMERA_EXISTS
+from tests.conftest import TEST_AIPORT_EXISTS, TEST_CAMERA_EXISTS
 from uiprotect import ProtectApiClient
 from uiprotect.data import (
     Camera,
@@ -24,10 +24,13 @@ from uiprotect.data import (
     VideoMode,
 )
 from uiprotect.data.devices import (
+    AiPort,
     CameraChannel,
     CameraZone,
     Hotplug,
     HotplugExtender,
+    SmartDetectLine,
+    SmartDetectLinePlan,
     WifiStats,
 )
 from uiprotect.data.types import DEFAULT, PermissionNode, SmartDetectObjectType
@@ -1661,6 +1664,70 @@ def test_camera_zone_color_serialization_from_dict() -> None:
     # Verify the color was converted from dict to hex string
     assert isinstance(result["color"], str)
     assert result["color"] == "#85BCEC"
+
+
+def test_camera_smart_detect_lines_default(camera_obj: Camera | None) -> None:
+    """Empty smartDetectLines in fixture parses to an empty list, not missing."""
+    if camera_obj is None:
+        pytest.skip("No camera_obj")
+    assert camera_obj.smart_detect_lines == []
+
+
+def test_camera_last_privacy_zone_position_id_default(
+    camera_obj: Camera | None,
+) -> None:
+    if camera_obj is None:
+        pytest.skip("No camera_obj")
+    assert camera_obj.last_privacy_zone_position_id is None
+
+
+@pytest.mark.skipif(not TEST_AIPORT_EXISTS, reason="Missing aiport testdata")
+def test_aiport_smart_detect_lines_parsed(aiport_obj: AiPort | None) -> None:
+    """AiPort fixture carries two smart_detect_lines — verify typed parsing."""
+    if aiport_obj is None:
+        pytest.skip("No aiport_obj")
+    lines = aiport_obj.smart_detect_lines
+    assert len(lines) == 2
+    line = lines[0]
+    assert isinstance(line, SmartDetectLine)
+    assert line.id == 3
+    assert line.name == "New Crossing Line"
+    assert line.sensitivity == 50
+    assert line.is_trigger_light_enabled is False
+    assert line.is_target_counting is False
+    assert line.direction == "BA"
+    assert isinstance(line.plan, SmartDetectLinePlan)
+    assert line.plan.auto_reset == "none"
+    assert line.plan.time is None
+    assert line.plan.week_day is None
+    assert line.plan.date is None
+    # Inherits points from CameraZone and object_types from SmartMotionZone
+    assert line.points == [(0.69, 0.609), (0.53, 0.609)]
+    assert len(line.object_types) == 3
+
+
+@pytest.mark.skipif(not TEST_AIPORT_EXISTS, reason="Missing aiport testdata")
+def test_aiport_smart_detect_lines_round_trip(aiport_obj: AiPort | None) -> None:
+    """SmartDetectLine round-trips through unifi_dict back to the wire shape."""
+    if aiport_obj is None:
+        pytest.skip("No aiport_obj")
+    line = aiport_obj.smart_detect_lines[0]
+    wire = line.unifi_dict()
+    assert wire["id"] == 3
+    assert wire["name"] == "New Crossing Line"
+    assert wire["color"] == "#46C7FD"
+    assert wire["sensitivity"] == 50
+    assert wire["direction"] == "BA"
+    assert wire["isTriggerLightEnabled"] is False
+    assert wire["isTargetCounting"] is False
+    assert wire["plan"] == {
+        "autoReset": "none",
+        "time": None,
+        "weekDay": None,
+        "date": None,
+    }
+    assert sorted(wire["objectTypes"]) == ["animal", "person", "vehicle"]
+    assert wire["points"] == [[0.69, 0.609], [0.53, 0.609]]
 
 
 # PTZ Public API Tests
