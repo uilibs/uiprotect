@@ -1,5 +1,13 @@
 # Changelog
 
+## v11.0.0 (2026-06-03)
+
+### Features
+
+
+- Type siren.state as devicestate and add sirenconnectiontype enum ([`04e8976`](https://github.com/uilibs/uiprotect/commit/04e89765d1b56dc4364cb7d158751ad681ae3125))
+
+
 ## v10.18.1 (2026-06-03)
 
 ### Bug fixes
