@@ -381,6 +381,10 @@ class BaseApiClient:
     _events_websocket: Websocket | None = None
     _devices_websocket: Websocket | None = None
     _public_resync_task: asyncio.Task[None] | None = None
+    # Reference to the background ULP cache refresh task so it isn't GC'd.
+    # Declared on the base client because ``close`` cancels it via
+    # ``_cancel_ulp_refresh_task``; only ``ProtectApiClient`` populates it.
+    _ulp_refresh_task: asyncio.Task[None] | None = None
 
     private_api_path: str = "/proxy/protect/api/"
     public_api_path: str = "/proxy/protect/integration"
@@ -1281,8 +1285,6 @@ class ProtectApiClient(BaseApiClient):
     # Internal events-WS adapter unsubscribe; populated while the typed
     # ``subscribe_events`` callback list is non-empty.
     _event_ws_adapter_unsub: Callable[[], None] | None = None
-    # Reference to the background ULP cache refresh task so it isn't GC'd.
-    _ulp_refresh_task: asyncio.Task[None] | None = None
     # Monotonic timestamp of the last "REMOVE for unknown event" INFO log;
     # throttled so a burst of unknown-id removes does not flood the log.
     _events_remove_unknown_last_log: float = 0.0
