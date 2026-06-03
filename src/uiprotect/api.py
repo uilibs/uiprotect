@@ -4325,11 +4325,17 @@ class ProtectApiClient(BaseApiClient):
 
         Skips if a prior refresh task is still running; otherwise creates a
         new task and attaches a done-callback so unexpected exceptions are
-        logged instead of surfacing only as a GC warning.
+        logged instead of surfacing only as a GC warning. Silently no-ops
+        when called without a running event loop — the enricher hits this
+        path on every cache miss and the refresh is best-effort.
         """
         if self._ulp_refresh_task is not None and not self._ulp_refresh_task.done():
             return
-        self._ulp_refresh_task = asyncio.create_task(
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        self._ulp_refresh_task = loop.create_task(
             self._refresh_public_ulp_users_cache()
         )
         self._ulp_refresh_task.add_done_callback(self._on_ulp_refresh_done)
