@@ -14,7 +14,6 @@ from uiprotect.cli.backup import (
     _safe_join,
     _safe_slug,
 )
-from uiprotect.exceptions import BadRequest
 
 
 def _make_ctx(tmp_path: Path, **overrides: str) -> BackupContext:
@@ -70,12 +69,12 @@ def test_safe_slug_keeps_safe_characters() -> None:
 
 
 def test_safe_join_rejects_parent_traversal(tmp_path: Path) -> None:
-    with pytest.raises(BadRequest):
+    with pytest.raises(ValueError):
         _safe_join(tmp_path, "../etc/passwd")
 
 
 def test_safe_join_rejects_absolute_paths(tmp_path: Path) -> None:
-    with pytest.raises(BadRequest):
+    with pytest.raises(ValueError):
         _safe_join(tmp_path, "/etc/passwd")
 
 
@@ -84,7 +83,7 @@ def test_safe_join_allows_paths_inside_base(tmp_path: Path) -> None:
     assert result == (tmp_path / "sub/dir/file.jpg").resolve()
 
 
-def test_file_context_sanitizes_traversal_in_camera_name(tmp_path: Path) -> None:
+def test_file_context_sanitizes_traversal_in_camera_slug(tmp_path: Path) -> None:
     ctx = _make_ctx(tmp_path)
     event, camera = _make_event("../../etc/foo")
     ctx.protect.bootstrap.get_device_from_mac.return_value = camera
@@ -93,8 +92,16 @@ def test_file_context_sanitizes_traversal_in_camera_name(tmp_path: Path) -> None
 
     assert ".." not in context["camera_slug"]
     assert "/" not in context["camera_slug"]
-    assert ".." not in context["camera_name"]
-    assert "/" not in context["camera_name"]
+
+
+def test_file_context_preserves_raw_camera_name(tmp_path: Path) -> None:
+    ctx = _make_ctx(tmp_path)
+    event, camera = _make_event("Café Front Door")
+    ctx.protect.bootstrap.get_device_from_mac.return_value = camera
+
+    context = event.get_file_context(ctx)
+
+    assert context["camera_name"] == "Café Front Door"
 
 
 def test_thumbnail_path_stays_inside_output_for_malicious_name(
@@ -139,7 +146,7 @@ def test_thumbnail_path_rejects_traversal_template(tmp_path: Path) -> None:
     event, camera = _make_event("cam")
     ctx.protect.bootstrap.get_device_from_mac.return_value = camera
 
-    with pytest.raises(BadRequest):
+    with pytest.raises(ValueError):
         event.get_thumbnail_path(ctx)
 
 
@@ -151,5 +158,5 @@ def test_event_path_rejects_traversal_template(tmp_path: Path) -> None:
     event, camera = _make_event("cam")
     ctx.protect.bootstrap.get_device_from_mac.return_value = camera
 
-    with pytest.raises(BadRequest):
+    with pytest.raises(ValueError):
         event.get_event_path(ctx)

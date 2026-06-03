@@ -36,7 +36,6 @@ from sqlalchemy.orm import Mapped, declarative_base, relationship
 from .. import data as d
 from ..api import ProtectApiClient
 from ..cli import base
-from ..exceptions import BadRequest
 from ..utils import (
     format_duration,
     get_local_timezone,
@@ -66,7 +65,7 @@ def _safe_join(base: Path, file_path: str) -> Path:
     candidate = (base / file_path).resolve()
     base_resolved = base.resolve()
     if not candidate.is_relative_to(base_resolved):
-        raise BadRequest(
+        raise ValueError(
             f"refusing to use path outside output dir: {candidate}",
         )
     return candidate
@@ -195,7 +194,7 @@ class Event(Base):  # type: ignore[valid-type,misc]
                     ctx.seperator,
                 )
                 camera_slug = safe_name + ctx.seperator
-                display_name = _safe_slug(raw_name, ctx.seperator)
+                display_name = raw_name
             if self.end is not None:
                 length = self.end - self.start
 
@@ -511,7 +510,7 @@ async def _prune_events(ctx: BackupContext) -> int:
         for event in track(result.unique().scalars(), description="Pruning Events"):
             try:
                 thumb_path = event.get_thumbnail_path(ctx)
-            except BadRequest as exc:
+            except ValueError as exc:
                 _LOGGER.warning("Skipping prune of thumbnail: %s", exc)
             else:
                 if thumb_path.exists():
@@ -520,7 +519,7 @@ async def _prune_events(ctx: BackupContext) -> int:
 
             try:
                 event_path = event.get_event_path(ctx)
-            except BadRequest as exc:
+            except ValueError as exc:
                 _LOGGER.warning("Skipping prune of event video: %s", exc)
             else:
                 if event_path.exists():
