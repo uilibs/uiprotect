@@ -13,6 +13,7 @@ pytest.importorskip("sqlalchemy")
 from uiprotect.cli.backup import (
     BackupContext,
     Event,
+    _safe_first_glob_match,
     _safe_join,
     _safe_slug,
 )
@@ -162,3 +163,54 @@ def test_event_path_rejects_traversal_template(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError):
         event.get_event_path(ctx)
+
+
+def test_safe_first_glob_match_returns_none_for_no_match(tmp_path: Path) -> None:
+    assert _safe_first_glob_match(tmp_path, "missing*.jpg") is None
+
+
+def test_safe_first_glob_match_returns_match_inside_base(tmp_path: Path) -> None:
+    (tmp_path / "thumb.jpg").write_text("x")
+    result = _safe_first_glob_match(tmp_path, "thumb.jpg")
+    assert result == (tmp_path / "thumb.jpg").resolve()
+
+
+def test_safe_first_glob_match_rejects_absolute_pattern(tmp_path: Path) -> None:
+    assert _safe_first_glob_match(tmp_path, "/etc/passwd") is None
+
+
+def test_safe_first_glob_match_rejects_traversal_pattern(tmp_path: Path) -> None:
+    assert _safe_first_glob_match(tmp_path, "../../etc/*") is None
+
+
+def test_existing_thumbnail_path_rejects_traversal_template(tmp_path: Path) -> None:
+    ctx = _make_ctx(
+        tmp_path,
+        thumbnail_format="../../../etc/{camera_slug}thumb.jpg",
+    )
+    event, camera = _make_event("cam")
+    ctx.protect.bootstrap.get_device_from_mac.return_value = camera
+
+    assert event.get_existing_thumbnail_path(ctx) is None
+
+
+def test_existing_gif_path_rejects_traversal_template(tmp_path: Path) -> None:
+    ctx = _make_ctx(
+        tmp_path,
+        gif_format="../../{camera_slug}animated.gif",
+    )
+    event, camera = _make_event("cam")
+    ctx.protect.bootstrap.get_device_from_mac.return_value = camera
+
+    assert event.get_existing_gif_path(ctx) is None
+
+
+def test_existing_event_path_rejects_absolute_template(tmp_path: Path) -> None:
+    ctx = _make_ctx(
+        tmp_path,
+        event_format="/etc/{camera_slug}video.mp4",
+    )
+    event, camera = _make_event("cam")
+    ctx.protect.bootstrap.get_device_from_mac.return_value = camera
+
+    assert event.get_existing_event_path(ctx) is None

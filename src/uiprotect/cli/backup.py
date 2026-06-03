@@ -71,6 +71,23 @@ def _safe_join(base: Path, file_path: str) -> Path:
     return candidate
 
 
+def _safe_first_glob_match(base: Path, pattern: str) -> Path | None:
+    """Return first ``base.glob(pattern)`` match contained in ``base``."""
+    if os.path.isabs(pattern) or ".." in Path(pattern).parts:
+        _LOGGER.warning(
+            "Ignoring unsafe glob pattern outside output dir: %s",
+            pattern,
+        )
+        return None
+    base_resolved = base.resolve()
+    for match in base.glob(pattern):
+        resolved = match.resolve()
+        if resolved.is_relative_to(base_resolved):
+            return resolved
+        _LOGGER.warning("Ignoring path outside output dir: %s", resolved)
+    return None
+
+
 def _on_db_connect(dbapi_con, connection_record) -> None:  # type: ignore[no-untyped-def]
     cursor = dbapi_con.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
@@ -271,11 +288,7 @@ class Event(Base):  # type: ignore[valid-type,misc]
     def get_existing_thumbnail_path(self, ctx: BackupContext) -> Path | None:
         context = self.get_glob_file_context(ctx)
         file_path = ctx.thumbnail_format.format(**context)
-
-        paths = list(ctx.output.glob(file_path))
-        if paths:
-            return paths[0]
-        return None
+        return _safe_first_glob_match(ctx.output, file_path)
 
     def get_gif_path(self, ctx: BackupContext) -> Path:
         context = self.get_file_context(ctx)
@@ -285,11 +298,7 @@ class Event(Base):  # type: ignore[valid-type,misc]
     def get_existing_gif_path(self, ctx: BackupContext) -> Path | None:
         context = self.get_glob_file_context(ctx)
         file_path = ctx.gif_format.format(**context)
-
-        paths = list(ctx.output.glob(file_path))
-        if paths:
-            return paths[0]
-        return None
+        return _safe_first_glob_match(ctx.output, file_path)
 
     def get_event_path(self, ctx: BackupContext) -> Path:
         context = self.get_file_context(ctx)
@@ -299,11 +308,7 @@ class Event(Base):  # type: ignore[valid-type,misc]
     def get_existing_event_path(self, ctx: BackupContext) -> Path | None:
         context = self.get_glob_file_context(ctx)
         file_path = ctx.event_format.format(**context)
-
-        paths = list(ctx.output.glob(file_path))
-        if paths:
-            return paths[0]
-        return None
+        return _safe_first_glob_match(ctx.output, file_path)
 
 
 @dataclass
