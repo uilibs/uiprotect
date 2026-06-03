@@ -4318,6 +4318,8 @@ class ProtectApiClient(BaseApiClient):
                 self._ulp_disabled_logged = True
             return
         self._public_ulp_users_cache = {user.id: user for user in users}
+        # Reset so a later transient failure after recovery is logged again.
+        self._ulp_disabled_logged = False
 
     def _schedule_ulp_refresh(self) -> None:
         """

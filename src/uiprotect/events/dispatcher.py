@@ -68,6 +68,15 @@ class EventDispatcher:
         if self._sweep_task is not None and not self._sweep_task.done():
             return
         self._sweep_task = asyncio.create_task(self._ttl_sweep_loop())
+        self._sweep_task.add_done_callback(self._on_sweep_task_done)
+
+    @staticmethod
+    def _on_sweep_task_done(task: asyncio.Task[None]) -> None:
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            _LOGGER.exception("TTL sweep loop terminated unexpectedly", exc_info=exc)
 
     def stop_ttl_sweep(self) -> None:
         if self._sweep_task is not None:
@@ -228,6 +237,11 @@ class EventDispatcher:
         try:
             while True:
                 await asyncio.sleep(EVENTS_TTL_SWEEP_INTERVAL.total_seconds())
-                self.sweep_stale()
+                try:
+                    self.sweep_stale()
+                except Exception:
+                    _LOGGER.exception(
+                        "TTL sweep iteration failed — continuing loop"
+                    )
         except asyncio.CancelledError:
             return
