@@ -156,3 +156,29 @@ async def test_refresh_cache_populates_lookup() -> None:
     )
     await api._refresh_public_ulp_users_cache()
     assert api._public_ulp_users_cache == {"ulp-1": user}
+
+
+@pytest.mark.asyncio
+async def test_refresh_cache_logs_again_after_recovery(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    api = _make_client()
+
+    state = {"fail": True}
+
+    async def call() -> list[PublicUlpUser]:
+        if state["fail"]:
+            raise NotAuthorized("disabled")
+        return []
+
+    api.get_ulp_users_public = call  # type: ignore[method-assign]
+
+    with caplog.at_level("DEBUG", logger="uiprotect.api"):
+        await api._refresh_public_ulp_users_cache()  # logs (first failure)
+        state["fail"] = False
+        await api._refresh_public_ulp_users_cache()  # success resets flag
+        state["fail"] = True
+        await api._refresh_public_ulp_users_cache()  # logs again
+
+    matching = [r for r in caplog.records if "ULP user fetch unavailable" in r.message]
+    assert len(matching) == 2

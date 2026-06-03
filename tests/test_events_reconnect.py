@@ -92,6 +92,7 @@ async def test_reconnect_warning_logged_and_ulp_refreshed(
     api._public_bootstrap = PublicBootstrap()
     dispatcher = EventDispatcher(api)
     api._event_dispatcher = dispatcher
+    _push_started(api, dispatcher, age=timedelta(hours=2))
     api._events_ws_has_been_connected = True
     refresh_mock: Any = AsyncMock(return_value=[])
     api.get_ulp_users_public = refresh_mock  # type: ignore[method-assign]
@@ -100,5 +101,26 @@ async def test_reconnect_warning_logged_and_ulp_refreshed(
         api._on_events_websocket_state_change(WebsocketState.CONNECTED)
     assert sum("reconnected" in r.message for r in caplog.records) == 1
     # Give the scheduled task a moment to run.
+    await asyncio.sleep(0)
+    refresh_mock.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_reconnect_with_no_stale_entries_skips_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    api = _make_client()
+    api._public_bootstrap = PublicBootstrap()
+    dispatcher = EventDispatcher(api)
+    api._event_dispatcher = dispatcher
+    _push_started(api, dispatcher, age=timedelta(seconds=30))
+    api._events_ws_has_been_connected = True
+    refresh_mock: Any = AsyncMock(return_value=[])
+    api.get_ulp_users_public = refresh_mock  # type: ignore[method-assign]
+
+    with caplog.at_level("WARNING", logger="uiprotect.api"):
+        api._on_events_websocket_state_change(WebsocketState.CONNECTED)
+    assert not any("reconnected" in r.message for r in caplog.records)
+    # ULP refresh still scheduled on every reconnect.
     await asyncio.sleep(0)
     refresh_mock.assert_called_once()

@@ -132,14 +132,6 @@ class EventDispatcher:
             return
 
         change = self._derive_change(action, raw_event)
-        if change is None:
-            _LOGGER.warning(
-                "Events dispatcher received unhandled WSAction %s for event %s"
-                " — dropping",
-                action,
-                raw_event.id,
-            )
-            return
 
         # Idempotency check for terminals: server retransmits ``update``+``end``
         # for the same id; surface exactly one terminal per id.
@@ -164,7 +156,7 @@ class EventDispatcher:
 
         self._fan_out(event, change)
 
-    def _derive_change(self, action: WSAction, raw_event: Event) -> EventChange | None:
+    def _derive_change(self, action: WSAction, raw_event: Event) -> EventChange:
         if action is WSAction.ADD:
             return EventChange.STARTED
         if action is WSAction.UPDATE:

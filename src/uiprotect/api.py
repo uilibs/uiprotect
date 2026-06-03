@@ -2166,11 +2166,12 @@ class ProtectApiClient(BaseApiClient):
                 self._events_ws_has_been_connected = True
             elif self._event_dispatcher is not None:
                 count = self._event_dispatcher.flush_stale_on_reconnect()
-                _LOGGER.warning(
-                    "Events WS reconnected after gap; some events may have been"
-                    " missed (force-ended %d stale active events).",
-                    count,
-                )
+                if count > 0:
+                    _LOGGER.warning(
+                        "Events WS reconnected after gap; some events may have"
+                        " been missed (force-ended %d stale active events).",
+                        count,
+                    )
                 self._schedule_ulp_refresh()
 
         for sub in self._events_ws_state_subscriptions:

@@ -247,6 +247,39 @@ def test_enforce_max_active_evicts_oldest(
     assert ended_event.id == "e-0000"
 
 
+def test_active_events_without_dispatcher_returns_empty() -> None:
+    api = _make_client()
+    assert api._event_dispatcher is None
+    assert api.active_events() == []
+    assert api.active_events(device_id="cam-1") == []
+
+
+def test_unsubscribe_events_without_dispatcher_is_noop() -> None:
+    api = _make_client()
+    assert api._event_dispatcher is None
+    # Should silently no-op rather than raise.
+    api._unsubscribe_events(lambda e, c: None)
+
+
+def test_flush_stale_on_reconnect_no_stale_returns_zero(
+    api: ProtectApiClient, dispatcher: EventDispatcher
+) -> None:
+    received = _collect(dispatcher)
+    start = datetime.now(tz=UTC) - timedelta(seconds=30)
+    ev = Event(
+        api=api,
+        id="fresh",
+        type=EventType.MOTION,
+        start=start,
+        device_id="cam-1",
+    )
+    dispatcher.dispatch(WSAction.ADD, ev)
+    received.clear()
+    assert dispatcher.flush_stale_on_reconnect() == 0
+    assert received == []
+    assert len(dispatcher.active_events()) == 1
+
+
 @pytest.mark.asyncio
 async def test_subscribe_events_requires_public_bootstrap() -> None:
     api = _make_client()
