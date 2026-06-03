@@ -1275,6 +1275,9 @@ class ProtectApiClient(BaseApiClient):
     _event_ws_adapter_unsub: Callable[[], None] | None = None
     # Reference to the background ULP cache refresh task so it isn't GC'd.
     _ulp_refresh_task: asyncio.Task[None] | None = None
+    # Monotonic timestamp of the last "REMOVE for unknown event" INFO log;
+    # throttled so a burst of unknown-id removes does not flood the log.
+    _events_remove_unknown_last_log: float = 0.0
 
     ignore_unadopted: bool
 
@@ -2000,9 +2003,7 @@ class ProtectApiClient(BaseApiClient):
                 self._adapt_events_ws_message
             )
             dispatcher.start_ttl_sweep()
-            self._ulp_refresh_task = asyncio.create_task(
-                self._refresh_public_ulp_users_cache()
-            )
+            self._schedule_ulp_refresh()
 
         return partial(self._unsubscribe_events, callback)
 
@@ -2033,8 +2034,9 @@ class ProtectApiClient(BaseApiClient):
         dispatcher = self._event_dispatcher
         if msg.action in (WSAction.ADD, WSAction.UPDATE):
             if msg.new_obj is None or not isinstance(msg.new_obj, Event):
-                _LOGGER.debug(
-                    "Events-WS %s without merged Event obj — skipping",
+                _LOGGER.warning(
+                    "Events-WS %s without merged Event obj — dropping frame"
+                    " (possible server contract change)",
                     msg.action,
                 )
                 return
@@ -2043,13 +2045,21 @@ class ProtectApiClient(BaseApiClient):
         if msg.action is WSAction.REMOVE:
             event_id = msg.changed_data.get("id") if msg.changed_data else None
             if not event_id:
-                _LOGGER.debug("Events-WS remove without id — skipping")
+                _LOGGER.warning(
+                    "Events-WS remove without id — dropping frame (possible"
+                    " server contract change)"
+                )
                 return
             cached = dispatcher._active.get(event_id)
             if cached is None or cached.raw is None:
-                _LOGGER.debug(
-                    "Events-WS remove for unknown event %s — skipping", event_id
-                )
+                now = time.monotonic()
+                if now - self._events_remove_unknown_last_log >= 60.0:
+                    _LOGGER.info(
+                        "Events-WS remove for unknown event %s — skipping"
+                        " (throttled, logged at most once per 60s)",
+                        event_id,
+                    )
+                    self._events_remove_unknown_last_log = now
                 return
             dispatcher.dispatch(WSAction.REMOVE, cached.raw)
 
@@ -2161,9 +2171,7 @@ class ProtectApiClient(BaseApiClient):
                     " missed (force-ended %d stale active events).",
                     count,
                 )
-                self._ulp_refresh_task = asyncio.create_task(
-                    self._refresh_public_ulp_users_cache()
-                )
+                self._schedule_ulp_refresh()
 
         for sub in self._events_ws_state_subscriptions:
             try:
@@ -4310,3 +4318,30 @@ class ProtectApiClient(BaseApiClient):
                 self._ulp_disabled_logged = True
             return
         self._public_ulp_users_cache = {user.id: user for user in users}
+
+    def _schedule_ulp_refresh(self) -> None:
+        """Schedule a background ULP cache refresh, guarded against re-entry.
+
+        Skips if a prior refresh task is still running; otherwise creates a
+        new task and attaches a done-callback so unexpected exceptions are
+        logged instead of surfacing only as a GC warning.
+        """
+        if (
+            self._ulp_refresh_task is not None
+            and not self._ulp_refresh_task.done()
+        ):
+            return
+        self._ulp_refresh_task = asyncio.create_task(
+            self._refresh_public_ulp_users_cache()
+        )
+        self._ulp_refresh_task.add_done_callback(self._on_ulp_refresh_done)
+
+    @staticmethod
+    def _on_ulp_refresh_done(task: asyncio.Task[None]) -> None:
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            _LOGGER.exception(
+                "Public ULP user cache refresh failed", exc_info=exc
+            )

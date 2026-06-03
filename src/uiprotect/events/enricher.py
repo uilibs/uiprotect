@@ -50,5 +50,14 @@ class EventEnricher:
     def _lookup_ulp_user(self, ulp_id: str) -> EventIdentity:
         cached = self._api._public_ulp_users_cache.get(ulp_id)
         if cached is None:
+            # A miss may mean the user was enrolled after the last cache
+            # refresh; schedule a background refresh so the next event for
+            # this user resolves. The helper is re-entry safe (no-ops if a
+            # refresh is already in flight).
+            _LOGGER.debug(
+                "ULP user %s not in cache — scheduling background refresh",
+                ulp_id,
+            )
+            self._api._schedule_ulp_refresh()
             return UnknownIdentity(reason="ulp_user_not_cached")
         return UlpUserIdentity(ulp_id=ulp_id, user=cached)
