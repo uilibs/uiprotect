@@ -770,7 +770,7 @@ def tmp_binary_file():
     with NamedTemporaryFile(mode="wb", delete=False) as tmp_file:
         yield tmp_file
 
-    os.remove(tmp_file.name)
+    Path(tmp_file.name).unlink()
 
 
 # new values added for newer versions of UFP (for backwards compat tests)

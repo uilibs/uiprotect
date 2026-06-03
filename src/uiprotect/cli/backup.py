@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
-import os
 import re
 import sys
 import time
@@ -73,7 +72,7 @@ def _safe_join(base: Path, file_path: str) -> Path:
 
 def _safe_first_glob_match(base: Path, pattern: str) -> Path | None:
     """Return first ``base.glob(pattern)`` match contained in ``base``."""
-    if os.path.isabs(pattern) or ".." in Path(pattern).parts:
+    if Path(pattern).is_absolute() or ".." in Path(pattern).parts:
         _LOGGER.warning(
             "Ignoring unsafe glob pattern outside output dir: %s",
             pattern,
@@ -460,7 +459,7 @@ def main(
         end_dt = end_dt.replace(tzinfo=local_tz)
 
     if output_folder is None:
-        output_folder = Path(os.getcwd())
+        output_folder = Path.cwd()
 
     context = BackupContext(
         protect=ctx.obj.protect,
@@ -487,13 +486,13 @@ def _wipe_files(ctx: BackupContext, no_input: bool) -> None:
         raise typer.Exit(1)
 
     if ctx.db_file.exists():
-        os.remove(ctx.db_file)
+        ctx.db_file.unlink()
 
     for path in track(ctx.output.glob("**/*.jpg"), description="Deleting Thumbnails"):
-        os.remove(path)
+        path.unlink()
 
     for path in track(ctx.output.glob("**/*.mp4"), description="Deleting Clips"):
-        os.remove(path)
+        path.unlink()
 
 
 async def _newest_event(ctx: BackupContext) -> Event | None:
@@ -864,10 +863,10 @@ def _add_metadata(path: Path, creation: datetime, title: str) -> bool:
         success = False
     finally:
         if success:
-            os.remove(path)
+            path.unlink()
             output_path.rename(path)
         elif output_path.exists():
-            os.remove(output_path)
+            output_path.unlink()
     return success
 
 

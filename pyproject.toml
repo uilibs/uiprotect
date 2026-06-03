@@ -184,6 +184,7 @@ select = [
     "LOG",  # flake8-logging
     "PGH",  # pygrep-hooks
     "PIE",  # flake8-pie
+    "PTH",  # flake8-use-pathlib
     "Q",    # flake8-quotes
     "RSE",  # flake8-raise
     "SLOT", # flake8-slots

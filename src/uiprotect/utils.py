@@ -453,7 +453,7 @@ def ws_stat_summmary(
 
 async def write_json(output_path: Path, data: list[Any] | dict[str, Any]) -> None:
     def write() -> None:
-        with open(output_path, "w", encoding="utf-8") as f:
+        with output_path.open("w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
             f.write("\n")
 
@@ -597,10 +597,10 @@ def get_local_timezone() -> tzinfo:
 
         for root, _, filenames in os.walk(Path("/usr/share/zoneinfo/")):
             for filename in filenames:
-                fullname = os.path.join(root, filename)
-                digest = sha224(Path(fullname).read_bytes()).hexdigest()
+                fullname = Path(root) / filename
+                digest = sha224(fullname.read_bytes()).hexdigest()
                 if digest == tzfile_digest:
-                    timezone_name = "/".join((fullname.split("/"))[-2:])
+                    timezone_name = "/".join((str(fullname).split("/"))[-2:])
 
     return _set_timezone(timezone_name)
 
