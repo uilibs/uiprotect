@@ -333,7 +333,7 @@ def shell(ctx: typer.Context) -> None:
 
     # locals passed to shell
     protect = cast(
-        ProtectApiClient,
+        "ProtectApiClient",
         ctx.obj.protect,
     )
     _setup_logger(show_level=True)
@@ -363,7 +363,7 @@ def generate_sample_data(
     do_zip: bool = OPTION_ZIP,
 ) -> None:
     """Generates sample data for UniFi Protect instance."""
-    protect = cast(ProtectApiClient, ctx.obj.protect)
+    protect = cast("ProtectApiClient", ctx.obj.protect)
 
     if output_folder is None:
         tests_folder = Path(__file__).parent.parent / "tests"
@@ -398,7 +398,7 @@ def profile_ws(
     output_path: Path | None = OPTION_OUTPUT,
 ) -> None:
     """Profiles Websocket messages for UniFi Protect instance."""
-    protect = cast(ProtectApiClient, ctx.obj.protect)
+    protect = cast("ProtectApiClient", ctx.obj.protect)
 
     async def callback() -> None:
         await protect.update()
@@ -447,7 +447,7 @@ def create_api_key(
     name: str = typer.Argument(..., help="Name for the API key"),
 ) -> None:
     """Create a new API key for the current user."""
-    protect = cast(ProtectApiClient, ctx.obj.protect)
+    protect = cast("ProtectApiClient", ctx.obj.protect)
 
     async def callback() -> str:
         api_key = await protect.create_api_key(name)
@@ -463,7 +463,7 @@ def create_api_key(
 @app.command()
 def get_meta_info(ctx: typer.Context) -> None:
     """Get metadata about the current UniFi Protect instance."""
-    protect = cast(ProtectApiClient, ctx.obj.protect)
+    protect = cast("ProtectApiClient", ctx.obj.protect)
 
     async def callback() -> MetaInfo:
         meta = await protect.get_meta_info()

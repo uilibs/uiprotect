@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from collections.abc import Callable, Generator
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, Mock, patch
 
 import av
@@ -23,6 +21,10 @@ from uiprotect.stream import (
     TalkbackSession,
     TalkbackStream,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator
+    from pathlib import Path
 
 # --- Fixtures ---
 

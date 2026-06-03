@@ -189,6 +189,7 @@ select = [
     "SLOT", # flake8-slots
     "T10",  # flake8-debugger
     "T20",  # flake8-print
+    "TC",   # flake8-type-checking
     "YTT",  # flake8-2020
     "S",    # flake8-bandit
     "F",    # pyflake
@@ -229,6 +230,18 @@ select = [
 "scripts/**/*" = [
     "T201",   # standalone CLI scripts print to stderr by design
     "INP001", # scripts/ is a runnable folder, not an importable package
+]
+"src/uiprotect/data/**/*" = [
+    # pydantic v2 model_rebuild() needs field-type classes resolvable at runtime
+    "TC001",
+    "TC002",
+    "TC003",
+]
+"src/uiprotect/cli/**/*" = [
+    # typer inspects runtime annotations on command callbacks
+    "TC001",
+    "TC002",
+    "TC003",
 ]
 
 [tool.ruff.lint.isort]

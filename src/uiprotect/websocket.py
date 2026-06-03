@@ -8,7 +8,7 @@ import logging
 from collections.abc import Awaitable, Callable, Coroutine
 from enum import Enum
 from http import HTTPStatus
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
 from aiohttp import (
@@ -19,9 +19,11 @@ from aiohttp import (
     WSMsgType,
     WSServerHandshakeError,
 )
-from yarl import URL
 
 from .exceptions import NotAuthorized, NvrError
+
+if TYPE_CHECKING:
+    from yarl import URL
 
 _LOGGER = logging.getLogger(__name__)
 AuthCallbackType = Callable[..., Coroutine[Any, Any, dict[str, str] | None]]

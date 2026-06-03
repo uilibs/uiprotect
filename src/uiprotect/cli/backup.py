@@ -572,7 +572,7 @@ async def _update_event(ctx: BackupContext, event: d.Event) -> None:
                 select(EventSmartType).where(EventSmartType.event_id == event.id),
             )
             for event_smart_type in result.unique().scalars():
-                event_type = cast(EventSmartType, event_smart_type)
+                event_type = cast("EventSmartType", event_smart_type)
                 if event_type.smart_type not in types:
                     to_delete.append(event_type)
                 else:
@@ -602,7 +602,7 @@ async def _update_ongoing_events(ctx: BackupContext) -> int:
     if len(events) == 0:
         return 0
     for event in track(events, description="Updating Events"):
-        event_id = cast(str, event.id)
+        event_id = cast("str", event.id)
         await _update_event(ctx, await ctx.protect.get_event(event_id))
     return len(events)
 
@@ -950,7 +950,7 @@ async def _download_event(
     downloaded = False
     camera = ctx.protect.bootstrap.get_device_from_mac(event.camera_mac)  # type: ignore[arg-type]
     if camera is not None:
-        camera = cast(d.Camera, camera)
+        camera = cast("d.Camera", camera)
         downloads = []
         if ctx.download_thumbnails:
             downloads.append(_download_event_thumb(ctx, event, verify, force))
@@ -984,7 +984,7 @@ async def _download_events(
             .where(Event.start_naive >= start)
             .where(or_(Event.end_naive <= end, Event.end_naive is None))  # type: ignore[arg-type]
         )
-        count = cast(int, (await db.execute(count_query)).scalar())
+        count = cast("int", (await db.execute(count_query)).scalar())
         _LOGGER.info("Downloading %s events", count)
 
         columns = [

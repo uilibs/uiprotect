@@ -1169,7 +1169,7 @@ def test_bootstrap_device_not_adopted_no_api(bootstrap):
     obj = Bootstrap.from_unifi_dict(**deepcopy(bootstrap))
 
     set_no_debug()
-    obj_construct = cast(Bootstrap, Bootstrap.from_unifi_dict(**deepcopy(bootstrap)))
+    obj_construct = cast("Bootstrap", Bootstrap.from_unifi_dict(**deepcopy(bootstrap)))
     set_debug()
 
     assert len(obj.cameras) == len(bootstrap["cameras"])

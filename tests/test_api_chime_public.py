@@ -11,12 +11,11 @@ import pytest
 from pydantic import ValidationError
 
 from tests.conftest import TEST_CAMERA_EXISTS, TEST_CHIME_EXISTS
-from uiprotect.api import PublicApiChimeRingSettingRequest
 from uiprotect.data import RingSetting
 from uiprotect.exceptions import BadRequest
 
 if TYPE_CHECKING:
-    from uiprotect.api import ProtectApiClient
+    from uiprotect.api import ProtectApiClient, PublicApiChimeRingSettingRequest
     from uiprotect.data import Camera, Chime
 
 CHIME_ID = "6878d82800155803e45928e0"

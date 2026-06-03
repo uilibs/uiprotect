@@ -2444,7 +2444,7 @@ class Camera(ProtectMotionDeviceModel):
                 break
 
         def callback() -> None:
-            self.isp_settings.icr_custom_value = cast(ICRCustomValue, icr_value)
+            self.isp_settings.icr_custom_value = cast("ICRCustomValue", icr_value)
 
         await self.queue_update(callback)
 
@@ -3869,7 +3869,7 @@ class Chime(ProtectAdoptableDeviceModel):
             handled = False
             for setting in self.ring_settings:
                 if setting.camera_id == camera.id:
-                    setting.volume = cast(PercentInt, level)
+                    setting.volume = cast("PercentInt", level)
                     handled = True
                     break
 
@@ -3956,10 +3956,10 @@ class Chime(ProtectAdoptableDeviceModel):
         old_value = self.repeat_times
 
         def callback() -> None:
-            self.repeat_times = cast(RepeatTimes, value)
+            self.repeat_times = cast("RepeatTimes", value)
             for setting in self.ring_settings:
                 if setting.repeat_times == old_value:
-                    setting.repeat_times = cast(RepeatTimes, value)
+                    setting.repeat_times = cast("RepeatTimes", value)
 
         await self.queue_update(callback)
 
@@ -3985,7 +3985,7 @@ class Chime(ProtectAdoptableDeviceModel):
             handled = False
             for setting in self.ring_settings:
                 if setting.camera_id == camera.id:
-                    setting.repeat_times = cast(RepeatTimes, value)
+                    setting.repeat_times = cast("RepeatTimes", value)
                     handled = True
                     break
 

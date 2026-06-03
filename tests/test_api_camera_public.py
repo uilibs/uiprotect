@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -22,6 +21,8 @@ from uiprotect.data.types import (
 from uiprotect.exceptions import BadRequest
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from uiprotect.api import ProtectApiClient
 
 CAMERA_ID = "6878d82800215803e45928e1"

@@ -526,7 +526,7 @@ class Bootstrap(ProtectBaseObject):
             if TYPE_CHECKING:
                 model_class = MODEL_TO_CLASS.get(model_type)
                 assert model_class is not None and isinstance(add_obj, model_class)
-            add_obj = cast(ProtectModelWithId, add_obj)
+            add_obj = cast("ProtectModelWithId", add_obj)
             obj_from_bootstrap.add(add_obj)
             return WSSubscriptionMessage(
                 action=WSAction.ADD,

@@ -7,18 +7,20 @@ import functools
 import logging
 import threading
 import time
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, NamedTuple, cast
 from urllib.parse import ParseResult, urlparse
 
 import av
-from av.audio import AudioStream
 
 from .exceptions import BadRequest, StreamError
 from .utils import format_host_for_url
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from av.audio import AudioStream
+
     from .data import Camera
 
 
@@ -108,8 +110,8 @@ class TalkbackSession:
         return cls(
             url=str(data.get("url", "")),
             codec=str(data.get("codec", "")),
-            sampling_rate=int(cast(Any, data.get("samplingRate", 0))),
-            bits_per_sample=int(cast(Any, data.get("bitsPerSample", 16))),
+            sampling_rate=int(cast("Any", data.get("samplingRate", 0))),
+            bits_per_sample=int(cast("Any", data.get("bitsPerSample", 16))),
         )
 
     @property
@@ -242,7 +244,7 @@ class TalkbackStream:
                 timeout=OUTPUT_TIMEOUT,
             ) as output_container:
                 output_stream = cast(
-                    AudioStream,
+                    "AudioStream",
                     output_container.add_stream(config.encoder, rate=sample_rate),
                 )
                 output_stream.layout = "mono"

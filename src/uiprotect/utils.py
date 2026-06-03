@@ -18,7 +18,6 @@ from decimal import Decimal
 from enum import Enum
 from functools import cache, lru_cache, partial
 from hashlib import sha224
-from http.cookies import Morsel
 from inspect import isclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from operator import attrgetter
@@ -27,8 +26,6 @@ from typing import TYPE_CHECKING, Any, TypeVar, Union, get_args, overload
 from uuid import UUID
 
 import jwt
-from aiohttp import ClientResponse
-from pydantic.fields import FieldInfo
 
 from .data.types import (
     Color,
@@ -41,6 +38,11 @@ from .data.types import (
 from .exceptions import NvrError
 
 if TYPE_CHECKING:
+    from http.cookies import Morsel
+
+    from aiohttp import ClientResponse
+    from pydantic.fields import FieldInfo
+
     from uiprotect.api import ProtectApiClient
     from uiprotect.data import CoordType, Event
     from uiprotect.data.bootstrap import WSStat

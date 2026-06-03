@@ -360,7 +360,7 @@ class PublicBootstrap:
                     new = slot.factory(item, api)
                 else:
                     new = cast(
-                        ProtectModelWithId,
+                        "ProtectModelWithId",
                         create_from_unifi_dict(item, api=api, model_type=model_type),
                     )
             except Exception as err:
@@ -407,7 +407,7 @@ class PublicBootstrap:
             return self.nvr
 
         def _put(_id: str, obj: ProtectModelWithId) -> None:
-            self.nvr = cast(PublicNVR, obj)
+            self.nvr = cast("PublicNVR", obj)
 
         def _delete(_id: str) -> None:
             self.nvr = None
@@ -459,7 +459,7 @@ class PublicBootstrap:
             return events.get(obj_id)
 
         def _put(obj_id: str, obj: ProtectModelWithId) -> None:
-            events[obj_id] = cast(Event, obj)
+            events[obj_id] = cast("Event", obj)
             events.move_to_end(obj_id)
             while events and len(events) > limit:
                 events.popitem(last=False)

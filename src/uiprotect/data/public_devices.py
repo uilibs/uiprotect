@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from functools import cache
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 from ..exceptions import BadRequest
 from .base import ProtectBaseObject, ProtectModelWithId
@@ -48,10 +48,6 @@ from .types import (
     SpeakerStatus,
     UlpUserStatus,
 )
-
-if TYPE_CHECKING:
-    pass
-
 
 # ---------------------------------------------------------------------------
 # Write payloads (TypedDict — shape the client accepts and forwards)

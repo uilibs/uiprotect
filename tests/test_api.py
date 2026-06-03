@@ -8,7 +8,6 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -68,6 +67,8 @@ OLD_VERSION = Version("1.2.3")
 NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from uiprotect.data.base import ProtectAdoptableDeviceModel
     from uiprotect.data.bootstrap import Bootstrap
 
