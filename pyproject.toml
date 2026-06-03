@@ -34,7 +34,7 @@ packages = [
 python = ">=3.11"
 rich = ">=15.0.0"
 aiofiles = ">=24"
-aiohttp = ">=3.10.0"
+aiohttp = ">=3.14.0"
 av = ">=17.0.1"
 dateparser = ">=1.1.0"
 orjson = ">=3.11.9"
