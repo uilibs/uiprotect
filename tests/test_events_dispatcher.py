@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock
 
 import orjson
 import pytest
 
+from tests.conftest import SAMPLE_DATA_DIRECTORY
 from uiprotect.api import ProtectApiClient
 from uiprotect.data.nvr import Event
 from uiprotect.data.public_bootstrap import PublicBootstrap
@@ -22,7 +22,7 @@ from uiprotect.events.dispatcher import (
     EventDispatcher,
 )
 
-_FIXTURES = Path(__file__).parent / "sample_data" / "events_ws_public"
+_FIXTURES = SAMPLE_DATA_DIRECTORY / "events_ws_public"
 
 
 def _load(name: str) -> Any:

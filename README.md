@@ -82,20 +82,27 @@ poetry run pre-commit run --all-files
 `subscribe_events_websocket` continues to deliver `WSSubscriptionMessage`
 frames for advanced callers, and the typed `subscribe_events` API
 delivers `(ProtectEvent, EventChange)` pairs intended for application
-code. `subscribe_events` requires `update_public()` to have been called
-at least once.
+code. The typed path goes through the Public Integration API, so the
+`ProtectApiClient` must be configured with an API key and
+`update_public()` must have been called at least once before calling
+`subscribe_events`. The raw `subscribe_events_websocket` path does not
+require an API key.
 
 ```python
+import logging
+
 from uiprotect import EventChange, ProtectApiClient, ProtectEvent
 
-protect = ProtectApiClient(...)
+_LOGGER = logging.getLogger(__name__)
+
+protect = ProtectApiClient(..., api_key="...")
 await protect.update_public()
 
 def on_event(event: ProtectEvent, change: EventChange) -> None:
     if change is EventChange.STARTED:
-        print(f"{event.type} on {event.device_id}: {event.identity}")
+        _LOGGER.info("%s on %s: %s", event.type, event.device_id, event.identity)
     elif change is EventChange.ENDED:
-        print(f"{event.type} ended after {event.end - event.start}")
+        _LOGGER.info("%s ended after %s", event.type, event.end - event.start)
 
 unsubscribe = protect.subscribe_events(on_event)
 # ...
@@ -104,6 +111,11 @@ unsubscribe()
 
 Notes:
 
+- `subscribe_events` delivers only events whose `EventType` maps to a
+  non-`OTHER` `ProtectEventChannel` (detection / sensor / alarm-hub /
+  access). Administrative events such as `provision`, `factoryReset` and
+  `fwUpdate` are dropped. Callers that need the unfiltered stream
+  should use `subscribe_events_websocket`.
 - `event.raw` is a permanent escape hatch onto the underlying private-API
   `Event` model when the public contract does not expose the field you
   need.

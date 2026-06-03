@@ -4,15 +4,13 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime
-from typing import TYPE_CHECKING, Annotated, Literal, Union
+from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..data.nvr import Event
+from ..data.public_devices import PublicUlpUser
 from ..data.types import EventType, SmartDetectObjectType
-
-if TYPE_CHECKING:
-    from ..data.nvr import Event
-    from ..data.public_devices import PublicUlpUser
 
 
 class ProtectEventChannel(enum.StrEnum):

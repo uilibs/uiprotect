@@ -1981,7 +1981,16 @@ class ProtectApiClient(BaseApiClient):
         self,
         callback: Callable[[ProtectEvent, EventChange], None],
     ) -> Callable[[], None]:
-        """Subscribe to typed public event lifecycle callbacks."""
+        """
+        Subscribe to typed public event lifecycle callbacks.
+
+        Only events whose ``EventType`` maps to a non-``OTHER``
+        ``ProtectEventChannel`` (detection / sensor / alarm-hub /
+        access) are delivered; administrative events such as
+        ``provision``, ``factoryReset`` and ``fwUpdate`` are dropped.
+        Callers needing the unfiltered stream should use
+        ``subscribe_events_websocket`` instead.
+        """
         if self._public_bootstrap is None:
             raise RuntimeError(
                 "subscribe_events() requires update_public() to have been called"

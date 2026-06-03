@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 import orjson
 
+from tests.conftest import SAMPLE_DATA_DIRECTORY
 from uiprotect.data.nvr import Event, NfcMetadata
 from uiprotect.data.types import EventType, SmartDetectObjectType
 from uiprotect.events import EVENT_TYPE_TO_CHANNEL, ProtectEventChannel
 from uiprotect.events._mapping import event_to_protect_event
 
-_FIXTURES = Path(__file__).parent / "sample_data" / "events_ws_public"
+_FIXTURES = SAMPLE_DATA_DIRECTORY / "events_ws_public"
 
 
 def _load(name: str) -> Any:
