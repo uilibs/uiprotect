@@ -76,6 +76,42 @@ poetry run pytest
 poetry run pre-commit run --all-files
 ```
 
+## Subscribing to events
+
+`ProtectApiClient` exposes two parallel websocket contracts. The raw
+`subscribe_events_websocket` continues to deliver `WSSubscriptionMessage`
+frames for advanced callers, and the typed `subscribe_events` API
+delivers `(ProtectEvent, EventChange)` pairs intended for application
+code. `subscribe_events` requires `update_public()` to have been called
+at least once.
+
+```python
+from uiprotect import EventChange, ProtectApiClient, ProtectEvent
+
+protect = ProtectApiClient(...)
+await protect.update_public()
+
+def on_event(event: ProtectEvent, change: EventChange) -> None:
+    if change is EventChange.STARTED:
+        print(f"{event.type} on {event.device_id}: {event.identity}")
+    elif change is EventChange.ENDED:
+        print(f"{event.type} ended after {event.end - event.start}")
+
+unsubscribe = protect.subscribe_events(on_event)
+# ...
+unsubscribe()
+```
+
+Notes:
+
+- `event.raw` is a permanent escape hatch onto the underlying private-API
+  `Event` model when the public contract does not expose the field you
+  need.
+- `EventChange.UPDATED` may carry no public-visible delta — diff
+  `event.raw` if you need to know exactly what changed.
+- `protect.active_events(device_id=...)` returns the in-flight set.
+  Useful for restoring binary-sensor state after a reload.
+
 ## History
 
 This project was split off from `pyunifiprotect` because that project changed its license to one that would not be accepted in Home Assistant. This project is committed to keeping the MIT license.

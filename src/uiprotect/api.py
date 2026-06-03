@@ -18,7 +18,7 @@ from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
-from typing import Any, Literal, NotRequired, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict, cast
 from urllib.parse import SplitResult, quote
 
 import aiofiles
@@ -99,8 +99,12 @@ from .data.types import (
     PTZPreset,
     SirenDuration,
 )
+from .events import EventChange, ProtectEvent
 from .exceptions import BadRequest, GlobalAlarmManagerError, NotAuthorized, NvrError
 from .stream import TalkbackSession
+
+if TYPE_CHECKING:
+    from .events.dispatcher import EventDispatcher
 from .utils import (
     decode_token_cookie,
     format_host_for_url,
@@ -1255,6 +1259,22 @@ class ProtectApiClient(BaseApiClient):
     _public_resync_pending: bool = False
     _last_update_dt: datetime | None = None
     _connection_host: IPv4Address | IPv6Address | str | None = None
+    # Public-only ULP user cache for events identity enrichment. Populated
+    # by ``_refresh_public_ulp_users_cache``. Kept in-process; not derived
+    # from the private bootstrap.
+    _public_ulp_users_cache: dict[str, PublicUlpUser]
+    # True once the events-WS has transitioned to CONNECTED at least once;
+    # only the *reconnect* triggers the stale-flush sweep.
+    _events_ws_has_been_connected: bool = False
+    # Throttle the "ULP disabled" DEBUG so we log it once per process.
+    _ulp_disabled_logged: bool = False
+    # Lazy dispatcher; ``subscribe_events`` materialises it.
+    _event_dispatcher: EventDispatcher | None = None
+    # Internal events-WS adapter unsubscribe; populated while the typed
+    # ``subscribe_events`` callback list is non-empty.
+    _event_ws_adapter_unsub: Callable[[], None] | None = None
+    # Reference to the background ULP cache refresh task so it isn't GC'd.
+    _ulp_refresh_task: asyncio.Task[None] | None = None
 
     ignore_unadopted: bool
 
@@ -1313,6 +1333,8 @@ class ProtectApiClient(BaseApiClient):
         self._ws_state_subscriptions = []
         self._events_ws_state_subscriptions = []
         self._devices_ws_state_subscriptions = []
+        self._public_ulp_users_cache = {}
+        self._event_dispatcher = None
         self.ignore_unadopted = ignore_unadopted
         self._update_lock = asyncio.Lock()
 
@@ -1952,6 +1974,87 @@ class ProtectApiClient(BaseApiClient):
         self._get_devices_websocket().start()
         return partial(self._unsubscribe_devices_websocket, ws_callback)
 
+    def subscribe_events(
+        self,
+        callback: Callable[[ProtectEvent, EventChange], None],
+    ) -> Callable[[], None]:
+        """Subscribe to typed public event lifecycle callbacks."""
+        if self._public_bootstrap is None:
+            raise RuntimeError(
+                "subscribe_events() requires update_public() to have been called"
+                " at least once"
+            )
+
+        # Local import to avoid circular import (events.dispatcher → api).
+        from .events.dispatcher import EventDispatcher  # noqa: PLC0415
+
+        if self._event_dispatcher is None:
+            self._event_dispatcher = EventDispatcher(self)
+        dispatcher = self._event_dispatcher
+
+        first = dispatcher.subscriber_count == 0
+        dispatcher.add_subscriber(callback)
+
+        if first:
+            self._event_ws_adapter_unsub = self.subscribe_events_websocket(
+                self._adapt_events_ws_message
+            )
+            dispatcher.start_ttl_sweep()
+            self._ulp_refresh_task = asyncio.create_task(
+                self._refresh_public_ulp_users_cache()
+            )
+
+        return partial(self._unsubscribe_events, callback)
+
+    def _unsubscribe_events(
+        self,
+        callback: Callable[[ProtectEvent, EventChange], None],
+    ) -> None:
+        if self._event_dispatcher is None:
+            return
+        self._event_dispatcher.remove_subscriber(callback)
+        if self._event_dispatcher.subscriber_count == 0:
+            self._event_dispatcher.stop_ttl_sweep()
+            unsub = getattr(self, "_event_ws_adapter_unsub", None)
+            if unsub is not None:
+                unsub()
+                self._event_ws_adapter_unsub = None
+            self._event_dispatcher.reset()
+
+    def active_events(
+        self, device_id: str | None = None
+    ) -> list[ProtectEvent]:
+        """Return the in-flight public events, optionally filtered by device."""
+        if self._event_dispatcher is None:
+            return []
+        return self._event_dispatcher.active_events(device_id=device_id)
+
+    def _adapt_events_ws_message(self, msg: WSSubscriptionMessage) -> None:
+        if self._event_dispatcher is None:
+            return
+        dispatcher = self._event_dispatcher
+        if msg.action in (WSAction.ADD, WSAction.UPDATE):
+            if msg.new_obj is None or not isinstance(msg.new_obj, Event):
+                _LOGGER.debug(
+                    "Events-WS %s without merged Event obj — skipping",
+                    msg.action,
+                )
+                return
+            dispatcher.dispatch(msg.action, msg.new_obj)
+            return
+        if msg.action is WSAction.REMOVE:
+            event_id = msg.changed_data.get("id") if msg.changed_data else None
+            if not event_id:
+                _LOGGER.debug("Events-WS remove without id — skipping")
+                return
+            cached = dispatcher._active.get(event_id)
+            if cached is None or cached.raw is None:
+                _LOGGER.debug(
+                    "Events-WS remove for unknown event %s — skipping", event_id
+                )
+                return
+            dispatcher.dispatch(WSAction.REMOVE, cached.raw)
+
     def _unsubscribe_websocket(
         self,
         ws_callback: Callable[[WSSubscriptionMessage], None],
@@ -2050,6 +2153,20 @@ class ProtectApiClient(BaseApiClient):
 
     def _on_events_websocket_state_change(self, state: WebsocketState) -> None:
         """Events Websocket state changed."""
+        if state is WebsocketState.CONNECTED:
+            if not self._events_ws_has_been_connected:
+                self._events_ws_has_been_connected = True
+            elif self._event_dispatcher is not None:
+                count = self._event_dispatcher.flush_stale_on_reconnect()
+                _LOGGER.warning(
+                    "Events WS reconnected after gap; some events may have been"
+                    " missed (force-ended %d stale active events).",
+                    count,
+                )
+                self._ulp_refresh_task = asyncio.create_task(
+                    self._refresh_public_ulp_users_cache()
+                )
+
         for sub in self._events_ws_state_subscriptions:
             try:
                 sub(state)
@@ -4179,4 +4296,19 @@ class ProtectApiClient(BaseApiClient):
             else:
                 pb.apply_fetch_result(attr, result)  # type: ignore[arg-type]
 
+        await self._refresh_public_ulp_users_cache()
         return pb
+
+    async def _refresh_public_ulp_users_cache(self) -> None:
+        """Refresh the in-memory ULP user lookup used by event enrichment."""
+        try:
+            users = await self.get_ulp_users_public()
+        except (NotAuthorized, NvrError, BadRequest) as err:
+            if not self._ulp_disabled_logged:
+                _LOGGER.debug(
+                    "Public ULP user fetch unavailable (UniFi Identity off?): %s",
+                    err,
+                )
+                self._ulp_disabled_logged = True
+            return
+        self._public_ulp_users_cache = {user.id: user for user in users}

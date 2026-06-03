@@ -1,0 +1,16 @@
+{
+  "type": "add",
+  "item": {
+    "id": "11111111-1111-1111-1111-111111111113",
+    "modelKey": "event",
+    "type": "fingerprintIdentified",
+    "start": 1735689800000,
+    "end": 1735689800500,
+    "device": "aabbccddeeff00112233aabb",
+    "metadata": {
+      "fingerprint": {
+        "ulpId": null
+      }
+    }
+  }
+}

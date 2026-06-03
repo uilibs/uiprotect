@@ -1,0 +1,10 @@
+{
+  "type": "add",
+  "item": {
+    "id": "11111111-1111-1111-1111-111111111114",
+    "modelKey": "event",
+    "type": "lightMotion",
+    "start": 1735689900000,
+    "device": "aabbccddeeff00112233aabb"
+  }
+}
