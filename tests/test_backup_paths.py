@@ -8,7 +8,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from uiprotect.cli.backup import (
+pytest.importorskip("sqlalchemy")
+
+from uiprotect.cli.backup import (  # noqa: E402
     BackupContext,
     Event,
     _safe_join,
