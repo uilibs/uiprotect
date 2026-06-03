@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.18.0 (2026-06-03)
+
+### Features
+
+
+- Add public api convenience setters on light ([`3484cbb`](https://github.com/uilibs/uiprotect/commit/3484cbb6d8d918ad422dbea89c8a7c0369c93e9a))
+
+
 ## v10.17.0 (2026-06-02)
 
 ### Features
