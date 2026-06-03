@@ -1,5 +1,13 @@
 # Changelog
 
+## v11.0.1 (2026-06-03)
+
+### Bug fixes
+
+
+- Tolerate unknown osdoverlaylocation values from newer firmware ([`66bf72b`](https://github.com/uilibs/uiprotect/commit/66bf72b2c40bc9c804727347d31b3bfd4acd1871))
+
+
 ## v11.0.0 (2026-06-03)
 
 ### Features
