@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
 
 pytest.importorskip("sqlalchemy")
-
-from typing import TYPE_CHECKING
 
 from uiprotect.cli.backup import (
     BackupContext,

@@ -210,6 +210,8 @@ _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
 # A dedicated singleton type keeps the sentinel out of ``Any`` so callers
 # can't accidentally smuggle it through the typed surface.
 class _UnsetType:
+    # ``Self`` rather than ``_UnsetType`` so the singleton stays correctly
+    # typed under any (currently hypothetical) subclass — also satisfies PYI034.
     _instance: Self | None = None
 
     def __new__(cls) -> Self:
