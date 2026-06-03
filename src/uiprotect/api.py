@@ -4320,16 +4320,14 @@ class ProtectApiClient(BaseApiClient):
         self._public_ulp_users_cache = {user.id: user for user in users}
 
     def _schedule_ulp_refresh(self) -> None:
-        """Schedule a background ULP cache refresh, guarded against re-entry.
+        """
+        Schedule a background ULP cache refresh, guarded against re-entry.
 
         Skips if a prior refresh task is still running; otherwise creates a
         new task and attaches a done-callback so unexpected exceptions are
         logged instead of surfacing only as a GC warning.
         """
-        if (
-            self._ulp_refresh_task is not None
-            and not self._ulp_refresh_task.done()
-        ):
+        if self._ulp_refresh_task is not None and not self._ulp_refresh_task.done():
             return
         self._ulp_refresh_task = asyncio.create_task(
             self._refresh_public_ulp_users_cache()
@@ -4342,6 +4340,4 @@ class ProtectApiClient(BaseApiClient):
             return
         exc = task.exception()
         if exc is not None:
-            _LOGGER.exception(
-                "Public ULP user cache refresh failed", exc_info=exc
-            )
+            _LOGGER.exception("Public ULP user cache refresh failed", exc_info=exc)
