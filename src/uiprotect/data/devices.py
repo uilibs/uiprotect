@@ -257,6 +257,106 @@ class Light(ProtectMotionDeviceModel):
 
         await self.queue_update(callback)
 
+    async def set_name_public(self, name: str) -> None:
+        """Set light name via public API."""
+        updated = await self._api.update_light_public(self.id, name=name)
+        self.name = updated.name
+
+    async def set_flood_light_public(self, enabled: bool) -> None:
+        """Force the flood light on/off via public API."""
+        updated = await self._api.update_light_public(
+            self.id, is_light_force_enabled=enabled
+        )
+        self.light_on_settings = updated.light_on_settings
+
+    async def set_status_light_public(self, enabled: bool) -> None:
+        """Toggle the status indicator LED via public API."""
+        device_settings = self.light_device_settings.model_copy()
+        device_settings.is_indicator_enabled = enabled
+        updated = await self._api.update_light_public(
+            self.id, light_device_settings=device_settings
+        )
+        self.light_device_settings = updated.light_device_settings
+
+    async def set_led_level_public(self, led_level: int) -> None:
+        """Set the LED brightness level via public API."""
+        device_settings = self.light_device_settings.model_copy()
+        device_settings.led_level = LEDLevel(led_level)
+        updated = await self._api.update_light_public(
+            self.id, light_device_settings=device_settings
+        )
+        self.light_device_settings = updated.light_device_settings
+
+    async def set_sensitivity_public(self, sensitivity: int) -> None:
+        """Set PIR motion sensitivity via public API."""
+        device_settings = self.light_device_settings.model_copy()
+        device_settings.pir_sensitivity = PercentInt(sensitivity)
+        updated = await self._api.update_light_public(
+            self.id, light_device_settings=device_settings
+        )
+        self.light_device_settings = updated.light_device_settings
+
+    async def set_duration_public(self, duration: timedelta) -> None:
+        """Set how long the light stays on after motion (15s-900s) via public API."""
+        if duration.total_seconds() < 15 or duration.total_seconds() > 900:
+            raise BadRequest("Duration outside of 15s to 900s range")
+        device_settings = self.light_device_settings.model_copy()
+        device_settings.pir_duration = duration
+        updated = await self._api.update_light_public(
+            self.id, light_device_settings=device_settings
+        )
+        self.light_device_settings = updated.light_device_settings
+
+    async def set_light_mode_public(
+        self,
+        mode: LightModeType,
+        enable_at: LightModeEnableType | None = None,
+    ) -> None:
+        """Set the lighting trigger mode (and optional schedule) via public API."""
+        mode_settings = self.light_mode_settings.model_copy()
+        mode_settings.mode = mode
+        if enable_at is not None:
+            mode_settings.enable_at = enable_at
+        updated = await self._api.update_light_public(
+            self.id, light_mode_settings=mode_settings
+        )
+        self.light_mode_settings = updated.light_mode_settings
+
+    async def set_light_settings_public(
+        self,
+        mode: LightModeType,
+        enable_at: LightModeEnableType | None = None,
+        duration: timedelta | None = None,
+        sensitivity: int | None = None,
+    ) -> None:
+        """Update mode, enable schedule, duration and PIR sensitivity via public API."""
+        if duration is not None and (
+            duration.total_seconds() < 15 or duration.total_seconds() > 900
+        ):
+            raise BadRequest("Duration outside of 15s to 900s range")
+
+        mode_settings = self.light_mode_settings.model_copy()
+        mode_settings.mode = mode
+        if enable_at is not None:
+            mode_settings.enable_at = enable_at
+
+        device_settings: LightDeviceSettings | None = None
+        if duration is not None or sensitivity is not None:
+            device_settings = self.light_device_settings.model_copy()
+            if duration is not None:
+                device_settings.pir_duration = duration
+            if sensitivity is not None:
+                device_settings.pir_sensitivity = PercentInt(sensitivity)
+
+        updated = await self._api.update_light_public(
+            self.id,
+            light_mode_settings=mode_settings,
+            light_device_settings=device_settings,
+        )
+        self.light_mode_settings = updated.light_mode_settings
+        if device_settings is not None:
+            self.light_device_settings = updated.light_device_settings
+
 
 class CameraChannel(ProtectBaseObject):
     id: int  # read only
