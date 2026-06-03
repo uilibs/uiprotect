@@ -127,6 +127,21 @@ def test_enrich_fingerprint_cache_hit() -> None:
     assert result.user is user
 
 
+def test_enrich_fingerprint_no_metadata() -> None:
+    api = _make_client()
+    enricher = EventEnricher(api)
+    result = enricher.enrich(_make_fp_event(api, metadata=None))
+    assert result == UnknownIdentity(reason="no_metadata")
+
+
+def test_enrich_fingerprint_ulp_id_null() -> None:
+    api = _make_client()
+    enricher = EventEnricher(api)
+    md = FingerprintMetadata(api=api, ulp_id=None)
+    result = enricher.enrich(_make_fp_event(api, metadata=md))
+    assert result == UnknownIdentity(reason="ulp_id_null")
+
+
 @pytest.mark.asyncio
 async def test_refresh_cache_swallows_403_and_logs_once(
     caplog: pytest.LogCaptureFixture,

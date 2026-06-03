@@ -16,7 +16,11 @@ from uiprotect.data.public_bootstrap import PublicBootstrap
 from uiprotect.data.types import EventType
 from uiprotect.data.websocket import WSAction
 from uiprotect.events import EventChange, ProtectEvent
-from uiprotect.events.dispatcher import MAX_ACTIVE, EventDispatcher
+from uiprotect.events.dispatcher import (
+    _RECENTLY_ENDED_CAP,
+    MAX_ACTIVE,
+    EventDispatcher,
+)
 
 _FIXTURES = Path(__file__).parent / "sample_data" / "events_ws_public"
 
@@ -254,6 +258,24 @@ def test_active_events_without_dispatcher_returns_empty() -> None:
     assert api.active_events(device_id="cam-1") == []
 
 
+def test_active_events_with_dispatcher_delegates(
+    api: ProtectApiClient, dispatcher: EventDispatcher
+) -> None:
+    api._event_dispatcher = dispatcher
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    for idx, dev in enumerate(["cam-a", "cam-b"]):
+        event = Event(
+            api=api,
+            id=f"api-e-{idx}",
+            type=EventType.MOTION,
+            start=start,
+            device_id=dev,
+        )
+        dispatcher.dispatch(WSAction.ADD, event)
+    assert {e.device_id for e in api.active_events()} == {"cam-a", "cam-b"}
+    assert [e.device_id for e in api.active_events(device_id="cam-a")] == ["cam-a"]
+
+
 def test_unsubscribe_events_without_dispatcher_is_noop() -> None:
     api = _make_client()
     assert api._event_dispatcher is None
@@ -278,6 +300,36 @@ def test_flush_stale_on_reconnect_no_stale_returns_zero(
     assert dispatcher.flush_stale_on_reconnect() == 0
     assert received == []
     assert len(dispatcher.active_events()) == 1
+
+
+def test_record_terminal_move_to_end_on_duplicate(
+    dispatcher: EventDispatcher,
+) -> None:
+    dispatcher._record_terminal("a")
+    dispatcher._record_terminal("b")
+    dispatcher._record_terminal("a")
+    assert list(dispatcher._recently_ended) == ["b", "a"]
+
+
+def test_recently_ended_cap_evicts_oldest(dispatcher: EventDispatcher) -> None:
+    for idx in range(_RECENTLY_ENDED_CAP + 5):
+        dispatcher._record_terminal(f"e-{idx}")
+    assert len(dispatcher._recently_ended) == _RECENTLY_ENDED_CAP
+    assert "e-0" not in dispatcher._recently_ended
+    assert "e-4" not in dispatcher._recently_ended
+    assert f"e-{_RECENTLY_ENDED_CAP + 4}" in dispatcher._recently_ended
+
+
+@pytest.mark.asyncio
+async def test_start_ttl_sweep_idempotent_while_running(
+    dispatcher: EventDispatcher,
+) -> None:
+    dispatcher.start_ttl_sweep()
+    first = dispatcher._sweep_task
+    assert first is not None
+    dispatcher.start_ttl_sweep()
+    assert dispatcher._sweep_task is first
+    dispatcher.stop_ttl_sweep()
 
 
 @pytest.mark.asyncio
