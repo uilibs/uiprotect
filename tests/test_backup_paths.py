@@ -10,7 +10,7 @@ import pytest
 
 pytest.importorskip("sqlalchemy")
 
-from uiprotect.cli.backup import (  # noqa: E402
+from uiprotect.cli.backup import (
     BackupContext,
     Event,
     _safe_join,
