@@ -240,8 +240,6 @@ class EventDispatcher:
                 try:
                     self.sweep_stale()
                 except Exception:
-                    _LOGGER.exception(
-                        "TTL sweep iteration failed — continuing loop"
-                    )
+                    _LOGGER.exception("TTL sweep iteration failed — continuing loop")
         except asyncio.CancelledError:
             return
