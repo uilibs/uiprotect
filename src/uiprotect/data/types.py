@@ -468,12 +468,7 @@ class LightModeType(ValuesEnumMixin, enum.StrEnum):
 
 @enum.unique
 class VideoMode(UnknownValuesEnumMixin, enum.StrEnum):
-    """
-    Camera video pipeline mode (``videoMode`` field).
-
-    Carries an ``UNKNOWN`` member so values added by newer firmware coerce
-    to ``UNKNOWN`` instead of raising during ``Camera`` deserialization.
-    """
+    """Camera video pipeline mode; unknown wire values coerce to ``UNKNOWN``."""
 
     DEFAULT = "default"
     HIGH_FPS = "highFps"

@@ -367,11 +367,7 @@ def convert_video_modes(items: Iterable[str]) -> list[VideoMode]:
     """Converts list of str into VideoMode. Any unknown values will be ignored and logged."""
     types = []
     for video_mode in items:
-        try:
-            mode = VideoMode(video_mode)
-        except ValueError:
-            _LOGGER.warning("Unknown video mode: %s", video_mode)
-            continue
+        mode = VideoMode(video_mode)
         if mode is VideoMode.UNKNOWN and video_mode != VideoMode.UNKNOWN.value:
             _LOGGER.warning("Unknown video mode: %s", video_mode)
             continue
