@@ -42,6 +42,7 @@ from .types import (
     RelayOutputRebootState,
     RelayOutputState,
     RelayOutputType,
+    SirenConnectionType,
     SirenDuration,
     SpeakerMode,
     SpeakerStatus,
@@ -50,16 +51,6 @@ from .types import (
 
 if TYPE_CHECKING:
     pass
-
-
-# Public API connection state. Intentionally *not* ``StateType`` (which is the
-# private-API enum with many values) — the public schema documents only these
-# two values for sirens, and treating it as a ``str`` keeps forward
-# compatibility with future server additions without surprising callers.
-# ``Relay.state`` uses the :class:`DeviceState` enum (same forward-compat
-# semantics via ``UnknownValuesEnumMixin``); only ``Siren.state`` still uses
-# the raw-``str`` treatment.
-PublicConnectionState = Literal["CONNECTED", "DISCONNECTED"]
 
 
 # ---------------------------------------------------------------------------
@@ -178,15 +169,13 @@ class Siren(ProtectModelWithId):
     """Public API siren device."""
 
     model: ModelType | None = ModelType.SIREN
-    # ``state`` uses :data:`PublicConnectionState` semantically but is typed as
-    # ``str`` so unknown server values (future firmware) don't raise.
-    state: str
+    state: DeviceState
     name: str
     mac: str
     volume: int
     led_settings: PublicLedSettings
     siren_status: PublicSirenStatus
-    connection_type: str
+    connection_type: SirenConnectionType
     wireless_connection_state: PublicWirelessConnectionState | None = None
 
     async def _api_update(self, data: dict[str, Any]) -> None:
