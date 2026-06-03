@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import orjson
+import pytest
 
 from tests.conftest import SAMPLE_DATA_DIRECTORY
 from uiprotect.data.nvr import Event, NfcMetadata
@@ -82,3 +83,18 @@ def test_fingerprint_payload_with_ulpid_null() -> None:
     assert event.metadata is not None
     assert event.metadata.fingerprint is not None
     assert event.metadata.fingerprint.ulp_id is None
+
+
+def test_map_raises_when_device_id_missing() -> None:
+    event = _event_from_payload(
+        {
+            "id": "no-device",
+            "modelKey": "event",
+            "type": "motion",
+            "start": 1735689700000,
+        }
+    )
+    assert event.device_id is None
+    channel = EVENT_TYPE_TO_CHANNEL[event.type]
+    with pytest.raises(ValueError, match="device_id must be present"):
+        event_to_protect_event(event, channel, identity=None)

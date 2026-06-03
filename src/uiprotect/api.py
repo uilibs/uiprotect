@@ -591,6 +591,7 @@ class BaseApiClient:
         """Closing and deletes all client sessions."""
         await self._cancel_update_task()
         await self._cancel_public_resync_task()
+        await self._cancel_ulp_refresh_task()
         if self._session is not None:
             await self._session.close()
             self._session = None
@@ -622,6 +623,13 @@ class BaseApiClient:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._public_resync_task
             self._public_resync_task = None
+
+    async def _cancel_ulp_refresh_task(self) -> None:
+        if self._ulp_refresh_task is not None:
+            self._ulp_refresh_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._ulp_refresh_task
+            self._ulp_refresh_task = None
 
     def set_header(self, key: str, value: str | None) -> None:
         """Set header."""

@@ -59,6 +59,34 @@ async def test_schedule_ulp_refresh_skips_when_task_in_flight() -> None:
     await first
 
 
+@pytest.mark.asyncio
+async def test_cancel_ulp_refresh_task_cancels_in_flight() -> None:
+    api = _make_client()
+    loop = asyncio.get_running_loop()
+    gate = loop.create_future()
+
+    async def block() -> list[Any]:
+        await gate
+        return []
+
+    api.get_ulp_users_public = block  # type: ignore[method-assign]
+    api._schedule_ulp_refresh()
+    task = api._ulp_refresh_task
+    assert task is not None and not task.done()
+
+    await api._cancel_ulp_refresh_task()
+    assert api._ulp_refresh_task is None
+    assert task.cancelled()
+
+
+@pytest.mark.asyncio
+async def test_cancel_ulp_refresh_task_no_task_is_noop() -> None:
+    api = _make_client()
+    assert api._ulp_refresh_task is None
+    await api._cancel_ulp_refresh_task()
+    assert api._ulp_refresh_task is None
+
+
 def test_on_ulp_refresh_done_cancelled_is_noop(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
