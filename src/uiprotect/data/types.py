@@ -467,7 +467,14 @@ class LightModeType(ValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
-class VideoMode(ValuesEnumMixin, enum.StrEnum):
+class VideoMode(UnknownValuesEnumMixin, enum.StrEnum):
+    """
+    Camera video pipeline mode (``videoMode`` field).
+
+    Carries an ``UNKNOWN`` member so values added by newer firmware coerce
+    to ``UNKNOWN`` instead of raising during ``Camera`` deserialization.
+    """
+
     DEFAULT = "default"
     HIGH_FPS = "highFps"
     HOMEKIT = "homekit"
@@ -475,7 +482,6 @@ class VideoMode(ValuesEnumMixin, enum.StrEnum):
     SLOW_SHUTTER = "slowShutter"
     LPR_NONE_REFLEX = "lprNoneReflex"
     LPR_REFLEX = "lprReflex"
-    # should only be for unadopted devices
     UNKNOWN = "unknown"
 
 

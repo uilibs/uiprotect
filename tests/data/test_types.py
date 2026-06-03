@@ -16,6 +16,7 @@ from uiprotect.data.types import (
     SensorStatusType,
     SensorType,
     StorageType,
+    VideoMode,
     get_field_type,
 )
 
@@ -40,6 +41,8 @@ async def test_model_type_from_string():
         (PermissionNode, "read", PermissionNode.READ),
         (OsdOverlayLocation, "topLeft", OsdOverlayLocation.TOP_LEFT),
         (OsdOverlayLocation, "bottomRight", OsdOverlayLocation.BOTTOM_RIGHT),
+        (VideoMode, "default", VideoMode.DEFAULT),
+        (VideoMode, "lprReflex", VideoMode.LPR_REFLEX),
     ],
 )
 def test_unknown_values_enum_known_value(enum_cls, known_value, known_member):
@@ -60,6 +63,7 @@ def test_unknown_values_enum_known_value(enum_cls, known_value, known_member):
         StorageType,
         PermissionNode,
         OsdOverlayLocation,
+        VideoMode,
     ],
 )
 def test_unknown_values_enum_falls_back_to_unknown(enum_cls):

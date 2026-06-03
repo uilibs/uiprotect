@@ -368,9 +368,14 @@ def convert_video_modes(items: Iterable[str]) -> list[VideoMode]:
     types = []
     for video_mode in items:
         try:
-            types.append(VideoMode(video_mode))
+            mode = VideoMode(video_mode)
         except ValueError:
             _LOGGER.warning("Unknown video mode: %s", video_mode)
+            continue
+        if mode is VideoMode.UNKNOWN and video_mode != VideoMode.UNKNOWN.value:
+            _LOGGER.warning("Unknown video mode: %s", video_mode)
+            continue
+        types.append(mode)
     return types
 
 
