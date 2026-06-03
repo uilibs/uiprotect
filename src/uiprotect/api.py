@@ -2021,9 +2021,7 @@ class ProtectApiClient(BaseApiClient):
                 self._event_ws_adapter_unsub = None
             self._event_dispatcher.reset()
 
-    def active_events(
-        self, device_id: str | None = None
-    ) -> list[ProtectEvent]:
+    def active_events(self, device_id: str | None = None) -> list[ProtectEvent]:
         """Return the in-flight public events, optionally filtered by device."""
         if self._event_dispatcher is None:
             return []

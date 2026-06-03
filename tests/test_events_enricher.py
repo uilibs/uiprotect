@@ -61,7 +61,9 @@ def _make_fp_event(
         start=datetime(2026, 1, 1, tzinfo=UTC),
         device_id="cam-1",
         metadata=(
-            EventMetadata(api=api, fingerprint=metadata) if metadata is not None else None
+            EventMetadata(api=api, fingerprint=metadata)
+            if metadata is not None
+            else None
         ),
     )
 

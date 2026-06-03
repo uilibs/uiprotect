@@ -52,9 +52,7 @@ class EventDispatcher:
     # Subscriber book-keeping
     # ------------------------------------------------------------------
 
-    def add_subscriber(
-        self, cb: Callable[[ProtectEvent, EventChange], None]
-    ) -> None:
+    def add_subscriber(self, cb: Callable[[ProtectEvent, EventChange], None]) -> None:
         self._subscribers.append(cb)
 
     def remove_subscriber(
@@ -84,9 +82,7 @@ class EventDispatcher:
     # Active set helpers
     # ------------------------------------------------------------------
 
-    def active_events(
-        self, device_id: str | None = None
-    ) -> list[ProtectEvent]:
+    def active_events(self, device_id: str | None = None) -> list[ProtectEvent]:
         if device_id is None:
             return list(self._active.values())
         return [e for e in self._active.values() if e.device_id == device_id]
@@ -115,12 +111,9 @@ class EventDispatcher:
         # Close-window branch: ADD already carrying ``end``, or schema-level
         # instantaneous type. Emit STARTED+ENDED, skip ``_active``.
         if action is WSAction.ADD and (
-            raw_event.end is not None
-            or raw_event.type in INSTANTANEOUS_EVENT_TYPES
+            raw_event.end is not None or raw_event.type in INSTANTANEOUS_EVENT_TYPES
         ):
-            end_value = (
-                raw_event.end if raw_event.end is not None else raw_event.start
-            )
+            end_value = raw_event.end if raw_event.end is not None else raw_event.start
             event = event_to_protect_event(
                 raw_event, channel, identity, end_override=end_value
             )
@@ -155,9 +148,7 @@ class EventDispatcher:
 
         self._fan_out(event, change)
 
-    def _derive_change(
-        self, action: WSAction, raw_event: Event
-    ) -> EventChange | None:
+    def _derive_change(self, action: WSAction, raw_event: Event) -> EventChange | None:
         if action is WSAction.ADD:
             return EventChange.STARTED
         if action is WSAction.UPDATE:
@@ -192,9 +183,7 @@ class EventDispatcher:
             try:
                 cb(event, change)
             except Exception:
-                _LOGGER.exception(
-                    "Exception while running subscribe_events subscriber"
-                )
+                _LOGGER.exception("Exception while running subscribe_events subscriber")
 
     # ------------------------------------------------------------------
     # Reconnect / TTL sweep

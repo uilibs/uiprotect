@@ -28,29 +28,25 @@ def test_event_type_to_channel_is_exhaustive() -> None:
 def test_event_type_to_channel_buckets() -> None:
     assert EVENT_TYPE_TO_CHANNEL[EventType.MOTION] is ProtectEventChannel.DETECTION
     assert EVENT_TYPE_TO_CHANNEL[EventType.RING] is ProtectEventChannel.DETECTION
-    assert EVENT_TYPE_TO_CHANNEL[EventType.SMART_DETECT] is ProtectEventChannel.DETECTION
+    assert (
+        EVENT_TYPE_TO_CHANNEL[EventType.SMART_DETECT] is ProtectEventChannel.DETECTION
+    )
     assert (
         EVENT_TYPE_TO_CHANNEL[EventType.MOTION_LIGHT] is ProtectEventChannel.DETECTION
     )
-    assert (
-        EVENT_TYPE_TO_CHANNEL[EventType.SENSOR_OPENED] is ProtectEventChannel.SENSOR
-    )
+    assert EVENT_TYPE_TO_CHANNEL[EventType.SENSOR_OPENED] is ProtectEventChannel.SENSOR
     assert (
         EVENT_TYPE_TO_CHANNEL[EventType.ALARM_HUB_MOTION]
         is ProtectEventChannel.ALARM_HUB
     )
     assert (
-        EVENT_TYPE_TO_CHANNEL[EventType.NFC_CARD_SCANNED]
-        is ProtectEventChannel.ACCESS
+        EVENT_TYPE_TO_CHANNEL[EventType.NFC_CARD_SCANNED] is ProtectEventChannel.ACCESS
     )
     assert (
         EVENT_TYPE_TO_CHANNEL[EventType.FINGERPRINT_IDENTIFIED]
         is ProtectEventChannel.ACCESS
     )
-    assert (
-        EVENT_TYPE_TO_CHANNEL[EventType.DOORLOCK_OPEN]
-        is ProtectEventChannel.ACCESS
-    )
+    assert EVENT_TYPE_TO_CHANNEL[EventType.DOORLOCK_OPEN] is ProtectEventChannel.ACCESS
     assert EVENT_TYPE_TO_CHANNEL[EventType.REBOOT] is ProtectEventChannel.OTHER
 
 

@@ -25,52 +25,60 @@ class ProtectEventChannel(enum.StrEnum):
     OTHER = "other"
 
 
-_DETECTION: frozenset[EventType] = frozenset({
-    EventType.MOTION,
-    EventType.RING,
-    EventType.SMART_DETECT,
-    EventType.SMART_AUDIO_DETECT,
-    EventType.SMART_DETECT_LINE,
-    EventType.SMART_DETECT_LOITER,
-    EventType.FACE_GROUP_DETECTED,
-    EventType.MOTION_LIGHT,
-})
+_DETECTION: frozenset[EventType] = frozenset(
+    {
+        EventType.MOTION,
+        EventType.RING,
+        EventType.SMART_DETECT,
+        EventType.SMART_AUDIO_DETECT,
+        EventType.SMART_DETECT_LINE,
+        EventType.SMART_DETECT_LOITER,
+        EventType.FACE_GROUP_DETECTED,
+        EventType.MOTION_LIGHT,
+    }
+)
 
-_SENSOR: frozenset[EventType] = frozenset({
-    EventType.MOTION_SENSOR,
-    EventType.SENSOR_BUTTON_PRESSED,
-    EventType.SENSOR_OPENED,
-    EventType.SENSOR_CLOSED,
-    EventType.SENSOR_ALARM,
-    EventType.SENSOR_EXTREME_VALUE,
-    EventType.SENSOR_WATER_LEAK,
-    EventType.SENSOR_BATTERY_LOW,
-    EventType.SENSOR_SMOKE_TEST,
-    EventType.SENSOR_TAMPER,
-})
+_SENSOR: frozenset[EventType] = frozenset(
+    {
+        EventType.MOTION_SENSOR,
+        EventType.SENSOR_BUTTON_PRESSED,
+        EventType.SENSOR_OPENED,
+        EventType.SENSOR_CLOSED,
+        EventType.SENSOR_ALARM,
+        EventType.SENSOR_EXTREME_VALUE,
+        EventType.SENSOR_WATER_LEAK,
+        EventType.SENSOR_BATTERY_LOW,
+        EventType.SENSOR_SMOKE_TEST,
+        EventType.SENSOR_TAMPER,
+    }
+)
 
-_ALARM_HUB: frozenset[EventType] = frozenset({
-    EventType.ALARM_HUB_MOTION,
-    EventType.ALARM_HUB_ENTRY_OPENED,
-    EventType.ALARM_HUB_ENTRY_CLOSED,
-    EventType.ALARM_HUB_RELAY_SWITCHED,
-    EventType.ALARM_HUB_BUTTON_PRESS,
-    EventType.ALARM_HUB_SMOKE,
-    EventType.ALARM_HUB_GLASS_BREAK,
-    EventType.ALARM_HUB_TAMPER,
-    EventType.ALARM_HUB_BATTERY_CONNECTED,
-    EventType.ALARM_HUB_BATTERY_LOW,
-})
+_ALARM_HUB: frozenset[EventType] = frozenset(
+    {
+        EventType.ALARM_HUB_MOTION,
+        EventType.ALARM_HUB_ENTRY_OPENED,
+        EventType.ALARM_HUB_ENTRY_CLOSED,
+        EventType.ALARM_HUB_RELAY_SWITCHED,
+        EventType.ALARM_HUB_BUTTON_PRESS,
+        EventType.ALARM_HUB_SMOKE,
+        EventType.ALARM_HUB_GLASS_BREAK,
+        EventType.ALARM_HUB_TAMPER,
+        EventType.ALARM_HUB_BATTERY_CONNECTED,
+        EventType.ALARM_HUB_BATTERY_LOW,
+    }
+)
 
-_ACCESS: frozenset[EventType] = frozenset({
-    EventType.NFC_CARD_SCANNED,
-    EventType.FINGERPRINT_IDENTIFIED,
-    EventType.DOOR_ACCESS,
-    EventType.ACCESS,
-    EventType.DOORLOCK_OPEN,
-    EventType.DOORLOCK_CLOSE,
-    EventType.DOORLOCK_BATTERY_LOW,
-})
+_ACCESS: frozenset[EventType] = frozenset(
+    {
+        EventType.NFC_CARD_SCANNED,
+        EventType.FINGERPRINT_IDENTIFIED,
+        EventType.DOOR_ACCESS,
+        EventType.ACCESS,
+        EventType.DOORLOCK_OPEN,
+        EventType.DOORLOCK_CLOSE,
+        EventType.DOORLOCK_BATTERY_LOW,
+    }
+)
 
 
 def _build_channel_map() -> dict[EventType, ProtectEventChannel]:
