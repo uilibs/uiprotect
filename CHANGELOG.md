@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.18.1 (2026-06-03)
+
+### Bug fixes
+
+
+- Sanitize camera names in backup paths to block traversal ([`741adcd`](https://github.com/uilibs/uiprotect/commit/741adcde0be341688827b96bd2c911688685358a))
+
+
 ## v10.18.0 (2026-06-03)
 
 ### Features
