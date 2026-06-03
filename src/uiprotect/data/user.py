@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from datetime import datetime
 from functools import cache
-from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar
+from typing import Any, Generic, Self, TypeVar
 
 from pydantic.fields import PrivateAttr
 
@@ -276,8 +276,8 @@ class UlpUserKeyringBase(Generic[T]):
         return list(self._id_to_item.values())
 
     def __eq__(self, other: object) -> bool:
-        if TYPE_CHECKING:
-            assert isinstance(other, UlpUserKeyringBase)
+        if not isinstance(other, UlpUserKeyringBase):
+            return NotImplemented
         return self._id_to_item == other._id_to_item
 
 

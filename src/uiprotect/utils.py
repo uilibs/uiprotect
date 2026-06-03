@@ -595,12 +595,13 @@ def get_local_timezone() -> tzinfo:
     if timezone_locale.exists():
         tzfile_digest = sha224(Path(timezone_locale).read_bytes()).hexdigest()
 
-        for root, _, filenames in os.walk(Path("/usr/share/zoneinfo/")):
+        zoneinfo_root = Path("/usr/share/zoneinfo")
+        for root, _, filenames in os.walk(zoneinfo_root):
             for filename in filenames:
                 fullname = Path(root) / filename
                 digest = sha224(fullname.read_bytes()).hexdigest()
                 if digest == tzfile_digest:
-                    timezone_name = "/".join((str(fullname).split("/"))[-2:])
+                    timezone_name = fullname.relative_to(zoneinfo_root).as_posix()
 
     return _set_timezone(timezone_name)
 
