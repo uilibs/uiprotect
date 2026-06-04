@@ -118,17 +118,26 @@ Notes:
   should use `subscribe_events_websocket`.
 - `event.raw` is a permanent escape hatch onto the underlying private-API
   `Event` model when the public contract does not expose the field you
-  need.
+  need. In particular, smart-detect *detected attributes* (license-plate
+  text, face-match name) are **not** available over the public API today,
+  so consumers that need them must fall back to the private path via
+  `event.raw`.
 - `EventChange.UPDATED` may carry no public-visible delta — diff
   `event.raw` if you need to know exactly what changed.
 - `protect.active_events(device_id=...)` returns the in-flight set,
   derived directly from the public bootstrap cache. Useful for restoring
-  binary-sensor state after a reload.
+  binary-sensor state after a reload — it works before any
+  `subscribe_events` call as long as `update_public()` has primed the
+  cache.
 - All runtime state is sourced from `public_bootstrap`: lifecycle/active
-  state from `public_bootstrap.events` and credential-event identity from
-  `public_bootstrap.ulp_users` (UniFi Identity). Both are refreshed by
-  `update_public()` — including automatically on websocket reconnect — so
-  an identity that was unknown at first sight resolves on the next refresh.
+  state from `public_bootstrap.events`, credential-event identity from
+  `public_bootstrap.ulp_users` (UniFi Identity), and `event.device_mac`
+  from the bootstrap device stores. All are refreshed by `update_public()`
+  — including automatically on websocket reconnect — and resolve with
+  eventual consistency: an `identity` that resolves to
+  `UnknownIdentity(reason="ulp_user_not_cached")` for a freshly-enrolled
+  ULP user, or a `device_mac` of `None` for a device not yet in the
+  bootstrap, both fill in on the next `update_public()` / reconnect resync.
 
 ## History
 

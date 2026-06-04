@@ -127,6 +127,9 @@ class PublicBootstrap:
 
     # Events received via the events websocket (:meth:`process_events_ws_message`).
     # Bounded by :attr:`max_event_cache_size`; oldest events are evicted first.
+    # Entries may be synthetically end-marked (``end`` set) by the public
+    # events TTL/reconnect sweep, not only by a server-sent close frame — so a
+    # non-``None`` ``end`` here does not always correspond to a WS payload.
     events: OrderedDict[str, Event] = field(default_factory=OrderedDict)
     max_event_cache_size: int = DEFAULT_PUBLIC_EVENT_CACHE_SIZE
 
@@ -191,6 +194,14 @@ class PublicBootstrap:
         if store is None:
             return None
         return store.get(obj_id)
+
+    def get_device_mac(self, device_id: str) -> str | None:
+        """Resolve a device id to its mac across the public device stores."""
+        for attr in _DEVICE_STORES.values():
+            obj = getattr(self, attr).get(device_id)
+            if obj is not None:
+                return getattr(obj, "mac", None)
+        return None
 
     def apply_fetch_result(self, attr: str, objs: list[ProtectModelWithId]) -> None:
         """

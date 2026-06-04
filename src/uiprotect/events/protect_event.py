@@ -150,6 +150,11 @@ class ProtectEvent(BaseModel):
     type: EventType
     channel: ProtectEventChannel
     device_id: str
+    # Resolved from ``device_id`` against the public bootstrap device stores
+    # at emit time. ``None`` when the device is not (yet) in the bootstrap —
+    # the same eventual-consistency property as ``identity``: a device unknown
+    # at first sight resolves on the next ``update_public()`` / reconnect.
+    device_mac: str | None = None
     start: datetime
     end: datetime | None = None
     smart_detect_types: tuple[SmartDetectObjectType, ...] = ()

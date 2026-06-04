@@ -61,6 +61,24 @@ def test_sweep_force_ends_stale_entry() -> None:
     assert [e.id for e in dispatcher.active_events()] == [fresh]
 
 
+def test_sweep_skips_other_channel_and_missing_device_id() -> None:
+    api = _make_client()
+    dispatcher = EventDispatcher(api)
+    received: list[tuple[ProtectEvent, EventChange]] = []
+    dispatcher.add_subscriber(lambda e, c: received.append((e, c)))
+
+    stale = datetime.now(tz=UTC) - (EVENTS_ACTIVE_TTL + timedelta(seconds=10))
+    other = Event(
+        api=api, id="other", type=EventType.REBOOT, start=stale, device_id="cam-1"
+    )
+    no_device = Event(api=api, id="no-device", type=EventType.MOTION, start=stale)
+    api.public_bootstrap.events["other"] = other
+    api.public_bootstrap.events["no-device"] = no_device
+
+    assert dispatcher.sweep_stale() == 0
+    assert received == []
+
+
 def test_sweep_no_op_when_within_ttl() -> None:
     api = _make_client()
     dispatcher = EventDispatcher(api)

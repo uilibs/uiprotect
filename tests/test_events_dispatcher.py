@@ -334,11 +334,72 @@ def test_active_events_skips_ended_and_other(
     assert {e.id for e in dispatcher.active_events()} == {"open-a", "open-b"}
 
 
+class _MacStub:
+    """Minimal device stand-in carrying an ``id`` and ``mac``."""
+
+    def __init__(self, obj_id: str, mac: str) -> None:
+        self.id = obj_id
+        self.mac = mac
+
+
+def test_dispatch_resolves_device_mac_when_device_known(
+    api: ProtectApiClient, dispatcher: EventDispatcher
+) -> None:
+    received = _collect(dispatcher)
+    api.public_bootstrap.cameras["cam-1"] = _MacStub("cam-1", "aabbccddeeff")  # type: ignore[assignment]
+    add = Event(
+        api=api,
+        id="m1",
+        type=EventType.MOTION,
+        start=datetime(2026, 1, 1, tzinfo=UTC),
+        device_id="cam-1",
+    )
+    _store(api, add)
+    dispatcher.dispatch(WSAction.ADD, add, None)
+    assert received[0][0].device_mac == "aabbccddeeff"
+
+
+def test_dispatch_device_mac_none_when_device_absent(
+    api: ProtectApiClient, dispatcher: EventDispatcher
+) -> None:
+    received = _collect(dispatcher)
+    add = Event(
+        api=api,
+        id="m2",
+        type=EventType.MOTION,
+        start=datetime(2026, 1, 1, tzinfo=UTC),
+        device_id="cam-missing",
+    )
+    _store(api, add)
+    dispatcher.dispatch(WSAction.ADD, add, None)
+    assert received[0][0].device_mac is None
+
+
+def test_dispatch_subject_none_is_noop(
+    api: ProtectApiClient, dispatcher: EventDispatcher
+) -> None:
+    received = _collect(dispatcher)
+    dispatcher.dispatch(WSAction.REMOVE, None, None)
+    assert received == []
+
+
 def test_active_events_without_dispatcher_returns_empty() -> None:
     api = _make_client()
     assert api._event_dispatcher is None
     assert api.active_events() == []
     assert api.active_events(device_id="cam-1") == []
+
+
+def test_active_events_derives_before_subscribe(
+    api: ProtectApiClient,
+) -> None:
+    assert api._event_dispatcher is None
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    event = Event(
+        api=api, id="pre", type=EventType.MOTION, start=start, device_id="cam-1"
+    )
+    _store(api, event)
+    assert [e.id for e in api.active_events()] == ["pre"]
 
 
 def test_active_events_with_dispatcher_delegates(

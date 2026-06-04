@@ -59,6 +59,11 @@ class EventDispatcher:
     def subscriber_count(self) -> int:
         return len(self._subscribers)
 
+    def _device_mac(self, device_id: str | None) -> str | None:
+        if device_id is None:
+            return None
+        return self._api.public_bootstrap.get_device_mac(device_id)
+
     # ------------------------------------------------------------------
     # Active set — pure derivation over the single store
     # ------------------------------------------------------------------
@@ -73,7 +78,14 @@ class EventDispatcher:
                 continue
             if device_id is not None and raw.device_id != device_id:
                 continue
-            out.append(event_to_protect_event(raw, channel, self._enricher.enrich(raw)))
+            out.append(
+                event_to_protect_event(
+                    raw,
+                    channel,
+                    self._enricher.enrich(raw),
+                    device_mac=self._device_mac(raw.device_id),
+                )
+            )
         return out
 
     # ------------------------------------------------------------------
@@ -120,6 +132,7 @@ class EventDispatcher:
         old_event: Event | None,
     ) -> list[tuple[ProtectEvent, EventChange]]:
         identity = self._enricher.enrich(subject)
+        device_mac = self._device_mac(subject.device_id)
         # The single idempotency guard: was the event already terminal in the
         # store before this frame? A retransmit/replay finds it so and is
         # suppressed.
@@ -137,7 +150,11 @@ class EventDispatcher:
             if subject.end is None and new_event is not None:
                 new_event.end = end_value
             event = event_to_protect_event(
-                subject, channel, identity, end_override=end_value
+                subject,
+                channel,
+                identity,
+                end_override=end_value,
+                device_mac=device_mac,
             )
             return [(event, EventChange.STARTED), (event, EventChange.ENDED)]
 
@@ -153,7 +170,14 @@ class EventDispatcher:
             change = EventChange.ENDED
         else:
             change = EventChange.UPDATED
-        return [(event_to_protect_event(subject, channel, identity), change)]
+        return [
+            (
+                event_to_protect_event(
+                    subject, channel, identity, device_mac=device_mac
+                ),
+                change,
+            )
+        ]
 
     def _fan_out(self, event: ProtectEvent, change: EventChange) -> None:
         for cb in self._subscribers:
@@ -209,7 +233,12 @@ class EventDispatcher:
             # suppressed by the dispatch chokepoint and derivation stays
             # consistent.
             raw.end = utc_now()
-            event = event_to_protect_event(raw, channel, self._enricher.enrich(raw))
+            event = event_to_protect_event(
+                raw,
+                channel,
+                self._enricher.enrich(raw),
+                device_mac=self._device_mac(raw.device_id),
+            )
             self._fan_out(event, EventChange.ENDED)
             count += 1
         return count

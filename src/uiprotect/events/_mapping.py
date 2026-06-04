@@ -22,6 +22,7 @@ def event_to_protect_event(
     identity: EventIdentity | None,
     *,
     end_override: datetime | None = None,
+    device_mac: str | None = None,
 ) -> ProtectEvent:
     """Build a frozen ``ProtectEvent`` from a validated ``Event``."""
     if raw.device_id is None:
@@ -32,6 +33,7 @@ def event_to_protect_event(
         type=raw.type,
         channel=channel,
         device_id=raw.device_id,
+        device_mac=device_mac,
         start=raw.start,
         end=end,
         smart_detect_types=tuple(raw.smart_detect_types),

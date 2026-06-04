@@ -1987,6 +1987,16 @@ class ProtectApiClient(BaseApiClient):
         otherwise swallowed, so a raising callback silently loses that
         delivery (e.g. an ``ENDED`` that never reaches the consumer). Do any
         fallible work inside a guard the callback owns.
+
+        Identity and ``device_mac`` resolve with eventual consistency: the
+        first event for a freshly-enrolled ULP user can resolve to
+        ``UnknownIdentity(reason="ulp_user_not_cached")``, and a device not
+        yet in the bootstrap yields ``device_mac=None``, until the next
+        ``update_public()`` / reconnect resync refreshes
+        ``public_bootstrap.ulp_users`` and the device stores. Smart-detect
+        detected attributes (license-plate text, face-match name) are not
+        exposed over the public API today — fall back to the private path
+        via ``event.raw`` when you need them.
         """
         if self._public_bootstrap is None:
             raise RuntimeError(
@@ -2027,9 +2037,21 @@ class ProtectApiClient(BaseApiClient):
                 self._event_ws_adapter_unsub = None
 
     def active_events(self, device_id: str | None = None) -> list[ProtectEvent]:
-        """Return the in-flight public events, optionally filtered by device."""
-        if self._event_dispatcher is None:
+        """
+        Return the in-flight public events, optionally filtered by device.
+
+        Derived directly from ``public_bootstrap.events``, so it works
+        before any ``subscribe_events`` call (e.g. restoring state after a
+        reload). Returns ``[]`` until ``update_public()`` has primed the
+        public bootstrap.
+        """
+        if self._public_bootstrap is None:
             return []
+        if self._event_dispatcher is None:
+            # Local import to avoid circular import (events.dispatcher → api).
+            from .events.dispatcher import EventDispatcher  # noqa: PLC0415
+
+            self._event_dispatcher = EventDispatcher(self)
         return self._event_dispatcher.active_events(device_id=device_id)
 
     def _adapt_events_ws_message(self, msg: WSSubscriptionMessage) -> None:
