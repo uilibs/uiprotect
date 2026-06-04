@@ -93,6 +93,35 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  # Non-blocking guard: fetch the (gitignored) OpenAPI spec and assert the
+  # Public* device models still match it field-for-field. The conformance test
+  # skips when the spec is absent, so without this leg it never runs in CI.
+  schema-conformance:
+    name: Public model schema conformance
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+      - name: Install poetry
+        run: uv tool install poetry
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: "poetry"
+      - name: Install Dependencies
+        run: poetry install --only=main,dev
+      - name: Fetch OpenAPI spec
+        run: poetry run python scripts/fetch_openapi.py
+      - name: Run conformance test
+        run: >-
+          poetry run pytest tests/test_public_schema_conformance.py
+          --no-cov -o addopts=""
+
   benchmarks:
     name: Run CodSpeed benchmarks
     runs-on: ubuntu-latest
