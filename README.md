@@ -63,8 +63,8 @@ The recommended way to develop is using the provided **devcontainer** with VS Co
 Alternatively, if you want to develop natively without devcontainer:
 
 ```bash
-# Install dependencies
-poetry install --with dev
+# Install dependencies (--all-extras installs the cli extra for CLI tests)
+poetry install --with dev --all-extras
 
 # Install pre-commit hooks
 poetry run pre-commit install --install-hooks

@@ -38,7 +38,7 @@ FROM base AS prod
 COPY --from=builder /usr/local/bin/uv /usr/local/bin/
 COPY --from=prod-builder /tmp/build/dist/*.whl /tmp/
 RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
-    uv pip install -U "$(echo /tmp/*.whl)[cli]" \
+    uv pip install -U "uiprotect[cli] @ file://$(echo /tmp/*.whl)" \
     && rm /tmp/*.whl
 
 COPY .docker/entrypoint.sh /usr/local/bin/entrypoint
