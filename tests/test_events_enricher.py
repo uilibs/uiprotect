@@ -138,3 +138,11 @@ def test_enrich_fingerprint_ulp_id_null() -> None:
     md = FingerprintMetadata(api=api, ulp_id=None)
     result = enricher.enrich(_make_fp_event(api, metadata=md))
     assert result == UnknownIdentity(reason="ulp_id_null")
+
+
+def test_enrich_fingerprint_cache_miss() -> None:
+    api = _make_client()
+    enricher = EventEnricher(api)
+    md = FingerprintMetadata(api=api, ulp_id="ulp-absent")
+    result = enricher.enrich(_make_fp_event(api, metadata=md))
+    assert result == UnknownIdentity(reason="ulp_user_not_cached")

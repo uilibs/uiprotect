@@ -2060,9 +2060,22 @@ class ProtectApiClient(BaseApiClient):
         dispatcher = self._event_dispatcher
         old_obj = msg.old_obj if isinstance(msg.old_obj, Event) else None
         if msg.action in (WSAction.ADD, WSAction.UPDATE):
-            if msg.new_obj is None or not isinstance(msg.new_obj, Event):
+            if msg.new_obj is None:
+                # Benign in normal desync/reconnect: an UPDATE for an event id
+                # the store has not cached (or a merge/construct failure already
+                # surfaced by PublicBootstrap) arrives without a merged Event.
+                # Not a server contract change — drop quietly.
+                event_id = msg.changed_data.get("id") if msg.changed_data else None
+                _LOGGER.debug(
+                    "Events-WS %s without merged Event obj (id=%s) — dropping frame",
+                    msg.action,
+                    event_id,
+                )
+                return
+            if not isinstance(msg.new_obj, Event):
+                # A merged object of the wrong type is a genuine shape violation.
                 _LOGGER.warning(
-                    "Events-WS %s without merged Event obj — dropping frame"
+                    "Events-WS %s merged obj is not an Event — dropping frame"
                     " (possible server contract change)",
                     msg.action,
                 )

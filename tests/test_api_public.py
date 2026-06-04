@@ -1534,13 +1534,15 @@ async def test_update_public_populates_ulp_users(
 async def test_update_public_tolerates_ulp_users_disabled(
     protect_client: ProtectApiClient,
 ) -> None:
+    ulp_mock = AsyncMock(side_effect=NotAuthorized("identity off"))
     _mock_update_public_endpoints(
         protect_client,
-        get_ulp_users_public=AsyncMock(side_effect=NotAuthorized("identity off")),
+        get_ulp_users_public=ulp_mock,
     )
 
     pb = await protect_client.update_public()
     assert pb.ulp_users == {}
+    ulp_mock.assert_awaited_once()
 
 
 @pytest.mark.asyncio()

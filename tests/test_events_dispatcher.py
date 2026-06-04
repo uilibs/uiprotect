@@ -387,6 +387,41 @@ def test_dispatch_subject_none_is_noop(
     assert received == []
 
 
+def test_remove_subscriber_is_idempotent(dispatcher: EventDispatcher) -> None:
+    def cb(_e: ProtectEvent, _c: EventChange) -> None:
+        return None
+
+    dispatcher.add_subscriber(cb)
+    dispatcher.remove_subscriber(cb)
+    dispatcher.remove_subscriber(cb)  # must not raise
+
+
+def test_unsubscribe_during_fan_out_does_not_skip(
+    api: ProtectApiClient, dispatcher: EventDispatcher
+) -> None:
+    seen: list[str] = []
+
+    def first(_e: ProtectEvent, _c: EventChange) -> None:
+        seen.append("first")
+        dispatcher.remove_subscriber(second)  # mutate the list mid-delivery
+
+    def second(_e: ProtectEvent, _c: EventChange) -> None:
+        seen.append("second")
+
+    dispatcher.add_subscriber(first)
+    dispatcher.add_subscriber(second)
+    add = Event(
+        api=api,
+        id="fo1",
+        type=EventType.MOTION,
+        start=datetime(2026, 1, 1, tzinfo=UTC),
+        device_id="cam-x",
+    )
+    _store(api, add)
+    dispatcher.dispatch(WSAction.ADD, add, None)
+    assert seen == ["first", "second"]
+
+
 def test_active_events_without_dispatcher_returns_empty() -> None:
     api = _make_client()
     assert api._event_dispatcher is None

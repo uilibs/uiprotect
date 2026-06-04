@@ -53,7 +53,10 @@ class EventDispatcher:
     def remove_subscriber(
         self, cb: Callable[[ProtectEvent, EventChange], None]
     ) -> None:
-        self._subscribers.remove(cb)
+        # Idempotent: the unsubscribe callable returned by ``subscribe_events``
+        # may be invoked more than once (e.g. double cleanup on HA reload).
+        if cb in self._subscribers:
+            self._subscribers.remove(cb)
 
     @property
     def subscriber_count(self) -> int:
@@ -180,7 +183,9 @@ class EventDispatcher:
         ]
 
     def _fan_out(self, event: ProtectEvent, change: EventChange) -> None:
-        for cb in self._subscribers:
+        # Snapshot: a subscriber may unsubscribe (itself or another) mid-delivery,
+        # mutating the list and skipping callbacks if iterated live.
+        for cb in tuple(self._subscribers):
             try:
                 cb(event, change)
             except Exception:
@@ -221,7 +226,8 @@ class EventDispatcher:
         return self._sweep(EVENTS_RECONNECT_STALENESS_WINDOW)
 
     def _sweep(self, staleness_window: timedelta) -> int:
-        cutoff = utc_now() - staleness_window
+        now = utc_now()
+        cutoff = now - staleness_window
         count = 0
         for raw in list(self._api.public_bootstrap.events.values()):
             if raw.end is not None or raw.start >= cutoff:
@@ -232,7 +238,7 @@ class EventDispatcher:
             # Mark the stored event ended so a later close retransmit is
             # suppressed by the dispatch chokepoint and derivation stays
             # consistent.
-            raw.end = utc_now()
+            raw.end = now
             event = event_to_protect_event(
                 raw,
                 channel,

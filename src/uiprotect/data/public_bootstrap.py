@@ -308,6 +308,10 @@ class PublicBootstrap:
             return None, None
         obj_id = item.get("id")
         cached = self.events.get(obj_id) if obj_id else None
+        # Intentionally a shallow copy: the idempotency chokepoint only reads
+        # the top-level ``end`` (captured pre-merge here). Nested objects are
+        # shared, but a deep copy on every event frame is avoided on this hot
+        # path.
         old_snapshot = cached.model_copy() if cached is not None else None
         new, _old = self._apply_action(
             api, action_type, item, ModelType.EVENT, self._events_slot()

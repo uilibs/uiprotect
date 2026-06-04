@@ -59,7 +59,7 @@ def test_adapter_no_dispatcher_is_noop() -> None:
     api._adapt_events_ws_message(msg)
 
 
-def test_adapter_add_without_new_obj_warns_and_drops(
+def test_adapter_add_without_new_obj_logs_debug_and_drops(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     api = _make_client()
@@ -70,10 +70,12 @@ def test_adapter_add_without_new_obj_warns_and_drops(
         changed_data={},
         new_obj=None,
     )
-    with caplog.at_level("WARNING", logger="uiprotect.api"):
+    with caplog.at_level("DEBUG", logger="uiprotect.api"):
         api._adapt_events_ws_message(msg)
     assert received == []
+    # A missing merged Event is a benign cache-miss/desync, logged at DEBUG.
     assert any("without merged Event obj" in r.message for r in caplog.records)
+    assert not any(r.levelname == "WARNING" for r in caplog.records)
 
 
 def test_adapter_update_with_wrong_obj_type_warns_and_drops(
@@ -90,7 +92,7 @@ def test_adapter_update_with_wrong_obj_type_warns_and_drops(
     with caplog.at_level("WARNING", logger="uiprotect.api"):
         api._adapt_events_ws_message(msg)
     assert received == []
-    assert any("without merged Event obj" in r.message for r in caplog.records)
+    assert any("merged obj is not an Event" in r.message for r in caplog.records)
 
 
 def test_adapter_add_forwards_to_dispatch_with_old_obj() -> None:
