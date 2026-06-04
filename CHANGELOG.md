@@ -1,5 +1,13 @@
 # Changelog
 
+## v11.0.2 (2026-06-04)
+
+### Bug fixes
+
+
+- Relax pyjwt and av floors to unblock the ha lib bump ([`ff5b676`](https://github.com/uilibs/uiprotect/commit/ff5b67674cc1548733281a92c5152a28545e9763))
+
+
 ## v11.0.1 (2026-06-03)
 
 ### Bug fixes
