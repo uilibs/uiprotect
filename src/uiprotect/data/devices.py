@@ -277,6 +277,10 @@ class Light(ProtectMotionDeviceModel):
         await self._api.update_light_public(
             self.id, light_device_settings=device_settings
         )
+        # ``PublicLight`` carries no private sub-models, so local state mirrors
+        # the request optimistically (it cannot self-correct from the response).
+        # A server-side clamp/normalize reconciles on the next public bootstrap
+        # / WS update. Same caveat applies to every ``*_public`` setter below.
         self.light_device_settings = device_settings
 
     async def set_led_level_public(self, led_level: int) -> None:

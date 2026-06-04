@@ -66,56 +66,37 @@ _LOGGER = logging.getLogger(__name__)
 DEFAULT_PUBLIC_EVENT_CACHE_SIZE = 1000
 
 
-# ModelType -> attribute on ``PublicBootstrap`` holding ``dict[id, obj]``.
-# Only the models that the Public Integration API actually exposes are
-# listed here. Unsupported model keys (``doorlock``, ``viewport`` etc.) are
-# logged at DEBUG and ignored in :meth:`process_devices_ws_message`.
+# Single source of truth: ``ModelType`` -> (store attribute, public model
+# class | None). Only the device types the Public Integration API actually
+# exposes are listed; unsupported keys (``doorlock`` etc.) resolve to ``None``
+# and are logged at DEBUG in :meth:`process_devices_ws_message`.
 #
-# ``camera``/``light``/``sensor``/``chime`` are *not* listed here: their
-# ``ModelType`` values are already owned by the private classes in
-# ``MODEL_TO_CLASS``, so the generic ``create_from_unifi_dict`` path would
-# build the private model (reintroducing phantom fields). They are routed via
-# dedicated public-API factory slots instead (see :meth:`_custom_slot_for`).
-_DEVICE_STORES: dict[ModelType, str] = {
-    ModelType.SIREN: "sirens",
-    ModelType.RELAY: "relays",
-    ModelType.FOB: "fobs",
-    ModelType.SPEAKER: "speakers",
-    ModelType.LINK_STATION: "link_stations",
-}
-
-# Device stores carrying a ``mac`` field, used by :meth:`get_device_mac`. This
-# spans both the generic ``_DEVICE_STORES`` and the factory-routed public
-# device stores (``cameras``/``lights``/``sensors``/``chimes``).
-_MAC_DEVICE_STORE_ATTRS: tuple[str, ...] = (
-    "cameras",
-    "lights",
-    "sensors",
-    "chimes",
-    *_DEVICE_STORES.values(),
-)
-
-# ModelType -> store attribute for types routed through a dedicated public-API
-# factory slot rather than the generic ``MODEL_TO_CLASS`` path (because their
-# ``ModelType`` is owned by a private class in ``MODEL_TO_CLASS``).
-_CUSTOM_STORE_ATTRS: dict[ModelType, str] = {
-    ModelType.LIVEVIEW: "liveviews",
-    ModelType.BRIDGE: "bridges",
-    ModelType.VIEWPORT: "viewers",
-    ModelType.CAMERA: "cameras",
-    ModelType.LIGHT: "lights",
-    ModelType.SENSOR: "sensors",
-    ModelType.CHIME: "chimes",
-}
-
-# ModelType -> (store attribute, public model class) for the four device types
-# whose ``ModelType`` collides with a private ``MODEL_TO_CLASS`` entry. Their
-# ``add`` frames are constructed via :meth:`PublicBootstrap._public_device_slot`.
-_PUBLIC_DEVICE_CLASSES: dict[ModelType, tuple[str, type[ProtectModelWithId]]] = {
+# ``public_cls`` is set for the four types whose ``ModelType`` collides with a
+# private ``MODEL_TO_CLASS`` entry (``camera``/``light``/``sensor``/``chime``):
+# the generic ``create_from_unifi_dict`` path would build the private model
+# (reintroducing phantom fields), so they get a dedicated public-API factory
+# slot via :meth:`_public_device_slot`. ``None`` means the generic path builds
+# the correct class. Every store here carries a ``mac`` field, so
+# :meth:`get_device_mac` iterates this registry directly.
+_PUBLIC_STORES: dict[ModelType, tuple[str, type[ProtectModelWithId] | None]] = {
     ModelType.CAMERA: ("cameras", PublicCamera),
     ModelType.LIGHT: ("lights", PublicLight),
     ModelType.SENSOR: ("sensors", PublicSensor),
     ModelType.CHIME: ("chimes", PublicChime),
+    ModelType.SIREN: ("sirens", None),
+    ModelType.RELAY: ("relays", None),
+    ModelType.FOB: ("fobs", None),
+    ModelType.SPEAKER: ("speakers", None),
+    ModelType.LINK_STATION: ("link_stations", None),
+}
+
+# Collision-routed types that keep a dedicated ``_X_slot()`` factory (their
+# ``ModelType`` is owned by a private class in ``MODEL_TO_CLASS``). They carry
+# no ``mac`` and so are excluded from :data:`_PUBLIC_STORES`.
+_DEDICATED_SLOT_STORE_ATTRS: dict[ModelType, str] = {
+    ModelType.LIVEVIEW: "liveviews",
+    ModelType.BRIDGE: "bridges",
+    ModelType.VIEWPORT: "viewers",
 }
 
 
@@ -221,7 +202,11 @@ class PublicBootstrap:
     # ------------------------------------------------------------------
 
     def _store_for(self, model_type: ModelType) -> dict[str, ProtectModelWithId] | None:
-        attr = _CUSTOM_STORE_ATTRS.get(model_type) or _DEVICE_STORES.get(model_type)
+        store = _PUBLIC_STORES.get(model_type)
+        if store is not None:
+            attr: str | None = store[0]
+        else:
+            attr = _DEDICATED_SLOT_STORE_ATTRS.get(model_type)
         if attr is None:
             return None
         return cast("dict[str, ProtectModelWithId]", getattr(self, attr))
@@ -235,8 +220,8 @@ class PublicBootstrap:
 
     def get_device_mac(self, device_id: str) -> str | None:
         """Resolve a device id to its mac across the public device stores."""
-        for attr in _MAC_DEVICE_STORE_ATTRS:
-            obj = getattr(self, attr).get(device_id)
+        for store_attr, _cls in _PUBLIC_STORES.values():
+            obj = getattr(self, store_attr).get(device_id)
             if obj is not None:
                 return getattr(obj, "mac", None)
         return None
@@ -323,10 +308,11 @@ class PublicBootstrap:
             return self._bridges_slot()
         if model_type is ModelType.VIEWPORT:
             return self._viewers_slot()
-        device = _PUBLIC_DEVICE_CLASSES.get(model_type)
-        if device is not None:
-            store_attr, cls = device
-            return self._public_device_slot(getattr(self, store_attr), cls)
+        store = _PUBLIC_STORES.get(model_type)
+        if store is not None:
+            store_attr, cls = store
+            if cls is not None:
+                return self._public_device_slot(getattr(self, store_attr), cls)
         return None
 
     @staticmethod

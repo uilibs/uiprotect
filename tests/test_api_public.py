@@ -2709,7 +2709,7 @@ def test_public_bootstrap_get_and_unknown_model(
     pb = protect_client.public_bootstrap
     assert pb.get(ModelType.SIREN, SIREN_ID) is siren
     assert pb.get(ModelType.SIREN, "missing") is None
-    # ModelType.UNKNOWN (or any type not in _DEVICE_STORES) → None.
+    # ModelType.UNKNOWN (or any type not in _PUBLIC_STORES) → None.
     assert pb.get(ModelType.UNKNOWN, SIREN_ID) is None
 
 
