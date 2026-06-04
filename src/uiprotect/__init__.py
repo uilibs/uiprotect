@@ -3,6 +3,14 @@
 from __future__ import annotations
 
 from .api import ProtectApiClient, calculate_retry_delay, parse_retry_after
+from .events import (
+    EventChange,
+    EventIdentity,
+    ProtectEvent,
+    ProtectEventChannel,
+    UlpUserIdentity,
+    UnknownIdentity,
+)
 from .exceptions import GlobalAlarmManagerError, Invalid, NotAuthorized, NvrError
 from .utils import (
     get_nested_attr,
@@ -14,11 +22,17 @@ from .utils import (
 )
 
 __all__ = [
+    "EventChange",
+    "EventIdentity",
     "GlobalAlarmManagerError",
     "Invalid",
     "NotAuthorized",
     "NvrError",
     "ProtectApiClient",
+    "ProtectEvent",
+    "ProtectEventChannel",
+    "UlpUserIdentity",
+    "UnknownIdentity",
     "calculate_retry_delay",
     "get_nested_attr",
     "get_nested_attr_as_bool",

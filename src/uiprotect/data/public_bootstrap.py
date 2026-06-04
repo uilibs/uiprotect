@@ -44,6 +44,7 @@ from .public_devices import (
     PublicBridge,
     PublicLiveview,
     PublicNVR,
+    PublicUlpUser,
     PublicViewer,
     Relay,
     Siren,
@@ -126,8 +127,17 @@ class PublicBootstrap:
 
     # Events received via the events websocket (:meth:`process_events_ws_message`).
     # Bounded by :attr:`max_event_cache_size`; oldest events are evicted first.
+    # Entries may be synthetically end-marked (``end`` set) by the public
+    # events TTL/reconnect sweep, not only by a server-sent close frame — so a
+    # non-``None`` ``end`` here does not always correspond to a WS payload.
     events: OrderedDict[str, Event] = field(default_factory=OrderedDict)
     max_event_cache_size: int = DEFAULT_PUBLIC_EVENT_CACHE_SIZE
+
+    # UniFi Identity (ULP) users, indexed by ulp id. Single source of truth
+    # for event-identity enrichment; refreshed by ``update_public`` (and so,
+    # via the reconnect resync, refreshed on reconnect too). Empty when the
+    # Identity service is disabled.
+    ulp_users: dict[str, PublicUlpUser] = field(default_factory=dict)
 
     # Arm manager state.
     arm_profiles: dict[str, ArmProfile] = field(default_factory=dict)
@@ -184,6 +194,14 @@ class PublicBootstrap:
         if store is None:
             return None
         return store.get(obj_id)
+
+    def get_device_mac(self, device_id: str) -> str | None:
+        """Resolve a device id to its mac across the public device stores."""
+        for attr in _DEVICE_STORES.values():
+            obj = getattr(self, attr).get(device_id)
+            if obj is not None:
+                return getattr(obj, "mac", None)
+        return None
 
     def apply_fetch_result(self, attr: str, objs: list[ProtectModelWithId]) -> None:
         """
@@ -277,17 +295,28 @@ class PublicBootstrap:
         """
         Apply a public *events* WS payload to the event cache.
 
-        Returns ``(new_event, old_event)``; either may be ``None``. Like
-        devices, ``update`` is a partial diff that is merged into the
-        existing event object.
+        Returns ``(new_event, old_event)``; either may be ``None``.
+        ``old_event`` is a **pre-merge snapshot** of the cached event taken
+        before this frame is applied — ``update`` merges its partial diff
+        into the cached object *in place*, so without the snapshot ``old``
+        and ``new`` would be the same mutated instance. The snapshot lets a
+        consumer detect the open→closed transition (``old.end is None`` and
+        ``new.end is not None``) and reject retransmits idempotently.
         """
         action_type, item, _obj_id = _parse_ws_envelope(data)
         if action_type is None or item.get("modelKey") != ModelType.EVENT.value:
             return None, None
-        new, old = self._apply_action(
+        obj_id = item.get("id")
+        cached = self.events.get(obj_id) if obj_id else None
+        # Intentionally a shallow copy: the idempotency chokepoint only reads
+        # the top-level ``end`` (captured pre-merge here). Nested objects are
+        # shared, but a deep copy on every event frame is avoided on this hot
+        # path.
+        old_snapshot = cached.model_copy() if cached is not None else None
+        new, _old = self._apply_action(
             api, action_type, item, ModelType.EVENT, self._events_slot()
         )
-        return cast("Event | None", new), cast("Event | None", old)
+        return cast("Event | None", new), old_snapshot
 
     # ------------------------------------------------------------------
     # Action application (shared by devices / NVR / events)

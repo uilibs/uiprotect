@@ -18,7 +18,7 @@ from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
-from typing import Any, Literal, NotRequired, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict, cast
 from urllib.parse import SplitResult, quote
 
 import aiofiles
@@ -99,8 +99,12 @@ from .data.types import (
     PTZPreset,
     SirenDuration,
 )
+from .events import EventChange, ProtectEvent
 from .exceptions import BadRequest, GlobalAlarmManagerError, NotAuthorized, NvrError
 from .stream import TalkbackSession
+
+if TYPE_CHECKING:
+    from .events.dispatcher import EventDispatcher
 from .utils import (
     decode_token_cookie,
     format_host_for_url,
@@ -1255,6 +1259,18 @@ class ProtectApiClient(BaseApiClient):
     _public_resync_pending: bool = False
     _last_update_dt: datetime | None = None
     _connection_host: IPv4Address | IPv6Address | str | None = None
+    # Lazy dispatcher; ``subscribe_events`` materialises it.
+    _event_dispatcher: EventDispatcher | None = None
+    # Internal events-WS adapter unsubscribe; populated while the typed
+    # ``subscribe_events`` callback list is non-empty.
+    _event_ws_adapter_unsub: Callable[[], None] | None = None
+    # Monotonic timestamp of the last "REMOVE for unknown event" INFO log;
+    # throttled so a burst of unknown-id removes does not flood the log.
+    _events_remove_unknown_last_log: float = 0.0
+    # Non-throttled running total of unknown-id REMOVE frames. The INFO log is
+    # rate-limited, so this counter keeps a sustained cache/server desync
+    # observable even when individual lines are suppressed.
+    _events_remove_unknown_count: int = 0
 
     ignore_unadopted: bool
 
@@ -1313,6 +1329,7 @@ class ProtectApiClient(BaseApiClient):
         self._ws_state_subscriptions = []
         self._events_ws_state_subscriptions = []
         self._devices_ws_state_subscriptions = []
+        self._event_dispatcher = None
         self.ignore_unadopted = ignore_unadopted
         self._update_lock = asyncio.Lock()
 
@@ -1952,6 +1969,138 @@ class ProtectApiClient(BaseApiClient):
         self._get_devices_websocket().start()
         return partial(self._unsubscribe_devices_websocket, ws_callback)
 
+    def subscribe_events(
+        self,
+        callback: Callable[[ProtectEvent, EventChange], None],
+    ) -> Callable[[], None]:
+        """
+        Subscribe to typed public event lifecycle callbacks.
+
+        Only events whose ``EventType`` maps to a non-``OTHER``
+        ``ProtectEventChannel`` (detection / sensor / alarm-hub /
+        access) are delivered; administrative events such as
+        ``provision``, ``factoryReset`` and ``fwUpdate`` are dropped.
+        Callers needing the unfiltered stream should use
+        ``subscribe_events_websocket`` instead.
+
+        The callback must not raise: an exception is caught and logged but
+        otherwise swallowed, so a raising callback silently loses that
+        delivery (e.g. an ``ENDED`` that never reaches the consumer). Do any
+        fallible work inside a guard the callback owns.
+
+        Identity and ``device_mac`` resolve with eventual consistency: the
+        first event for a freshly-enrolled ULP user can resolve to
+        ``UnknownIdentity(reason="ulp_user_not_cached")``, and a device not
+        yet in the bootstrap yields ``device_mac=None``, until the next
+        ``update_public()`` / reconnect resync refreshes
+        ``public_bootstrap.ulp_users`` and the device stores. Smart-detect
+        detected attributes (license-plate text, face-match name) are not
+        exposed over the public API today — fall back to the private path
+        via ``event.raw`` when you need them.
+        """
+        if self._public_bootstrap is None:
+            raise RuntimeError(
+                "subscribe_events() requires update_public() to have been called"
+                " at least once"
+            )
+
+        # Local import to avoid circular import (events.dispatcher → api).
+        from .events.dispatcher import EventDispatcher  # noqa: PLC0415
+
+        if self._event_dispatcher is None:
+            self._event_dispatcher = EventDispatcher(self)
+        dispatcher = self._event_dispatcher
+
+        first = dispatcher.subscriber_count == 0
+        dispatcher.add_subscriber(callback)
+
+        if first:
+            self._event_ws_adapter_unsub = self.subscribe_events_websocket(
+                self._adapt_events_ws_message
+            )
+            dispatcher.start_ttl_sweep()
+
+        return partial(self._unsubscribe_events, callback)
+
+    def _unsubscribe_events(
+        self,
+        callback: Callable[[ProtectEvent, EventChange], None],
+    ) -> None:
+        if self._event_dispatcher is None:
+            return
+        self._event_dispatcher.remove_subscriber(callback)
+        if self._event_dispatcher.subscriber_count == 0:
+            self._event_dispatcher.stop_ttl_sweep()
+            unsub = getattr(self, "_event_ws_adapter_unsub", None)
+            if unsub is not None:
+                unsub()
+                self._event_ws_adapter_unsub = None
+
+    def active_events(self, device_id: str | None = None) -> list[ProtectEvent]:
+        """
+        Return the in-flight public events, optionally filtered by device.
+
+        Derived directly from ``public_bootstrap.events``, so it works
+        before any ``subscribe_events`` call (e.g. restoring state after a
+        reload). Returns ``[]`` until ``update_public()`` has primed the
+        public bootstrap.
+        """
+        if self._public_bootstrap is None:
+            return []
+        if self._event_dispatcher is None:
+            # Local import to avoid circular import (events.dispatcher → api).
+            from .events.dispatcher import EventDispatcher  # noqa: PLC0415
+
+            self._event_dispatcher = EventDispatcher(self)
+        return self._event_dispatcher.active_events(device_id=device_id)
+
+    def _adapt_events_ws_message(self, msg: WSSubscriptionMessage) -> None:
+        if self._event_dispatcher is None:
+            return
+        dispatcher = self._event_dispatcher
+        old_obj = msg.old_obj if isinstance(msg.old_obj, Event) else None
+        if msg.action in (WSAction.ADD, WSAction.UPDATE):
+            if msg.new_obj is None:
+                # Benign in normal desync/reconnect: an UPDATE for an event id
+                # the store has not cached (or a merge/construct failure already
+                # surfaced by PublicBootstrap) arrives without a merged Event.
+                # Not a server contract change — drop quietly.
+                event_id = msg.changed_data.get("id") if msg.changed_data else None
+                _LOGGER.debug(
+                    "Events-WS %s without merged Event obj (id=%s) — dropping frame",
+                    msg.action,
+                    event_id,
+                )
+                return
+            if not isinstance(msg.new_obj, Event):
+                # A merged object of the wrong type is a genuine shape violation.
+                _LOGGER.warning(
+                    "Events-WS %s merged obj is not an Event — dropping frame"
+                    " (possible server contract change)",
+                    msg.action,
+                )
+                return
+            dispatcher.dispatch(msg.action, msg.new_obj, old_obj)
+            return
+        if msg.action is WSAction.REMOVE:
+            if old_obj is None:
+                # The store handed back no pre-removal object — a remove for
+                # an event we never cached.
+                event_id = msg.changed_data.get("id") if msg.changed_data else None
+                self._events_remove_unknown_count += 1
+                now = time.monotonic()
+                if now - self._events_remove_unknown_last_log >= 60.0:
+                    _LOGGER.info(
+                        "Events-WS remove for unknown event %s — skipping"
+                        " (throttled, logged at most once per 60s; %d total"
+                        " unknown removes so far)",
+                        event_id,
+                        self._events_remove_unknown_count,
+                    )
+                    self._events_remove_unknown_last_log = now
+                return
+            dispatcher.dispatch(WSAction.REMOVE, None, old_obj)
+
     def _unsubscribe_websocket(
         self,
         ws_callback: Callable[[WSSubscriptionMessage], None],
@@ -2093,6 +2242,23 @@ class ProtectApiClient(BaseApiClient):
                         _LOGGER.debug(
                             "Skipping public bootstrap resync (debounced, last was %.1fs ago)",
                             now - self._last_public_resync,
+                        )
+                # Force-end events that stayed open across the gap. The resync
+                # above refreshes identity/devices; events arrive only via WS
+                # so the sweep is what guarantees no stuck-active sensor. Gate
+                # on a live subscriber so a reconnect after the last
+                # unsubscribe does not mutate the shared event store.
+                if (
+                    self._event_dispatcher is not None
+                    and self._event_dispatcher.subscriber_count > 0
+                ):
+                    count = self._event_dispatcher.flush_stale_on_reconnect()
+                    if count > 0:
+                        _LOGGER.warning(
+                            "Websocket reconnected after gap; some events may"
+                            " have been missed (force-ended %d stale active"
+                            " events).",
+                            count,
                         )
 
         for sub in self._devices_ws_state_subscriptions:
@@ -4158,6 +4324,7 @@ class ProtectApiClient(BaseApiClient):
             (self.get_liveviews_public(), "liveviews", "liveviews"),
             (self.get_bridges_public(), "bridges", "bridges"),
             (self.get_viewers_public(), "viewers", "viewers"),
+            (self.get_ulp_users_public(), "ulp-users", "ulp_users"),
             (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles"),
         ]
 

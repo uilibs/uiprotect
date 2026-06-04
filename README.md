@@ -76,6 +76,69 @@ poetry run pytest
 poetry run pre-commit run --all-files
 ```
 
+## Subscribing to events
+
+`ProtectApiClient` exposes two parallel websocket contracts. The raw
+`subscribe_events_websocket` continues to deliver `WSSubscriptionMessage`
+frames for advanced callers, and the typed `subscribe_events` API
+delivers `(ProtectEvent, EventChange)` pairs intended for application
+code. The typed path goes through the Public Integration API, so the
+`ProtectApiClient` must be configured with an API key and
+`update_public()` must have been called at least once before calling
+`subscribe_events`. The raw `subscribe_events_websocket` path does not
+require an API key.
+
+```python
+import logging
+
+from uiprotect import EventChange, ProtectApiClient, ProtectEvent
+
+_LOGGER = logging.getLogger(__name__)
+
+protect = ProtectApiClient(..., api_key="...")
+await protect.update_public()
+
+def on_event(event: ProtectEvent, change: EventChange) -> None:
+    if change is EventChange.STARTED:
+        _LOGGER.info("%s on %s: %s", event.type, event.device_id, event.identity)
+    elif change is EventChange.ENDED:
+        _LOGGER.info("%s ended after %s", event.type, event.end - event.start)
+
+unsubscribe = protect.subscribe_events(on_event)
+# ...
+unsubscribe()
+```
+
+Notes:
+
+- `subscribe_events` delivers only events whose `EventType` maps to a
+  non-`OTHER` `ProtectEventChannel` (detection / sensor / alarm-hub /
+  access). Administrative events such as `provision`, `factoryReset` and
+  `fwUpdate` are dropped. Callers that need the unfiltered stream
+  should use `subscribe_events_websocket`.
+- `event.raw` is a permanent escape hatch onto the underlying private-API
+  `Event` model when the public contract does not expose the field you
+  need. In particular, smart-detect _detected attributes_ (license-plate
+  text, face-match name) are **not** available over the public API today,
+  so consumers that need them must fall back to the private path via
+  `event.raw`.
+- `EventChange.UPDATED` may carry no public-visible delta — diff
+  `event.raw` if you need to know exactly what changed.
+- `protect.active_events(device_id=...)` returns the in-flight set,
+  derived directly from the public bootstrap cache. Useful for restoring
+  binary-sensor state after a reload — it works before any
+  `subscribe_events` call as long as `update_public()` has primed the
+  cache.
+- All runtime state is sourced from `public_bootstrap`: lifecycle/active
+  state from `public_bootstrap.events`, credential-event identity from
+  `public_bootstrap.ulp_users` (UniFi Identity), and `event.device_mac`
+  from the bootstrap device stores. All are refreshed by `update_public()`
+  — including automatically on websocket reconnect — and resolve with
+  eventual consistency: an `identity` that resolves to
+  `UnknownIdentity(reason="ulp_user_not_cached")` for a freshly-enrolled
+  ULP user, or a `device_mac` of `None` for a device not yet in the
+  bootstrap, both fill in on the next `update_public()` / reconnect resync.
+
 ## History
 
 This project was split off from `pyunifiprotect` because that project changed its license to one that would not be accepted in Home Assistant. This project is committed to keeping the MIT license.

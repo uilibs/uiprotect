@@ -63,7 +63,7 @@ _LOGGER = logging.getLogger(__name__)
 MAX_SUPPORTED_CAMERAS = 256
 MAX_EVENT_HISTORY_IN_STATE_MACHINE = MAX_SUPPORTED_CAMERAS * 2
 DELETE_KEYS_THUMB = {"color", "vehicleType"}
-DELETE_KEYS_EVENT = {"deletedAt", "category", "subCategory"}
+DELETE_KEYS_EVENT = {"deletedAt", "category", "subCategory", "device"}
 
 
 class MetaInfo(ProtectBaseObject):
@@ -164,8 +164,9 @@ class EventThumbnailAttribute(ProtectBaseObject):
 
 
 class NfcMetadata(ProtectBaseObject):
-    nfc_id: str
-    user_id: str
+    nfc_id: str | None = None
+    user_id: str | None = None
+    ulp_id: str | None = None
 
     @classmethod
     @cache
@@ -174,7 +175,17 @@ class NfcMetadata(ProtectBaseObject):
             **super()._get_unifi_remaps(),
             "nfcId": "nfc_id",
             "userId": "user_id",
+            "ulpId": "ulp_id",
         }
+
+    def unifi_dict(
+        self,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
+    ) -> dict[str, Any]:
+        data = super().unifi_dict(data=data, exclude=exclude)
+        pop_dict_set_if_none(data, {"nfcId", "userId", "ulpId"})
+        return data
 
 
 class FingerprintMetadata(ProtectBaseObject):
@@ -368,6 +379,11 @@ class Event(ProtectModelWithId):
     score: int = 0
     heatmap_id: str | None = None
     camera_id: str | None = None
+    # Public Integration API ``add`` payloads carry the originating device
+    # identifier under a top-level ``device`` field; private-API payloads
+    # never populate this. Distinct from ``camera_id`` because non-camera
+    # events (sensors, alarm hubs, doorlocks) flow through the public WS.
+    device_id: str | None = None
     smart_detect_types: list[SmartDetectObjectType] = Field(default_factory=list)
     smart_detect_event_ids: list[str] = Field(default_factory=list)
     thumbnail_id: str | None = None
@@ -402,6 +418,7 @@ class Event(ProtectModelWithId):
             "user": "userId",
             "thumbnail": "thumbnailId",
             "smartDetectEvents": "smartDetectEventIds",
+            "device": "deviceId",
         }
 
     @classmethod

@@ -1,0 +1,45 @@
+[
+  {
+    "type": "add",
+    "item": {
+      "id": "11111111-1111-1111-1111-111111111115",
+      "modelKey": "event",
+      "type": "smartDetectZone",
+      "start": 1735690000000,
+      "device": "aabbccddeeff00112233aabb",
+      "smartDetectTypes": ["person"]
+    }
+  },
+  {
+    "type": "update",
+    "item": {
+      "id": "11111111-1111-1111-1111-111111111115",
+      "modelKey": "event",
+      "smartDetectTypes": ["person", "vehicle"]
+    }
+  },
+  {
+    "type": "update",
+    "item": {
+      "id": "11111111-1111-1111-1111-111111111115",
+      "modelKey": "event",
+      "end": 1735690010000
+    }
+  },
+  {
+    "type": "update",
+    "item": {
+      "id": "11111111-1111-1111-1111-111111111115",
+      "modelKey": "event",
+      "end": 1735690010000
+    }
+  },
+  {
+    "type": "update",
+    "item": {
+      "id": "11111111-1111-1111-1111-111111111115",
+      "modelKey": "event",
+      "end": 1735690010000
+    }
+  }
+]
