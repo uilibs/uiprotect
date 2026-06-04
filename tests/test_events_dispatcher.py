@@ -375,6 +375,10 @@ def test_dispatch_device_mac_none_when_device_absent(
     assert received[0][0].device_mac is None
 
 
+def test_device_mac_none_when_device_id_missing(dispatcher: EventDispatcher) -> None:
+    assert dispatcher._device_mac(None) is None
+
+
 def test_dispatch_subject_none_is_noop(
     api: ProtectApiClient, dispatcher: EventDispatcher
 ) -> None:
