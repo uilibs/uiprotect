@@ -1,5 +1,22 @@
 # Changelog
 
+## v11.1.0 (2026-06-04)
+
+### Bug fixes
+
+
+- Tolerate unknown videomode values from newer firmware ([`46a030a`](https://github.com/uilibs/uiprotect/commit/46a030a1fdd303bb63f66b980eeaccb18c734dcd))
+
+
+- Make alarm hub battery/cover fields optional ([`94b4b21`](https://github.com/uilibs/uiprotect/commit/94b4b210355578574aa757a2dacac630fe2ba0c9))
+
+
+### Features
+
+
+- Single-source protectevent + subscribe_events ([`47efd08`](https://github.com/uilibs/uiprotect/commit/47efd08d6e725dfeb5b1b6a479cdce467a8eb7fc))
+
+
 ## v11.0.2 (2026-06-04)
 
 ### Bug fixes
