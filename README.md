@@ -118,7 +118,7 @@ Notes:
   should use `subscribe_events_websocket`.
 - `event.raw` is a permanent escape hatch onto the underlying private-API
   `Event` model when the public contract does not expose the field you
-  need. In particular, smart-detect *detected attributes* (license-plate
+  need. In particular, smart-detect _detected attributes_ (license-plate
   text, face-match name) are **not** available over the public API today,
   so consumers that need them must fall back to the private path via
   `event.raw`.
