@@ -460,6 +460,17 @@ class Bootstrap(ProtectBaseObject):
         model_type: ModelType,
         data: dict[str, Any],
     ) -> WSSubscriptionMessage | None:
+        if (
+            model_type is ModelType.EVENT
+            and data.get("type") not in EventType.values_set()
+        ):
+            # Newer firmware can introduce event types this client doesn't model
+            # yet. Mirror the REST ``get_events`` guard (``api.py``) and skip the
+            # frame up front instead of routing a benign forward-compat case
+            # through the generic ``ValidationError`` backstop below.
+            _LOGGER.debug("Unknown event type: %s", data)
+            return None
+
         obj = create_from_unifi_dict(data, api=self._api, model_type=model_type)
         if model_type is ModelType.EVENT:
             if TYPE_CHECKING:
