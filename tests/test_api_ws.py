@@ -298,6 +298,53 @@ async def test_ws_event_motion(
 
 @pytest.mark.asyncio()
 @patch("uiprotect.api.datetime", MockDatetime)
+async def test_ws_event_unknown_type_dropped(
+    protect_client_no_debug: ProtectApiClient,
+    now,
+    camera,
+    packet: WSPacket,
+    caplog: pytest.LogCaptureFixture,
+):
+    """An ``add`` event frame with a type newer firmware introduced is dropped, not raised."""
+    protect_client = protect_client_no_debug
+
+    expected_event_id = "bf9a241afe74821ceffffd05"
+
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data["newUpdateId"] = "0441ecc6-f0fa-4b19-b071-7987c143138a"
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {
+        "id": expected_event_id,
+        "type": "someFutureFirmwareEvent",
+        "start": to_js_time(now - timedelta(seconds=1)),
+        "end": to_js_time(now),
+        "score": 0,
+        "smartDetectTypes": [],
+        "smartDetectEvents": [],
+        "camera": camera["id"],
+        "partition": None,
+        "user": None,
+        "metadata": {},
+        "thumbnail": f"e-{expected_event_id}",
+        "heatmap": f"e-{expected_event_id}",
+        "modelKey": "event",
+    }
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+
+    with caplog.at_level(logging.DEBUG, logger="uiprotect.data.bootstrap"):
+        # Must not raise a pydantic ValidationError on the unknown enum value.
+        protect_client._process_ws_message(msg)
+
+    assert expected_event_id not in protect_client.bootstrap.events
+    # Skipped up front by the proactive guard, not the generic validation backstop.
+    assert any("Unknown event type" in record.message for record in caplog.records)
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.datetime", MockDatetime)
 async def test_ws_event_nfc_card_scanned(
     protect_client_no_debug: ProtectApiClient,
     now,
