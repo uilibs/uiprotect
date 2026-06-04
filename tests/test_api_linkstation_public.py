@@ -74,6 +74,32 @@ def test_alarm_hub_cover_is_typed() -> None:
     assert cover.distance == 3
 
 
+def test_alarm_hub_battery_sparse_payload_when_disconnected() -> None:
+    # When the backup battery is disconnected the hub emits only ``connection``
+    # (observed on real hardware). The ``battery`` object has no ``required``
+    # array in the OpenAPI spec, so every sub-field must be optional.
+    data = _load_alarm_hub_fixture()
+    data["alarmHub"]["battery"] = {"connection": "disconnected"}
+    ls = LinkStation.from_unifi_dict(**data)
+    battery = ls.alarm_hub_battery
+    assert isinstance(battery, AlarmHubBattery)
+    assert battery.connection is AlarmHubConnectionState.DISCONNECTED
+    assert battery.charging is None
+    assert battery.voltage is None
+    assert battery.battery_status is None
+
+
+def test_alarm_hub_cover_sparse_payload() -> None:
+    # ``cover`` likewise has no ``required`` array in the spec.
+    data = _load_alarm_hub_fixture()
+    data["alarmHub"]["cover"] = {"distance": 66}
+    ls = LinkStation.from_unifi_dict(**data)
+    cover = ls.alarm_hub_cover
+    assert isinstance(cover, AlarmHubCover)
+    assert cover.distance == 66
+    assert cover.status is None
+
+
 def test_alarm_hub_inputs_keyed_by_int_and_non_numeric_skipped() -> None:
     ls = LinkStation.from_unifi_dict(**_load_alarm_hub_fixture())
     inputs = ls.alarm_hub_inputs
