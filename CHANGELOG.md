@@ -1,5 +1,13 @@
 # Changelog
 
+## v11.2.0 (2026-06-04)
+
+### Features
+
+
+- Make typer an optional cli extra ([`1bb4ddd`](https://github.com/uilibs/uiprotect/commit/1bb4dddf28a21214fee7b70303576a9dcc414003))
+
+
 ## v11.1.0 (2026-06-04)
 
 ### Bug fixes
