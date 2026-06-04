@@ -403,18 +403,30 @@ class Speaker(ProtectModelWithId):
 
 
 class AlarmHubBattery(ProtectBaseObject):
-    """Backup battery status of an alarm hub (``alarmHub.battery`` sub-schema)."""
+    """
+    Backup battery status of an alarm hub (``alarmHub.battery`` sub-schema).
 
-    charging: OnOffState
-    connection: AlarmHubConnectionState
+    The ``battery`` object declares no ``required`` array in the OpenAPI spec,
+    and a real hub with the backup battery disconnected emits only
+    ``connection`` (omitting ``charging``/``voltage``/``batteryStatus``), so
+    every field is optional.
+    """
+
+    charging: OnOffState | None = None
+    connection: AlarmHubConnectionState | None = None
     voltage: float | None = None
-    battery_status: AlarmHubBatteryStatus
+    battery_status: AlarmHubBatteryStatus | None = None
 
 
 class AlarmHubCover(ProtectBaseObject):
-    """Tamper cover status of an alarm hub (``alarmHub.cover`` sub-schema)."""
+    """
+    Tamper cover status of an alarm hub (``alarmHub.cover`` sub-schema).
 
-    status: AlarmHubCoverStatus
+    The ``cover`` object declares no ``required`` array in the OpenAPI spec, so
+    both fields are optional.
+    """
+
+    status: AlarmHubCoverStatus | None = None
     distance: int | None = None
 
 
