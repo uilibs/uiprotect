@@ -4,15 +4,16 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime
-from typing import Any, cast
-
-import pytest
+from typing import TYPE_CHECKING, Any, cast
 
 from uiprotect.api import ProtectApiClient
 from uiprotect.data.nvr import Event
 from uiprotect.data.types import EventType
 from uiprotect.data.websocket import WSAction, WSSubscriptionMessage
 from uiprotect.events.dispatcher import EventDispatcher
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def _make_client() -> ProtectApiClient:
