@@ -1,5 +1,13 @@
 # Changelog
 
+## v11.3.1 (2026-06-04)
+
+### Bug fixes
+
+
+- Skip unknown event types on the live stream ([`9bf519b`](https://github.com/uilibs/uiprotect/commit/9bf519be2a6cfd19bd0e94e6f95ba129ec393c9a))
+
+
 ## v11.3.0 (2026-06-04)
 
 ### Features
