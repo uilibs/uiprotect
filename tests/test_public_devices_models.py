@@ -1,0 +1,257 @@
+"""Dedicated public device models (PublicCamera/Light/Sensor/Chime) and WS routing."""
+
+from __future__ import annotations
+
+from typing import Any
+from unittest.mock import Mock
+
+import pytest
+
+from uiprotect.data import (
+    PublicCamera,
+    PublicChime,
+    PublicLight,
+    PublicSensor,
+)
+from uiprotect.data.public_bootstrap import PublicBootstrap
+from uiprotect.data.types import ModelType
+from uiprotect.exceptions import BadRequest
+
+CAMERA_PAYLOAD: dict[str, Any] = {
+    "id": "cam1",
+    "modelKey": "camera",
+    "state": "CONNECTED",
+    "name": "Front Door",
+    "mac": "AABBCCDDEEFF",
+    "isMicEnabled": True,
+    "osdSettings": {
+        "isNameEnabled": True,
+        "isDateEnabled": True,
+        "isLogoEnabled": False,
+        "isDebugEnabled": False,
+        "overlayLocation": "topLeft",
+    },
+    "ledSettings": {"isEnabled": True, "welcomeLed": None, "floodLed": None},
+    "lcdMessage": {},
+    "micVolume": 100,
+    "activePatrolSlot": None,
+    "videoMode": "default",
+    "hdrType": "auto",
+    "featureFlags": {
+        "supportFullHdSnapshot": False,
+        "hasHdr": True,
+        "hasMic": True,
+        "hasLedStatus": True,
+        "hasSpeaker": False,
+        "videoModes": ["default"],
+        "smartDetectTypes": ["person"],
+        "smartDetectAudioTypes": ["alrmSmoke"],
+    },
+    "smartDetectSettings": {"objectTypes": ["person"], "audioTypes": ["alrmSmoke"]},
+    "hasPackageCamera": False,
+}
+
+LIGHT_PAYLOAD: dict[str, Any] = {
+    "id": "light1",
+    "modelKey": "light",
+    "state": "CONNECTED",
+    "name": "Garage Light",
+    "mac": "AABBCCDDEE01",
+    "lightModeSettings": {"mode": "motion", "enableAt": "dark"},
+    "lightDeviceSettings": {
+        "isIndicatorEnabled": True,
+        "pirDuration": 15000,
+        "pirSensitivity": 80,
+        "ledLevel": 3,
+    },
+    "isDark": True,
+    "isLightOn": False,
+    "isLightForceEnabled": False,
+    "lastMotion": None,
+    "isPirMotionDetected": False,
+    "camera": "cam1",
+}
+
+SENSOR_PAYLOAD: dict[str, Any] = {
+    "id": "sensor1",
+    "modelKey": "sensor",
+    "state": "CONNECTED",
+    "name": "Kitchen Sensor",
+    "mac": "AABBCCDDEE02",
+    "mountType": "door",
+    "batteryStatus": {"percentage": 90, "isLow": False},
+    "stats": {
+        "light": {"value": 12.0, "status": "neutral"},
+        "humidity": {"value": None, "status": "unknown"},
+        "temperature": {"value": 22.5, "status": "neutral"},
+    },
+    "lightSettings": {
+        "isEnabled": True,
+        "margin": 1,
+        "lowThreshold": 1.0,
+        "highThreshold": 100.0,
+    },
+    "humiditySettings": {
+        "isEnabled": False,
+        "margin": 1,
+        "lowThreshold": None,
+        "highThreshold": None,
+    },
+    "temperatureSettings": {
+        "isEnabled": False,
+        "margin": 1,
+        "lowThreshold": None,
+        "highThreshold": None,
+    },
+    "isOpened": False,
+    "openStatusChangedAt": None,
+    "isMotionDetected": False,
+    "motionDetectedAt": None,
+    "motionSettings": {"isEnabled": True, "sensitivity": 50},
+    "alarmTriggeredAt": None,
+    "alarmSettings": {"isEnabled": False},
+    "leakDetectedAt": None,
+    "externalLeakDetectedAt": None,
+    "leakSettings": {"isInternalEnabled": False, "isExternalEnabled": False},
+    "tamperingDetectedAt": None,
+    "wirelessConnectionState": {
+        "signalState": {"signalQuality": 80, "signalStrength": -50},
+        "batteryStatus": {"percentage": 90, "isLow": False},
+        "bridge": "bridge1",
+    },
+}
+
+CHIME_PAYLOAD: dict[str, Any] = {
+    "id": "chime1",
+    "modelKey": "chime",
+    "state": "CONNECTED",
+    "name": "Hallway Chime",
+    "mac": "AABBCCDDEE03",
+    "cameraIds": ["cam1", "cam2"],
+    "ringSettings": [
+        {
+            "cameraId": "cam1",
+            "repeatTimes": 2,
+            "ringtoneId": "rt1",
+            "volume": 75,
+        }
+    ],
+}
+
+
+@pytest.mark.parametrize(
+    ("cls", "payload", "field_count"),
+    [
+        (PublicCamera, CAMERA_PAYLOAD, 16),
+        (PublicLight, LIGHT_PAYLOAD, 13),
+        (PublicSensor, SENSOR_PAYLOAD, 23),
+        (PublicChime, CHIME_PAYLOAD, 7),
+    ],
+)
+def test_public_model_field_set(
+    cls: type, payload: dict[str, Any], field_count: int
+) -> None:
+    """Each public model exposes exactly its spec field count and parses its payload."""
+    assert len(cls.model_fields) == field_count
+    obj = cls.from_unifi_dict(api=Mock(), **dict(payload))
+    assert obj.name == payload["name"]
+
+
+@pytest.mark.parametrize(
+    ("cls", "payload"),
+    [
+        (PublicCamera, CAMERA_PAYLOAD),
+        (PublicLight, LIGHT_PAYLOAD),
+        (PublicSensor, SENSOR_PAYLOAD),
+        (PublicChime, CHIME_PAYLOAD),
+    ],
+)
+def test_public_model_name_nullable(cls: type, payload: dict[str, Any]) -> None:
+    """``name`` is present-but-nullable: a ``null`` wire value parses to ``None``."""
+    data = dict(payload)
+    data["name"] = None
+    obj = cls.from_unifi_dict(api=Mock(), **data)
+    assert obj.name is None
+
+
+def test_public_camera_drops_private_only_fields() -> None:
+    """A private-only key on the payload is not modeled and not stored."""
+    assert "recording_settings" not in PublicCamera.model_fields
+    obj = PublicCamera.from_unifi_dict(
+        api=Mock(), **{**CAMERA_PAYLOAD, "recordingSettings": {"mode": "always"}}
+    )
+    assert not hasattr(obj, "recording_settings")
+
+
+def test_public_sensor_sub_models_typed() -> None:
+    """Sensor leaf payloads parse into the dedicated read-shape sub-models."""
+    sensor = PublicSensor.from_unifi_dict(api=Mock(), **dict(SENSOR_PAYLOAD))
+    assert sensor.battery_status.percentage == 90
+    assert sensor.stats.temperature.value == 22.5
+    assert sensor.stats.humidity.value is None
+    assert sensor.leak_settings.is_internal_enabled is False
+
+
+@pytest.mark.parametrize(
+    ("model_type", "payload", "cls", "store_attr"),
+    [
+        (ModelType.CAMERA, CAMERA_PAYLOAD, PublicCamera, "cameras"),
+        (ModelType.LIGHT, LIGHT_PAYLOAD, PublicLight, "lights"),
+        (ModelType.SENSOR, SENSOR_PAYLOAD, PublicSensor, "sensors"),
+        (ModelType.CHIME, CHIME_PAYLOAD, PublicChime, "chimes"),
+    ],
+)
+def test_ws_add_update_remove_routes_to_public_model(
+    model_type: ModelType,
+    payload: dict[str, Any],
+    cls: type,
+    store_attr: str,
+) -> None:
+    """WS add/update/remove caches the dedicated public model, not the private one."""
+    pb = PublicBootstrap()
+    api = Mock()
+
+    mt, new, _old = pb.process_devices_ws_message(
+        api, {"type": "add", "item": dict(payload)}
+    )
+    assert mt is model_type
+    assert isinstance(new, cls)
+    store = getattr(pb, store_attr)
+    assert isinstance(store[payload["id"]], cls)
+
+    # update diff that omits ``name`` must preserve it.
+    mt, merged, _old = pb.process_devices_ws_message(
+        api,
+        {
+            "type": "update",
+            "item": {"id": payload["id"], "modelKey": payload["modelKey"], "mac": "X"},
+        },
+    )
+    assert isinstance(merged, cls)
+    assert merged.name == payload["name"]
+    assert merged.mac == "X"
+
+    pb.process_devices_ws_message(
+        api,
+        {
+            "type": "remove",
+            "item": {"id": payload["id"], "modelKey": payload["modelKey"]},
+        },
+    )
+    assert payload["id"] not in getattr(pb, store_attr)
+
+
+def test_get_device_mac_resolves_public_devices() -> None:
+    """Routing the four types via factory slots keeps them mac-resolvable."""
+    pb = PublicBootstrap()
+    pb.process_devices_ws_message(Mock(), {"type": "add", "item": dict(SENSOR_PAYLOAD)})
+    assert pb.get_device_mac("sensor1") == "AABBCCDDEE02"
+
+
+@pytest.mark.parametrize("cls", [PublicCamera, PublicLight, PublicSensor, PublicChime])
+@pytest.mark.asyncio()
+async def test_public_model_api_update_blocked(cls: type) -> None:
+    """The generic mutation path is blocked in favor of the public helpers."""
+    obj = cls.model_construct()
+    with pytest.raises(BadRequest):
+        await obj._api_update({})

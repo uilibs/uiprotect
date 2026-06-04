@@ -173,7 +173,7 @@ async def test_get_public_api_camera_snapshot_no_package(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.api.Sensor.from_unifi_dict")
+@patch("uiprotect.api.PublicSensor.from_unifi_dict")
 async def test_get_sensors_public(
     mock_ctor: Mock,
     protect_client: ProtectApiClient,
@@ -190,7 +190,7 @@ async def test_get_sensors_public(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.api.Sensor.from_unifi_dict")
+@patch("uiprotect.api.PublicSensor.from_unifi_dict")
 async def test_get_sensor_public(
     mock_ctor: Mock,
     protect_client: ProtectApiClient,
@@ -212,7 +212,7 @@ async def test_update_sensor_public_requires_args(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.api.Sensor.from_unifi_dict")
+@patch("uiprotect.api.PublicSensor.from_unifi_dict")
 async def test_update_sensor_public_body(
     mock_ctor: Mock,
     protect_client: ProtectApiClient,
@@ -1818,7 +1818,7 @@ async def test_set_current_arm_profile_updates_arm_mode_profile_id(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.api.Sensor.from_unifi_dict")
+@patch("uiprotect.api.PublicSensor.from_unifi_dict")
 async def test_update_sensor_public_all_settings(
     mock_ctor: Mock,
     protect_client: ProtectApiClient,

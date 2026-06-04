@@ -34,7 +34,6 @@ from typing import TYPE_CHECKING, Any, cast
 
 from .base import ProtectModelWithId
 from .convert import create_from_unifi_dict
-from .devices import Camera, Chime, Light, Sensor
 from .nvr import Event
 from .public_devices import (
     ArmProfile,
@@ -42,8 +41,12 @@ from .public_devices import (
     LinkStation,
     NvrArmMode,
     PublicBridge,
+    PublicCamera,
+    PublicChime,
+    PublicLight,
     PublicLiveview,
     PublicNVR,
+    PublicSensor,
     PublicUlpUser,
     PublicViewer,
     Relay,
@@ -67,16 +70,52 @@ DEFAULT_PUBLIC_EVENT_CACHE_SIZE = 1000
 # Only the models that the Public Integration API actually exposes are
 # listed here. Unsupported model keys (``doorlock``, ``viewport`` etc.) are
 # logged at DEBUG and ignored in :meth:`process_devices_ws_message`.
+#
+# ``camera``/``light``/``sensor``/``chime`` are *not* listed here: their
+# ``ModelType`` values are already owned by the private classes in
+# ``MODEL_TO_CLASS``, so the generic ``create_from_unifi_dict`` path would
+# build the private model (reintroducing phantom fields). They are routed via
+# dedicated public-API factory slots instead (see :meth:`_custom_slot_for`).
 _DEVICE_STORES: dict[ModelType, str] = {
-    ModelType.CAMERA: "cameras",
-    ModelType.LIGHT: "lights",
-    ModelType.SENSOR: "sensors",
-    ModelType.CHIME: "chimes",
     ModelType.SIREN: "sirens",
     ModelType.RELAY: "relays",
     ModelType.FOB: "fobs",
     ModelType.SPEAKER: "speakers",
     ModelType.LINK_STATION: "link_stations",
+}
+
+# Device stores carrying a ``mac`` field, used by :meth:`get_device_mac`. This
+# spans both the generic ``_DEVICE_STORES`` and the factory-routed public
+# device stores (``cameras``/``lights``/``sensors``/``chimes``).
+_MAC_DEVICE_STORE_ATTRS: tuple[str, ...] = (
+    "cameras",
+    "lights",
+    "sensors",
+    "chimes",
+    *_DEVICE_STORES.values(),
+)
+
+# ModelType -> store attribute for types routed through a dedicated public-API
+# factory slot rather than the generic ``MODEL_TO_CLASS`` path (because their
+# ``ModelType`` is owned by a private class in ``MODEL_TO_CLASS``).
+_CUSTOM_STORE_ATTRS: dict[ModelType, str] = {
+    ModelType.LIVEVIEW: "liveviews",
+    ModelType.BRIDGE: "bridges",
+    ModelType.VIEWPORT: "viewers",
+    ModelType.CAMERA: "cameras",
+    ModelType.LIGHT: "lights",
+    ModelType.SENSOR: "sensors",
+    ModelType.CHIME: "chimes",
+}
+
+# ModelType -> (store attribute, public model class) for the four device types
+# whose ``ModelType`` collides with a private ``MODEL_TO_CLASS`` entry. Their
+# ``add`` frames are constructed via :meth:`PublicBootstrap._public_device_slot`.
+_PUBLIC_DEVICE_CLASSES: dict[ModelType, tuple[str, type[ProtectModelWithId]]] = {
+    ModelType.CAMERA: ("cameras", PublicCamera),
+    ModelType.LIGHT: ("lights", PublicLight),
+    ModelType.SENSOR: ("sensors", PublicSensor),
+    ModelType.CHIME: ("chimes", PublicChime),
 }
 
 
@@ -103,10 +142,15 @@ class PublicBootstrap:
 
     # Device stores (indexed by id). Only the device classes that the
     # Public Integration API actually exposes are kept here.
-    cameras: dict[str, Camera] = field(default_factory=dict)
-    lights: dict[str, Light] = field(default_factory=dict)
-    sensors: dict[str, Sensor] = field(default_factory=dict)
-    chimes: dict[str, Chime] = field(default_factory=dict)
+    #
+    # ``cameras``/``lights``/``sensors``/``chimes`` hold dedicated ``Public*``
+    # models — they share a ``ModelType`` with the private classes, so they are
+    # routed via factory slots (see :meth:`_custom_slot_for`), not the generic
+    # ``MODEL_TO_CLASS`` path.
+    cameras: dict[str, PublicCamera] = field(default_factory=dict)
+    lights: dict[str, PublicLight] = field(default_factory=dict)
+    sensors: dict[str, PublicSensor] = field(default_factory=dict)
+    chimes: dict[str, PublicChime] = field(default_factory=dict)
     sirens: dict[str, Siren] = field(default_factory=dict)
     relays: dict[str, Relay] = field(default_factory=dict)
     fobs: dict[str, Fob] = field(default_factory=dict)
@@ -177,13 +221,7 @@ class PublicBootstrap:
     # ------------------------------------------------------------------
 
     def _store_for(self, model_type: ModelType) -> dict[str, ProtectModelWithId] | None:
-        if model_type is ModelType.LIVEVIEW:
-            return cast("dict[str, ProtectModelWithId]", self.liveviews)
-        if model_type is ModelType.BRIDGE:
-            return cast("dict[str, ProtectModelWithId]", self.bridges)
-        if model_type is ModelType.VIEWPORT:
-            return cast("dict[str, ProtectModelWithId]", self.viewers)
-        attr = _DEVICE_STORES.get(model_type)
+        attr = _CUSTOM_STORE_ATTRS.get(model_type) or _DEVICE_STORES.get(model_type)
         if attr is None:
             return None
         return cast("dict[str, ProtectModelWithId]", getattr(self, attr))
@@ -197,7 +235,7 @@ class PublicBootstrap:
 
     def get_device_mac(self, device_id: str) -> str | None:
         """Resolve a device id to its mac across the public device stores."""
-        for attr in _DEVICE_STORES.values():
+        for attr in _MAC_DEVICE_STORE_ATTRS:
             obj = getattr(self, attr).get(device_id)
             if obj is not None:
                 return getattr(obj, "mac", None)
@@ -285,7 +323,26 @@ class PublicBootstrap:
             return self._bridges_slot()
         if model_type is ModelType.VIEWPORT:
             return self._viewers_slot()
+        device = _PUBLIC_DEVICE_CLASSES.get(model_type)
+        if device is not None:
+            store_attr, cls = device
+            return self._public_device_slot(getattr(self, store_attr), cls)
         return None
+
+    @staticmethod
+    def _public_device_slot(
+        store: dict[str, Any],
+        cls: type[ProtectModelWithId],
+    ) -> _Slot:
+        """Return a slot around a public device store with a public-API factory."""
+
+        def _factory(item: dict[str, Any], api: ProtectApiClient) -> ProtectModelWithId:
+            return cls.from_unifi_dict(api=api, **item)
+
+        return _dict_slot(
+            cast("dict[str, ProtectModelWithId]", store),
+            factory=_factory,
+        )
 
     def process_events_ws_message(
         self,
