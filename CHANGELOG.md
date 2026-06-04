@@ -1,5 +1,13 @@
 # Changelog
 
+## v11.3.0 (2026-06-04)
+
+### Features
+
+
+- Move cli-only dependencies (rich, dateparser, pillow) into the cli extra ([`297a63e`](https://github.com/uilibs/uiprotect/commit/297a63e4b1163242a5d7622f4bb00a0e48869b65))
+
+
 ## v11.2.0 (2026-06-04)
 
 ### Features
