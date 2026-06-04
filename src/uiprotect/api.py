@@ -11,14 +11,13 @@ import re
 import sys
 import time
 import warnings
-from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import partial
 from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, Self, TypedDict, cast
 from urllib.parse import SplitResult, quote
 
 import aiofiles
@@ -32,7 +31,6 @@ from yarl import URL
 
 from uiprotect.data.base import ProtectBaseObject
 from uiprotect.data.convert import list_from_unifi_list
-from uiprotect.data.devices import LightDeviceSettings, LightModeSettings
 from uiprotect.data.nvr import MetaInfo
 from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
 
@@ -89,7 +87,6 @@ from .data import (
     WSSubscriptionMessage,
     create_from_unifi_dict,
 )
-from .data.base import ProtectModelWithId
 from .data.devices import AiPort, Chime
 from .data.types import (
     AssetFileType,
@@ -99,7 +96,6 @@ from .data.types import (
     PTZPreset,
     SirenDuration,
 )
-from .events import EventChange, ProtectEvent
 from .exceptions import BadRequest, GlobalAlarmManagerError, NotAuthorized, NvrError
 from .stream import TalkbackSession
 
@@ -116,6 +112,14 @@ from .utils import (
     utc_now,
 )
 from .websocket import Websocket, WebsocketState
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from uiprotect.data.devices import LightDeviceSettings, LightModeSettings
+
+    from .data.base import ProtectModelWithId
+    from .events import EventChange, ProtectEvent
 
 if "partitioned" not in cookies.Morsel._reserved:  # type: ignore[attr-defined]
     # See: https://github.com/python/cpython/issues/112713
@@ -206,9 +210,11 @@ _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
 # A dedicated singleton type keeps the sentinel out of ``Any`` so callers
 # can't accidentally smuggle it through the typed surface.
 class _UnsetType:
-    _instance: _UnsetType | None = None
+    # ``Self`` rather than ``_UnsetType`` so the singleton stays correctly
+    # typed under any (currently hypothetical) subclass — also satisfies PYI034.
+    _instance: Self | None = None
 
-    def __new__(cls) -> _UnsetType:
+    def __new__(cls) -> Self:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
@@ -1090,7 +1096,7 @@ class BaseApiClient:
         ):
             return False
 
-        token_expires_at = cast(int, self._last_token_cookie_decode["exp"])
+        token_expires_at = cast("int", self._last_token_cookie_decode["exp"])
         max_expire_time = time.time() + TOKEN_COOKIE_MAX_EXP_SECONDS
 
         return token_expires_at >= max_expire_time
@@ -1443,10 +1449,10 @@ class ProtectApiClient(BaseApiClient):
                     _LOGGER.debug("No access to ulp-users %s, skipping", err)
                     ulp_users = []
                 bootstrap.keyrings = Keyrings.from_list(
-                    cast(list[Keyring], list_from_unifi_list(self, keyrings))
+                    cast("list[Keyring]", list_from_unifi_list(self, keyrings))
                 )
                 bootstrap.ulp_users = UlpUsers.from_list(
-                    cast(list[UlpUser], list_from_unifi_list(self, ulp_users))
+                    cast("list[UlpUser]", list_from_unifi_list(self, ulp_users))
                 )
             self.__dict__.pop("bootstrap", None)
             self._bootstrap = bootstrap
@@ -2327,7 +2333,7 @@ class ProtectApiClient(BaseApiClient):
 
         The websocket is connected and running, you likely just want to use `self.bootstrap.cameras`
         """
-        return cast(list[Camera], await self.get_devices(ModelType.CAMERA, Camera))
+        return cast("list[Camera]", await self.get_devices(ModelType.CAMERA, Camera))
 
     async def get_lights(self) -> list[Light]:
         """
@@ -2339,7 +2345,7 @@ class ProtectApiClient(BaseApiClient):
             Use :meth:`get_lights_public` instead. This method uses the private API
             and will be removed in a future version.
         """
-        return cast(list[Light], await self.get_devices(ModelType.LIGHT, Light))
+        return cast("list[Light]", await self.get_devices(ModelType.LIGHT, Light))
 
     async def get_sensors(self) -> list[Sensor]:
         """
@@ -2347,7 +2353,7 @@ class ProtectApiClient(BaseApiClient):
 
         The websocket is connected and running, you likely just want to use `self.bootstrap.sensors`
         """
-        return cast(list[Sensor], await self.get_devices(ModelType.SENSOR, Sensor))
+        return cast("list[Sensor]", await self.get_devices(ModelType.SENSOR, Sensor))
 
     async def get_doorlocks(self) -> list[Doorlock]:
         """
@@ -2356,7 +2362,7 @@ class ProtectApiClient(BaseApiClient):
         The websocket is connected and running, you likely just want to use `self.bootstrap.doorlocks`
         """
         return cast(
-            list[Doorlock],
+            "list[Doorlock]",
             await self.get_devices(ModelType.DOORLOCK, Doorlock),
         )
 
@@ -2366,7 +2372,7 @@ class ProtectApiClient(BaseApiClient):
 
         The websocket is connected and running, you likely just want to use `self.bootstrap.chimes`
         """
-        return cast(list[Chime], await self.get_devices(ModelType.CHIME, Chime))
+        return cast("list[Chime]", await self.get_devices(ModelType.CHIME, Chime))
 
     async def get_aiports(self) -> list[AiPort]:
         """
@@ -2374,7 +2380,7 @@ class ProtectApiClient(BaseApiClient):
 
         The websocket is connected and running, you likely just want to use `self.bootstrap.aiports`
         """
-        return cast(list[AiPort], await self.get_devices(ModelType.AIPORT, AiPort))
+        return cast("list[AiPort]", await self.get_devices(ModelType.AIPORT, AiPort))
 
     async def get_viewers(self) -> list[Viewer]:
         """
@@ -2382,7 +2388,7 @@ class ProtectApiClient(BaseApiClient):
 
         The websocket is connected and running, you likely just want to use `self.bootstrap.viewers`
         """
-        return cast(list[Viewer], await self.get_devices(ModelType.VIEWPORT, Viewer))
+        return cast("list[Viewer]", await self.get_devices(ModelType.VIEWPORT, Viewer))
 
     async def get_bridges(self) -> list[Bridge]:
         """
@@ -2390,7 +2396,7 @@ class ProtectApiClient(BaseApiClient):
 
         The websocket is connected and running, you likely just want to use `self.bootstrap.bridges`
         """
-        return cast(list[Bridge], await self.get_devices(ModelType.BRIDGE, Bridge))
+        return cast("list[Bridge]", await self.get_devices(ModelType.BRIDGE, Bridge))
 
     async def get_liveviews(self) -> list[Liveview]:
         """
@@ -2399,7 +2405,7 @@ class ProtectApiClient(BaseApiClient):
         The websocket is connected and running, you likely just want to use `self.bootstrap.liveviews`
         """
         return cast(
-            list[Liveview],
+            "list[Liveview]",
             await self.get_devices(ModelType.LIVEVIEW, Liveview),
         )
 
@@ -2432,7 +2438,7 @@ class ProtectApiClient(BaseApiClient):
         ):
             raise NvrError("Device is not adopted")
 
-        return cast(ProtectModelWithId, obj)
+        return cast("ProtectModelWithId", obj)
 
     async def get_nvr(self) -> NVR:
         """
@@ -2450,7 +2456,7 @@ class ProtectApiClient(BaseApiClient):
 
         This is a great alternative if the event is no longer in the `self.bootstrap.events[event_id]` cache
         """
-        return cast(Event, await self.get_device(ModelType.EVENT, event_id, Event))
+        return cast("Event", await self.get_device(ModelType.EVENT, event_id, Event))
 
     async def get_camera(self, device_id: str) -> Camera:
         """
@@ -2458,7 +2464,9 @@ class ProtectApiClient(BaseApiClient):
 
         The websocket is connected and running, you likely just want to use `self.bootstrap.cameras[device_id]`
         """
-        return cast(Camera, await self.get_device(ModelType.CAMERA, device_id, Camera))
+        return cast(
+            "Camera", await self.get_device(ModelType.CAMERA, device_id, Camera)
+        )
 
     async def get_light(self, device_id: str) -> Light:
         """
@@ -2470,7 +2478,7 @@ class ProtectApiClient(BaseApiClient):
             Use :meth:`get_light_public` instead. This method uses the private API
             and will be removed in a future version.
         """
-        return cast(Light, await self.get_device(ModelType.LIGHT, device_id, Light))
+        return cast("Light", await self.get_device(ModelType.LIGHT, device_id, Light))
 
     async def get_sensor(self, device_id: str) -> Sensor:
         """
@@ -2478,7 +2486,9 @@ class ProtectApiClient(BaseApiClient):
 
         The websocket is connected and running, you likely just want to use `self.bootstrap.sensors[device_id]`
         """
-        return cast(Sensor, await self.get_device(ModelType.SENSOR, device_id, Sensor))
+        return cast(
+            "Sensor", await self.get_device(ModelType.SENSOR, device_id, Sensor)
+        )
 
     async def get_doorlock(self, device_id: str) -> Doorlock:
         """
@@ -2487,7 +2497,7 @@ class ProtectApiClient(BaseApiClient):
         The websocket is connected and running, you likely just want to use `self.bootstrap.doorlocks[device_id]`
         """
         return cast(
-            Doorlock,
+            "Doorlock",
             await self.get_device(ModelType.DOORLOCK, device_id, Doorlock),
         )
 
@@ -2497,7 +2507,7 @@ class ProtectApiClient(BaseApiClient):
 
         The websocket is connected and running, you likely just want to use `self.bootstrap.chimes[device_id]`
         """
-        return cast(Chime, await self.get_device(ModelType.CHIME, device_id, Chime))
+        return cast("Chime", await self.get_device(ModelType.CHIME, device_id, Chime))
 
     async def get_aiport(self, device_id: str) -> AiPort:
         """
@@ -2505,7 +2515,9 @@ class ProtectApiClient(BaseApiClient):
 
         The websocket is connected and running, you likely just want to use `self.bootstrap.aiport[device_id]`
         """
-        return cast(AiPort, await self.get_device(ModelType.AIPORT, device_id, AiPort))
+        return cast(
+            "AiPort", await self.get_device(ModelType.AIPORT, device_id, AiPort)
+        )
 
     async def get_viewer(self, device_id: str) -> Viewer:
         """
@@ -2514,7 +2526,7 @@ class ProtectApiClient(BaseApiClient):
         The websocket is connected and running, you likely just want to use `self.bootstrap.viewers[device_id]`
         """
         return cast(
-            Viewer,
+            "Viewer",
             await self.get_device(ModelType.VIEWPORT, device_id, Viewer),
         )
 
@@ -2524,7 +2536,9 @@ class ProtectApiClient(BaseApiClient):
 
         The websocket is connected and running, you likely just want to use `self.bootstrap.bridges[device_id]`
         """
-        return cast(Bridge, await self.get_device(ModelType.BRIDGE, device_id, Bridge))
+        return cast(
+            "Bridge", await self.get_device(ModelType.BRIDGE, device_id, Bridge)
+        )
 
     async def get_liveview(self, device_id: str) -> Liveview:
         """
@@ -2533,7 +2547,7 @@ class ProtectApiClient(BaseApiClient):
         The websocket is connected and running, you likely just want to use `self.bootstrap.liveviews[device_id]`
         """
         return cast(
-            Liveview,
+            "Liveview",
             await self.get_device(ModelType.LIVEVIEW, device_id, Liveview),
         )
 
@@ -3396,7 +3410,7 @@ class ProtectApiClient(BaseApiClient):
         if not presets:
             return []
 
-        presets = cast(list[dict[str, Any]], presets)
+        presets = cast("list[dict[str, Any]]", presets)
         return [PTZPreset(**p) for p in presets]
 
     async def get_patrols_ptz_camera(self, device_id: str) -> list[PTZPatrol]:
@@ -3406,7 +3420,7 @@ class ProtectApiClient(BaseApiClient):
         if not patrols:
             return []
 
-        patrols = cast(list[dict[str, Any]], patrols)
+        patrols = cast("list[dict[str, Any]]", patrols)
         return [PTZPatrol(**p) for p in patrols]
 
     # PTZ Control Public API Methods

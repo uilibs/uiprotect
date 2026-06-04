@@ -1104,7 +1104,8 @@ def test_bootstrap_aiports_missing(bootstrap: dict[str, Any]):
     with patch.object(logger, "error") as mock_log_error:
         obj = Bootstrap.from_unifi_dict(**deepcopied_bootstrap_1)
         mock_log_error.assert_called_once_with(
-            "Missing key in bootstrap: aiports. This may be fixed by updating Protect."
+            "Missing key in bootstrap: %s. This may be fixed by updating Protect.",
+            "aiports",
         )
         assert obj.aiports == {}
 
@@ -1169,7 +1170,7 @@ def test_bootstrap_device_not_adopted_no_api(bootstrap):
     obj = Bootstrap.from_unifi_dict(**deepcopy(bootstrap))
 
     set_no_debug()
-    obj_construct = cast(Bootstrap, Bootstrap.from_unifi_dict(**deepcopy(bootstrap)))
+    obj_construct = cast("Bootstrap", Bootstrap.from_unifi_dict(**deepcopy(bootstrap)))
     set_debug()
 
     assert len(obj.cameras) == len(bootstrap["cameras"])

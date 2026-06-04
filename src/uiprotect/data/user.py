@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from datetime import datetime
 from functools import cache
-from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar
+from typing import Any, Generic, Self, TypeVar
 
 from pydantic.fields import PrivateAttr
 
@@ -275,9 +275,9 @@ class UlpUserKeyringBase(Generic[T]):
     def as_list(self) -> list[T]:
         return list(self._id_to_item.values())
 
-    def __eq__(self, other: Any) -> bool:
-        if TYPE_CHECKING:
-            assert isinstance(other, UlpUserKeyringBase)
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, UlpUserKeyringBase):
+            return NotImplemented
         return self._id_to_item == other._id_to_item
 
 
@@ -312,7 +312,7 @@ class Keyrings(UlpUserKeyringBase[Keyring]):
     def by_registry_id(self, registry_id: str) -> Keyring | None:
         return self._keyrings_by_registry_id.get(registry_id)
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Keyrings):
             return NotImplemented
         return super().__eq__(other)
@@ -343,7 +343,7 @@ class UlpUsers(UlpUserKeyringBase[UlpUser]):
     def by_ulp_id(self, ulp_id: str) -> UlpUser | None:
         return self._users_by_ulp_id.get(ulp_id)
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, UlpUsers):
             return NotImplemented
         return super().__eq__(other)

@@ -18,7 +18,6 @@ from decimal import Decimal
 from enum import Enum
 from functools import cache, lru_cache, partial
 from hashlib import sha224
-from http.cookies import Morsel
 from inspect import isclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from operator import attrgetter
@@ -27,8 +26,6 @@ from typing import TYPE_CHECKING, Any, TypeVar, Union, get_args, overload
 from uuid import UUID
 
 import jwt
-from aiohttp import ClientResponse
-from pydantic.fields import FieldInfo
 
 from .data.types import (
     Color,
@@ -41,6 +38,11 @@ from .data.types import (
 from .exceptions import NvrError
 
 if TYPE_CHECKING:
+    from http.cookies import Morsel
+
+    from aiohttp import ClientResponse
+    from pydantic.fields import FieldInfo
+
     from uiprotect.api import ProtectApiClient
     from uiprotect.data import CoordType, Event
     from uiprotect.data.bootstrap import WSStat
@@ -451,7 +453,7 @@ def ws_stat_summmary(
 
 async def write_json(output_path: Path, data: list[Any] | dict[str, Any]) -> None:
     def write() -> None:
-        with open(output_path, "w", encoding="utf-8") as f:
+        with output_path.open("w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
             f.write("\n")
 
@@ -593,12 +595,13 @@ def get_local_timezone() -> tzinfo:
     if timezone_locale.exists():
         tzfile_digest = sha224(Path(timezone_locale).read_bytes()).hexdigest()
 
-        for root, _, filenames in os.walk(Path("/usr/share/zoneinfo/")):
+        zoneinfo_root = Path("/usr/share/zoneinfo")
+        for root, _, filenames in os.walk(zoneinfo_root):
             for filename in filenames:
-                fullname = os.path.join(root, filename)
-                digest = sha224(Path(fullname).read_bytes()).hexdigest()
+                fullname = Path(root) / filename
+                digest = sha224(fullname.read_bytes()).hexdigest()
                 if digest == tzfile_digest:
-                    timezone_name = "/".join((fullname.split("/"))[-2:])
+                    timezone_name = fullname.relative_to(zoneinfo_root).as_posix()
 
     return _set_timezone(timezone_name)
 

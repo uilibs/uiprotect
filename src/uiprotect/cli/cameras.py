@@ -117,8 +117,8 @@ def stream_urls(ctx: typer.Context) -> None:
     data: list[tuple[str, str]] = []
     for channel in obj.channels:
         if channel.is_rtsp_enabled:
-            rtsp_url = cast(str, channel.rtsp_url)
-            rtsps_url = cast(str, channel.rtsps_url)
+            rtsp_url = cast("str", channel.rtsp_url)
+            rtsps_url = cast("str", channel.rtsps_url)
             data.extend(
                 (
                     (f"{channel.name} RTSP", rtsp_url),

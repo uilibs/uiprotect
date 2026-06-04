@@ -8,14 +8,13 @@ from collections.abc import Callable, Coroutine
 from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, overload
+from typing import TYPE_CHECKING, Any, overload
 
 import aiohttp
 import av
 import orjson
 from PIL import Image
 
-from ..api import ProtectApiClient
 from ..data import EventType, WSJSONPacketFrame, WSPacket
 from ..exceptions import BadRequest
 from ..test_util.anonymize import (
@@ -23,6 +22,9 @@ from ..test_util.anonymize import (
     anonymize_prefixed_event_id,
 )
 from ..utils import from_js_time, is_online, run_async, write_json
+
+if TYPE_CHECKING:
+    from ..api import ProtectApiClient
 
 
 def generate_blank_video(output_path: Path, length: int) -> None:

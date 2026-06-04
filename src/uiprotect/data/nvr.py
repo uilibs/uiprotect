@@ -67,7 +67,7 @@ DELETE_KEYS_EVENT = {"deletedAt", "category", "subCategory", "device"}
 
 
 class MetaInfo(ProtectBaseObject):
-    applicationVersion: str
+    applicationVersion: str  # noqa: N815  # wire-format field from Protect
 
 
 class NVRLocation(UserLocation):

@@ -335,7 +335,8 @@ class Bootstrap(ProtectBaseObject):
                 if key not in optional_fields:
                     data[key] = {}
                     _LOGGER.error(
-                        f"Missing key in bootstrap: {key}. This may be fixed by updating Protect."
+                        "Missing key in bootstrap: %s. This may be fixed by updating Protect.",
+                        key,
                     )
                 continue
             for item in data[key]:
@@ -526,7 +527,7 @@ class Bootstrap(ProtectBaseObject):
             if TYPE_CHECKING:
                 model_class = MODEL_TO_CLASS.get(model_type)
                 assert model_class is not None and isinstance(add_obj, model_class)
-            add_obj = cast(ProtectModelWithId, add_obj)
+            add_obj = cast("ProtectModelWithId", add_obj)
             obj_from_bootstrap.add(add_obj)
             return WSSubscriptionMessage(
                 action=WSAction.ADD,

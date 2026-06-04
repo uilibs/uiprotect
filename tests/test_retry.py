@@ -94,18 +94,18 @@ def _create_mock_request_context(
     call_count = 0
 
     class MockRequestContext:
-        async def __aenter__(self_inner):
+        async def __aenter__(self):
             nonlocal call_count
             call_count += 1
             if side_effect and (fail_count == 0 or call_count <= fail_count):
                 raise side_effect
             return return_value
 
-        async def __aexit__(self_inner, *args):
+        async def __aexit__(self, *args):
             pass
 
         @property
-        def calls(self_inner) -> int:
+        def calls(self) -> int:
             return call_count
 
     return MockRequestContext()
@@ -484,10 +484,10 @@ async def test_update_token_cookie_failure_releases_response(
     response.release = MagicMock()
 
     class MockRequestContext:
-        async def __aenter__(self_inner):
+        async def __aenter__(self):
             return response
 
-        async def __aexit__(self_inner, *args):
+        async def __aexit__(self, *args):
             pass
 
     mock_session.request = MagicMock(return_value=MockRequestContext())

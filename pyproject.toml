@@ -178,17 +178,22 @@ select = [
     "ERA",  # eradicate (commented-out code)
     "FA",   # flake8-future-annotations
     "FLY",  # flynt (f-string conversion)
+    "G",    # flake8-logging-format
     "ICN",  # flake8-import-conventions
     "INP",  # flake8-no-pep420 (implicit namespace packages)
     "ISC",  # flake8-implicit-str-concat
     "LOG",  # flake8-logging
+    "N",    # pep8-naming
     "PGH",  # pygrep-hooks
     "PIE",  # flake8-pie
+    "PTH",  # flake8-use-pathlib
+    "PYI",  # flake8-pyi
     "Q",    # flake8-quotes
     "RSE",  # flake8-raise
     "SLOT", # flake8-slots
     "T10",  # flake8-debugger
     "T20",  # flake8-print
+    "TC",   # flake8-type-checking
     "YTT",  # flake8-2020
     "S",    # flake8-bandit
     "F",    # pyflake
@@ -229,6 +234,28 @@ select = [
 "scripts/**/*" = [
     "T201",   # standalone CLI scripts print to stderr by design
     "INP001", # scripts/ is a runnable folder, not an importable package
+]
+"src/uiprotect/data/**/*" = [
+    # pydantic v2 model_rebuild() needs field-type classes resolvable at runtime
+    "TC001",
+    "TC002",
+    "TC003",
+]
+"src/uiprotect/events/**/*" = [
+    # pydantic v2 model field types must resolve at runtime for validation
+    "TC001",
+    "TC002",
+    "TC003",
+]
+"src/uiprotect/cli/**/*" = [
+    # typer inspects runtime annotations on command callbacks
+    "TC001",
+    "TC002",
+    "TC003",
+]
+"src/uiprotect/exceptions.py" = [
+    # public exception names — renaming would break the API consumers depend on
+    "N818",
 ]
 
 [tool.ruff.lint.isort]

@@ -5,13 +5,12 @@ import base64
 import json
 import math
 import os
-from collections.abc import Iterator
 from copy import deepcopy
 from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock
 
 import aiofiles
@@ -27,6 +26,9 @@ from uiprotect.data.devices import PTZRange, PTZZoomRange
 from uiprotect.data.nvr import Event
 from uiprotect.data.types import EventType
 from uiprotect.utils import _BAD_UUID, set_debug, set_no_debug
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 try:
     from blockbuster import BlockBuster, blockbuster_ctx
@@ -768,7 +770,7 @@ def tmp_binary_file():
     with NamedTemporaryFile(mode="wb", delete=False) as tmp_file:
         yield tmp_file
 
-    os.remove(tmp_file.name)
+    Path(tmp_file.name).unlink()
 
 
 # new values added for newer versions of UFP (for backwards compat tests)

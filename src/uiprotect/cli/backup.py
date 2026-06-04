@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
-import os
 import re
 import sys
 import time
@@ -73,7 +72,7 @@ def _safe_join(base: Path, file_path: str) -> Path:
 
 def _safe_first_glob_match(base: Path, pattern: str) -> Path | None:
     """Return first ``base.glob(pattern)`` match contained in ``base``."""
-    if os.path.isabs(pattern) or ".." in Path(pattern).parts:
+    if Path(pattern).is_absolute() or ".." in Path(pattern).parts:
         _LOGGER.warning(
             "Ignoring unsafe glob pattern outside output dir: %s",
             pattern,
@@ -460,7 +459,7 @@ def main(
         end_dt = end_dt.replace(tzinfo=local_tz)
 
     if output_folder is None:
-        output_folder = Path(os.getcwd())
+        output_folder = Path.cwd()
 
     context = BackupContext(
         protect=ctx.obj.protect,
@@ -487,13 +486,13 @@ def _wipe_files(ctx: BackupContext, no_input: bool) -> None:
         raise typer.Exit(1)
 
     if ctx.db_file.exists():
-        os.remove(ctx.db_file)
+        ctx.db_file.unlink()
 
     for path in track(ctx.output.glob("**/*.jpg"), description="Deleting Thumbnails"):
-        os.remove(path)
+        path.unlink()
 
     for path in track(ctx.output.glob("**/*.mp4"), description="Deleting Clips"):
-        os.remove(path)
+        path.unlink()
 
 
 async def _newest_event(ctx: BackupContext) -> Event | None:
@@ -572,7 +571,7 @@ async def _update_event(ctx: BackupContext, event: d.Event) -> None:
                 select(EventSmartType).where(EventSmartType.event_id == event.id),
             )
             for event_smart_type in result.unique().scalars():
-                event_type = cast(EventSmartType, event_smart_type)
+                event_type = cast("EventSmartType", event_smart_type)
                 if event_type.smart_type not in types:
                     to_delete.append(event_type)
                 else:
@@ -602,7 +601,7 @@ async def _update_ongoing_events(ctx: BackupContext) -> int:
     if len(events) == 0:
         return 0
     for event in track(events, description="Updating Events"):
-        event_id = cast(str, event.id)
+        event_id = cast("str", event.id)
         await _update_event(ctx, await ctx.protect.get_event(event_id))
     return len(events)
 
@@ -864,10 +863,10 @@ def _add_metadata(path: Path, creation: datetime, title: str) -> bool:
         success = False
     finally:
         if success:
-            os.remove(path)
+            path.unlink()
             output_path.rename(path)
         elif output_path.exists():
-            os.remove(output_path)
+            output_path.unlink()
     return success
 
 
@@ -950,7 +949,7 @@ async def _download_event(
     downloaded = False
     camera = ctx.protect.bootstrap.get_device_from_mac(event.camera_mac)  # type: ignore[arg-type]
     if camera is not None:
-        camera = cast(d.Camera, camera)
+        camera = cast("d.Camera", camera)
         downloads = []
         if ctx.download_thumbnails:
             downloads.append(_download_event_thumb(ctx, event, verify, force))
@@ -984,7 +983,7 @@ async def _download_events(
             .where(Event.start_naive >= start)
             .where(or_(Event.end_naive <= end, Event.end_naive is None))  # type: ignore[arg-type]
         )
-        count = cast(int, (await db.execute(count_query)).scalar())
+        count = cast("int", (await db.execute(count_query)).scalar())
         _LOGGER.info("Downloading %s events", count)
 
         columns = [

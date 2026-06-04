@@ -8,7 +8,6 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -68,6 +67,8 @@ OLD_VERSION = Version("1.2.3")
 NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from uiprotect.data.base import ProtectAdoptableDeviceModel
     from uiprotect.data.bootstrap import Bootstrap
 
@@ -532,7 +533,7 @@ def test_api_client_with_ipv6():
 
 
 @pytest.mark.asyncio()
-async def test_force_update_with_old_Version(protect_client: ProtectApiClient):
+async def test_force_update_with_old_version(protect_client: ProtectApiClient):
     protect_client._bootstrap = None
 
     await protect_client.update()
@@ -2449,7 +2450,7 @@ async def test_public_api_sets_x_api_key_header() -> None:
             self,
             exc_type: type[BaseException] | None,
             exc_val: BaseException | None,
-            exc_tb: Any,
+            exc_tb: object,
         ) -> None:
             return None
 

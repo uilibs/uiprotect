@@ -59,6 +59,7 @@ from uiprotect.websocket import WebsocketState
 
 if TYPE_CHECKING:
     from uiprotect.api import ProtectApiClient
+    from uiprotect.data.websocket import WSSubscriptionMessage
 
 
 SENSOR_ID = "66d025b301ebc903e80003ea"
@@ -2417,8 +2418,6 @@ async def test_subscribed_models_filters_devices_ws(
     protect_client_no_debug: ProtectApiClient,
 ) -> None:
     """``subscribed_models`` is respected by the public devices WS handler."""
-    from uiprotect.data.websocket import WSSubscriptionMessage  # noqa: PLC0415
-
     protect_client_no_debug._subscribed_models = {ModelType.CAMERA}
     got: list[WSSubscriptionMessage] = []
     unsub = protect_client_no_debug.subscribe_devices_websocket(got.append)
@@ -2445,8 +2444,6 @@ async def test_devices_ws_subscribed_models_overrides_subscribed_models(
     protect_client_no_debug: ProtectApiClient,
 ) -> None:
     """devices_ws_subscribed_models takes priority over subscribed_models."""
-    from uiprotect.data.websocket import WSSubscriptionMessage  # noqa: PLC0415
-
     # Global filter says CAMERA only, but per-WS filter allows RELAY.
     protect_client_no_debug._subscribed_models = {ModelType.CAMERA}
     protect_client_no_debug._devices_ws_subscribed_models = {ModelType.RELAY}
@@ -2485,8 +2482,6 @@ async def test_events_ws_subscribed_models_overrides_subscribed_models(
     protect_client_no_debug: ProtectApiClient,
 ) -> None:
     """events_ws_subscribed_models takes priority over subscribed_models."""
-    from uiprotect.data.websocket import WSSubscriptionMessage  # noqa: PLC0415
-
     # Global filter says CAMERA only, but per-WS filter allows EVENT.
     protect_client_no_debug._subscribed_models = {ModelType.CAMERA}
     protect_client_no_debug._events_ws_subscribed_models = {ModelType.EVENT}

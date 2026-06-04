@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
@@ -17,6 +17,9 @@ from uiprotect.cli.backup import (
     _safe_join,
     _safe_slug,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _make_ctx(tmp_path: Path, **overrides: str) -> BackupContext:
