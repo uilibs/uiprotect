@@ -319,9 +319,7 @@ class Light(ProtectMotionDeviceModel):
         mode_settings.mode = mode
         if enable_at is not None:
             mode_settings.enable_at = enable_at
-        await self._api.update_light_public(
-            self.id, light_mode_settings=mode_settings
-        )
+        await self._api.update_light_public(self.id, light_mode_settings=mode_settings)
         self.light_mode_settings = mode_settings
 
     async def set_light_settings_public(
