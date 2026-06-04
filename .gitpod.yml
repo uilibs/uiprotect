@@ -1,7 +1,7 @@
 tasks:
   - command: |
       pip install poetry
-      PIP_USER=false poetry install
+      PIP_USER=false poetry install --all-extras
   - command: |
       pip install pre-commit
       pre-commit install

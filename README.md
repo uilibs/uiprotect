@@ -199,10 +199,18 @@ Windows is **not supported**. If you need to use `uiprotect` on Windows, use Doc
 pip install uiprotect
 ```
 
+To use the command-line interface, install the `cli` extra (it pulls in `typer`):
+
+```bash
+pip install "uiprotect[cli]"
+```
+
 ### From GitHub
 
 ```bash
 pip install git+https://github.com/uilibs/uiprotect.git#egg=uiprotect
+# with the CLI:
+pip install "uiprotect[cli] @ git+https://github.com/uilibs/uiprotect.git"
 ```
 
 ### Using Docker Container

@@ -38,7 +38,7 @@ FROM base AS prod
 COPY --from=builder /usr/local/bin/uv /usr/local/bin/
 COPY --from=prod-builder /tmp/build/dist/*.whl /tmp/
 RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
-    uv pip install -U /tmp/*.whl \
+    uv pip install -U "$(echo /tmp/*.whl)[cli]" \
     && rm /tmp/*.whl
 
 COPY .docker/entrypoint.sh /usr/local/bin/entrypoint
@@ -58,7 +58,7 @@ WORKDIR /workspaces/uiprotect
 COPY pyproject.toml poetry.lock ./
 RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
     poetry config virtualenvs.create false \
-    && poetry install --with dev --no-root --no-interaction --no-ansi
+    && poetry install --with dev --all-extras --no-root --no-interaction --no-ansi
 
 FROM base AS dev
 
@@ -116,4 +116,4 @@ ENV POETRY_VIRTUALENVS_CREATE=false
 
 COPY pyproject.toml poetry.lock* ./
 RUN --mount=type=cache,mode=0755,id=pip-$TARGETPLATFORM,target=/root/.cache \
-    poetry install --with dev --no-root
+    poetry install --with dev --all-extras --no-root
