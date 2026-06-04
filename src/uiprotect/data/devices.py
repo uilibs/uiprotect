@@ -93,8 +93,6 @@ if TYPE_CHECKING:
     from .nvr import Event, Liveview
     from .public_devices import (
         PublicCameraLedSettings,
-        PublicLightDeviceSettings,
-        PublicLightModeSettings,
         PublicOsdSettings,
     )
 
@@ -270,39 +268,35 @@ class Light(ProtectMotionDeviceModel):
 
     async def set_flood_light_public(self, enabled: bool) -> None:
         """Force the flood light on/off via public API."""
-        updated = await self._api.update_light_public(
-            self.id, is_light_force_enabled=enabled
-        )
-        # ``PublicLight`` has no private ``light_on_settings``; mirror the
-        # server-authoritative force state from its documented flat field.
-        self.light_on_settings.is_led_force_on = updated.is_light_force_enabled
+        await self._api.update_light_public(self.id, is_light_force_enabled=enabled)
+        self.light_on_settings.is_led_force_on = enabled
 
     async def set_status_light_public(self, enabled: bool) -> None:
         """Toggle the status indicator LED via public API."""
         device_settings = self.light_device_settings.model_copy()
         device_settings.is_indicator_enabled = enabled
-        updated = await self._api.update_light_public(
+        await self._api.update_light_public(
             self.id, light_device_settings=device_settings
         )
-        self._merge_public_light_device_settings(updated.light_device_settings)
+        self.light_device_settings = device_settings
 
     async def set_led_level_public(self, led_level: int) -> None:
         """Set the LED brightness level via public API."""
         device_settings = self.light_device_settings.model_copy()
         device_settings.led_level = LEDLevel(led_level)
-        updated = await self._api.update_light_public(
+        await self._api.update_light_public(
             self.id, light_device_settings=device_settings
         )
-        self._merge_public_light_device_settings(updated.light_device_settings)
+        self.light_device_settings = device_settings
 
     async def set_sensitivity_public(self, sensitivity: int) -> None:
         """Set PIR motion sensitivity via public API."""
         device_settings = self.light_device_settings.model_copy()
         device_settings.pir_sensitivity = PercentInt(sensitivity)
-        updated = await self._api.update_light_public(
+        await self._api.update_light_public(
             self.id, light_device_settings=device_settings
         )
-        self._merge_public_light_device_settings(updated.light_device_settings)
+        self.light_device_settings = device_settings
 
     async def set_duration_public(self, duration: timedelta) -> None:
         """Set how long the light stays on after motion (15s-900s) via public API."""
@@ -310,10 +304,10 @@ class Light(ProtectMotionDeviceModel):
             raise BadRequest("Duration outside of 15s to 900s range")
         device_settings = self.light_device_settings.model_copy()
         device_settings.pir_duration = duration
-        updated = await self._api.update_light_public(
+        await self._api.update_light_public(
             self.id, light_device_settings=device_settings
         )
-        self._merge_public_light_device_settings(updated.light_device_settings)
+        self.light_device_settings = device_settings
 
     async def set_light_mode_public(
         self,
@@ -325,10 +319,10 @@ class Light(ProtectMotionDeviceModel):
         mode_settings.mode = mode
         if enable_at is not None:
             mode_settings.enable_at = enable_at
-        updated = await self._api.update_light_public(
+        await self._api.update_light_public(
             self.id, light_mode_settings=mode_settings
         )
-        self._merge_public_light_mode_settings(updated.light_mode_settings)
+        self.light_mode_settings = mode_settings
 
     async def set_light_settings_public(
         self,
@@ -356,39 +350,14 @@ class Light(ProtectMotionDeviceModel):
             if sensitivity is not None:
                 device_settings.pir_sensitivity = PercentInt(sensitivity)
 
-        updated = await self._api.update_light_public(
+        await self._api.update_light_public(
             self.id,
             light_mode_settings=mode_settings,
             light_device_settings=device_settings,
         )
-        self._merge_public_light_mode_settings(updated.light_mode_settings)
+        self.light_mode_settings = mode_settings
         if device_settings is not None:
-            self._merge_public_light_device_settings(updated.light_device_settings)
-
-    def _merge_public_light_mode_settings(self, mode: PublicLightModeSettings) -> None:
-        """Sync the private mode sub-model from a public update response in place."""
-        if mode.mode is not None:
-            self.light_mode_settings.mode = mode.mode
-        if mode.enable_at is not None:
-            self.light_mode_settings.enable_at = mode.enable_at
-
-    def _merge_public_light_device_settings(
-        self, device: PublicLightDeviceSettings
-    ) -> None:
-        """Sync the private device sub-model from a public update response in place."""
-        # Only the public-API fields; private-only ``lux_sensitivity`` is left
-        # untouched. ``pirDuration`` is milliseconds on the public wire.
-        self.light_device_settings.is_indicator_enabled = device.is_indicator_enabled
-        if device.led_level is not None:
-            self.light_device_settings.led_level = LEDLevel(device.led_level)
-        if device.pir_duration is not None:
-            self.light_device_settings.pir_duration = timedelta(
-                milliseconds=device.pir_duration
-            )
-        if device.pir_sensitivity is not None:
-            self.light_device_settings.pir_sensitivity = PercentInt(
-                device.pir_sensitivity
-            )
+            self.light_device_settings = device_settings
 
 
 class CameraChannel(ProtectBaseObject):
