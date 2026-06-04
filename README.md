@@ -63,8 +63,8 @@ The recommended way to develop is using the provided **devcontainer** with VS Co
 Alternatively, if you want to develop natively without devcontainer:
 
 ```bash
-# Install dependencies
-poetry install --with dev
+# Install dependencies (--all-extras installs the cli extra for CLI tests)
+poetry install --with dev --all-extras
 
 # Install pre-commit hooks
 poetry run pre-commit install --install-hooks
@@ -199,10 +199,18 @@ Windows is **not supported**. If you need to use `uiprotect` on Windows, use Doc
 pip install uiprotect
 ```
 
+To use the command-line interface, install the `cli` extra (it pulls in `typer`):
+
+```bash
+pip install "uiprotect[cli]"
+```
+
 ### From GitHub
 
 ```bash
 pip install git+https://github.com/uilibs/uiprotect.git#egg=uiprotect
+# with the CLI:
+pip install "uiprotect[cli] @ git+https://github.com/uilibs/uiprotect.git"
 ```
 
 ### Using Docker Container

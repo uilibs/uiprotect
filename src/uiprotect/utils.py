@@ -465,12 +465,16 @@ def print_ws_stat_summary(
     stats: list[WSStat],
     output: Callable[[Any], Any] | None = None,
 ) -> None:
-    # typer<0.4.1 is incompatible with click>=8.1.0
-    # allows only the CLI interface to break if both are installed
-    import typer  # noqa: PLC0415
-
     if output is None:
-        output = typer.echo if typer is not None else print
+        # typer<0.4.1 is incompatible with click>=8.1.0, so the import is
+        # deferred to keep that breakage CLI-only. typer is also an optional
+        # dependency (the `cli` extra); fall back to print when it is absent.
+        try:
+            import typer  # noqa: PLC0415
+
+            output = typer.echo
+        except ImportError:
+            output = print
 
     unfiltered, percent, keys, models, actions = ws_stat_summmary(stats)
 

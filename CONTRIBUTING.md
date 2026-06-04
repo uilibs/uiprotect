@@ -49,8 +49,11 @@ Ready to contribute? Here's how to set yourself up for local development.
 3. Install the project dependencies with [Poetry](https://python-poetry.org):
 
    ```shell
-   $ poetry install
+   $ poetry install --all-extras
    ```
+
+   `--all-extras` pulls in the optional `cli` extra (`typer`) so the
+   CLI and its tests (`tests/test_cli.py`) work in your environment.
 
 4. Create a branch for local development:
 

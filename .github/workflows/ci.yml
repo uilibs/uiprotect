@@ -31,7 +31,7 @@ jobs:
           cache: "poetry"
       - name: Install Dependencies
         run: |
-          poetry install
+          poetry install --all-extras
       - uses: pre-commit/action@v3.0.1
 
   # Make sure the PR title follows the conventional commits convention:
@@ -84,7 +84,7 @@ jobs:
           allow-prereleases: true
       - run: echo "Cache hit:${{ steps.setup-python.outputs.cache-hit }}" # true if cache-hit occurred on the primary key
       - name: Install Dependencies
-        run: poetry install
+        run: poetry install --all-extras
       - name: Test with Pytest
         run: ./.bin/test-code
         shell: bash
