@@ -696,6 +696,22 @@ def test_print_ws_stat_summary():
     assert "camera: 1" in lines[0]
 
 
+def test_print_ws_stat_summary_default_output(capsys):
+    """Uses typer.echo (stdout) as the default output when no callable is given."""
+    stats = [
+        WSStat(
+            model="camera",
+            action="update",
+            keys=["name"],
+            keys_set=["name"],
+            size=100,
+            filtered=False,
+        )
+    ]
+    print_ws_stat_summary(stats)
+    assert "camera: 1" in capsys.readouterr().out
+
+
 def test_print_ws_stat_summary_without_typer(monkeypatch, capsys):
     """Falls back to print when the optional typer (cli extra) is absent."""
     monkeypatch.setitem(sys.modules, "typer", None)
