@@ -1267,6 +1267,10 @@ class ProtectApiClient(BaseApiClient):
     # Monotonic timestamp of the last "REMOVE for unknown event" INFO log;
     # throttled so a burst of unknown-id removes does not flood the log.
     _events_remove_unknown_last_log: float = 0.0
+    # Non-throttled running total of unknown-id REMOVE frames. The INFO log is
+    # rate-limited, so this counter keeps a sustained cache/server desync
+    # observable even when individual lines are suppressed.
+    _events_remove_unknown_count: int = 0
 
     ignore_unadopted: bool
 
@@ -1978,6 +1982,11 @@ class ProtectApiClient(BaseApiClient):
         ``provision``, ``factoryReset`` and ``fwUpdate`` are dropped.
         Callers needing the unfiltered stream should use
         ``subscribe_events_websocket`` instead.
+
+        The callback must not raise: an exception is caught and logged but
+        otherwise swallowed, so a raising callback silently loses that
+        delivery (e.g. an ``ENDED`` that never reaches the consumer). Do any
+        fallible work inside a guard the callback owns.
         """
         if self._public_bootstrap is None:
             raise RuntimeError(
@@ -2043,12 +2052,15 @@ class ProtectApiClient(BaseApiClient):
                 # The store handed back no pre-removal object — a remove for
                 # an event we never cached.
                 event_id = msg.changed_data.get("id") if msg.changed_data else None
+                self._events_remove_unknown_count += 1
                 now = time.monotonic()
                 if now - self._events_remove_unknown_last_log >= 60.0:
                     _LOGGER.info(
                         "Events-WS remove for unknown event %s — skipping"
-                        " (throttled, logged at most once per 60s)",
+                        " (throttled, logged at most once per 60s; %d total"
+                        " unknown removes so far)",
                         event_id,
+                        self._events_remove_unknown_count,
                     )
                     self._events_remove_unknown_last_log = now
                 return
@@ -2198,8 +2210,13 @@ class ProtectApiClient(BaseApiClient):
                         )
                 # Force-end events that stayed open across the gap. The resync
                 # above refreshes identity/devices; events arrive only via WS
-                # so the sweep is what guarantees no stuck-active sensor.
-                if self._event_dispatcher is not None:
+                # so the sweep is what guarantees no stuck-active sensor. Gate
+                # on a live subscriber so a reconnect after the last
+                # unsubscribe does not mutate the shared event store.
+                if (
+                    self._event_dispatcher is not None
+                    and self._event_dispatcher.subscriber_count > 0
+                ):
                     count = self._event_dispatcher.flush_stale_on_reconnect()
                     if count > 0:
                         _LOGGER.warning(
