@@ -96,7 +96,6 @@ from .data.types import (
     PTZPreset,
     SirenDuration,
 )
-from .events import EventChange, ProtectEvent
 from .exceptions import BadRequest, GlobalAlarmManagerError, NotAuthorized, NvrError
 from .stream import TalkbackSession
 
@@ -120,6 +119,7 @@ if TYPE_CHECKING:
     from uiprotect.data.devices import LightDeviceSettings, LightModeSettings
 
     from .data.base import ProtectModelWithId
+    from .events import EventChange, ProtectEvent
 
 if "partitioned" not in cookies.Morsel._reserved:  # type: ignore[attr-defined]
     # See: https://github.com/python/cpython/issues/112713
