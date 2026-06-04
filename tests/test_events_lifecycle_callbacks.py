@@ -28,99 +28,6 @@ def _make_client() -> ProtectApiClient:
     )
 
 
-def test_schedule_ulp_refresh_without_running_loop_is_noop() -> None:
-    api = _make_client()
-    api._schedule_ulp_refresh()
-    assert api._ulp_refresh_task is None
-
-
-@pytest.mark.asyncio
-async def test_schedule_ulp_refresh_skips_when_task_in_flight() -> None:
-    api = _make_client()
-    loop = asyncio.get_running_loop()
-    gate = loop.create_future()
-
-    async def block() -> list[Any]:
-        await gate
-        return []
-
-    api.get_ulp_users_public = block  # type: ignore[method-assign]
-
-    api._schedule_ulp_refresh()
-    first = api._ulp_refresh_task
-    assert first is not None
-    assert not first.done()
-
-    # Second call while ``first`` is still pending must reuse it.
-    api._schedule_ulp_refresh()
-    assert api._ulp_refresh_task is first
-
-    gate.set_result(None)
-    await first
-
-
-@pytest.mark.asyncio
-async def test_cancel_ulp_refresh_task_cancels_in_flight() -> None:
-    api = _make_client()
-    loop = asyncio.get_running_loop()
-    gate = loop.create_future()
-
-    async def block() -> list[Any]:
-        await gate
-        return []
-
-    api.get_ulp_users_public = block  # type: ignore[method-assign]
-    api._schedule_ulp_refresh()
-    task = api._ulp_refresh_task
-    assert task is not None and not task.done()
-
-    await api._cancel_ulp_refresh_task()
-    assert api._ulp_refresh_task is None
-    assert task.cancelled()
-
-
-@pytest.mark.asyncio
-async def test_cancel_ulp_refresh_task_no_task_is_noop() -> None:
-    api = _make_client()
-    assert api._ulp_refresh_task is None
-    await api._cancel_ulp_refresh_task()
-    assert api._ulp_refresh_task is None
-
-
-def test_on_ulp_refresh_done_cancelled_is_noop(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    class _Stub:
-        def cancelled(self) -> bool:
-            return True
-
-        def exception(self) -> BaseException | None:  # pragma: no cover - guard
-            raise AssertionError("should not be consulted")
-
-    with caplog.at_level(logging.ERROR, logger="uiprotect.api"):
-        ProtectApiClient._on_ulp_refresh_done(_Stub())  # type: ignore[arg-type]
-    assert not any("ULP" in r.message for r in caplog.records)
-
-
-def test_on_ulp_refresh_done_exception_is_logged(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    boom = RuntimeError("boom")
-
-    class _Stub:
-        def cancelled(self) -> bool:
-            return False
-
-        def exception(self) -> BaseException | None:
-            return boom
-
-    with caplog.at_level(logging.ERROR, logger="uiprotect.api"):
-        ProtectApiClient._on_ulp_refresh_done(_Stub())  # type: ignore[arg-type]
-    assert any(
-        "Public ULP user cache refresh failed" in r.message for r in caplog.records
-    )
-
-
 def test_on_sweep_task_done_cancelled_is_noop(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -191,6 +98,4 @@ async def test_ttl_sweep_loop_swallows_sweep_exception(
 
     assert len(calls) >= 2
     assert any("TTL sweep iteration failed" in r.message for r in caplog.records)
-    # Cap is satisfied above; assert EVENTS_TTL_SWEEP_INTERVAL is still in
-    # the dispatcher module post-monkeypatch tear-down (sanity check).
     assert EVENTS_TTL_SWEEP_INTERVAL is not None

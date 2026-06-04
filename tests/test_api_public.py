@@ -31,6 +31,7 @@ from uiprotect.data import (
     PublicNVR,
     PublicSpeakerFeatureFlags,
     PublicSpeakerState,
+    PublicUlpUser,
     PublicViewer,
     Relay,
     RelayInputActionTrigger,
@@ -51,8 +52,9 @@ from uiprotect.data.types import (
     LiveviewCycleMode,
     ModelType,
     SirenDuration,
+    UlpUserStatus,
 )
-from uiprotect.exceptions import BadRequest
+from uiprotect.exceptions import BadRequest, NotAuthorized
 from uiprotect.websocket import WebsocketState
 
 if TYPE_CHECKING:
@@ -129,6 +131,7 @@ def _mock_update_public_endpoints(client: ProtectApiClient, **overrides: Any) ->
         "get_liveviews_public": AsyncMock(return_value=[]),
         "get_bridges_public": AsyncMock(return_value=[]),
         "get_viewers_public": AsyncMock(return_value=[]),
+        "get_ulp_users_public": AsyncMock(return_value=[]),
         "get_arm_profiles_public": AsyncMock(return_value=[]),
     }
     defaults.update(overrides)
@@ -1506,6 +1509,41 @@ async def test_update_public_populates_cache(
 
 
 @pytest.mark.asyncio()
+async def test_update_public_populates_ulp_users(
+    protect_client: ProtectApiClient,
+) -> None:
+    user = PublicUlpUser(
+        api=protect_client,
+        id="ulp-1",
+        model=ModelType.ULP_USER,
+        first_name="A",
+        last_name="B",
+        full_name="A B",
+        status=UlpUserStatus.ACTIVE,
+    )
+    _mock_update_public_endpoints(
+        protect_client,
+        get_ulp_users_public=AsyncMock(return_value=[user]),
+    )
+
+    pb = await protect_client.update_public()
+    assert pb.ulp_users == {"ulp-1": user}
+
+
+@pytest.mark.asyncio()
+async def test_update_public_tolerates_ulp_users_disabled(
+    protect_client: ProtectApiClient,
+) -> None:
+    _mock_update_public_endpoints(
+        protect_client,
+        get_ulp_users_public=AsyncMock(side_effect=NotAuthorized("identity off")),
+    )
+
+    pb = await protect_client.update_public()
+    assert pb.ulp_users == {}
+
+
+@pytest.mark.asyncio()
 async def test_update_public_tolerates_missing_endpoints(
     protect_client: ProtectApiClient,
 ) -> None:
@@ -2127,7 +2165,11 @@ def test_events_ws_motion_minimal_add_and_end_update(
             },
         },
     )
-    assert old2 is new_event  # merged from cache
+    # ``old2`` is a pre-merge snapshot of the cached event (end still unset),
+    # distinct from the in-place-merged ``new2`` returned to the caller.
+    assert old2 is not None and old2.end is None
+    assert old2 is not new_event
+    assert new2 is new_event  # merged in place from cache
     assert new2 is not None and new2.end is not None
     # And the cache-stored copy reflects the merge.
     assert pb.events["evt-motion-1"].end is not None

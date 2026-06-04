@@ -1,10 +1,9 @@
-"""Public events dispatcher."""
+"""Stateless public events dispatcher over the single PublicBootstrap store."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from collections import OrderedDict
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
@@ -30,22 +29,18 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-MAX_ACTIVE: int = 1024
-_RECENTLY_ENDED_CAP: int = 256
 EVENTS_ACTIVE_TTL: timedelta = timedelta(minutes=30)
 EVENTS_TTL_SWEEP_INTERVAL: timedelta = timedelta(minutes=15)
 EVENTS_RECONNECT_STALENESS_WINDOW: timedelta = timedelta(hours=1)
 
 
 class EventDispatcher:
-    """Owns ``_active`` state and fans out ``(ProtectEvent, EventChange)``."""
+    """Derive ``(ProtectEvent, EventChange)`` from the single event store."""
 
     def __init__(self, api: ProtectApiClient) -> None:
         self._api = api
         self._enricher = EventEnricher(api)
         self._subscribers: list[Callable[[ProtectEvent, EventChange], None]] = []
-        self._active: dict[str, ProtectEvent] = {}
-        self._recently_ended: OrderedDict[str, None] = OrderedDict()
         self._sweep_task: asyncio.Task[None] | None = None
 
     # ------------------------------------------------------------------
@@ -64,127 +59,101 @@ class EventDispatcher:
     def subscriber_count(self) -> int:
         return len(self._subscribers)
 
-    def start_ttl_sweep(self) -> None:
-        if self._sweep_task is not None and not self._sweep_task.done():
-            return
-        self._sweep_task = asyncio.create_task(self._ttl_sweep_loop())
-        self._sweep_task.add_done_callback(self._on_sweep_task_done)
-
-    @staticmethod
-    def _on_sweep_task_done(task: asyncio.Task[None]) -> None:
-        if task.cancelled():
-            return
-        exc = task.exception()
-        if exc is not None:
-            _LOGGER.exception("TTL sweep loop terminated unexpectedly", exc_info=exc)
-
-    def stop_ttl_sweep(self) -> None:
-        if self._sweep_task is not None:
-            self._sweep_task.cancel()
-            self._sweep_task = None
-
-    def reset(self) -> None:
-        self._active.clear()
-        self._recently_ended.clear()
-
     # ------------------------------------------------------------------
-    # Active set helpers
+    # Active set — pure derivation over the single store
     # ------------------------------------------------------------------
 
     def active_events(self, device_id: str | None = None) -> list[ProtectEvent]:
-        if device_id is None:
-            return list(self._active.values())
-        return [e for e in self._active.values() if e.device_id == device_id]
+        out: list[ProtectEvent] = []
+        for raw in self._api.public_bootstrap.events.values():
+            if raw.end is not None:
+                continue
+            channel = EVENT_TYPE_TO_CHANNEL.get(raw.type, ProtectEventChannel.OTHER)
+            if channel is ProtectEventChannel.OTHER or raw.device_id is None:
+                continue
+            if device_id is not None and raw.device_id != device_id:
+                continue
+            out.append(event_to_protect_event(raw, channel, self._enricher.enrich(raw)))
+        return out
 
     # ------------------------------------------------------------------
-    # Main dispatch
+    # Main dispatch — one terminal chokepoint fed by the store's old/new
     # ------------------------------------------------------------------
 
-    def dispatch(self, action: WSAction, raw_event: Event) -> None:
-        channel = EVENT_TYPE_TO_CHANNEL.get(raw_event.type, ProtectEventChannel.OTHER)
-        # Filter to types HA-style consumers actually care about: anything
-        # that lands in a non-OTHER channel. Drops administrative events
-        # (provision, factoryReset, fwUpdate, …) while keeping schema-level
-        # instantaneous lightMotion, sensor*, alarmHub* and access events
-        # that ``device_events_set()`` historically omits.
+    def dispatch(
+        self,
+        action: WSAction,
+        new_event: Event | None,
+        old_event: Event | None,
+    ) -> None:
+        # ``new_event`` is the post-merge cached object (``None`` only on
+        # REMOVE); ``old_event`` is the pre-merge snapshot the store handed
+        # back. The subject is whichever one carries the event payload.
+        subject = new_event if new_event is not None else old_event
+        if subject is None:
+            return
+
+        channel = EVENT_TYPE_TO_CHANNEL.get(subject.type, ProtectEventChannel.OTHER)
+        # Drop administrative events (provision, factoryReset, fwUpdate, …)
+        # that land in the OTHER channel while keeping detection / sensor /
+        # alarm-hub / access events that consumers care about.
         if channel is ProtectEventChannel.OTHER:
             return
-        if raw_event.device_id is None:
+        if subject.device_id is None:
             _LOGGER.warning(
                 "Public event %s missing required 'device' field — dropping",
-                raw_event.id,
+                subject.id,
             )
             return
-        identity = self._enricher.enrich(raw_event)
 
-        # Close-window branch: ADD already carrying ``end``, or schema-level
-        # instantaneous type. Emit STARTED+ENDED, skip ``_active``.
-        if action is WSAction.ADD and (
-            raw_event.end is not None or raw_event.type in INSTANTANEOUS_EVENT_TYPES
+        for event, change in self._derive(
+            action, subject, channel, new_event, old_event
         ):
-            end_value = raw_event.end if raw_event.end is not None else raw_event.start
+            self._fan_out(event, change)
+
+    def _derive(
+        self,
+        action: WSAction,
+        subject: Event,
+        channel: ProtectEventChannel,
+        new_event: Event | None,
+        old_event: Event | None,
+    ) -> list[tuple[ProtectEvent, EventChange]]:
+        identity = self._enricher.enrich(subject)
+        # The single idempotency guard: was the event already terminal in the
+        # store before this frame? A retransmit/replay finds it so and is
+        # suppressed.
+        old_terminal = old_event is not None and old_event.end is not None
+
+        instantaneous = subject.type in INSTANTANEOUS_EVENT_TYPES
+        if action is WSAction.ADD and (subject.end is not None or instantaneous):
+            # Close-window: emit STARTED + ENDED on first sight only.
+            if old_terminal:
+                return []
+            end_value = subject.end if subject.end is not None else subject.start
+            # Close the event in the store so a replay ADD is suppressed (its
+            # snapshot will then carry ``end``) and ``active_events`` does not
+            # surface an instantaneous event as still open.
+            if subject.end is None and new_event is not None:
+                new_event.end = end_value
             event = event_to_protect_event(
-                raw_event, channel, identity, end_override=end_value
+                subject, channel, identity, end_override=end_value
             )
-            self._fan_out(event, EventChange.STARTED)
-            self._fan_out(event, EventChange.ENDED)
-            self._record_terminal(event.id)
-            return
+            return [(event, EventChange.STARTED), (event, EventChange.ENDED)]
 
-        change = self._derive_change(action, raw_event)
-
-        # Idempotency check for terminals: server retransmits ``update``+``end``
-        # for the same id; surface exactly one terminal per id.
-        if (
-            change in (EventChange.ENDED, EventChange.REMOVED)
-            and raw_event.id not in self._active
-            and raw_event.id in self._recently_ended
-        ):
-            return
-
-        event = event_to_protect_event(raw_event, channel, identity)
-
-        if change is EventChange.STARTED:
-            self._active[event.id] = event
-            self._enforce_max_active()
-        elif change is EventChange.UPDATED:
-            if event.id in self._active:
-                self._active[event.id] = event
-        elif change in (EventChange.ENDED, EventChange.REMOVED):
-            self._active.pop(event.id, None)
-            self._record_terminal(event.id)
-
-        self._fan_out(event, change)
-
-    def _derive_change(self, action: WSAction, raw_event: Event) -> EventChange:
         if action is WSAction.ADD:
-            return EventChange.STARTED
-        if action is WSAction.UPDATE:
-            if raw_event.end is not None:
-                return EventChange.ENDED
-            return EventChange.UPDATED
-        # WSAction.REMOVE
-        return EventChange.REMOVED
-
-    # ------------------------------------------------------------------
-    # Bookkeeping helpers
-    # ------------------------------------------------------------------
-
-    def _record_terminal(self, event_id: str) -> None:
-        if event_id in self._recently_ended:
-            self._recently_ended.move_to_end(event_id)
+            change = EventChange.STARTED
+        elif action is WSAction.REMOVE:
+            if old_terminal:
+                return []
+            change = EventChange.REMOVED
+        elif subject.end is not None:
+            if old_terminal:
+                return []
+            change = EventChange.ENDED
         else:
-            self._recently_ended[event_id] = None
-        while len(self._recently_ended) > _RECENTLY_ENDED_CAP:
-            self._recently_ended.popitem(last=False)
-
-    def _enforce_max_active(self) -> None:
-        while len(self._active) > MAX_ACTIVE:
-            oldest_id = min(self._active, key=lambda k: self._active[k].start)
-            oldest = self._active.pop(oldest_id)
-            synth = oldest.model_copy(update={"end": utc_now()})
-            self._fan_out(synth, EventChange.ENDED)
-            self._record_terminal(oldest_id)
+            change = EventChange.UPDATED
+        return [(event_to_protect_event(subject, channel, identity), change)]
 
     def _fan_out(self, event: ProtectEvent, change: EventChange) -> None:
         for cb in self._subscribers:
@@ -194,35 +163,55 @@ class EventDispatcher:
                 _LOGGER.exception("Exception while running subscribe_events subscriber")
 
     # ------------------------------------------------------------------
-    # Reconnect / TTL sweep
+    # TTL / reconnect sweep — one mechanism over the single store
     # ------------------------------------------------------------------
 
-    def flush_stale_on_reconnect(self) -> int:
-        cutoff = utc_now() - EVENTS_RECONNECT_STALENESS_WINDOW
-        count = 0
-        for event_id in list(self._active):
-            event = self._active[event_id]
-            if event.start < cutoff:
-                self._active.pop(event_id, None)
-                synth = event.model_copy(update={"end": utc_now()})
-                self._fan_out(synth, EventChange.ENDED)
-                self._record_terminal(event_id)
-                count += 1
-        return count
+    def start_ttl_sweep(self) -> None:
+        if self._sweep_task is not None and not self._sweep_task.done():
+            return
+        self._sweep_task = asyncio.create_task(self._ttl_sweep_loop())
+        self._sweep_task.add_done_callback(self._on_sweep_task_done)
+
+    def stop_ttl_sweep(self) -> None:
+        if self._sweep_task is not None:
+            self._sweep_task.cancel()
+            self._sweep_task = None
+
+    @staticmethod
+    def _on_sweep_task_done(task: asyncio.Task[None]) -> None:
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            _LOGGER.exception("TTL sweep loop terminated unexpectedly", exc_info=exc)
 
     def sweep_stale(self) -> int:
-        cutoff = utc_now() - EVENTS_ACTIVE_TTL
-        count = 0
-        for event_id in list(self._active):
-            event = self._active[event_id]
-            if event.start < cutoff:
-                self._active.pop(event_id, None)
-                synth = event.model_copy(update={"end": utc_now()})
-                self._fan_out(synth, EventChange.ENDED)
-                self._record_terminal(event_id)
-                count += 1
+        """Force-end events open past :data:`EVENTS_ACTIVE_TTL`."""
+        count = self._sweep(EVENTS_ACTIVE_TTL)
         if count > 0:
             _LOGGER.warning("TTL-swept %d stale active events", count)
+        return count
+
+    def flush_stale_on_reconnect(self) -> int:
+        """Force-end events open past the reconnect staleness window."""
+        return self._sweep(EVENTS_RECONNECT_STALENESS_WINDOW)
+
+    def _sweep(self, staleness_window: timedelta) -> int:
+        cutoff = utc_now() - staleness_window
+        count = 0
+        for raw in list(self._api.public_bootstrap.events.values()):
+            if raw.end is not None or raw.start >= cutoff:
+                continue
+            channel = EVENT_TYPE_TO_CHANNEL.get(raw.type, ProtectEventChannel.OTHER)
+            if channel is ProtectEventChannel.OTHER or raw.device_id is None:
+                continue
+            # Mark the stored event ended so a later close retransmit is
+            # suppressed by the dispatch chokepoint and derivation stays
+            # consistent.
+            raw.end = utc_now()
+            event = event_to_protect_event(raw, channel, self._enricher.enrich(raw))
+            self._fan_out(event, EventChange.ENDED)
+            count += 1
         return count
 
     async def _ttl_sweep_loop(self) -> None:

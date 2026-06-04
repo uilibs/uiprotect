@@ -121,8 +121,14 @@ Notes:
   need.
 - `EventChange.UPDATED` may carry no public-visible delta — diff
   `event.raw` if you need to know exactly what changed.
-- `protect.active_events(device_id=...)` returns the in-flight set.
-  Useful for restoring binary-sensor state after a reload.
+- `protect.active_events(device_id=...)` returns the in-flight set,
+  derived directly from the public bootstrap cache. Useful for restoring
+  binary-sensor state after a reload.
+- All runtime state is sourced from `public_bootstrap`: lifecycle/active
+  state from `public_bootstrap.events` and credential-event identity from
+  `public_bootstrap.ulp_users` (UniFi Identity). Both are refreshed by
+  `update_public()` — including automatically on websocket reconnect — so
+  an identity that was unknown at first sight resolves on the next refresh.
 
 ## History
 

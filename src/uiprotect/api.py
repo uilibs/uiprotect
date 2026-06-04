@@ -381,10 +381,6 @@ class BaseApiClient:
     _events_websocket: Websocket | None = None
     _devices_websocket: Websocket | None = None
     _public_resync_task: asyncio.Task[None] | None = None
-    # Reference to the background ULP cache refresh task so it isn't GC'd.
-    # Declared on the base client because ``close`` cancels it via
-    # ``_cancel_ulp_refresh_task``; only ``ProtectApiClient`` populates it.
-    _ulp_refresh_task: asyncio.Task[None] | None = None
 
     private_api_path: str = "/proxy/protect/api/"
     public_api_path: str = "/proxy/protect/integration"
@@ -595,7 +591,6 @@ class BaseApiClient:
         """Closing and deletes all client sessions."""
         await self._cancel_update_task()
         await self._cancel_public_resync_task()
-        await self._cancel_ulp_refresh_task()
         if self._session is not None:
             await self._session.close()
             self._session = None
@@ -627,13 +622,6 @@ class BaseApiClient:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._public_resync_task
             self._public_resync_task = None
-
-    async def _cancel_ulp_refresh_task(self) -> None:
-        if self._ulp_refresh_task is not None:
-            self._ulp_refresh_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._ulp_refresh_task
-            self._ulp_refresh_task = None
 
     def set_header(self, key: str, value: str | None) -> None:
         """Set header."""
@@ -1271,15 +1259,6 @@ class ProtectApiClient(BaseApiClient):
     _public_resync_pending: bool = False
     _last_update_dt: datetime | None = None
     _connection_host: IPv4Address | IPv6Address | str | None = None
-    # Public-only ULP user cache for events identity enrichment. Populated
-    # by ``_refresh_public_ulp_users_cache``. Kept in-process; not derived
-    # from the private bootstrap.
-    _public_ulp_users_cache: dict[str, PublicUlpUser]
-    # True once the events-WS has transitioned to CONNECTED at least once;
-    # only the *reconnect* triggers the stale-flush sweep.
-    _events_ws_has_been_connected: bool = False
-    # Throttle the "ULP disabled" DEBUG so we log it once per process.
-    _ulp_disabled_logged: bool = False
     # Lazy dispatcher; ``subscribe_events`` materialises it.
     _event_dispatcher: EventDispatcher | None = None
     # Internal events-WS adapter unsubscribe; populated while the typed
@@ -1346,7 +1325,6 @@ class ProtectApiClient(BaseApiClient):
         self._ws_state_subscriptions = []
         self._events_ws_state_subscriptions = []
         self._devices_ws_state_subscriptions = []
-        self._public_ulp_users_cache = {}
         self._event_dispatcher = None
         self.ignore_unadopted = ignore_unadopted
         self._update_lock = asyncio.Lock()
@@ -2022,7 +2000,6 @@ class ProtectApiClient(BaseApiClient):
                 self._adapt_events_ws_message
             )
             dispatcher.start_ttl_sweep()
-            self._schedule_ulp_refresh()
 
         return partial(self._unsubscribe_events, callback)
 
@@ -2039,7 +2016,6 @@ class ProtectApiClient(BaseApiClient):
             if unsub is not None:
                 unsub()
                 self._event_ws_adapter_unsub = None
-            self._event_dispatcher.reset()
 
     def active_events(self, device_id: str | None = None) -> list[ProtectEvent]:
         """Return the in-flight public events, optionally filtered by device."""
@@ -2051,6 +2027,7 @@ class ProtectApiClient(BaseApiClient):
         if self._event_dispatcher is None:
             return
         dispatcher = self._event_dispatcher
+        old_obj = msg.old_obj if isinstance(msg.old_obj, Event) else None
         if msg.action in (WSAction.ADD, WSAction.UPDATE):
             if msg.new_obj is None or not isinstance(msg.new_obj, Event):
                 _LOGGER.warning(
@@ -2059,18 +2036,13 @@ class ProtectApiClient(BaseApiClient):
                     msg.action,
                 )
                 return
-            dispatcher.dispatch(msg.action, msg.new_obj)
+            dispatcher.dispatch(msg.action, msg.new_obj, old_obj)
             return
         if msg.action is WSAction.REMOVE:
-            event_id = msg.changed_data.get("id") if msg.changed_data else None
-            if not event_id:
-                _LOGGER.warning(
-                    "Events-WS remove without id — dropping frame (possible"
-                    " server contract change)"
-                )
-                return
-            cached = dispatcher._active.get(event_id)
-            if cached is None or cached.raw is None:
+            if old_obj is None:
+                # The store handed back no pre-removal object — a remove for
+                # an event we never cached.
+                event_id = msg.changed_data.get("id") if msg.changed_data else None
                 now = time.monotonic()
                 if now - self._events_remove_unknown_last_log >= 60.0:
                     _LOGGER.info(
@@ -2080,7 +2052,7 @@ class ProtectApiClient(BaseApiClient):
                     )
                     self._events_remove_unknown_last_log = now
                 return
-            dispatcher.dispatch(WSAction.REMOVE, cached.raw)
+            dispatcher.dispatch(WSAction.REMOVE, None, old_obj)
 
     def _unsubscribe_websocket(
         self,
@@ -2180,19 +2152,6 @@ class ProtectApiClient(BaseApiClient):
 
     def _on_events_websocket_state_change(self, state: WebsocketState) -> None:
         """Events Websocket state changed."""
-        if state is WebsocketState.CONNECTED:
-            if not self._events_ws_has_been_connected:
-                self._events_ws_has_been_connected = True
-            elif self._event_dispatcher is not None:
-                count = self._event_dispatcher.flush_stale_on_reconnect()
-                if count > 0:
-                    _LOGGER.warning(
-                        "Events WS reconnected after gap; some events may have"
-                        " been missed (force-ended %d stale active events).",
-                        count,
-                    )
-                self._schedule_ulp_refresh()
-
         for sub in self._events_ws_state_subscriptions:
             try:
                 sub(state)
@@ -2236,6 +2195,18 @@ class ProtectApiClient(BaseApiClient):
                         _LOGGER.debug(
                             "Skipping public bootstrap resync (debounced, last was %.1fs ago)",
                             now - self._last_public_resync,
+                        )
+                # Force-end events that stayed open across the gap. The resync
+                # above refreshes identity/devices; events arrive only via WS
+                # so the sweep is what guarantees no stuck-active sensor.
+                if self._event_dispatcher is not None:
+                    count = self._event_dispatcher.flush_stale_on_reconnect()
+                    if count > 0:
+                        _LOGGER.warning(
+                            "Websocket reconnected after gap; some events may"
+                            " have been missed (force-ended %d stale active"
+                            " events).",
+                            count,
                         )
 
         for sub in self._devices_ws_state_subscriptions:
@@ -4301,6 +4272,7 @@ class ProtectApiClient(BaseApiClient):
             (self.get_liveviews_public(), "liveviews", "liveviews"),
             (self.get_bridges_public(), "bridges", "bridges"),
             (self.get_viewers_public(), "viewers", "viewers"),
+            (self.get_ulp_users_public(), "ulp-users", "ulp_users"),
             (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles"),
         ]
 
@@ -4322,50 +4294,4 @@ class ProtectApiClient(BaseApiClient):
             else:
                 pb.apply_fetch_result(attr, result)  # type: ignore[arg-type]
 
-        await self._refresh_public_ulp_users_cache()
         return pb
-
-    async def _refresh_public_ulp_users_cache(self) -> None:
-        """Refresh the in-memory ULP user lookup used by event enrichment."""
-        try:
-            users = await self.get_ulp_users_public()
-        except (NotAuthorized, NvrError, BadRequest) as err:
-            if not self._ulp_disabled_logged:
-                _LOGGER.debug(
-                    "Public ULP user fetch unavailable (UniFi Identity off?): %s",
-                    err,
-                )
-                self._ulp_disabled_logged = True
-            return
-        self._public_ulp_users_cache = {user.id: user for user in users}
-        # Reset so a later transient failure after recovery is logged again.
-        self._ulp_disabled_logged = False
-
-    def _schedule_ulp_refresh(self) -> None:
-        """
-        Schedule a background ULP cache refresh, guarded against re-entry.
-
-        Skips if a prior refresh task is still running; otherwise creates a
-        new task and attaches a done-callback so unexpected exceptions are
-        logged instead of surfacing only as a GC warning. Silently no-ops
-        when called without a running event loop — the enricher hits this
-        path on every cache miss and the refresh is best-effort.
-        """
-        if self._ulp_refresh_task is not None and not self._ulp_refresh_task.done():
-            return
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            return
-        self._ulp_refresh_task = loop.create_task(
-            self._refresh_public_ulp_users_cache()
-        )
-        self._ulp_refresh_task.add_done_callback(self._on_ulp_refresh_done)
-
-    @staticmethod
-    def _on_ulp_refresh_done(task: asyncio.Task[None]) -> None:
-        if task.cancelled():
-            return
-        exc = task.exception()
-        if exc is not None:
-            _LOGGER.exception("Public ULP user cache refresh failed", exc_info=exc)

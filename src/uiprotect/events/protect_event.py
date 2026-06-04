@@ -100,7 +100,7 @@ EVENT_TYPE_TO_CHANNEL: dict[EventType, ProtectEventChannel] = _build_channel_map
 
 # Schema-level instantaneous types: the server never emits an "end" later
 # (one-shot frame). Dispatcher synthesises end == start so subscribers always
-# see a paired STARTED / ENDED pair without polling _active.
+# see a paired STARTED / ENDED pair.
 INSTANTANEOUS_EVENT_TYPES: frozenset[EventType] = frozenset({EventType.MOTION_LIGHT})
 
 

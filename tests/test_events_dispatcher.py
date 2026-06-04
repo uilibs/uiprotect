@@ -1,10 +1,9 @@
-"""Phase 4 dispatcher tests for the public events contract."""
+"""Dispatcher tests for the public events contract (single-store model)."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from unittest.mock import AsyncMock
 
 import orjson
 import pytest
@@ -16,11 +15,7 @@ from uiprotect.data.public_bootstrap import PublicBootstrap
 from uiprotect.data.types import EventType
 from uiprotect.data.websocket import WSAction
 from uiprotect.events import EventChange, ProtectEvent
-from uiprotect.events.dispatcher import (
-    _RECENTLY_ENDED_CAP,
-    MAX_ACTIVE,
-    EventDispatcher,
-)
+from uiprotect.events.dispatcher import EventDispatcher
 
 _FIXTURES = SAMPLE_DATA_DIRECTORY / "events_ws_public"
 
@@ -46,7 +41,9 @@ def _make_client() -> ProtectApiClient:
 
 @pytest.fixture
 def api() -> ProtectApiClient:
-    return _make_client()
+    client = _make_client()
+    client._public_bootstrap = PublicBootstrap()
+    return client
 
 
 @pytest.fixture
@@ -62,6 +59,11 @@ def _collect(
     return received
 
 
+def _store(api: ProtectApiClient, event: Event) -> None:
+    """Place ``event`` in the single store, mirroring the WS merge path."""
+    api.public_bootstrap.events[event.id] = event
+
+
 def test_dispatch_drops_non_device_event(
     api: ProtectApiClient, dispatcher: EventDispatcher
 ) -> None:
@@ -73,7 +75,7 @@ def test_dispatch_drops_non_device_event(
         start=datetime(2026, 1, 1, tzinfo=UTC),
         device_id="cam-1",
     )
-    dispatcher.dispatch(WSAction.ADD, event)
+    dispatcher.dispatch(WSAction.ADD, event, None)
     assert received == []
 
 
@@ -90,7 +92,7 @@ def test_dispatch_drops_missing_device_id(
         start=datetime(2026, 1, 1, tzinfo=UTC),
     )
     with caplog.at_level("WARNING", logger="uiprotect.events.dispatcher"):
-        dispatcher.dispatch(WSAction.ADD, event)
+        dispatcher.dispatch(WSAction.ADD, event, None)
     assert received == []
     assert any("missing required 'device'" in r.message for r in caplog.records)
 
@@ -107,18 +109,14 @@ def test_dispatch_started_then_ended_through_update(
         start=start,
         device_id="cam-1",
     )
-    dispatcher.dispatch(WSAction.ADD, add)
-    assert dispatcher.active_events() == [received[0][0]]
+    _store(api, add)
+    dispatcher.dispatch(WSAction.ADD, add, None)
+    assert [e.id for e in dispatcher.active_events()] == ["m1"]
 
-    upd = Event(
-        api=api,
-        id="m1",
-        type=EventType.MOTION,
-        start=start,
-        end=start + timedelta(seconds=5),
-        device_id="cam-1",
-    )
-    dispatcher.dispatch(WSAction.UPDATE, upd)
+    old_snapshot = add.model_copy()
+    upd = add
+    upd.end = start + timedelta(seconds=5)
+    dispatcher.dispatch(WSAction.UPDATE, upd, old_snapshot)
     assert [c for _, c in received] == [EventChange.STARTED, EventChange.ENDED]
     assert dispatcher.active_events() == []
 
@@ -129,7 +127,8 @@ def test_dispatch_close_window_nfc_add_with_end(
     received = _collect(dispatcher)
     payload = _load("nfc_add_with_end.json")["item"]
     event = _payload_to_event(api, payload)
-    dispatcher.dispatch(WSAction.ADD, event)
+    _store(api, event)
+    dispatcher.dispatch(WSAction.ADD, event, None)
 
     assert [c for _, c in received] == [EventChange.STARTED, EventChange.ENDED]
     assert received[0][0].id == received[1][0].id
@@ -142,12 +141,37 @@ def test_dispatch_close_window_light_motion(
     received = _collect(dispatcher)
     payload = _load("light_motion_add.json")["item"]
     event = _payload_to_event(api, payload)
-    dispatcher.dispatch(WSAction.ADD, event)
+    _store(api, event)
+    dispatcher.dispatch(WSAction.ADD, event, None)
 
     assert [c for _, c in received] == [EventChange.STARTED, EventChange.ENDED]
     pe = received[0][0]
     assert pe.end == pe.start
+    # The dispatcher closes the instantaneous event in the store so it no
+    # longer shows as active and a replay is suppressed.
     assert dispatcher.active_events() == []
+    assert event.end is not None
+
+
+def test_dispatch_close_window_add_with_end_replay_suppressed(
+    api: ProtectApiClient, dispatcher: EventDispatcher
+) -> None:
+    received = _collect(dispatcher)
+    payload = _load("nfc_add_with_end.json")["item"]
+    first = _payload_to_event(api, payload)
+    _store(api, first)
+    dispatcher.dispatch(WSAction.ADD, first, None)
+
+    # Server retransmits the same ADD-with-end; the snapshot now carries the
+    # terminal ``end`` so the chokepoint suppresses both STARTED and ENDED.
+    snapshot = first.model_copy()
+    replay = _payload_to_event(api, payload)
+    _store(api, replay)
+    dispatcher.dispatch(WSAction.ADD, replay, snapshot)
+
+    changes = [c for _, c in received]
+    assert changes.count(EventChange.STARTED) == 1
+    assert changes.count(EventChange.ENDED) == 1
 
 
 def test_dispatch_smartdetect_lifecycle_idempotent_ended(
@@ -156,15 +180,53 @@ def test_dispatch_smartdetect_lifecycle_idempotent_ended(
     received = _collect(dispatcher)
     payloads = _load("smartdetect_lifecycle.json")
     merged: dict[str, Any] = {}
+    prev: Event | None = None
     for frame in payloads:
         merged.update(frame["item"])
         event = _payload_to_event(api, dict(merged))
-        dispatcher.dispatch(WSAction(frame["type"]), event)
+        snapshot = prev.model_copy() if prev is not None else None
+        _store(api, event)
+        dispatcher.dispatch(WSAction(frame["type"]), event, snapshot)
+        prev = event
 
     changes = [c for _, c in received]
     assert changes.count(EventChange.STARTED) == 1
     assert changes.count(EventChange.ENDED) == 1
     assert dispatcher.active_events() == []
+
+
+def test_dispatch_update_to_end_retransmit_suppressed(
+    api: ProtectApiClient, dispatcher: EventDispatcher
+) -> None:
+    received = _collect(dispatcher)
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    add = Event(api=api, id="r", type=EventType.MOTION, start=start, device_id="cam-1")
+    _store(api, add)
+    dispatcher.dispatch(WSAction.ADD, add, None)
+
+    open_snapshot = add.model_copy()
+    add.end = start + timedelta(seconds=5)
+    dispatcher.dispatch(WSAction.UPDATE, add, open_snapshot)
+
+    # Retransmitted close: old snapshot already terminal -> suppressed.
+    terminal_snapshot = add.model_copy()
+    dispatcher.dispatch(WSAction.UPDATE, add, terminal_snapshot)
+
+    changes = [c for _, c in received]
+    assert changes.count(EventChange.ENDED) == 1
+
+
+def test_dispatch_update_still_open_is_updated(
+    api: ProtectApiClient, dispatcher: EventDispatcher
+) -> None:
+    received = _collect(dispatcher)
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    add = Event(api=api, id="u", type=EventType.MOTION, start=start, device_id="cam-1")
+    _store(api, add)
+    dispatcher.dispatch(WSAction.ADD, add, None)
+    snapshot = add.model_copy()
+    dispatcher.dispatch(WSAction.UPDATE, add, snapshot)
+    assert [c for _, c in received] == [EventChange.STARTED, EventChange.UPDATED]
 
 
 def test_dispatch_remove_terminates(
@@ -179,10 +241,30 @@ def test_dispatch_remove_terminates(
         start=start,
         device_id="cam-1",
     )
-    dispatcher.dispatch(WSAction.ADD, add)
-    dispatcher.dispatch(WSAction.REMOVE, add)
+    _store(api, add)
+    dispatcher.dispatch(WSAction.ADD, add, None)
+    snapshot = add.model_copy()
+    api.public_bootstrap.events.pop("r1", None)
+    dispatcher.dispatch(WSAction.REMOVE, None, snapshot)
     assert [c for _, c in received] == [EventChange.STARTED, EventChange.REMOVED]
     assert dispatcher.active_events() == []
+
+
+def test_dispatch_remove_already_terminal_suppressed(
+    api: ProtectApiClient, dispatcher: EventDispatcher
+) -> None:
+    received = _collect(dispatcher)
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    ended = Event(
+        api=api,
+        id="r2",
+        type=EventType.MOTION,
+        start=start,
+        end=start + timedelta(seconds=1),
+        device_id="cam-1",
+    )
+    dispatcher.dispatch(WSAction.REMOVE, None, ended)
+    assert received == []
 
 
 def test_subscriber_exception_isolation(
@@ -205,14 +287,13 @@ def test_subscriber_exception_isolation(
         device_id="cam-1",
     )
     with caplog.at_level("ERROR", logger="uiprotect.events.dispatcher"):
-        dispatcher.dispatch(WSAction.ADD, add)
+        dispatcher.dispatch(WSAction.ADD, add, None)
     assert len(good) == 1
 
 
 def test_active_events_filter_by_device(
     api: ProtectApiClient, dispatcher: EventDispatcher
 ) -> None:
-    _collect(dispatcher)
     start = datetime(2026, 1, 1, tzinfo=UTC)
     for idx, dev in enumerate(["cam-a", "cam-b"]):
         event = Event(
@@ -222,33 +303,35 @@ def test_active_events_filter_by_device(
             start=start,
             device_id=dev,
         )
-        dispatcher.dispatch(WSAction.ADD, event)
+        _store(api, event)
     assert {e.device_id for e in dispatcher.active_events()} == {"cam-a", "cam-b"}
     assert [e.device_id for e in dispatcher.active_events("cam-a")] == ["cam-a"]
 
 
-def test_enforce_max_active_evicts_oldest(
+def test_active_events_skips_ended_and_other(
     api: ProtectApiClient, dispatcher: EventDispatcher
 ) -> None:
-    received = _collect(dispatcher)
-    base = datetime(2026, 1, 1, tzinfo=UTC)
-    for idx in range(MAX_ACTIVE + 1):
-        ev = Event(
-            api=api,
-            id=f"e-{idx:04d}",
-            type=EventType.MOTION,
-            start=base + timedelta(seconds=idx),
-            device_id="cam-1",
-        )
-        dispatcher.dispatch(WSAction.ADD, ev)
-
-    starteds = [c for _, c in received if c == EventChange.STARTED]
-    endeds = [c for _, c in received if c == EventChange.ENDED]
-    assert len(starteds) == MAX_ACTIVE + 1
-    assert len(endeds) == 1
-    # The very first one was evicted
-    ended_event = next(e for e, c in received if c == EventChange.ENDED)
-    assert ended_event.id == "e-0000"
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    open_a = Event(
+        api=api, id="open-a", type=EventType.MOTION, start=start, device_id="cam-a"
+    )
+    open_b = Event(
+        api=api, id="open-b", type=EventType.RING, start=start, device_id="cam-b"
+    )
+    ended = Event(
+        api=api,
+        id="ended",
+        type=EventType.MOTION,
+        start=start,
+        end=start + timedelta(seconds=1),
+        device_id="cam-a",
+    )
+    other = Event(
+        api=api, id="other", type=EventType.REBOOT, start=start, device_id="cam-a"
+    )
+    for ev in (open_a, open_b, ended, other):
+        _store(api, ev)
+    assert {e.id for e in dispatcher.active_events()} == {"open-a", "open-b"}
 
 
 def test_active_events_without_dispatcher_returns_empty() -> None:
@@ -271,7 +354,7 @@ def test_active_events_with_dispatcher_delegates(
             start=start,
             device_id=dev,
         )
-        dispatcher.dispatch(WSAction.ADD, event)
+        _store(api, event)
     assert {e.device_id for e in api.active_events()} == {"cam-a", "cam-b"}
     assert [e.device_id for e in api.active_events(device_id="cam-a")] == ["cam-a"]
 
@@ -281,55 +364,6 @@ def test_unsubscribe_events_without_dispatcher_is_noop() -> None:
     assert api._event_dispatcher is None
     # Should silently no-op rather than raise.
     api._unsubscribe_events(lambda e, c: None)
-
-
-def test_flush_stale_on_reconnect_no_stale_returns_zero(
-    api: ProtectApiClient, dispatcher: EventDispatcher
-) -> None:
-    received = _collect(dispatcher)
-    start = datetime.now(tz=UTC) - timedelta(seconds=30)
-    ev = Event(
-        api=api,
-        id="fresh",
-        type=EventType.MOTION,
-        start=start,
-        device_id="cam-1",
-    )
-    dispatcher.dispatch(WSAction.ADD, ev)
-    received.clear()
-    assert dispatcher.flush_stale_on_reconnect() == 0
-    assert received == []
-    assert len(dispatcher.active_events()) == 1
-
-
-def test_record_terminal_move_to_end_on_duplicate(
-    dispatcher: EventDispatcher,
-) -> None:
-    dispatcher._record_terminal("a")
-    dispatcher._record_terminal("b")
-    dispatcher._record_terminal("a")
-    assert list(dispatcher._recently_ended) == ["b", "a"]
-
-
-def test_recently_ended_cap_evicts_oldest(dispatcher: EventDispatcher) -> None:
-    for idx in range(_RECENTLY_ENDED_CAP + 5):
-        dispatcher._record_terminal(f"e-{idx}")
-    assert len(dispatcher._recently_ended) == _RECENTLY_ENDED_CAP
-    assert "e-0" not in dispatcher._recently_ended
-    assert "e-4" not in dispatcher._recently_ended
-    assert f"e-{_RECENTLY_ENDED_CAP + 4}" in dispatcher._recently_ended
-
-
-@pytest.mark.asyncio
-async def test_start_ttl_sweep_idempotent_while_running(
-    dispatcher: EventDispatcher,
-) -> None:
-    dispatcher.start_ttl_sweep()
-    first = dispatcher._sweep_task
-    assert first is not None
-    dispatcher.start_ttl_sweep()
-    assert dispatcher._sweep_task is first
-    dispatcher.stop_ttl_sweep()
 
 
 @pytest.mark.asyncio
@@ -345,7 +379,6 @@ async def test_subscribe_events_reference_counted(
 ) -> None:
     api = _make_client()
     api._public_bootstrap = PublicBootstrap()
-    api.get_ulp_users_public = AsyncMock(return_value=[])  # type: ignore[method-assign]
 
     starts: list[None] = []
     stops: list[None] = []
@@ -374,3 +407,38 @@ async def test_subscribe_events_reference_counted(
     unsub_b()
     assert len(stops) == 1
     assert api._event_dispatcher.subscriber_count == 0
+
+
+@pytest.mark.asyncio
+async def test_start_ttl_sweep_idempotent_while_running(
+    dispatcher: EventDispatcher,
+) -> None:
+    dispatcher.start_ttl_sweep()
+    first = dispatcher._sweep_task
+    assert first is not None
+    dispatcher.start_ttl_sweep()
+    assert dispatcher._sweep_task is first
+    dispatcher.stop_ttl_sweep()
+
+
+def test_merge_precedes_fan_out_invariant(
+    api: ProtectApiClient, dispatcher: EventDispatcher
+) -> None:
+    """During a callback the event is already present in the store."""
+    seen: list[bool] = []
+
+    def cb(event: ProtectEvent, _change: EventChange) -> None:
+        seen.append(event.id in api.public_bootstrap.events)
+
+    dispatcher.add_subscriber(cb)
+    add = Event(
+        api=api,
+        id="inv",
+        type=EventType.MOTION,
+        start=datetime(2026, 1, 1, tzinfo=UTC),
+        device_id="cam-1",
+    )
+    # The WS path stores before fan-out; emulate that ordering here.
+    _store(api, add)
+    dispatcher.dispatch(WSAction.ADD, add, None)
+    assert seen == [True]
