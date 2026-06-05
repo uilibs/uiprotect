@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from aiofiles import os as aos
 
 from uiprotect.api import ProtectApiClient
 from uiprotect.data import PublicBootstrap
@@ -13,6 +15,9 @@ from uiprotect.data.types import Version
 from uiprotect.exceptions import BadRequest, NotAuthorized, PublicOnlyModeError
 
 from .test_api_public import _mock_update_public_endpoints
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 API_KEY = "test-public-key"
 
@@ -205,3 +210,35 @@ def test_meta_info_version_is_parsed() -> None:
     meta = MetaInfo(applicationVersion="7.0.104")
     assert meta.version == Version("7.0.104")
     assert meta.version >= Version("5.0.0")
+
+
+# ---------------------------------------------------------------------------
+# Session helpers short-circuit (no private username to key the store on)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_load_session_noop_public_only() -> None:
+    client = _public_only_client()
+    with patch.object(client, "get_session", new=AsyncMock()) as get_session:
+        await client._load_session()
+    get_session.assert_not_called()
+    assert client._session is None
+    assert client._loaded_session is False
+
+
+@pytest.mark.asyncio()
+async def test_clear_session_noop_public_only(tmp_path: Path) -> None:
+    client = ProtectApiClient(
+        "127.0.0.1",
+        443,
+        api_key=API_KEY,
+        verify_ssl=False,
+        config_dir=tmp_path,
+    )
+    assert client.is_public_only is True
+    assert client.store_sessions is True
+
+    await client.clear_session()
+
+    assert not await aos.path.exists(client.config_file)
