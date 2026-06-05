@@ -84,7 +84,7 @@ The API column marks which is which; note that `viewers` (private) and
 | `bridges`              | Public  | Bridge commands.                                                 |
 | `cameras`              | Private | Camera device CLI.                                               |
 | `chimes`               | Private | Chime device CLI.                                                |
-| `create-api-key`       | Public  | Create a new API key for the current user.                       |
+| `create-api-key`       | Private | Create a new API key for the current user.                       |
 | `decode-ws-msg`        | —       | Decodes a base64 encoded UniFi Protect Websocket binary message. |
 | `doorlocks`            | Private | Doorlock device CLI.                                             |
 | `events`               | Private | Events CLI.                                                      |
@@ -265,8 +265,10 @@ uiprotect sirens list
 uiprotect viewers-public set-name VIEWER_ID "Living Room"
 ```
 
-The top-level `uiprotect create-api-key NAME` and `uiprotect get-meta-info`
-commands are also Public-API driven.
+The top-level `uiprotect get-meta-info` command is also Public-API driven.
+`uiprotect create-api-key NAME` runs against the private, session-authenticated
+(username/password) surface — you must already have a private session to mint
+an API key.
 
 #### Backup CLI
 
@@ -425,7 +427,7 @@ $ uiprotect cameras 61ddb66b018e2703e7008c19 save-video export.mp4 2022-6-1T00:0
 
 !!! note "Timezones"
 
-    See the section on [Timezones](#timezones) for determined what timezone your datetimes are in.
+    See the section on [Timezones](#timezones) for determining what timezone your datetimes are in.
 
 ###### Play Audio File to Cameras Speaker
 

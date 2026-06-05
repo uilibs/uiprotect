@@ -32,7 +32,7 @@ async def main() -> None:
         port=443,
         username="YOUR_USERNAME",
         password="YOUR_PASSWORD",
-        verify_ssl=False,  # set True if your console has a valid certificate
+        verify_ssl=True,  # set False only for a self-signed certificate
     )
 
     # Fetch the bootstrap snapshot (cameras, lights, sensors, NVR, ...).
@@ -76,7 +76,7 @@ async def main() -> None:
         username="YOUR_USERNAME",
         password="YOUR_PASSWORD",
         api_key="YOUR_API_KEY",
-        verify_ssl=False,
+        verify_ssl=True,  # set False only for a self-signed certificate
     )
     await protect.update_public()
 
@@ -90,16 +90,16 @@ async def main() -> None:
     finally:
         unsubscribe()
         await protect.close_session()
-        await protect.close_public_api_session()
 
 
 asyncio.run(main())
 ```
 
-The lower-level `subscribe_events_websocket` continues to deliver raw
-`WSSubscriptionMessage` frames for advanced callers and does not require an
-API key. See the project README for the full notes on the typed event
-contract.
+The lower-level `subscribe_websocket` continues to deliver raw
+`WSSubscriptionMessage` frames for advanced callers over the private API and
+does not require an API key. The parallel `subscribe_events_websocket` drives
+the Public Integration API WebSocket and **does** require an API key. See the
+project README for the full notes on the typed event contract.
 
 ## Public vs. private API
 
