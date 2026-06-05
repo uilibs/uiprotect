@@ -180,8 +180,8 @@ explicitly with `@pytest.mark.asyncio`.
 
 **Every PR must reach 100% patch coverage.** Each line you add or
 change under `src/uiprotect/` has to be exercised by a test —
-check the `--cov-report=term-missing` output and confirm none of
-the diff's lines appear as missing before pushing. Don't ship a
+check the `--cov-report=term-missing:skip-covered` output and confirm
+none of the diff's lines appear as missing before pushing. Don't ship a
 change with uncovered new code; if a line is genuinely
 unreachable, mark it `# pragma: no cover` with a one-line reason
 rather than leaving it untested. This applies to automated
