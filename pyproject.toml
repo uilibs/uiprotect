@@ -245,6 +245,12 @@ select = [
     "TC002",
     "TC003",
 ]
+"src/uiprotect/devices/**/*" = [
+    # pydantic v2 model field types must resolve at runtime for validation
+    "TC001",
+    "TC002",
+    "TC003",
+]
 "src/uiprotect/cli/**/*" = [
     # typer inspects runtime annotations on command callbacks
     "TC001",

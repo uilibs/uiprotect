@@ -104,6 +104,7 @@ from .exceptions import BadRequest, GlobalAlarmManagerError, NotAuthorized, NvrE
 from .stream import TalkbackSession
 
 if TYPE_CHECKING:
+    from .devices.dispatcher import DeviceDispatcher
     from .events.dispatcher import EventDispatcher
 from .utils import (
     decode_token_cookie,
@@ -123,6 +124,7 @@ if TYPE_CHECKING:
     from uiprotect.data.devices import LightDeviceSettings, LightModeSettings
 
     from .data.base import ProtectModelWithId
+    from .devices import ProtectDeviceChange
     from .events import EventChange, ProtectEvent
 
 if "partitioned" not in cookies.Morsel._reserved:  # type: ignore[attr-defined]
@@ -1274,6 +1276,11 @@ class ProtectApiClient(BaseApiClient):
     # Internal events-WS adapter unsubscribe; populated while the typed
     # ``subscribe_events`` callback list is non-empty.
     _event_ws_adapter_unsub: Callable[[], None] | None = None
+    # Lazy dispatcher; ``subscribe_devices`` materialises it.
+    _device_dispatcher: DeviceDispatcher | None = None
+    # Internal devices-WS adapter unsubscribe; populated while the typed
+    # ``subscribe_devices`` callback list is non-empty.
+    _device_ws_adapter_unsub: Callable[[], None] | None = None
     # Monotonic timestamp of the last "REMOVE for unknown event" INFO log;
     # throttled so a burst of unknown-id removes does not flood the log.
     _events_remove_unknown_last_log: float = 0.0
@@ -1340,6 +1347,7 @@ class ProtectApiClient(BaseApiClient):
         self._events_ws_state_subscriptions = []
         self._devices_ws_state_subscriptions = []
         self._event_dispatcher = None
+        self._device_dispatcher = None
         self.ignore_unadopted = ignore_unadopted
         self._update_lock = asyncio.Lock()
 
@@ -1678,8 +1686,6 @@ class ProtectApiClient(BaseApiClient):
             if _devices_filter and model_type not in _devices_filter:
                 return
 
-            update_id = item.get("id", "")
-
             # Apply the change to the PublicBootstrap cache when it has been
             # materialised via `update_public`. Without that opt-in, the
             # subscription message carries ``new_obj=None`` and subscribers
@@ -1687,22 +1693,33 @@ class ProtectApiClient(BaseApiClient):
             # preserves legacy behaviour exactly and avoids producing
             # partially-validated model instances for consumers that haven't
             # opted into the cache.
-            new_obj: ProtectModelWithId | None = None
-            old_obj: ProtectModelWithId | None = None
             if self._public_bootstrap is not None:
-                _, new_obj, old_obj = self._public_bootstrap.process_devices_ws_message(
+                # Bulk envelopes carry an ``id`` array sharing one payload;
+                # expand to one frame per device so every subscriber sees
+                # clean single-device messages regardless of batching.
+                for result in self._public_bootstrap.process_devices_ws_messages(
                     self, data
+                ):
+                    self.emit_devices_message(
+                        WSSubscriptionMessage(
+                            action=WSAction(action_type),
+                            new_update_id=result.item.get("id", ""),
+                            changed_data=result.item,
+                            new_obj=result.new_obj,
+                            old_obj=result.old_obj,
+                        )
+                    )
+                return
+
+            self.emit_devices_message(
+                WSSubscriptionMessage(
+                    action=WSAction(action_type),
+                    new_update_id=item.get("id", ""),
+                    changed_data=item,
+                    new_obj=None,
+                    old_obj=None,
                 )
-
-            msg_obj = WSSubscriptionMessage(
-                action=WSAction(action_type),
-                new_update_id=update_id,
-                changed_data=item,
-                new_obj=new_obj,
-                old_obj=old_obj,
             )
-
-            self.emit_devices_message(msg_obj)
         except Exception:
             _LOGGER.exception("Error processing public API devices websocket message")
 
@@ -2110,6 +2127,74 @@ class ProtectApiClient(BaseApiClient):
                     self._events_remove_unknown_last_log = now
                 return
             dispatcher.dispatch(WSAction.REMOVE, None, old_obj)
+
+    def subscribe_devices(
+        self,
+        callback: Callable[[ProtectDeviceChange], None],
+    ) -> Callable[[], None]:
+        """
+        Subscribe to typed public device-state lifecycle callbacks.
+
+        The device-side analog of ``subscribe_events``: each callback receives
+        a :class:`~uiprotect.devices.ProtectDeviceChange` describing an
+        ``ADDED`` / ``UPDATED`` / ``REMOVED`` device, carrying the merged
+        public model (``None`` for ``REMOVED``) and, for ``UPDATED``, the
+        changed-field set. Single and bulk WS envelopes are expanded
+        transparently to one change per device; ``state`` / connection
+        transitions surface as ordinary ``UPDATED``s.
+
+        Requires ``update_public()`` to have primed the public bootstrap at
+        least once before subscribing (a ``RuntimeError`` is raised otherwise)
+        — the merged public models depend on that cache. Callers that need the
+        websocket live *during* priming should use the raw
+        ``subscribe_devices_websocket`` instead, which has no such ordering
+        requirement.
+
+        The callback must not raise: an exception is caught and logged but
+        otherwise swallowed. ``device_mac`` resolves with eventual consistency
+        — a device not yet in the bootstrap yields ``None`` until the next
+        ``update_public()`` / reconnect resync.
+        """
+        if self._public_bootstrap is None:
+            raise RuntimeError(
+                "subscribe_devices() requires update_public() to have been called"
+                " at least once"
+            )
+
+        # Local import to avoid circular import (devices.dispatcher → api).
+        from .devices.dispatcher import DeviceDispatcher  # noqa: PLC0415
+
+        if self._device_dispatcher is None:
+            self._device_dispatcher = DeviceDispatcher(self)
+        dispatcher = self._device_dispatcher
+
+        first = dispatcher.subscriber_count == 0
+        dispatcher.add_subscriber(callback)
+
+        if first:
+            self._device_ws_adapter_unsub = self.subscribe_devices_websocket(
+                self._adapt_devices_ws_message
+            )
+
+        return partial(self._unsubscribe_devices, callback)
+
+    def _unsubscribe_devices(
+        self,
+        callback: Callable[[ProtectDeviceChange], None],
+    ) -> None:
+        if self._device_dispatcher is None:
+            return
+        self._device_dispatcher.remove_subscriber(callback)
+        if self._device_dispatcher.subscriber_count == 0:
+            unsub = getattr(self, "_device_ws_adapter_unsub", None)
+            if unsub is not None:
+                unsub()
+                self._device_ws_adapter_unsub = None
+
+    def _adapt_devices_ws_message(self, msg: WSSubscriptionMessage) -> None:
+        if self._device_dispatcher is None:
+            return
+        self._device_dispatcher.dispatch(msg)
 
     def _unsubscribe_websocket(
         self,
