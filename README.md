@@ -150,8 +150,10 @@ concern-separated primitives it needs without any model-type routing or
 merge logic of its own.
 
 Like `subscribe_events`, it requires `update_public()` to have primed the
-public bootstrap (the merged public models live in that cache), so
-subscribe _before_ calling `update_public()` to avoid missing frames.
+public bootstrap (the merged public models live in that cache), so call
+`update_public()` _before_ subscribing — subscribing first raises
+`RuntimeError`. Callers that need the websocket live during priming should
+use the raw `subscribe_devices_websocket` instead.
 
 ```python
 from uiprotect import DeviceChange, ProtectApiClient, ProtectDeviceChange
@@ -162,8 +164,8 @@ def on_device(change: ProtectDeviceChange) -> None:
     if change.change is DeviceChange.UPDATED and "state" in change.changed_fields:
         _LOGGER.info("%s -> %s", change.device_id, change.model.state)
 
-unsubscribe = protect.subscribe_devices(on_device)
 await protect.update_public()
+unsubscribe = protect.subscribe_devices(on_device)
 # ...
 unsubscribe()
 ```

@@ -5,16 +5,19 @@ This is an opt-in, separate cache for the Public Integration API. It is
 *not* populated by :meth:`ProtectApiClient.update` and does not
 touch the private :class:`~uiprotect.data.bootstrap.Bootstrap` in any way.
 
-Consumers (e.g. Home Assistant) should:
+Consumers (e.g. Home Assistant) pick one of two ordering contracts:
 
-1. ``subscribe_devices(callback)`` (typed device-state lifecycle) /
-   ``subscribe_events(callback)`` (typed detection events), or the raw
-   ``subscribe_devices_websocket`` / ``subscribe_events_websocket`` frames
-2. ``await update_public()`` to prime the cache
+* **Typed** (``subscribe_devices`` / ``subscribe_events``): call
+  ``await update_public()`` *first* to prime the cache, then subscribe. These
+  deliver merged public models, so they require the primed cache and raise
+  ``RuntimeError`` if it is missing.
+* **Raw** (``subscribe_devices_websocket`` / ``subscribe_events_websocket``):
+  subscribe *first*, then ``await update_public()``. The websocket is live
+  during priming so no frame is missed; pre-prime frames arrive via
+  ``changed_data`` with ``new_obj=None``.
 
-That ordering guarantees subscribers are registered before priming starts.
-WS messages that arrive while ``update_public()`` is still priming are still
-delivered to subscribers (via ``changed_data``), but they may not yet be
+WS messages that arrive while ``update_public()`` is still priming are
+delivered to raw subscribers (via ``changed_data``), but they may not yet be
 applied to the in-memory :class:`PublicBootstrap` cache (an ``update`` for
 an object not in the cache is dropped — the cache catches up on the next
 ``update_public()`` / reconnect refresh). Messages that arrive after priming

@@ -2143,9 +2143,12 @@ class ProtectApiClient(BaseApiClient):
         transparently to one change per device; ``state`` / connection
         transitions surface as ordinary ``UPDATED``s.
 
-        Requires ``update_public()`` to have primed the public bootstrap —
-        merged public models depend on the cache. Subscribe *before*
-        ``update_public()`` so no frames are missed during priming.
+        Requires ``update_public()`` to have primed the public bootstrap at
+        least once before subscribing (a ``RuntimeError`` is raised otherwise)
+        — the merged public models depend on that cache. Callers that need the
+        websocket live *during* priming should use the raw
+        ``subscribe_devices_websocket`` instead, which has no such ordering
+        requirement.
 
         The callback must not raise: an exception is caught and logged but
         otherwise swallowed. ``device_mac`` resolves with eventual consistency
