@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
@@ -429,3 +430,121 @@ def test_dispatch_generic_model_type(
     assert len(seen) == 1
     assert seen[0].model_type is ModelType.SIREN
     assert seen[0].device_id == "siren-1"
+
+
+# ---------------------------------------------------------------------------
+# Defensive branches (no observable change emitted)
+# ---------------------------------------------------------------------------
+
+
+def test_remove_without_resolvable_id_is_dropped(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """A REMOVE for a supported type but no id (no old_obj, no payload id)."""
+    client = protect_client_no_debug
+    _prime(client)
+    dispatcher = DeviceDispatcher(client)
+    seen: list[ProtectDeviceChange] = []
+    dispatcher.add_subscriber(seen.append)
+
+    msg = WSSubscriptionMessage(
+        action=WSAction.REMOVE,
+        new_update_id="",
+        changed_data={"modelKey": "camera"},
+        old_obj=None,
+    )
+    dispatcher.dispatch(msg)
+
+    assert seen == []
+
+
+def test_upsert_without_resolvable_id_is_dropped(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """An ADD whose merged model has no id and whose payload omits id."""
+    client = protect_client_no_debug
+    _prime(client)
+    dispatcher = DeviceDispatcher(client)
+    seen: list[ProtectDeviceChange] = []
+    dispatcher.add_subscriber(seen.append)
+
+    msg = WSSubscriptionMessage(
+        action=WSAction.ADD,
+        new_update_id="",
+        changed_data={"modelKey": "camera"},
+        new_obj=SimpleNamespace(id=None, mac=None),
+    )
+    dispatcher.dispatch(msg)
+
+    assert seen == []
+
+
+def test_update_with_empty_payload_has_no_changed_fields(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """An UPDATE carrying only id/modelKey yields an empty changed-field set."""
+    client = protect_client_no_debug
+    _prime(client)
+    dispatcher = DeviceDispatcher(client)
+    seen: list[ProtectDeviceChange] = []
+    dispatcher.add_subscriber(seen.append)
+
+    camera = PublicCamera.from_unifi_dict(api=client, **_camera_payload())
+    client.public_bootstrap.cameras[CAMERA_ID] = camera
+    msg = WSSubscriptionMessage(
+        action=WSAction.UPDATE,
+        new_update_id=CAMERA_ID,
+        changed_data={"id": CAMERA_ID, "modelKey": "camera"},
+        new_obj=camera,
+    )
+    dispatcher.dispatch(msg)
+
+    assert len(seen) == 1
+    assert seen[0].change is DeviceChange.UPDATED
+    assert seen[0].changed_fields == frozenset()
+
+
+def test_update_changed_fields_falls_back_when_conversion_raises(
+    protect_client_no_debug: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """If the model's remap pass raises, changed_fields is the raw payload keys."""
+    client = protect_client_no_debug
+    _prime(client)
+    dispatcher = DeviceDispatcher(client)
+    seen: list[ProtectDeviceChange] = []
+    dispatcher.add_subscriber(seen.append)
+
+    camera = PublicCamera.from_unifi_dict(api=client, **_camera_payload())
+    client.public_bootstrap.cameras[CAMERA_ID] = camera
+
+    def _boom(_data: dict[str, Any]) -> dict[str, Any]:
+        raise ValueError("bad payload")
+
+    monkeypatch.setattr(PublicCamera, "unifi_dict_to_dict", staticmethod(_boom))
+    msg = WSSubscriptionMessage(
+        action=WSAction.UPDATE,
+        new_update_id=CAMERA_ID,
+        changed_data={"id": CAMERA_ID, "modelKey": "camera", "name": "Renamed"},
+        new_obj=camera,
+    )
+    dispatcher.dispatch(msg)
+
+    assert len(seen) == 1
+    assert seen[0].changed_fields == frozenset({"name"})
+
+
+def test_adapt_devices_ws_message_without_dispatcher_is_noop(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """The WS adapter swallows frames once the dispatcher has been torn down."""
+    client = protect_client_no_debug
+    client._device_dispatcher = None
+    msg = WSSubscriptionMessage(
+        action=WSAction.ADD,
+        new_update_id=CAMERA_ID,
+        changed_data={"id": CAMERA_ID, "modelKey": "camera"},
+        new_obj=None,
+    )
+    # Must not raise; nothing to assert beyond the no-op return.
+    client._adapt_devices_ws_message(msg)
