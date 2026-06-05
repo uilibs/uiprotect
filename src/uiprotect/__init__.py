@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .api import ProtectApiClient, calculate_retry_delay, parse_retry_after
+from .devices import DeviceChange, ProtectDeviceChange
 from .events import (
     EventChange,
     EventIdentity,
@@ -22,6 +23,7 @@ from .utils import (
 )
 
 __all__ = [
+    "DeviceChange",
     "EventChange",
     "EventIdentity",
     "GlobalAlarmManagerError",
@@ -29,6 +31,7 @@ __all__ = [
     "NotAuthorized",
     "NvrError",
     "ProtectApiClient",
+    "ProtectDeviceChange",
     "ProtectEvent",
     "ProtectEventChannel",
     "UlpUserIdentity",

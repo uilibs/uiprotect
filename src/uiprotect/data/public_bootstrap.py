@@ -7,7 +7,9 @@ touch the private :class:`~uiprotect.data.bootstrap.Bootstrap` in any way.
 
 Consumers (e.g. Home Assistant) should:
 
-1. ``subscribe_devices_websocket(callback)`` / ``subscribe_events_websocket(callback)``
+1. ``subscribe_devices(callback)`` (typed device-state lifecycle) /
+   ``subscribe_events(callback)`` (typed detection events), or the raw
+   ``subscribe_devices_websocket`` / ``subscribe_events_websocket`` frames
 2. ``await update_public()`` to prime the cache
 
 That ordering guarantees subscribers are registered before priming starts.
@@ -98,6 +100,17 @@ _DEDICATED_SLOT_STORE_ATTRS: dict[ModelType, str] = {
     ModelType.BRIDGE: "bridges",
     ModelType.VIEWPORT: "viewers",
 }
+
+
+@dataclass(frozen=True, slots=True)
+class DeviceWSResult:
+    """One expanded per-device outcome of a public devices WS frame."""
+
+    model_type: ModelType | None
+    new_obj: ProtectModelWithId | None
+    old_obj: ProtectModelWithId | None
+    # Per-id raw payload (``id`` is always scalar here, even for bulk frames).
+    item: dict[str, Any]
 
 
 @dataclass
@@ -251,6 +264,37 @@ class PublicBootstrap:
     # WS message handlers
     # ------------------------------------------------------------------
 
+    def supports_device(self, model_type: ModelType) -> bool:
+        """Return whether ``model_type`` maps to a public device store."""
+        return (
+            model_type in _PUBLIC_STORES or model_type in _DEDICATED_SLOT_STORE_ATTRS
+        )
+
+    def process_devices_ws_messages(
+        self,
+        api: ProtectApiClient,
+        data: dict[str, Any],
+    ) -> list[DeviceWSResult]:
+        """
+        Apply a public *devices* WS frame to the cache, expanding bulk forms.
+
+        The bulk envelopes (``devicesAdd`` / ``devicesBulkUpdate`` /
+        ``devicesBulkRemove``) share a single ``item`` whose ``id`` is a list
+        of ids with one shared ``modelKey`` and payload. This fans that out to
+        one :class:`DeviceWSResult` per id (each carrying a scalar-``id``
+        ``item``); a single-id frame yields a one-element list. An empty
+        ``id`` array yields an empty list.
+        """
+        action_type, item, _obj_id = _parse_ws_envelope(data)
+        if action_type is None:
+            return []
+        raw_id = item.get("id")
+        if isinstance(raw_id, list):
+            expanded = [{**item, "id": one_id} for one_id in raw_id]
+        else:
+            expanded = [item]
+        return [self._apply_one(api, action_type, one) for one in expanded]
+
     def process_devices_ws_message(
         self,
         api: ProtectApiClient,
@@ -259,19 +303,29 @@ class PublicBootstrap:
         """
         Apply a public *devices* WS payload to the cache.
 
-        Returns ``(model_type, new_obj, old_obj)``. Any of them may be
-        ``None`` when the message couldn't be applied (unknown model,
-        malformed payload, or an update for an object not yet in the
-        cache).
+        Back-compat façade over :meth:`process_devices_ws_messages`: returns
+        the first expanded result's ``(model_type, new_obj, old_obj)`` 3-tuple,
+        or ``(None, None, None)`` when nothing was produced. Callers that need
+        per-device frames for bulk envelopes should use the plural form.
 
         ``update`` messages carry **partial diffs** — only the changed
         fields. They are merged into the existing cached object via
         :meth:`ProtectBaseObject.update_from_dict`; reconstructing from a
         partial payload would fail strict validation for required fields.
         """
-        action_type, item, _obj_id = _parse_ws_envelope(data)
-        if action_type is None:
+        results = self.process_devices_ws_messages(api, data)
+        if not results:
             return None, None, None
+        first = results[0]
+        return first.model_type, first.new_obj, first.old_obj
+
+    def _apply_one(
+        self,
+        api: ProtectApiClient,
+        action_type: str,
+        item: dict[str, Any],
+    ) -> DeviceWSResult:
+        """Route a single scalar-``id`` device item to its cache slot."""
         model_key = item["modelKey"]
         model_type = ModelType.from_string(model_key)
 
@@ -284,19 +338,19 @@ class PublicBootstrap:
             new, old = self._apply_action(
                 api, action_type, item, model_type, custom_slot
             )
-            return model_type, new, old
+            return DeviceWSResult(model_type, new, old, item)
 
         store = self._store_for(model_type)
         if store is None:
             _LOGGER.debug(
                 "Public WS message for unsupported model %s ignored", model_key
             )
-            return model_type, None, None
+            return DeviceWSResult(model_type, None, None, item)
 
         new, old = self._apply_action(
             api, action_type, item, model_type, _dict_slot(store)
         )
-        return model_type, new, old
+        return DeviceWSResult(model_type, new, old, item)
 
     def _custom_slot_for(self, model_type: ModelType) -> _Slot | None:
         """Return the dedicated public-API slot for collision-routed types."""

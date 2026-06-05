@@ -139,6 +139,52 @@ Notes:
   ULP user, or a `device_mac` of `None` for a device not yet in the
   bootstrap, both fill in on the next `update_public()` / reconnect resync.
 
+## Subscribing to device state
+
+`subscribe_devices` is the device-side analog of `subscribe_events`: it
+delivers a typed `ProtectDeviceChange` for each `ADDED` / `UPDATED` /
+`REMOVED` device over the Public Integration API. Together with
+`public_bootstrap` (the device snapshot) and `subscribe_events`
+(detection / sensor events), it gives a thin consumer the three
+concern-separated primitives it needs without any model-type routing or
+merge logic of its own.
+
+Like `subscribe_events`, it requires `update_public()` to have primed the
+public bootstrap (the merged public models live in that cache), so
+subscribe *before* calling `update_public()` to avoid missing frames.
+
+```python
+from uiprotect import DeviceChange, ProtectApiClient, ProtectDeviceChange
+
+protect = ProtectApiClient(..., api_key="...")
+
+def on_device(change: ProtectDeviceChange) -> None:
+    if change.change is DeviceChange.UPDATED and "state" in change.changed_fields:
+        _LOGGER.info("%s -> %s", change.device_id, change.model.state)
+
+unsubscribe = protect.subscribe_devices(on_device)
+await protect.update_public()
+# ...
+unsubscribe()
+```
+
+Notes:
+
+- Each change carries the merged `Public*` model in `change.model`
+  (`None` for `REMOVED`, where only an id / `modelKey` reference is
+  delivered). `change.changed_fields` is populated only for `UPDATED`.
+- Single and bulk WS envelopes are expanded transparently to one change
+  per device, so consumers never see batched `id` arrays.
+- Connection / `state` transitions surface as ordinary `UPDATED`s with
+  `state` in `changed_fields` — there is no separate side channel.
+- The callback must not raise: an exception is caught and logged but
+  otherwise swallowed.
+- `change.device_mac` resolves with eventual consistency — a device not
+  yet in the bootstrap yields `None` until the next `update_public()` /
+  reconnect resync.
+- This is device *state* only. It does not synthesize detection / motion
+  (use `subscribe_events`) and there is no adoption concept folded in.
+
 ## History
 
 This project was split off from `pyunifiprotect` because that project changed its license to one that would not be accepted in Home Assistant. This project is committed to keeping the MIT license.
