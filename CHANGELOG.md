@@ -1,5 +1,13 @@
 # Changelog
 
+## v11.4.0 (2026-06-05)
+
+### Features
+
+
+- Back public camera/light/sensor/chime with dedicated models ([`f3076fe`](https://github.com/uilibs/uiprotect/commit/f3076fec22fa1b221456bfca618e45270834a16f))
+
+
 ## v11.3.1 (2026-06-04)
 
 ### Bug fixes
