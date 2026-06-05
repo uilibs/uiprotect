@@ -1,8 +1,16 @@
-"""Opt-in field-conformance guard for public device models vs the OpenAPI spec."""
+"""Opt-in guard: public device models must not declare fields absent from the spec."""
 
 # The spec (``openapi/integration.json``) is gitignored and not fetched in CI, so
 # this test skips cleanly when it is absent. Run ``python scripts/fetch_openapi.py``
-# locally to enable it.
+# (defaults to the latest release) locally to enable it.
+#
+# The check is a subset assertion (model fields ⊆ spec fields), NOT strict
+# equality: it catches phantom fields — model fields with no counterpart in the
+# public contract, the regression this guard exists to prevent — while staying
+# robust across spec releases. The public spec is append-only in practice, so a
+# model targeting the latest shape stays a subset of any newer spec; and fields
+# added in a release after our minimum-supported Protect version are modelled as
+# optional, so "spec has a field the model doesn't" is expected, not a failure.
 
 from __future__ import annotations
 
@@ -22,19 +30,6 @@ from uiprotect.data.base import ProtectBaseObject
 from uiprotect.utils import to_snake_case
 
 _SPEC_PATH = Path(__file__).resolve().parents[1] / "openapi" / "integration.json"
-
-# The models target this Protect spec release. ``scripts/fetch_openapi.py``'s
-# default ``latest`` and older pins (e.g. 7.1.69) carry a different field set,
-# so the strict equality below would hard-fail on spec skew. Gate on the
-# version so the guard is reproducible: it runs only against the targeted spec
-# and skips otherwise, instead of flipping pass/fail on an un-pinned artifact.
-_TARGET_SPEC_VERSION = "7.1.76"
-
-
-def _spec_version() -> str | None:
-    if not _SPEC_PATH.exists():
-        return None
-    return json.loads(_SPEC_PATH.read_text()).get("info", {}).get("version")
 
 
 def _resolve_object_props(
@@ -82,14 +77,15 @@ def _assert_matches(
     schemas: dict[str, Any],
     path: str,
 ) -> None:
-    """Assert ``cls.model_fields`` equals the resolved spec property set, recursively."""
+    """Assert ``cls.model_fields`` is a subset of the spec property set (no phantom fields), recursively."""
     props = _resolve_object_props(node, schemas)
     assert props is not None, f"{path}: spec schema is not object-shaped"
 
     # ``modelKey`` is remapped to the ``model`` field on ProtectModel.
     spec_fields = {to_snake_case(key) for key in props}
     model_fields = {"model_key" if f == "model" else f for f in cls.model_fields}
-    assert model_fields == spec_fields, path
+    phantom = model_fields - spec_fields
+    assert not phantom, f"{path}: model declares field(s) absent from the spec: {sorted(phantom)}"
 
     for key, prop_schema in props.items():
         if _resolve_object_props(prop_schema, schemas) is None:
@@ -103,10 +99,6 @@ def _assert_matches(
 
 
 @pytest.mark.skipif(not _SPEC_PATH.exists(), reason="openapi/integration.json absent")
-@pytest.mark.skipif(
-    _spec_version() != _TARGET_SPEC_VERSION,
-    reason=f"spec version {_spec_version()!r} != targeted {_TARGET_SPEC_VERSION!r}",
-)
 @pytest.mark.parametrize(
     ("cls", "schema_name"),
     [
@@ -119,7 +111,7 @@ def _assert_matches(
 def test_public_model_matches_spec(
     cls: type[ProtectBaseObject], schema_name: str
 ) -> None:
-    """``model_fields`` equals the resolved spec property set, including nested leaves."""
+    """``model_fields`` is a subset of the resolved spec property set, including nested leaves."""
     schemas = json.loads(_SPEC_PATH.read_text())["components"]["schemas"]
     _assert_matches(
         cls, {"$ref": f"#/components/schemas/{schema_name}"}, schemas, schema_name
