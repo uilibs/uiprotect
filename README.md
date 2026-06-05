@@ -156,7 +156,11 @@ public bootstrap (the merged public models live in that cache), so call
 use the raw `subscribe_devices_websocket` instead.
 
 ```python
+import logging
+
 from uiprotect import DeviceChange, ProtectApiClient, ProtectDeviceChange
+
+_LOGGER = logging.getLogger(__name__)
 
 protect = ProtectApiClient(..., api_key="...")
 
