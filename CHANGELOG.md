@@ -1,5 +1,25 @@
 # Changelog
 
+## v11.5.0 (2026-06-05)
+
+### Features
+
+
+- Add typed subscribe_devices() device-state lifecycle ([`4bd6ef7`](https://github.com/uilibs/uiprotect/commit/4bd6ef786486cde9a70e54fa82cb814d51914a2a))
+
+
+- Add typed subscribe_devices() device-state lifecycle ([`4bd6ef7`](https://github.com/uilibs/uiprotect/commit/4bd6ef786486cde9a70e54fa82cb814d51914a2a))
+
+
+### Build system
+
+
+- Remove dead sphinx docs stack ([`b73d07b`](https://github.com/uilibs/uiprotect/commit/b73d07bb85c39293b0f0f94c1cd32f4a05957b90))
+
+
+- Remove dead sphinx stack, drop starlette/uvicorn transitives ([`b73d07b`](https://github.com/uilibs/uiprotect/commit/b73d07bb85c39293b0f0f94c1cd32f4a05957b90))
+
+
 ## v11.4.0 (2026-06-05)
 
 ### Features
