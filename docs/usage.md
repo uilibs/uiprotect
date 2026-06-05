@@ -110,7 +110,7 @@ from the second to the first:
   under `/integration/v1/…`. It authenticates with an **API key** (create one
   with `uiprotect create-api-key NAME`), is stable across firmware releases,
   and is the forward-looking path. The typed `subscribe_events` stream and the
-  `*-public` CLI groups (`viewers-public`, `users-public`, `liveviews`, …) are
+  public-API CLI groups (`viewers-public`, `users-public`, `liveviews`, …) are
   driven by this API.
 - **Private API** — the reverse-engineered, undocumented endpoints under
   `/api/…` plus the binary WebSocket update stream. It authenticates with
