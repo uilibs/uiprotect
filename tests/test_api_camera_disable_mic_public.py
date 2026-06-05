@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from uiprotect.data import Camera
+from uiprotect.data import PublicCamera
 
 if TYPE_CHECKING:
     from uiprotect.api import ProtectApiClient
@@ -21,12 +21,12 @@ CAMERA_ID = "6878d82800215803e45928e1"
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Camera.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicCamera.from_unifi_dict")
 async def test_disable_camera_mic_permanently_public_posts_correct_url(
     mock_create: Mock,
     protect_client: ProtectApiClient,
 ) -> None:
-    mock_cam = Mock(spec=Camera)
+    mock_cam = Mock(spec=PublicCamera)
     mock_cam.id = CAMERA_ID
     mock_create.return_value = mock_cam
     protect_client.api_request_obj = AsyncMock(return_value={"id": CAMERA_ID})
@@ -44,12 +44,12 @@ async def test_disable_camera_mic_permanently_public_posts_correct_url(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Camera.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicCamera.from_unifi_dict")
 async def test_disable_camera_mic_permanently_public_returns_camera(
     mock_create: Mock,
     protect_client: ProtectApiClient,
 ) -> None:
-    mock_cam = Mock(spec=Camera)
+    mock_cam = Mock(spec=PublicCamera)
     mock_cam.id = CAMERA_ID
     mock_create.return_value = mock_cam
     protect_client.api_request_obj = AsyncMock(return_value={"id": CAMERA_ID})

@@ -59,11 +59,15 @@ from .data import (
     PublicArmScheduleDict,
     PublicBootstrap,
     PublicBridge,
+    PublicCamera,
+    PublicChime,
     PublicFile,
     PublicHdrMode,
+    PublicLight,
     PublicLiveview,
     PublicLiveviewSlotDict,
     PublicNVR,
+    PublicSensor,
     PublicSensorAlarmSettings,
     PublicSensorHumiditySettings,
     PublicSensorLightSettings,
@@ -3189,15 +3193,17 @@ class ProtectApiClient(BaseApiClient):
         data = await self.api_request_obj(url="/v1/nvrs", public_api=True)
         return PublicNVR.from_unifi_dict(**data, api=self)
 
-    async def get_lights_public(self) -> list[Light]:
+    async def get_lights_public(self) -> list[PublicLight]:
         """Get all lights using public API."""
         data = await self.api_request_list(url="/v1/lights", public_api=True)
-        return [Light.from_unifi_dict(**light_data, api=self) for light_data in data]
+        return [
+            PublicLight.from_unifi_dict(**light_data, api=self) for light_data in data
+        ]
 
-    async def get_light_public(self, light_id: str) -> Light:
+    async def get_light_public(self, light_id: str) -> PublicLight:
         """Get a specific light using public API."""
         data = await self.api_request_obj(url=f"/v1/lights/{light_id}", public_api=True)
-        return Light.from_unifi_dict(**data, api=self)
+        return PublicLight.from_unifi_dict(**data, api=self)
 
     async def update_light_public(
         self,
@@ -3207,7 +3213,7 @@ class ProtectApiClient(BaseApiClient):
         is_light_force_enabled: bool | None = None,
         light_mode_settings: LightModeSettings | None = None,
         light_device_settings: LightDeviceSettings | None = None,
-    ) -> Light:
+    ) -> PublicLight:
         """
         Update light settings using public API.
 
@@ -3250,19 +3256,22 @@ class ProtectApiClient(BaseApiClient):
             json=data,
             public_api=True,
         )
-        return Light.from_unifi_dict(**result, api=self)
+        return PublicLight.from_unifi_dict(**result, api=self)
 
-    async def get_cameras_public(self) -> list[Camera]:
+    async def get_cameras_public(self) -> list[PublicCamera]:
         """Get all cameras using public API."""
         data = await self.api_request_list(url="/v1/cameras", public_api=True)
-        return [Camera.from_unifi_dict(**camera_data, api=self) for camera_data in data]
+        return [
+            PublicCamera.from_unifi_dict(**camera_data, api=self)
+            for camera_data in data
+        ]
 
-    async def get_camera_public(self, camera_id: str) -> Camera:
+    async def get_camera_public(self, camera_id: str) -> PublicCamera:
         """Get a specific camera using public API."""
         data = await self.api_request_obj(
             url=f"/v1/cameras/{camera_id}", public_api=True
         )
-        return Camera.from_unifi_dict(**data, api=self)
+        return PublicCamera.from_unifi_dict(**data, api=self)
 
     async def update_camera_public(
         self,
@@ -3283,7 +3292,7 @@ class ProtectApiClient(BaseApiClient):
         osd_logo_enabled: bool | None = None,
         osd_nerd_mode_enabled: bool | None = None,
         osd_overlay_location: OsdOverlayLocation | None = None,
-    ) -> Camera:
+    ) -> PublicCamera:
         """
         Patch camera settings using public API.
 
@@ -3339,17 +3348,19 @@ class ProtectApiClient(BaseApiClient):
             json=body,
             public_api=True,
         )
-        return Camera.from_unifi_dict(**result, api=self)
+        return PublicCamera.from_unifi_dict(**result, api=self)
 
-    async def get_chimes_public(self) -> list[Chime]:
+    async def get_chimes_public(self) -> list[PublicChime]:
         """Get all chimes using public API."""
         data = await self.api_request_list(url="/v1/chimes", public_api=True)
-        return [Chime.from_unifi_dict(**chime_data, api=self) for chime_data in data]
+        return [
+            PublicChime.from_unifi_dict(**chime_data, api=self) for chime_data in data
+        ]
 
-    async def get_chime_public(self, chime_id: str) -> Chime:
+    async def get_chime_public(self, chime_id: str) -> PublicChime:
         """Get a specific chime using public API."""
         data = await self.api_request_obj(url=f"/v1/chimes/{chime_id}", public_api=True)
-        return Chime.from_unifi_dict(**data, api=self)
+        return PublicChime.from_unifi_dict(**data, api=self)
 
     async def update_chime_public(
         self,
@@ -3358,7 +3369,7 @@ class ProtectApiClient(BaseApiClient):
         name: str | None = None,
         camera_ids: list[str] | None = None,
         ring_settings: list[PublicApiChimeRingSettingRequest] | None = None,
-    ) -> Chime:
+    ) -> PublicChime:
         """
         Update chime settings using public API.
 
@@ -3399,7 +3410,7 @@ class ProtectApiClient(BaseApiClient):
             json=data,
             public_api=True,
         )
-        return Chime.from_unifi_dict(**result, api=self)
+        return PublicChime.from_unifi_dict(**result, api=self)
 
     # PTZ Control Private API Methods
 
@@ -3462,7 +3473,9 @@ class ProtectApiClient(BaseApiClient):
         )
         return TalkbackSession.from_unifi_dict(**data)
 
-    async def disable_camera_mic_permanently_public(self, camera_id: str) -> Camera:
+    async def disable_camera_mic_permanently_public(
+        self, camera_id: str
+    ) -> PublicCamera:
         """
         Permanently disable a camera's microphone.
 
@@ -3474,23 +3487,23 @@ class ProtectApiClient(BaseApiClient):
             method="post",
             public_api=True,
         )
-        return Camera.from_unifi_dict(**data, api=self)
+        return PublicCamera.from_unifi_dict(**data, api=self)
 
     # ------------------------------------------------------------------
     # Public API: Sensors
     # ------------------------------------------------------------------
 
-    async def get_sensors_public(self) -> list[Sensor]:
+    async def get_sensors_public(self) -> list[PublicSensor]:
         """Get all sensors using public API."""
         data = await self.api_request_list(url="/v1/sensors", public_api=True)
-        return [Sensor.from_unifi_dict(**item, api=self) for item in data]
+        return [PublicSensor.from_unifi_dict(**item, api=self) for item in data]
 
-    async def get_sensor_public(self, sensor_id: str) -> Sensor:
+    async def get_sensor_public(self, sensor_id: str) -> PublicSensor:
         """Get a specific sensor using public API."""
         data = await self.api_request_obj(
             url=f"/v1/sensors/{sensor_id}", public_api=True
         )
-        return Sensor.from_unifi_dict(**data, api=self)
+        return PublicSensor.from_unifi_dict(**data, api=self)
 
     async def update_sensor_public(
         self,
@@ -3502,7 +3515,7 @@ class ProtectApiClient(BaseApiClient):
         temperature_settings: PublicSensorTemperatureSettings | None = None,
         motion_settings: PublicSensorMotionSettings | None = None,
         alarm_settings: PublicSensorAlarmSettings | None = None,
-    ) -> Sensor:
+    ) -> PublicSensor:
         """
         Patch sensor settings using public API.
 
@@ -3532,7 +3545,7 @@ class ProtectApiClient(BaseApiClient):
             json=body,
             public_api=True,
         )
-        return Sensor.from_unifi_dict(**result, api=self)
+        return PublicSensor.from_unifi_dict(**result, api=self)
 
     # ------------------------------------------------------------------
     # Public API: Sirens

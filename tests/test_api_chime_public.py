@@ -11,7 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 from tests.conftest import TEST_CAMERA_EXISTS, TEST_CHIME_EXISTS
-from uiprotect.data import RingSetting
+from uiprotect.data import PublicRingSettings, RingSetting
 from uiprotect.exceptions import BadRequest
 
 if TYPE_CHECKING:
@@ -29,7 +29,7 @@ RINGTONE_ID = "67ececbd02fe9603e40003f0"
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Chime.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicChime.from_unifi_dict")
 async def test_get_chimes_public_success(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -58,7 +58,7 @@ async def test_get_chimes_public_success(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Chime.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicChime.from_unifi_dict")
 async def test_get_chime_public_success(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -86,7 +86,7 @@ async def test_get_chime_public_success(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Chime.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicChime.from_unifi_dict")
 async def test_update_chime_public_name_only(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -115,7 +115,7 @@ async def test_update_chime_public_name_only(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Chime.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicChime.from_unifi_dict")
 async def test_update_chime_public_camera_ids(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -142,7 +142,7 @@ async def test_update_chime_public_camera_ids(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Chime.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicChime.from_unifi_dict")
 async def test_update_chime_public_ring_settings(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -178,7 +178,7 @@ async def test_update_chime_public_ring_settings(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Chime.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicChime.from_unifi_dict")
 async def test_update_chime_public_all_parameters(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -297,6 +297,40 @@ async def test_chime_set_ring_settings_public(
     )
 
     # Verify local state was updated
+    assert chime_obj.ring_settings[0].volume == 80
+    assert chime_obj.ring_settings[0].repeat_times == 3
+
+
+@pytest.mark.skipif(
+    not TEST_CHIME_EXISTS or not TEST_CAMERA_EXISTS,
+    reason="Missing testdata",
+)
+@pytest.mark.asyncio()
+async def test_chime_set_ring_settings_public_rebuilds_from_public(
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
+) -> None:
+    """A PublicRingSettings response rebuilds the private RingSetting list."""
+    if chime_obj is None or camera_obj is None:
+        pytest.skip("Missing test data")
+
+    updated_chime = Mock()
+    updated_chime.ring_settings = [
+        PublicRingSettings(
+            camera_id=camera_obj.id,
+            repeat_times=3,
+            ringtone_id=RINGTONE_ID,
+            volume=80,
+        )
+    ]
+    chime_obj.api.update_chime_public = AsyncMock(return_value=updated_chime)
+
+    await chime_obj.set_ring_settings_public(
+        [{"cameraId": camera_obj.id, "volume": 80, "repeatTimes": 3}]
+    )
+
+    assert isinstance(chime_obj.ring_settings[0], RingSetting)
+    assert chime_obj.ring_settings[0].camera_id == camera_obj.id
     assert chime_obj.ring_settings[0].volume == 80
     assert chime_obj.ring_settings[0].repeat_times == 3
 

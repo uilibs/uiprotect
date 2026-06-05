@@ -91,6 +91,10 @@ if TYPE_CHECKING:
         RTSPSStreams,
     )
     from .nvr import Event, Liveview
+    from .public_devices import (
+        PublicCameraLedSettings,
+        PublicOsdSettings,
+    )
 
 PRIVACY_ZONE_NAME = "pyufp_privacy_zone"
 LUX_MAPPING_VALUES = [30, 25, 20, 15, 12, 10, 7, 5, 3, 1, 0]
@@ -264,37 +268,35 @@ class Light(ProtectMotionDeviceModel):
 
     async def set_flood_light_public(self, enabled: bool) -> None:
         """Force the flood light on/off via public API."""
-        updated = await self._api.update_light_public(
-            self.id, is_light_force_enabled=enabled
-        )
-        self.light_on_settings = updated.light_on_settings
+        await self._api.update_light_public(self.id, is_light_force_enabled=enabled)
+        self.light_on_settings.is_led_force_on = enabled
 
     async def set_status_light_public(self, enabled: bool) -> None:
         """Toggle the status indicator LED via public API."""
         device_settings = self.light_device_settings.model_copy()
         device_settings.is_indicator_enabled = enabled
-        updated = await self._api.update_light_public(
+        await self._api.update_light_public(
             self.id, light_device_settings=device_settings
         )
-        self.light_device_settings = updated.light_device_settings
+        self.light_device_settings = device_settings
 
     async def set_led_level_public(self, led_level: int) -> None:
         """Set the LED brightness level via public API."""
         device_settings = self.light_device_settings.model_copy()
         device_settings.led_level = LEDLevel(led_level)
-        updated = await self._api.update_light_public(
+        await self._api.update_light_public(
             self.id, light_device_settings=device_settings
         )
-        self.light_device_settings = updated.light_device_settings
+        self.light_device_settings = device_settings
 
     async def set_sensitivity_public(self, sensitivity: int) -> None:
         """Set PIR motion sensitivity via public API."""
         device_settings = self.light_device_settings.model_copy()
         device_settings.pir_sensitivity = PercentInt(sensitivity)
-        updated = await self._api.update_light_public(
+        await self._api.update_light_public(
             self.id, light_device_settings=device_settings
         )
-        self.light_device_settings = updated.light_device_settings
+        self.light_device_settings = device_settings
 
     async def set_duration_public(self, duration: timedelta) -> None:
         """Set how long the light stays on after motion (15s-900s) via public API."""
@@ -302,10 +304,10 @@ class Light(ProtectMotionDeviceModel):
             raise BadRequest("Duration outside of 15s to 900s range")
         device_settings = self.light_device_settings.model_copy()
         device_settings.pir_duration = duration
-        updated = await self._api.update_light_public(
+        await self._api.update_light_public(
             self.id, light_device_settings=device_settings
         )
-        self.light_device_settings = updated.light_device_settings
+        self.light_device_settings = device_settings
 
     async def set_light_mode_public(
         self,
@@ -317,10 +319,8 @@ class Light(ProtectMotionDeviceModel):
         mode_settings.mode = mode
         if enable_at is not None:
             mode_settings.enable_at = enable_at
-        updated = await self._api.update_light_public(
-            self.id, light_mode_settings=mode_settings
-        )
-        self.light_mode_settings = updated.light_mode_settings
+        await self._api.update_light_public(self.id, light_mode_settings=mode_settings)
+        self.light_mode_settings = mode_settings
 
     async def set_light_settings_public(
         self,
@@ -348,14 +348,14 @@ class Light(ProtectMotionDeviceModel):
             if sensitivity is not None:
                 device_settings.pir_sensitivity = PercentInt(sensitivity)
 
-        updated = await self._api.update_light_public(
+        await self._api.update_light_public(
             self.id,
             light_mode_settings=mode_settings,
             light_device_settings=device_settings,
         )
-        self.light_mode_settings = updated.light_mode_settings
+        self.light_mode_settings = mode_settings
         if device_settings is not None:
-            self.light_device_settings = updated.light_device_settings
+            self.light_device_settings = device_settings
 
 
 class CameraChannel(ProtectBaseObject):
@@ -2963,7 +2963,7 @@ class Camera(ProtectMotionDeviceModel):
         if not self.feature_flags.has_led_status:
             raise BadRequest("Camera does not have status light")
         updated = await self._api.update_camera_public(self.id, led_is_enabled=enabled)
-        self.led_settings = updated.led_settings
+        self._merge_public_led_settings(updated.led_settings)
 
     async def set_welcome_led_public(self, enabled: bool) -> None:
         """Set welcome LED via public API."""
@@ -2972,7 +2972,7 @@ class Camera(ProtectMotionDeviceModel):
         if self.led_settings.welcome_led is None:
             raise BadRequest("Camera does not have welcome LED")
         updated = await self._api.update_camera_public(self.id, led_welcome_led=enabled)
-        self.led_settings = updated.led_settings
+        self._merge_public_led_settings(updated.led_settings)
 
     async def set_flood_led_public(self, enabled: bool) -> None:
         """Set flood LED via public API."""
@@ -2981,7 +2981,23 @@ class Camera(ProtectMotionDeviceModel):
         if self.led_settings.flood_led is None:
             raise BadRequest("Camera does not have flood LED")
         updated = await self._api.update_camera_public(self.id, led_flood_led=enabled)
-        self.led_settings = updated.led_settings
+        self._merge_public_led_settings(updated.led_settings)
+
+    def _merge_public_led_settings(self, led: PublicCameraLedSettings) -> None:
+        """Sync the private LED sub-model from a public PATCH response in place."""
+        # Only the public-API fields; private-only fields (e.g. ``blink_rate``)
+        # are left untouched.
+        self.led_settings.is_enabled = led.is_enabled
+        self.led_settings.welcome_led = led.welcome_led
+        self.led_settings.flood_led = led.flood_led
+
+    def _merge_public_osd_settings(self, osd: PublicOsdSettings) -> None:
+        """Sync the private OSD sub-model from a public PATCH response in place."""
+        self.osd_settings.is_name_enabled = osd.is_name_enabled
+        self.osd_settings.is_date_enabled = osd.is_date_enabled
+        self.osd_settings.is_logo_enabled = osd.is_logo_enabled
+        self.osd_settings.is_debug_enabled = osd.is_debug_enabled
+        self.osd_settings.overlay_location = osd.overlay_location
 
     async def set_hdr_mode_public(self, mode: PublicHdrMode) -> None:
         """Set HDR mode via public API."""
@@ -3044,7 +3060,19 @@ class Camera(ProtectMotionDeviceModel):
         elif reset_at is None:
             message["resetAt"] = None
         updated = await self._api.update_camera_public(self.id, lcd_message=message)
-        self.lcd_message = updated.lcd_message
+        pub = updated.lcd_message
+        # The public response carries a ``PublicLcdMessage``; rebuild the private
+        # ``LCDMessage`` from it (``None`` when the message was cleared).
+        self.lcd_message = (
+            None
+            if pub is None or pub.type is None
+            else LCDMessage.from_unifi_dict(
+                type=pub.type,
+                text=pub.text or "",
+                resetAt=pub.reset_at,
+                api=self._api,
+            )
+        )
 
     async def set_osd_name_public(self, enabled: bool) -> None:
         """Toggle name overlay (OSD) via public API."""
@@ -3053,7 +3081,7 @@ class Camera(ProtectMotionDeviceModel):
         updated = await self._api.update_camera_public(
             self.id, osd_name_enabled=enabled
         )
-        self.osd_settings = updated.osd_settings
+        self._merge_public_osd_settings(updated.osd_settings)
 
     async def set_osd_date_public(self, enabled: bool) -> None:
         """Toggle date overlay (OSD) via public API."""
@@ -3062,7 +3090,7 @@ class Camera(ProtectMotionDeviceModel):
         updated = await self._api.update_camera_public(
             self.id, osd_date_enabled=enabled
         )
-        self.osd_settings = updated.osd_settings
+        self._merge_public_osd_settings(updated.osd_settings)
 
     async def set_osd_logo_public(self, enabled: bool) -> None:
         """Toggle logo overlay (OSD) via public API."""
@@ -3071,7 +3099,7 @@ class Camera(ProtectMotionDeviceModel):
         updated = await self._api.update_camera_public(
             self.id, osd_logo_enabled=enabled
         )
-        self.osd_settings = updated.osd_settings
+        self._merge_public_osd_settings(updated.osd_settings)
 
     async def set_osd_nerd_mode_public(self, enabled: bool) -> None:
         """Toggle bitrate/debug overlay (OSD) via public API."""
@@ -3080,7 +3108,7 @@ class Camera(ProtectMotionDeviceModel):
         updated = await self._api.update_camera_public(
             self.id, osd_nerd_mode_enabled=enabled
         )
-        self.osd_settings = updated.osd_settings
+        self._merge_public_osd_settings(updated.osd_settings)
 
     async def set_osd_overlay_location_public(
         self,
@@ -3092,7 +3120,7 @@ class Camera(ProtectMotionDeviceModel):
         updated = await self._api.update_camera_public(
             self.id, osd_overlay_location=location
         )
-        self.osd_settings = updated.osd_settings
+        self._merge_public_osd_settings(updated.osd_settings)
 
     async def set_person_detection_public(self, enabled: bool) -> None:
         """Toggle person smart detection via public API."""
@@ -4029,8 +4057,18 @@ class Chime(ProtectAdoptableDeviceModel):
             self.id,
             ring_settings=ring_settings,
         )
-        # Update local state from response
-        self.ring_settings = updated.ring_settings
+        # The public response carries ``PublicRingSettings`` (every field typed
+        # optional); rebuild the strict private ``RingSetting`` list from it,
+        # skipping entries the wire left incomplete so a partial response can't
+        # raise ``ValidationError`` (``RingSetting`` requires camera_id /
+        # repeat_times / volume).
+        self.ring_settings = [
+            RingSetting.from_unifi_dict(**rs.unifi_dict(), api=self._api)
+            for rs in updated.ring_settings
+            if rs.camera_id is not None
+            and rs.repeat_times is not None
+            and rs.volume is not None
+        ]
 
     async def set_volume_for_camera_public(
         self,

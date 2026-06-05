@@ -9,7 +9,14 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from tests.conftest import TEST_CAMERA_EXISTS, read_camera_json_file
-from uiprotect.data import Camera, OsdOverlayLocation, PublicHdrMode
+from uiprotect.data import (
+    Camera,
+    OsdOverlayLocation,
+    PublicCamera,
+    PublicHdrMode,
+    PublicLcdMessage,
+)
+from uiprotect.data.devices import LCDMessage
 from uiprotect.data.types import (
     DoorbellMessageType,
     HDRMode,
@@ -33,7 +40,9 @@ def patched_camera_response(protect_client: ProtectApiClient) -> Iterator[Mock]:
     """Patch Camera.from_unifi_dict and set a minimal successful API response."""
     mock_cam = Mock()
     mock_cam.id = CAMERA_ID
-    with patch("uiprotect.data.devices.Camera.from_unifi_dict") as mock_create:
+    with patch(
+        "uiprotect.data.public_devices.PublicCamera.from_unifi_dict"
+    ) as mock_create:
         mock_create.return_value = mock_cam
         protect_client.api_request_obj = AsyncMock(return_value={"id": CAMERA_ID})
         yield mock_create
@@ -53,7 +62,7 @@ def camera(camera_obj: Camera | None) -> Camera:
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Camera.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicCamera.from_unifi_dict")
 async def test_get_cameras_public_success(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -75,7 +84,7 @@ async def test_get_cameras_public_success(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Camera.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicCamera.from_unifi_dict")
 async def test_get_camera_public_success(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -202,17 +211,20 @@ async def test_update_camera_public_no_parameters(
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_update_camera_public_parses_private_fixture(
-    protect_client: ProtectApiClient,
+async def test_update_camera_public_drops_private_only_fields(
+    protect_client_no_debug: ProtectApiClient,
 ) -> None:
-    """Private-API fixture is a strict superset of the public schema; parse succeeds."""
+    """PublicCamera keeps only spec fields; private-only keys are dropped, not stored."""
     camera_data = read_camera_json_file()
-    protect_client.api_request_obj = AsyncMock(return_value=camera_data)
+    protect_client_no_debug.api_request_obj = AsyncMock(return_value=camera_data)
 
-    result = await protect_client.update_camera_public(CAMERA_ID, name="Test")
+    result = await protect_client_no_debug.update_camera_public(CAMERA_ID, name="Test")
 
-    assert isinstance(result, Camera)
-    protect_client.api_request_obj.assert_called_once_with(
+    assert isinstance(result, PublicCamera)
+    assert "recording_settings" not in PublicCamera.model_fields
+    assert "isp_settings" not in PublicCamera.model_fields
+    assert "channels" not in PublicCamera.model_fields
+    protect_client_no_debug.api_request_obj.assert_called_once_with(
         url=f"/v1/cameras/{CAMERA_ID}",
         method="patch",
         json={"name": "Test"},
@@ -225,13 +237,8 @@ async def test_update_camera_public_parses_public_response_schema(
     protect_client_no_debug: ProtectApiClient,
 ) -> None:
     """
-    Camera.from_unifi_dict must parse a minimal response matching the public API
-    schema (integration.json #/components/schemas/camera).
-
-    The public PATCH response is a *strict subset* of the private schema: only the
-    fields exposed by the Integration API are present.  This test uses those fields
-    directly so regressions in Camera's required-field handling are caught here
-    rather than only discovered at runtime against a real controller.
+    PublicCamera.from_unifi_dict parses a payload matching the public API schema
+    (integration.json #/components/schemas/camera), including a ``null`` name.
 
     Must run in no-debug mode: production uses model_construct (no validation);
     debug mode uses the strict constructor which rejects partial schemas.
@@ -273,10 +280,19 @@ async def test_update_camera_public_parses_public_response_schema(
 
     result = await protect_client_no_debug.update_camera_public(CAMERA_ID, name="Test")
 
-    assert isinstance(result, Camera)
+    assert isinstance(result, PublicCamera)
+    assert result.name == "Test Camera"
     assert result.osd_settings.overlay_location == OsdOverlayLocation.TOP_LEFT
     assert result.led_settings.welcome_led is None
     assert result.led_settings.flood_led is None
+
+    public_response["name"] = None
+    protect_client_no_debug.api_request_obj = AsyncMock(return_value=public_response)
+    result_null = await protect_client_no_debug.update_camera_public(
+        CAMERA_ID, name="x"
+    )
+    assert isinstance(result_null, PublicCamera)
+    assert result_null.name is None
 
 
 @pytest.mark.asyncio()
@@ -620,6 +636,26 @@ async def test_camera_set_lcd_message_public(
         camera.id, lcd_message=expected_payload
     )
     assert camera.lcd_message == updated.lcd_message
+
+
+@pytest.mark.asyncio()
+async def test_camera_set_lcd_message_public_populated_response(camera: Camera) -> None:
+    """A populated PublicLcdMessage response rebuilds a private LCDMessage."""
+    camera.feature_flags.has_lcd_screen = True
+    updated = Mock()
+    updated.lcd_message = PublicLcdMessage(
+        type="CUSTOM_MESSAGE", text="Hello", reset_at=1_700_000_000_000
+    )
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
+
+    await camera.set_lcd_message_public(
+        DoorbellMessageType.CUSTOM_MESSAGE, text="Hello"
+    )
+
+    assert isinstance(camera.lcd_message, LCDMessage)
+    assert camera.lcd_message.type == DoorbellMessageType.CUSTOM_MESSAGE
+    assert camera.lcd_message.text == "Hello"
+    assert isinstance(camera.lcd_message.reset_at, dt.datetime)
 
 
 @pytest.mark.asyncio()

@@ -3488,7 +3488,7 @@ async def test_get_nvr_public_error():
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Camera.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicCamera.from_unifi_dict")
 async def test_get_cameras_public_success(mock_create):
     """Test successful cameras retrieval from public API."""
     client = ProtectApiClient(
@@ -3557,7 +3557,7 @@ async def test_get_cameras_public_error():
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Camera.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicCamera.from_unifi_dict")
 async def test_get_camera_public_success(mock_create):
     """Test successful single camera retrieval from public API."""
     client = ProtectApiClient(
@@ -3621,7 +3621,7 @@ async def test_get_camera_public_error():
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Chime.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicChime.from_unifi_dict")
 async def test_get_chimes_public_success(mock_create):
     """Test successful chimes retrieval from public API."""
     client = ProtectApiClient(
@@ -3685,7 +3685,7 @@ async def test_get_chimes_public_error():
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Chime.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicChime.from_unifi_dict")
 async def test_get_chime_public_success(mock_create):
     """Test successful single chime retrieval from public API."""
     client = ProtectApiClient(

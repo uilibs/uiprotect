@@ -18,6 +18,8 @@ from datetime import UTC, datetime, timedelta
 from functools import cache
 from typing import Any, Literal, TypedDict
 
+from pydantic import Field
+
 from ..exceptions import BadRequest
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import (
@@ -30,23 +32,34 @@ from .types import (
     AlarmHubOutputStatus,
     AssetFileType,
     DeviceState,
+    DoorbellMessageType,
     FobAwayState,
     FobButton,
+    LightModeEnableType,
+    LightModeType,
     LiveviewCycleMode,
     ModelType,
+    MountType,
     NvrArmModeStatus,
     OnOffState,
+    OsdOverlayLocation,
+    PublicHdrMode,
     RelayInputActionTrigger,
     RelayInputActionType,
     RelayInputState,
     RelayOutputRebootState,
     RelayOutputState,
     RelayOutputType,
+    SensorScheduleMode,
+    SensorStatusType,
     SirenConnectionType,
     SirenDuration,
+    SmartDetectAudioType,
+    SmartDetectObjectType,
     SpeakerMode,
     SpeakerStatus,
     UlpUserStatus,
+    VideoMode,
 )
 
 # ---------------------------------------------------------------------------
@@ -129,6 +142,251 @@ class PublicWirelessConnectionState(ProtectBaseObject):
 
 class PublicLedSettings(ProtectBaseObject):
     is_enabled: bool
+
+
+# ---------------------------------------------------------------------------
+# Camera (public) — leaf sub-models + device
+# ---------------------------------------------------------------------------
+#
+# Sub-object internals are not ``required`` in the spec, so every leaf field
+# carries a default; that keeps partial WS update diffs (which omit unchanged
+# nested keys) parseable without strict-validation failures.
+
+
+class PublicOsdSettings(ProtectBaseObject):
+    is_name_enabled: bool = False
+    is_date_enabled: bool = False
+    is_logo_enabled: bool = False
+    is_debug_enabled: bool = False
+    overlay_location: OsdOverlayLocation | None = None
+
+
+class PublicCameraLedSettings(ProtectBaseObject):
+    # Distinct from the single-field :class:`PublicLedSettings` used by
+    # siren/relay. ``welcome_led`` / ``flood_led`` are ``None`` on cameras
+    # without a doorbell/floodlight.
+    is_enabled: bool = False
+    welcome_led: bool | None = None
+    flood_led: bool | None = None
+
+
+class PublicLcdMessage(ProtectBaseObject):
+    # Spec marks ``type``/``text`` required, but the PATCH endpoint accepts
+    # (and a cleared message returns) ``{}`` — so every field is optional.
+    type: DoorbellMessageType | None = None
+    reset_at: int | None = None
+    text: str | None = None
+
+
+class PublicCameraFeatureFlags(ProtectBaseObject):
+    support_full_hd_snapshot: bool = False
+    has_hdr: bool = False
+    smart_detect_types: list[SmartDetectObjectType] = Field(default_factory=list)
+    smart_detect_audio_types: list[SmartDetectAudioType] = Field(default_factory=list)
+    video_modes: list[VideoMode] = Field(default_factory=list)
+    has_mic: bool = False
+    has_led_status: bool = False
+    has_speaker: bool = False
+
+
+class PublicSmartDetectSettings(ProtectBaseObject):
+    object_types: list[SmartDetectObjectType] = Field(default_factory=list)
+    audio_types: list[SmartDetectAudioType] = Field(default_factory=list)
+
+
+class PublicCamera(ProtectModelWithId):
+    """Public API camera device (``GET /v1/cameras``)."""
+
+    model: ModelType | None = ModelType.CAMERA
+    state: DeviceState
+    # Nullable on the wire (spec: ``oneOf [string, null]``).
+    name: str | None = None
+    mac: str
+    is_mic_enabled: bool
+    osd_settings: PublicOsdSettings
+    led_settings: PublicCameraLedSettings
+    lcd_message: PublicLcdMessage | None = None
+    mic_volume: int
+    # ``null`` when no patrol is running.
+    active_patrol_slot: int | None = None
+    video_mode: VideoMode
+    hdr_type: PublicHdrMode
+    feature_flags: PublicCameraFeatureFlags
+    smart_detect_settings: PublicSmartDetectSettings
+    has_package_camera: bool
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        raise BadRequest(
+            "Camera mutations must go through the dedicated public API helpers "
+            "(update_camera_public)."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Light (public) — leaf sub-models + device
+# ---------------------------------------------------------------------------
+
+
+class PublicLightModeSettings(ProtectBaseObject):
+    mode: LightModeType | None = None
+    enable_at: LightModeEnableType | None = None
+
+
+class PublicLightDeviceSettings(ProtectBaseObject):
+    is_indicator_enabled: bool = False
+    pir_duration: int | None = None
+    pir_sensitivity: int | None = None
+    led_level: int | None = None
+
+
+class PublicLight(ProtectModelWithId):
+    """Public API light device (``GET /v1/lights``)."""
+
+    model: ModelType | None = ModelType.LIGHT
+    state: DeviceState
+    # Nullable on the wire (spec: ``oneOf [string, null]``).
+    name: str | None = None
+    mac: str
+    light_mode_settings: PublicLightModeSettings
+    light_device_settings: PublicLightDeviceSettings
+    is_dark: bool
+    is_light_on: bool
+    is_light_force_enabled: bool
+    last_motion: int | None = None
+    is_pir_motion_detected: bool
+    # Flat ``cameraId`` string of the paired camera, or ``null``.
+    camera: str | None = None
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        raise BadRequest(
+            "Light mutations must go through the dedicated public API helpers "
+            "(update_light_public)."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Sensor (public) — leaf sub-models + device
+# ---------------------------------------------------------------------------
+
+
+class PublicBatteryStatus(ProtectBaseObject):
+    percentage: int | None = None
+    is_low: bool = False
+
+
+class PublicSensorMetric(ProtectBaseObject):
+    # ``value`` is ``null`` until the sensor first reports the metric.
+    value: float | None = None
+    status: SensorStatusType | None = None
+
+
+class PublicSensorStats(ProtectBaseObject):
+    light: PublicSensorMetric | None = None
+    humidity: PublicSensorMetric | None = None
+    temperature: PublicSensorMetric | None = None
+
+
+class PublicSensorThresholdSettings(ProtectBaseObject):
+    # Shared read-shape for the ``lightSettings`` / ``humiditySettings`` /
+    # ``temperatureSettings`` leaves — identical field set in the spec.
+    is_enabled: bool = False
+    margin: float | None = None
+    low_threshold: float | None = None
+    high_threshold: float | None = None
+
+
+class PublicSensorMotionSettingsRead(ProtectBaseObject):
+    is_enabled: bool = False
+    sensitivity: int | None = None
+    sensitivity_when_armed: int | None = None
+
+
+class PublicSensorAlarmSettingsRead(ProtectBaseObject):
+    is_enabled: bool = False
+
+
+class PublicSensorGlassBreakSettings(ProtectBaseObject):
+    is_enabled: bool = False
+    sensitivity: int | None = None
+    sensitivity_when_armed: int | None = None
+
+
+class PublicSensorLeakSettings(ProtectBaseObject):
+    is_internal_enabled: bool = False
+    is_external_enabled: bool = False
+
+
+class PublicSensor(ProtectModelWithId):
+    """Public API sensor device (``GET /v1/sensors``)."""
+
+    model: ModelType | None = ModelType.SENSOR
+    state: DeviceState
+    # Nullable on the wire (spec: ``oneOf [string, null]``).
+    name: str | None = None
+    mac: str
+    mount_type: MountType
+    battery_status: PublicBatteryStatus
+    stats: PublicSensorStats
+    light_settings: PublicSensorThresholdSettings
+    humidity_settings: PublicSensorThresholdSettings
+    temperature_settings: PublicSensorThresholdSettings
+    is_opened: bool | None = None
+    open_status_changed_at: int | None = None
+    is_motion_detected: bool
+    motion_detected_at: int | None = None
+    motion_settings: PublicSensorMotionSettingsRead
+    alarm_triggered_at: int | None = None
+    alarm_settings: PublicSensorAlarmSettingsRead
+    leak_detected_at: int | None = None
+    external_leak_detected_at: int | None = None
+    leak_settings: PublicSensorLeakSettings
+    tampering_detected_at: int | None = None
+    wireless_connection_state: PublicWirelessConnectionState
+    # Firmware-new fields (Protect 7.1.76+): older consoles (e.g. 7.1.69) omit
+    # them, so default them rather than require — the wire shape shifts across
+    # releases and ``from_unifi_dict`` must not raise on the older shape.
+    schedule_mode: SensorScheduleMode = SensorScheduleMode.UNKNOWN
+    glass_break_settings: PublicSensorGlassBreakSettings = Field(
+        default_factory=PublicSensorGlassBreakSettings
+    )
+    arm_profile_ids: list[str] | None = None
+    has_custom_sensitivity_when_armed: bool = False
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        raise BadRequest(
+            "Sensor mutations must go through the dedicated public API helpers "
+            "(update_sensor_public)."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Chime (public) — leaf sub-model + device
+# ---------------------------------------------------------------------------
+
+
+class PublicRingSettings(ProtectBaseObject):
+    camera_id: str | None = None
+    repeat_times: int | None = None
+    ringtone_id: str | None = None
+    volume: int | None = None
+
+
+class PublicChime(ProtectModelWithId):
+    """Public API chime device (``GET /v1/chimes``)."""
+
+    model: ModelType | None = ModelType.CHIME
+    state: DeviceState
+    # Nullable on the wire (spec: ``oneOf [string, null]``).
+    name: str | None = None
+    mac: str
+    camera_ids: list[str] = Field(default_factory=list)
+    ring_settings: list[PublicRingSettings] = Field(default_factory=list)
+
+    async def _api_update(self, data: dict[str, Any]) -> None:
+        raise BadRequest(
+            "Chime mutations must go through the dedicated public API helpers "
+            "(update_chime_public)."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -660,8 +918,8 @@ class PublicDoorbellSettings(ProtectBaseObject):
 
     default_message_text: str = ""
     default_message_reset_timeout_ms: int = 0
-    custom_messages: list[str] = []
-    custom_images: list[PublicDoorbellCustomImage] = []
+    custom_messages: list[str] = Field(default_factory=list)
+    custom_images: list[PublicDoorbellCustomImage] = Field(default_factory=list)
 
 
 class PublicNVR(ProtectModelWithId):

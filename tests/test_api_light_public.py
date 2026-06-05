@@ -27,7 +27,7 @@ LIGHT_ID = "663d0aa401218803e4000449"
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Light.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicLight.from_unifi_dict")
 async def test_get_lights_public_success(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -71,7 +71,7 @@ async def test_get_lights_public_error(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Light.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicLight.from_unifi_dict")
 async def test_get_light_public_success(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -113,7 +113,7 @@ async def test_get_light_public_error(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Light.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicLight.from_unifi_dict")
 async def test_update_light_public_name_only(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -144,7 +144,7 @@ async def test_update_light_public_name_only(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Light.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicLight.from_unifi_dict")
 async def test_update_light_public_force_enabled(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -171,7 +171,7 @@ async def test_update_light_public_force_enabled(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Light.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicLight.from_unifi_dict")
 async def test_update_light_public_light_mode_settings(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -214,7 +214,7 @@ async def test_update_light_public_light_mode_settings(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Light.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicLight.from_unifi_dict")
 async def test_update_light_public_light_device_settings(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -263,7 +263,7 @@ async def test_update_light_public_light_device_settings(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Light.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicLight.from_unifi_dict")
 async def test_update_light_public_all_parameters(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -322,7 +322,7 @@ async def test_update_light_public_no_parameters(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Light.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicLight.from_unifi_dict")
 async def test_update_light_public_filters_lux_sensitivity(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -385,7 +385,7 @@ async def test_update_light_public_api_error(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Light.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicLight.from_unifi_dict")
 async def test_update_light_public_false_values(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -412,7 +412,7 @@ async def test_update_light_public_false_values(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Light.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicLight.from_unifi_dict")
 async def test_update_light_public_partial_update(
     mock_create: Mock,
     protect_client: ProtectApiClient,
@@ -447,7 +447,7 @@ async def test_update_light_public_partial_update(
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.data.devices.Light.from_unifi_dict")
+@patch("uiprotect.data.public_devices.PublicLight.from_unifi_dict")
 async def test_update_light_public_returns_light_object(
     mock_create: Mock,
     protect_client: ProtectApiClient,
