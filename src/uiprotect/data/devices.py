@@ -4057,11 +4057,17 @@ class Chime(ProtectAdoptableDeviceModel):
             self.id,
             ring_settings=ring_settings,
         )
-        # The public response carries ``PublicRingSettings``; rebuild the private
-        # ``RingSetting`` list from it (round-trips through the wire shape).
+        # The public response carries ``PublicRingSettings`` (every field typed
+        # optional); rebuild the strict private ``RingSetting`` list from it,
+        # skipping entries the wire left incomplete so a partial response can't
+        # raise ``ValidationError`` (``RingSetting`` requires camera_id /
+        # repeat_times / volume).
         self.ring_settings = [
             RingSetting.from_unifi_dict(**rs.unifi_dict(), api=self._api)
             for rs in updated.ring_settings
+            if rs.camera_id is not None
+            and rs.repeat_times is not None
+            and rs.volume is not None
         ]
 
     async def set_volume_for_camera_public(
