@@ -342,10 +342,15 @@ class PublicSensor(ProtectModelWithId):
     leak_settings: PublicSensorLeakSettings
     tampering_detected_at: int | None = None
     wireless_connection_state: PublicWirelessConnectionState
-    schedule_mode: SensorScheduleMode
-    glass_break_settings: PublicSensorGlassBreakSettings
+    # Firmware-new fields (Protect 7.1.76+): older consoles (e.g. 7.1.69) omit
+    # them, so default them rather than require — the wire shape shifts across
+    # releases and ``from_unifi_dict`` must not raise on the older shape.
+    schedule_mode: SensorScheduleMode = SensorScheduleMode.UNKNOWN
+    glass_break_settings: PublicSensorGlassBreakSettings = Field(
+        default_factory=PublicSensorGlassBreakSettings
+    )
     arm_profile_ids: list[str] | None = None
-    has_custom_sensitivity_when_armed: bool
+    has_custom_sensitivity_when_armed: bool = False
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(

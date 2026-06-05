@@ -23,6 +23,19 @@ from uiprotect.utils import to_snake_case
 
 _SPEC_PATH = Path(__file__).resolve().parents[1] / "openapi" / "integration.json"
 
+# The models target this Protect spec release. ``scripts/fetch_openapi.py``'s
+# default ``latest`` and older pins (e.g. 7.1.69) carry a different field set,
+# so the strict equality below would hard-fail on spec skew. Gate on the
+# version so the guard is reproducible: it runs only against the targeted spec
+# and skips otherwise, instead of flipping pass/fail on an un-pinned artifact.
+_TARGET_SPEC_VERSION = "7.1.76"
+
+
+def _spec_version() -> str | None:
+    if not _SPEC_PATH.exists():
+        return None
+    return json.loads(_SPEC_PATH.read_text()).get("info", {}).get("version")
+
 
 def _resolve_object_props(
     node: dict[str, Any], schemas: dict[str, Any]
@@ -90,6 +103,10 @@ def _assert_matches(
 
 
 @pytest.mark.skipif(not _SPEC_PATH.exists(), reason="openapi/integration.json absent")
+@pytest.mark.skipif(
+    _spec_version() != _TARGET_SPEC_VERSION,
+    reason=f"spec version {_spec_version()!r} != targeted {_TARGET_SPEC_VERSION!r}",
+)
 @pytest.mark.parametrize(
     ("cls", "schema_name"),
     [
