@@ -266,9 +266,7 @@ class PublicBootstrap:
 
     def supports_device(self, model_type: ModelType) -> bool:
         """Return whether ``model_type`` maps to a public device store."""
-        return (
-            model_type in _PUBLIC_STORES or model_type in _DEDICATED_SLOT_STORE_ATTRS
-        )
+        return model_type in _PUBLIC_STORES or model_type in _DEDICATED_SLOT_STORE_ATTRS
 
     def process_devices_ws_messages(
         self,

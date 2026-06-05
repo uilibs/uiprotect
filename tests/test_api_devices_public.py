@@ -95,9 +95,7 @@ async def test_single_add_emits_added(
     _prime(client)
     received, unsub = _subscribe(client)
 
-    client._process_devices_ws_message(
-        _ws({"type": "add", "item": _camera_payload()})
-    )
+    client._process_devices_ws_message(_ws({"type": "add", "item": _camera_payload()}))
 
     assert len(received) == 1
     change = received[0]
@@ -119,9 +117,7 @@ async def test_state_update_emits_updated_with_changed_fields(
     _prime(client)
     received, unsub = _subscribe(client)
 
-    client._process_devices_ws_message(
-        _ws({"type": "add", "item": _camera_payload()})
-    )
+    client._process_devices_ws_message(_ws({"type": "add", "item": _camera_payload()}))
     client._process_devices_ws_message(
         _ws(
             {
@@ -153,9 +149,7 @@ async def test_multi_field_update_changed_fields(
     _prime(client)
     received, unsub = _subscribe(client)
 
-    client._process_devices_ws_message(
-        _ws({"type": "add", "item": _camera_payload()})
-    )
+    client._process_devices_ws_message(_ws({"type": "add", "item": _camera_payload()}))
     client._process_devices_ws_message(
         _ws(
             {
@@ -183,9 +177,7 @@ async def test_remove_emits_removed(
     _prime(client)
     received, unsub = _subscribe(client)
 
-    client._process_devices_ws_message(
-        _ws({"type": "add", "item": _camera_payload()})
-    )
+    client._process_devices_ws_message(_ws({"type": "add", "item": _camera_payload()}))
     client._process_devices_ws_message(
         _ws({"type": "remove", "item": {"id": CAMERA_ID, "modelKey": "camera"}})
     )

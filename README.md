@@ -151,7 +151,7 @@ merge logic of its own.
 
 Like `subscribe_events`, it requires `update_public()` to have primed the
 public bootstrap (the merged public models live in that cache), so
-subscribe *before* calling `update_public()` to avoid missing frames.
+subscribe _before_ calling `update_public()` to avoid missing frames.
 
 ```python
 from uiprotect import DeviceChange, ProtectApiClient, ProtectDeviceChange
@@ -182,7 +182,7 @@ Notes:
 - `change.device_mac` resolves with eventual consistency — a device not
   yet in the bootstrap yields `None` until the next `update_public()` /
   reconnect resync.
-- This is device *state* only. It does not synthesize detection / motion
+- This is device _state_ only. It does not synthesize detection / motion
   (use `subscribe_events`) and there is no adoption concept folded in.
 
 ## History
