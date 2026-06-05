@@ -1,5 +1,1 @@
-(contributing)=
-
-```{include} ../CONTRIBUTING.md
-
-```
+{% include-markdown "../CONTRIBUTING.md" %}
