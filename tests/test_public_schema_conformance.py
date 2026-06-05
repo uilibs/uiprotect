@@ -85,7 +85,9 @@ def _assert_matches(
     spec_fields = {to_snake_case(key) for key in props}
     model_fields = {"model_key" if f == "model" else f for f in cls.model_fields}
     phantom = model_fields - spec_fields
-    assert not phantom, f"{path}: model declares field(s) absent from the spec: {sorted(phantom)}"
+    assert not phantom, (
+        f"{path}: model declares field(s) absent from the spec: {sorted(phantom)}"
+    )
 
     for key, prop_schema in props.items():
         if _resolve_object_props(prop_schema, schemas) is None:
