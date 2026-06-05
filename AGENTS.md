@@ -260,7 +260,7 @@ available (`update_public`, `subscribe_events`, `subscribe_devices`, the
 key surfaces as `NotAuthorized` across REST and the public websockets.
 `MetaInfo.version` parses `applicationVersion` into a `Version`
 comparable to the private `NVR.version` min-version gate. API-key
-*provisioning* (`create_api_key`) is private-API and out of scope for
+_provisioning_ (`create_api_key`) is private-API and out of scope for
 public-only clients — the key is supplied pre-provisioned.
 
 **Deprecate private-API counterparts when the public API is feature-
