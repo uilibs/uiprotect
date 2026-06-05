@@ -508,7 +508,7 @@ def test_update_changed_fields_falls_back_when_conversion_raises(
     protect_client_no_debug: ProtectApiClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """If the model's remap pass raises, changed_fields is the raw payload keys."""
+    """If the model's remap pass raises, changed_fields is snake_cased keys."""
     client = protect_client_no_debug
     _prime(client)
     dispatcher = DeviceDispatcher(client)
@@ -525,13 +525,19 @@ def test_update_changed_fields_falls_back_when_conversion_raises(
     msg = WSSubscriptionMessage(
         action=WSAction.UPDATE,
         new_update_id=CAMERA_ID,
-        changed_data={"id": CAMERA_ID, "modelKey": "camera", "name": "Renamed"},
+        changed_data={
+            "id": CAMERA_ID,
+            "modelKey": "camera",
+            "isMicEnabled": False,
+        },
         new_obj=camera,
     )
     dispatcher.dispatch(msg)
 
     assert len(seen) == 1
-    assert seen[0].changed_fields == frozenset({"name"})
+    # Fallback stays in the snake_case key space (not raw camelCase) so
+    # membership checks remain stable regardless of which branch ran.
+    assert seen[0].changed_fields == frozenset({"is_mic_enabled"})
 
 
 def test_adapt_devices_ws_message_without_dispatcher_is_noop(

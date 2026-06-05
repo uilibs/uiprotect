@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..data.types import ModelType
 from ..data.websocket import WSAction
+from ..utils import to_snake_case
 from .protect_device_change import DeviceChange, ProtectDeviceChange
 
 if TYPE_CHECKING:
@@ -68,6 +69,11 @@ class DeviceDispatcher:
         old = msg.old_obj
         device_id = self._object_id(old) or changed.get("id")
         if device_id is None:
+            _LOGGER.debug(
+                "Devices-WS REMOVE without resolvable id (modelKey=%s) — "
+                "dropping frame",
+                changed.get("modelKey"),
+            )
             return None
         return ProtectDeviceChange(
             change=DeviceChange.REMOVED,
@@ -132,7 +138,15 @@ class DeviceDispatcher:
         try:
             cleaned = type(model).unifi_dict_to_dict(dict(payload))
         except Exception:
-            return frozenset(payload)
+            # Keep the key space stable for membership checks: best-effort
+            # snake_case the raw payload keys instead of leaking camelCase.
+            _LOGGER.debug(
+                "changed_fields conversion failed for %s — falling back to "
+                "snake_cased payload keys",
+                type(model).__name__,
+                exc_info=True,
+            )
+            return frozenset(to_snake_case(k) for k in payload)
         return frozenset(cleaned)
 
     def _fan_out(self, change: ProtectDeviceChange) -> None:
