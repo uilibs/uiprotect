@@ -188,6 +188,27 @@ def test_files_public_help() -> None:
     assert "upload" in result.stdout
 
 
+def test_public_only_command_constructs_without_credentials() -> None:
+    """A public-API subcommand builds the client with only an API key."""
+    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
+        client_cls.return_value = MagicMock(
+            get_sirens_public=AsyncMock(return_value=[]),
+            close_session=AsyncMock(),
+            close_public_api_session=AsyncMock(),
+        )
+        result = runner.invoke(
+            app,
+            ["--api-key", "k", "--address", "192.0.2.10", "sirens", "list"],
+        )
+
+    assert result.exit_code == 0
+    assert client_cls.call_count == 1
+    kwargs = client_cls.call_args.kwargs
+    assert kwargs["api_key"] == "k"
+    assert kwargs["username"] is None
+    assert kwargs["password"] is None
+
+
 def test_cameras_disable_mic_listed_in_help() -> None:
     """
     ``cameras --help`` advertises the new ``disable-mic-permanently`` subcommand.

@@ -353,6 +353,14 @@ protect = ProtectApiClient(host, port, username, password, verify_ssl=True)
 # Or with API key (required for public API operations)
 protect = ProtectApiClient(host, port, username, password, api_key=api_key, verify_ssl=True)
 
+# Or public-only: no private login at all, just an API key. Private-session
+# entry points (update(), authenticate(), get_bootstrap()) raise
+# PublicOnlyModeError; drive everything through update_public(),
+# subscribe_events(), subscribe_devices(), the get_*_public()/update_*_public()
+# methods, and get_meta_info(). A revoked key surfaces as NotAuthorized.
+protect = ProtectApiClient.public_only(host, port, api_key=api_key, verify_ssl=True)
+await protect.update_public()
+
 await protect.update() # this will initialize the protect .bootstrap and open a Websocket connection for updates
 
 # get names of your cameras

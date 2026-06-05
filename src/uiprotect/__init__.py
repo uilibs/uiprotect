@@ -12,7 +12,14 @@ from .events import (
     UlpUserIdentity,
     UnknownIdentity,
 )
-from .exceptions import GlobalAlarmManagerError, Invalid, NotAuthorized, NvrError
+from .exceptions import (
+    BadRequest,
+    GlobalAlarmManagerError,
+    Invalid,
+    NotAuthorized,
+    NvrError,
+    PublicOnlyModeError,
+)
 from .utils import (
     get_nested_attr,
     get_nested_attr_as_bool,
@@ -23,6 +30,7 @@ from .utils import (
 )
 
 __all__ = [
+    "BadRequest",
     "DeviceChange",
     "EventChange",
     "EventIdentity",
@@ -34,6 +42,7 @@ __all__ = [
     "ProtectDeviceChange",
     "ProtectEvent",
     "ProtectEventChannel",
+    "PublicOnlyModeError",
     "UlpUserIdentity",
     "UnknownIdentity",
     "calculate_retry_delay",

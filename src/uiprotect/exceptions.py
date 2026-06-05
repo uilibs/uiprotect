@@ -29,6 +29,10 @@ class BadRequest(ClientError):
     """Invalid request from API Client"""
 
 
+class PublicOnlyModeError(BadRequest):
+    """Private-API operation attempted on a public-only (API-key-only) client."""
+
+
 class Invalid(ClientError):
     """Invalid return from Authorization Request."""
 
