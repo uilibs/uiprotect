@@ -35,7 +35,7 @@ Once you have Docker setup,
 
    ```bash
    docker buildx build -f Dockerfile --target=dev -t uiprotect-dev .
-   docker run --rm -it -v /home/cbailey/dev/uiprotect:/workspaces/uiprotect uiprotect-dev bash
+   docker run --rm -it -v "$(pwd)":/workspaces/uiprotect uiprotect-dev bash
    ```
 
 ## Authenticating with your Local Protect Instance
@@ -64,9 +64,18 @@ pre-commit run --all-files
 
 These commands are also all available as [VS Code tasks](https://code.visualstudio.com/Docs/editor/tasks) as well. Tests are also fully integration with the Testing panel in VS Code and can be easily debug from there.
 
+If you are not using the dev container, the same checks run under Poetry:
+
+```bash
+poetry install --all-extras
+poetry run pre-commit run --all-files
+poetry run pytest
+```
+
 ## Updating Requirements
 
-To generate an updated pinned requirements file to be used for testing and CI using the `.bin/update-requirements` script.
+To regenerate the pinned release cache used for testing and CI, run the
+`.bin/update-release-cache` script.
 
 There is also a [VS Code task](https://code.visualstudio.com/Docs/editor/tasks) to run this as well.
 

@@ -1,5 +1,3 @@
-(installation)=
-
 # Installation
 
 The package is published on [PyPI](https://pypi.org/project/uiprotect/) and can be installed with `pip` (or any equivalent):
@@ -15,4 +13,9 @@ the `cli` extra, which pulls in [`typer`](https://typer.tiangolo.com/):
 pip install "uiprotect[cli]"
 ```
 
-Next, see the {ref}`section about usage <usage>` to see how to use it.
+`uiprotect` supports **Python 3.11+**.
+
+Next, see the [usage](usage.md) page to see how to use it. If you plan to talk
+to the documented [Public Integration API](usage.md#public-vs-private-api)
+(API-key authentication), the usage page covers when to prefer it over the
+private API.

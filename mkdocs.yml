@@ -26,9 +26,12 @@ markdown_extensions:
 
 nav:
   - Home: "index.md"
-  - Development: "dev.md"
+  - Installation: "installation.md"
+  - Usage: "usage.md"
   - Command Line: "cli.md"
   - API Reference: "api.md"
+  - Development: "dev.md"
+  - Contributing: "contributing.md"
   - Changelog: "https://github.com/uilibs/uiprotect/releases"
 
 plugins:
@@ -46,6 +49,11 @@ plugins:
       handlers:
         python:
           paths: [src]
+          options:
+            show_root_toc_entry: false
+            show_signature_annotations: true
+            show_source: false
+            heading_level: 3
 
 theme:
   name: material

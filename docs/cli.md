@@ -70,22 +70,42 @@ UniFi Protect CLI
 
 For any subcommand you can use `uiprotect COMMAND --help`
 
-| Command                | Description                                                      |
-| ---------------------- | ---------------------------------------------------------------- |
-| `backup`               | [Backup CLI](#backup-cli).                                       |
-| `cameras`              | Camera device CLI.                                               |
-| `chimes`               | Chime device CLI.                                                |
-| `decode-ws-msg`        | Decodes a base64 encoded UniFi Protect Websocket binary message. |
-| `doorlocks`            | Doorlock device CLI.                                             |
-| `events`               | Events CLI.                                                      |
-| `generate-sample-data` | Generates sample data for UniFi Protect instance.                |
-| `lights`               | Lights device CLI.                                               |
-| `liveviews`            | Liveview commands (Public API).                                  |
-| `nvr`                  | NVR device CLI.                                                  |
-| `profile-ws`           | Profiles Websocket messages for UniFi Protect instance.          |
-| `sensors`              | Sensors device CLI.                                              |
-| `shell`                | Opens iPython shell with Protect client initialized.             |
-| `viewers`              | Viewers device CLI.                                              |
+Commands are split between the reverse-engineered **private** API
+(username/password auth) and Ubiquiti's documented **Public Integration API**
+(API-key auth — see [Public vs. private API](usage.md#public-vs-private-api)).
+The API column marks which is which; note that `viewers` (private) and
+`viewers-public` (public) are distinct command groups.
+
+| Command                | API     | Description                                                      |
+| ---------------------- | ------- | ---------------------------------------------------------------- |
+| `aiports`              | Private | AiPort device CLI.                                               |
+| `arm`                  | Public  | Arm profile and alarm commands.                                  |
+| `backup`               | Private | [Backup CLI](#backup-cli).                                       |
+| `bridges`              | Public  | Bridge commands.                                                 |
+| `cameras`              | Private | Camera device CLI.                                               |
+| `chimes`               | Private | Chime device CLI.                                                |
+| `create-api-key`       | Public  | Create a new API key for the current user.                       |
+| `decode-ws-msg`        | —       | Decodes a base64 encoded UniFi Protect Websocket binary message. |
+| `doorlocks`            | Private | Doorlock device CLI.                                             |
+| `events`               | Private | Events CLI.                                                      |
+| `files-public`         | Public  | Device asset file commands.                                      |
+| `fobs`                 | Public  | Key fob commands.                                                |
+| `generate-sample-data` | Private | Generates sample data for UniFi Protect instance.                |
+| `get-meta-info`        | Public  | Get metadata about the current UniFi Protect instance.           |
+| `lights`               | Private | Lights device CLI.                                               |
+| `link-stations`        | Public  | Link station and alarm hub commands.                             |
+| `liveviews`            | Public  | Liveview commands.                                               |
+| `nvr`                  | Private | NVR device CLI.                                                  |
+| `profile-ws`           | Private | Profiles Websocket messages for UniFi Protect instance.          |
+| `relays`               | Public  | Relay commands.                                                  |
+| `sensors`              | Private | Sensors device CLI.                                              |
+| `shell`                | Private | Opens iPython shell with Protect client initialized.             |
+| `sirens`               | Public  | Siren commands.                                                  |
+| `speakers`             | Public  | Speaker commands.                                                |
+| `ulp-users-public`     | Public  | UniFi Identity (ULP) user commands.                              |
+| `users-public`         | Public  | Protect user commands.                                           |
+| `viewers`              | Private | Viewers device CLI.                                              |
+| `viewers-public`       | Public  | Viewer commands.                                                 |
 
 #### Multiple Item CLI Commands
 
@@ -143,13 +163,13 @@ The "list all devices" and "list a specific device" commands always return raw J
       ],
       [
         "61be1d2f004bda03e700ab12",
-        "G4 Done"
+        "G4 Dome"
       ],
       ...
     ]
     ```
 
-###### Check if a Light is Online
+###### Check if a Camera is Online
 
 ```bash
 $ uiprotect cameras 61ddb66b018e2703e7008c19 | jq .isConnected
@@ -159,7 +179,7 @@ true
 ###### Take Snapshot of Camera
 
 ```bash
-$ uiprotectcameras 61ddb66b018e2703e7008c19 save-snapshot output.jpg
+$ uiprotect cameras 61ddb66b018e2703e7008c19 save-snapshot output.jpg
 ```
 
 #### Adoptable Devices CLI Commands
@@ -214,6 +234,40 @@ uiprotect liveviews update LIVEVIEW_ID --name "New name"
 See `uiprotect liveviews --help` (and `--help` on each subcommand) for the
 full flag list.
 
+#### Public Integration API Device Groups
+
+The following command groups are driven by Ubiquiti's documented
+[Public Integration API](usage.md#public-vs-private-api) and authenticate with
+an API key (set `UFP_API_KEY`, or create one with `uiprotect create-api-key`),
+not username/password. Each exposes `list` and (where applicable) `show`
+subcommands plus group-specific actions; run `uiprotect <group> --help` for the
+full flag list.
+
+| Group              | Common subcommands                                                            |
+| ------------------ | ----------------------------------------------------------------------------- |
+| `arm`              | `list`, `status`, `set-profile`, `enable-alarm`, `disable-alarm`, `trigger`   |
+| `bridges`          | `list`, `show`, `set-name`                                                    |
+| `fobs`             | `list`, `show`, `set-name`                                                    |
+| `files-public`     | `list`, `upload`                                                              |
+| `link-stations`    | `list`, `show`, `set-name`, `trigger-output`                                  |
+| `relays`           | `list`, `show`, `activate`, `set-name`, `set-status-light`                    |
+| `sirens`           | `list`, `show`, `play`, `stop`, `test-sound`, `set-volume`                    |
+| `speakers`         | `list`, `show`, `set-name`, `set-volume`, `set-mic-volume`, `set-mic-enabled` |
+| `users-public`     | `list`, `show`                                                                |
+| `ulp-users-public` | `list`, `show`                                                                |
+| `viewers-public`   | `list`, `show`, `set-name`, `set-liveview`                                    |
+
+```bash
+# list public-API sirens (API key auth)
+uiprotect sirens list
+
+# rename a viewer over the public API
+uiprotect viewers-public set-name VIEWER_ID "Living Room"
+```
+
+The top-level `uiprotect create-api-key NAME` and `uiprotect get-meta-info`
+commands are also Public-API driven.
+
 #### Backup CLI
 
 ```bash
@@ -247,35 +301,35 @@ $ uiprotect backup --help
 
 There are [5 options](#backup-options) controlling output format for file names and metadata. This allows you to customize backups to your liking. All 5 options are a template string. Here are all of the available templating variables:
 
-| Variable                 | Description                                                                                                                            |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `year`                   | UTC year of start of export.                                                                                                           |
-| `month`                  | UTC month of start of export.                                                                                                          |
-| `day`                    | UTC day of start of export.                                                                                                            |
-| `hour`                   | UTC hour of start of export.                                                                                                           |
-| `minute`                 | UTC minute of start of export.                                                                                                         |
-| `datetime`               | [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) formatted UTC datetime of start of export. Uses `sep` between parts.                |
-| `date`                   | [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) formatted UTC date of start of export. Uses `sep` between parts.                    |
-| `time`                   | UTC time of start of export. Uses `sep` between parts. 24 hour time.                                                                   |
-| `time_sort_pretty`       | UTC time of start of export. Uses `:` between parts. 24 hour time.                                                                     |
-| `time_pretty`            | UTC time of start of export. Uses `:` between parts. 12 hour time with AM/PM.                                                          |
-| `year_local`             | [Local](#timezones) year of start of export.                                                                                           |
-| `month_local`            | [Local](#timezones) month of start of export.                                                                                          |
-| `day_local`              | [Local](#timezones) day of start of export.                                                                                            |
-| `hour_local`             | [Local](#timezones) hour of start of export.                                                                                           |
-| `minute_local`           | [Local](#timezones) minute of start of export.                                                                                         |
-| `datetime_local`         | [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) formatted [Local](#timezone) datetime of start of export. Uses `sep` between parts. |
-| `date_local`             | [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) formatted [Local](#timezone) date of start of export. Uses `sep` between parts.     |
-| `time_local`             | [Local](#timezones) time of start of export. Uses `sep` between parts. 24 hour time.                                                   |
-| `time_sort_pretty_local` | [Local](#timezones) time of start of export. Uses `:` between parts. 24 hour time.                                                     |
-| `time_pretty_local`      | [Local](#timezones) time of start of export. Uses `:` between parts. 12 hour time with AM/PM.                                          |
-| `mac`                    | MAC address of camera.                                                                                                                 |
-| `camera_name`            | Name of camera.                                                                                                                        |
-| `camera_slug`            | Lowercased name of camera with spaces replaced with `sep`.                                                                             |
-| `event_type`             | Lowercased name of the event exported.                                                                                                 |
-| `event_type_pretty`      | More human readable name of event exported.                                                                                            |
-| `length_pretty`          | Human readable version of the length of the clip exported.                                                                             |
-| `sep`                    | Separator to use in many cases.                                                                                                        |
+| Variable                 | Description                                                                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `year`                   | UTC year of start of export.                                                                                                            |
+| `month`                  | UTC month of start of export.                                                                                                           |
+| `day`                    | UTC day of start of export.                                                                                                             |
+| `hour`                   | UTC hour of start of export.                                                                                                            |
+| `minute`                 | UTC minute of start of export.                                                                                                          |
+| `datetime`               | [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) formatted UTC datetime of start of export. Uses `sep` between parts.                 |
+| `date`                   | [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) formatted UTC date of start of export. Uses `sep` between parts.                     |
+| `time`                   | UTC time of start of export. Uses `sep` between parts. 24 hour time.                                                                    |
+| `time_sort_pretty`       | UTC time of start of export. Uses `:` between parts. 24 hour time.                                                                      |
+| `time_pretty`            | UTC time of start of export. Uses `:` between parts. 12 hour time with AM/PM.                                                           |
+| `year_local`             | [Local](#timezones) year of start of export.                                                                                            |
+| `month_local`            | [Local](#timezones) month of start of export.                                                                                           |
+| `day_local`              | [Local](#timezones) day of start of export.                                                                                             |
+| `hour_local`             | [Local](#timezones) hour of start of export.                                                                                            |
+| `minute_local`           | [Local](#timezones) minute of start of export.                                                                                          |
+| `datetime_local`         | [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) formatted [Local](#timezones) datetime of start of export. Uses `sep` between parts. |
+| `date_local`             | [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) formatted [Local](#timezones) date of start of export. Uses `sep` between parts.     |
+| `time_local`             | [Local](#timezones) time of start of export. Uses `sep` between parts. 24 hour time.                                                    |
+| `time_sort_pretty_local` | [Local](#timezones) time of start of export. Uses `:` between parts. 24 hour time.                                                      |
+| `time_pretty_local`      | [Local](#timezones) time of start of export. Uses `:` between parts. 12 hour time with AM/PM.                                           |
+| `mac`                    | MAC address of camera.                                                                                                                  |
+| `camera_name`            | Name of camera.                                                                                                                         |
+| `camera_slug`            | Lowercased name of camera with spaces replaced with `sep`.                                                                              |
+| `event_type`             | Lowercased name of the event exported.                                                                                                  |
+| `event_type_pretty`      | More human readable name of event exported.                                                                                             |
+| `length_pretty`          | Human readable version of the length of the clip exported.                                                                              |
+| `sep`                    | Separator to use in many cases.                                                                                                         |
 
 ###### Datetimes
 
@@ -371,7 +425,7 @@ $ uiprotect cameras 61ddb66b018e2703e7008c19 save-video export.mp4 2022-6-1T00:0
 
 !!! note "Timezones"
 
-    See the section on [Timezones](#timezone) for determined what timezone your datetimes are in.
+    See the section on [Timezones](#timezones) for determined what timezone your datetimes are in.
 
 ###### Play Audio File to Cameras Speaker
 
@@ -404,7 +458,7 @@ true
 ###### Reboot Camera
 
 ```bash
-$ uiprotect lights 61b3f5c801f8a703e7000428 reboot
+$ uiprotect cameras 61ddb66b018e2703e7008c19 reboot
 ```
 
 ###### Reboot All Cameras
