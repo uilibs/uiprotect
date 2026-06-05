@@ -18,6 +18,8 @@ from datetime import UTC, datetime, timedelta
 from functools import cache
 from typing import Any, Literal, TypedDict
 
+from pydantic import Field
+
 from ..exceptions import BadRequest
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import (
@@ -48,6 +50,7 @@ from .types import (
     RelayOutputRebootState,
     RelayOutputState,
     RelayOutputType,
+    SensorScheduleMode,
     SensorStatusType,
     SirenConnectionType,
     SirenDuration,
@@ -178,17 +181,17 @@ class PublicLcdMessage(ProtectBaseObject):
 class PublicCameraFeatureFlags(ProtectBaseObject):
     support_full_hd_snapshot: bool = False
     has_hdr: bool = False
-    smart_detect_types: list[SmartDetectObjectType] = []
-    smart_detect_audio_types: list[SmartDetectAudioType] = []
-    video_modes: list[VideoMode] = []
+    smart_detect_types: list[SmartDetectObjectType] = Field(default_factory=list)
+    smart_detect_audio_types: list[SmartDetectAudioType] = Field(default_factory=list)
+    video_modes: list[VideoMode] = Field(default_factory=list)
     has_mic: bool = False
     has_led_status: bool = False
     has_speaker: bool = False
 
 
 class PublicSmartDetectSettings(ProtectBaseObject):
-    object_types: list[SmartDetectObjectType] = []
-    audio_types: list[SmartDetectAudioType] = []
+    object_types: list[SmartDetectObjectType] = Field(default_factory=list)
+    audio_types: list[SmartDetectAudioType] = Field(default_factory=list)
 
 
 class PublicCamera(ProtectModelWithId):
@@ -295,10 +298,17 @@ class PublicSensorThresholdSettings(ProtectBaseObject):
 class PublicSensorMotionSettingsRead(ProtectBaseObject):
     is_enabled: bool = False
     sensitivity: int | None = None
+    sensitivity_when_armed: int | None = None
 
 
 class PublicSensorAlarmSettingsRead(ProtectBaseObject):
     is_enabled: bool = False
+
+
+class PublicSensorGlassBreakSettings(ProtectBaseObject):
+    is_enabled: bool = False
+    sensitivity: int | None = None
+    sensitivity_when_armed: int | None = None
 
 
 class PublicSensorLeakSettings(ProtectBaseObject):
@@ -332,6 +342,10 @@ class PublicSensor(ProtectModelWithId):
     leak_settings: PublicSensorLeakSettings
     tampering_detected_at: int | None = None
     wireless_connection_state: PublicWirelessConnectionState
+    schedule_mode: SensorScheduleMode
+    glass_break_settings: PublicSensorGlassBreakSettings
+    arm_profile_ids: list[str] | None = None
+    has_custom_sensitivity_when_armed: bool
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
@@ -360,8 +374,8 @@ class PublicChime(ProtectModelWithId):
     # Nullable on the wire (spec: ``oneOf [string, null]``).
     name: str | None = None
     mac: str
-    camera_ids: list[str] = []
-    ring_settings: list[PublicRingSettings] = []
+    camera_ids: list[str] = Field(default_factory=list)
+    ring_settings: list[PublicRingSettings] = Field(default_factory=list)
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
@@ -899,8 +913,8 @@ class PublicDoorbellSettings(ProtectBaseObject):
 
     default_message_text: str = ""
     default_message_reset_timeout_ms: int = 0
-    custom_messages: list[str] = []
-    custom_images: list[PublicDoorbellCustomImage] = []
+    custom_messages: list[str] = Field(default_factory=list)
+    custom_images: list[PublicDoorbellCustomImage] = Field(default_factory=list)
 
 
 class PublicNVR(ProtectModelWithId):

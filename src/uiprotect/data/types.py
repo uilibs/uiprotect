@@ -557,6 +557,13 @@ class SensorStatusType(UnknownValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
+class SensorScheduleMode(UnknownValuesEnumMixin, enum.StrEnum):
+    ALWAYS = "always"
+    WHEN_ARMED = "when_armed"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
 class SleepStateType(ValuesEnumMixin, enum.StrEnum):
     DISCONNECTED = "disconnected"
     AWAKE = "awake"

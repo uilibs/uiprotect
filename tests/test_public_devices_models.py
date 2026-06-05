@@ -14,7 +14,7 @@ from uiprotect.data import (
     PublicSensor,
 )
 from uiprotect.data.public_bootstrap import PublicBootstrap
-from uiprotect.data.types import ModelType
+from uiprotect.data.types import ModelType, SensorScheduleMode
 from uiprotect.exceptions import BadRequest
 
 CAMERA_PAYLOAD: dict[str, Any] = {
@@ -107,7 +107,11 @@ SENSOR_PAYLOAD: dict[str, Any] = {
     "openStatusChangedAt": None,
     "isMotionDetected": False,
     "motionDetectedAt": None,
-    "motionSettings": {"isEnabled": True, "sensitivity": 50},
+    "motionSettings": {
+        "isEnabled": True,
+        "sensitivity": 50,
+        "sensitivityWhenArmed": 80,
+    },
     "alarmTriggeredAt": None,
     "alarmSettings": {"isEnabled": False},
     "leakDetectedAt": None,
@@ -119,6 +123,14 @@ SENSOR_PAYLOAD: dict[str, Any] = {
         "batteryStatus": {"percentage": 90, "isLow": False},
         "bridge": "bridge1",
     },
+    "scheduleMode": "when_armed",
+    "glassBreakSettings": {
+        "isEnabled": True,
+        "sensitivity": 60,
+        "sensitivityWhenArmed": 90,
+    },
+    "armProfileIds": ["profile1"],
+    "hasCustomSensitivityWhenArmed": True,
 }
 
 CHIME_PAYLOAD: dict[str, Any] = {
@@ -144,7 +156,7 @@ CHIME_PAYLOAD: dict[str, Any] = {
     [
         (PublicCamera, CAMERA_PAYLOAD, 16),
         (PublicLight, LIGHT_PAYLOAD, 13),
-        (PublicSensor, SENSOR_PAYLOAD, 23),
+        (PublicSensor, SENSOR_PAYLOAD, 27),
         (PublicChime, CHIME_PAYLOAD, 7),
     ],
 )
@@ -190,6 +202,12 @@ def test_public_sensor_sub_models_typed() -> None:
     assert sensor.stats.temperature.value == 22.5
     assert sensor.stats.humidity.value is None
     assert sensor.leak_settings.is_internal_enabled is False
+    assert sensor.schedule_mode is SensorScheduleMode.WHEN_ARMED
+    assert sensor.glass_break_settings.is_enabled is True
+    assert sensor.glass_break_settings.sensitivity_when_armed == 90
+    assert sensor.motion_settings.sensitivity_when_armed == 80
+    assert sensor.arm_profile_ids == ["profile1"]
+    assert sensor.has_custom_sensitivity_when_armed is True
 
 
 @pytest.mark.parametrize(
