@@ -3473,7 +3473,9 @@ class ProtectApiClient(BaseApiClient):
         )
         return TalkbackSession.from_unifi_dict(**data)
 
-    async def disable_camera_mic_permanently_public(self, camera_id: str) -> Camera:
+    async def disable_camera_mic_permanently_public(
+        self, camera_id: str
+    ) -> PublicCamera:
         """
         Permanently disable a camera's microphone.
 
@@ -3485,7 +3487,7 @@ class ProtectApiClient(BaseApiClient):
             method="post",
             public_api=True,
         )
-        return Camera.from_unifi_dict(**data, api=self)
+        return PublicCamera.from_unifi_dict(**data, api=self)
 
     # ------------------------------------------------------------------
     # Public API: Sensors

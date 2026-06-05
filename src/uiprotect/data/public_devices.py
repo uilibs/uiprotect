@@ -30,6 +30,7 @@ from .types import (
     AlarmHubOutputStatus,
     AssetFileType,
     DeviceState,
+    DoorbellMessageType,
     FobAwayState,
     FobButton,
     LightModeEnableType,
@@ -169,7 +170,7 @@ class PublicCameraLedSettings(ProtectBaseObject):
 class PublicLcdMessage(ProtectBaseObject):
     # Spec marks ``type``/``text`` required, but the PATCH endpoint accepts
     # (and a cleared message returns) ``{}`` — so every field is optional.
-    type: str | None = None
+    type: DoorbellMessageType | None = None
     reset_at: int | None = None
     text: str | None = None
 
