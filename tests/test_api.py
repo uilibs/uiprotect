@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import stat
+import sys
 from copy import deepcopy
 from datetime import datetime, timedelta
 from io import BytesIO
@@ -4136,3 +4138,141 @@ async def test_create_talkback_session_public(protect_client: ProtectApiClient):
         method="post",
         public_api=True,
     )
+
+
+# Session config file permission tests
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX-only permission check")
+async def test_write_session_config_atomic_file_permissions(tmp_path: Path) -> None:
+    """File written by _write_session_config_atomic must be owner-readable only (0o600)."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path,
+    )
+
+    await client._write_session_config_atomic({"sessions": {}})
+
+    config_file = tmp_path / "unifi_protect.json"
+    assert await aos.path.exists(config_file)
+    file_stat = await aos.stat(config_file)
+    file_mode = stat.S_IMODE(file_stat.st_mode)
+    assert file_mode == 0o600, f"Expected 0o600, got {oct(file_mode)}"
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX-only permission check")
+async def test_write_session_config_atomic_dir_permissions(tmp_path: Path) -> None:
+    """Config directory is tightened to 0o700 by _write_session_config_atomic."""
+    config_dir = tmp_path / "ufp"
+    await aos.mkdir(config_dir, mode=0o755)
+
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=config_dir,
+    )
+
+    await client._write_session_config_atomic({"sessions": {}})
+
+    dir_stat = await aos.stat(config_dir)
+    dir_mode = stat.S_IMODE(dir_stat.st_mode)
+    assert dir_mode == 0o700, f"Expected 0o700, got {oct(dir_mode)}"
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX-only atomic-write check")
+async def test_write_session_config_atomic_no_tmp_file_left(tmp_path: Path) -> None:
+    """No .tmp file must remain in the config directory after a successful write."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path,
+    )
+
+    await client._write_session_config_atomic({"sessions": {}})
+
+    # Use async listdir and filter rather than sync glob()
+    entries = await aos.listdir(tmp_path)
+    tmp_files = [e for e in entries if e.startswith(".unifi_protect_") and e.endswith(".tmp")]
+    assert tmp_files == [], f"Unexpected tmp files: {tmp_files}"
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX-only atomic-write check")
+async def test_write_session_config_atomic_cleans_up_tmp_on_write_error(
+    tmp_path: Path,
+) -> None:
+    """Temp file is removed when the write fails, and the exception propagates."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path,
+    )
+
+    # Patch aiofiles.open to raise after the temp file has been created via mkstemp.
+    with patch("uiprotect.api.aiofiles.open", side_effect=OSError("simulated write failure")), pytest.raises(OSError, match="simulated write failure"):
+        await client._write_session_config_atomic({"sessions": {}})
+
+    # No orphaned tmp file should remain — the except-block cleans it up.
+    entries = await aos.listdir(tmp_path)
+    tmp_files = [e for e in entries if e.startswith(".unifi_protect_") and e.endswith(".tmp")]
+    assert tmp_files == [], f"Orphaned tmp files: {tmp_files}"
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX-only permission check")
+async def test_clear_session_file_permissions(tmp_path: Path) -> None:
+    """clear_session must rewrite the config file with owner-only permissions (0o600)."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "test_user",
+        "test_pass",
+        verify_ssl=False,
+        store_sessions=True,
+        config_dir=tmp_path,
+    )
+
+    session_hash = get_user_hash(str(client._url), "test_user")
+    config = {
+        "sessions": {
+            session_hash: {
+                "metadata": {"path": "/"},
+                "cookiename": "TOKEN",
+                "value": "some_token",
+                "csrf": "some-csrf",
+            },
+        }
+    }
+
+    # Write an initial config file (permissions not yet controlled)
+    config_file = tmp_path / "unifi_protect.json"
+    await async_write_bytes(config_file, orjson.dumps(config))
+
+    await client.clear_session()
+
+    # After clear_session the file should still exist (sessions key now empty)
+    # and its permissions should be 0o600.
+    assert await aos.path.exists(config_file)
+    file_stat = await aos.stat(config_file)
+    file_mode = stat.S_IMODE(file_stat.st_mode)
+    assert file_mode == 0o600, f"Expected 0o600, got {oct(file_mode)}"

@@ -6,9 +6,11 @@ import asyncio
 import contextlib
 import hashlib
 import logging
+import os
 import random
 import re
 import sys
+import tempfile
 import time
 import warnings
 from datetime import datetime, timedelta
@@ -1028,13 +1030,43 @@ class BaseApiClient:
                 await self._update_auth_config(self._last_token_cookie)
             self._last_token_cookie_decode = None
 
+    async def _write_session_config_atomic(self, config: dict[str, Any]) -> None:
+        """Write session config atomically with owner-only permissions."""
+        await aos.makedirs(self.config_dir, exist_ok=True)
+        if sys.platform != "win32":
+            await asyncio.to_thread(os.chmod, self.config_dir, 0o700)
+
+        config_data = orjson.dumps(config, option=orjson.OPT_INDENT_2)
+
+        if sys.platform == "win32":  # pragma: no cover
+            # Windows does not use POSIX permissions; write directly.
+            async with aiofiles.open(self.config_file, "wb") as f:
+                await f.write(config_data)
+            return
+
+        # mkstemp creates with mode 0o600 on POSIX — no explicit chmod needed.
+        fd, tmp_str = await asyncio.to_thread(
+            tempfile.mkstemp,
+            dir=self.config_dir,
+            prefix=".unifi_protect_",
+            suffix=".tmp",
+        )
+        tmp_path = Path(tmp_str)
+        try:
+            await asyncio.to_thread(os.close, fd)  # release fd so aiofiles can open
+            async with aiofiles.open(tmp_path, "wb") as f:
+                await f.write(config_data)
+            await aos.replace(str(tmp_path), str(self.config_file))
+        except Exception:
+            with contextlib.suppress(OSError):
+                await aos.remove(str(tmp_path))
+            raise
+
     async def _update_auth_config(self, cookie: Morsel[str]) -> None:
         """Updates auth cookie on disk for persistent sessions."""
         username = self._username
         if self._last_token_cookie is None or self._public_only or username is None:
             return
-
-        await aos.makedirs(self.config_dir, exist_ok=True)
 
         config: dict[str, Any] = {}
         session_hash = get_user_hash(str(self._url), username)
@@ -1057,8 +1089,7 @@ class BaseApiClient:
             "csrf": self.headers.get("x-csrf-token") if self.headers else None,
         }
 
-        async with aiofiles.open(self.config_file, "wb") as f:
-            await f.write(orjson.dumps(config, option=orjson.OPT_INDENT_2))
+        await self._write_session_config_atomic(config)
 
     async def _load_session(self) -> None:
         if self._public_only:
@@ -1172,8 +1203,7 @@ class BaseApiClient:
         if "sessions" in config and session_hash in config["sessions"]:
             del config["sessions"][session_hash]
 
-            async with aiofiles.open(self.config_file, "wb") as f:
-                await f.write(orjson.dumps(config, option=orjson.OPT_INDENT_2))
+            await self._write_session_config_atomic(config)
 
             _LOGGER.debug("Cleared session for %s", session_hash)
 
