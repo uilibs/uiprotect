@@ -223,6 +223,7 @@ select = [
     "DTZ001", # tests intentionally construct naive datetimes
     "DTZ005", # tests intentionally call datetime.now() without tz
     "ERA001", # test fixtures keep commented-out reference snippets
+    "E402",   # optional-dependency guards (pytest.importorskip) precede imports
 ]
 "setup.py" = ["D100"]
 "conftest.py" = ["D100"]

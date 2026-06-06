@@ -1,6 +1,12 @@
 import subprocess
 import sys
 
+import pytest
+
+# uiprotect.__main__ imports the typer-based CLI (optional `cli` extra); skip
+# rather than fail at collection when it's absent.
+pytest.importorskip("typer")
+
 import uiprotect.__main__ as dunder_main
 
 

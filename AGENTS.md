@@ -167,7 +167,13 @@ depending on it.
 
 ## Running tests
 
+Requires Python >=3.11. **Install all extras first** — the `cli` extra
+provides Pillow and typer, without which `tests/test_api.py` and
+`tests/test_cli.py` fail at _collection_ (`ModuleNotFoundError`), which
+pytest reports as a full-session failure:
+
 ```bash
+poetry install --all-extras
 poetry run pytest
 ```
 

@@ -3,6 +3,12 @@ import ssl
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
+import pytest
+
+# typer/rich ship with the optional `cli` extra; skip the whole module rather
+# than fail at collection when it's absent (a minimal install without --all-extras).
+pytest.importorskip("typer")
+
 from typer.testing import CliRunner
 
 from uiprotect.cli import _is_ssl_error, app
