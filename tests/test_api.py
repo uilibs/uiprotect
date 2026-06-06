@@ -3378,8 +3378,17 @@ async def test_raise_for_status_global_alarm_manager_error() -> None:
 
 
 @pytest.mark.asyncio
-async def test_raise_for_status_armed_mode_error() -> None:
-    """400 with arm alarm armed reason raises ArmedModeError."""
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "Arm alarm is armed",
+        "arm alarm is armed",
+        "ARM ALARM IS ARMED",
+        "Arm Alarm Is Armed",
+    ],
+)
+async def test_raise_for_status_armed_mode_error(reason: str) -> None:
+    """400 with arm alarm armed reason raises ArmedModeError (case-insensitive)."""
     api = ProtectApiClient("test.com", 443, "username", "password")
     response = Mock()
     response.status = 400
@@ -3388,7 +3397,7 @@ async def test_raise_for_status_armed_mode_error() -> None:
     with (
         patch(
             "uiprotect.api.get_response_reason",
-            return_value="Arm alarm is armed",
+            return_value=reason,
         ),
         pytest.raises(ArmedModeError),
     ):

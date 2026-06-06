@@ -857,9 +857,12 @@ class BaseApiClient:
             if status == HTTPStatus.TOO_MANY_REQUESTS.value:
                 _LOGGER.debug("Too many requests - Login is rate limited: %s", response)
                 raise NvrError(msg % (url, status, reason))
-            # Handle 400 Bad Request specifically; check for global alarm
-            # manager error (returned when alarm-manager is not local, e.g.
-            # set to global instead), but treat other 4xx as generic bad request.
+            # Handle 400 Bad Request specifically; check for two typed
+            # sub-cases before the generic fallback: the global alarm manager
+            # error (returned when alarm-manager is not local, e.g. set to
+            # global instead) and the arm-alarm-armed error (returned when an
+            # operation is rejected because the alarm is currently armed).
+            # Any other 400 reason is treated as a generic bad request.
             if status == HTTPStatus.BAD_REQUEST.value:
                 if _GLOBAL_ALARM_MANAGER_REASON in reason.lower():
                     raise GlobalAlarmManagerError(msg % (url, status, reason))
