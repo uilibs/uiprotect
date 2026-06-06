@@ -118,6 +118,13 @@ prerelease = true
 addopts = "-v -Wdefault --cov=uiprotect --cov-report=term-missing:skip-covered -n=auto"
 pythonpath = ["src"]
 
+[tool.codespell]
+skip = "poetry.lock,*.lock,*/sample_data/*,*/openapi/*,CHANGELOG.md,*/site/*,site/*"
+# domain terms / protocol field names that are not English typos:
+# - aiport: UniFi AiPort device codename (AiPort/aiport/AIPORT)
+# - tempature: misspelled wire-format disk-health key served by Protect firmware
+ignore-words-list = "aiport,tempature"
+
 [tool.coverage.run]
 branch = true
 

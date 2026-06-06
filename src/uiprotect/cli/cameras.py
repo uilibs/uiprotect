@@ -80,7 +80,7 @@ def privacy_mode(
     Returns/sets library managed privacy mode.
 
     Does not change the microphone sensitivity or recording mode.
-    It must be changed seperately.
+    It must be changed separately.
     """
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device

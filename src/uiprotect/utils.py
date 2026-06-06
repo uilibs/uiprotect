@@ -188,7 +188,7 @@ def format_datetime(
     dt: datetime | None,
     default: str | None = None,
 ) -> str | None:
-    """Formats a datetime object in a consisent format"""
+    """Formats a datetime object in a consistent format"""
     return default if dt is None else dt.strftime(DATETIME_FORMAT)
 
 

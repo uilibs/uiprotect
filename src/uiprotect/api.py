@@ -1263,9 +1263,9 @@ class ProtectApiClient(BaseApiClient):
     update the `.bootstrap` over time.
 
     You can use the `.get_` methods to one off pull devices from the UFP API, but should
-    not be used for building an aplication on top of.
+    not be used for building an application on top of.
 
-    All objects inside of `.bootstrap` have a refernce back to the API client so they can
+    All objects inside of `.bootstrap` have a reference back to the API client so they can
     use `.save_device()` and update themselves using their own `.set_` methods on the object.
 
     Args:
@@ -1899,7 +1899,7 @@ class ProtectApiClient(BaseApiClient):
             offset: offset to start fetching events from
             types: list of EventTypes to get events for
             smart_detect_types: Filters the Smart detection types for the events
-            sorting: sort events by ascending or decending, defaults to ascending (chronologic order)
+            sorting: sort events by ascending or descending, defaults to ascending (chronologic order)
             description: included additional event metadata
             category: event category, will provide additional category/subcategory fields
 
@@ -1997,7 +1997,7 @@ class ProtectApiClient(BaseApiClient):
             offset: offset to start fetching events from
             types: list of EventTypes to get events for
             smart_detect_types: Filters the Smart detection types for the events
-            sorting: sort events by ascending or decending, defaults to ascending (chronologic order)
+            sorting: sort events by ascending or descending, defaults to ascending (chronologic order)
             description: included additional event metadata
             category: event category, will provide additional category/subcategory fields
 

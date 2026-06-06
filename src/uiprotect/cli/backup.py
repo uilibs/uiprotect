@@ -98,7 +98,7 @@ class BackupContext(base.CliContext):
     start: datetime
     end: datetime | None
     output: Path
-    seperator: str
+    separator: str
     thumbnail_format: str
     gif_format: str
     event_format: str
@@ -206,10 +206,10 @@ class Event(Base):  # type: ignore[valid-type,misc]
             if camera is not None:
                 raw_name = camera.display_name
                 safe_name = _safe_slug(
-                    raw_name.lower().replace(" ", ctx.seperator),
-                    ctx.seperator,
+                    raw_name.lower().replace(" ", ctx.separator),
+                    ctx.separator,
                 )
-                camera_slug = safe_name + ctx.seperator
+                camera_slug = safe_name + ctx.separator
                 display_name = raw_name
             if self.end is not None:
                 length = self.end - self.start
@@ -235,10 +235,10 @@ class Event(Base):  # type: ignore[valid-type,misc]
                 "minute": str(self.start.minute),
                 "datetime": self.start.strftime("%Y-%m-%dT%H-%M-%S%z").replace(
                     "-",
-                    ctx.seperator,
+                    ctx.separator,
                 ),
-                "date": self.start.strftime("%Y-%m-%d").replace("-", ctx.seperator),
-                "time": self.start.strftime("%H-%M-%S%z").replace("-", ctx.seperator),
+                "date": self.start.strftime("%Y-%m-%d").replace("-", ctx.separator),
+                "time": self.start.strftime("%H-%M-%S%z").replace("-", ctx.separator),
                 "time_sort_pretty": self.start.strftime("%H:%M:%S (%Z)"),
                 "time_pretty": self.start.strftime("%I:%M:%S %p (%Z)"),
                 "year_local": str(start_local.year),
@@ -248,15 +248,15 @@ class Event(Base):  # type: ignore[valid-type,misc]
                 "minute_local": str(start_local.minute),
                 "datetime_local": start_local.strftime("%Y-%m-%dT%H-%M-%S%z").replace(
                     "-",
-                    ctx.seperator,
+                    ctx.separator,
                 ),
                 "date_local": start_local.strftime("%Y-%m-%d").replace(
                     "-",
-                    ctx.seperator,
+                    ctx.separator,
                 ),
                 "time_local": start_local.strftime("%H-%M-%S%z").replace(
                     "-",
-                    ctx.seperator,
+                    ctx.separator,
                 ),
                 "time_sort_pretty_local": start_local.strftime("%H:%M:%S (%Z)"),
                 "time_pretty_local": start_local.strftime("%I:%M:%S %p (%Z)"),
@@ -266,7 +266,7 @@ class Event(Base):  # type: ignore[valid-type,misc]
                 "event_type": event_type,
                 "event_type_pretty": event_type_pretty,
                 "length_pretty": format_duration(length),
-                "sep": ctx.seperator,
+                "sep": ctx.separator,
             }
 
             self._context["title"] = ctx.title_format.format(**self._context)
@@ -370,7 +370,7 @@ OPTION_SMART_TYPES = typer.Option(
     "--smart-type",
     help="Smart Detection types to export. Can be used multiple time.",
 )
-OPTION_SPERATOR = typer.Option("-", "--sep", help="Separator used for formatting.")
+OPTION_SEPARATOR = typer.Option("-", "--sep", help="Separator used for formatting.")
 OPTION_THUMBNAIL_FORMAT = typer.Option(
     "{year}/{month}/{day}/{hour}/{datetime}{sep}{mac}{sep}{camera_slug}{event_type}{sep}thumb.jpg",
     "--thumb-format",
@@ -433,7 +433,7 @@ def main(
     max_download: int = OPTION_MAX_DOWNLOAD,
     page_size: int = OPTION_PAGE_SIZE,
     length_cutoff: int = OPTION_LENGTH_CUTOFF,
-    seperator: str = OPTION_SPERATOR,
+    separator: str = OPTION_SEPARATOR,
 ) -> None:
     """
     Backup CLI.
@@ -474,7 +474,7 @@ def main(
         max_download=max_download,
         page_size=page_size,
         length_cutoff=timedelta(seconds=length_cutoff),
-        seperator=seperator,
+        separator=separator,
     )
     ctx.obj = context
 
@@ -1128,7 +1128,7 @@ def events_cmd(
     no_input: bool = typer.Option(False, "--no-input"),
 ) -> None:
     """Backup thumbnails and video clips for camera events."""
-    # surpress av logging messages
+    # suppress av logging messages
     av.logging.set_level(av.logging.PANIC)
     ufp_events = [d.EventType(e.value) for e in event_types]
     if prune and force:
