@@ -1,5 +1,55 @@
 # Changelog
 
+## v11.6.0 (2026-06-06)
+
+### Features
+
+
+- Support public-only (api-key-only) client mode ([`72c4a7a`](https://github.com/uilibs/uiprotect/commit/72c4a7ae84dfadb746112b1f1dcbddd232273c23))
+
+
+- Support public-only (api-key-only) client mode ([`72c4a7a`](https://github.com/uilibs/uiprotect/commit/72c4a7ae84dfadb746112b1f1dcbddd232273c23))
+
+
+### Testing
+
+
+- Clean up pytest hygiene warnings on python 3.14 ([`87fedca`](https://github.com/uilibs/uiprotect/commit/87fedcaff2172530e732e3b492f61c6f0009134b))
+
+
+- Silence pytest hygiene warnings on 3.14 ([`87fedca`](https://github.com/uilibs/uiprotect/commit/87fedcaff2172530e732e3b492f61c6f0009134b))
+
+
+- Drop benchmark scaffolding from ws subscription tests ([`87fedca`](https://github.com/uilibs/uiprotect/commit/87fedcaff2172530e732e3b492f61c6f0009134b))
+
+
+### Build system
+
+
+- Re-raise av floor to >=17.0.1 ([`1cd3af1`](https://github.com/uilibs/uiprotect/commit/1cd3af13d6cbe7caa4b3a20bb064c0e0db83ad82))
+
+
+### Documentation
+
+
+- Require 100% patch coverage for every pr ([`a14fb24`](https://github.com/uilibs/uiprotect/commit/a14fb24f5310901c331a1908858d68473424f458))
+
+
+- Require 100% patch coverage for every pr ([`a14fb24`](https://github.com/uilibs/uiprotect/commit/a14fb24f5310901c331a1908858d68473424f458))
+
+
+- Audit and fix doc set against current codebase ([`526b027`](https://github.com/uilibs/uiprotect/commit/526b027e57c47c31807d2daf2f097c9053a50500))
+
+
+- Audit and fix doc set against current codebase ([`526b027`](https://github.com/uilibs/uiprotect/commit/526b027e57c47c31807d2daf2f097c9053a50500))
+
+
+- Clarify public-api cli group wording in usage.md ([`526b027`](https://github.com/uilibs/uiprotect/commit/526b027e57c47c31807d2daf2f097c9053a50500))
+
+
+- Fix create-api-key api class, websocket auth note, and tls defaults ([`526b027`](https://github.com/uilibs/uiprotect/commit/526b027e57c47c31807d2daf2f097c9053a50500))
+
+
 ## v11.5.0 (2026-06-05)
 
 ### Features
