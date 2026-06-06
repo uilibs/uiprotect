@@ -15,6 +15,11 @@ import aiohttp
 import orjson
 import pytest
 from aiofiles import os as aos
+
+# Pillow ships with the optional `cli` extra; skip the whole module rather than
+# fail at collection when it's absent (a minimal install without --all-extras).
+pytest.importorskip("PIL")
+
 from PIL import Image
 
 from tests.conftest import (

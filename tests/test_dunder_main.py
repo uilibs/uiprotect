@@ -1,6 +1,13 @@
 import subprocess
 import sys
 
+import pytest
+
+# uiprotect.__main__ imports uiprotect.cli, which pulls the whole CLI stack
+# (typer + rich) from the optional `cli` extra; skip rather than fail at
+# collection when any part is absent.
+pytest.importorskip("uiprotect.cli")
+
 import uiprotect.__main__ as dunder_main
 
 
