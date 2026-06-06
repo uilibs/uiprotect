@@ -167,10 +167,11 @@ depending on it.
 
 ## Running tests
 
-Requires Python >=3.11. **Install all extras first** — the `cli` extra
-provides Pillow and typer, without which `tests/test_api.py` and
-`tests/test_cli.py` fail at _collection_ (`ModuleNotFoundError`), which
-pytest reports as a full-session failure:
+Requires Python >=3.11. **Install all extras to run the full suite** — the
+`cli` extra provides Pillow, typer and rich. Without it the CLI/Pillow test
+modules (`tests/test_api.py`, `tests/test_cli.py`, `tests/test_dunder_main.py`)
+are skipped via `pytest.importorskip` rather than run, so a bare install
+silently exercises a reduced suite:
 
 ```bash
 poetry install --all-extras
