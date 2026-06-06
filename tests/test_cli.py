@@ -19,6 +19,7 @@ from uiprotect.cli.speakers import app as speaker_app
 from uiprotect.cli.ulp_users_public import app as ulp_users_public_app
 from uiprotect.cli.users_public import app as users_public_app
 from uiprotect.cli.viewers_public import app as viewer_public_app
+from uiprotect.exceptions import BadRequest
 
 runner = CliRunner()
 
@@ -207,6 +208,20 @@ def test_public_only_command_constructs_without_credentials() -> None:
     assert kwargs["api_key"] == "k"
     assert kwargs["username"] is None
     assert kwargs["password"] is None
+
+
+def test_client_construction_bad_request_exits_with_error() -> None:
+    """A ``BadRequest`` from client construction prints in red and exits 1."""
+    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
+        client_cls.side_effect = BadRequest("api key cannot be empty")
+        result = runner.invoke(
+            app,
+            ["--api-key", "k", "--address", "192.0.2.10", "sirens", "list"],
+        )
+
+    assert result.exit_code == 1
+    output = _ANSI_ESCAPE_RE.sub("", result.stdout + (result.stderr or ""))
+    assert "api key cannot be empty" in output
 
 
 def test_cameras_disable_mic_listed_in_help() -> None:

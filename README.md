@@ -230,12 +230,12 @@ The module is primarily written for the purpose of being used in Home Assistant 
 If you want to install `uiprotect` natively, the below are the requirements:
 
 - [UniFi Protect](https://ui.com/camera-security) version 6.0+
-  - Only UniFi Protect version 6 and newer are supported. The library is generally tested against the latest stable version and the latest EA version.
+    - Only UniFi Protect version 6 and newer are supported. The library is generally tested against the latest stable version and the latest EA version.
 - [Python](https://www.python.org/) 3.11+
 - POSIX compatible system
-  - Library is only tested on Linux, specifically the latest Debian version available for the official Python Docker images, but there is no reason the library should not work on any Linux distro or macOS.
+    - Library is only tested on Linux, specifically the latest Debian version available for the official Python Docker images, but there is no reason the library should not work on any Linux distro or macOS.
 - [PyAV](https://pyav.org/) (av) - included as a dependency
-  - PyAV is used for audio streaming to camera speakers (talkback feature)
+    - PyAV is used for audio streaming to camera speakers (talkback feature)
 
 Alternatively you can use the [provided Docker container](#using-docker-container), in which case the only requirement is [Docker](https://docs.docker.com/desktop/) or another OCI compatible orchestrator (such as Kubernetes or podman).
 
@@ -353,14 +353,6 @@ protect = ProtectApiClient(host, port, username, password, verify_ssl=True)
 # Or with API key (required for public API operations)
 protect = ProtectApiClient(host, port, username, password, api_key=api_key, verify_ssl=True)
 
-# Or public-only: no private login at all, just an API key. Private-session
-# entry points (update(), authenticate(), get_bootstrap()) raise
-# PublicOnlyModeError; drive everything through update_public(),
-# subscribe_events(), subscribe_devices(), the get_*_public()/update_*_public()
-# methods, and get_meta_info(). A revoked key surfaces as NotAuthorized.
-protect = ProtectApiClient.public_only(host, port, api_key=api_key, verify_ssl=True)
-await protect.update_public()
-
 await protect.update() # this will initialize the protect .bootstrap and open a Websocket connection for updates
 
 # get names of your cameras
@@ -376,6 +368,26 @@ unsub = protect.subscribe_websocket(callback)
 # remove subscription
 unsub()
 
+```
+
+#### Public-only mode
+
+You can also build a client that does no private login at all — just an API
+key. Private-session entry points (`update()`, `authenticate()`,
+`get_bootstrap()`) raise `PublicOnlyModeError`; drive everything through
+`update_public()`, `subscribe_events()`, `subscribe_devices()`, the
+`get_*_public()` / `update_*_public()` methods, and `get_meta_info()`. A
+revoked key surfaces as `NotAuthorized`.
+
+```python
+from uiprotect import ProtectApiClient
+
+protect = ProtectApiClient.public_only(host, port, api_key=api_key, verify_ssl=True)
+await protect.update_public()
+
+# work with the public-API device snapshots
+for siren in await protect.get_sirens_public():
+    print(siren.name)
 ```
 
 ## TODO / Planned / Not Implemented
