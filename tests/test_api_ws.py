@@ -89,6 +89,9 @@ async def test_ws_all(
         await asyncio.sleep(0.05)
 
     stats = benchmark._make_stats(1)
+    # Stats are driven through the internal runner, not benchmark(...); mark the
+    # fixture used so its teardown doesn't warn "fixture was not used at all".
+    benchmark._mode = "benchmark(...)"
     processed_packets = 0
 
     def benchmark_process_ws_packet(*args, **kwargs):
@@ -143,6 +146,9 @@ async def test_ws_filtered(
         await asyncio.sleep(0.05)
 
     stats = benchmark._make_stats(1)
+    # Stats are driven through the internal runner, not benchmark(...); mark the
+    # fixture used so its teardown doesn't warn "fixture was not used at all".
+    benchmark._mode = "benchmark(...)"
 
     def benchmark_process_ws_packet(*args, **kwargs):
         runner = benchmark._make_runner(_orig, args, kwargs)

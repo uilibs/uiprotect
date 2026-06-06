@@ -1165,7 +1165,7 @@ async def test_get_camera_video_logging(
     # Mock the response
     mock_response = AsyncMock()
     mock_response.status = 200
-    mock_response.close = AsyncMock()
+    mock_response.close = Mock()
 
     # Create a mock content with iter_chunked method
     class MockContent:
@@ -1586,7 +1586,8 @@ async def test_api_request_raw_with_custom_api_path() -> None:
     mock_response = AsyncMock()
     mock_response.status = 200
     mock_response.read = AsyncMock(return_value=b"test_response")
-    mock_response.close = AsyncMock()
+    mock_response.close = Mock()
+    mock_response.release = Mock()
 
     client.request = AsyncMock(return_value=mock_response)
 
@@ -1617,7 +1618,8 @@ async def test_api_request_raw_with_default_api_path() -> None:
     mock_response = AsyncMock()
     mock_response.status = 200
     mock_response.read = AsyncMock(return_value=b"test_response")
-    mock_response.close = AsyncMock()
+    mock_response.close = Mock()
+    mock_response.release = Mock()
 
     client.request = AsyncMock(return_value=mock_response)
 
@@ -1992,19 +1994,22 @@ async def test_invalid_token_triggers_reauthentication(
         config_dir=tmp_path,
     )
 
-    # Ensure authentication is triggered (which loads the session first)
-    await client.ensure_authenticated()
+    try:
+        # Ensure authentication is triggered (which loads the session first)
+        await client.ensure_authenticated()
 
-    # Should have called authenticate() due to invalid token
-    assert mock_request.called
-    assert client._is_authenticated is True
+        # Should have called authenticate() due to invalid token
+        assert mock_request.called
+        assert client._is_authenticated is True
 
-    # Verify the session file was updated with the new valid token
-    updated_config = orjson.loads(await async_read_bytes(config_file))
-    session_data = updated_config["sessions"][session_hash]
-    assert session_data["csrf"] == "new-csrf-token-12345"
-    # The new token should be a valid JWT format (3 segments)
-    assert session_data["value"].count(".") == 2
+        # Verify the session file was updated with the new valid token
+        updated_config = orjson.loads(await async_read_bytes(config_file))
+        session_data = updated_config["sessions"][session_hash]
+        assert session_data["csrf"] == "new-csrf-token-12345"
+        # The new token should be a valid JWT format (3 segments)
+        assert session_data["value"].count(".") == 2
+    finally:
+        await client.close_session()
 
 
 @pytest.mark.asyncio()
@@ -2360,7 +2365,8 @@ async def test_api_request_raw_public_api_sets_path_and_header():
     mock_response = AsyncMock()
     mock_response.status = 200
     mock_response.read = AsyncMock(return_value=b"public_response")
-    mock_response.close = AsyncMock()
+    mock_response.close = Mock()
+    mock_response.release = Mock()
     client.request = AsyncMock(return_value=mock_response)
 
     result = await client.api_request_raw(
@@ -2433,9 +2439,10 @@ async def test_public_api_sets_x_api_key_header() -> None:
     mock_response.status = 200
     mock_response.content_type = "application/json"
     mock_response.read = AsyncMock(return_value=b'{"test": "data"}')
-    mock_response.release = AsyncMock()
-    mock_response.close = AsyncMock()
+    mock_response.release = Mock()
+    mock_response.close = Mock()
     mock_response.url = "https://127.0.0.1:0/proxy/protect/integration/v1/test"
+    mock_response.headers = {}  # Real mapping so x-csrf-token lookup stays sync
     mock_response.cookies = {}  # Empty cookies to avoid cookie processing
 
     # Track headers passed to session.request
@@ -2521,8 +2528,8 @@ async def test_request_uses_get_session_for_private_api():
     mock_response.status = 200
     mock_response.content_type = "application/json"
     mock_response.read = AsyncMock(return_value=b"{}")
-    mock_response.release = AsyncMock()
-    mock_response.close = AsyncMock()
+    mock_response.release = Mock()
+    mock_response.close = Mock()
     mock_response.headers = {}
     mock_response.cookies = {}
 
@@ -3380,7 +3387,7 @@ async def test_api_request_raw_error_handling():
     mock_response.status = 404
     mock_response.url = "https://test.com/api/test"
     mock_response.read = AsyncMock(return_value=b'{"error": "not found"}')
-    mock_response.release = AsyncMock()
+    mock_response.release = Mock()
 
     api.request = AsyncMock(return_value=mock_response)
 
@@ -3416,7 +3423,7 @@ async def test_api_request_raw_success():
     mock_response.status = 200
     mock_response.url = "https://test.com/api/test"
     mock_response.read = AsyncMock(return_value=b'{"success": true}')
-    mock_response.release = AsyncMock()
+    mock_response.release = Mock()
 
     api.request = AsyncMock(return_value=mock_response)
 
