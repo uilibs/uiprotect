@@ -45,5 +45,9 @@ class GlobalAlarmManagerError(BadRequest):
     """Operation not available when global alarm manager is enabled."""
 
 
+class ArmedModeError(BadRequest):
+    """Operation not available while the arm alarm is armed."""
+
+
 class NvrError(ClientError):
     """Other error."""

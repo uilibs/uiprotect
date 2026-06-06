@@ -101,6 +101,7 @@ from .data.types import (
     SirenDuration,
 )
 from .exceptions import (
+    ArmedModeError,
     BadRequest,
     GlobalAlarmManagerError,
     NotAuthorized,
@@ -243,6 +244,7 @@ _UNSET: _UnsetType = _UnsetType()
 # Matched case-insensitively so minor server-side capitalisation changes are
 # tolerated. Extracted as a constant to make the match visible and easy to update.
 _GLOBAL_ALARM_MANAGER_REASON = "global alarm manager"
+_ARM_ALARM_ARMED_REASON = "arm alarm is armed"
 
 
 def _log_or_raise(label: str, exc: BaseException) -> None:
@@ -861,6 +863,8 @@ class BaseApiClient:
             if status == HTTPStatus.BAD_REQUEST.value:
                 if _GLOBAL_ALARM_MANAGER_REASON in reason.lower():
                     raise GlobalAlarmManagerError(msg % (url, status, reason))
+                if _ARM_ALARM_ARMED_REASON in reason.lower():
+                    raise ArmedModeError(msg % (url, status, reason))
                 raise BadRequest(msg % (url, status, reason))
             # Other 4xx client errors also raise BadRequest
             if (
