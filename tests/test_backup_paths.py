@@ -37,7 +37,7 @@ def _make_ctx(tmp_path: Path, **overrides: str) -> BackupContext:
         end=None,
         output_format=MagicMock(),
         output=tmp_path,
-        seperator="-",
+        separator="-",
         thumbnail_format=defaults["thumbnail_format"],
         gif_format=defaults["gif_format"],
         event_format=defaults["event_format"],

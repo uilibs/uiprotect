@@ -88,7 +88,7 @@ class ProtectBaseObject(BaseModel):
     Base class for building Python objects from UniFi Protect JSON.
 
     * Provides `.unifi_dict_to_dict` to convert UFP JSON to a more Pythonic formatted dict (camel case to snake case)
-    * Add attrs with matching Pyhonic name and they will automatically be populated from the UFP JSON if passed in to the constructer
+    * Add attrs with matching Pythonic name and they will automatically be populated from the UFP JSON if passed in to the constructor
     * Provides `.unifi_dict` to convert object back into UFP JSON
     """
 

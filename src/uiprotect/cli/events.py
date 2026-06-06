@@ -121,7 +121,7 @@ def list_ids(ctx: typer.Context) -> None:
     """
     Prints list of "id type timestamp" for each event.
 
-    Timestamps dispalyed in your locale timezone. If it is not configured
+    Timestamps displayed in your locale timezone. If it is not configured
     correctly, it will default to UTC. You can override your timezone with
     the TZ environment variable.
     """

@@ -58,7 +58,7 @@ def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
 
 @app.command()
 def camera(ctx: typer.Context, camera_id: str | None = typer.Argument(None)) -> None:
-    """Returns or sets tha paired camera for a sensor."""
+    """Returns or sets the paired camera for a sensor."""
     base.require_device_id(ctx)
     obj: Sensor = ctx.obj.device
 
