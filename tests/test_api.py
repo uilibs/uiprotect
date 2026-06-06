@@ -4208,7 +4208,9 @@ async def test_write_session_config_atomic_no_tmp_file_left(tmp_path: Path) -> N
 
     # Use async listdir and filter rather than sync glob()
     entries = await aos.listdir(tmp_path)
-    tmp_files = [e for e in entries if e.startswith(".unifi_protect_") and e.endswith(".tmp")]
+    tmp_files = [
+        e for e in entries if e.startswith(".unifi_protect_") and e.endswith(".tmp")
+    ]
     assert tmp_files == [], f"Unexpected tmp files: {tmp_files}"
 
 
@@ -4229,12 +4231,20 @@ async def test_write_session_config_atomic_cleans_up_tmp_on_write_error(
     )
 
     # Patch aiofiles.open to raise after the temp file has been created via mkstemp.
-    with patch("uiprotect.api.aiofiles.open", side_effect=OSError("simulated write failure")), pytest.raises(OSError, match="simulated write failure"):
+    with (
+        patch(
+            "uiprotect.api.aiofiles.open",
+            side_effect=OSError("simulated write failure"),
+        ),
+        pytest.raises(OSError, match="simulated write failure"),
+    ):
         await client._write_session_config_atomic({"sessions": {}})
 
     # No orphaned tmp file should remain — the except-block cleans it up.
     entries = await aos.listdir(tmp_path)
-    tmp_files = [e for e in entries if e.startswith(".unifi_protect_") and e.endswith(".tmp")]
+    tmp_files = [
+        e for e in entries if e.startswith(".unifi_protect_") and e.endswith(".tmp")
+    ]
     assert tmp_files == [], f"Orphaned tmp files: {tmp_files}"
 
 
