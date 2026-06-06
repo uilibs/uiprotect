@@ -603,16 +603,18 @@ async def test_get_response_reason():
 
 
 def test_decode_token_cookie():
+    # HMAC key must be >=32 bytes to satisfy PyJWT's SHA256 minimum
+    hmac_key = "0123456789abcdef0123456789abcdef"
     # Valid token
     payload: dict[str, Any] = {"sub": "user", "exp": int(time_module.time()) + 3600}
-    token = jwt.encode(payload, "secret", algorithm="HS256")
+    token = jwt.encode(payload, hmac_key, algorithm="HS256")
     morsel: Morsel[str] = Morsel()
     morsel.set("token", token, token)
     assert decode_token_cookie(morsel)["sub"] == "user"
 
     # Expired token
     payload = {"sub": "user", "exp": int(time_module.time()) - 3600}
-    token = jwt.encode(payload, "secret", algorithm="HS256")
+    token = jwt.encode(payload, hmac_key, algorithm="HS256")
     morsel.set("token", token, token)
     assert decode_token_cookie(morsel) is None
 

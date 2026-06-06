@@ -36,8 +36,6 @@ from uiprotect.websocket import WebsocketState
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from pytest_benchmark.fixture import BenchmarkFixture
-
     from uiprotect import ProtectApiClient
 
 PACKET_RAW = "AQEBAAAAAHR4nCXMQQrCMBBA0auUWRvIpJOm8Qbi2gNMZiZQ0NRFqIh4dwluP7z/AZa+7Q3OE7AqnCZo9ro9lbtddFRPhCayuOorOyqYXfEJXcprEqQZ55UHe+xq96u9h7HDWh9x+y+UqeZAsUrQrCFajFQWgu8PBLYjMAIBAQAAAAC2eJxVjr0KwzAMhF8leO6QOLZDOrdT126lg2PLxRA7wVYKIeTdK1PoD2jQfTodtzFcZ2DHiiUfH+xQsYw6IYFGtbyplaKRnDhE+0u7N81mSuW9LnugzxMgGLxSaCZ8u//z8xMifg4BUFuNmvS2kzY6QCqKdaaXsrNOcSN1ywfbgXGtg1JwpjSPfopkjMs4EloypK/ypSirrRau50I6w21vuQQpxaBEiQiThfECa/FBqcT2F6ZyTac="
@@ -70,42 +68,21 @@ class SubscriptionTest:
             self.unsub()
 
 
-@pytest.mark.benchmark(group="websockets")
 @pytest.mark.asyncio()
 @pytest.mark.timeout(0)
 async def test_ws_all(
     protect_client_ws: ProtectApiClient,
     ws_messages: dict[str, dict[str, Any]],
-    benchmark: BenchmarkFixture,
 ):
+    """Unfiltered WS subscription dispatches every packet through the callback."""
     protect_client = protect_client_ws
     sub = SubscriptionTest()
     sub.unsub = protect_client.subscribe_websocket(sub.callback)
-    _orig = protect_client.bootstrap.process_ws_packet
 
     websocket = protect_client._get_websocket()
 
     while not websocket.is_connected:
         await asyncio.sleep(0.05)
-
-    stats = benchmark._make_stats(1)
-    processed_packets = 0
-
-    def benchmark_process_ws_packet(*args, **kwargs):
-        nonlocal processed_packets
-        processed_packets += 1
-        runner = benchmark._make_runner(_orig, args, kwargs)
-        duration, result = runner(None)
-        stats.update(duration)
-
-        return result
-
-    # bypass pydantic checks
-    object.__setattr__(
-        protect_client.bootstrap,
-        "process_ws_packet",
-        benchmark_process_ws_packet,
-    )
 
     ws_connect: MockWebsocket | None = websocket._ws_connection  # type: ignore[assignment]
     assert ws_connect is not None
@@ -116,13 +93,12 @@ async def test_ws_all(
     assert sub.callback_count == 3
 
 
-@pytest.mark.benchmark(group="websockets")
 @pytest.mark.asyncio()
 @pytest.mark.timeout(0)
 async def test_ws_filtered(
     protect_client_ws: ProtectApiClient,
-    benchmark: BenchmarkFixture,
 ):
+    """Model-filtered WS subscription captures stats for every packet."""
     protect_client = protect_client_ws
     protect_client.bootstrap.capture_ws_stats = True
     protect_client._ignore_stats = True
@@ -136,27 +112,10 @@ async def test_ws_filtered(
     }
     sub = SubscriptionTest()
     sub.unsub = protect_client.subscribe_websocket(sub.callback)
-    _orig = protect_client.bootstrap.process_ws_packet
 
     websocket = protect_client._get_websocket()
     while not websocket.is_connected:
         await asyncio.sleep(0.05)
-
-    stats = benchmark._make_stats(1)
-
-    def benchmark_process_ws_packet(*args, **kwargs):
-        runner = benchmark._make_runner(_orig, args, kwargs)
-        duration, result = runner(None)
-        stats.update(duration)
-
-        return result
-
-    # bypass pydantic checks
-    object.__setattr__(
-        protect_client.bootstrap,
-        "process_ws_packet",
-        benchmark_process_ws_packet,
-    )
 
     ws_connect: MockWebsocket | None = websocket._ws_connection  # type: ignore[assignment]
     assert ws_connect is not None
