@@ -69,6 +69,11 @@ DELETE_KEYS_EVENT = {"deletedAt", "category", "subCategory", "device"}
 class MetaInfo(ProtectBaseObject):
     applicationVersion: str  # noqa: N815  # wire-format field from Protect
 
+    @property
+    def version(self) -> Version:
+        """Parsed application version, comparable to the private ``NVR.version``."""
+        return Version(self.applicationVersion)
+
 
 class NVRLocation(UserLocation):
     is_geofencing_enabled: bool

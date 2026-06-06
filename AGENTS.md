@@ -258,6 +258,21 @@ is missing from the public API, the right answer is to wait for or
 request the public endpoint — not to add it via the private path.
 Derive shapes from the existing public models and tests in this repo.
 
+**Public-only client mode.** `ProtectApiClient` can be constructed with
+only an API key and no private credentials —
+`ProtectApiClient.public_only(host, port, api_key=...)`, or by passing
+`api_key=` with `username`/`password` omitted. In that mode
+`is_public_only` is `True` and the private-session entry points
+(`authenticate`, `ensure_authenticated`, `update`, `get_bootstrap`)
+raise `PublicOnlyModeError`; only the Public Integration API surface is
+available (`update_public`, `subscribe_events`, `subscribe_devices`, the
+`*_public` getters/setters, `get_meta_info`). A revoked/invalid/missing
+key surfaces as `NotAuthorized` across REST and the public websockets.
+`MetaInfo.version` parses `applicationVersion` into a `Version`
+comparable to the private `NVR.version` min-version gate. API-key
+_provisioning_ (`create_api_key`) is private-API and out of scope for
+public-only clients — the key is supplied pre-provisioned.
+
 **Deprecate private-API counterparts when the public API is feature-
 complete for a given capability.** Once a device method or endpoint is
 fully covered by the public API, mark the corresponding private-API

@@ -17,6 +17,7 @@ from rich.progress import track
 from uiprotect.api import MetaInfo, ProtectApiClient
 
 from ..data import WSPacket
+from ..exceptions import BadRequest
 from ..test_util import SampleDataGenerator
 from ..utils import get_local_timezone, run_async
 from ..utils import profile_ws as profile_ws_job
@@ -249,15 +250,19 @@ def main(
         if not password:
             password = typer.prompt("Password", hide_input=True)
 
-    protect = ProtectApiClient(
-        address,
-        port,
-        username or "",
-        password or "",
-        api_key,
-        verify_ssl=verify_ssl,
-        ignore_unadopted=not include_unadopted,
-    )
+    try:
+        protect = ProtectApiClient(
+            address,
+            port,
+            username=None if is_public_only else (username or ""),
+            password=None if is_public_only else (password or ""),
+            api_key=api_key,
+            verify_ssl=verify_ssl,
+            ignore_unadopted=not include_unadopted,
+        )
+    except BadRequest as err:
+        typer.secho(str(err), fg="red", err=True)
+        raise typer.Exit(code=1) from err
 
     async def close_protect() -> None:
         """Close the Protect API client sessions."""

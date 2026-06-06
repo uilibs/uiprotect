@@ -370,6 +370,26 @@ unsub()
 
 ```
 
+#### Public-only mode
+
+You can also build a client that does no private login at all — just an API
+key. Private-session entry points (`update()`, `authenticate()`,
+`get_bootstrap()`) raise `PublicOnlyModeError`; drive everything through
+`update_public()`, `subscribe_events()`, `subscribe_devices()`, the
+`get_*_public()` / `update_*_public()` methods, and `get_meta_info()`. A
+revoked key surfaces as `NotAuthorized`.
+
+```python
+from uiprotect import ProtectApiClient
+
+protect = ProtectApiClient.public_only(host, port, api_key=api_key, verify_ssl=True)
+await protect.update_public()
+
+# work with the public-API device snapshots
+for siren in await protect.get_sirens_public():
+    print(siren.name)
+```
+
 ## TODO / Planned / Not Implemented
 
 Switching from Protect Private API to the New Public API

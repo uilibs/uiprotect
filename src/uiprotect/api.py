@@ -100,7 +100,13 @@ from .data.types import (
     PTZPreset,
     SirenDuration,
 )
-from .exceptions import BadRequest, GlobalAlarmManagerError, NotAuthorized, NvrError
+from .exceptions import (
+    BadRequest,
+    GlobalAlarmManagerError,
+    NotAuthorized,
+    NvrError,
+    PublicOnlyModeError,
+)
 from .stream import TalkbackSession
 
 if TYPE_CHECKING:
@@ -373,9 +379,12 @@ class RTSPSStreams(ProtectBaseObject):
 class BaseApiClient:
     _host: str
     _port: int
-    _username: str
-    _password: str
+    _username: str | None
+    _password: str | None
     _api_key: str | None = None
+    # True when constructed with only an API key (no private credentials).
+    # Private-session entry points fail fast in this mode.
+    _public_only: bool = False
     _verify_ssl: bool
     _ws_timeout: int
 
@@ -408,8 +417,8 @@ class BaseApiClient:
         self,
         host: str,
         port: int,
-        username: str,
-        password: str,
+        username: str | None = None,
+        password: str | None = None,
         api_key: str | None = None,
         verify_ssl: bool = True,
         session: aiohttp.ClientSession | None = None,
@@ -421,6 +430,18 @@ class BaseApiClient:
         ws_receive_timeout: int | None = None,
         max_retries: int = RETRY_DEFAULT_ATTEMPTS,
     ) -> None:
+        # Public-only when no private credentials are supplied but an API key
+        # is. The private session is never opened in this mode.
+        public_only = not username and not password and bool(api_key)
+        # Reject incomplete private credentials (one of username/password
+        # missing) so the failure is at construction, not a malformed
+        # /api/auth/login with a null field at first request.
+        if not (username and password) and not public_only:
+            raise BadRequest(
+                "Provide both username and password, or an api_key, "
+                "to construct a client"
+            )
+
         self._auth_lock = asyncio.Lock()
         self._host = host
         self._port = port
@@ -428,6 +449,7 @@ class BaseApiClient:
         self._username = username
         self._password = password
         self._api_key = api_key
+        self._public_only = public_only
         self._verify_ssl = verify_ssl
         self._ws_timeout = ws_timeout
         self._ws_receive_timeout = ws_receive_timeout
@@ -497,6 +519,11 @@ class BaseApiClient:
     def devices_ws_url(self) -> str:
         """Get Devices Websocket URL."""
         return str(self._devices_ws_url)
+
+    @property
+    def is_public_only(self) -> bool:
+        """Whether this client was built with only an API key (no private login)."""
+        return self._public_only
 
     @property
     def config_file(self) -> Path:
@@ -923,12 +950,22 @@ class BaseApiClient:
 
     async def ensure_authenticated(self) -> None:
         """Ensure we are authenticated."""
+        if self._public_only:
+            raise PublicOnlyModeError(
+                "Private authentication is unavailable on a public-only client; "
+                "use the public API surface (update_public, subscribe_*, public setters)"
+            )
         await self._load_session()
         if self.is_authenticated() is False:
             await self.authenticate()
 
     async def authenticate(self) -> None:
         """Authenticate and get a token."""
+        if self._public_only:
+            raise PublicOnlyModeError(
+                "Private authentication is unavailable on a public-only client; "
+                "use the public API surface (update_public, subscribe_*, public setters)"
+            )
         if self._auth_lock.locked():
             # If an auth is already in progress
             # do not start another one
@@ -993,13 +1030,14 @@ class BaseApiClient:
 
     async def _update_auth_config(self, cookie: Morsel[str]) -> None:
         """Updates auth cookie on disk for persistent sessions."""
-        if self._last_token_cookie is None:
+        username = self._username
+        if self._last_token_cookie is None or self._public_only or username is None:
             return
 
         await aos.makedirs(self.config_dir, exist_ok=True)
 
         config: dict[str, Any] = {}
-        session_hash = get_user_hash(str(self._url), self._username)
+        session_hash = get_user_hash(str(self._url), username)
         try:
             async with aiofiles.open(self.config_file, "rb") as f:
                 config_data = await f.read()
@@ -1023,6 +1061,8 @@ class BaseApiClient:
             await f.write(orjson.dumps(config, option=orjson.OPT_INDENT_2))
 
     async def _load_session(self) -> None:
+        if self._public_only:
+            return
         if self._session is None:
             await self.get_session()
             assert self._session is not None
@@ -1050,7 +1090,7 @@ class BaseApiClient:
             _LOGGER.debug("no config file, not loading session")
             return None
 
-        session_hash = get_user_hash(str(self._url), self._username)
+        session_hash = get_user_hash(str(self._url), self._username or "")
         session = config.get("sessions", {}).get(session_hash)
         if not session:
             _LOGGER.debug("No existing session for %s", session_hash)
@@ -1112,8 +1152,11 @@ class BaseApiClient:
         if not self.store_sessions:
             return
 
+        username = self._username
+        if username is None:
+            return
         config: dict[str, Any] = {}
-        session_hash = get_user_hash(str(self._url), self._username)
+        session_hash = get_user_hash(str(self._url), username)
         try:
             async with aiofiles.open(self.config_file, "rb") as f:
                 config_data = await f.read()
@@ -1295,8 +1338,8 @@ class ProtectApiClient(BaseApiClient):
         self,
         host: str,
         port: int,
-        username: str,
-        password: str,
+        username: str | None = None,
+        password: str | None = None,
         api_key: str | None = None,
         verify_ssl: bool = True,
         session: aiohttp.ClientSession | None = None,
@@ -1356,6 +1399,49 @@ class ProtectApiClient(BaseApiClient):
 
         if debug:
             set_debug()
+
+    @classmethod
+    def public_only(
+        cls,
+        host: str,
+        port: int,
+        api_key: str,
+        *,
+        verify_ssl: bool = True,
+        public_api_session: aiohttp.ClientSession | None = None,
+        ws_timeout: int = 30,
+        ws_receive_timeout: int | None = None,
+        subscribed_models: set[ModelType] | None = None,
+        events_ws_subscribed_models: set[ModelType] | None = None,
+        devices_ws_subscribed_models: set[ModelType] | None = None,
+        ignore_unadopted: bool = True,
+        max_retries: int = RETRY_DEFAULT_ATTEMPTS,
+    ) -> Self:
+        """
+        Construct a client that operates entirely on the Public Integration API.
+
+        No private login is performed. Private-session entry points
+        (:meth:`authenticate`, :meth:`update`, :meth:`get_bootstrap`) raise
+        :class:`PublicOnlyModeError`; use :meth:`update_public`,
+        :meth:`subscribe_events`, :meth:`subscribe_devices`, the public
+        ``get_*_public`` / ``update_*_public`` methods, and
+        :meth:`get_meta_info` instead. A revoked or invalid key surfaces as
+        :class:`NotAuthorized`.
+        """
+        return cls(
+            host,
+            port,
+            api_key=api_key,
+            verify_ssl=verify_ssl,
+            public_api_session=public_api_session,
+            ws_timeout=ws_timeout,
+            ws_receive_timeout=ws_receive_timeout,
+            subscribed_models=subscribed_models,
+            events_ws_subscribed_models=events_ws_subscribed_models,
+            devices_ws_subscribed_models=devices_ws_subscribed_models,
+            ignore_unadopted=ignore_unadopted,
+            max_retries=max_retries,
+        )
 
     def _set_connection_host_from_bootstrap(self) -> None:
         """
@@ -1447,6 +1533,11 @@ class ProtectApiClient(BaseApiClient):
 
         You can use the various other `get_` methods if you need one off data from UFP
         """
+        if self._public_only:
+            raise PublicOnlyModeError(
+                "Private bootstrap is unavailable on a public-only client; "
+                "use update_public() instead"
+            )
         async with self._update_lock:
             bootstrap = await self.get_bootstrap()
             if bootstrap.nvr.version >= NFC_FINGERPRINT_SUPPORT_VERSION:
@@ -2384,6 +2475,11 @@ class ProtectApiClient(BaseApiClient):
 
         This is a great alternative if you need metadata about the NVR without connecting to the Websocket
         """
+        if self._public_only:
+            raise PublicOnlyModeError(
+                "Private bootstrap is unavailable on a public-only client; "
+                "use update_public() instead"
+            )
         data = await self.api_request_obj("bootstrap")
         await _async_warm_nvr_timezone(data["nvr"])
         return Bootstrap.from_unifi_dict(**data, api=self)
@@ -3262,7 +3358,14 @@ class ProtectApiClient(BaseApiClient):
         return bool(self._api_key)
 
     async def get_meta_info(self) -> MetaInfo:
-        """Get metadata about the NVR."""
+        """
+        Get metadata about the NVR via the Public Integration API.
+
+        A revoked, invalid, or missing API key surfaces as
+        :class:`NotAuthorized`; catch it as the reauth signal. The returned
+        :attr:`MetaInfo.version` is a :class:`Version` comparable to the
+        private ``NVR.version`` min-version gate.
+        """
         data = await self.api_request(
             url="/v1/meta/info",
             public_api=True,
@@ -4412,6 +4515,9 @@ class ProtectApiClient(BaseApiClient):
         If an endpoint fails, its previously cached data is left unchanged
         (not cleared). Unexpected exceptions (e.g. validation errors from a
         new server payload) propagate to the caller.
+
+        A revoked or invalid API key surfaces as :class:`NotAuthorized`; catch
+        it as the reauth signal.
         """
         if self._public_bootstrap is None:
             self._public_bootstrap = PublicBootstrap()
