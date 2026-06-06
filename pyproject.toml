@@ -43,9 +43,7 @@ python = ">=3.11"
 rich = { version = ">=15.0.0", optional = true }
 aiofiles = ">=24"
 aiohttp = ">=3.14.0"
-# Temporarily lowered from >=17.0.1 so the Home Assistant lib bump is not
-# blocked on home-assistant/core#172892 (av 16->17). Re-raise once it lands.
-av = ">=16.0.1"
+av = ">=17.0.1"
 dateparser = { version = ">=1.1.0", optional = true }
 orjson = ">=3.11.9"
 packaging = ">=26.2"
