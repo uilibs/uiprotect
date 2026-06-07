@@ -889,9 +889,7 @@ async def test_camera_set_lcd_text_no_lcd(camera_obj: Camera | None):
 
 
 def test_lcd_message_missing_text_defaults_to_empty():
-    msg = LCDMessage.model_construct(
-        type=DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR
-    )
+    msg = LCDMessage.model_construct(type=DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR)
 
     assert msg.text == ""
 
