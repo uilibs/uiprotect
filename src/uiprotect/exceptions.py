@@ -6,7 +6,7 @@ class UnifiProtectError(Exception):
 
 
 class StreamError(UnifiProtectError):
-    """Expcetion raised when trying to stream content"""
+    """Exception raised when trying to stream content"""
 
 
 class DataDecodeError(UnifiProtectError):
