@@ -1385,7 +1385,7 @@ async def test_get_public_api_snapshot_hq(camera_obj: Camera, high_quality: bool
 
     assert snapshot == b"snapshot_data"
     camera_obj._api.get_public_api_camera_snapshot.assert_called_once_with(
-        camera_id=camera_obj.id, high_quality=high_quality
+        camera_id=camera_obj.id, high_quality=high_quality, package=False
     )
 
 
@@ -1405,7 +1405,25 @@ async def test_get_public_api_snapshot_default_quality(
 
     assert snapshot == b"snapshot_data"
     camera_obj._api.get_public_api_camera_snapshot.assert_called_once_with(
-        camera_id=camera_obj.id, high_quality=high_quality
+        camera_id=camera_obj.id, high_quality=high_quality, package=False
+    )
+
+
+@pytest.mark.parametrize("package", [False, True])
+@pytest.mark.asyncio
+async def test_get_public_api_snapshot_package(camera_obj: Camera, package: bool):
+    """Test get_public_api_snapshot forwards the package flag to the api layer."""
+    camera_obj._api = MagicMock(spec=ProtectApiClient)
+    camera_obj.feature_flags.support_full_hd_snapshot = False
+    camera_obj._api.get_public_api_camera_snapshot = AsyncMock(
+        return_value=b"snapshot_data"
+    )
+
+    snapshot = await camera_obj.get_public_api_snapshot(package=package)
+
+    assert snapshot == b"snapshot_data"
+    camera_obj._api.get_public_api_camera_snapshot.assert_called_once_with(
+        camera_id=camera_obj.id, high_quality=False, package=package
     )
 
 

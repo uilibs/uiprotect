@@ -31,6 +31,7 @@ from .types import (
     AlarmHubInputType,
     AlarmHubOutputStatus,
     AssetFileType,
+    ChannelQuality,
     DeviceState,
     DoorbellMessageType,
     FobAwayState,
@@ -214,6 +215,13 @@ class PublicCamera(ProtectModelWithId):
     feature_flags: PublicCameraFeatureFlags
     smart_detect_settings: PublicSmartDetectSettings
     has_package_camera: bool
+
+    def hardware_stream_qualities(self) -> list[ChannelQuality]:
+        """Stream qualities the camera hardware supports (not the server's ``available`` list)."""
+        qualities = [ChannelQuality.HIGH, ChannelQuality.MEDIUM, ChannelQuality.LOW]
+        if self.has_package_camera:
+            qualities.append(ChannelQuality.PACKAGE)
+        return qualities
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
