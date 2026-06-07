@@ -294,10 +294,6 @@ class Bootstrap(ProtectBaseObject):
     ringtones: list[Ringtone]
     last_update_id: str
 
-    # TODO:
-    # schedules
-    # agreements
-
     # not directly from UniFi
     keyrings: Keyrings = Keyrings()
     ulp_users: UlpUsers = UlpUsers()

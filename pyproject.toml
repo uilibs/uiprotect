@@ -201,6 +201,8 @@ select = [
     "T10",  # flake8-debugger
     "T20",  # flake8-print
     "TC",   # flake8-type-checking
+    "TD",   # flake8-todos
+    "FIX",  # flake8-fixme
     "YTT",  # flake8-2020
     "S",    # flake8-bandit
     "F",    # pyflake

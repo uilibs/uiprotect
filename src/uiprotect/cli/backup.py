@@ -965,7 +965,6 @@ async def _download_event(
     return downloaded
 
 
-# TODO
 async def _download_events(
     ctx: BackupContext,
     event_types: list[d.EventType],
