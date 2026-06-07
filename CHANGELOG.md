@@ -1,5 +1,13 @@
 # Changelog
 
+## v11.7.1 (2026-06-07)
+
+### Bug fixes
+
+
+- Default lcdmessage.text so missing text no longer raises ([`2aa7bbd`](https://github.com/uilibs/uiprotect/commit/2aa7bbd5cd6916bb65a96bacf2277ba7e4f7b892))
+
+
 ## v11.7.0 (2026-06-07)
 
 ### Features
