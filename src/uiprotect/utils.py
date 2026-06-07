@@ -124,7 +124,7 @@ async def get_response_reason(response: ClientResponse) -> str:
     try:
         data = await response.json()
         reason = data.get("error", str(data))
-    except Exception:
+    except Exception:  # noqa: BLE001  # intentional broad except in resilience path
         with contextlib.suppress(Exception):
             reason = await response.text()
 
@@ -221,7 +221,7 @@ def to_camel_case(name: str) -> str:
 _EMPTY_UUID = UUID("0" * 32)
 
 
-def convert_unifi_data(value: Any, field: FieldInfo) -> Any:  # noqa: PLR0911, PLR0912
+def convert_unifi_data(value: Any, field: FieldInfo) -> Any:  # noqa: PLR0911, PLR0912, C901  # grandfathered complexity
     """Converts value from UFP data into pydantic field class"""
     origin, type_ = get_field_type(field.annotation)  # type: ignore[arg-type]
 
@@ -544,7 +544,7 @@ def decode_token_cookie(token_cookie: Morsel[str]) -> dict[str, Any] | None:
     except jwt.ExpiredSignatureError:
         _LOGGER.debug("Authentication token has expired.")
         return None
-    except Exception as broad_ex:
+    except Exception as broad_ex:  # noqa: BLE001  # intentional broad except in resilience path
         _LOGGER.debug("Authentication token decode error: %s", broad_ex)
         return None
 

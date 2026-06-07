@@ -21,7 +21,7 @@ VT = TypeVar("VT")
 
 
 @lru_cache(maxsize=512)
-def get_field_type(annotation: type[Any] | None) -> tuple[type | None, Any]:
+def get_field_type(annotation: type[Any] | None) -> tuple[type | None, Any]:  # noqa: C901  # complexity grandfathered (shrinks with private-API removal)
     """Extract the origin and type from an annotation."""
     if annotation is None:
         raise ValueError("Type annotation cannot be None")
@@ -227,14 +227,14 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
         raise AttributeError("Cannot modify ModelType")
 
 
-ModelType.bootstrap_model_types = ModelType._bootstrap_model_types()
-ModelType.bootstrap_models = ModelType._bootstrap_models()
-ModelType.bootstrap_models_set = ModelType._bootstrap_models_set()
-ModelType.bootstrap_models_types_set = ModelType._bootstrap_models_types_set()
+ModelType.bootstrap_model_types = ModelType._bootstrap_model_types()  # noqa: SLF001  # internal API access, single-package library
+ModelType.bootstrap_models = ModelType._bootstrap_models()  # noqa: SLF001  # internal API access, single-package library
+ModelType.bootstrap_models_set = ModelType._bootstrap_models_set()  # noqa: SLF001  # internal API access, single-package library
+ModelType.bootstrap_models_types_set = ModelType._bootstrap_models_types_set()  # noqa: SLF001  # internal API access, single-package library
 ModelType.bootstrap_models_types_and_event_set = (
-    ModelType._bootstrap_models_types_and_event_set()
+    ModelType._bootstrap_models_types_and_event_set()  # noqa: SLF001  # internal API access, single-package library
 )
-ModelType.__setattr__ = ModelType._immutable  # type: ignore[method-assign, assignment]
+ModelType.__setattr__ = ModelType._immutable  # type: ignore[method-assign, assignment]  # noqa: SLF001  # internal API access, single-package library
 
 
 @enum.unique

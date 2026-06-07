@@ -660,7 +660,7 @@ async def _update_events(ctx: BackupContext) -> int:
     return updated_ongoing + len(processed)
 
 
-async def _download_watcher(
+async def _download_watcher(  # noqa: C901  # complexity grandfathered (shrinks with private-API removal)
     count: int,
     tasks: _DownloadEventQueue,
     no_error_flag: asyncio.Event,
@@ -682,7 +682,7 @@ async def _download_watcher(
                 await task
             except asyncio.CancelledError:
                 return downloaded
-            except Exception:
+            except Exception:  # noqa: BLE001  # intentional broad except in resilience path
                 pass
 
             event: Event = download.args[1]
@@ -725,7 +725,7 @@ def _verify_thumbnail(path: Path) -> bool:
         image = Image.open(path)
         image.verify()
     # no docs on what exception could be
-    except Exception:
+    except Exception:  # noqa: BLE001  # intentional broad except in resilience path
         return False
     return True
 
@@ -822,7 +822,7 @@ def _verify_video_file(  # type: ignore[return]
             return valid, metadata_valid
 
     # no docs on what exception could be
-    except Exception:
+    except Exception:  # noqa: BLE001  # intentional broad except in resilience path
         return False, False
 
 
@@ -859,7 +859,7 @@ def _add_metadata(path: Path, creation: datetime, title: str) -> bool:
                 except ValueError:
                     continue
     # no docs on what exception could be
-    except Exception:
+    except Exception:  # noqa: BLE001  # intentional broad except in resilience path
         success = False
     finally:
         if success:

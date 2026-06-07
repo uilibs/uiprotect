@@ -61,8 +61,8 @@ def stop(ctx: typer.Context, siren_id: str = ARG_SIREN_ID) -> None:
 @app.command()
 def test_sound(
     ctx: typer.Context,
-    siren_id: str = ARG_SIREN_ID,
-    volume: int | None = typer.Option(
+    siren_id: str = ARG_SIREN_ID,  # noqa: PT028  # typer CLI argument, not a pytest test
+    volume: int | None = typer.Option(  # noqa: PT028  # typer CLI argument, not a pytest test
         None,
         "--volume",
         "-v",

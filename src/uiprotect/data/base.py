@@ -166,7 +166,7 @@ class ProtectBaseObject(BaseModel):
 
         obj = super().model_construct(_fields_set=_fields_set, **values)
         if api is not None:
-            obj._api = api
+            obj._api = api  # noqa: SLF001  # internal API access, single-package library
 
         return obj
 
@@ -287,7 +287,7 @@ class ProtectBaseObject(BaseModel):
         return {}
 
     @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
+    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:  # noqa: C901  # complexity grandfathered (shrinks with private-API removal)
         """
         Takes a decoded UFP JSON dict and converts it into a Python dict
 
@@ -419,7 +419,7 @@ class ProtectBaseObject(BaseModel):
             for obj_key, obj in value.items()
         }
 
-    def unifi_dict(
+    def unifi_dict(  # noqa: C901  # complexity grandfathered (shrinks with private-API removal)
         self,
         data: dict[str, Any] | None = None,
         exclude: set[str] | None = None,
@@ -523,7 +523,7 @@ class ProtectBaseObject(BaseModel):
 
     def dict_with_excludes(self) -> dict[str, Any]:
         """Returns a dict of the current object without any UFP objects converted to dicts."""
-        excludes = self.__class__._get_excluded_changed_fields()
+        excludes = self.__class__._get_excluded_changed_fields()  # noqa: SLF001  # internal API access, single-package library
         return self.model_dump(exclude=excludes)
 
     def get_changed(self, data_before_changes: dict[str, Any]) -> dict[str, Any]:
@@ -599,7 +599,7 @@ class ProtectModelWithId(ProtectModel):
     ) -> Self:
         update_sync = values.pop("update_sync", None)
         obj = super().model_construct(_fields_set=_fields_set, **values)
-        obj._update_sync = update_sync or UpdateSynchronization()
+        obj._update_sync = update_sync or UpdateSynchronization()  # noqa: SLF001  # internal API access, single-package library
         return obj
 
     @classmethod
@@ -728,7 +728,7 @@ class ProtectModelWithId(ProtectModel):
         assert self._update_sync.lock.locked(), (
             "save_device_changes should only be called when the update lock is held"
         )
-        read_only_fields = self.__class__._get_read_only_fields()
+        read_only_fields = self.__class__._get_read_only_fields()  # noqa: SLF001  # internal API access, single-package library
 
         if self.model is None:
             raise BadRequest("Unknown model type")

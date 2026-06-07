@@ -85,8 +85,8 @@ def set_mic_enabled(
 @app.command()
 def test_sound(
     ctx: typer.Context,
-    speaker_id: str = ARG_SPEAKER_ID,
-    volume: int | None = typer.Option(
+    speaker_id: str = ARG_SPEAKER_ID,  # noqa: PT028  # typer CLI argument, not a pytest test
+    volume: int | None = typer.Option(  # noqa: PT028  # typer CLI argument, not a pytest test
         None,
         "--volume",
         "-v",

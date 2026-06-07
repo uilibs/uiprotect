@@ -461,7 +461,7 @@ class PublicBootstrap:
                         "ProtectModelWithId",
                         create_from_unifi_dict(item, api=api, model_type=model_type),
                     )
-            except Exception as err:
+            except Exception as err:  # noqa: BLE001  # intentional broad except in resilience path
                 _warn_once(
                     self._warned_merge_failures,
                     ("add", model_type.value),
@@ -653,7 +653,7 @@ def _merge(
         if not cleaned:
             return old_obj
         old_obj.update_from_dict(cleaned)
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001  # intentional broad except in resilience path
         # First occurrence per (ModelType, first-diff-key) is WARNING so a
         # schema break is visible in HA logs; subsequent occurrences drop
         # to DEBUG to avoid flooding.

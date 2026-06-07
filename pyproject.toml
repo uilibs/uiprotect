@@ -178,11 +178,17 @@ ignore = [
 ]
 select = [
     "A",    # flake8-builtins
+    "ANN",  # flake8-annotations
+    "ARG",  # flake8-unused-arguments
+    "ASYNC", # flake8-async
     "B",    # flake8-bugbear
+    "BLE",  # flake8-blind-except
     "D",    # flake8-docstrings
     "C4",   # flake8-comprehensions
+    "C90",  # mccabe complexity
     "DTZ",  # flake8-datetimez
     "ERA",  # eradicate (commented-out code)
+    "EXE",  # flake8-executable
     "FA",   # flake8-future-annotations
     "FLY",  # flynt (f-string conversion)
     "G",    # flake8-logging-format
@@ -191,16 +197,21 @@ select = [
     "ISC",  # flake8-implicit-str-concat
     "LOG",  # flake8-logging
     "N",    # pep8-naming
+    "NPY",  # numpy-specific rules
     "PGH",  # pygrep-hooks
     "PIE",  # flake8-pie
+    "PT",   # flake8-pytest-style
     "PTH",  # flake8-use-pathlib
     "PYI",  # flake8-pyi
     "Q",    # flake8-quotes
     "RSE",  # flake8-raise
+    "SLF",  # flake8-self
     "SLOT", # flake8-slots
     "T10",  # flake8-debugger
     "T20",  # flake8-print
     "TC",   # flake8-type-checking
+    "TID",  # flake8-tidy-imports
+    "TRY",  # tryceratops
     "YTT",  # flake8-2020
     "S",    # flake8-bandit
     "F",    # pyflake
@@ -231,6 +242,13 @@ select = [
     "DTZ005", # tests intentionally call datetime.now() without tz
     "ERA001", # test fixtures keep commented-out reference snippets
     "E402",   # optional-dependency guards (pytest.importorskip) precede imports
+    "ANN",    # tests don't require type annotations
+    "ARG",    # pytest fixtures inject arguments that read as unused
+    "SLF",    # tests reach into private members by design
+    "PT",     # existing tests predate flake8-pytest-style; grandfathered
+    "ASYNC110", # tests intentionally poll with asyncio.sleep loops
+    "C901",   # large test helpers (compare_objs, mock_api_request) by design
+    "TRY002", # tests raise bare Exception for control-flow stubs
 ]
 "setup.py" = ["D100"]
 "conftest.py" = ["D100"]
@@ -266,6 +284,9 @@ select = [
     # public exception names — renaming would break the API consumers depend on
     "N818",
 ]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
 
 [tool.ruff.lint.isort]
 known-first-party = ["uiprotect", "tests"]

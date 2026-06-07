@@ -168,10 +168,10 @@ class SampleDataGenerator:
     async def async_generate(self, close_session: bool = True) -> None:
         self.log(f"Output folder: {self.output_folder}")
         self.output_folder.mkdir(parents=True, exist_ok=True)
-        websocket = self.client._get_websocket()
+        websocket = self.client._get_websocket()  # noqa: SLF001  # internal API access, single-package library
         websocket.start()
         self.log("Websocket started...")
-        websocket._subscription = self._handle_ws_message
+        websocket._subscription = self._handle_ws_message  # noqa: SLF001  # internal API access, single-package library
 
         self.log("Updating devices...")
         await self.client.update()
@@ -237,11 +237,11 @@ class SampleDataGenerator:
         has_public_api = self.client.is_api_key_set()
         if has_public_api:
             self.log("Starting public API websockets...")
-            events_ws = self.client._get_events_websocket()
-            events_ws._subscription = self._handle_events_ws_message
+            events_ws = self.client._get_events_websocket()  # noqa: SLF001  # internal API access, single-package library
+            events_ws._subscription = self._handle_events_ws_message  # noqa: SLF001  # internal API access, single-package library
             events_ws.start()
-            devices_ws = self.client._get_devices_websocket()
-            devices_ws._subscription = self._handle_devices_ws_message
+            devices_ws = self.client._get_devices_websocket()  # noqa: SLF001  # internal API access, single-package library
+            devices_ws._subscription = self._handle_devices_ws_message  # noqa: SLF001  # internal API access, single-package library
             devices_ws.start()
         else:
             self.log("No API key set, skipping public API websocket recording...")

@@ -1354,7 +1354,7 @@ class NVR(ProtectDeviceModel):
         except FileNotFoundError:
             # ignore missing file
             pass
-        except Exception:
+        except Exception:  # noqa: BLE001  # intentional broad except in resilience path
             _LOGGER.warning("Failed to parse cache file: %s", file_path)
 
         return versions

@@ -199,7 +199,7 @@ class TalkbackStream:
         return self._thread is not None and self._thread.is_alive()
 
     @_convert_av_errors
-    def _stream_audio_sync(self) -> None:
+    def _stream_audio_sync(self) -> None:  # noqa: C901  # complexity grandfathered (shrinks with private-API removal)
         """Stream audio to the camera (runs in executor thread)."""
         if self.session:
             output_url = self.session.url

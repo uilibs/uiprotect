@@ -145,7 +145,7 @@ def _find_active_smart_event(
     time". Runs in O(active_events_per_type) and is independent of
     ``bootstrap.events``.
     """
-    active = camera._active_smart_detect_events.get(smart_type)
+    active = camera._active_smart_detect_events.get(smart_type)  # noqa: SLF001  # internal API access, single-package library
     if not active:
         return None
     # Return the oldest still-active event; clean up stale entries along the way.
@@ -162,13 +162,13 @@ def _find_active_smart_event(
         for eid in stale_ids:
             del active[eid]
         if not active:
-            camera._active_smart_detect_events.pop(smart_type, None)
+            camera._active_smart_detect_events.pop(smart_type, None)  # noqa: SLF001  # internal API access, single-package library
     return result
 
 
 def _find_any_active_smart_event(camera: Camera) -> Event | None:
     """Return any still-active smart detect event across all types for a camera."""
-    for active in camera._active_smart_detect_events.values():
+    for active in camera._active_smart_detect_events.values():  # noqa: SLF001  # internal API access, single-package library
         for event in active.values():
             if event.end is None:
                 return event
@@ -177,13 +177,13 @@ def _find_any_active_smart_event(camera: Camera) -> Event | None:
 
 def _singular_id_is_active(camera: Camera, singular_id: str) -> bool:
     """Check whether the singular last_smart_detect_event_id points to an active event."""
-    for active in camera._active_smart_detect_events.values():
+    for active in camera._active_smart_detect_events.values():  # noqa: SLF001  # internal API access, single-package library
         if (event := active.get(singular_id)) is not None and event.end is None:
             return True
     return False
 
 
-def _process_smart_detect_event(event: Event, camera: Camera) -> None:
+def _process_smart_detect_event(event: Event, camera: Camera) -> None:  # noqa: C901  # complexity grandfathered (shrinks with private-API removal)
     """Process smart detect / smart detect line per-type tracking."""
     event_id = event.id
     event_start = event.start
@@ -196,18 +196,18 @@ def _process_smart_detect_event(event: Event, camera: Camera) -> None:
             camera.last_smart_detect_event_ids[smart_type] = event_id
             camera.last_smart_detects[smart_type] = event_start
             # Add to per-camera active index while preserving processing order
-            camera._active_smart_detect_events.setdefault(smart_type, {})[event_id] = (
+            camera._active_smart_detect_events.setdefault(smart_type, {})[event_id] = (  # noqa: SLF001  # internal API access, single-package library
                 event
             )
         return
 
     for smart_type in event.smart_detect_types:
         # Event ended — remove from active index
-        active = camera._active_smart_detect_events.get(smart_type)
+        active = camera._active_smart_detect_events.get(smart_type)  # noqa: SLF001  # internal API access, single-package library
         if active:
             active.pop(event_id, None)
             if not active:
-                camera._active_smart_detect_events.pop(smart_type, None)
+                camera._active_smart_detect_events.pop(smart_type, None)  # noqa: SLF001  # internal API access, single-package library
 
         current_id = camera.last_smart_detect_event_ids.get(smart_type)
         if current_id == event_id or current_id is None:
@@ -609,7 +609,7 @@ class Bootstrap(ProtectBaseObject):
             old_obj=old_nvr,
         )
 
-    def _process_device_update(
+    def _process_device_update(  # noqa: C901  # complexity grandfathered (shrinks with private-API removal)
         self,
         model_type: ModelType,
         action: dict[str, Any],
@@ -715,7 +715,7 @@ class Bootstrap(ProtectBaseObject):
 
         return message
 
-    def _make_ws_packet_message(  # noqa: PLR0911
+    def _make_ws_packet_message(  # noqa: PLR0911, C901  # grandfathered complexity
         self,
         action: dict[str, Any],
         data: dict[str, Any],

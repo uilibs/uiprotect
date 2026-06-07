@@ -1267,7 +1267,7 @@ class Camera(ProtectMotionDeviceModel):
     def _set_channel_parents(self) -> Camera:
         """Set parent camera reference in channels after initialization."""
         for channel in getattr(self, "channels", ()):
-            channel._parent = self
+            channel._parent = self  # noqa: SLF001  # internal API access, single-package library
         return self
 
     @classmethod
@@ -2301,7 +2301,7 @@ class Camera(ProtectMotionDeviceModel):
         self, high_quality: bool | None = None
     ) -> bytes | None:
         """Gets snapshot for camera using public API."""
-        if self._api._api_key is None:
+        if self._api._api_key is None:  # noqa: SLF001  # internal API access, single-package library
             raise NotAuthorized("Cannot get public API snapshot without an API key.")
 
         if high_quality is None:
@@ -2315,14 +2315,14 @@ class Camera(ProtectMotionDeviceModel):
         self, qualities: list[ChannelQuality | str] | ChannelQuality | str
     ) -> RTSPSStreams | None:
         """Creates RTSPS streams for camera using public API."""
-        if self._api._api_key is None:
+        if self._api._api_key is None:  # noqa: SLF001  # internal API access, single-package library
             raise NotAuthorized("Cannot create RTSPS streams without an API key.")
 
         return await self._api.create_camera_rtsps_streams(self.id, qualities)
 
     async def get_rtsps_streams(self) -> RTSPSStreams | None:
         """Gets existing RTSPS streams for camera using public API."""
-        if self._api._api_key is None:
+        if self._api._api_key is None:  # noqa: SLF001  # internal API access, single-package library
             raise NotAuthorized("Cannot get RTSPS streams without an API key.")
 
         return await self._api.get_camera_rtsps_streams(self.id)
@@ -2331,7 +2331,7 @@ class Camera(ProtectMotionDeviceModel):
         self, qualities: list[ChannelQuality | str] | ChannelQuality | str
     ) -> bool:
         """Deletes RTSPS streams for camera using public API."""
-        if self._api._api_key is None:
+        if self._api._api_key is None:  # noqa: SLF001  # internal API access, single-package library
             raise NotAuthorized("Cannot delete RTSPS streams without an API key.")
 
         return await self._api.delete_camera_rtsps_streams(self.id, qualities)
@@ -2860,7 +2860,7 @@ class Camera(ProtectMotionDeviceModel):
 
         session: TalkbackSession | None = None
         if use_public_api:
-            if self._api._api_key is None:
+            if self._api._api_key is None:  # noqa: SLF001  # internal API access, single-package library
                 raise NotAuthorized(
                     "Cannot create talkback session without an API key."
                 )

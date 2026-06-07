@@ -134,10 +134,10 @@ if TYPE_CHECKING:
     from .devices import ProtectDeviceChange
     from .events import EventChange, ProtectEvent
 
-if "partitioned" not in cookies.Morsel._reserved:  # type: ignore[attr-defined]
+if "partitioned" not in cookies.Morsel._reserved:  # type: ignore[attr-defined]  # noqa: SLF001  # internal API access, single-package library
     # See: https://github.com/python/cpython/issues/112713
-    cookies.Morsel._reserved["partitioned"] = "partitioned"  # type: ignore[attr-defined]
-    cookies.Morsel._flags.add("partitioned")  # type: ignore[attr-defined]
+    cookies.Morsel._reserved["partitioned"] = "partitioned"  # type: ignore[attr-defined]  # noqa: SLF001  # internal API access, single-package library
+    cookies.Morsel._flags.add("partitioned")  # type: ignore[attr-defined]  # noqa: SLF001  # internal API access, single-package library
 
 
 async def _async_warm_nvr_timezone(nvr_data: dict[str, Any]) -> None:
@@ -1053,7 +1053,7 @@ class BaseApiClient:
                 if config_data:
                     try:
                         config = orjson.loads(config_data)
-                    except Exception:
+                    except Exception:  # noqa: BLE001  # intentional broad except in resilience path
                         _LOGGER.warning("Invalid config file, ignoring.")
         except FileNotFoundError:
             pass
@@ -1092,7 +1092,7 @@ class BaseApiClient:
                 if config_data:
                     try:
                         config = orjson.loads(config_data)
-                    except Exception:
+                    except Exception:  # noqa: BLE001  # intentional broad except in resilience path
                         _LOGGER.warning("Invalid config file, ignoring.")
                         return None
         except FileNotFoundError:
@@ -1823,7 +1823,7 @@ class ProtectApiClient(BaseApiClient):
         except Exception:
             _LOGGER.exception("Error processing public API devices websocket message")
 
-    async def _get_event_paginate(  # noqa: PLR0912
+    async def _get_event_paginate(  # noqa: PLR0912, C901  # grandfathered complexity
         self,
         params: dict[str, Any],
         *,
@@ -1881,7 +1881,7 @@ class ProtectApiClient(BaseApiClient):
 
         return events
 
-    async def get_events_raw(  # noqa: PLR0912
+    async def get_events_raw(  # noqa: PLR0912, C901  # grandfathered complexity
         self,
         *,
         start: datetime | None = None,
@@ -2933,7 +2933,7 @@ class ProtectApiClient(BaseApiClient):
             if progress_callback is not None:
                 await progress_callback(step, current, total)
 
-    async def get_camera_video(
+    async def get_camera_video(  # noqa: C901  # complexity grandfathered (shrinks with private-API removal)
         self,
         camera_id: str,
         start: datetime,

@@ -253,7 +253,7 @@ def play_audio(
 
 
 @app.command()
-def smart_detects(
+def smart_detects(  # noqa: C901  # complexity grandfathered (shrinks with private-API removal)
     ctx: typer.Context,
     values: list[d.SmartDetectObjectType] = typer.Argument(
         None,
@@ -306,7 +306,7 @@ def smart_detects(
 
 
 @app.command()
-def smart_audio_detects(
+def smart_audio_detects(  # noqa: C901  # complexity grandfathered (shrinks with private-API removal)
     ctx: typer.Context,
     values: list[d.SmartDetectAudioType] = typer.Argument(
         None,

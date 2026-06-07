@@ -219,7 +219,7 @@ def _get_cert_fingerprint(host: str, port: int) -> str | None:
 
 async def _connect_and_bootstrap(protect: ProtectApiClient) -> None:
     """Connect to the Protect API and fetch bootstrap data."""
-    protect._bootstrap = await protect.get_bootstrap()
+    protect._bootstrap = await protect.get_bootstrap()  # noqa: SLF001  # internal API access, single-package library
     await protect.close_session()
     await protect.close_public_api_session()
 

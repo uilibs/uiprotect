@@ -137,7 +137,7 @@ class DeviceDispatcher:
             return frozenset()
         try:
             cleaned = type(model).unifi_dict_to_dict(dict(payload))
-        except Exception:
+        except Exception:  # noqa: BLE001  # intentional broad except in resilience path
             # Keep the key space stable for membership checks: best-effort
             # snake_case the raw payload keys instead of leaking camelCase.
             _LOGGER.debug(
