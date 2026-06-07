@@ -1,5 +1,22 @@
 # Changelog
 
+## v11.8.0 (2026-06-07)
+
+### Features
+
+
+- Public-stream helpers for a thin ha integration ([`795df19`](https://github.com/uilibs/uiprotect/commit/795df194b44289f781ce77781af2832ecda56ed1))
+
+
+- Add public-stream helpers for thin ha integration ([`795df19`](https://github.com/uilibs/uiprotect/commit/795df194b44289f781ce77781af2832ecda56ed1))
+
+
+### Refactoring
+
+
+- Strip exact ?enablesrtp suffix in get_stream_url ([`795df19`](https://github.com/uilibs/uiprotect/commit/795df194b44289f781ce77781af2832ecda56ed1))
+
+
 ## v11.7.1 (2026-06-07)
 
 ### Bug fixes
