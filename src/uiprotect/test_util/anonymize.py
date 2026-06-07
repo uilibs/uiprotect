@@ -16,7 +16,7 @@ def anonymize_data(value: Any, name: str | None = None) -> Any:
     if isinstance(value, list):
         value = anonymize_list(value, name=name)
     elif isinstance(value, dict):
-        value = anonymize_dict(value, name=name)
+        value = anonymize_dict(value)
     else:
         value = anonymize_value(value, name=name)
 
@@ -104,7 +104,7 @@ def anonymize_value(value: Any, name: str | None = None) -> Any:  # noqa: PLR091
     return value
 
 
-def anonymize_dict(obj: dict[str, Any], name: str | None = None) -> dict[str, Any]:  # noqa: PLR0912
+def anonymize_dict(obj: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR0912
     obj_type = None
     if "modelKey" in obj:
         if obj["modelKey"] in [m.value for m in ModelType]:

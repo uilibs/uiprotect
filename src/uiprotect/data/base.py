@@ -654,7 +654,6 @@ class ProtectModelWithId(ProtectModel):
             async with asyncio_timeout(0.05):
                 await self._update_sync.event.wait()
             self._update_sync.event.clear()
-            return
         except TimeoutError:
             async with self._update_sync.lock:
                 # Important! Now that we have the lock, we yield to the event loop so any
@@ -671,6 +670,8 @@ class ProtectModelWithId(ProtectModel):
                     data_before_changes,
                     self.unifi_dict(data=self.get_changed(data_before_changes)),
                 )
+        else:
+            return
 
     async def save_device(
         self,

@@ -563,7 +563,7 @@ class BaseApiClient:
         return self.headers
 
     async def _auth_public_api_websocket(
-        self, force: bool = False
+        self, _force: bool = False
     ) -> dict[str, str] | None:
         """Authenticate for Public API Websocket."""
         if self._api_key is None:
@@ -696,7 +696,6 @@ class BaseApiClient:
                 except Exception:
                     response.release()
                     raise
-                return response
             except aiohttp.ServerDisconnectedError as err:
                 # If the server disconnected, try again
                 # since HTTP/1.1 allows the server to disconnect at any time
@@ -705,6 +704,8 @@ class BaseApiClient:
                 raise NvrError(
                     f"Error requesting data from {self._host}: {err}",
                 ) from err
+            else:
+                return response
 
         raise NvrError(
             f"Error requesting data from {self._host}: {last_err}",
@@ -827,13 +828,13 @@ class BaseApiClient:
 
             data: bytes | None = await response.read()
             response.release()
-
-            return data
         except Exception:
             # make sure response is released
             response.release()
             # re-raise exception
             raise
+        else:
+            return data
 
     async def _raise_for_status(
         self, response: aiohttp.ClientResponse, raise_exception: bool = True
@@ -903,10 +904,11 @@ class BaseApiClient:
             json_data: list[Any] | dict[str, Any]
             try:
                 json_data = orjson.loads(data)
-                return json_data
             except orjson.JSONDecodeError as ex:
-                _LOGGER.error("Could not decode JSON from %s", url)
+                _LOGGER.exception("Could not decode JSON from %s", url)
                 raise NvrError(f"Could not decode JSON from {url}") from ex
+            else:
+                return json_data
         return None
 
     async def api_request_obj(
@@ -2826,11 +2828,10 @@ class ProtectApiClient(BaseApiClient):
         try:
             response_json = orjson.loads(response)
             return RTSPSStreams(**response_json)
-        except (orjson.JSONDecodeError, TypeError) as ex:
-            _LOGGER.error(
-                "Could not decode JSON response for create RTSPS streams (camera %s): %s",
+        except (orjson.JSONDecodeError, TypeError):
+            _LOGGER.exception(
+                "Could not decode JSON response for create RTSPS streams (camera %s)",
                 camera_id,
-                ex,
             )
             return None
 
@@ -2851,11 +2852,10 @@ class ProtectApiClient(BaseApiClient):
         try:
             response_json = orjson.loads(response)
             return RTSPSStreams(**response_json)
-        except (orjson.JSONDecodeError, TypeError) as ex:
-            _LOGGER.error(
-                "Could not decode JSON response for get RTSPS streams (camera %s): %s",
+        except (orjson.JSONDecodeError, TypeError):
+            _LOGGER.exception(
+                "Could not decode JSON response for get RTSPS streams (camera %s)",
                 camera_id,
-                ex,
             )
             return None
 

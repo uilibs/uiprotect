@@ -14,6 +14,7 @@ from typer.testing import CliRunner
 
 from uiprotect.cli import _is_ssl_error, app
 from uiprotect.cli.arm import app as arm_app
+from uiprotect.cli.base import CliContext, OutputFormatEnum
 from uiprotect.cli.bridges import app as bridges_app
 from uiprotect.cli.cameras import app as cameras_app
 from uiprotect.cli.files_public import app as files_public_app
@@ -474,3 +475,115 @@ def test_non_ssl_failure_still_exits_with_message() -> None:
     output = result.stdout + (result.stderr or "")
     assert "Connection failed" in output
     assert client_cls.call_count == 1
+
+
+def _camera_obj(camera: MagicMock, output_format: OutputFormatEnum) -> CliContext:
+    protect = MagicMock()
+    protect.bootstrap.cameras = {"cam1": camera}
+    protect.close_session = AsyncMock()
+    protect.close_public_api_session = AsyncMock()
+    return CliContext(protect=protect, output_format=output_format)
+
+
+def test_cameras_create_rtsps_streams_json() -> None:
+    """``create-rtsps-streams`` prints a JSON map of quality to URL on success."""
+    result_obj = MagicMock()
+    result_obj.get_available_stream_qualities.return_value = ["high"]
+    result_obj.get_stream_url.return_value = "rtsps://example/high"
+    camera = MagicMock()
+    camera.create_rtsps_streams = AsyncMock(return_value=result_obj)
+
+    result = runner.invoke(
+        cameras_app,
+        ["cam1", "create-rtsps-streams", "high"],
+        obj=_camera_obj(camera, OutputFormatEnum.JSON),
+    )
+    assert result.exit_code == 0
+    assert "rtsps://example/high" in result.stdout
+
+
+def test_cameras_create_rtsps_streams_plain() -> None:
+    """``create-rtsps-streams`` echoes each quality/URL pair in plain mode."""
+    result_obj = MagicMock()
+    result_obj.get_available_stream_qualities.return_value = ["high"]
+    result_obj.get_stream_url.return_value = "rtsps://example/high"
+    camera = MagicMock()
+    camera.create_rtsps_streams = AsyncMock(return_value=result_obj)
+
+    result = runner.invoke(
+        cameras_app,
+        ["cam1", "create-rtsps-streams", "high"],
+        obj=_camera_obj(camera, OutputFormatEnum.PLAIN),
+    )
+    assert result.exit_code == 0
+    assert "rtsps://example/high" in result.stdout
+
+
+def test_cameras_create_rtsps_streams_none() -> None:
+    """A ``None`` result exits 1 with the failure message."""
+    camera = MagicMock()
+    camera.create_rtsps_streams = AsyncMock(return_value=None)
+
+    result = runner.invoke(
+        cameras_app,
+        ["cam1", "create-rtsps-streams", "high"],
+        obj=_camera_obj(camera, OutputFormatEnum.PLAIN),
+    )
+    assert result.exit_code == 1
+    assert "Failed to create RTSPS streams" in result.stdout
+
+
+def test_cameras_create_rtsps_streams_error() -> None:
+    """An API error exits 1 with the error message."""
+    camera = MagicMock()
+    camera.create_rtsps_streams = AsyncMock(side_effect=Exception("boom"))
+
+    result = runner.invoke(
+        cameras_app,
+        ["cam1", "create-rtsps-streams", "high"],
+        obj=_camera_obj(camera, OutputFormatEnum.PLAIN),
+    )
+    assert result.exit_code == 1
+    assert "Error creating RTSPS streams: boom" in result.stdout
+
+
+def test_cameras_delete_rtsps_streams_success() -> None:
+    """A truthy result exits 0 with the success message."""
+    camera = MagicMock()
+    camera.delete_rtsps_streams = AsyncMock(return_value=True)
+
+    result = runner.invoke(
+        cameras_app,
+        ["cam1", "delete-rtsps-streams", "high"],
+        obj=_camera_obj(camera, OutputFormatEnum.PLAIN),
+    )
+    assert result.exit_code == 0
+    assert "Successfully deleted RTSPS streams" in result.stdout
+
+
+def test_cameras_delete_rtsps_streams_failure() -> None:
+    """A falsy result exits 1 with the failure message."""
+    camera = MagicMock()
+    camera.delete_rtsps_streams = AsyncMock(return_value=False)
+
+    result = runner.invoke(
+        cameras_app,
+        ["cam1", "delete-rtsps-streams", "high"],
+        obj=_camera_obj(camera, OutputFormatEnum.PLAIN),
+    )
+    assert result.exit_code == 1
+    assert "Failed to delete RTSPS streams" in result.stdout
+
+
+def test_cameras_delete_rtsps_streams_error() -> None:
+    """An API error exits 1 with the error message."""
+    camera = MagicMock()
+    camera.delete_rtsps_streams = AsyncMock(side_effect=Exception("boom"))
+
+    result = runner.invoke(
+        cameras_app,
+        ["cam1", "delete-rtsps-streams", "high"],
+        obj=_camera_obj(camera, OutputFormatEnum.PLAIN),
+    )
+    assert result.exit_code == 1
+    assert "Error deleting RTSPS streams: boom" in result.stdout

@@ -87,7 +87,7 @@ def _safe_first_glob_match(base: Path, pattern: str) -> Path | None:
     return None
 
 
-def _on_db_connect(dbapi_con, connection_record) -> None:  # type: ignore[no-untyped-def]
+def _on_db_connect(dbapi_con: Any, _connection_record: Any) -> None:
     cursor = dbapi_con.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
@@ -1065,7 +1065,6 @@ async def _events(
     prune: bool,
     force: bool,
     verify: bool,
-    no_input: bool,
 ) -> None:
     try:
         await ctx.create_db()
@@ -1134,5 +1133,5 @@ def events_cmd(
     if prune and force:
         _wipe_files(ctx.obj, no_input)
     asyncio.run(
-        _events(ctx.obj, ufp_events, smart_types, prune, force, verify, no_input),
+        _events(ctx.obj, ufp_events, smart_types, prune, force, verify),
     )

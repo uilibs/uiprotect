@@ -1044,15 +1044,15 @@ async def test_auth_public_api_websocket_force_param(
     # Set an API key for testing
     protect_client._api_key = "test-api-key-force"
 
-    # Test with force=True
-    headers_forced = await protect_client._auth_public_api_websocket(force=True)
+    # Test with force=True (passed positionally, as the websocket calls it)
+    headers_forced = await protect_client._auth_public_api_websocket(True)
 
     assert headers_forced is not None
     assert "X-API-KEY" in headers_forced
     assert headers_forced["X-API-KEY"] == "test-api-key-force"
 
     # Test with force=False
-    headers_not_forced = await protect_client._auth_public_api_websocket(force=False)
+    headers_not_forced = await protect_client._auth_public_api_websocket(False)
 
     assert headers_not_forced is not None
     assert "X-API-KEY" in headers_not_forced

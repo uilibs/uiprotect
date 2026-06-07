@@ -223,7 +223,7 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
         """Return the set of bootstrap models and the event model as a set."""
         return ModelType._bootstrap_models_types_set() | {ModelType.EVENT}
 
-    def _immutable(self, name: str, value: Any) -> None:
+    def _immutable(self, _name: str, _value: Any) -> None:
         raise AttributeError("Cannot modify ModelType")
 
 

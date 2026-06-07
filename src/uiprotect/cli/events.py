@@ -239,7 +239,7 @@ def save_video(
     with Progress() as pb:
         task_id = pb.add_task("(1/2) Exporting", total=100)
 
-        async def callback(step: int, current: int, total: int) -> None:
+        async def callback(_step: int, current: int, total: int) -> None:
             pb.update(
                 task_id,
                 total=total,

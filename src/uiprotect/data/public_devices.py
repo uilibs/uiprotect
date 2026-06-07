@@ -215,7 +215,7 @@ class PublicCamera(ProtectModelWithId):
     smart_detect_settings: PublicSmartDetectSettings
     has_package_camera: bool
 
-    async def _api_update(self, data: dict[str, Any]) -> None:
+    async def _api_update(self, _data: dict[str, Any]) -> None:
         raise BadRequest(
             "Camera mutations must go through the dedicated public API helpers "
             "(update_camera_public)."
@@ -257,7 +257,7 @@ class PublicLight(ProtectModelWithId):
     # Flat ``cameraId`` string of the paired camera, or ``null``.
     camera: str | None = None
 
-    async def _api_update(self, data: dict[str, Any]) -> None:
+    async def _api_update(self, _data: dict[str, Any]) -> None:
         raise BadRequest(
             "Light mutations must go through the dedicated public API helpers "
             "(update_light_public)."
@@ -352,7 +352,7 @@ class PublicSensor(ProtectModelWithId):
     arm_profile_ids: list[str] | None = None
     has_custom_sensitivity_when_armed: bool = False
 
-    async def _api_update(self, data: dict[str, Any]) -> None:
+    async def _api_update(self, _data: dict[str, Any]) -> None:
         raise BadRequest(
             "Sensor mutations must go through the dedicated public API helpers "
             "(update_sensor_public)."
@@ -382,7 +382,7 @@ class PublicChime(ProtectModelWithId):
     camera_ids: list[str] = Field(default_factory=list)
     ring_settings: list[PublicRingSettings] = Field(default_factory=list)
 
-    async def _api_update(self, data: dict[str, Any]) -> None:
+    async def _api_update(self, _data: dict[str, Any]) -> None:
         raise BadRequest(
             "Chime mutations must go through the dedicated public API helpers "
             "(update_chime_public)."
@@ -432,7 +432,7 @@ class Siren(ProtectModelWithId):
     connection_type: SirenConnectionType
     wireless_connection_state: PublicWirelessConnectionState | None = None
 
-    async def _api_update(self, data: dict[str, Any]) -> None:
+    async def _api_update(self, _data: dict[str, Any]) -> None:
         # The generic private-API mutation path (``queue_update`` /
         # ``save_device``) does not know how to route patches to the Public
         # Integration endpoints; consumers must use the dedicated
@@ -524,7 +524,7 @@ class Relay(ProtectModelWithId):
     inputs: list[PublicRelayInput]
     wireless_connection_state: PublicWirelessConnectionState | None = None
 
-    async def _api_update(self, data: dict[str, Any]) -> None:
+    async def _api_update(self, _data: dict[str, Any]) -> None:
         # See :meth:`Siren._api_update` — consumers must use
         # ``update_relay_public`` / ``activate_relay_output_public`` (or the
         # helper methods on this class).
@@ -625,7 +625,7 @@ class Speaker(ProtectModelWithId):
     speaker_state: PublicSpeakerState
     feature_flags: PublicSpeakerFeatureFlags
 
-    async def _api_update(self, data: dict[str, Any]) -> None:
+    async def _api_update(self, _data: dict[str, Any]) -> None:
         # See :meth:`Siren._api_update` — consumers must use
         # ``update_speaker_public`` / ``test_speaker_sound_public`` (or the
         # helper methods on this class).
@@ -741,7 +741,7 @@ class LinkStation(ProtectModelWithId):
     # ``alarm_hub_outputs``).
     alarm_hub: dict[str, Any] | None = None
 
-    async def _api_update(self, data: dict[str, Any]) -> None:
+    async def _api_update(self, _data: dict[str, Any]) -> None:
         raise BadRequest(
             "LinkStation mutations must go through the dedicated public API helpers "
             "(update_link_station_public / update_alarm_hub_public / "
@@ -987,7 +987,7 @@ class PublicLiveview(ProtectModelWithId):
     layout: int
     slots: list[PublicLiveviewSlot]
 
-    async def _api_update(self, data: dict[str, Any]) -> None:
+    async def _api_update(self, _data: dict[str, Any]) -> None:
         raise BadRequest(
             "Liveview mutations must go through the dedicated public API helpers "
             "(create_liveview_public / update_liveview_public)."
@@ -1017,7 +1017,7 @@ class PublicBridge(ProtectModelWithId):
     clients: list[str]
     max_clients: int
 
-    async def _api_update(self, data: dict[str, Any]) -> None:
+    async def _api_update(self, _data: dict[str, Any]) -> None:
         raise BadRequest(
             "Bridge mutations must go through the dedicated public API helpers "
             "(update_bridge_public)."
@@ -1056,7 +1056,7 @@ class PublicViewer(ProtectModelWithId):
     def _get_unifi_remaps(cls) -> dict[str, str]:
         return {**super()._get_unifi_remaps(), "liveview": "liveviewId"}
 
-    async def _api_update(self, data: dict[str, Any]) -> None:
+    async def _api_update(self, _data: dict[str, Any]) -> None:
         raise BadRequest(
             "Viewer mutations must go through the dedicated public API helpers "
             "(update_viewer_public)."

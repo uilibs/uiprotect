@@ -42,8 +42,8 @@ class Permission(ProtectBaseObject):
 
     def unifi_dict(  # type: ignore[override]
         self,
-        data: dict[str, Any] | None = None,
-        exclude: set[str] | None = None,
+        _data: dict[str, Any] | None = None,
+        _exclude: set[str] | None = None,
     ) -> str:
         return self.raw_permission
 
