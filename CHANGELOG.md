@@ -1,5 +1,22 @@
 # Changelog
 
+## v11.7.0 (2026-06-07)
+
+### Features
+
+
+- Raise typed armedmodeerror when alarm is armed ([`5f0336c`](https://github.com/uilibs/uiprotect/commit/5f0336ccc7f54a28836f858479af34a70b9e3a3e))
+
+
+- Raise typed armedmodeerror when an operation is rejected because the alarm is armed ([`5f0336c`](https://github.com/uilibs/uiprotect/commit/5f0336ccc7f54a28836f858479af34a70b9e3a3e))
+
+
+### Testing
+
+
+- Skip cli-extra modules when pillow/typer are absent ([`ccc5360`](https://github.com/uilibs/uiprotect/commit/ccc5360428912b49bd2ec1b44d235a9e15811488))
+
+
 ## v11.6.0 (2026-06-06)
 
 ### Features
