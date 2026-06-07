@@ -348,7 +348,10 @@ class RTSPSStreams(ProtectBaseObject):
         url = getattr(self, quality, None)
         if srtp or not isinstance(url, str):
             return url
-        return url.split("?", 1)[0]
+        # Strip only the exact ?enableSrtp suffix the server appends (mirrors the
+        # private rtsps_url construction); go2rtc rejects the SRTP variant. A
+        # generic query strip would be wrong if Protect ever adds other params.
+        return url.removesuffix("?enableSrtp")
 
     def get_available_stream_qualities(self) -> list[str]:
         """
