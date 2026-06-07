@@ -1282,7 +1282,7 @@ class NVR(ProtectDeviceModel):
         await self.queue_update(callback)
 
     async def set_anonymous_analytics(self, enabled: bool) -> None:
-        """Enables or disables anonymous analystics for NVR"""
+        """Enables or disables anonymous analytics for NVR"""
         if enabled:
             await self.set_analytics(AnalyticsOption.ANONYMOUS)
         else:

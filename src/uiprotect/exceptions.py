@@ -6,7 +6,7 @@ class UnifiProtectError(Exception):
 
 
 class StreamError(UnifiProtectError):
-    """Expcetion raised when trying to stream content"""
+    """Exception raised when trying to stream content"""
 
 
 class DataDecodeError(UnifiProtectError):
@@ -43,6 +43,10 @@ class NotAuthorized(PermissionError, BadRequest):
 
 class GlobalAlarmManagerError(BadRequest):
     """Operation not available when global alarm manager is enabled."""
+
+
+class ArmedModeError(BadRequest):
+    """Operation not available while the arm alarm is armed."""
 
 
 class NvrError(ClientError):

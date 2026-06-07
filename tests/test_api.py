@@ -17,6 +17,11 @@ import aiohttp
 import orjson
 import pytest
 from aiofiles import os as aos
+
+# Pillow ships with the optional `cli` extra; skip the whole module rather than
+# fail at collection when it's absent (a minimal install without --all-extras).
+pytest.importorskip("PIL")
+
 from PIL import Image
 
 from tests.conftest import (
@@ -55,6 +60,7 @@ from uiprotect.data import (
 from uiprotect.data.devices import LEDSettings
 from uiprotect.data.types import Version, VideoMode
 from uiprotect.exceptions import (
+    ArmedModeError,
     BadRequest,
     GlobalAlarmManagerError,
     NotAuthorized,
@@ -3376,6 +3382,53 @@ async def test_raise_for_status_global_alarm_manager_error() -> None:
         pytest.raises(GlobalAlarmManagerError),
     ):
         await api._raise_for_status(response, raise_exception=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "Arm alarm is armed",
+        "arm alarm is armed",
+        "ARM ALARM IS ARMED",
+        "Arm Alarm Is Armed",
+    ],
+)
+async def test_raise_for_status_armed_mode_error(reason: str) -> None:
+    """400 with arm alarm armed reason raises ArmedModeError (case-insensitive)."""
+    api = ProtectApiClient("test.com", 443, "username", "password")
+    response = Mock()
+    response.status = 400
+    response.url = "https://test.com/api/test"
+
+    with (
+        patch(
+            "uiprotect.api.get_response_reason",
+            return_value=reason,
+        ),
+        pytest.raises(ArmedModeError),
+    ):
+        await api._raise_for_status(response, raise_exception=True)
+
+
+@pytest.mark.asyncio
+async def test_raise_for_status_generic_bad_request() -> None:
+    """400 with an unrelated reason raises a plain BadRequest."""
+    api = ProtectApiClient("test.com", 443, "username", "password")
+    response = Mock()
+    response.status = 400
+    response.url = "https://test.com/api/test"
+
+    with (
+        patch(
+            "uiprotect.api.get_response_reason",
+            return_value="Some other validation failure",
+        ),
+        pytest.raises(BadRequest) as exc_info,
+    ):
+        await api._raise_for_status(response, raise_exception=True)
+
+    assert not isinstance(exc_info.value, (GlobalAlarmManagerError, ArmedModeError))
 
 
 @pytest.mark.asyncio

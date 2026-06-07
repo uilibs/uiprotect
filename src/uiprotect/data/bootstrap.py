@@ -395,7 +395,7 @@ class Bootstrap(ProtectBaseObject):
 
     @property
     def recording_start(self) -> datetime | None:
-        """Get earilest recording date."""
+        """Get earliest recording date."""
         if self._recording_start is None:
             try:
                 self._recording_start = min(
