@@ -78,7 +78,7 @@ def cameras(
     obj: Chime = ctx.obj.device
 
     if add and remove:
-        typer.secho("Add and remove are mutally exclusive", fg="red")
+        typer.secho("Add and remove are mutually exclusive", fg="red")
         raise typer.Exit(1)
 
     if len(camera_ids) == 0:
