@@ -674,7 +674,9 @@ class SmartDetectSettings(ProtectBaseObject):
 
 class LCDMessage(ProtectBaseObject):
     type: DoorbellMessageType
-    text: str
+    # Some doorbell firmwares send lcdMessage with a type but no text; a
+    # default keeps model_construct from producing a text-less instance.
+    text: str = ""
     reset_at: datetime | None = None
 
     @classmethod
