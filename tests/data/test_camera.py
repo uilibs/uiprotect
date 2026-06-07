@@ -888,6 +888,20 @@ async def test_camera_set_lcd_text_no_lcd(camera_obj: Camera | None):
     assert not camera_obj.api.api_request.called
 
 
+def test_lcd_message_missing_text_defaults_to_empty():
+    msg = LCDMessage.model_construct(type=DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR)
+
+    assert msg.text == ""
+
+
+def test_lcd_message_from_unifi_dict_missing_text():
+    msg = LCDMessage.from_unifi_dict(
+        type=DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR.value
+    )
+
+    assert msg.text == ""
+
+
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
 async def test_camera_set_lcd_text_custom(camera_obj: Camera | None):
