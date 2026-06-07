@@ -13,6 +13,7 @@ from .events import (
     UnknownIdentity,
 )
 from .exceptions import (
+    ArmedModeError,
     BadRequest,
     GlobalAlarmManagerError,
     Invalid,
@@ -30,6 +31,7 @@ from .utils import (
 )
 
 __all__ = [
+    "ArmedModeError",
     "BadRequest",
     "DeviceChange",
     "EventChange",
