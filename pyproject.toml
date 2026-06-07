@@ -182,6 +182,7 @@ select = [
     "D",    # flake8-docstrings
     "C4",   # flake8-comprehensions
     "DTZ",  # flake8-datetimez
+    "EM",   # flake8-errmsg
     "ERA",  # eradicate (commented-out code)
     "FA",   # flake8-future-annotations
     "FLY",  # flynt (f-string conversion)
@@ -231,6 +232,8 @@ select = [
     "DTZ005", # tests intentionally call datetime.now() without tz
     "ERA001", # test fixtures keep commented-out reference snippets
     "E402",   # optional-dependency guards (pytest.importorskip) precede imports
+    "EM101",  # inline exception messages are fine in test assertions
+    "EM102",  # inline f-string exception messages are fine in test assertions
 ]
 "setup.py" = ["D100"]
 "conftest.py" = ["D100"]
@@ -265,6 +268,21 @@ select = [
 "src/uiprotect/exceptions.py" = [
     # public exception names — renaming would break the API consumers depend on
     "N818",
+]
+"src/uiprotect/data/devices.py" = [
+    # private-API models slated for removal in the public-API migration; not worth the churn
+    "EM101",
+    "EM102",
+]
+"src/uiprotect/data/nvr.py" = [
+    # private-API models slated for removal in the public-API migration; not worth the churn
+    "EM101",
+    "EM102",
+]
+"src/uiprotect/data/user.py" = [
+    # private-API models slated for removal in the public-API migration; not worth the churn
+    "EM101",
+    "EM102",
 ]
 
 [tool.ruff.lint.isort]

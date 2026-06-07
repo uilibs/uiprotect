@@ -536,7 +536,9 @@ class ProtectBaseObject(BaseModel):
         creation, will raise `BadRequest`
         """
         if self._api is None:
-            raise BadRequest("API Client not initialized")
+            # Message kept inline: mypy treats this defensive branch as
+            # unreachable and would report the extracted `msg =` line.
+            raise BadRequest("API Client not initialized")  # noqa: EM101
 
         return self._api
 
@@ -729,15 +731,17 @@ class ProtectModelWithId(ProtectModel):
         )
         read_only_fields = self.__class__._get_read_only_fields()
 
-        if self.model is None:
-            raise BadRequest("Unknown model type")
+        if self.model is None:  # pragma: no cover  # model is class-set; defensive
+            msg = "Unknown model type"
+            raise BadRequest(msg)
 
         if not self._api.bootstrap.auth_user.can(
             self.model, PermissionNode.WRITE, self
         ):
             if revert_on_fail:
                 self.revert_changes(data_before_changes)
-            raise NotAuthorized(f"Do not have write permission for obj: {self.id}")
+            msg = f"Do not have write permission for obj: {self.id}"
+            raise NotAuthorized(msg)
 
         # do not patch when there are no updates
         if updated == {}:
@@ -746,8 +750,9 @@ class ProtectModelWithId(ProtectModel):
         read_only_keys = read_only_fields.intersection(updated)
         if len(read_only_keys) > 0:
             self.revert_changes(data_before_changes)
+            msg = f"{type(self)} The following key(s) are read only: {read_only_keys}, updated: {updated}"
             raise BadRequest(
-                f"{type(self)} The following key(s) are read only: {read_only_keys}, updated: {updated}",
+                msg,
             )
 
         try:
@@ -769,8 +774,9 @@ class ProtectModelWithId(ProtectModel):
         if _is_ping_back := updated is _EMPTY_EVENT_PING_BACK:
             _LOGGER.debug("Event ping callback started for %s", self.id)
 
-        if self.model is None:
-            raise BadRequest("Unknown model type")
+        if self.model is None:  # pragma: no cover  # model is class-set; defensive
+            msg = "Unknown model type"
+            raise BadRequest(msg)
 
         header = WSPacketFrameHeader(
             packet_type=1,
@@ -1028,13 +1034,15 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
                 PermissionNode.WRITE,
                 self,
             ):
-                raise NotAuthorized("Do not have permission to reboot device")
+                msg = "Do not have permission to reboot device"
+                raise NotAuthorized(msg)
             await self._api.reboot_device(self.model, self.id)
 
     async def unadopt(self) -> None:
         """Unadopt/Unmanage adopted device"""
         if not self.is_adopted_by_us:
-            raise BadRequest("Device is not adopted")
+            msg = "Device is not adopted"
+            raise BadRequest(msg)
 
         if self.model is not None:
             if not self._api.bootstrap.auth_user.can(
@@ -1042,17 +1050,20 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
                 PermissionNode.DELETE,
                 self,
             ):
-                raise NotAuthorized("Do not have permission to unadopt devices")
+                msg = "Do not have permission to unadopt devices"
+                raise NotAuthorized(msg)
             await self._api.unadopt_device(self.model, self.id)
 
     async def adopt(self, name: str | None = None) -> None:
         """Adopts a device"""
         if not self.can_adopt:
-            raise BadRequest("Device cannot be adopted")
+            msg = "Device cannot be adopted"
+            raise BadRequest(msg)
 
         if self.model is not None:
             if not self._api.bootstrap.auth_user.can(self.model, PermissionNode.CREATE):
-                raise NotAuthorized("Do not have permission to adopt devices")
+                msg = "Do not have permission to adopt devices"
+                raise NotAuthorized(msg)
 
             await self._api.adopt_device(self.model, self.id)
             if name is not None:

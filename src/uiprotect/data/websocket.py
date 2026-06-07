@@ -136,7 +136,8 @@ class BaseWSPacketFrame:
     @property
     def packed(self) -> bytes:
         if self.header is None:
-            raise WSEncodeError("No header to encode")
+            msg = "No header to encode"
+            raise WSEncodeError(msg)
 
         data = self.get_binary_from_data()
         header = self.pack(

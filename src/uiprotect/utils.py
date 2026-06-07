@@ -395,7 +395,8 @@ async def ip_from_host(host: str) -> IPv4Address | IPv6Address:
         addr_info = await loop.getaddrinfo(host, None)
         ip_str = addr_info[0][4][0]
     except (socket.gaierror, OSError) as err:
-        raise ValueError(f"Cannot resolve hostname '{host}' to IP address") from err
+        msg = f"Cannot resolve hostname '{host}' to IP address"
+        raise ValueError(msg) from err
 
     return ip_address(ip_str)
 
@@ -440,7 +441,8 @@ def ws_stat_summmary(
     stats: list[WSStat],
 ) -> tuple[list[WSStat], float, Counter[str], Counter[str], Counter[str]]:
     if len(stats) == 0:
-        raise ValueError("No stats to summarize")
+        msg = "No stats to summarize"
+        raise ValueError(msg)
 
     unfiltered = [s for s in stats if not s.filtered]
     percent = (1 - len(unfiltered) / len(stats)) * 100
@@ -512,7 +514,8 @@ async def profile_ws(
     print_output: Callable[[Any], Any] | None = None,
 ) -> None:
     if protect.bootstrap.capture_ws_stats:
-        raise NvrError("Profile already in progress")
+        msg = "Profile already in progress"
+        raise NvrError(msg)
 
     _LOGGER.debug("Starting profile...")
     protect.bootstrap.clear_ws_stats()

@@ -26,7 +26,8 @@ def event_to_protect_event(
 ) -> ProtectEvent:
     """Build a frozen ``ProtectEvent`` from a validated ``Event``."""
     if raw.device_id is None:
-        raise ValueError("device_id must be present")
+        msg = "device_id must be present"
+        raise ValueError(msg)
     end = end_override if end_override is not None else raw.end
     return ProtectEvent(
         id=raw.id,

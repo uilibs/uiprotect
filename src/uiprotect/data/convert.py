@@ -59,14 +59,16 @@ def get_klass_from_dict(data: dict[str, Any]) -> type[ProtectModel]:
     Will raise `DataDecodeError` if the `modelKey` is for an unknown object.
     """
     if "modelKey" not in data:
-        raise DataDecodeError("No modelKey")
+        msg = "No modelKey"
+        raise DataDecodeError(msg)
 
     model = ModelType(data["modelKey"])
 
     klass = MODEL_TO_CLASS.get(model)
 
     if klass is None:
-        raise DataDecodeError("Unknown modelKey")
+        msg = "Unknown modelKey"
+        raise DataDecodeError(msg)
 
     return klass
 
@@ -93,7 +95,8 @@ def create_from_unifi_dict(
             data["modelKey"] = model_type.value
 
     if "modelKey" not in data:
-        raise DataDecodeError("No modelKey")
+        msg = "No modelKey"
+        raise DataDecodeError(msg)
 
     if klass is None:
         klass = get_klass_from_dict(data)

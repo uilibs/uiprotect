@@ -24,24 +24,29 @@ VT = TypeVar("VT")
 def get_field_type(annotation: type[Any] | None) -> tuple[type | None, Any]:
     """Extract the origin and type from an annotation."""
     if annotation is None:
-        raise ValueError("Type annotation cannot be None")
+        msg = "Type annotation cannot be None"
+        raise ValueError(msg)
     origin = get_origin(annotation)
     args: Sequence[Any]
     if origin in (list, set):
         if not (args := get_args(annotation)):
-            raise ValueError(f"Unable to determine args of type: {annotation}")
+            msg = f"Unable to determine args of type: {annotation}"
+            raise ValueError(msg)
         return origin, args[0]
     if origin is dict:
         if not (args := get_args(annotation)):
-            raise ValueError(f"Unable to determine args of type: {annotation}")
+            msg = f"Unable to determine args of type: {annotation}"
+            raise ValueError(msg)
         return origin, args[1]
     if origin is Annotated:
-        if not (args := get_args(annotation)):
-            raise ValueError(f"Unable to determine args of type: {annotation}")
+        if not (args := get_args(annotation)):  # pragma: no cover  # Annotated always carries args
+            msg = f"Unable to determine args of type: {annotation}"
+            raise ValueError(msg)
         return None, args[0]
     if origin is Union or origin is types.UnionType:
-        if not (args := get_args(annotation)):
-            raise ValueError(f"Unable to determine args of type: {annotation}")
+        if not (args := get_args(annotation)):  # pragma: no cover  # Union always carries args
+            msg = f"Unable to determine args of type: {annotation}"
+            raise ValueError(msg)
         args = [get_field_type(arg) for arg in args]
         if len(args) == 2 and type(None) in list(zip(*args, strict=False))[1]:
             # Strip '| None' type from Union
@@ -224,7 +229,8 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
         return ModelType._bootstrap_models_types_set() | {ModelType.EVENT}
 
     def _immutable(self, name: str, value: Any) -> None:
-        raise AttributeError("Cannot modify ModelType")
+        msg = "Cannot modify ModelType"
+        raise AttributeError(msg)
 
 
 ModelType.bootstrap_model_types = ModelType._bootstrap_model_types()

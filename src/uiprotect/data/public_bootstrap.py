@@ -211,7 +211,8 @@ class PublicBootstrap:
     def __post_init__(self) -> None:
         """Validate cache bounds used by event eviction logic."""
         if self.max_event_cache_size < 0:
-            raise ValueError("max_event_cache_size must be >= 0")
+            msg = "max_event_cache_size must be >= 0"
+            raise ValueError(msg)
 
     # ------------------------------------------------------------------
     # Lookup helpers

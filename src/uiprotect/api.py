@@ -439,9 +439,12 @@ class BaseApiClient:
         # missing) so the failure is at construction, not a malformed
         # /api/auth/login with a null field at first request.
         if not (username and password) and not public_only:
-            raise BadRequest(
+            msg = (
                 "Provide both username and password, or an api_key, "
                 "to construct a client"
+            )
+            raise BadRequest(
+                msg
             )
 
         self._auth_lock = asyncio.Lock()
@@ -567,7 +570,8 @@ class BaseApiClient:
     ) -> dict[str, str] | None:
         """Authenticate for Public API Websocket."""
         if self._api_key is None:
-            raise NotAuthorized("API key is required for public API WebSocket")
+            msg = "API key is required for public API WebSocket"
+            raise NotAuthorized(msg)
 
         return {"X-API-KEY": self._api_key}
 
@@ -702,12 +706,14 @@ class BaseApiClient:
                 # since HTTP/1.1 allows the server to disconnect at any time
                 last_err = err
             except client_exceptions.ClientError as err:
+                msg = f"Error requesting data from {self._host}: {err}"
                 raise NvrError(
-                    f"Error requesting data from {self._host}: {err}",
+                    msg,
                 ) from err
 
+        msg = f"Error requesting data from {self._host}: {last_err}"
         raise NvrError(
-            f"Error requesting data from {self._host}: {last_err}",
+            msg,
         ) from last_err
 
     async def request(
@@ -734,7 +740,8 @@ class BaseApiClient:
         headers = kwargs.get("headers") or self.headers or {}
         if require_auth and public_api:
             if self._api_key is None:
-                raise NotAuthorized("API key is required for public API requests")
+                msg = "API key is required for public API requests"
+                raise NotAuthorized(msg)
             headers = {"X-API-KEY": self._api_key}
         _LOGGER.debug("Request url: %s", request_url)
         if not self._verify_ssl:
@@ -906,7 +913,8 @@ class BaseApiClient:
                 return json_data
             except orjson.JSONDecodeError as ex:
                 _LOGGER.error("Could not decode JSON from %s", url)
-                raise NvrError(f"Could not decode JSON from {url}") from ex
+                msg = f"Could not decode JSON from {url}"
+                raise NvrError(msg) from ex
         return None
 
     async def api_request_obj(
@@ -928,7 +936,8 @@ class BaseApiClient:
         )
 
         if not isinstance(data, dict):
-            raise NvrError(f"Could not decode object from {url}")
+            msg = f"Could not decode object from {url}"
+            raise NvrError(msg)
 
         return data
 
@@ -951,16 +960,20 @@ class BaseApiClient:
         )
 
         if not isinstance(data, list):
-            raise NvrError(f"Could not decode list from {url}")
+            msg = f"Could not decode list from {url}"
+            raise NvrError(msg)
 
         return data
 
     async def ensure_authenticated(self) -> None:
         """Ensure we are authenticated."""
         if self._public_only:
-            raise PublicOnlyModeError(
+            msg = (
                 "Private authentication is unavailable on a public-only client; "
                 "use the public API surface (update_public, subscribe_*, public setters)"
+            )
+            raise PublicOnlyModeError(
+                msg
             )
         await self._load_session()
         if self.is_authenticated() is False:
@@ -969,9 +982,12 @@ class BaseApiClient:
     async def authenticate(self) -> None:
         """Authenticate and get a token."""
         if self._public_only:
-            raise PublicOnlyModeError(
+            msg = (
                 "Private authentication is unavailable on a public-only client; "
                 "use the public API surface (update_public, subscribe_*, public setters)"
+            )
+            raise PublicOnlyModeError(
+                msg
             )
         if self._auth_lock.locked():
             # If an auth is already in progress
@@ -1495,7 +1511,8 @@ class ProtectApiClient(BaseApiClient):
     @cached_property
     def bootstrap(self) -> Bootstrap:
         if self._bootstrap is None:
-            raise BadRequest("Client not initialized, run `update` first")
+            msg = "Client not initialized, run `update` first"
+            raise BadRequest(msg)
 
         return self._bootstrap
 
@@ -1511,8 +1528,9 @@ class ProtectApiClient(BaseApiClient):
         None``).
         """
         if self._public_bootstrap is None:
+            msg = "Public bootstrap not initialized, run `update_public` first"
             raise BadRequest(
-                "Public bootstrap not initialized, run `update_public` first"
+                msg
             )
         return self._public_bootstrap
 
@@ -1541,9 +1559,12 @@ class ProtectApiClient(BaseApiClient):
         You can use the various other `get_` methods if you need one off data from UFP
         """
         if self._public_only:
-            raise PublicOnlyModeError(
+            msg = (
                 "Private bootstrap is unavailable on a public-only client; "
                 "use update_public() instead"
+            )
+            raise PublicOnlyModeError(
+                msg
             )
         async with self._update_lock:
             bootstrap = await self.get_bootstrap()
@@ -2124,9 +2145,12 @@ class ProtectApiClient(BaseApiClient):
         via ``event.raw`` when you need them.
         """
         if self._public_bootstrap is None:
-            raise RuntimeError(
+            msg = (
                 "subscribe_events() requires update_public() to have been called"
                 " at least once"
+            )
+            raise RuntimeError(
+                msg
             )
 
         # Local import to avoid circular import (events.dispatcher → api).
@@ -2254,9 +2278,12 @@ class ProtectApiClient(BaseApiClient):
         ``update_public()`` / reconnect resync.
         """
         if self._public_bootstrap is None:
-            raise RuntimeError(
+            msg = (
                 "subscribe_devices() requires update_public() to have been called"
                 " at least once"
+            )
+            raise RuntimeError(
+                msg
             )
 
         # Local import to avoid circular import (devices.dispatcher → api).
@@ -2483,9 +2510,12 @@ class ProtectApiClient(BaseApiClient):
         This is a great alternative if you need metadata about the NVR without connecting to the Websocket
         """
         if self._public_only:
-            raise PublicOnlyModeError(
+            msg = (
                 "Private bootstrap is unavailable on a public-only client; "
                 "use update_public() instead"
+            )
+            raise PublicOnlyModeError(
+                msg
             )
         data = await self.api_request_obj("bootstrap")
         await _async_warm_nvr_timezone(data["nvr"])
@@ -2507,7 +2537,8 @@ class ProtectApiClient(BaseApiClient):
             obj = create_from_unifi_dict(obj_dict, api=self)
 
             if expected_type is not None and not isinstance(obj, expected_type):
-                raise NvrError(f"Unexpected model returned: {obj.model}")
+                msg = f"Unexpected model returned: {obj.model}"
+                raise NvrError(msg)
             if (
                 self.ignore_unadopted
                 and isinstance(obj, ProtectAdoptableDeviceModel)
@@ -2622,13 +2653,15 @@ class ProtectApiClient(BaseApiClient):
         )
 
         if expected_type is not None and not isinstance(obj, expected_type):
-            raise NvrError(f"Unexpected model returned: {obj.model}")
+            msg = f"Unexpected model returned: {obj.model}"
+            raise NvrError(msg)
         if (
             self.ignore_unadopted
             and isinstance(obj, ProtectAdoptableDeviceModel)
             and not obj.is_adopted
         ):
-            raise NvrError("Device is not adopted")
+            msg = "Device is not adopted"
+            raise NvrError(msg)
 
         return cast("ProtectModelWithId", obj)
 
@@ -3199,7 +3232,8 @@ class ProtectApiClient(BaseApiClient):
         )
 
         if not data.get(key, {}).get(device_id, {}).get("adopted", False):
-            raise BadRequest("Could not adopt device")
+            msg = "Could not adopt device"
+            raise BadRequest(msg)
 
     async def close_lock(self, device_id: str) -> None:
         """Close doorlock (lock)"""
@@ -3254,7 +3288,8 @@ class ProtectApiClient(BaseApiClient):
         ):
             chime = self.bootstrap.chimes.get(device_id)
             if chime is None:
-                raise BadRequest(f"Invalid chime ID {device_id}")
+                msg = f"Invalid chime ID {device_id}"
+                raise BadRequest(msg)
 
             data = {
                 "volume": volume if volume is not None else chime.volume,
@@ -3327,14 +3362,16 @@ class ProtectApiClient(BaseApiClient):
             aiohttp.ServerDisconnectedError,
             client_exceptions.ClientError,
         ) as err:
-            raise NvrError(f"Error packages from {url}: {err}") from err
+            msg = f"Error packages from {url}: {err}"
+            raise NvrError(msg) from err
 
         return versions
 
     async def create_api_key(self, name: str) -> str:
         """Create an API key with the given name and return the full API key."""
         if not name:
-            raise BadRequest("API key name cannot be empty")
+            msg = "API key name cannot be empty"
+            raise BadRequest(msg)
 
         response = await self.api_request(
             api_path="/proxy/users/api/v2",
@@ -3349,14 +3386,16 @@ class ProtectApiClient(BaseApiClient):
             or not isinstance(response["data"], dict)
             or "full_api_key" not in response["data"]
         ):
-            raise BadRequest("Failed to create API key")
+            msg = "Failed to create API key"
+            raise BadRequest(msg)
 
         return response["data"]["full_api_key"]
 
     def set_api_key(self, api_key: str) -> None:
         """Set the API key for the NVR."""
         if not api_key:
-            raise BadRequest("API key cannot be empty")
+            msg = "API key cannot be empty"
+            raise BadRequest(msg)
 
         self._api_key = api_key
 
@@ -3378,7 +3417,8 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
         )
         if not isinstance(data, dict):
-            raise NvrError("Failed to retrieve meta info from public API")
+            msg = "Failed to retrieve meta info from public API"
+            raise NvrError(msg)
         return MetaInfo(**data)
 
     # Public API Methods
@@ -3443,7 +3483,8 @@ class ProtectApiClient(BaseApiClient):
             data["lightDeviceSettings"] = device_dict
 
         if not data:
-            raise BadRequest("At least one parameter must be provided")
+            msg = "At least one parameter must be provided"
+            raise BadRequest(msg)
 
         result = await self.api_request_obj(
             url=f"/v1/lights/{light_id}",
@@ -3515,7 +3556,8 @@ class ProtectApiClient(BaseApiClient):
             body["ledSettings"] = led
         if mic_volume is not None:
             if not 1 <= mic_volume <= 100:
-                raise BadRequest("mic_volume must be between 1 and 100")
+                msg = "mic_volume must be between 1 and 100"
+                raise BadRequest(msg)
             body["micVolume"] = mic_volume
         detect: dict[str, Any] = {}
         if smart_detect_object_types is not None:
@@ -3536,7 +3578,8 @@ class ProtectApiClient(BaseApiClient):
         if osd:
             body["osdSettings"] = osd
         if not body:
-            raise BadRequest("At least one parameter must be provided")
+            msg = "At least one parameter must be provided"
+            raise BadRequest(msg)
         result = await self.api_request_obj(
             url=f"/v1/cameras/{camera_id}",
             method="patch",
@@ -3597,7 +3640,8 @@ class ProtectApiClient(BaseApiClient):
             data["ringSettings"] = ring_settings
 
         if not data:
-            raise BadRequest("At least one parameter must be provided")
+            msg = "At least one parameter must be provided"
+            raise BadRequest(msg)
 
         result = await self.api_request_obj(
             url=f"/v1/chimes/{chime_id}",
@@ -3732,7 +3776,8 @@ class ProtectApiClient(BaseApiClient):
             body["alarmSettings"] = dict(alarm_settings)
 
         if not body:
-            raise BadRequest("At least one parameter must be provided")
+            msg = "At least one parameter must be provided"
+            raise BadRequest(msg)
 
         result = await self.api_request_obj(
             url=f"/v1/sensors/{sensor_id}",
@@ -3790,7 +3835,8 @@ class ProtectApiClient(BaseApiClient):
             body["volume"] = volume
 
         if not body:
-            raise BadRequest("At least one parameter must be provided")
+            msg = "At least one parameter must be provided"
+            raise BadRequest(msg)
 
         result = await self.api_request_obj(
             url=f"/v1/sirens/{siren_id}",
@@ -3812,9 +3858,12 @@ class ProtectApiClient(BaseApiClient):
             try:
                 norm_duration = SirenDuration(duration)
             except ValueError as err:
-                raise BadRequest(
+                msg = (
                     "duration must be one of the supported siren durations "
                     f"{', '.join(str(item.value) for item in SirenDuration)} seconds"
+                )
+                raise BadRequest(
+                    msg
                 ) from err
         await self.api_request_raw(
             url=f"/v1/sirens/{siren_id}/play",
@@ -3873,7 +3922,8 @@ class ProtectApiClient(BaseApiClient):
         )
 
         if not body:
-            raise BadRequest("At least one parameter must be provided")
+            msg = "At least one parameter must be provided"
+            raise BadRequest(msg)
 
         result = await self.api_request_obj(
             url=f"/v1/relays/{relay_id}",
@@ -3899,7 +3949,8 @@ class ProtectApiClient(BaseApiClient):
         off after the given milliseconds.
         """
         if pulse_duration_ms is not None and state != "on":
-            raise BadRequest("pulse_duration_ms may only be combined with state='on'")
+            msg = "pulse_duration_ms may only be combined with state='on'"
+            raise BadRequest(msg)
         body: dict[str, Any] = {}
         if state is not None:
             body["state"] = state
@@ -3932,7 +3983,8 @@ class ProtectApiClient(BaseApiClient):
         if name is not None:
             body["name"] = name
         if not body:
-            raise BadRequest("At least one parameter must be provided")
+            msg = "At least one parameter must be provided"
+            raise BadRequest(msg)
         result = await self.api_request_obj(
             url=f"/v1/fobs/{fob_id}", method="patch", json=body, public_api=True
         )
@@ -3974,7 +4026,8 @@ class ProtectApiClient(BaseApiClient):
         if is_mic_enabled is not None:
             body["isMicEnabled"] = is_mic_enabled
         if not body:
-            raise BadRequest("At least one parameter must be provided")
+            msg = "At least one parameter must be provided"
+            raise BadRequest(msg)
         result = await self.api_request_obj(
             url=f"/v1/speakers/{speaker_id}",
             method="patch",
@@ -4033,7 +4086,8 @@ class ProtectApiClient(BaseApiClient):
         if name is not None:
             body["name"] = name
         if not body:
-            raise BadRequest("At least one parameter must be provided")
+            msg = "At least one parameter must be provided"
+            raise BadRequest(msg)
         result = await self.api_request_obj(
             url=f"/v1/link-stations/{link_station_id}",
             method="patch",
@@ -4050,7 +4104,8 @@ class ProtectApiClient(BaseApiClient):
         if name is not None:
             body["name"] = name
         if not body:
-            raise BadRequest("At least one parameter must be provided")
+            msg = "At least one parameter must be provided"
+            raise BadRequest(msg)
         result = await self.api_request_obj(
             url=f"/v1/alarm-hubs/{hub_id}",
             method="patch",
@@ -4070,9 +4125,11 @@ class ProtectApiClient(BaseApiClient):
     ) -> None:
         """Trigger an alarm-hub output channel using public API."""
         if delay is not None and delay < 0:
-            raise BadRequest("delay must be >= 0")
+            msg = "delay must be >= 0"
+            raise BadRequest(msg)
         if duration is not None and duration < 0:
-            raise BadRequest("duration must be >= 0")
+            msg = "duration must be >= 0"
+            raise BadRequest(msg)
         body: dict[str, Any] = {}
         if enable is not None:
             body["enable"] = enable
@@ -4114,7 +4171,8 @@ class ProtectApiClient(BaseApiClient):
         if name is not None:
             body["name"] = name
         if not body:
-            raise BadRequest("At least one parameter must be provided")
+            msg = "At least one parameter must be provided"
+            raise BadRequest(msg)
         data = await self.api_request_obj(
             url=f"/v1/bridges/{bridge_id}",
             method="patch",
@@ -4161,7 +4219,8 @@ class ProtectApiClient(BaseApiClient):
         if liveview is not _UNSET:
             body["liveview"] = liveview
         if not body:
-            raise BadRequest("At least one parameter must be provided")
+            msg = "At least one parameter must be provided"
+            raise BadRequest(msg)
         data = await self.api_request_obj(
             url=f"/v1/viewers/{viewer_id}",
             method="patch",
@@ -4204,7 +4263,8 @@ class ProtectApiClient(BaseApiClient):
     ) -> PublicLiveview:
         """Create a new liveview using public API."""
         if not 1 <= layout <= 26:
-            raise BadRequest("layout must be between 1 and 26")
+            msg = "layout must be between 1 and 26"
+            raise BadRequest(msg)
         body: dict[str, Any] = {
             "name": name,
             "isDefault": is_default,
@@ -4237,7 +4297,8 @@ class ProtectApiClient(BaseApiClient):
     ) -> PublicLiveview:
         """Patch an existing liveview (partial update) using public API."""
         if layout is not None and not 1 <= layout <= 26:
-            raise BadRequest("layout must be between 1 and 26")
+            msg = "layout must be between 1 and 26"
+            raise BadRequest(msg)
         body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
@@ -4252,7 +4313,8 @@ class ProtectApiClient(BaseApiClient):
         if slots is not None:
             body["slots"] = [dict(s) for s in slots]
         if not body:
-            raise BadRequest("At least one parameter must be provided")
+            msg = "At least one parameter must be provided"
+            raise BadRequest(msg)
         data = await self.api_request_obj(
             url=f"/v1/liveviews/{liveview_id}",
             method="patch",
@@ -4271,7 +4333,8 @@ class ProtectApiClient(BaseApiClient):
     async def send_alarm_webhook_public(self, trigger_id: str) -> None:
         """Fire the alarm-manager webhook for the given trigger id."""
         if not trigger_id:
-            raise BadRequest("trigger_id is required")
+            msg = "trigger_id is required"
+            raise BadRequest(msg)
         await self.api_request_raw(
             url=f"/v1/alarm-manager/webhook/{quote(trigger_id, safe='')}",
             method="post",
@@ -4346,7 +4409,8 @@ class ProtectApiClient(BaseApiClient):
             body["activationDelay"] = activation_delay
 
         if not body:
-            raise BadRequest("At least one parameter must be provided")
+            msg = "At least one parameter must be provided"
+            raise BadRequest(msg)
 
         data = await self.api_request_obj(
             url=f"/v1/arm-profiles/{profile_id}",
@@ -4499,7 +4563,8 @@ class ProtectApiClient(BaseApiClient):
             data=form,
         )
         if not raw:
-            raise NvrError("Empty response from upload_file_public")
+            msg = "Empty response from upload_file_public"
+            raise NvrError(msg)
         return PublicFile.from_unifi_dict(**orjson.loads(raw), api=self)
 
     # ------------------------------------------------------------------

@@ -53,7 +53,8 @@ def _get_download_url(version: str | None) -> tuple[str, str]:
     if version:
         parts = version.split(".")
         if len(parts) != 3:
-            raise ValueError(f"version must be MAJOR.MINOR.PATCH, got {version!r}")
+            msg = f"version must be MAJOR.MINOR.PATCH, got {version!r}"
+            raise ValueError(msg)
         major, minor, patch = parts
         params += [
             f"filter=eq~~version_major~~{major}",
@@ -69,7 +70,8 @@ def _get_download_url(version: str | None) -> tuple[str, str]:
 
     entries = data["_embedded"]["firmware"]
     if not entries:
-        raise RuntimeError(f"No firmware found for version={version!r}")
+        msg = f"No firmware found for version={version!r}"
+        raise RuntimeError(msg)
 
     fw = entries[0]
     return fw["_links"]["data"]["href"], fw["version"]
@@ -78,7 +80,8 @@ def _get_download_url(version: str | None) -> tuple[str, str]:
 def _extract_from_deb(deb_bytes: bytes) -> bytes:
     """Extract the integration openapi.json from a .deb (ar archive)."""
     if deb_bytes[:8] != b"!<arch>\n":
-        raise ValueError("Not an ar archive")
+        msg = "Not an ar archive"
+        raise ValueError(msg)
 
     offset = 8
     while offset < len(deb_bytes):
@@ -92,10 +95,12 @@ def _extract_from_deb(deb_bytes: bytes) -> bytes:
             with tarfile.open(fileobj=io.BytesIO(member_data)) as tf:
                 f = tf.extractfile(tf.getmember(SPEC_MEMBER))
                 if f is None:
-                    raise RuntimeError(f"{SPEC_MEMBER!r} is not a regular file in deb")
+                    msg = f"{SPEC_MEMBER!r} is not a regular file in deb"
+                    raise RuntimeError(msg)
                 return f.read()
 
-    raise FileNotFoundError(f"{SPEC_MEMBER!r} not found in deb")
+    msg = f"{SPEC_MEMBER!r} not found in deb"
+    raise FileNotFoundError(msg)
 
 
 if __name__ == "__main__":

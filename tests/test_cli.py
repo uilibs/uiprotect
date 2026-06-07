@@ -10,10 +10,12 @@ import pytest
 # absent (a minimal install without --all-extras) instead of failing collection.
 pytest.importorskip("uiprotect.cli")
 
+import typer
 from typer.testing import CliRunner
 
 from uiprotect.cli import _is_ssl_error, app
 from uiprotect.cli.arm import app as arm_app
+from uiprotect.cli.backup import relative_datetime
 from uiprotect.cli.bridges import app as bridges_app
 from uiprotect.cli.cameras import app as cameras_app
 from uiprotect.cli.files_public import app as files_public_app
@@ -38,6 +40,12 @@ def test_help():
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     assert "UniFi Protect CLI" in result.stdout
+
+
+def test_relative_datetime_rejects_unparseable_value():
+    """An unparseable datetime string raises typer.BadParameter."""
+    with pytest.raises(typer.BadParameter, match="ISO 8601"):
+        relative_datetime(MagicMock(), "definitely not a date", MagicMock())
 
 
 def test_is_ssl_error_with_ssl_exceptions():

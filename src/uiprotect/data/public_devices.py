@@ -216,9 +216,12 @@ class PublicCamera(ProtectModelWithId):
     has_package_camera: bool
 
     async def _api_update(self, data: dict[str, Any]) -> None:
-        raise BadRequest(
+        msg = (
             "Camera mutations must go through the dedicated public API helpers "
             "(update_camera_public)."
+        )
+        raise BadRequest(
+            msg
         )
 
 
@@ -258,9 +261,12 @@ class PublicLight(ProtectModelWithId):
     camera: str | None = None
 
     async def _api_update(self, data: dict[str, Any]) -> None:
-        raise BadRequest(
+        msg = (
             "Light mutations must go through the dedicated public API helpers "
             "(update_light_public)."
+        )
+        raise BadRequest(
+            msg
         )
 
 
@@ -353,9 +359,12 @@ class PublicSensor(ProtectModelWithId):
     has_custom_sensitivity_when_armed: bool = False
 
     async def _api_update(self, data: dict[str, Any]) -> None:
-        raise BadRequest(
+        msg = (
             "Sensor mutations must go through the dedicated public API helpers "
             "(update_sensor_public)."
+        )
+        raise BadRequest(
+            msg
         )
 
 
@@ -383,9 +392,12 @@ class PublicChime(ProtectModelWithId):
     ring_settings: list[PublicRingSettings] = Field(default_factory=list)
 
     async def _api_update(self, data: dict[str, Any]) -> None:
-        raise BadRequest(
+        msg = (
             "Chime mutations must go through the dedicated public API helpers "
             "(update_chime_public)."
+        )
+        raise BadRequest(
+            msg
         )
 
 
@@ -438,9 +450,12 @@ class Siren(ProtectModelWithId):
         # Integration endpoints; consumers must use the dedicated
         # ``update_siren_public`` / ``play`` / ``stop`` / ``test_sound``
         # helpers instead.
-        raise BadRequest(
+        msg = (
             "Siren mutations must go through the dedicated public API helpers "
             "(e.g. play/stop/set_name/set_volume/set_status_light)."
+        )
+        raise BadRequest(
+            msg
         )
 
     @property
@@ -528,9 +543,12 @@ class Relay(ProtectModelWithId):
         # See :meth:`Siren._api_update` — consumers must use
         # ``update_relay_public`` / ``activate_relay_output_public`` (or the
         # helper methods on this class).
-        raise BadRequest(
+        msg = (
             "Relay mutations must go through the dedicated public API helpers "
             "(e.g. activate_output/set_name/set_status_light)."
+        )
+        raise BadRequest(
+            msg
         )
 
     def get_output(self, output_id: int) -> PublicRelayOutput | None:
@@ -629,9 +647,12 @@ class Speaker(ProtectModelWithId):
         # See :meth:`Siren._api_update` — consumers must use
         # ``update_speaker_public`` / ``test_speaker_sound_public`` (or the
         # helper methods on this class).
-        raise BadRequest(
+        msg = (
             "Speaker mutations must go through the dedicated public API helpers "
             "(e.g. set_name/set_volume/set_mic_volume/set_mic_enabled/test_sound)."
+        )
+        raise BadRequest(
+            msg
         )
 
     async def set_name(self, name: str) -> Speaker:
@@ -742,10 +763,13 @@ class LinkStation(ProtectModelWithId):
     alarm_hub: dict[str, Any] | None = None
 
     async def _api_update(self, data: dict[str, Any]) -> None:
-        raise BadRequest(
+        msg = (
             "LinkStation mutations must go through the dedicated public API helpers "
             "(update_link_station_public / update_alarm_hub_public / "
             "trigger_alarm_hub_output_public)."
+        )
+        raise BadRequest(
+            msg
         )
 
     async def set_name(self, name: str) -> LinkStation:
@@ -764,7 +788,8 @@ class LinkStation(ProtectModelWithId):
     ) -> None:
         """Trigger an alarm-hub output channel. Raises if this is not an alarm hub."""
         if not self.is_alarm_hub:
-            raise BadRequest("Not an alarm hub")
+            msg = "Not an alarm hub"
+            raise BadRequest(msg)
         await self._api.trigger_alarm_hub_output_public(
             self.id,
             output_id,
@@ -988,9 +1013,12 @@ class PublicLiveview(ProtectModelWithId):
     slots: list[PublicLiveviewSlot]
 
     async def _api_update(self, data: dict[str, Any]) -> None:
-        raise BadRequest(
+        msg = (
             "Liveview mutations must go through the dedicated public API helpers "
             "(create_liveview_public / update_liveview_public)."
+        )
+        raise BadRequest(
+            msg
         )
 
 
@@ -1018,9 +1046,12 @@ class PublicBridge(ProtectModelWithId):
     max_clients: int
 
     async def _api_update(self, data: dict[str, Any]) -> None:
-        raise BadRequest(
+        msg = (
             "Bridge mutations must go through the dedicated public API helpers "
             "(update_bridge_public)."
+        )
+        raise BadRequest(
+            msg
         )
 
     async def set_name(self, name: str) -> PublicBridge:
@@ -1057,9 +1088,12 @@ class PublicViewer(ProtectModelWithId):
         return {**super()._get_unifi_remaps(), "liveview": "liveviewId"}
 
     async def _api_update(self, data: dict[str, Any]) -> None:
-        raise BadRequest(
+        msg = (
             "Viewer mutations must go through the dedicated public API helpers "
             "(update_viewer_public)."
+        )
+        raise BadRequest(
+            msg
         )
 
     async def set_name(self, name: str) -> PublicViewer:

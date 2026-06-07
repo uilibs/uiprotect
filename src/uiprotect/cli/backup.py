@@ -64,8 +64,9 @@ def _safe_join(base: Path, file_path: str) -> Path:
     candidate = (base / file_path).resolve()
     base_resolved = base.resolve()
     if not candidate.is_relative_to(base_resolved):
+        msg = f"refusing to use path outside output dir: {candidate}"
         raise ValueError(
-            f"refusing to use path outside output dir: {candidate}",
+            msg,
         )
     return candidate
 
@@ -320,8 +321,9 @@ def relative_datetime(ctx: typer.Context, value: str, param: Parameter) -> datet
     if dt := dateparser.parse(value):
         return dt
 
+    msg = "Must be a ISO 8601 format or human readable relative format"
     raise typer.BadParameter(
-        "Must be a ISO 8601 format or human readable relative format",
+        msg,
         ctx,
         param,
     )

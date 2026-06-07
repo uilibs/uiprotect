@@ -169,7 +169,8 @@ class TalkbackStream:
 
         """
         if not camera.feature_flags.has_speaker:
-            raise BadRequest("Camera does not have a speaker for talkback")
+            msg = "Camera does not have a speaker for talkback"
+            raise BadRequest(msg)
 
         self.camera = camera
         self.content_url = content_url
@@ -294,7 +295,8 @@ class TalkbackStream:
         """Start streaming thread if not already running. Must hold lock."""
         if self._thread is not None and self._thread.is_alive():
             if raise_if_running:
-                raise StreamError("Stream already started")
+                msg = "Stream already started"
+                raise StreamError(msg)
             return
         # Don't clear a pending stop signal — stop() sets the event before
         # acquiring the lock, so a concurrent start() must not clobber it.
@@ -343,4 +345,6 @@ class TalkbackStream:
                 self._error = None
                 if isinstance(error, BaseException):
                     raise error
-                raise StreamError(f"Unexpected error: {error}")
+                # Message kept inline: mypy treats this defensive branch as
+                # unreachable and would report the extracted `msg =` line.
+                raise StreamError(f"Unexpected error: {error}")  # noqa: EM102
