@@ -3019,6 +3019,30 @@ def test_rtsps_streams_class():
     assert empty_stream.get_available_stream_qualities() == []
 
 
+def test_rtsps_streams_get_stream_url_srtp():
+    """Test get_stream_url srtp flag strips the ?enableSrtp query for go2rtc."""
+    streams = RTSPSStreams(high="rtsps://example.com:7441/abc?enableSrtp")
+
+    assert streams.get_stream_url("high") == "rtsps://example.com:7441/abc?enableSrtp"
+    assert (
+        streams.get_stream_url("high", srtp=True)
+        == "rtsps://example.com:7441/abc?enableSrtp"
+    )
+    assert streams.get_stream_url("high", srtp=False) == "rtsps://example.com:7441/abc"
+    # Missing quality returns None regardless of srtp.
+    assert streams.get_stream_url("nonexistent", srtp=False) is None
+
+    # srtp=False is a no-op when there is no ?enableSrtp suffix, and only that
+    # exact suffix is stripped — any other query stays intact.
+    plain = RTSPSStreams(high="rtsps://example.com:7441/abc")
+    assert plain.get_stream_url("high", srtp=False) == "rtsps://example.com:7441/abc"
+    other = RTSPSStreams(high="rtsps://example.com:7441/abc?foo=bar")
+    assert (
+        other.get_stream_url("high", srtp=False)
+        == "rtsps://example.com:7441/abc?foo=bar"
+    )
+
+
 def test_rtsps_streams_active_inactive():
     """Test RTSPSStreams active/inactive stream quality detection."""
     # Test with mixed active and inactive streams

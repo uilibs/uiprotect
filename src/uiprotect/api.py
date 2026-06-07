@@ -343,9 +343,15 @@ class RTSPSStreams(ProtectBaseObject):
     # Besides standard qualities (high/medium/low), there are special cases like "package" for doorbells
     # and unclear implementation for 180° cameras with dual sensors. Dynamic handling via __pydantic_extra__ is safer.
 
-    def get_stream_url(self, quality: str) -> str | None:
-        """Get stream URL for a specific quality level."""
-        return getattr(self, quality, None)
+    def get_stream_url(self, quality: str, srtp: bool = True) -> str | None:
+        """Get stream URL for a quality level; ``srtp=False`` strips ``?enableSrtp``."""
+        url = getattr(self, quality, None)
+        if srtp or not isinstance(url, str):
+            return url
+        # Strip only the exact ?enableSrtp suffix the server appends (mirrors the
+        # private rtsps_url construction); go2rtc rejects the SRTP variant. A
+        # generic query strip would be wrong if Protect ever adds other params.
+        return url.removesuffix("?enableSrtp")
 
     def get_available_stream_qualities(self) -> list[str]:
         """

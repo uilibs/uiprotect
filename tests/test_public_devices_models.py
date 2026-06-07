@@ -14,7 +14,7 @@ from uiprotect.data import (
     PublicSensor,
 )
 from uiprotect.data.public_bootstrap import PublicBootstrap
-from uiprotect.data.types import ModelType, SensorScheduleMode
+from uiprotect.data.types import ChannelQuality, ModelType, SensorScheduleMode
 from uiprotect.exceptions import BadRequest
 
 CAMERA_PAYLOAD: dict[str, Any] = {
@@ -193,6 +193,31 @@ def test_public_camera_drops_private_only_fields() -> None:
         api=Mock(), **{**CAMERA_PAYLOAD, "recordingSettings": {"mode": "always"}}
     )
     assert not hasattr(obj, "recording_settings")
+
+
+@pytest.mark.parametrize(
+    ("has_package_camera", "expected"),
+    [
+        (False, [ChannelQuality.HIGH, ChannelQuality.MEDIUM, ChannelQuality.LOW]),
+        (
+            True,
+            [
+                ChannelQuality.HIGH,
+                ChannelQuality.MEDIUM,
+                ChannelQuality.LOW,
+                ChannelQuality.PACKAGE,
+            ],
+        ),
+    ],
+)
+def test_public_camera_hardware_stream_qualities(
+    has_package_camera: bool, expected: list[ChannelQuality]
+) -> None:
+    """Hardware qualities are high/medium/low plus package only when supported."""
+    obj = PublicCamera.from_unifi_dict(
+        api=Mock(), **{**CAMERA_PAYLOAD, "hasPackageCamera": has_package_camera}
+    )
+    assert obj.hardware_stream_qualities() == expected
 
 
 def test_public_sensor_sub_models_typed() -> None:
