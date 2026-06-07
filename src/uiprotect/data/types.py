@@ -39,12 +39,16 @@ def get_field_type(annotation: type[Any] | None) -> tuple[type | None, Any]:
             raise ValueError(msg)
         return origin, args[1]
     if origin is Annotated:
-        if not (args := get_args(annotation)):  # pragma: no cover  # Annotated always carries args
+        if not (
+            args := get_args(annotation)
+        ):  # pragma: no cover  # Annotated always carries args
             msg = f"Unable to determine args of type: {annotation}"
             raise ValueError(msg)
         return None, args[0]
     if origin is Union or origin is types.UnionType:
-        if not (args := get_args(annotation)):  # pragma: no cover  # Union always carries args
+        if not (
+            args := get_args(annotation)
+        ):  # pragma: no cover  # Union always carries args
             msg = f"Unable to determine args of type: {annotation}"
             raise ValueError(msg)
         args = [get_field_type(arg) for arg in args]

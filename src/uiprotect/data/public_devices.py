@@ -220,9 +220,7 @@ class PublicCamera(ProtectModelWithId):
             "Camera mutations must go through the dedicated public API helpers "
             "(update_camera_public)."
         )
-        raise BadRequest(
-            msg
-        )
+        raise BadRequest(msg)
 
 
 # ---------------------------------------------------------------------------
@@ -265,9 +263,7 @@ class PublicLight(ProtectModelWithId):
             "Light mutations must go through the dedicated public API helpers "
             "(update_light_public)."
         )
-        raise BadRequest(
-            msg
-        )
+        raise BadRequest(msg)
 
 
 # ---------------------------------------------------------------------------
@@ -363,9 +359,7 @@ class PublicSensor(ProtectModelWithId):
             "Sensor mutations must go through the dedicated public API helpers "
             "(update_sensor_public)."
         )
-        raise BadRequest(
-            msg
-        )
+        raise BadRequest(msg)
 
 
 # ---------------------------------------------------------------------------
@@ -396,9 +390,7 @@ class PublicChime(ProtectModelWithId):
             "Chime mutations must go through the dedicated public API helpers "
             "(update_chime_public)."
         )
-        raise BadRequest(
-            msg
-        )
+        raise BadRequest(msg)
 
 
 # ---------------------------------------------------------------------------
@@ -454,9 +446,7 @@ class Siren(ProtectModelWithId):
             "Siren mutations must go through the dedicated public API helpers "
             "(e.g. play/stop/set_name/set_volume/set_status_light)."
         )
-        raise BadRequest(
-            msg
-        )
+        raise BadRequest(msg)
 
     @property
     def is_active(self) -> bool:
@@ -547,9 +537,7 @@ class Relay(ProtectModelWithId):
             "Relay mutations must go through the dedicated public API helpers "
             "(e.g. activate_output/set_name/set_status_light)."
         )
-        raise BadRequest(
-            msg
-        )
+        raise BadRequest(msg)
 
     def get_output(self, output_id: int) -> PublicRelayOutput | None:
         """Return the output with the given id, or ``None`` if not found."""
@@ -651,9 +639,7 @@ class Speaker(ProtectModelWithId):
             "Speaker mutations must go through the dedicated public API helpers "
             "(e.g. set_name/set_volume/set_mic_volume/set_mic_enabled/test_sound)."
         )
-        raise BadRequest(
-            msg
-        )
+        raise BadRequest(msg)
 
     async def set_name(self, name: str) -> Speaker:
         return await self._api.update_speaker_public(self.id, name=name)
@@ -768,9 +754,7 @@ class LinkStation(ProtectModelWithId):
             "(update_link_station_public / update_alarm_hub_public / "
             "trigger_alarm_hub_output_public)."
         )
-        raise BadRequest(
-            msg
-        )
+        raise BadRequest(msg)
 
     async def set_name(self, name: str) -> LinkStation:
         """Rename via the matching endpoint for the device's role."""
@@ -1017,9 +1001,7 @@ class PublicLiveview(ProtectModelWithId):
             "Liveview mutations must go through the dedicated public API helpers "
             "(create_liveview_public / update_liveview_public)."
         )
-        raise BadRequest(
-            msg
-        )
+        raise BadRequest(msg)
 
 
 # ---------------------------------------------------------------------------
@@ -1050,9 +1032,7 @@ class PublicBridge(ProtectModelWithId):
             "Bridge mutations must go through the dedicated public API helpers "
             "(update_bridge_public)."
         )
-        raise BadRequest(
-            msg
-        )
+        raise BadRequest(msg)
 
     async def set_name(self, name: str) -> PublicBridge:
         return await self._api.update_bridge_public(self.id, name=name)
@@ -1092,9 +1072,7 @@ class PublicViewer(ProtectModelWithId):
             "Viewer mutations must go through the dedicated public API helpers "
             "(update_viewer_public)."
         )
-        raise BadRequest(
-            msg
-        )
+        raise BadRequest(msg)
 
     async def set_name(self, name: str) -> PublicViewer:
         return await self._api.update_viewer_public(self.id, name=name)

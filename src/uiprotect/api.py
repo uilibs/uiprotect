@@ -443,9 +443,7 @@ class BaseApiClient:
                 "Provide both username and password, or an api_key, "
                 "to construct a client"
             )
-            raise BadRequest(
-                msg
-            )
+            raise BadRequest(msg)
 
         self._auth_lock = asyncio.Lock()
         self._host = host
@@ -972,9 +970,7 @@ class BaseApiClient:
                 "Private authentication is unavailable on a public-only client; "
                 "use the public API surface (update_public, subscribe_*, public setters)"
             )
-            raise PublicOnlyModeError(
-                msg
-            )
+            raise PublicOnlyModeError(msg)
         await self._load_session()
         if self.is_authenticated() is False:
             await self.authenticate()
@@ -986,9 +982,7 @@ class BaseApiClient:
                 "Private authentication is unavailable on a public-only client; "
                 "use the public API surface (update_public, subscribe_*, public setters)"
             )
-            raise PublicOnlyModeError(
-                msg
-            )
+            raise PublicOnlyModeError(msg)
         if self._auth_lock.locked():
             # If an auth is already in progress
             # do not start another one
@@ -1529,9 +1523,7 @@ class ProtectApiClient(BaseApiClient):
         """
         if self._public_bootstrap is None:
             msg = "Public bootstrap not initialized, run `update_public` first"
-            raise BadRequest(
-                msg
-            )
+            raise BadRequest(msg)
         return self._public_bootstrap
 
     @property
@@ -1563,9 +1555,7 @@ class ProtectApiClient(BaseApiClient):
                 "Private bootstrap is unavailable on a public-only client; "
                 "use update_public() instead"
             )
-            raise PublicOnlyModeError(
-                msg
-            )
+            raise PublicOnlyModeError(msg)
         async with self._update_lock:
             bootstrap = await self.get_bootstrap()
             if bootstrap.nvr.version >= NFC_FINGERPRINT_SUPPORT_VERSION:
@@ -2149,9 +2139,7 @@ class ProtectApiClient(BaseApiClient):
                 "subscribe_events() requires update_public() to have been called"
                 " at least once"
             )
-            raise RuntimeError(
-                msg
-            )
+            raise RuntimeError(msg)
 
         # Local import to avoid circular import (events.dispatcher → api).
         from .events.dispatcher import EventDispatcher  # noqa: PLC0415
@@ -2282,9 +2270,7 @@ class ProtectApiClient(BaseApiClient):
                 "subscribe_devices() requires update_public() to have been called"
                 " at least once"
             )
-            raise RuntimeError(
-                msg
-            )
+            raise RuntimeError(msg)
 
         # Local import to avoid circular import (devices.dispatcher → api).
         from .devices.dispatcher import DeviceDispatcher  # noqa: PLC0415
@@ -2514,9 +2500,7 @@ class ProtectApiClient(BaseApiClient):
                 "Private bootstrap is unavailable on a public-only client; "
                 "use update_public() instead"
             )
-            raise PublicOnlyModeError(
-                msg
-            )
+            raise PublicOnlyModeError(msg)
         data = await self.api_request_obj("bootstrap")
         await _async_warm_nvr_timezone(data["nvr"])
         return Bootstrap.from_unifi_dict(**data, api=self)
@@ -3862,9 +3846,7 @@ class ProtectApiClient(BaseApiClient):
                     "duration must be one of the supported siren durations "
                     f"{', '.join(str(item.value) for item in SirenDuration)} seconds"
                 )
-                raise BadRequest(
-                    msg
-                ) from err
+                raise BadRequest(msg) from err
         await self.api_request_raw(
             url=f"/v1/sirens/{siren_id}/play",
             method="post",
