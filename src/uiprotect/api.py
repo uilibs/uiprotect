@@ -4694,8 +4694,7 @@ class ProtectApiClient(BaseApiClient):
         to_prime = [
             camera
             for camera in pb.cameras.values()
-            if camera.rtsps_streams is None
-            and camera.state is DeviceState.CONNECTED
+            if camera.rtsps_streams is None and camera.state is DeviceState.CONNECTED
         ]
         if not to_prime:
             return

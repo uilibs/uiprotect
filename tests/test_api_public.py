@@ -3126,9 +3126,7 @@ async def test_resync_public_bootstrap_skips_rtsps_refresh_when_empty(
 
 def _public_camera(camera_id: str, state: DeviceState) -> PublicCamera:
     """Build a bare public camera for ``update_public`` priming tests."""
-    return PublicCamera.model_construct(
-        id=camera_id, state=state, rtsps_streams=None
-    )
+    return PublicCamera.model_construct(id=camera_id, state=state, rtsps_streams=None)
 
 
 @pytest.mark.asyncio()
