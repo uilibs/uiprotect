@@ -1,5 +1,16 @@
 # Changelog
 
+## v12.0.0 (2026-06-08)
+
+### Features
+
+
+- Own rtsps stream lifecycle on publiccamera ([`e05fff5`](https://github.com/uilibs/uiprotect/commit/e05fff58b9a0e0959438708f03377f0c82fd37d9))
+
+
+- Own rtsps stream lifecycle on publiccamera ([`e05fff5`](https://github.com/uilibs/uiprotect/commit/e05fff58b9a0e0959438708f03377f0c82fd37d9))
+
+
 ## v11.10.0 (2026-06-08)
 
 ### Bug fixes
