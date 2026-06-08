@@ -921,9 +921,6 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     bridge_id: str | None = None
     is_downloading_firmware: bool | None = None
 
-    # TODO:
-    # bridgeCandidates
-
     @classmethod
     @cache
     def _get_read_only_fields(cls) -> set[str]:

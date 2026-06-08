@@ -914,7 +914,6 @@ def compare_objs(obj_type, expected, actual):
     expected = deepcopy(expected)
     actual = deepcopy(actual)
 
-    # TODO: fields not supported yet
     if obj_type in (ModelType.CAMERA.value, ModelType.AIPORT.value):
         # fields does not always exist (G4 Instant)
         expected.pop("apMac", None)
@@ -1048,7 +1047,6 @@ def compare_objs(obj_type, expected, actual):
         del expected["apRssi"]
         del expected["elementInfo"]
     elif obj_type == ModelType.NVR.value:
-        # TODO: fields that still need implemented
         del expected["errorCode"]
         del expected["wifiSettings"]
         del expected["smartDetectAgreement"]
@@ -1072,7 +1070,6 @@ def compare_objs(obj_type, expected, actual):
                 "retentionDurationMs",
             )
 
-            # TODO:
             expected["globalCameraSettings"].pop("recordingSchedulesV2", None)
 
         if (
@@ -1135,7 +1132,6 @@ def compare_objs(obj_type, expected, actual):
                     del actual_device["space_type"]
                 if "size" in device:
                     actual_device["size"] = actual_device.pop("size", None)
-                # TODO field
                 if "reasons" in device:
                     del device["reasons"]
 

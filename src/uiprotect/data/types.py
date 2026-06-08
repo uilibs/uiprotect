@@ -184,9 +184,6 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
     @classmethod
     def _bootstrap_model_types(cls) -> tuple[ModelType, ...]:
         """Return the bootstrap models as a tuple."""
-        # TODO:
-        # legacyUFV
-        # display
         return (
             ModelType.CAMERA,
             ModelType.USER,

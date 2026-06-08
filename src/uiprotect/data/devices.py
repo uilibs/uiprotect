@@ -1182,18 +1182,6 @@ class Camera(ProtectMotionDeviceModel):
     is_paired_with_ai_port: bool | None = None
     # requires 5.2.39+
     is_adopted_by_access_app: bool | None = None
-    # TODO: used for adopting
-    # apMac read only
-    # apRssi read only
-    # elementInfo read only
-
-    # TODO:
-    # lastPrivacyZonePositionId
-    # smartDetectLines
-    # streamSharing read only
-    # stopStreamLevel
-    # uplinkDevice
-    # recordingSchedulesV2
 
     # not directly from UniFi
     last_ring_event_id: str | None = None
@@ -3835,11 +3823,6 @@ class Chime(ProtectAdoptableDeviceModel):
     repeat_times: RepeatTimes | None = None
     ring_settings: list[RingSetting] = []
     speaker_track_list: list[ChimeTrack] = []
-
-    # TODO: used for adoption
-    # apMac  read only
-    # apRssi  read only
-    # elementInfo  read only
 
     @classmethod
     @cache

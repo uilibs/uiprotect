@@ -134,13 +134,6 @@ class User(ProtectModelWithId):
     cloud_account: CloudAccount | None = None
     feature_flags: UserFeatureFlags
 
-    # TODO:
-    # settings
-    # alertRules
-    # notificationsV2
-    # notifications
-    # cloudProviders
-
     _groups: list[Group] | None = PrivateAttr(None)
     _perm_cache: dict[str, bool] = PrivateAttr({})
 

@@ -405,10 +405,6 @@ class Event(ProtectModelWithId):
     is_favorite: bool | None = None
     favorite_object_ids: list[str] | None = None
 
-    # TODO:
-    # partition
-    # description
-
     _smart_detect_events: list[Event] | None = PrivateAttr(None)
     _smart_detect_track: SmartDetectTrack | None = PrivateAttr(None)
     _smart_detect_zones: dict[int, CameraZone] | None = PrivateAttr(None)
@@ -851,9 +847,6 @@ class UOSSpace(ProtectBaseObject):
     # requires 2.8.22+
     space_type: str | None = None
 
-    # TODO:
-    # reasons
-
     @classmethod
     @cache
     def _get_unifi_remaps(cls) -> dict[str, str]:
@@ -888,9 +881,6 @@ class UOSSpace(ProtectBaseObject):
 class UOSStorage(ProtectBaseObject):
     disks: list[UOSDisk]
     space: list[UOSSpace]
-
-    # TODO:
-    # sdcards
 
 
 class SystemInfo(ProtectBaseObject):
@@ -1053,9 +1043,6 @@ class GlobalRecordingSettings(ProtectBaseObject):
     recording_settings: RecordingSettings
     smart_detect_settings: SmartDetectSettings
 
-    # TODO:
-    # recordingSchedulesV2
-
 
 class NVR(ProtectDeviceModel):
     can_auto_update: bool
@@ -1129,15 +1116,6 @@ class NVR(ProtectDeviceModel):
     smart_detection: NVRSmartDetection | None = None
     is_ucore_stacked: bool | None = None
     global_camera_settings: GlobalRecordingSettings | None = None
-
-    # TODO:
-    # errorCode   read only
-    # wifiSettings
-    # smartDetectAgreement
-    # dbRecoveryOptions
-    # portStatus
-    # cameraCapacity
-    # deviceFirmwareSettings
 
     @classmethod
     @cache
