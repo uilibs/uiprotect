@@ -126,8 +126,14 @@ is impossible:
   cache; `delete_camera_rtsps_streams` drops the deleted qualities (and evicts
   the camera entirely once no streams remain).
 - **Reconnect refresh.** When a public devices-WS frame moves a camera to
-  `CONNECTED` (a reconnect or firmware change can rotate the `rtsp_alias`),
-  its cached streams are invalidated so the next `cached=True` read re-fetches.
+  `CONNECTED` (a reconnect or firmware change can rotate the `rtsp_alias`), a
+  background re-fetch is scheduled that overwrites the cached entry **in
+  place**. A WebSocket reconnect resync refreshes every cached camera the same
+  way. The cache is **never emptied** — the old URLs stay readable until the
+  fresh ones land, so synchronous consumers that read
+  `public_bootstrap.rtsps_streams` directly never observe a `None`. Entries are
+  only ever removed by a camera `remove` frame or the client's own
+  `delete_camera_rtsps_streams`.
 
 ## Public vs. private API
 
