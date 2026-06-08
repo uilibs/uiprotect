@@ -53,6 +53,7 @@ from uiprotect.data import (
     ModelType,
     PTZPatrol,
     PTZPreset,
+    PublicBootstrap,
     create_from_unifi_dict,
 )
 from uiprotect.data.devices import LEDSettings
@@ -2991,6 +2992,169 @@ async def test_camera_rtsps_streams_channel_quality_enum_serialization():
         )
 
 
+def _rtsps_client() -> ProtectApiClient:
+    return ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key="test_key",
+        verify_ssl=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_camera_rtsps_streams_cached_hit_skips_request():
+    """``cached=True`` returns the cached streams without an HTTP request."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    cached = RTSPSStreams(high="rtsps://example.com/high")
+    client._public_bootstrap.rtsps_streams["camera123"] = cached
+
+    with patch.object(client, "api_request_raw", new=AsyncMock()) as mock_request:
+        result = await client.get_camera_rtsps_streams("camera123", cached=True)
+
+        mock_request.assert_not_called()
+        assert result is cached
+
+
+@pytest.mark.asyncio
+async def test_get_camera_rtsps_streams_cached_miss_fetches_and_stores():
+    """A cache miss fetches over HTTP and stores the result for later reads."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+
+    with patch.object(
+        client,
+        "api_request_raw",
+        new=AsyncMock(return_value=b'{"high": "rtsps://example.com/high"}'),
+    ) as mock_request:
+        result = await client.get_camera_rtsps_streams("camera123", cached=True)
+
+        mock_request.assert_called_once()
+        assert result is not None
+        assert client._public_bootstrap.rtsps_streams["camera123"] is result
+
+
+@pytest.mark.asyncio
+async def test_get_camera_rtsps_streams_fetch_refreshes_cache():
+    """A non-cached fetch overwrites any stale cache entry (write-through on read)."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    client._public_bootstrap.rtsps_streams["camera123"] = RTSPSStreams(
+        high="rtsps://example.com/stale"
+    )
+
+    with patch.object(
+        client,
+        "api_request_raw",
+        new=AsyncMock(return_value=b'{"high": "rtsps://example.com/fresh"}'),
+    ):
+        result = await client.get_camera_rtsps_streams("camera123")
+
+        assert result is not None
+        assert result.get_stream_url("high") == "rtsps://example.com/fresh"
+        assert (
+            client._public_bootstrap.rtsps_streams["camera123"].get_stream_url("high")
+            == "rtsps://example.com/fresh"
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_camera_rtsps_streams_no_bootstrap_does_not_cache():
+    """Without a primed public bootstrap the fetch still works and caches nothing."""
+    client = _rtsps_client()
+
+    with patch.object(
+        client,
+        "api_request_raw",
+        new=AsyncMock(return_value=b'{"high": "rtsps://example.com/high"}'),
+    ):
+        result = await client.get_camera_rtsps_streams("camera123", cached=True)
+
+    assert result is not None
+    assert client._public_bootstrap is None
+
+
+@pytest.mark.asyncio
+async def test_create_camera_rtsps_streams_write_through():
+    """A successful create writes the new streams into the cache."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+
+    with patch.object(
+        client,
+        "api_request_raw",
+        new=AsyncMock(return_value=b'{"high": "rtsps://example.com/high"}'),
+    ):
+        result = await client.create_camera_rtsps_streams("camera123", "high")
+
+    assert result is not None
+    assert client._public_bootstrap.rtsps_streams["camera123"] is result
+
+
+@pytest.mark.asyncio
+async def test_delete_camera_rtsps_streams_drops_quality_from_cache():
+    """Deleting one quality removes only that key from the cached streams."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    client._public_bootstrap.rtsps_streams["camera123"] = RTSPSStreams(
+        high="rtsps://example.com/high",
+        low="rtsps://example.com/low",
+    )
+
+    with patch.object(client, "api_request_raw", new=AsyncMock(return_value=b"")):
+        result = await client.delete_camera_rtsps_streams("camera123", "high")
+
+    assert result is True
+    cached = client._public_bootstrap.rtsps_streams["camera123"]
+    assert cached.get_stream_url("high") is None
+    assert cached.get_stream_url("low") == "rtsps://example.com/low"
+
+
+@pytest.mark.asyncio
+async def test_delete_camera_rtsps_streams_drops_entry_when_empty():
+    """Deleting the last quality evicts the camera from the cache entirely."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    client._public_bootstrap.rtsps_streams["camera123"] = RTSPSStreams(
+        high="rtsps://example.com/high"
+    )
+
+    with patch.object(client, "api_request_raw", new=AsyncMock(return_value=b"")):
+        result = await client.delete_camera_rtsps_streams("camera123", "high")
+
+    assert result is True
+    assert "camera123" not in client._public_bootstrap.rtsps_streams
+
+
+@pytest.mark.asyncio
+async def test_delete_camera_rtsps_streams_failure_keeps_cache():
+    """A failed delete leaves the cached streams untouched."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    cached = RTSPSStreams(high="rtsps://example.com/high")
+    client._public_bootstrap.rtsps_streams["camera123"] = cached
+
+    with patch.object(client, "api_request_raw", new=AsyncMock(return_value=None)):
+        result = await client.delete_camera_rtsps_streams("camera123", "high")
+
+    assert result is False
+    assert client._public_bootstrap.rtsps_streams["camera123"] is cached
+
+
+def test_rtsps_streams_remove_qualities():
+    """``remove_qualities`` drops the listed keys and ignores unknown ones."""
+    streams = RTSPSStreams(
+        high="rtsps://example.com/high",
+        low="rtsps://example.com/low",
+    )
+
+    streams.remove_qualities(["high", "missing"])
+
+    assert set(streams.get_available_stream_qualities()) == {"low"}
+
+
 def test_rtsps_streams_class():
     """Test RTSPSStreams class functionality."""
     # Test with multiple qualities
@@ -3017,6 +3181,30 @@ def test_rtsps_streams_class():
     empty_stream = RTSPSStreams()
     assert empty_stream.get_stream_url("any") is None
     assert empty_stream.get_available_stream_qualities() == []
+
+
+def test_rtsps_streams_get_stream_url_srtp():
+    """Test get_stream_url srtp flag strips the ?enableSrtp query for go2rtc."""
+    streams = RTSPSStreams(high="rtsps://example.com:7441/abc?enableSrtp")
+
+    assert streams.get_stream_url("high") == "rtsps://example.com:7441/abc?enableSrtp"
+    assert (
+        streams.get_stream_url("high", srtp=True)
+        == "rtsps://example.com:7441/abc?enableSrtp"
+    )
+    assert streams.get_stream_url("high", srtp=False) == "rtsps://example.com:7441/abc"
+    # Missing quality returns None regardless of srtp.
+    assert streams.get_stream_url("nonexistent", srtp=False) is None
+
+    # srtp=False is a no-op when there is no ?enableSrtp suffix, and only that
+    # exact suffix is stripped — any other query stays intact.
+    plain = RTSPSStreams(high="rtsps://example.com:7441/abc")
+    assert plain.get_stream_url("high", srtp=False) == "rtsps://example.com:7441/abc"
+    other = RTSPSStreams(high="rtsps://example.com:7441/abc?foo=bar")
+    assert (
+        other.get_stream_url("high", srtp=False)
+        == "rtsps://example.com:7441/abc?foo=bar"
+    )
 
 
 def test_rtsps_streams_active_inactive():

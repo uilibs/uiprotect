@@ -1,5 +1,41 @@
 # Changelog
 
+## v11.9.0 (2026-06-08)
+
+### Features
+
+
+- Cache rtsps streams on the public bootstrap ([`bee1b85`](https://github.com/uilibs/uiprotect/commit/bee1b858526e1289d29fd7d2e64fcce326500d80))
+
+
+- Cache rtsps streams on the public bootstrap ([`bee1b85`](https://github.com/uilibs/uiprotect/commit/bee1b858526e1289d29fd7d2e64fcce326500d80))
+
+
+## v11.8.0 (2026-06-07)
+
+### Features
+
+
+- Public-stream helpers for a thin ha integration ([`795df19`](https://github.com/uilibs/uiprotect/commit/795df194b44289f781ce77781af2832ecda56ed1))
+
+
+- Add public-stream helpers for thin ha integration ([`795df19`](https://github.com/uilibs/uiprotect/commit/795df194b44289f781ce77781af2832ecda56ed1))
+
+
+### Refactoring
+
+
+- Strip exact ?enablesrtp suffix in get_stream_url ([`795df19`](https://github.com/uilibs/uiprotect/commit/795df194b44289f781ce77781af2832ecda56ed1))
+
+
+## v11.7.1 (2026-06-07)
+
+### Bug fixes
+
+
+- Default lcdmessage.text so missing text no longer raises ([`2aa7bbd`](https://github.com/uilibs/uiprotect/commit/2aa7bbd5cd6916bb65a96bacf2277ba7e4f7b892))
+
+
 ## v11.7.0 (2026-06-07)
 
 ### Features

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from functools import cache
-from typing import Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 from pydantic import Field
 
@@ -31,6 +31,7 @@ from .types import (
     AlarmHubInputType,
     AlarmHubOutputStatus,
     AssetFileType,
+    ChannelQuality,
     DeviceState,
     DoorbellMessageType,
     FobAwayState,
@@ -61,6 +62,9 @@ from .types import (
     UlpUserStatus,
     VideoMode,
 )
+
+if TYPE_CHECKING:
+    from ..api import RTSPSStreams
 
 # ---------------------------------------------------------------------------
 # Write payloads (TypedDict — shape the client accepts and forwards)
@@ -214,6 +218,17 @@ class PublicCamera(ProtectModelWithId):
     feature_flags: PublicCameraFeatureFlags
     smart_detect_settings: PublicSmartDetectSettings
     has_package_camera: bool
+
+    def hardware_stream_qualities(self) -> list[ChannelQuality]:
+        """Stream qualities the camera hardware supports (not the server's ``available`` list)."""
+        qualities = [ChannelQuality.HIGH, ChannelQuality.MEDIUM, ChannelQuality.LOW]
+        if self.has_package_camera:
+            qualities.append(ChannelQuality.PACKAGE)
+        return qualities
+
+    async def get_rtsps_streams(self, cached: bool = True) -> RTSPSStreams | None:
+        """Get this camera's RTSPS streams, reading the client cache by default."""
+        return await self._api.get_camera_rtsps_streams(self.id, cached=cached)
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(

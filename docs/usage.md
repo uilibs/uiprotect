@@ -101,6 +101,34 @@ does not require an API key. The parallel `subscribe_events_websocket` drives
 the Public Integration API WebSocket and **does** require an API key. See the
 project README for the full notes on the typed event contract.
 
+## Camera RTSPS streams
+
+`get_camera_rtsps_streams(camera_id)` fetches a camera's RTSPS stream URLs
+from the public API. Once `update_public()` has primed the public bootstrap,
+the client also keeps a per-camera cache so consumers don't have to:
+
+```python
+await protect.update_public()
+
+# cached=True reads the cache; on a miss it fetches once and stores the result
+streams = await protect.get_camera_rtsps_streams(camera_id, cached=True)
+
+# or from the camera object (cached by default)
+camera = protect.public_bootstrap.cameras[camera_id]
+streams = await camera.get_rtsps_streams()
+```
+
+The cache stays correct from the two sources the client controls — stream
+create/delete is **not** signalled over the WebSocket, so passive observation
+is impossible:
+
+- **Write-through.** `create_camera_rtsps_streams` writes its result into the
+  cache; `delete_camera_rtsps_streams` drops the deleted qualities (and evicts
+  the camera entirely once no streams remain).
+- **Reconnect refresh.** When a public devices-WS frame moves a camera to
+  `CONNECTED` (a reconnect or firmware change can rotate the `rtsp_alias`),
+  its cached streams are invalidated so the next `cached=True` read re-fetches.
+
 ## Public vs. private API
 
 `uiprotect` can talk to UniFi Protect two ways, and is actively migrating
