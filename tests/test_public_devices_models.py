@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import Mock
 
 import pytest
 
@@ -425,33 +425,3 @@ def test_non_camera_connect_leaves_camera_rtsps_untouched() -> None:
 
     assert pb.cameras["cam1"].rtsps_streams is streams
     api._schedule_rtsps_refresh.assert_not_called()
-
-
-@pytest.mark.asyncio()
-async def test_public_camera_get_rtsps_streams_returns_primed_field() -> None:
-    """``PublicCamera.get_rtsps_streams`` returns the primed field without a fetch."""
-    streams = RTSPSStreams(high="rtsps://example.com/high")
-    api = Mock()
-    api.get_camera_rtsps_streams = AsyncMock()
-    camera = PublicCamera.from_unifi_dict(api=api, **dict(CAMERA_PAYLOAD))
-    camera.rtsps_streams = streams
-
-    result = await camera.get_rtsps_streams()
-
-    api.get_camera_rtsps_streams.assert_not_awaited()
-    assert result is streams
-
-
-@pytest.mark.asyncio()
-async def test_public_camera_get_rtsps_streams_fetches_when_unprimed() -> None:
-    """``PublicCamera.get_rtsps_streams`` fetches once and stores when not primed."""
-    streams = RTSPSStreams(high="rtsps://example.com/high")
-    api = Mock()
-    api.get_camera_rtsps_streams = AsyncMock(return_value=streams)
-    camera = PublicCamera.from_unifi_dict(api=api, **dict(CAMERA_PAYLOAD))
-
-    result = await camera.get_rtsps_streams()
-
-    api.get_camera_rtsps_streams.assert_awaited_once_with("cam1")
-    assert result is streams
-    assert camera.rtsps_streams is streams

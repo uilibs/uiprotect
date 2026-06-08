@@ -280,12 +280,6 @@ class PublicCamera(ProtectModelWithId):
             qualities.append(ChannelQuality.PACKAGE)
         return qualities
 
-    async def get_rtsps_streams(self) -> RTSPSStreams | None:
-        """Return this camera's RTSPS streams, fetching once if not yet primed."""
-        if self.rtsps_streams is None:
-            self.rtsps_streams = await self._api.get_camera_rtsps_streams(self.id)
-        return self.rtsps_streams
-
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
             "Camera mutations must go through the dedicated public API helpers "

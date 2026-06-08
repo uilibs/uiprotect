@@ -113,9 +113,6 @@ await protect.update_public()
 # Read synchronously off the camera — primed by update_public().
 camera = protect.public_bootstrap.cameras[camera_id]
 streams = camera.rtsps_streams
-
-# get_rtsps_streams() returns the primed field, fetching once if not yet set.
-streams = await camera.get_rtsps_streams()
 ```
 
 Priming is **always** run by `update_public()`: connected cameras without
