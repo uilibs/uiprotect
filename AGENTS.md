@@ -358,3 +358,13 @@ names the bug class and the affected code path.
 - **Don't drop Python 3.11 support without coordination.**
   `requires-python = ">=3.11"` is set deliberately; the Home
   Assistant integration's minimum tracks this floor.
+- **Don't store mutable state (caches, dedupe sets, etc.)
+  module-globally or as a class-level mutable default.** One
+  process can run multiple `ProtectApiClient` instances against
+  different consoles (e.g. several Home Assistant config
+  entries), so per-instance state must live on the instance —
+  `self.…`, the `Bootstrap`/`PublicBootstrap` snapshot, or a
+  per-client dataclass field (use `field(default_factory=…)`),
+  never a module global or shared class attribute. A global
+  cache leaks and collides across NVRs and is invisible in
+  single-console tests.

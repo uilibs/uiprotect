@@ -2941,6 +2941,12 @@ class ProtectApiClient(BaseApiClient):
             cached = self._public_bootstrap.rtsps_streams.get(camera_id)
             if cached is not None:
                 cached.remove_qualities(quality_strs)
+                # Evict on *available* (keyed) qualities, not *active* ones, to
+                # match the read-through path which caches keyed-but-inactive
+                # streams: remove_qualities pops keys outright (no empty-string
+                # leftovers), and a no-active state is invalidated via reconnect
+                # or the client's own writes — so an entry surviving here always
+                # still holds at least one server-known quality key.
                 if not cached.get_available_stream_qualities():
                     self._public_bootstrap.rtsps_streams.pop(camera_id, None)
         return success

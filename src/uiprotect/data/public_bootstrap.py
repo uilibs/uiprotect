@@ -355,6 +355,7 @@ class PublicBootstrap:
                 api, action_type, item, model_type, custom_slot
             )
             self._invalidate_rtsps_on_reconnect(model_type, new, prev_state)
+            self._evict_rtsps_on_remove(model_type, action_type, item)
             return DeviceWSResult(model_type, new, old, item)
 
         store = self._store_for(model_type)
@@ -401,6 +402,22 @@ class PublicBootstrap:
             and prev_state is not DeviceState.CONNECTED
         ):
             self.rtsps_streams.pop(new.id, None)
+
+    def _evict_rtsps_on_remove(
+        self,
+        model_type: ModelType,
+        action_type: str,
+        item: dict[str, Any],
+    ) -> None:
+        """
+        Drop a removed camera's cached RTSPS streams.
+
+        A ``remove`` frame deletes the camera from the device store; its
+        cached streams would otherwise linger until process exit (and could
+        collide if the id is later reused).
+        """
+        if model_type is ModelType.CAMERA and action_type == "remove":
+            self.rtsps_streams.pop(item["id"], None)
 
     def _custom_slot_for(self, model_type: ModelType) -> _Slot | None:
         """Return the dedicated public-API slot for collision-routed types."""

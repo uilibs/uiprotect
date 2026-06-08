@@ -342,6 +342,37 @@ def test_camera_steady_connected_update_keeps_cached_rtsps_streams() -> None:
     assert pb.rtsps_streams["cam1"] is streams
 
 
+def test_camera_remove_drops_cached_rtsps_streams() -> None:
+    """A camera-remove WS frame evicts that camera's cached RTSPS streams."""
+    pb = PublicBootstrap()
+    _seed_camera(pb, "CONNECTED")
+    pb.rtsps_streams["cam1"] = RTSPSStreams(high="rtsps://example.com/high")
+
+    pb.process_devices_ws_message(
+        Mock(),
+        {"type": "remove", "item": {"id": "cam1", "modelKey": "camera"}},
+    )
+
+    assert "cam1" not in pb.rtsps_streams
+    assert "cam1" not in pb.cameras
+
+
+def test_non_camera_remove_leaves_rtsps_cache_untouched() -> None:
+    """A non-camera remove frame does not touch the RTSPS cache."""
+    pb = PublicBootstrap()
+    pb.process_devices_ws_message(
+        Mock(), {"type": "add", "item": {**LIGHT_PAYLOAD, "state": "CONNECTED"}}
+    )
+    pb.rtsps_streams["cam1"] = RTSPSStreams(high="rtsps://example.com/high")
+
+    pb.process_devices_ws_message(
+        Mock(),
+        {"type": "remove", "item": {"id": "light1", "modelKey": "light"}},
+    )
+
+    assert "cam1" in pb.rtsps_streams
+
+
 def test_non_camera_connect_leaves_rtsps_cache_untouched() -> None:
     """A non-camera device reaching CONNECTED does not touch the RTSPS cache."""
     pb = PublicBootstrap()
