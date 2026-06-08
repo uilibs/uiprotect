@@ -14,7 +14,6 @@ are ``Optional``.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from functools import cache
 from typing import Any, Literal, TypedDict
@@ -244,14 +243,6 @@ class RTSPSStreams(ProtectBaseObject):
             for key, value in self.__pydantic_extra__.items()
             if not (isinstance(value, str) and value is not None)
         ]
-
-    def remove_qualities(self, qualities: Iterable[str]) -> None:
-        """Drop the given quality keys from the stream set (used on delete write-through)."""
-        extra = self.__pydantic_extra__
-        if extra is None:  # pragma: no cover - extra="allow" always yields a dict
-            return
-        for quality in qualities:
-            extra.pop(quality, None)
 
 
 class PublicCamera(ProtectModelWithId):

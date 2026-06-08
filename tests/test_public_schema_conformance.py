@@ -71,9 +71,7 @@ def _leaf_model(annotation: Any) -> type[ProtectBaseObject] | None:
     return None
 
 
-# Library-owned fields populated out-of-band (not present on the spec schema),
-# keyed by spec path. ``rtsps_streams`` is primed by ``update_public`` until the
-# Public Integration API carries the URLs on the camera payload directly.
+# Library-owned fields populated out-of-band, absent from the spec schema, keyed by spec path.
 _LIBRARY_OWNED_FIELDS: dict[str, set[str]] = {
     "camera": {"rtsps_streams"},
 }

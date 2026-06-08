@@ -2489,7 +2489,7 @@ class ProtectApiClient(BaseApiClient):
         """Re-fetch one camera's RTSPS streams, writing the cached field in place."""
         pb = self._public_bootstrap
         camera = pb.cameras.get(camera_id) if pb is not None else None
-        was_streamless = camera is not None and camera.rtsps_streams is None
+        initial = camera.rtsps_streams if camera is not None else None
         try:
             streams = await self.get_camera_rtsps_streams(camera_id)
         except Exception:
@@ -2497,13 +2497,12 @@ class ProtectApiClient(BaseApiClient):
                 "Failed to refresh RTSPS streams for camera %s", camera_id
             )
         else:
-            # Only write back if the *same* camera instance is still cached and
-            # its streamless-ness is unchanged from when the fetch started. The
-            # identity check drops a ``remove``d/replaced camera; the
-            # streamless-ness check both refuses to resurrect a field a delete
-            # cleared mid-flight (was populated, now ``None``) and refuses to
-            # clobber a create write-through (was ``None``, now populated). The
-            # check and the write share no await, so they cannot race the
+            # Write back only if the *same* camera instance is still cached and
+            # its ``rtsps_streams`` is the same object captured before the fetch.
+            # Every mutation (prime, create, delete) replaces the object, so an
+            # identity mismatch means a concurrent write landed mid-flight —
+            # back off rather than resurrect (delete) or clobber (create) it.
+            # The check and the write share no await, so they cannot race the
             # eviction.
             pb = self._public_bootstrap
             if (
@@ -2511,7 +2510,7 @@ class ProtectApiClient(BaseApiClient):
                 and pb is not None
                 and camera is not None
                 and pb.cameras.get(camera_id) is camera
-                and (camera.rtsps_streams is None) == was_streamless
+                and camera.rtsps_streams is initial
             ):
                 camera.rtsps_streams = streams
         finally:
@@ -2971,18 +2970,18 @@ class ProtectApiClient(BaseApiClient):
             camera = self._public_bootstrap.cameras.get(camera_id)
             cached = camera.rtsps_streams if camera is not None else None
             if camera is not None and cached is not None:
-                cached.remove_qualities(quality_strs)
-                # Evict on *available* (keyed) qualities, not *active* ones, to
-                # match the read-through path which caches keyed-but-inactive
-                # streams: remove_qualities pops keys outright (no empty-string
-                # leftovers), and a no-active state is invalidated via reconnect
-                # or the client's own writes — so an entry surviving here always
-                # still holds at least one server-known quality key.
-                if not cached.get_available_stream_qualities():
-                    camera.rtsps_streams = None
-                    # Cancel any in-flight refresh so it can't resurrect the
-                    # entry this eviction just dropped.
-                    self._cancel_rtsps_refresh(camera_id)
+                # Replace (never mutate in place) so every write to
+                # ``rtsps_streams`` swaps the object — that single invariant lets
+                # the in-flight refresh self-guard on object identity. Survivors
+                # are the *available* (keyed) qualities, dropping inactive
+                # keys too; an empty set clears the field to ``None``.
+                extra = cached.__pydantic_extra__ or {}
+                survivors = {
+                    quality: url
+                    for quality, url in extra.items()
+                    if quality not in quality_strs
+                }
+                camera.rtsps_streams = RTSPSStreams(**survivors) if survivors else None
         return success
 
     async def get_package_camera_snapshot(

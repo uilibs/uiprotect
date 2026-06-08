@@ -3355,19 +3355,30 @@ async def test_refresh_camera_rtsps_prime_ignores_missing_camera():
 
 
 @pytest.mark.asyncio
-async def test_delete_camera_rtsps_streams_cancels_pending_refresh():
-    """Evicting the last quality cancels an in-flight refresh for that camera."""
+async def test_delete_camera_rtsps_streams_partial_does_not_resurrect_during_refresh():
+    """A partial delete during an in-flight refresh must not resurrect the deleted quality."""
     client = _rtsps_client()
     client._public_bootstrap = PublicBootstrap()
-    _seed_rtsps_camera(
-        client, "camera123", RTSPSStreams(high="rtsps://example.com/high")
+    camera = _seed_rtsps_camera(
+        client,
+        "camera123",
+        RTSPSStreams(
+            high="rtsps://example.com/high",
+            low="rtsps://example.com/low",
+        ),
+    )
+    # The in-flight fetch returns the full set, including the to-be-deleted quality.
+    refetched = RTSPSStreams(
+        high="rtsps://example.com/high",
+        low="rtsps://example.com/low",
     )
     started = asyncio.Event()
     release = asyncio.Event()
 
-    async def _fake_get(camera_id: str) -> None:
+    async def _fake_get(camera_id: str) -> RTSPSStreams:
         started.set()
         await release.wait()
+        return refetched
 
     client.get_camera_rtsps_streams = _fake_get  # type: ignore[method-assign]
     client._schedule_rtsps_refresh("camera123")
@@ -3378,10 +3389,19 @@ async def test_delete_camera_rtsps_streams_cancels_pending_refresh():
         result = await client.delete_camera_rtsps_streams("camera123", "high")
 
     assert result is True
-    assert client._public_bootstrap.cameras["camera123"].rtsps_streams is None
+    after_delete = camera.rtsps_streams
+    assert after_delete is not None
+    assert after_delete.get_stream_url("high") is None
+    assert after_delete.get_stream_url("low") == "rtsps://example.com/low"
+
+    release.set()
+    await task
+
+    # The refresh saw the replaced object (identity changed) and backed off,
+    # so the deleted 'high' quality is not resurrected.
+    assert camera.rtsps_streams is after_delete
+    assert camera.rtsps_streams.get_stream_url("high") is None
     assert "camera123" not in client._rtsps_refresh_tasks
-    await asyncio.gather(task, return_exceptions=True)
-    assert task.cancelled()
 
 
 @pytest.mark.asyncio
@@ -3507,18 +3527,6 @@ async def test_cancel_rtsps_refresh_tasks_empty_noop():
     await client._cancel_rtsps_refresh_tasks()
 
     assert client._rtsps_refresh_tasks == {}
-
-
-def test_rtsps_streams_remove_qualities():
-    """``remove_qualities`` drops the listed keys and ignores unknown ones."""
-    streams = RTSPSStreams(
-        high="rtsps://example.com/high",
-        low="rtsps://example.com/low",
-    )
-
-    streams.remove_qualities(["high", "missing"])
-
-    assert set(streams.get_available_stream_qualities()) == {"low"}
 
 
 def test_rtsps_streams_class():
