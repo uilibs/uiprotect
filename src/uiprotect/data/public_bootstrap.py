@@ -376,7 +376,13 @@ class PublicBootstrap:
         new: ProtectModelWithId | None,
         prev_state: DeviceState | None,
     ) -> None:
-        """Schedule an in-place RTSPS refresh when a camera transitions to CONNECTED."""
+        """
+        Schedule an RTSPS prime/refresh when a camera transitions to CONNECTED.
+
+        A camera that was offline at ``update_public()`` time carries no streams;
+        the CONNECTED transition primes it. An already-populated one is refreshed
+        in place.
+        """
         if model_type is not ModelType.CAMERA or new is None:
             return
         if (

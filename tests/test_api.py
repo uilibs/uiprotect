@@ -3164,17 +3164,21 @@ async def test_schedule_rtsps_refresh_overwrites_in_place():
 
 
 @pytest.mark.asyncio
-async def test_schedule_rtsps_refresh_skips_camera_without_streams():
-    """Refresh is only scheduled for cameras that already carry streams."""
+async def test_schedule_rtsps_refresh_primes_streamless_camera():
+    """A streamless cached camera is primed (fetched + filled), not skipped."""
     client = _rtsps_client()
     client._public_bootstrap = PublicBootstrap()
-    _seed_rtsps_camera(client, "cam1")
-    client.get_camera_rtsps_streams = AsyncMock()  # type: ignore[method-assign]
+    camera = _seed_rtsps_camera(client, "cam1")
+    fresh = RTSPSStreams(high="rtsps://example.com/fresh")
+    client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
+        return_value=fresh
+    )
 
     client._schedule_rtsps_refresh("cam1")
+    await client._rtsps_refresh_tasks["cam1"]
 
-    assert client._rtsps_refresh_tasks == {}
-    client.get_camera_rtsps_streams.assert_not_called()
+    assert camera.rtsps_streams is fresh
+    client.get_camera_rtsps_streams.assert_awaited_once_with("cam1")
 
 
 @pytest.mark.asyncio
@@ -3303,6 +3307,50 @@ async def test_refresh_camera_rtsps_does_not_resurrect_cleared_field():
     await task
 
     assert camera.rtsps_streams is None
+    assert "cam1" not in client._rtsps_refresh_tasks
+
+
+@pytest.mark.asyncio
+async def test_refresh_camera_rtsps_prime_does_not_clobber_concurrent_create():
+    """A prime completing after a create write-through must not overwrite it."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    camera = _seed_rtsps_camera(client, "cam1")
+    created = RTSPSStreams(high="rtsps://example.com/created")
+    primed = RTSPSStreams(high="rtsps://example.com/primed")
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def _fake_get(camera_id: str) -> RTSPSStreams:
+        started.set()
+        await release.wait()
+        return primed
+
+    client.get_camera_rtsps_streams = _fake_get  # type: ignore[method-assign]
+    client._schedule_rtsps_refresh("cam1")
+    task = client._rtsps_refresh_tasks["cam1"]
+    await started.wait()
+    # A create write-through lands while the prime fetch is in flight.
+    camera.rtsps_streams = created
+
+    release.set()
+    await task
+
+    assert camera.rtsps_streams is created
+
+
+@pytest.mark.asyncio
+async def test_refresh_camera_rtsps_prime_ignores_missing_camera():
+    """A prime scheduled for a camera gone before the task body runs is a no-op."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
+        return_value=RTSPSStreams(high="rtsps://example.com/fresh")
+    )
+
+    await client._refresh_camera_rtsps("cam1")
+
+    assert "cam1" not in client._public_bootstrap.cameras
     assert "cam1" not in client._rtsps_refresh_tasks
 
 

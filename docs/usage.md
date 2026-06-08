@@ -131,14 +131,17 @@ is impossible:
 - **Write-through.** `create_camera_rtsps_streams` writes its result onto the
   camera's `rtsps_streams`; `delete_camera_rtsps_streams` drops the deleted
   qualities (and clears the field to `None` once no streams remain).
-- **Reconnect refresh.** When a public devices-WS frame moves a camera to
-  `CONNECTED` (a reconnect or firmware change can rotate the `rtsp_alias`), a
-  background re-fetch is scheduled that overwrites the field **in place**. A
-  WebSocket reconnect resync refreshes every populated camera the same way. The
-  field is **never emptied** — the old URLs stay readable until the fresh ones
-  land, so synchronous consumers reading `camera.rtsps_streams` never observe a
-  spurious `None`. It is only ever cleared by a camera `remove` frame (which
-  drops the whole camera) or the client's own `delete_camera_rtsps_streams`.
+- **Prime / refresh on connect.** When a public devices-WS frame moves a camera
+  to `CONNECTED` (a reconnect or firmware change can rotate the `rtsp_alias`), a
+  background fetch is scheduled. A camera that was **offline at `update_public()`
+  time** — so skipped by the connected-only prime — is **primed** when it comes
+  online mid-session, not left streamless until the next reload. An
+  already-populated camera is **refreshed in place** instead. Either way a
+  WebSocket reconnect resync also refreshes every populated camera. The field is
+  **never emptied** — the old URLs stay readable until the fresh ones land, so
+  synchronous consumers reading `camera.rtsps_streams` never observe a spurious
+  `None`. It is only ever cleared by a camera `remove` frame (which drops the
+  whole camera) or the client's own `delete_camera_rtsps_streams`.
 
 ## Public vs. private API
 

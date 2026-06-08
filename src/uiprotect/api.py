@@ -2464,12 +2464,18 @@ class ProtectApiClient(BaseApiClient):
                 )
 
     def _schedule_rtsps_refresh(self, camera_id: str) -> None:
-        """Schedule a coalesced in-place re-fetch of a cached camera's RTSPS streams."""
+        """Schedule a coalesced re-fetch of a cached camera's RTSPS streams.
+
+        Handles both a *refresh* of an already-populated camera and a *prime*
+        of a present-but-streamless one — a camera offline at
+        ``update_public()`` time and brought online via the devices WS gets
+        filled here, not just on the next full resync.
+        """
         pb = self._public_bootstrap
         if pb is None:
             return
         camera = pb.cameras.get(camera_id)
-        if camera is None or camera.rtsps_streams is None:
+        if camera is None:
             return
         existing = self._rtsps_refresh_tasks.get(camera_id)
         if existing is not None and not existing.done():
@@ -2479,7 +2485,10 @@ class ProtectApiClient(BaseApiClient):
         )
 
     async def _refresh_camera_rtsps(self, camera_id: str) -> None:
-        """Re-fetch one camera's RTSPS streams, overwriting the cached field in place."""
+        """Re-fetch one camera's RTSPS streams, writing the cached field in place."""
+        pb = self._public_bootstrap
+        camera = pb.cameras.get(camera_id) if pb is not None else None
+        was_streamless = camera is not None and camera.rtsps_streams is None
         try:
             streams = await self.get_camera_rtsps_streams(camera_id)
         except Exception:
@@ -2487,16 +2496,23 @@ class ProtectApiClient(BaseApiClient):
                 "Failed to refresh RTSPS streams for camera %s", camera_id
             )
         else:
-            # Only write back if the camera (and its existing streams) is still
-            # cached. An eviction (a ``remove`` frame or
-            # ``delete_camera_rtsps_streams``) that landed while the fetch was in
-            # flight must not be resurrected; the check and the write share no
-            # await, so they cannot race the eviction.
+            # Only write back if the *same* camera instance is still cached and
+            # its streamless-ness is unchanged from when the fetch started. The
+            # identity check drops a ``remove``d/replaced camera; the
+            # streamless-ness check both refuses to resurrect a field a delete
+            # cleared mid-flight (was populated, now ``None``) and refuses to
+            # clobber a create write-through (was ``None``, now populated). The
+            # check and the write share no await, so they cannot race the
+            # eviction.
             pb = self._public_bootstrap
-            if streams is not None and pb is not None:
-                camera = pb.cameras.get(camera_id)
-                if camera is not None and camera.rtsps_streams is not None:
-                    camera.rtsps_streams = streams
+            if (
+                streams is not None
+                and pb is not None
+                and camera is not None
+                and pb.cameras.get(camera_id) is camera
+                and (camera.rtsps_streams is None) == was_streamless
+            ):
+                camera.rtsps_streams = streams
         finally:
             self._rtsps_refresh_tasks.pop(camera_id, None)
 

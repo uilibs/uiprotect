@@ -329,6 +329,24 @@ def test_camera_connect_schedules_rtsps_refresh_keeping_cache() -> None:
     api._schedule_rtsps_refresh.assert_called_once_with("cam1")
 
 
+def test_camera_connect_schedules_rtsps_prime_when_streamless() -> None:
+    """A streamless camera coming online schedules a prime, not just a refresh."""
+    pb = PublicBootstrap()
+    api = Mock()
+    _seed_camera(pb, "DISCONNECTED")
+    assert pb.cameras["cam1"].rtsps_streams is None
+
+    pb.process_devices_ws_message(
+        api,
+        {
+            "type": "update",
+            "item": {"id": "cam1", "modelKey": "camera", "state": "CONNECTED"},
+        },
+    )
+
+    api._schedule_rtsps_refresh.assert_called_once_with("cam1")
+
+
 def test_camera_steady_connected_update_keeps_cached_rtsps_streams() -> None:
     """An update on an already-connected camera leaves the RTSPS field intact."""
     pb = PublicBootstrap()
