@@ -1,5 +1,19 @@
 # Changelog
 
+## v11.10.0 (2026-06-08)
+
+### Bug fixes
+
+
+- Keep the public rtsps cache never-empty via in-place refresh ([`c40b2d4`](https://github.com/uilibs/uiprotect/commit/c40b2d410d7f01417322cfa8b4c935af110ce87d))
+
+
+### Features
+
+
+- Refresh the public rtsps cache in place instead of emptying it ([`c40b2d4`](https://github.com/uilibs/uiprotect/commit/c40b2d410d7f01417322cfa8b4c935af110ce87d))
+
+
 ## v11.9.0 (2026-06-08)
 
 ### Features
