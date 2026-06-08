@@ -58,10 +58,10 @@ from .public_devices import (
     Siren,
     Speaker,
 )
-from .types import ModelType
+from .types import DeviceState, ModelType
 
 if TYPE_CHECKING:
-    from ..api import ProtectApiClient
+    from ..api import ProtectApiClient, RTSPSStreams
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -182,6 +182,16 @@ class PublicBootstrap:
 
     # Arm manager state.
     arm_profiles: dict[str, ArmProfile] = field(default_factory=dict)
+
+    # Per-camera RTSPS stream URLs, keyed by camera id. The Public Integration
+    # API does not signal stream create/delete over the websocket and
+    # ``PublicCamera`` carries no stream fields, so this cache is kept correct
+    # only from the two sources the client controls: its own
+    # ``create``/``delete_camera_rtsps_streams`` calls (write-through) and a
+    # camera reconnecting (invalidated here so the next cached read re-fetches,
+    # since a reconnect can rotate the ``rtsp_alias``). Populated lazily by
+    # ``ProtectApiClient.get_camera_rtsps_streams(..., cached=True)``.
+    rtsps_streams: dict[str, RTSPSStreams] = field(default_factory=dict)
 
     # Per-instance one-shot warning dedupe for merge/add failures.
     # This must not be module-global because callers can have multiple
@@ -334,11 +344,17 @@ class PublicBootstrap:
         # types (Liveview / Bridge / Viewer share their ``ModelType`` with the
         # private ``MODEL_TO_CLASS`` entries) get their own factory-equipped
         # slot. Everything else routes through the generic ``_store_for`` dict.
+        # Snapshot the pre-apply camera state: ``update`` merges in place, so
+        # the ``old`` returned by ``_apply_action`` is the same (now mutated)
+        # instance as ``new`` and can't be compared against it afterwards.
+        prev_state = self._camera_state_before_apply(model_type, item)
+
         custom_slot = self._custom_slot_for(model_type)
         if custom_slot is not None:
             new, old = self._apply_action(
                 api, action_type, item, model_type, custom_slot
             )
+            self._invalidate_rtsps_on_reconnect(model_type, new, prev_state)
             return DeviceWSResult(model_type, new, old, item)
 
         store = self._store_for(model_type)
@@ -352,6 +368,39 @@ class PublicBootstrap:
             api, action_type, item, model_type, _dict_slot(store)
         )
         return DeviceWSResult(model_type, new, old, item)
+
+    def _camera_state_before_apply(
+        self, model_type: ModelType, item: dict[str, Any]
+    ) -> DeviceState | None:
+        """Return the cached camera's ``state`` prior to applying this frame."""
+        if model_type is not ModelType.CAMERA:
+            return None
+        cached = self.cameras.get(item["id"])
+        return cached.state if cached is not None else None
+
+    def _invalidate_rtsps_on_reconnect(
+        self,
+        model_type: ModelType,
+        new: ProtectModelWithId | None,
+        prev_state: DeviceState | None,
+    ) -> None:
+        """
+        Drop a camera's cached RTSPS streams when it transitions to CONNECTED.
+
+        A reconnect (or firmware change) can rotate the ``rtsp_alias`` or
+        recreate the stream, so any cached URLs may be stale. Only the
+        *transition* into ``CONNECTED`` invalidates — steady-state updates on an
+        already-connected camera leave the cache intact. The entry is dropped
+        rather than re-fetched (the WS handler does no I/O); the next cached read
+        re-fetches.
+        """
+        if model_type is not ModelType.CAMERA or new is None:
+            return
+        if (
+            getattr(new, "state", None) is DeviceState.CONNECTED
+            and prev_state is not DeviceState.CONNECTED
+        ):
+            self.rtsps_streams.pop(new.id, None)
 
     def _custom_slot_for(self, model_type: ModelType) -> _Slot | None:
         """Return the dedicated public-API slot for collision-routed types."""
