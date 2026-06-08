@@ -3037,6 +3037,26 @@ async def test_get_camera_rtsps_streams_cached_miss_fetches_and_stores():
 
 
 @pytest.mark.asyncio
+async def test_get_camera_rtsps_streams_no_write_through_leaves_cache():
+    """``write_through=False`` returns the fetch without touching the cache."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    stale = RTSPSStreams(high="rtsps://example.com/stale")
+    client._public_bootstrap.rtsps_streams["camera123"] = stale
+
+    with patch.object(
+        client,
+        "api_request_raw",
+        new=AsyncMock(return_value=b'{"high": "rtsps://example.com/fresh"}'),
+    ):
+        result = await client.get_camera_rtsps_streams("camera123", write_through=False)
+
+    assert result is not None
+    assert result.get_stream_url("high") == "rtsps://example.com/fresh"
+    assert client._public_bootstrap.rtsps_streams["camera123"] is stale
+
+
+@pytest.mark.asyncio
 async def test_get_camera_rtsps_streams_fetch_refreshes_cache():
     """A non-cached fetch overwrites any stale cache entry (write-through on read)."""
     client = _rtsps_client()
@@ -3153,8 +3173,11 @@ async def test_schedule_rtsps_refresh_overwrites_in_place():
     )
     fresh = RTSPSStreams(high="rtsps://example.com/fresh")
 
-    async def _fake_get(camera_id: str, cached: bool = False) -> RTSPSStreams:
-        client._public_bootstrap.rtsps_streams[camera_id] = fresh
+    async def _fake_get(
+        camera_id: str, cached: bool = False, write_through: bool = True
+    ) -> RTSPSStreams:
+        assert cached is False
+        assert write_through is False
         return fresh
 
     client.get_camera_rtsps_streams = _fake_get  # type: ignore[method-assign]
@@ -3200,7 +3223,11 @@ async def test_schedule_rtsps_refresh_coalesces_in_flight():
     release = asyncio.Event()
     calls = 0
 
-    async def _fake_get(camera_id: str, cached: bool = False) -> None:
+    async def _fake_get(
+        camera_id: str, cached: bool = False, write_through: bool = True
+    ) -> None:
+        assert cached is False
+        assert write_through is False
         nonlocal calls
         calls += 1
         started.set()
@@ -3239,6 +3266,71 @@ async def test_refresh_camera_rtsps_swallows_errors(caplog):
 
 
 @pytest.mark.asyncio
+async def test_refresh_camera_rtsps_does_not_resurrect_evicted_entry():
+    """A refresh that completes after eviction must not re-add the camera."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    client._public_bootstrap.rtsps_streams["cam1"] = RTSPSStreams(
+        high="rtsps://example.com/stale"
+    )
+    fresh = RTSPSStreams(high="rtsps://example.com/fresh")
+    release = asyncio.Event()
+
+    async def _fake_get(
+        camera_id: str, cached: bool = False, write_through: bool = True
+    ) -> RTSPSStreams:
+        assert cached is False
+        assert write_through is False
+        await release.wait()
+        return fresh
+
+    client.get_camera_rtsps_streams = _fake_get  # type: ignore[method-assign]
+    client._schedule_rtsps_refresh("cam1")
+    task = client._rtsps_refresh_tasks["cam1"]
+    await asyncio.sleep(0)
+    # Evict mid-flight, as a remove frame / delete would.
+    client._public_bootstrap.rtsps_streams.pop("cam1", None)
+
+    release.set()
+    await task
+
+    assert "cam1" not in client._public_bootstrap.rtsps_streams
+    assert "cam1" not in client._rtsps_refresh_tasks
+
+
+@pytest.mark.asyncio
+async def test_delete_camera_rtsps_streams_cancels_pending_refresh():
+    """Evicting the last quality cancels an in-flight refresh for that camera."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    client._public_bootstrap.rtsps_streams["camera123"] = RTSPSStreams(
+        high="rtsps://example.com/high"
+    )
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def _fake_get(
+        camera_id: str, cached: bool = False, write_through: bool = True
+    ) -> None:
+        started.set()
+        await release.wait()
+
+    client.get_camera_rtsps_streams = _fake_get  # type: ignore[method-assign]
+    client._schedule_rtsps_refresh("camera123")
+    await started.wait()
+    task = client._rtsps_refresh_tasks["camera123"]
+
+    with patch.object(client, "api_request_raw", new=AsyncMock(return_value=b"")):
+        result = await client.delete_camera_rtsps_streams("camera123", "high")
+
+    assert result is True
+    assert "camera123" not in client._public_bootstrap.rtsps_streams
+    assert "camera123" not in client._rtsps_refresh_tasks
+    await asyncio.gather(task, return_exceptions=True)
+    assert task.cancelled()
+
+
+@pytest.mark.asyncio
 async def test_refresh_all_cached_rtsps_noop_without_bootstrap():
     """Refreshing all cached entries is a no-op when nothing is primed."""
     client = _rtsps_client()
@@ -3262,6 +3354,10 @@ async def test_refresh_all_cached_rtsps_refreshes_each_camera():
 
     await client._refresh_all_cached_rtsps()
 
+    assert client.get_camera_rtsps_streams.await_count == 2
+    for await_call in client.get_camera_rtsps_streams.await_args_list:
+        assert await_call.kwargs.get("cached", False) is False
+        assert await_call.kwargs.get("write_through", True) is False
     fetched = {call.args[0] for call in client.get_camera_rtsps_streams.await_args_list}
     assert fetched == {"cam1", "cam2"}
 
@@ -3278,7 +3374,11 @@ async def test_refresh_all_cached_rtsps_coalesces_with_in_flight_refresh():
     release = asyncio.Event()
     calls = 0
 
-    async def _fake_get(camera_id: str, cached: bool = False) -> None:
+    async def _fake_get(
+        camera_id: str, cached: bool = False, write_through: bool = True
+    ) -> None:
+        assert cached is False
+        assert write_through is False
         nonlocal calls
         calls += 1
         started.set()
@@ -3307,7 +3407,9 @@ async def test_cancel_rtsps_refresh_cancels_in_flight_for_camera():
     started = asyncio.Event()
     release = asyncio.Event()
 
-    async def _fake_get(camera_id: str, cached: bool = False) -> None:
+    async def _fake_get(
+        camera_id: str, cached: bool = False, write_through: bool = True
+    ) -> None:
         started.set()
         await release.wait()
 
@@ -3345,7 +3447,9 @@ async def test_cancel_rtsps_refresh_tasks_cancels_pending():
     started = asyncio.Event()
     release = asyncio.Event()
 
-    async def _fake_get(camera_id: str, cached: bool = False) -> None:
+    async def _fake_get(
+        camera_id: str, cached: bool = False, write_through: bool = True
+    ) -> None:
         started.set()
         await release.wait()
 

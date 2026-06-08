@@ -684,6 +684,7 @@ class BaseApiClient:
             self._public_resync_task = None
 
     async def _cancel_rtsps_refresh_tasks(self) -> None:
+        """Cancel and await every pending background RTSPS refresh task."""
         if not self._rtsps_refresh_tasks:
             return
         tasks = list(self._rtsps_refresh_tasks.values())
@@ -2515,16 +2516,7 @@ class ProtectApiClient(BaseApiClient):
                 )
 
     def _schedule_rtsps_refresh(self, camera_id: str) -> None:
-        """
-        Schedule a background, in-place re-fetch of a camera's RTSPS streams.
-
-        Triggered by a camera reconnect (devices-WS transition to
-        ``CONNECTED``), which can rotate the ``rtsp_alias``. Only cameras
-        already in the cache are refreshed — the entry is overwritten with
-        fresh URLs on success and left untouched on failure, so the cache
-        is never emptied. Coalesces: a refresh already in flight for the
-        same camera is left to finish rather than stacked.
-        """
+        """Schedule a coalesced in-place re-fetch of a cached camera's RTSPS streams."""
         pb = self._public_bootstrap
         if pb is None or camera_id not in pb.rtsps_streams:
             return
@@ -2538,34 +2530,32 @@ class ProtectApiClient(BaseApiClient):
     async def _refresh_camera_rtsps(self, camera_id: str) -> None:
         """Re-fetch one camera's RTSPS streams, overwriting the cache in place."""
         try:
-            await self.get_camera_rtsps_streams(camera_id, cached=False)
+            streams = await self.get_camera_rtsps_streams(
+                camera_id, cached=False, write_through=False
+            )
         except Exception:
             _LOGGER.exception(
                 "Failed to refresh RTSPS streams for camera %s", camera_id
             )
+        else:
+            # Only write back if the entry still exists. An eviction (a
+            # ``remove`` frame or ``delete_camera_rtsps_streams``) that landed
+            # while the fetch was in flight must not be resurrected; the check
+            # and the write share no await, so they cannot race the eviction.
+            pb = self._public_bootstrap
+            if streams is not None and pb is not None and camera_id in pb.rtsps_streams:
+                pb.rtsps_streams[camera_id] = streams
         finally:
             self._rtsps_refresh_tasks.pop(camera_id, None)
 
     def _cancel_rtsps_refresh(self, camera_id: str) -> None:
-        """
-        Cancel a pending background RTSPS refresh for a camera, if any.
-
-        Called when a camera is removed so an in-flight re-fetch cannot
-        resurrect the cache entry that eviction just dropped.
-        """
+        """Cancel a pending background RTSPS refresh for a camera, if any."""
         task = self._rtsps_refresh_tasks.pop(camera_id, None)
         if task is not None and not task.done():
             task.cancel()
 
     async def _refresh_all_cached_rtsps(self) -> None:
-        """
-        Re-fetch every cached camera's RTSPS streams in place, coalesced.
-
-        Routes through :meth:`_schedule_rtsps_refresh` so a refresh already
-        triggered by a per-camera reconnect is not duplicated, then awaits
-        the in-flight tasks. Per-camera errors are handled inside
-        :meth:`_refresh_camera_rtsps`.
-        """
+        """Re-fetch every cached camera's RTSPS streams in place, coalesced."""
         pb = self._public_bootstrap
         if pb is None:
             return
@@ -2949,6 +2939,7 @@ class ProtectApiClient(BaseApiClient):
         self,
         camera_id: str,
         cached: bool = False,
+        write_through: bool = True,
     ) -> RTSPSStreams | None:
         """
         Gets existing RTSPS streams for a camera using public API.
@@ -2958,7 +2949,9 @@ class ProtectApiClient(BaseApiClient):
         miss the stream is fetched and stored. Every successful fetch is written
         to the cache (when ``update_public()`` has primed the public bootstrap),
         so subsequent ``cached=True`` reads stay fresh until the camera
-        reconnects or the client itself creates/deletes a stream.
+        reconnects or the client itself creates/deletes a stream. Pass
+        ``write_through=False`` to fetch without touching the cache (used by the
+        background refresh so a result for an evicted camera can't resurrect it).
         """
         pb = self._public_bootstrap
         if cached and pb is not None:
@@ -2986,7 +2979,7 @@ class ProtectApiClient(BaseApiClient):
             )
             return None
 
-        if pb is not None:
+        if write_through and pb is not None:
             pb.rtsps_streams[camera_id] = streams
         return streams
 
@@ -3029,6 +3022,9 @@ class ProtectApiClient(BaseApiClient):
                 # still holds at least one server-known quality key.
                 if not cached.get_available_stream_qualities():
                     self._public_bootstrap.rtsps_streams.pop(camera_id, None)
+                    # Cancel any in-flight refresh so it can't resurrect the
+                    # entry this eviction just dropped.
+                    self._cancel_rtsps_refresh(camera_id)
         return success
 
     async def get_package_camera_snapshot(

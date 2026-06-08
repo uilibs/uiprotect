@@ -188,8 +188,9 @@ class PublicBootstrap:
     # ``PublicCamera`` carries no stream fields, so this cache is kept correct
     # only from the two sources the client controls: its own
     # ``create``/``delete_camera_rtsps_streams`` calls (write-through) and a
-    # camera reconnecting (invalidated here so the next cached read re-fetches,
-    # since a reconnect can rotate the ``rtsp_alias``). Populated lazily by
+    # camera reconnecting (which schedules a background refresh-in-place, since a
+    # reconnect can rotate the ``rtsp_alias``; the stale URLs stay readable until
+    # the fresh ones overwrite them). Populated lazily by
     # ``ProtectApiClient.get_camera_rtsps_streams(..., cached=True)``.
     rtsps_streams: dict[str, RTSPSStreams] = field(default_factory=dict)
 
@@ -386,17 +387,7 @@ class PublicBootstrap:
         new: ProtectModelWithId | None,
         prev_state: DeviceState | None,
     ) -> None:
-        """
-        Refresh a camera's cached RTSPS streams when it transitions to CONNECTED.
-
-        A reconnect (or firmware change) can rotate the ``rtsp_alias`` or
-        recreate the stream, so any cached URLs may be stale. Only the
-        *transition* into ``CONNECTED`` triggers a refresh — steady-state updates
-        on an already-connected camera leave the cache intact. The WS handler
-        does no I/O, so the entry is not dropped; instead a background re-fetch
-        is scheduled that overwrites it in place. The old URLs stay cached until
-        the fresh ones land, so synchronous consumers never read ``None``.
-        """
+        """Schedule an in-place RTSPS refresh when a camera transitions to CONNECTED."""
         if model_type is not ModelType.CAMERA or new is None:
             return
         if (

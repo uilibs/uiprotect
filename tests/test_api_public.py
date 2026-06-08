@@ -3077,10 +3077,9 @@ async def test_resync_public_bootstrap_refreshes_rtsps_cache_in_place(
     await protect_client._resync_public_bootstrap()
 
     protect_client.get_camera_rtsps_streams.assert_awaited_once_with(
-        "cam1", cached=False
+        "cam1", cached=False, write_through=False
     )
-    # Cache stayed populated throughout (the real fetch writes through; the mock
-    # leaves the seeded entry as proof the cache was never cleared).
+    # Cache stayed populated throughout — refreshed in place, never cleared.
     assert "cam1" in protect_client._public_bootstrap.rtsps_streams
 
 
