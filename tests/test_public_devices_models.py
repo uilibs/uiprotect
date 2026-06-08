@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from uiprotect.api import RTSPSStreams
 from uiprotect.data import (
     PublicCamera,
     PublicChime,
@@ -298,3 +299,108 @@ async def test_public_model_api_update_blocked(cls: type) -> None:
     obj = cls.model_construct()
     with pytest.raises(BadRequest):
         await obj._api_update({})
+
+
+def _seed_camera(pb: PublicBootstrap, state: str) -> None:
+    pb.process_devices_ws_message(
+        Mock(), {"type": "add", "item": {**CAMERA_PAYLOAD, "state": state}}
+    )
+
+
+def test_camera_connect_invalidates_cached_rtsps_streams() -> None:
+    """A camera transitioning to CONNECTED drops its cached RTSPS streams."""
+    pb = PublicBootstrap()
+    _seed_camera(pb, "CONNECTING")
+    pb.rtsps_streams["cam1"] = RTSPSStreams(high="rtsps://example.com/high")
+
+    pb.process_devices_ws_message(
+        Mock(),
+        {
+            "type": "update",
+            "item": {"id": "cam1", "modelKey": "camera", "state": "CONNECTED"},
+        },
+    )
+
+    assert "cam1" not in pb.rtsps_streams
+
+
+def test_camera_steady_connected_update_keeps_cached_rtsps_streams() -> None:
+    """An update on an already-connected camera leaves the RTSPS cache intact."""
+    pb = PublicBootstrap()
+    _seed_camera(pb, "CONNECTED")
+    streams = RTSPSStreams(high="rtsps://example.com/high")
+    pb.rtsps_streams["cam1"] = streams
+
+    pb.process_devices_ws_message(
+        Mock(),
+        {
+            "type": "update",
+            "item": {"id": "cam1", "modelKey": "camera", "name": "Renamed"},
+        },
+    )
+
+    assert pb.rtsps_streams["cam1"] is streams
+
+
+def test_camera_remove_drops_cached_rtsps_streams() -> None:
+    """A camera-remove WS frame evicts that camera's cached RTSPS streams."""
+    pb = PublicBootstrap()
+    _seed_camera(pb, "CONNECTED")
+    pb.rtsps_streams["cam1"] = RTSPSStreams(high="rtsps://example.com/high")
+
+    pb.process_devices_ws_message(
+        Mock(),
+        {"type": "remove", "item": {"id": "cam1", "modelKey": "camera"}},
+    )
+
+    assert "cam1" not in pb.rtsps_streams
+    assert "cam1" not in pb.cameras
+
+
+def test_non_camera_remove_leaves_rtsps_cache_untouched() -> None:
+    """A non-camera remove frame does not touch the RTSPS cache."""
+    pb = PublicBootstrap()
+    pb.process_devices_ws_message(
+        Mock(), {"type": "add", "item": {**LIGHT_PAYLOAD, "state": "CONNECTED"}}
+    )
+    pb.rtsps_streams["cam1"] = RTSPSStreams(high="rtsps://example.com/high")
+
+    pb.process_devices_ws_message(
+        Mock(),
+        {"type": "remove", "item": {"id": "light1", "modelKey": "light"}},
+    )
+
+    assert "cam1" in pb.rtsps_streams
+
+
+def test_non_camera_connect_leaves_rtsps_cache_untouched() -> None:
+    """A non-camera device reaching CONNECTED does not touch the RTSPS cache."""
+    pb = PublicBootstrap()
+    pb.process_devices_ws_message(
+        Mock(), {"type": "add", "item": {**LIGHT_PAYLOAD, "state": "CONNECTING"}}
+    )
+    pb.rtsps_streams["cam1"] = RTSPSStreams(high="rtsps://example.com/high")
+
+    pb.process_devices_ws_message(
+        Mock(),
+        {
+            "type": "update",
+            "item": {"id": "light1", "modelKey": "light", "state": "CONNECTED"},
+        },
+    )
+
+    assert "cam1" in pb.rtsps_streams
+
+
+@pytest.mark.asyncio()
+async def test_public_camera_get_rtsps_streams_delegates_to_client() -> None:
+    """``PublicCamera.get_rtsps_streams`` reads through the client cache."""
+    streams = RTSPSStreams(high="rtsps://example.com/high")
+    api = Mock()
+    api.get_camera_rtsps_streams = AsyncMock(return_value=streams)
+    camera = PublicCamera.from_unifi_dict(api=api, **dict(CAMERA_PAYLOAD))
+
+    result = await camera.get_rtsps_streams()
+
+    api.get_camera_rtsps_streams.assert_awaited_once_with("cam1", cached=True)
+    assert result is streams

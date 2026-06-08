@@ -13,7 +13,7 @@ import aiohttp
 import orjson
 import pytest
 
-from uiprotect.api import _UNSET, _UnsetType
+from uiprotect.api import _UNSET, RTSPSStreams, _UnsetType
 from uiprotect.data import (
     ArmProfile,
     Bridge,
@@ -3057,6 +3057,22 @@ async def test_resync_public_bootstrap_logs_on_failure(
     with caplog.at_level("ERROR"):
         await protect_client._resync_public_bootstrap()
     assert "Failed to resync public bootstrap after reconnect" in caplog.text
+
+
+@pytest.mark.asyncio()
+async def test_resync_public_bootstrap_clears_rtsps_cache(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A reconnect resync drops the RTSPS cache (a flap during the gap is invisible)."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    protect_client._public_bootstrap.rtsps_streams["cam1"] = RTSPSStreams(
+        high="rtsps://example.com/high"
+    )
+    protect_client.update_public = AsyncMock()  # type: ignore[method-assign]
+
+    await protect_client._resync_public_bootstrap()
+
+    assert protect_client._public_bootstrap.rtsps_streams == {}
 
 
 @pytest.mark.asyncio()
