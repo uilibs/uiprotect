@@ -471,6 +471,10 @@ class BaseApiClient:
         self._ws_receive_timeout = ws_receive_timeout
         self._loaded_session = False
         self._update_task: asyncio.Task[Bootstrap | None] | None = None
+        # Per-camera background RTSPS-stream refresh tasks, keyed by camera id.
+        # Per-instance (never a class-level mutable default — one process can
+        # drive several consoles). Cancelled in :meth:`close_session`.
+        self._rtsps_refresh_tasks: dict[str, asyncio.Task[None]] = {}
         self._max_retries = max_retries
 
         self.config_dir = config_dir or (Path(user_config_dir()) / "ufp")
@@ -646,6 +650,7 @@ class BaseApiClient:
         """Closing and deletes all client sessions."""
         await self._cancel_update_task()
         await self._cancel_public_resync_task()
+        await self._cancel_rtsps_refresh_tasks()
         if self._session is not None:
             await self._session.close()
             self._session = None
@@ -677,6 +682,17 @@ class BaseApiClient:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._public_resync_task
             self._public_resync_task = None
+
+    async def _cancel_rtsps_refresh_tasks(self) -> None:
+        if not self._rtsps_refresh_tasks:
+            return
+        tasks = list(self._rtsps_refresh_tasks.values())
+        self._rtsps_refresh_tasks.clear()
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
 
     def set_header(self, key: str, value: str | None) -> None:
         """Set header."""
@@ -2483,10 +2499,11 @@ class ProtectApiClient(BaseApiClient):
             # A reconnect gap can hide a full camera flap (the disconnect *and*
             # the reconnect both missed), which rotates the ``rtsp_alias``
             # without leaving a visible state transition for the WS-path
-            # invalidation to catch. Drop the lazy RTSPS cache so the next
-            # cached read re-fetches fresh URLs.
-            if self._public_bootstrap is not None:
-                self._public_bootstrap.rtsps_streams.clear()
+            # refresh to catch. Re-fetch every cached camera's RTSPS streams
+            # in place so synchronous consumers reading
+            # ``public_bootstrap.rtsps_streams`` never see an emptied cache —
+            # the stale URLs are kept until the fresh ones overwrite them.
+            await self._refresh_all_cached_rtsps()
         except Exception:
             _LOGGER.exception("Failed to resync public bootstrap after reconnect")
         finally:
@@ -2496,6 +2513,69 @@ class ProtectApiClient(BaseApiClient):
                 self._public_resync_task = asyncio.create_task(
                     self._resync_public_bootstrap()
                 )
+
+    def _schedule_rtsps_refresh(self, camera_id: str) -> None:
+        """
+        Schedule a background, in-place re-fetch of a camera's RTSPS streams.
+
+        Triggered by a camera reconnect (devices-WS transition to
+        ``CONNECTED``), which can rotate the ``rtsp_alias``. Only cameras
+        already in the cache are refreshed — the entry is overwritten with
+        fresh URLs on success and left untouched on failure, so the cache
+        is never emptied. Coalesces: a refresh already in flight for the
+        same camera is left to finish rather than stacked.
+        """
+        pb = self._public_bootstrap
+        if pb is None or camera_id not in pb.rtsps_streams:
+            return
+        existing = self._rtsps_refresh_tasks.get(camera_id)
+        if existing is not None and not existing.done():
+            return
+        self._rtsps_refresh_tasks[camera_id] = asyncio.create_task(
+            self._refresh_camera_rtsps(camera_id)
+        )
+
+    async def _refresh_camera_rtsps(self, camera_id: str) -> None:
+        """Re-fetch one camera's RTSPS streams, overwriting the cache in place."""
+        try:
+            await self.get_camera_rtsps_streams(camera_id, cached=False)
+        except Exception:
+            _LOGGER.exception(
+                "Failed to refresh RTSPS streams for camera %s", camera_id
+            )
+        finally:
+            self._rtsps_refresh_tasks.pop(camera_id, None)
+
+    def _cancel_rtsps_refresh(self, camera_id: str) -> None:
+        """
+        Cancel a pending background RTSPS refresh for a camera, if any.
+
+        Called when a camera is removed so an in-flight re-fetch cannot
+        resurrect the cache entry that eviction just dropped.
+        """
+        task = self._rtsps_refresh_tasks.pop(camera_id, None)
+        if task is not None and not task.done():
+            task.cancel()
+
+    async def _refresh_all_cached_rtsps(self) -> None:
+        """
+        Re-fetch every cached camera's RTSPS streams in place, coalesced.
+
+        Routes through :meth:`_schedule_rtsps_refresh` so a refresh already
+        triggered by a per-camera reconnect is not duplicated, then awaits
+        the in-flight tasks. Per-camera errors are handled inside
+        :meth:`_refresh_camera_rtsps`.
+        """
+        pb = self._public_bootstrap
+        if pb is None:
+            return
+        for camera_id in list(pb.rtsps_streams):
+            self._schedule_rtsps_refresh(camera_id)
+        pending = [
+            task for task in self._rtsps_refresh_tasks.values() if not task.done()
+        ]
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
 
     async def get_bootstrap(self) -> Bootstrap:
         """

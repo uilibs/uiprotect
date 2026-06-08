@@ -3060,19 +3060,60 @@ async def test_resync_public_bootstrap_logs_on_failure(
 
 
 @pytest.mark.asyncio()
-async def test_resync_public_bootstrap_clears_rtsps_cache(
+async def test_resync_public_bootstrap_refreshes_rtsps_cache_in_place(
     protect_client: ProtectApiClient,
 ) -> None:
-    """A reconnect resync drops the RTSPS cache (a flap during the gap is invisible)."""
+    """A reconnect resync re-fetches cached RTSPS entries in place, never emptying."""
     protect_client._public_bootstrap = PublicBootstrap()
     protect_client._public_bootstrap.rtsps_streams["cam1"] = RTSPSStreams(
-        high="rtsps://example.com/high"
+        high="rtsps://example.com/stale"
     )
     protect_client.update_public = AsyncMock()  # type: ignore[method-assign]
+    fresh = RTSPSStreams(high="rtsps://example.com/fresh")
+    protect_client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
+        return_value=fresh
+    )
 
     await protect_client._resync_public_bootstrap()
 
-    assert protect_client._public_bootstrap.rtsps_streams == {}
+    protect_client.get_camera_rtsps_streams.assert_awaited_once_with(
+        "cam1", cached=False
+    )
+    # Cache stayed populated throughout (the real fetch writes through; the mock
+    # leaves the seeded entry as proof the cache was never cleared).
+    assert "cam1" in protect_client._public_bootstrap.rtsps_streams
+
+
+@pytest.mark.asyncio()
+async def test_resync_public_bootstrap_keeps_rtsps_on_refresh_failure(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A failing per-camera refresh during resync leaves the stale entry in place."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    stale = RTSPSStreams(high="rtsps://example.com/stale")
+    protect_client._public_bootstrap.rtsps_streams["cam1"] = stale
+    protect_client.update_public = AsyncMock()  # type: ignore[method-assign]
+    protect_client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
+        side_effect=RuntimeError("offline")
+    )
+
+    await protect_client._resync_public_bootstrap()
+
+    assert protect_client._public_bootstrap.rtsps_streams["cam1"] is stale
+
+
+@pytest.mark.asyncio()
+async def test_resync_public_bootstrap_skips_rtsps_refresh_when_empty(
+    protect_client: ProtectApiClient,
+) -> None:
+    """With no cached RTSPS entries, resync issues no per-camera refetch."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    protect_client.update_public = AsyncMock()  # type: ignore[method-assign]
+    protect_client.get_camera_rtsps_streams = AsyncMock()  # type: ignore[method-assign]
+
+    await protect_client._resync_public_bootstrap()
+
+    protect_client.get_camera_rtsps_streams.assert_not_awaited()
 
 
 @pytest.mark.asyncio()

@@ -354,8 +354,8 @@ class PublicBootstrap:
             new, old = self._apply_action(
                 api, action_type, item, model_type, custom_slot
             )
-            self._invalidate_rtsps_on_reconnect(model_type, new, prev_state)
-            self._evict_rtsps_on_remove(model_type, action_type, item)
+            self._refresh_rtsps_on_reconnect(api, model_type, new, prev_state)
+            self._evict_rtsps_on_remove(api, model_type, action_type, item)
             return DeviceWSResult(model_type, new, old, item)
 
         store = self._store_for(model_type)
@@ -379,21 +379,23 @@ class PublicBootstrap:
         cached = self.cameras.get(item["id"])
         return cached.state if cached is not None else None
 
-    def _invalidate_rtsps_on_reconnect(
+    def _refresh_rtsps_on_reconnect(
         self,
+        api: ProtectApiClient,
         model_type: ModelType,
         new: ProtectModelWithId | None,
         prev_state: DeviceState | None,
     ) -> None:
         """
-        Drop a camera's cached RTSPS streams when it transitions to CONNECTED.
+        Refresh a camera's cached RTSPS streams when it transitions to CONNECTED.
 
         A reconnect (or firmware change) can rotate the ``rtsp_alias`` or
         recreate the stream, so any cached URLs may be stale. Only the
-        *transition* into ``CONNECTED`` invalidates — steady-state updates on an
-        already-connected camera leave the cache intact. The entry is dropped
-        rather than re-fetched (the WS handler does no I/O); the next cached read
-        re-fetches.
+        *transition* into ``CONNECTED`` triggers a refresh — steady-state updates
+        on an already-connected camera leave the cache intact. The WS handler
+        does no I/O, so the entry is not dropped; instead a background re-fetch
+        is scheduled that overwrites it in place. The old URLs stay cached until
+        the fresh ones land, so synchronous consumers never read ``None``.
         """
         if model_type is not ModelType.CAMERA or new is None:
             return
@@ -401,10 +403,11 @@ class PublicBootstrap:
             getattr(new, "state", None) is DeviceState.CONNECTED
             and prev_state is not DeviceState.CONNECTED
         ):
-            self.rtsps_streams.pop(new.id, None)
+            api._schedule_rtsps_refresh(new.id)
 
     def _evict_rtsps_on_remove(
         self,
+        api: ProtectApiClient,
         model_type: ModelType,
         action_type: str,
         item: dict[str, Any],
@@ -414,9 +417,11 @@ class PublicBootstrap:
 
         A ``remove`` frame deletes the camera from the device store; its
         cached streams would otherwise linger until process exit (and could
-        collide if the id is later reused).
+        collide if the id is later reused). Any in-flight background refresh
+        for the camera is cancelled first so it cannot resurrect the entry.
         """
         if model_type is ModelType.CAMERA and action_type == "remove":
+            api._cancel_rtsps_refresh(item["id"])
             self.rtsps_streams.pop(item["id"], None)
 
     def _custom_slot_for(self, model_type: ModelType) -> _Slot | None:

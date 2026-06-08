@@ -307,32 +307,38 @@ def _seed_camera(pb: PublicBootstrap, state: str) -> None:
     )
 
 
-def test_camera_connect_invalidates_cached_rtsps_streams() -> None:
-    """A camera transitioning to CONNECTED drops its cached RTSPS streams."""
+def test_camera_connect_schedules_rtsps_refresh_keeping_cache() -> None:
+    """A camera transitioning to CONNECTED schedules a refresh, keeping the cache."""
     pb = PublicBootstrap()
+    api = Mock()
     _seed_camera(pb, "CONNECTING")
-    pb.rtsps_streams["cam1"] = RTSPSStreams(high="rtsps://example.com/high")
+    streams = RTSPSStreams(high="rtsps://example.com/high")
+    pb.rtsps_streams["cam1"] = streams
 
     pb.process_devices_ws_message(
-        Mock(),
+        api,
         {
             "type": "update",
             "item": {"id": "cam1", "modelKey": "camera", "state": "CONNECTED"},
         },
     )
 
-    assert "cam1" not in pb.rtsps_streams
+    # Cache is never emptied — the old URLs stay until the background refresh
+    # overwrites them in place.
+    assert pb.rtsps_streams["cam1"] is streams
+    api._schedule_rtsps_refresh.assert_called_once_with("cam1")
 
 
 def test_camera_steady_connected_update_keeps_cached_rtsps_streams() -> None:
     """An update on an already-connected camera leaves the RTSPS cache intact."""
     pb = PublicBootstrap()
+    api = Mock()
     _seed_camera(pb, "CONNECTED")
     streams = RTSPSStreams(high="rtsps://example.com/high")
     pb.rtsps_streams["cam1"] = streams
 
     pb.process_devices_ws_message(
-        Mock(),
+        api,
         {
             "type": "update",
             "item": {"id": "cam1", "modelKey": "camera", "name": "Renamed"},
@@ -340,21 +346,24 @@ def test_camera_steady_connected_update_keeps_cached_rtsps_streams() -> None:
     )
 
     assert pb.rtsps_streams["cam1"] is streams
+    api._schedule_rtsps_refresh.assert_not_called()
 
 
 def test_camera_remove_drops_cached_rtsps_streams() -> None:
-    """A camera-remove WS frame evicts that camera's cached RTSPS streams."""
+    """A camera-remove WS frame evicts streams and cancels any pending refresh."""
     pb = PublicBootstrap()
+    api = Mock()
     _seed_camera(pb, "CONNECTED")
     pb.rtsps_streams["cam1"] = RTSPSStreams(high="rtsps://example.com/high")
 
     pb.process_devices_ws_message(
-        Mock(),
+        api,
         {"type": "remove", "item": {"id": "cam1", "modelKey": "camera"}},
     )
 
     assert "cam1" not in pb.rtsps_streams
     assert "cam1" not in pb.cameras
+    api._cancel_rtsps_refresh.assert_called_once_with("cam1")
 
 
 def test_non_camera_remove_leaves_rtsps_cache_untouched() -> None:
