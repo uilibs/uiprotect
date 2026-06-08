@@ -3274,6 +3274,7 @@ async def test_refresh_camera_rtsps_does_not_resurrect_evicted_entry():
         high="rtsps://example.com/stale"
     )
     fresh = RTSPSStreams(high="rtsps://example.com/fresh")
+    started = asyncio.Event()
     release = asyncio.Event()
 
     async def _fake_get(
@@ -3281,13 +3282,14 @@ async def test_refresh_camera_rtsps_does_not_resurrect_evicted_entry():
     ) -> RTSPSStreams:
         assert cached is False
         assert write_through is False
+        started.set()
         await release.wait()
         return fresh
 
     client.get_camera_rtsps_streams = _fake_get  # type: ignore[method-assign]
     client._schedule_rtsps_refresh("cam1")
     task = client._rtsps_refresh_tasks["cam1"]
-    await asyncio.sleep(0)
+    await started.wait()
     # Evict mid-flight, as a remove frame / delete would.
     client._public_bootstrap.rtsps_streams.pop("cam1", None)
 
