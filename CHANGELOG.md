@@ -1,5 +1,16 @@
 # Changelog
 
+## v11.9.0 (2026-06-08)
+
+### Features
+
+
+- Cache rtsps streams on the public bootstrap ([`bee1b85`](https://github.com/uilibs/uiprotect/commit/bee1b858526e1289d29fd7d2e64fcce326500d80))
+
+
+- Cache rtsps streams on the public bootstrap ([`bee1b85`](https://github.com/uilibs/uiprotect/commit/bee1b858526e1289d29fd7d2e64fcce326500d80))
+
+
 ## v11.8.0 (2026-06-07)
 
 ### Features
