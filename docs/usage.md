@@ -103,37 +103,42 @@ project README for the full notes on the typed event contract.
 
 ## Camera RTSPS streams
 
-`get_camera_rtsps_streams(camera_id)` fetches a camera's RTSPS stream URLs
-from the public API. Once `update_public()` has primed the public bootstrap,
-the client also keeps a per-camera cache so consumers don't have to:
+RTSPS stream URLs live on the camera as `PublicCamera.rtsps_streams`. The
+library owns their entire lifecycle: `update_public()` primes them, so a
+consumer reads the field synchronously and carries no fetch/cache code:
 
 ```python
 await protect.update_public()
 
-# cached=True reads the cache; on a miss it fetches once and stores the result
-streams = await protect.get_camera_rtsps_streams(camera_id, cached=True)
-
-# or from the camera object (cached by default)
+# Read synchronously off the camera — primed by update_public().
 camera = protect.public_bootstrap.cameras[camera_id]
-streams = await camera.get_rtsps_streams()
+streams = camera.rtsps_streams
 ```
 
-The cache stays correct from the two sources the client controls — stream
+Priming is **always** run by `update_public()`: connected cameras without
+streams are fetched under a bounded-concurrency semaphore, best-effort (one
+slow/offline camera is skipped, never aborting the rest), and disconnected
+cameras are skipped. `get_camera_rtsps_streams(camera_id)` is a flag-free fetch
+primitive used internally — it issues a plain GET with no cache side-effects.
+
+The field stays correct from the sources the client controls — stream
 create/delete is **not** signalled over the WebSocket, so passive observation
 is impossible:
 
-- **Write-through.** `create_camera_rtsps_streams` writes its result into the
-  cache; `delete_camera_rtsps_streams` drops the deleted qualities (and evicts
-  the camera entirely once no streams remain).
-- **Reconnect refresh.** When a public devices-WS frame moves a camera to
-  `CONNECTED` (a reconnect or firmware change can rotate the `rtsp_alias`), a
-  background re-fetch is scheduled that overwrites the cached entry **in
-  place**. A WebSocket reconnect resync refreshes every cached camera the same
-  way. The cache is **never emptied** — the old URLs stay readable until the
-  fresh ones land, so synchronous consumers that read
-  `public_bootstrap.rtsps_streams` directly never observe a `None`. Entries are
-  only ever removed by a camera `remove` frame or the client's own
-  `delete_camera_rtsps_streams`.
+- **Write-through.** `create_camera_rtsps_streams` writes its result onto the
+  camera's `rtsps_streams`; `delete_camera_rtsps_streams` drops the deleted
+  qualities (and clears the field to `None` once no streams remain).
+- **Prime / refresh on connect.** When a public devices-WS frame moves a camera
+  to `CONNECTED` (a reconnect or firmware change can rotate the `rtsp_alias`), a
+  background fetch is scheduled. A camera that was **offline at `update_public()`
+  time** — so skipped by the connected-only prime — is **primed** when it comes
+  online mid-session, not left streamless until the next reload. An
+  already-populated camera is **refreshed in place** instead. Either way a
+  WebSocket reconnect resync also refreshes every populated camera. The field is
+  **never emptied** — the old URLs stay readable until the fresh ones land, so
+  synchronous consumers reading `camera.rtsps_streams` never observe a spurious
+  `None`. It is only ever cleared by a camera `remove` frame (which drops the
+  whole camera) or the client's own `delete_camera_rtsps_streams`.
 
 ## Public vs. private API
 

@@ -13,6 +13,7 @@ import aiohttp
 import orjson
 import pytest
 
+from uiprotect import api as api_module
 from uiprotect.api import _UNSET, RTSPSStreams, _UnsetType
 from uiprotect.data import (
     ArmProfile,
@@ -26,6 +27,7 @@ from uiprotect.data import (
     NvrArmModeStatus,
     PublicBootstrap,
     PublicBridge,
+    PublicCamera,
     PublicLiveview,
     PublicLiveviewSlot,
     PublicNVR,
@@ -3063,11 +3065,14 @@ async def test_resync_public_bootstrap_logs_on_failure(
 async def test_resync_public_bootstrap_refreshes_rtsps_cache_in_place(
     protect_client: ProtectApiClient,
 ) -> None:
-    """A reconnect resync re-fetches cached RTSPS entries in place, never emptying."""
+    """A reconnect resync re-fetches populated RTSPS fields in place, never emptying."""
     protect_client._public_bootstrap = PublicBootstrap()
-    protect_client._public_bootstrap.rtsps_streams["cam1"] = RTSPSStreams(
-        high="rtsps://example.com/stale"
+    camera = PublicCamera.model_construct(
+        id="cam1",
+        state=DeviceState.CONNECTED,
+        rtsps_streams=RTSPSStreams(high="rtsps://example.com/stale"),
     )
+    protect_client._public_bootstrap.cameras["cam1"] = camera
     protect_client.update_public = AsyncMock()  # type: ignore[method-assign]
     fresh = RTSPSStreams(high="rtsps://example.com/fresh")
     protect_client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
@@ -3076,21 +3081,22 @@ async def test_resync_public_bootstrap_refreshes_rtsps_cache_in_place(
 
     await protect_client._resync_public_bootstrap()
 
-    protect_client.get_camera_rtsps_streams.assert_awaited_once_with(
-        "cam1", cached=False, write_through=False
-    )
-    # Cache stayed populated throughout — refreshed in place, never cleared.
-    assert "cam1" in protect_client._public_bootstrap.rtsps_streams
+    protect_client.get_camera_rtsps_streams.assert_awaited_once_with("cam1")
+    # Field stayed populated throughout — refreshed in place, never cleared.
+    assert camera.rtsps_streams is fresh
 
 
 @pytest.mark.asyncio()
 async def test_resync_public_bootstrap_keeps_rtsps_on_refresh_failure(
     protect_client: ProtectApiClient,
 ) -> None:
-    """A failing per-camera refresh during resync leaves the stale entry in place."""
+    """A failing per-camera refresh during resync leaves the stale field in place."""
     protect_client._public_bootstrap = PublicBootstrap()
     stale = RTSPSStreams(high="rtsps://example.com/stale")
-    protect_client._public_bootstrap.rtsps_streams["cam1"] = stale
+    camera = PublicCamera.model_construct(
+        id="cam1", state=DeviceState.CONNECTED, rtsps_streams=stale
+    )
+    protect_client._public_bootstrap.cameras["cam1"] = camera
     protect_client.update_public = AsyncMock()  # type: ignore[method-assign]
     protect_client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
         side_effect=RuntimeError("offline")
@@ -3098,21 +3104,239 @@ async def test_resync_public_bootstrap_keeps_rtsps_on_refresh_failure(
 
     await protect_client._resync_public_bootstrap()
 
-    assert protect_client._public_bootstrap.rtsps_streams["cam1"] is stale
+    assert camera.rtsps_streams is stale
 
 
 @pytest.mark.asyncio()
 async def test_resync_public_bootstrap_skips_rtsps_refresh_when_empty(
     protect_client: ProtectApiClient,
 ) -> None:
-    """With no cached RTSPS entries, resync issues no per-camera refetch."""
+    """With no populated RTSPS fields, resync issues no per-camera refetch."""
     protect_client._public_bootstrap = PublicBootstrap()
+    protect_client._public_bootstrap.cameras["cam1"] = PublicCamera.model_construct(
+        id="cam1", state=DeviceState.CONNECTED, rtsps_streams=None
+    )
     protect_client.update_public = AsyncMock()  # type: ignore[method-assign]
     protect_client.get_camera_rtsps_streams = AsyncMock()  # type: ignore[method-assign]
 
     await protect_client._resync_public_bootstrap()
 
     protect_client.get_camera_rtsps_streams.assert_not_awaited()
+
+
+def _public_camera(camera_id: str, state: DeviceState) -> PublicCamera:
+    """Build a bare public camera for ``update_public`` priming tests."""
+    return PublicCamera.model_construct(id=camera_id, state=state, rtsps_streams=None)
+
+
+@pytest.mark.asyncio()
+async def test_update_public_primes_connected_cameras(
+    protect_client: ProtectApiClient,
+) -> None:
+    """``update_public`` fetches and stores RTSPS streams for each connected camera."""
+    cam1 = _public_camera("cam1", DeviceState.CONNECTED)
+    cam2 = _public_camera("cam2", DeviceState.CONNECTED)
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(return_value=[cam1, cam2]),
+    )
+    streams = {
+        "cam1": RTSPSStreams(high="rtsps://example.com/cam1"),
+        "cam2": RTSPSStreams(high="rtsps://example.com/cam2"),
+    }
+    protect_client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
+        side_effect=lambda cid: streams[cid]
+    )
+
+    pb = await protect_client.update_public()
+
+    assert pb.cameras["cam1"].rtsps_streams is streams["cam1"]
+    assert pb.cameras["cam2"].rtsps_streams is streams["cam2"]
+    assert protect_client.get_camera_rtsps_streams.await_count == 2
+
+
+@pytest.mark.asyncio()
+async def test_update_public_skips_disconnected_cameras(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Priming only touches connected cameras; offline ones are left unprimed."""
+    online = _public_camera("cam1", DeviceState.CONNECTED)
+    offline = _public_camera("cam2", DeviceState.DISCONNECTED)
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(return_value=[online, offline]),
+    )
+    fresh = RTSPSStreams(high="rtsps://example.com/cam1")
+    protect_client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
+        return_value=fresh
+    )
+
+    pb = await protect_client.update_public()
+
+    assert pb.cameras["cam1"].rtsps_streams is fresh
+    assert pb.cameras["cam2"].rtsps_streams is None
+    protect_client.get_camera_rtsps_streams.assert_awaited_once_with("cam1")
+
+
+@pytest.mark.asyncio()
+async def test_update_public_prime_is_best_effort(
+    protect_client: ProtectApiClient,
+) -> None:
+    """One camera's failed prime is swallowed and does not abort the rest."""
+    cam1 = _public_camera("cam1", DeviceState.CONNECTED)
+    cam2 = _public_camera("cam2", DeviceState.CONNECTED)
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(return_value=[cam1, cam2]),
+    )
+    good = RTSPSStreams(high="rtsps://example.com/cam2")
+
+    async def _fetch(camera_id: str) -> RTSPSStreams:
+        if camera_id == "cam1":
+            raise RuntimeError("offline")
+        return good
+
+    protect_client.get_camera_rtsps_streams = _fetch  # type: ignore[method-assign]
+
+    pb = await protect_client.update_public()
+
+    assert pb.cameras["cam1"].rtsps_streams is None
+    assert pb.cameras["cam2"].rtsps_streams is good
+
+
+@pytest.mark.asyncio()
+async def test_update_public_prime_skips_none_result(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A camera whose fetch returns ``None`` is left with an unset field."""
+    cam1 = _public_camera("cam1", DeviceState.CONNECTED)
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(return_value=[cam1]),
+    )
+    protect_client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
+        return_value=None
+    )
+
+    pb = await protect_client.update_public()
+
+    assert pb.cameras["cam1"].rtsps_streams is None
+
+
+@pytest.mark.asyncio()
+async def test_update_public_carries_forward_rtsps_across_reparse(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Existing streams survive the re-parse and the carried camera is not refetched."""
+    carried = RTSPSStreams(high="rtsps://example.com/carried")
+    protect_client._public_bootstrap = PublicBootstrap()
+    protect_client._public_bootstrap.cameras["cam1"] = PublicCamera.model_construct(
+        id="cam1", state=DeviceState.CONNECTED, rtsps_streams=carried
+    )
+    # The re-parse hands back freshly-built cameras with ``rtsps_streams=None``.
+    fresh_cam1 = _public_camera("cam1", DeviceState.CONNECTED)
+    cam2 = _public_camera("cam2", DeviceState.CONNECTED)
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(return_value=[fresh_cam1, cam2]),
+    )
+    primed = RTSPSStreams(high="rtsps://example.com/cam2")
+    protect_client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
+        return_value=primed
+    )
+
+    pb = await protect_client.update_public()
+
+    # cam1's streams are carried forward (idempotent — never re-fetched).
+    assert pb.cameras["cam1"].rtsps_streams is carried
+    assert pb.cameras["cam2"].rtsps_streams is primed
+    protect_client.get_camera_rtsps_streams.assert_awaited_once_with("cam2")
+
+
+@pytest.mark.asyncio()
+async def test_update_public_prime_skips_write_when_camera_replaced(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A camera replaced (remove+add) mid-fetch is not resurrected by the prime."""
+    cam1 = _public_camera("cam1", DeviceState.CONNECTED)
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(return_value=[cam1]),
+    )
+    replacement = _public_camera("cam1", DeviceState.CONNECTED)
+    streams = RTSPSStreams(high="rtsps://example.com/cam1")
+
+    async def _fetch(camera_id: str) -> RTSPSStreams:
+        # Simulate a remove+add swapping the cached camera while the fetch runs.
+        protect_client._public_bootstrap.cameras["cam1"] = replacement
+        return streams
+
+    protect_client.get_camera_rtsps_streams = _fetch  # type: ignore[method-assign]
+
+    pb = await protect_client.update_public()
+
+    assert pb.cameras["cam1"] is replacement
+    assert replacement.rtsps_streams is None
+    assert cam1.rtsps_streams is None
+
+
+@pytest.mark.asyncio()
+async def test_update_public_prime_does_not_clobber_concurrent_write_through(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A write-through landing mid-fetch is not overwritten by the stale prime."""
+    cam1 = _public_camera("cam1", DeviceState.CONNECTED)
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(return_value=[cam1]),
+    )
+    created = RTSPSStreams(high="rtsps://example.com/created")
+    fetched = RTSPSStreams(high="rtsps://example.com/fetched")
+
+    async def _fetch(camera_id: str) -> RTSPSStreams:
+        # A create write-through fills the field while the prime fetch is awaited.
+        cam1.rtsps_streams = created
+        return fetched
+
+    protect_client.get_camera_rtsps_streams = _fetch  # type: ignore[method-assign]
+
+    pb = await protect_client.update_public()
+
+    assert pb.cameras["cam1"].rtsps_streams is created
+
+
+@pytest.mark.asyncio()
+async def test_update_public_prime_respects_concurrency_bound(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No more than ``RTSPS_PRIME_CONCURRENCY`` prime fetches run at once."""
+    monkeypatch.setattr(api_module, "RTSPS_PRIME_CONCURRENCY", 2)
+    cameras = [_public_camera(f"cam{i}", DeviceState.CONNECTED) for i in range(4)]
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(return_value=cameras),
+    )
+    started: list[str] = []
+    release = asyncio.Event()
+
+    async def _fetch(camera_id: str) -> RTSPSStreams:
+        started.append(camera_id)
+        await release.wait()
+        return RTSPSStreams(high=f"rtsps://example.com/{camera_id}")
+
+    protect_client.get_camera_rtsps_streams = _fetch  # type: ignore[method-assign]
+
+    task = asyncio.create_task(protect_client.update_public())
+    while len(started) < 2:
+        await asyncio.sleep(0)
+    # Give any over-eager third fetch a chance to (wrongly) start.
+    await asyncio.sleep(0)
+    assert len(started) == 2
+
+    release.set()
+    await task
+    assert len(started) == 4
 
 
 @pytest.mark.asyncio()
