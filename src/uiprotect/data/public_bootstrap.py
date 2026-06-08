@@ -61,7 +61,7 @@ from .public_devices import (
 from .types import DeviceState, ModelType
 
 if TYPE_CHECKING:
-    from ..api import ProtectApiClient, RTSPSStreams
+    from ..api import ProtectApiClient
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -182,17 +182,6 @@ class PublicBootstrap:
 
     # Arm manager state.
     arm_profiles: dict[str, ArmProfile] = field(default_factory=dict)
-
-    # Per-camera RTSPS stream URLs, keyed by camera id. The Public Integration
-    # API does not signal stream create/delete over the websocket and
-    # ``PublicCamera`` carries no stream fields, so this cache is kept correct
-    # only from the two sources the client controls: its own
-    # ``create``/``delete_camera_rtsps_streams`` calls (write-through) and a
-    # camera reconnecting (which schedules a background refresh-in-place, since a
-    # reconnect can rotate the ``rtsp_alias``; the stale URLs stay readable until
-    # the fresh ones overwrite them). Populated lazily by
-    # ``ProtectApiClient.get_camera_rtsps_streams(..., cached=True)``.
-    rtsps_streams: dict[str, RTSPSStreams] = field(default_factory=dict)
 
     # Per-instance one-shot warning dedupe for merge/add failures.
     # This must not be module-global because callers can have multiple
@@ -404,16 +393,14 @@ class PublicBootstrap:
         item: dict[str, Any],
     ) -> None:
         """
-        Drop a removed camera's cached RTSPS streams.
+        Cancel any in-flight RTSPS refresh for a removed camera.
 
-        A ``remove`` frame deletes the camera from the device store; its
-        cached streams would otherwise linger until process exit (and could
-        collide if the id is later reused). Any in-flight background refresh
-        for the camera is cancelled first so it cannot resurrect the entry.
+        A ``remove`` frame deletes the camera from the device store, taking its
+        ``rtsps_streams`` field with it. Any in-flight background refresh for the
+        camera is cancelled so it cannot resurrect a now-removed camera.
         """
         if model_type is ModelType.CAMERA and action_type == "remove":
             api._cancel_rtsps_refresh(item["id"])
-            self.rtsps_streams.pop(item["id"], None)
 
     def _custom_slot_for(self, model_type: ModelType) -> _Slot | None:
         """Return the dedicated public-API slot for collision-routed types."""

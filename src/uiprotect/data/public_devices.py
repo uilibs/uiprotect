@@ -14,9 +14,10 @@ are ``Optional``.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from functools import cache
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 from pydantic import Field
 
@@ -62,9 +63,6 @@ from .types import (
     UlpUserStatus,
     VideoMode,
 )
-
-if TYPE_CHECKING:
-    from ..api import RTSPSStreams
 
 # ---------------------------------------------------------------------------
 # Write payloads (TypedDict — shape the client accepts and forwards)
@@ -198,6 +196,64 @@ class PublicSmartDetectSettings(ProtectBaseObject):
     audio_types: list[SmartDetectAudioType] = Field(default_factory=list)
 
 
+class RTSPSStreams(ProtectBaseObject):
+    """RTSPS stream URLs for a camera."""
+
+    model_config = {"extra": "allow"}
+    # Intentionally no variables like 'high', 'medium', 'low' are defined here.
+    # The API naming appears inconsistent - what's called "quality" might actually be "channels".
+    # Besides standard qualities (high/medium/low), there are special cases like "package" for doorbells
+    # and unclear implementation for 180° cameras with dual sensors. Dynamic handling via __pydantic_extra__ is safer.
+
+    def get_stream_url(self, quality: str, srtp: bool = True) -> str | None:
+        """Get stream URL for a quality level; ``srtp=False`` strips ``?enableSrtp``."""
+        url = getattr(self, quality, None)
+        if srtp or not isinstance(url, str):
+            return url
+        # Strip only the exact ?enableSrtp suffix the server appends (mirrors the
+        # private rtsps_url construction); go2rtc rejects the SRTP variant. A
+        # generic query strip would be wrong if Protect ever adds other params.
+        return url.removesuffix("?enableSrtp")
+
+    def get_available_stream_qualities(self) -> list[str]:
+        """
+        List available RTSPS quality keys from the server.
+
+        Returns raw strings; may include values not in :class:`ChannelQuality`.
+        """
+        if self.__pydantic_extra__ is None:
+            return []
+        return list(self.__pydantic_extra__.keys())
+
+    def get_active_stream_qualities(self) -> list[str]:
+        """Get list of currently active RTSPS stream quality levels (only those with stream URLs)."""
+        if self.__pydantic_extra__ is None:
+            return []
+        return [
+            key
+            for key, value in self.__pydantic_extra__.items()
+            if isinstance(value, str) and value is not None
+        ]
+
+    def get_inactive_stream_qualities(self) -> list[str]:
+        """Get list of inactive RTSPS stream quality levels (supported but not currently active)."""
+        if self.__pydantic_extra__ is None:
+            return []
+        return [
+            key
+            for key, value in self.__pydantic_extra__.items()
+            if not (isinstance(value, str) and value is not None)
+        ]
+
+    def remove_qualities(self, qualities: Iterable[str]) -> None:
+        """Drop the given quality keys from the stream set (used on delete write-through)."""
+        extra = self.__pydantic_extra__
+        if extra is None:  # pragma: no cover - extra="allow" always yields a dict
+            return
+        for quality in qualities:
+            extra.pop(quality, None)
+
+
 class PublicCamera(ProtectModelWithId):
     """Public API camera device (``GET /v1/cameras``)."""
 
@@ -218,6 +274,13 @@ class PublicCamera(ProtectModelWithId):
     feature_flags: PublicCameraFeatureFlags
     smart_detect_settings: PublicSmartDetectSettings
     has_package_camera: bool
+    # RTSPS stream URLs for this camera. Owned and primed entirely by the
+    # library: filled by ``ProtectApiClient.update_public`` (and kept fresh by
+    # the WS-reconnect refresh + create/delete write-through). The Public
+    # Integration API does not yet carry these on the camera payload, so the
+    # field defaults to ``None`` and is populated out-of-band. Consumers read
+    # it synchronously.
+    rtsps_streams: RTSPSStreams | None = None
 
     def hardware_stream_qualities(self) -> list[ChannelQuality]:
         """Stream qualities the camera hardware supports (not the server's ``available`` list)."""
@@ -226,9 +289,11 @@ class PublicCamera(ProtectModelWithId):
             qualities.append(ChannelQuality.PACKAGE)
         return qualities
 
-    async def get_rtsps_streams(self, cached: bool = True) -> RTSPSStreams | None:
-        """Get this camera's RTSPS streams, reading the client cache by default."""
-        return await self._api.get_camera_rtsps_streams(self.id, cached=cached)
+    async def get_rtsps_streams(self) -> RTSPSStreams | None:
+        """Return this camera's RTSPS streams, fetching once if not yet primed."""
+        if self.rtsps_streams is None:
+            self.rtsps_streams = await self._api.get_camera_rtsps_streams(self.id)
+        return self.rtsps_streams
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(

@@ -90,6 +90,7 @@ from .public_devices import (
     PublicWirelessBatteryStatus,
     PublicWirelessConnectionState,
     Relay,
+    RTSPSStreams,
     Siren,
     Speaker,
 )
@@ -301,6 +302,7 @@ __all__ = [
     "PublicViewer",
     "PublicWirelessBatteryStatus",
     "PublicWirelessConnectionState",
+    "RTSPSStreams",
     "RecordingMode",
     "Relay",
     "RelayInputActionTrigger",

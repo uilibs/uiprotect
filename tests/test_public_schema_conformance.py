@@ -71,6 +71,14 @@ def _leaf_model(annotation: Any) -> type[ProtectBaseObject] | None:
     return None
 
 
+# Library-owned fields populated out-of-band (not present on the spec schema),
+# keyed by spec path. ``rtsps_streams`` is primed by ``update_public`` until the
+# Public Integration API carries the URLs on the camera payload directly.
+_LIBRARY_OWNED_FIELDS: dict[str, set[str]] = {
+    "camera": {"rtsps_streams"},
+}
+
+
 def _assert_matches(
     cls: type[ProtectBaseObject],
     node: dict[str, Any],
@@ -84,7 +92,7 @@ def _assert_matches(
     # ``modelKey`` is remapped to the ``model`` field on ProtectModel.
     spec_fields = {to_snake_case(key) for key in props}
     model_fields = {"model_key" if f == "model" else f for f in cls.model_fields}
-    phantom = model_fields - spec_fields
+    phantom = model_fields - spec_fields - _LIBRARY_OWNED_FIELDS.get(path, set())
     assert not phantom, (
         f"{path}: model declares field(s) absent from the spec: {sorted(phantom)}"
     )

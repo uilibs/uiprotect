@@ -29,7 +29,6 @@ from aiozoneinfo import async_get_time_zone
 from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
-from uiprotect.data.base import ProtectBaseObject
 from uiprotect.data.convert import list_from_unifi_list
 from uiprotect.data.nvr import MetaInfo
 from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
@@ -42,6 +41,7 @@ from .data import (
     Bridge,
     Camera,
     ChannelQuality,
+    DeviceState,
     Doorlock,
     Event,
     EventCategories,
@@ -77,6 +77,7 @@ from .data import (
     PublicUser,
     PublicViewer,
     Relay,
+    RTSPSStreams,
     Sensor,
     Siren,
     SmartDetectAudioType,
@@ -126,7 +127,7 @@ from .utils import (
 from .websocket import Websocket, WebsocketState
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable
 
     from uiprotect.data.devices import LightDeviceSettings, LightModeSettings
 
@@ -270,6 +271,11 @@ NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
 # on flaky networks or controller reboots.
 PUBLIC_RESYNC_MIN_INTERVAL = 10.0
 
+# Max concurrent RTSPS-stream fetches issued while priming cameras in
+# ``update_public``. Bounds the GET fan-out so a large install does not fire
+# dozens of requests at once.
+RTSPS_PRIME_CONCURRENCY = 8
+
 
 def calculate_retry_delay(attempt: int, retry_after: float | None = None) -> float:
     """
@@ -332,64 +338,6 @@ def get_user_hash(host: str, username: str) -> str:
     session.update(host.encode("utf8"))
     session.update(username.encode("utf8"))
     return session.hexdigest()
-
-
-class RTSPSStreams(ProtectBaseObject):
-    """RTSPS stream URLs for a camera."""
-
-    model_config = {"extra": "allow"}
-    # Intentionally no variables like 'high', 'medium', 'low' are defined here.
-    # The API naming appears inconsistent - what's called "quality" might actually be "channels".
-    # Besides standard qualities (high/medium/low), there are special cases like "package" for doorbells
-    # and unclear implementation for 180° cameras with dual sensors. Dynamic handling via __pydantic_extra__ is safer.
-
-    def get_stream_url(self, quality: str, srtp: bool = True) -> str | None:
-        """Get stream URL for a quality level; ``srtp=False`` strips ``?enableSrtp``."""
-        url = getattr(self, quality, None)
-        if srtp or not isinstance(url, str):
-            return url
-        # Strip only the exact ?enableSrtp suffix the server appends (mirrors the
-        # private rtsps_url construction); go2rtc rejects the SRTP variant. A
-        # generic query strip would be wrong if Protect ever adds other params.
-        return url.removesuffix("?enableSrtp")
-
-    def get_available_stream_qualities(self) -> list[str]:
-        """
-        List available RTSPS quality keys from the server.
-
-        Returns raw strings; may include values not in :class:`ChannelQuality`.
-        """
-        if self.__pydantic_extra__ is None:
-            return []
-        return list(self.__pydantic_extra__.keys())
-
-    def get_active_stream_qualities(self) -> list[str]:
-        """Get list of currently active RTSPS stream quality levels (only those with stream URLs)."""
-        if self.__pydantic_extra__ is None:
-            return []
-        return [
-            key
-            for key, value in self.__pydantic_extra__.items()
-            if isinstance(value, str) and value is not None
-        ]
-
-    def get_inactive_stream_qualities(self) -> list[str]:
-        """Get list of inactive RTSPS stream quality levels (supported but not currently active)."""
-        if self.__pydantic_extra__ is None:
-            return []
-        return [
-            key
-            for key, value in self.__pydantic_extra__.items()
-            if not (isinstance(value, str) and value is not None)
-        ]
-
-    def remove_qualities(self, qualities: Iterable[str]) -> None:
-        """Drop the given quality keys from the stream set (used on delete write-through)."""
-        extra = self.__pydantic_extra__
-        if extra is None:  # pragma: no cover - extra="allow" always yields a dict
-            return
-        for quality in qualities:
-            extra.pop(quality, None)
 
 
 class BaseApiClient:
@@ -2500,10 +2448,10 @@ class ProtectApiClient(BaseApiClient):
             # A reconnect gap can hide a full camera flap (the disconnect *and*
             # the reconnect both missed), which rotates the ``rtsp_alias``
             # without leaving a visible state transition for the WS-path
-            # refresh to catch. Re-fetch every cached camera's RTSPS streams
-            # in place so synchronous consumers reading
-            # ``public_bootstrap.rtsps_streams`` never see an emptied cache —
-            # the stale URLs are kept until the fresh ones overwrite them.
+            # refresh to catch. Re-fetch every camera's already-populated RTSPS
+            # streams in place so synchronous consumers reading
+            # ``camera.rtsps_streams`` never see an emptied field — the stale
+            # URLs are kept until the fresh ones overwrite them.
             await self._refresh_all_cached_rtsps()
         except Exception:
             _LOGGER.exception("Failed to resync public bootstrap after reconnect")
@@ -2518,7 +2466,10 @@ class ProtectApiClient(BaseApiClient):
     def _schedule_rtsps_refresh(self, camera_id: str) -> None:
         """Schedule a coalesced in-place re-fetch of a cached camera's RTSPS streams."""
         pb = self._public_bootstrap
-        if pb is None or camera_id not in pb.rtsps_streams:
+        if pb is None:
+            return
+        camera = pb.cameras.get(camera_id)
+        if camera is None or camera.rtsps_streams is None:
             return
         existing = self._rtsps_refresh_tasks.get(camera_id)
         if existing is not None and not existing.done():
@@ -2528,23 +2479,24 @@ class ProtectApiClient(BaseApiClient):
         )
 
     async def _refresh_camera_rtsps(self, camera_id: str) -> None:
-        """Re-fetch one camera's RTSPS streams, overwriting the cache in place."""
+        """Re-fetch one camera's RTSPS streams, overwriting the cached field in place."""
         try:
-            streams = await self.get_camera_rtsps_streams(
-                camera_id, cached=False, write_through=False
-            )
+            streams = await self.get_camera_rtsps_streams(camera_id)
         except Exception:
             _LOGGER.exception(
                 "Failed to refresh RTSPS streams for camera %s", camera_id
             )
         else:
-            # Only write back if the entry still exists. An eviction (a
-            # ``remove`` frame or ``delete_camera_rtsps_streams``) that landed
-            # while the fetch was in flight must not be resurrected; the check
-            # and the write share no await, so they cannot race the eviction.
+            # Only write back if the camera (and its existing streams) is still
+            # cached. An eviction (a ``remove`` frame or
+            # ``delete_camera_rtsps_streams``) that landed while the fetch was in
+            # flight must not be resurrected; the check and the write share no
+            # await, so they cannot race the eviction.
             pb = self._public_bootstrap
-            if streams is not None and pb is not None and camera_id in pb.rtsps_streams:
-                pb.rtsps_streams[camera_id] = streams
+            if streams is not None and pb is not None:
+                camera = pb.cameras.get(camera_id)
+                if camera is not None and camera.rtsps_streams is not None:
+                    camera.rtsps_streams = streams
         finally:
             self._rtsps_refresh_tasks.pop(camera_id, None)
 
@@ -2555,12 +2507,13 @@ class ProtectApiClient(BaseApiClient):
             task.cancel()
 
     async def _refresh_all_cached_rtsps(self) -> None:
-        """Re-fetch every cached camera's RTSPS streams in place, coalesced."""
+        """Re-fetch every camera that already has RTSPS streams in place, coalesced."""
         pb = self._public_bootstrap
         if pb is None:
             return
-        for camera_id in list(pb.rtsps_streams):
-            self._schedule_rtsps_refresh(camera_id)
+        for camera_id, camera in list(pb.cameras.items()):
+            if camera.rtsps_streams is not None:
+                self._schedule_rtsps_refresh(camera_id)
         pending = [
             task for task in self._rtsps_refresh_tasks.values() if not task.done()
         ]
@@ -2902,9 +2855,10 @@ class ProtectApiClient(BaseApiClient):
         """
         Creates RTSPS streams for a camera using public API.
 
-        On success the result is written through to the public bootstrap's
-        per-camera RTSPS cache (when ``update_public()`` has primed it), since
-        stream creation is not signalled over the websocket.
+        On success the result is written through to the matching cached
+        :class:`PublicCamera`'s ``rtsps_streams`` field (when
+        ``update_public()`` has primed it), since stream creation is not
+        signalled over the websocket.
         """
         if isinstance(qualities, str):
             qualities = [qualities]
@@ -2931,34 +2885,24 @@ class ProtectApiClient(BaseApiClient):
             )
             return None
 
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.rtsps_streams[camera_id] = streams
+        pb = self._public_bootstrap
+        if pb is not None:
+            camera = pb.cameras.get(camera_id)
+            if camera is not None:
+                camera.rtsps_streams = streams
         return streams
 
     async def get_camera_rtsps_streams(
         self,
         camera_id: str,
-        cached: bool = False,
-        write_through: bool = True,
     ) -> RTSPSStreams | None:
         """
-        Gets existing RTSPS streams for a camera using public API.
+        Fetch a camera's RTSPS streams from the public API.
 
-        With ``cached=True``, a value already held in the public bootstrap's
-        per-camera RTSPS cache is returned without an HTTP request; on a cache
-        miss the stream is fetched and stored. Every successful fetch is written
-        to the cache (when ``update_public()`` has primed the public bootstrap),
-        so subsequent ``cached=True`` reads stay fresh until the camera
-        reconnects or the client itself creates/deletes a stream. Pass
-        ``write_through=False`` to fetch without touching the cache (used by the
-        background refresh so a result for an evicted camera can't resurrect it).
+        A flag-free fetch primitive with no cache side-effects: caching policy
+        lives in the population layer (:meth:`update_public` priming, the
+        WS-reconnect refresh, and create/delete write-through).
         """
-        pb = self._public_bootstrap
-        if cached and pb is not None:
-            existing = pb.rtsps_streams.get(camera_id)
-            if existing is not None:
-                return existing
-
         response = await self.api_request_raw(
             public_api=True,
             url=f"/v1/cameras/{camera_id}/rtsps-stream",
@@ -2970,7 +2914,7 @@ class ProtectApiClient(BaseApiClient):
 
         try:
             response_json = orjson.loads(response)
-            streams = RTSPSStreams(**response_json)
+            return RTSPSStreams(**response_json)
         except (orjson.JSONDecodeError, TypeError) as ex:
             _LOGGER.error(
                 "Could not decode JSON response for get RTSPS streams (camera %s): %s",
@@ -2978,10 +2922,6 @@ class ProtectApiClient(BaseApiClient):
                 ex,
             )
             return None
-
-        if write_through and pb is not None:
-            pb.rtsps_streams[camera_id] = streams
-        return streams
 
     async def delete_camera_rtsps_streams(
         self,
@@ -2991,9 +2931,9 @@ class ProtectApiClient(BaseApiClient):
         """
         Deletes RTSPS streams for a camera using public API.
 
-        On success the deleted qualities are removed from the cached
-        :class:`RTSPSStreams` (when present); a camera left with no streams is
-        dropped from the cache entirely.
+        On success the deleted qualities are removed from the matching cached
+        :class:`PublicCamera`'s ``rtsps_streams`` (when present); a camera left
+        with no streams has the field cleared to ``None``.
         """
         if isinstance(qualities, str):
             qualities = [qualities]
@@ -3011,8 +2951,9 @@ class ProtectApiClient(BaseApiClient):
 
         success = response is not None
         if success and self._public_bootstrap is not None:
-            cached = self._public_bootstrap.rtsps_streams.get(camera_id)
-            if cached is not None:
+            camera = self._public_bootstrap.cameras.get(camera_id)
+            cached = camera.rtsps_streams if camera is not None else None
+            if camera is not None and cached is not None:
                 cached.remove_qualities(quality_strs)
                 # Evict on *available* (keyed) qualities, not *active* ones, to
                 # match the read-through path which caches keyed-but-inactive
@@ -3021,7 +2962,7 @@ class ProtectApiClient(BaseApiClient):
                 # or the client's own writes — so an entry surviving here always
                 # still holds at least one server-known quality key.
                 if not cached.get_available_stream_qualities():
-                    self._public_bootstrap.rtsps_streams.pop(camera_id, None)
+                    camera.rtsps_streams = None
                     # Cancel any in-flight refresh so it can't resurrect the
                     # entry this eviction just dropped.
                     self._cancel_rtsps_refresh(camera_id)
@@ -4677,6 +4618,16 @@ class ProtectApiClient(BaseApiClient):
             self._public_bootstrap = PublicBootstrap()
         pb = self._public_bootstrap
 
+        # Snapshot existing streams before the re-parse below replaces the
+        # camera objects with freshly-built ones (whose ``rtsps_streams``
+        # default to ``None``); the prime step carries them forward by id so
+        # the never-empty contract holds across a resync.
+        previous_streams = {
+            camera_id: camera.rtsps_streams
+            for camera_id, camera in pb.cameras.items()
+            if camera.rtsps_streams is not None
+        }
+
         # Bind coroutines to their labels and attribute names to avoid
         # manual index synchronization bugs.
         # ``get_arm_profiles_public`` writes into ``pb`` itself on success;
@@ -4718,4 +4669,59 @@ class ProtectApiClient(BaseApiClient):
             else:
                 pb.apply_fetch_result(attr, result)  # type: ignore[arg-type]
 
+        await self._prime_rtsps_streams(pb, previous_streams)
         return pb
+
+    async def _prime_rtsps_streams(
+        self,
+        pb: PublicBootstrap,
+        previous_streams: dict[str, RTSPSStreams],
+    ) -> None:
+        """
+        Populate each camera's ``rtsps_streams`` after an ``update_public`` fetch.
+
+        Carries forward the pre-re-parse streams by id, then fetches streams for
+        the genuinely-missing connected cameras under a bounded concurrency
+        semaphore. Best-effort per camera: a failed fetch is logged at ``DEBUG``
+        and skipped so one slow/unreachable camera cannot abort the prime.
+        Disconnected cameras are skipped — they yield no usable stream, only a
+        per-camera timeout.
+        """
+        for camera_id, camera in pb.cameras.items():
+            if camera.rtsps_streams is None and camera_id in previous_streams:
+                camera.rtsps_streams = previous_streams[camera_id]
+
+        to_prime = [
+            camera
+            for camera in pb.cameras.values()
+            if camera.rtsps_streams is None
+            and camera.state is DeviceState.CONNECTED
+        ]
+        if not to_prime:
+            return
+
+        semaphore = asyncio.Semaphore(RTSPS_PRIME_CONCURRENCY)
+
+        async def _prime_one(camera: PublicCamera) -> None:
+            async with semaphore:
+                try:
+                    streams = await self.get_camera_rtsps_streams(camera.id)
+                except Exception:
+                    _LOGGER.debug(
+                        "Failed to prime RTSPS streams for camera %s",
+                        camera.id,
+                        exc_info=True,
+                    )
+                    return
+                # Only write if the camera is still the cached instance and
+                # still streamless — a concurrent write-through (create) or a
+                # remove/replace during the fetch await must not be clobbered or
+                # resurrected (mirrors the ``_refresh_camera_rtsps`` guard).
+                if (
+                    streams is not None
+                    and pb.cameras.get(camera.id) is camera
+                    and camera.rtsps_streams is None
+                ):
+                    camera.rtsps_streams = streams
+
+        await asyncio.gather(*[_prime_one(camera) for camera in to_prime])
