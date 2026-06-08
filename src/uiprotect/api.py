@@ -2464,7 +2464,8 @@ class ProtectApiClient(BaseApiClient):
                 )
 
     def _schedule_rtsps_refresh(self, camera_id: str) -> None:
-        """Schedule a coalesced re-fetch of a cached camera's RTSPS streams.
+        """
+        Schedule a coalesced re-fetch of a cached camera's RTSPS streams.
 
         Handles both a *refresh* of an already-populated camera and a *prime*
         of a present-but-streamless one — a camera offline at
