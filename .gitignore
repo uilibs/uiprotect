@@ -185,3 +185,9 @@ rawdata.json
 # IDE settings
 .vscode/
 .idea/
+
+# Public Integration API spec: fetched on demand, never committed (Ubiquiti IP).
+openapi/integration.json
+# …except the validated-version marker — a bare version string carries no IP and
+# its git history is the audit trail of when spec conformance last moved forward.
+!openapi/.validated-version

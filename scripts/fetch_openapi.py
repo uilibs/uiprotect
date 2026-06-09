@@ -114,5 +114,14 @@ if __name__ == "__main__":
         metavar="PATH",
         help=f"Output path (default: {DEFAULT_OUTPUT})",
     )
+    parser.add_argument(
+        "--print-version",
+        action="store_true",
+        help="Print the resolved version to stdout and exit (no ~74 MB download)",
+    )
     args = parser.parse_args()
-    fetch_spec(args.version, args.output)
+    if args.print_version:
+        _, ver = _get_download_url(args.version)
+        print(ver)
+    else:
+        fetch_spec(args.version, args.output)

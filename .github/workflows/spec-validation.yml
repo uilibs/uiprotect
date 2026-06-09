@@ -1,0 +1,178 @@
+name: Spec conformance
+
+# Validate the public-API client against Ubiquiti's Integration OpenAPI spec.
+#
+# The expensive validation runs at most ONCE per Protect release: the daily cron
+# only queries the firmware-latest API (seconds, no download) and short-circuits
+# while the validated version is current or a drift issue is already open. The
+# spec (~74 MB deb) is fetched ephemerally and never committed or uploaded.
+
+on:
+  schedule:
+    # Daily at 06:17 UTC. Cheap until a release actually drifts.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Protect version to validate (MAJOR.MINOR.PATCH); blank = latest release"
+        required: false
+        type: string
+      dry_run:
+        description: "Run validation but do not open/close issues or PRs"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: spec-validation
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: true
+
+      - name: Install poetry
+        run: uv tool install poetry
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: 3.x
+          cache: "poetry"
+
+      # Step 1: resolve the latest (or requested) release — API call only, no download.
+      - name: Resolve target version
+        id: resolve
+        run: |
+          set -euo pipefail
+          if [ -n "${{ inputs.version }}" ]; then
+            latest=$(python scripts/fetch_openapi.py --print-version --version "${{ inputs.version }}")
+          else
+            latest=$(python scripts/fetch_openapi.py --print-version)
+          fi
+          validated=$(cat openapi/.validated-version)
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "validated=$validated" >> "$GITHUB_OUTPUT"
+          echo "Latest release: $latest | validated marker: $validated"
+
+      # Step 2: steady state — nothing to do.
+      - name: Short-circuit if already validated
+        id: steady
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.resolve.outputs.latest }}" = "${{ steps.resolve.outputs.validated }}" ]; then
+            echo "Marker already at latest release; nothing to validate."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Step 3: known drift — an issue for this version already exists. Exit BEFORE
+      # downloading the deb so steady-state and known-drift days never fetch.
+      - name: Short-circuit if drift issue already open
+        id: known
+        if: steps.steady.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          title="spec drift: protect ${{ steps.resolve.outputs.latest }}"
+          count=$(gh issue list --state open --search "in:title \"$title\"" --json title \
+            --jq "[.[] | select(.title == \"$title\")] | length")
+          if [ "$count" -gt 0 ]; then
+            echo "Drift issue already open for ${{ steps.resolve.outputs.latest }}; skipping fetch."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Step 4a: fetch the spec (~74 MB) and validate — only when drift is new.
+      - name: Install dependencies
+        if: steps.steady.outputs.skip != 'true' && steps.known.outputs.skip != 'true'
+        run: poetry install --all-extras
+
+      - name: Fetch spec and validate
+        id: validate
+        if: steps.steady.outputs.skip != 'true' && steps.known.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          if [ -n "${{ inputs.version }}" ]; then
+            poetry run python scripts/fetch_openapi.py --version "${{ inputs.version }}"
+          else
+            poetry run python scripts/fetch_openapi.py
+          fi
+          set +e
+          poetry run python scripts/validate_spec.py > report.md
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          set -e
+          cat report.md
+
+      # Step 4b (green): bump the marker via PR.
+      - name: Open marker-bump PR (green)
+        if: >-
+          steps.steady.outputs.skip != 'true' &&
+          steps.known.outputs.skip != 'true' &&
+          steps.validate.outputs.exit_code == '0'
+        env:
+          LATEST: ${{ steps.resolve.outputs.latest }}
+        run: |
+          set -euo pipefail
+          branch="spec-validation/bump-$LATEST"
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "[dry-run] would open PR bumping .validated-version to $LATEST"
+            exit 0
+          fi
+          open=$(gh pr list --state open --head "$branch" --json number --jq "length")
+          if [ "$open" -gt 0 ]; then
+            echo "Marker-bump PR already open for $branch; nothing to do."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          printf '%s\n' "$LATEST" > openapi/.validated-version
+          git add openapi/.validated-version
+          git commit -m "chore(spec): bump validated version to $LATEST"
+          git push --set-upstream origin "$branch"
+          gh pr create \
+            --title "chore(spec): bump validated version to $LATEST" \
+            --body "Automated: public-API client conforms to the Protect $LATEST Integration spec. The spec itself is not committed (Ubiquiti IP); reproduce locally with \`python scripts/fetch_openapi.py --version $LATEST && python scripts/validate_spec.py\`." \
+            --base main --head "$branch"
+
+      # Step 4c (red): open one drift issue, close superseded ones.
+      - name: Open drift issue (red)
+        if: >-
+          steps.steady.outputs.skip != 'true' &&
+          steps.known.outputs.skip != 'true' &&
+          steps.validate.outputs.exit_code != '0'
+        env:
+          LATEST: ${{ steps.resolve.outputs.latest }}
+        run: |
+          set -euo pipefail
+          title="spec drift: protect $LATEST"
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "[dry-run] would open issue: $title"
+            cat report.md
+            exit 0
+          fi
+          gh issue create --title "$title" --body-file report.md
+          # Close older drift issues as superseded.
+          gh issue list --state open --search 'in:title "spec drift: protect"' \
+            --json number,title \
+            --jq ".[] | select(.title != \"$title\") | .number" | while read -r num; do
+            [ -z "$num" ] && continue
+            gh issue close "$num" \
+              --comment "Superseded by drift detected for Protect $LATEST."
+          done

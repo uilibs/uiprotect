@@ -306,6 +306,33 @@ Output: `openapi/integration.json` (gitignored) — request/response shapes,
 required fields, enums, and allowed HTTP methods for every `/integration/v1/…`
 endpoint. If the file is absent, run the script first.
 
+### Spec conformance validation
+
+`scripts/validate_spec.py` checks the public-API client against a fetched
+spec and reports drift: spec endpoints with no covering `*_public` method
+(warning), model fields the spec dropped/retyped (error) or added (warning),
+spec `required` fields modelled optional (warning — the library models every
+public-API field optional by design), and new enum values (warning). It exits
+non-zero on any error and prints a markdown summary. Reproduce locally with:
+
+```bash
+python scripts/fetch_openapi.py --version "$(cat openapi/.validated-version)"
+python scripts/validate_spec.py
+```
+
+The only committed artifact is `openapi/.validated-version` — a bare version
+string (no IP) whose git history records when conformance last moved forward.
+`tests/test_public_schema_conformance.py` runs the same checks when a spec is
+present and skips cleanly when it is absent (the CI default); the logic itself
+is unit-tested network-free against in-memory mock specs in
+`tests/test_validate_spec.py`. The `.github/workflows/spec-validation.yml`
+cron runs the full validation at most once per Protect release — opening a
+marker-bump PR when green or a single drift issue when red — and short-circuits
+on a firmware-API check before downloading anything while the marker is current
+or a drift issue is already open. The endpoint coverage table in
+`validate_spec.py` is hand-maintained: adding a `*_public` method requires
+adding its `(METHOD, path)` row.
+
 ## Reporting security issues
 
 Suspected security vulnerabilities go through GitHub's [private
