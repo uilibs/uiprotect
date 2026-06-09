@@ -1,5 +1,16 @@
 # Changelog
 
+## v12.1.0 (2026-06-09)
+
+### Features
+
+
+- Resolve console mac for public-only clients via /api/system ([`bb62fff`](https://github.com/uilibs/uiprotect/commit/bb62fffce4be9327d8fbb1dc0d580833d7e9872d))
+
+
+- Resolve console mac for public-only clients via /api/system ([`bb62fff`](https://github.com/uilibs/uiprotect/commit/bb62fffce4be9327d8fbb1dc0d580833d7e9872d))
+
+
 ## v12.0.0 (2026-06-08)
 
 ### Features
