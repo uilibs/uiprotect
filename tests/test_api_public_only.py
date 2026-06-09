@@ -260,6 +260,13 @@ async def test_get_console_mac_unreachable_returns_none() -> None:
         assert await client.get_console_mac() is None
 
 
+@pytest.mark.asyncio()
+async def test_get_console_mac_timeout_returns_none() -> None:
+    client = _public_only_client()
+    with patch.object(client, "api_request", new=AsyncMock(side_effect=TimeoutError)):
+        assert await client.get_console_mac() is None
+
+
 # ---------------------------------------------------------------------------
 # Min-version source
 # ---------------------------------------------------------------------------

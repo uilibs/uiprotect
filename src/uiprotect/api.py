@@ -3519,7 +3519,11 @@ class ProtectApiClient(BaseApiClient):
                 require_auth=False,
                 raise_exception=False,
             )
-        except NvrError as err:
+        except (NvrError, TimeoutError) as err:
+            # A connection refusal surfaces as ClientError, which _do_request
+            # wraps into NvrError. A timeout (non-routable host / hanging
+            # connection) is not a ClientError and is never wrapped, so catch
+            # TimeoutError too to honour the "None when unreachable" contract.
             _LOGGER.debug("Failed to resolve console mac from /api/system: %s", err)
             return None
 
