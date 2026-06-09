@@ -12,7 +12,12 @@ from uiprotect.api import ProtectApiClient
 from uiprotect.data import PublicBootstrap
 from uiprotect.data.nvr import MetaInfo
 from uiprotect.data.types import Version
-from uiprotect.exceptions import BadRequest, NotAuthorized, PublicOnlyModeError
+from uiprotect.exceptions import (
+    BadRequest,
+    NotAuthorized,
+    NvrError,
+    PublicOnlyModeError,
+)
 
 from .test_api_public import _mock_update_public_endpoints
 
@@ -199,6 +204,67 @@ async def test_public_request_missing_key_raises() -> None:
     assert client._api_key is None
     with pytest.raises(NotAuthorized, match="API key is required"):
         await client.get_meta_info()
+
+
+# ---------------------------------------------------------------------------
+# Console mac resolution (off-contract UniFi-OS /api/system fallback)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_get_console_mac_returns_mac() -> None:
+    client = _public_only_client()
+    with patch.object(
+        client,
+        "api_request",
+        new=AsyncMock(return_value={"mac": "E4388332C9B1", "name": "UNVR"}),
+    ) as api_request:
+        mac = await client.get_console_mac()
+    assert mac == "E4388332C9B1"
+    api_request.assert_awaited_once()
+    kwargs = api_request.await_args.kwargs
+    assert kwargs["url"] == "/system"
+    assert kwargs["api_path"] == "/api"
+    assert kwargs["require_auth"] is False
+
+
+@pytest.mark.asyncio()
+async def test_get_console_mac_missing_mac_returns_none() -> None:
+    client = _public_only_client()
+    with patch.object(
+        client, "api_request", new=AsyncMock(return_value={"name": "UNVR"})
+    ):
+        assert await client.get_console_mac() is None
+
+
+@pytest.mark.asyncio()
+async def test_get_console_mac_empty_mac_returns_none() -> None:
+    client = _public_only_client()
+    with patch.object(client, "api_request", new=AsyncMock(return_value={"mac": ""})):
+        assert await client.get_console_mac() is None
+
+
+@pytest.mark.asyncio()
+async def test_get_console_mac_non_dict_returns_none() -> None:
+    client = _public_only_client()
+    with patch.object(client, "api_request", new=AsyncMock(return_value=None)):
+        assert await client.get_console_mac() is None
+
+
+@pytest.mark.asyncio()
+async def test_get_console_mac_unreachable_returns_none() -> None:
+    client = _public_only_client()
+    with patch.object(
+        client, "api_request", new=AsyncMock(side_effect=NvrError("unreachable"))
+    ):
+        assert await client.get_console_mac() is None
+
+
+@pytest.mark.asyncio()
+async def test_get_console_mac_timeout_returns_none() -> None:
+    client = _public_only_client()
+    with patch.object(client, "api_request", new=AsyncMock(side_effect=TimeoutError)):
+        assert await client.get_console_mac() is None
 
 
 # ---------------------------------------------------------------------------

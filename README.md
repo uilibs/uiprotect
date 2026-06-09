@@ -388,6 +388,11 @@ await protect.update_public()
 # work with the public-API device snapshots
 for siren in await protect.get_sirens_public():
     print(siren.name)
+
+# the public API exposes no NVR mac, so resolve the console's mac-based
+# identity out-of-band via the UniFi-OS /api/system endpoint (transitional —
+# the end-state identity is the public-API primary key nvr.id)
+console_mac = await protect.get_console_mac()
 ```
 
 ## TODO / Planned / Not Implemented

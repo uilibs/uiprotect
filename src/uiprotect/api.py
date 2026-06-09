@@ -3485,6 +3485,53 @@ class ProtectApiClient(BaseApiClient):
             raise NvrError("Failed to retrieve meta info from public API")
         return MetaInfo(**data)
 
+    async def get_console_mac(self) -> str | None:
+        """
+        Resolve the console/NVR mac via the UniFi-OS ``/api/system`` endpoint.
+
+        The public Protect Integration API exposes **no NVR mac** — every
+        device schema carries ``mac`` but the ``nvr`` schema does not (gap
+        #925), so :class:`PublicNVR` has no mac either. This helper fills that
+        gap so a :meth:`public_only` client can still derive the console's
+        stable, mac-based identity.
+
+        This is a **transitional workaround** for the hybrid/parallel phase in
+        which the private and public paths coexist: identity must stay
+        mac-based to match what the private path already produces, so a feature
+        toggling between the two paths doesn't churn entity ids. The end-state
+        identity is the public API's own primary key (``nvr.id``); this helper
+        is expected to be retired once the private path is dropped and
+        consumers migrate to ``id``.
+
+        ``/api/system`` is an **off-contract UniFi-OS endpoint** (not the
+        public Protect API): unauthenticated, and it returns the mac of the
+        device at the configured Protect host. Returns the mac string (e.g.
+        ``"E4388332C9B1"``, matching the private ``NVR.mac`` format) or
+        ``None`` when the endpoint is unreachable or carries no mac.
+        """
+        # Off-contract UniFi-OS endpoint, used only because the public Protect
+        # API has no NVR mac (#925). Unauthenticated; targets the configured
+        # Protect host. Transitional — retire once consumers migrate to nvr.id.
+        try:
+            data = await self.api_request(
+                url="/system",
+                api_path="/api",
+                require_auth=False,
+                raise_exception=False,
+            )
+        except (NvrError, TimeoutError) as err:
+            # A connection refusal surfaces as ClientError, which _do_request
+            # wraps into NvrError. A timeout (non-routable host / hanging
+            # connection) is not a ClientError and is never wrapped, so catch
+            # TimeoutError too to honour the "None when unreachable" contract.
+            _LOGGER.debug("Failed to resolve console mac from /api/system: %s", err)
+            return None
+
+        if not isinstance(data, dict):
+            return None
+        mac = data.get("mac")
+        return mac if isinstance(mac, str) and mac else None
+
     # Public API Methods
 
     async def get_nvr_public(self) -> PublicNVR:
