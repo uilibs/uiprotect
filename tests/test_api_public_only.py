@@ -240,9 +240,7 @@ async def test_get_console_mac_missing_mac_returns_none() -> None:
 @pytest.mark.asyncio()
 async def test_get_console_mac_empty_mac_returns_none() -> None:
     client = _public_only_client()
-    with patch.object(
-        client, "api_request", new=AsyncMock(return_value={"mac": ""})
-    ):
+    with patch.object(client, "api_request", new=AsyncMock(return_value={"mac": ""})):
         assert await client.get_console_mac() is None
 
 
