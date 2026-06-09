@@ -140,6 +140,25 @@ is impossible:
   `None`. It is only ever cleared by a camera `remove` frame (which drops the
   whole camera) or the client's own `delete_camera_rtsps_streams`.
 
+### Public-API request pacing
+
+The Public Integration API enforces a **per-API-key request budget** (observed
+~10 requests/second on Protect 7.1.77) and advertises it through draft-8
+`RateLimit` response headers. The public WebSocket auth/keepalive draws from the
+**same** per-key pool, so an `update_public()` fan-out plus the RTSPS prime can
+overshoot the ceiling and knock the live connection off (`1008` "Too many
+requests") before the reactive `429` retry recovers.
+
+To stay *under* the budget instead of recovering *after* exceeding it, every
+`public_api=True` request is paced by a **per-client** limiter (never shared
+across consoles): it cold-starts at ~6 requests/second — enough headroom under
+the 10/s ceiling for the WebSocket — then steers from the server's own
+`RateLimit` accounting, slowing further (or briefly pausing) as the remaining
+budget tightens so the keepalive keeps its slice. The reactive `429` retry
+stays in place as the backstop for cases the limiter can't predict (another
+client sharing the key, a server-side policy change). The pacing is automatic
+and transparent to callers — no configuration is required.
+
 ## Public vs. private API
 
 `uiprotect` can talk to UniFi Protect two ways, and is actively migrating

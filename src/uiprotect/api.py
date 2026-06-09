@@ -35,6 +35,7 @@ from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
 
 from ._compat import cached_property
 from ._public_api import public_get, public_patch, public_post
+from ._public_api_limiter import PublicApiRateLimiter
 from .data import (
     NVR,
     ArmProfile,
@@ -367,6 +368,7 @@ class BaseApiClient:
     _events_websocket: Websocket | None = None
     _devices_websocket: Websocket | None = None
     _public_resync_task: asyncio.Task[None] | None = None
+    _public_api_limiter: PublicApiRateLimiter
 
     private_api_path: str = "/proxy/protect/api/"
     public_api_path: str = "/proxy/protect/integration"
@@ -425,6 +427,10 @@ class BaseApiClient:
         # drive several consoles). Cancelled in :meth:`close_session`.
         self._rtsps_refresh_tasks: dict[str, asyncio.Task[None]] = {}
         self._max_retries = max_retries
+        # Proactive limiter shared by all public_api traffic on this client.
+        # Per-instance (never module-global): one process can drive several
+        # consoles, each with its own per-API-key budget.
+        self._public_api_limiter = PublicApiRateLimiter()
 
         self.config_dir = config_dir or (Path(user_config_dir()) / "ufp")
         self.cache_dir = cache_dir or (Path(user_cache_dir()) / "ufp_cache")
@@ -690,6 +696,25 @@ class BaseApiClient:
             f"Error requesting data from {self._host}: {last_err}",
         ) from last_err
 
+    async def _paced_request(
+        self,
+        session: aiohttp.ClientSession,
+        method: str,
+        request_url: URL,
+        headers: dict[str, str],
+        public_api: bool,
+        **kwargs: Any,
+    ) -> aiohttp.ClientResponse:
+        """Run one request, gating public-API traffic through the limiter."""
+        if public_api:
+            await self._public_api_limiter.acquire()
+        response = await self._do_request(
+            session, method, request_url, headers, **kwargs
+        )
+        if public_api:
+            self._public_api_limiter.update_from_headers(response.headers)
+        return response
+
     async def request(
         self,
         method: str,
@@ -726,8 +751,8 @@ class BaseApiClient:
             session = await self.get_session()
 
         # First attempt (always happens, even with max_retries=0)
-        response = await self._do_request(
-            session, method, request_url, headers, **kwargs
+        response = await self._paced_request(
+            session, method, request_url, headers, public_api, **kwargs
         )
 
         # Retry loop for transient errors
@@ -752,8 +777,8 @@ class BaseApiClient:
                 self._max_retries,
             )
             await asyncio.sleep(delay)
-            response = await self._do_request(
-                session, method, request_url, headers, **kwargs
+            response = await self._paced_request(
+                session, method, request_url, headers, public_api, **kwargs
             )
 
         if auto_close:
