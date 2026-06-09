@@ -60,7 +60,7 @@ def parse_ratelimit_header(value: str | None) -> tuple[float, float] | None:
     Returns ``None`` if the value is empty or lacks the ``r``/``t`` params.
     Raises ``ValueError`` on a value that is not a valid structured-field item
     (e.g. a draft-7 ``limit=…, remaining=…`` line) so the caller can treat it
-    as an unparseable header.
+    as an unparsable header.
     """
     if not value:
         return None
@@ -138,7 +138,7 @@ class PublicApiRateLimiter:
         # ``None`` until the first parseable headers seed the budget: no pacing
         # before then, and none ever on firmware without the limiter middleware.
         self._rate: float | None = None
-        # Set once if headers are present but unparseable — pacing disables for
+        # Set once if headers are present but unparsable — pacing disables for
         # the life of the client and the 429 retry carries on as the backstop.
         self._disabled = False
         self._capacity = 1.0
@@ -185,7 +185,7 @@ class PublicApiRateLimiter:
         if budget is None or current is None:
             self._disabled = True
             _LOGGER.warning(
-                "Public API RateLimit headers present but unparseable "
+                "Public API RateLimit headers present but unparsable "
                 "(policy=%r, ratelimit=%r); disabling proactive pacing and "
                 "falling back to the 429 retry",
                 policy_raw,

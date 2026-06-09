@@ -242,15 +242,15 @@ def test_no_headers_is_a_noop() -> None:
 
 
 # =============================================================================
-# unparseable headers disable pacing
+# unparsable headers disable pacing
 # =============================================================================
 
 
 @pytest.mark.asyncio()
-async def test_unparseable_headers_disable_pacing(
+async def test_unparsable_headers_disable_pacing(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Present-but-unparseable headers log one WARNING and disable pacing."""
+    """Present-but-unparsable headers log one WARNING and disable pacing."""
     limiter, clock = _make_limiter()
     with caplog.at_level(logging.WARNING):
         limiter.update_from_headers(
