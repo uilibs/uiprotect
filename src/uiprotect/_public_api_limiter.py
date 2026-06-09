@@ -46,7 +46,11 @@ _LOGGER = logging.getLogger(__name__)
 # websocket auth/keepalive keeps a slice when request bursts drain the per-key
 # pool. The keepalive shares the same per-principal budget (the limiter is
 # mounted ahead of the /subscribe upgrades), verified against Protect 7.1.77.
-PUBLIC_API_RATE_HEADROOM = 4.0
+# A 2 req/s reserve comfortably covers the low-frequency WS auth/keepalive; with
+# the server's q=10, w=1 that yields an 8/s pace ((10 - 2) / 1) — live-validated
+# to hold zero 429s and zero dropped requests while the devices WebSocket stays
+# up under sustained load.
+PUBLIC_API_RATE_HEADROOM = 2.0
 
 # Floor pace (req/s) while the budget is still non-empty; the reactive 429
 # retry stays the backstop for genuine overshoot.

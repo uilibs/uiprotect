@@ -153,7 +153,7 @@ To stay _under_ the budget instead of recovering _after_ exceeding it, every
 `public_api=True` request is paced by a **per-client** limiter (never shared
 across consoles). The limiter is **fully header-driven**: it derives its
 ceiling from the server's own `RateLimit-Policy` quota — `rate = (quota −
-headroom) / window`, which is a steady ~6 requests/second under today's `q=10,
+headroom) / window`, which is a steady ~8 requests/second under today's `q=10,
 w=1` policy — and reserves a headroom slice for the WebSocket keepalive. As the
 remaining budget tightens it slows further (or briefly pauses until the window
 resets). Because the budget comes from the headers, the pacing self-adapts if
