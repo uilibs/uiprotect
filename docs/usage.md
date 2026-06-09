@@ -149,7 +149,7 @@ The Public Integration API enforces a **per-API-key request budget** (observed
 overshoot the ceiling and knock the live connection off (`1008` "Too many
 requests") before the reactive `429` retry recovers.
 
-To stay *under* the budget instead of recovering *after* exceeding it, every
+To stay _under_ the budget instead of recovering _after_ exceeding it, every
 `public_api=True` request is paced by a **per-client** limiter (never shared
 across consoles): it cold-starts at ~6 requests/second — enough headroom under
 the 10/s ceiling for the WebSocket — then steers from the server's own
