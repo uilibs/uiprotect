@@ -1,15 +1,18 @@
-"""Tests for the proactive public-API rate limiter."""
+"""Tests for the proactive, header-driven public-API rate limiter."""
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from multidict import CIMultiDict
 
 from uiprotect._public_api_limiter import (
-    PUBLIC_API_COLD_START_RATE,
     PublicApiRateLimiter,
+    _join_headers,
     parse_ratelimit_header,
+    parse_ratelimit_policy,
 )
 from uiprotect.api import ProtectApiClient
 
@@ -37,6 +40,16 @@ def _make_limiter(**kwargs) -> tuple[PublicApiRateLimiter, FakeClock]:
     return limiter, clock
 
 
+def _seed(limiter: PublicApiRateLimiter, q: int, w: int, r: int, t: int) -> None:
+    """Drive the limiter with a parseable policy + current-state pair."""
+    limiter.update_from_headers(
+        {
+            "RateLimit-Policy": f'"{q}-in-{w}sec";q={q};w={w};pk=:dXNlcg==:',
+            "RateLimit": f'"{q}-in-{w}sec";r={r};t={t}',
+        }
+    )
+
+
 # =============================================================================
 # parse_ratelimit_header
 # =============================================================================
@@ -44,7 +57,7 @@ def _make_limiter(**kwargs) -> tuple[PublicApiRateLimiter, FakeClock]:
 
 def test_parse_header_full() -> None:
     """Both r and t parse into a (remaining, reset) tuple."""
-    assert parse_ratelimit_header('"10-in-1sec"; r=7; t=0.5') == (7.0, 0.5)
+    assert parse_ratelimit_header('"10-in-1sec";r=7;t=0.5') == (7.0, 0.5)
 
 
 def test_parse_header_none() -> None:
@@ -59,12 +72,93 @@ def test_parse_header_empty() -> None:
 
 def test_parse_header_missing_remaining() -> None:
     """A header without the r parameter yields None."""
-    assert parse_ratelimit_header('"10-in-1sec"; t=1') is None
+    assert parse_ratelimit_header('"10-in-1sec";t=1') is None
 
 
 def test_parse_header_missing_reset() -> None:
     """A header without the t parameter yields None."""
-    assert parse_ratelimit_header('"10-in-1sec"; r=5') is None
+    assert parse_ratelimit_header('"10-in-1sec";r=5') is None
+
+
+def test_parse_header_draft7_raises() -> None:
+    """A draft-7 (non-structured-field) value raises ValueError."""
+    with pytest.raises(ValueError):
+        parse_ratelimit_header("limit=10, remaining=6, reset=1")
+
+
+# =============================================================================
+# parse_ratelimit_policy
+# =============================================================================
+
+
+def test_parse_policy_full() -> None:
+    """A single policy parses into (quota, window)."""
+    assert parse_ratelimit_policy('"10-in-1sec";q=10;w=1;pk=:dXNlcg==:') == (
+        10.0,
+        1.0,
+    )
+
+
+def test_parse_policy_none() -> None:
+    """An empty policy header yields None."""
+    assert parse_ratelimit_policy(None) is None
+
+
+def test_parse_policy_missing_params() -> None:
+    """A member without q/w yields None."""
+    assert parse_ratelimit_policy('"10-in-1sec";pk=:dXNlcg==:') is None
+
+
+def test_parse_policy_zero_window_skipped() -> None:
+    """A non-positive window is skipped, leaving no usable budget."""
+    assert parse_ratelimit_policy('"x";q=10;w=0') is None
+
+
+def test_parse_policy_picks_most_restrictive() -> None:
+    """The lowest-throughput policy in the list wins."""
+    # 10/1 = 10/s vs 6/3 = 2/s -> the 6-in-3 policy is the binding one.
+    assert parse_ratelimit_policy('"10-in-1sec";q=10;w=1, "6-in-3sec";q=6;w=3') == (
+        6.0,
+        3.0,
+    )
+
+
+def test_parse_policy_bad_value_raises() -> None:
+    """A value that is not a structured-field list raises ValueError."""
+    with pytest.raises(ValueError):
+        parse_ratelimit_policy("not a; valid = list")
+
+
+# =============================================================================
+# _join_headers
+# =============================================================================
+
+
+def test_join_headers_absent() -> None:
+    """A header absent from a plain mapping yields None."""
+    assert _join_headers({}, "RateLimit") is None
+
+
+def test_join_headers_plain_get() -> None:
+    """A plain mapping falls back to a single get()."""
+    assert _join_headers({"RateLimit": '"x";r=1;t=1'}, "RateLimit") == '"x";r=1;t=1'
+
+
+def test_join_headers_multidict_joins_all_lines() -> None:
+    """Repeated multidict lines are joined with ', ' so none are dropped."""
+    headers: CIMultiDict[str] = CIMultiDict()
+    headers.add("RateLimit-Policy", '"10-in-1sec";q=10;w=1')
+    headers.add("RateLimit-Policy", '"6-in-3sec";q=6;w=3')
+    joined = _join_headers(headers, "RateLimit-Policy")
+    assert joined == '"10-in-1sec";q=10;w=1, "6-in-3sec";q=6;w=3'
+    # And the joined value parses to the binding (most restrictive) policy.
+    assert parse_ratelimit_policy(joined) == (6.0, 3.0)
+
+
+def test_join_headers_multidict_absent() -> None:
+    """A multidict missing the key yields None."""
+    headers: CIMultiDict[str] = CIMultiDict()
+    assert _join_headers(headers, "RateLimit") is None
 
 
 # =============================================================================
@@ -73,17 +167,28 @@ def test_parse_header_missing_reset() -> None:
 
 
 @pytest.mark.asyncio()
-async def test_first_acquire_is_immediate() -> None:
-    """The cold-start bucket lets the first request through without sleeping."""
+async def test_unseeded_limiter_does_not_pace() -> None:
+    """With no headers seen yet, acquires pass through without sleeping."""
     limiter, clock = _make_limiter()
+    await limiter.acquire()
     await limiter.acquire()
     assert clock.sleeps == []
 
 
 @pytest.mark.asyncio()
-async def test_burst_is_paced_at_cold_start_rate() -> None:
+async def test_first_acquire_after_seed_is_immediate() -> None:
+    """The freshly-seeded bucket lets the first request through immediately."""
+    limiter, clock = _make_limiter()
+    _seed(limiter, q=10, w=1, r=10, t=1)
+    await limiter.acquire()
+    assert clock.sleeps == []
+
+
+@pytest.mark.asyncio()
+async def test_burst_is_paced_at_derived_rate() -> None:
     """Back-to-back acquires are spaced at 1/rate once the bucket drains."""
-    limiter, clock = _make_limiter(rate=6.0)
+    limiter, clock = _make_limiter(headroom=4.0)
+    _seed(limiter, q=10, w=1, r=10, t=1)  # rate = (10 - 4) / 1 = 6/s
     await limiter.acquire()  # immediate
     await limiter.acquire()  # must wait one slot
     assert clock.sleeps == [pytest.approx(1.0 / 6.0)]
@@ -94,65 +199,83 @@ async def test_burst_is_paced_at_cold_start_rate() -> None:
 # =============================================================================
 
 
-@pytest.mark.asyncio()
-async def test_header_slows_pace_when_budget_tightens() -> None:
-    """A low remaining budget over a wide reset slows the pace below cold start."""
-    limiter, clock = _make_limiter(rate=6.0, headroom=4.0)
-    # allowed = 8 - 4 = 4 over 2s -> 2 req/s
-    limiter.update_from_headers({"RateLimit": '"10-in-1sec"; r=8; t=2'})
-    await limiter.acquire()
-    await limiter.acquire()
-    assert clock.sleeps == [pytest.approx(0.5)]
+def test_rate_derived_from_policy_quota() -> None:
+    """The ceiling is (quota - headroom) / window from the policy."""
+    limiter, _ = _make_limiter(headroom=4.0)
+    _seed(limiter, q=10, w=2, r=10, t=2)  # (10 - 4) / 2 = 3/s
+    assert limiter._rate == pytest.approx(3.0)
+
+
+def test_rate_respects_min_floor() -> None:
+    """A quota at or below the headroom clamps up to the min-rate floor."""
+    limiter, _ = _make_limiter(headroom=4.0, min_rate=1.0)
+    _seed(limiter, q=4, w=1, r=4, t=1)  # (4 - 4) / 1 = 0, floored to 1.0
+    assert limiter._rate == pytest.approx(1.0)
 
 
 @pytest.mark.asyncio()
-async def test_header_never_exceeds_cold_start_ceiling() -> None:
-    """A full budget cannot push the pace above the cold-start ceiling."""
-    limiter, clock = _make_limiter(rate=6.0, headroom=4.0)
-    # allowed = 10 - 4 = 6 over 0.5s -> 12 req/s, clamped down to 6
-    limiter.update_from_headers({"RateLimit": '"10-in-1sec"; r=10; t=0.5'})
-    await limiter.acquire()
-    await limiter.acquire()
-    assert clock.sleeps == [pytest.approx(1.0 / 6.0)]
-
-
-@pytest.mark.asyncio()
-async def test_header_respects_min_rate_floor() -> None:
-    """Pace never drops below the min-rate floor while the budget is non-empty."""
-    limiter, clock = _make_limiter(rate=6.0, headroom=4.0, min_rate=1.0)
-    # allowed = 5 - 4 = 1 over 10s -> 0.1 req/s, clamped up to the 1.0 floor
-    limiter.update_from_headers({"RateLimit": '"10-in-1sec"; r=5; t=10'})
-    await limiter.acquire()
-    await limiter.acquire()
-    assert clock.sleeps == [pytest.approx(1.0)]
-
-
-@pytest.mark.asyncio()
-async def test_header_blocks_until_reset_within_headroom() -> None:
-    """Once remaining is within the headroom floor, new requests wait for reset."""
-    limiter, clock = _make_limiter(rate=6.0, headroom=4.0)
-    await limiter.acquire()  # consume the initial token
-    # allowed = 4 - 4 = 0 -> block until the window resets in 1s
-    limiter.update_from_headers({"RateLimit": '"10-in-1sec"; r=4; t=1'})
+async def test_blocks_until_reset_within_headroom() -> None:
+    """Once remaining is within the headroom floor, requests wait for reset."""
+    limiter, clock = _make_limiter(headroom=4.0)
+    # remaining 4 - headroom 4 = 0 -> block until the window resets in 1s.
+    _seed(limiter, q=10, w=1, r=4, t=1)
     await limiter.acquire()
     assert clock.sleeps[-1] == pytest.approx(1.0)
 
 
 @pytest.mark.asyncio()
-async def test_header_reset_zero_restores_max_rate() -> None:
-    """A zero reset clears any block and restores the cold-start ceiling."""
-    limiter, clock = _make_limiter(rate=6.0, headroom=4.0)
-    limiter.update_from_headers({"RateLimit": '"10-in-1sec"; r=4; t=1'})  # block
-    limiter.update_from_headers({"RateLimit": '"10-in-1sec"; r=10; t=0'})  # unblock
+async def test_reset_zero_clears_block() -> None:
+    """A zero reset clears any standing block."""
+    limiter, clock = _make_limiter(headroom=4.0)
+    _seed(limiter, q=10, w=1, r=4, t=1)  # block
+    _seed(limiter, q=10, w=1, r=10, t=0)  # reset 0 -> unblock
     await limiter.acquire()
     assert clock.sleeps == []
 
 
-def test_missing_header_is_a_noop() -> None:
-    """An update with no RateLimit header leaves the pace untouched."""
-    limiter, _ = _make_limiter(rate=6.0)
+def test_no_headers_is_a_noop() -> None:
+    """An update with neither RateLimit header leaves pacing disengaged."""
+    limiter, _ = _make_limiter()
     limiter.update_from_headers({})
-    assert limiter._rate == 6.0
+    assert limiter._rate is None
+    assert limiter._disabled is False
+
+
+# =============================================================================
+# unparseable headers disable pacing
+# =============================================================================
+
+
+@pytest.mark.asyncio()
+async def test_unparseable_headers_disable_pacing(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Present-but-unparseable headers log one WARNING and disable pacing."""
+    limiter, clock = _make_limiter()
+    with caplog.at_level(logging.WARNING):
+        limiter.update_from_headers(
+            {"RateLimit": "limit=10, remaining=6, reset=1"}  # draft-7 shape
+        )
+    assert limiter._disabled is True
+    assert any(r.levelno == logging.WARNING for r in caplog.records)
+
+    # Once disabled, both paths are inert: no pacing, no further steering.
+    await limiter.acquire()
+    assert clock.sleeps == []
+    _seed(limiter, q=10, w=1, r=10, t=1)
+    assert limiter._rate is None
+
+
+def test_missing_param_disables_pacing() -> None:
+    """A valid policy but a RateLimit missing t disables pacing."""
+    limiter, _ = _make_limiter()
+    limiter.update_from_headers(
+        {
+            "RateLimit-Policy": '"10-in-1sec";q=10;w=1',
+            "RateLimit": '"10-in-1sec";r=5',  # no t
+        }
+    )
+    assert limiter._disabled is True
 
 
 # =============================================================================
@@ -183,15 +306,20 @@ async def test_public_request_acquires_and_steers() -> None:
     client = _public_client()
     clock = FakeClock()
     client._public_api_limiter = PublicApiRateLimiter(
-        rate=6.0, headroom=4.0, time_func=clock.time, sleep_func=clock.sleep
+        headroom=4.0, time_func=clock.time, sleep_func=clock.sleep
     )
-    resp = _resp(headers={"RateLimit": '"10-in-1sec"; r=8; t=2'})
+    resp = _resp(
+        headers={
+            "RateLimit-Policy": '"10-in-1sec";q=10;w=2;pk=:dXNlcg==:',
+            "RateLimit": '"10-in-1sec";r=8;t=2',
+        }
+    )
 
     with patch.object(client, "_do_request", AsyncMock(return_value=resp)):
         await client.request("get", "/test", public_api=True, auto_close=False)
 
-    # allowed = 8 - 4 = 4 over 2s -> 2 req/s
-    assert client._public_api_limiter._rate == pytest.approx(2.0)
+    # rate = (10 - 4) / 2 = 3/s
+    assert client._public_api_limiter._rate == pytest.approx(3.0)
 
 
 @pytest.mark.asyncio()
@@ -215,10 +343,15 @@ async def test_public_request_paces_on_retry() -> None:
     client = _public_client()
     clock = FakeClock()
     client._public_api_limiter = PublicApiRateLimiter(
-        rate=6.0, headroom=4.0, time_func=clock.time, sleep_func=clock.sleep
+        headroom=4.0, time_func=clock.time, sleep_func=clock.sleep
     )
     first = _resp(status=429, headers={"Retry-After": "0"})
-    second = _resp(headers={"RateLimit": '"10-in-1sec"; r=8; t=2'})
+    second = _resp(
+        headers={
+            "RateLimit-Policy": '"10-in-1sec";q=10;w=2;pk=:dXNlcg==:',
+            "RateLimit": '"10-in-1sec";r=8;t=2',
+        }
+    )
     responses = [first, second]
 
     async def fake_do_request(*args, **kwargs):
@@ -227,11 +360,6 @@ async def test_public_request_paces_on_retry() -> None:
     with patch.object(client, "_do_request", side_effect=fake_do_request):
         await client.request("get", "/test", public_api=True, auto_close=False)
 
-    # The retried 200's header steered the bucket: allowed = 4 over 2s = 2/s.
-    assert client._public_api_limiter._rate == pytest.approx(2.0)
+    # The retried 200's header steered the bucket: (10 - 4) / 2 = 3/s.
+    assert client._public_api_limiter._rate == pytest.approx(3.0)
     assert responses == []
-
-
-def test_cold_start_rate_constant() -> None:
-    """The cold-start pace stays at the documented 6 req/s."""
-    assert PUBLIC_API_COLD_START_RATE == 6.0

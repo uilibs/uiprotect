@@ -4605,13 +4605,21 @@ class ProtectApiClient(BaseApiClient):
             if camera.rtsps_streams is not None
         }
 
+        # Seed the rate limiter before the fan-out: a single cheap fetch primes
+        # the header-driven budget (and the token bucket) so the concurrent
+        # burst below is paced from its first request instead of steering
+        # mid-flight. The NVR fetch doubles as that seed.
+        try:
+            pb.nvr = await self.get_nvr_public()
+        except BaseException as nvr_err:
+            _log_or_raise("nvr", nvr_err)
+
         # Bind coroutines to their labels and attribute names to avoid
         # manual index synchronization bugs.
         # ``get_arm_profiles_public`` writes into ``pb`` itself on success;
         # we gather it for concurrency and to swallow failures.
         # ``armMode`` is part of the NVR response; no separate call needed.
         endpoints = [
-            (self.get_nvr_public(), "nvr", "nvr"),
             (self.get_cameras_public(), "cameras", "cameras"),
             (self.get_lights_public(), "lights", "lights"),
             (self.get_chimes_public(), "chimes", "chimes"),
@@ -4641,10 +4649,7 @@ class ProtectApiClient(BaseApiClient):
                 # arm_profiles are already applied by get_arm_profiles_public;
                 # skip here to avoid overwriting the in-place dict.
                 continue
-            if attr == "nvr":
-                pb.nvr = result  # type: ignore[assignment]
-            else:
-                pb.apply_fetch_result(attr, result)  # type: ignore[arg-type]
+            pb.apply_fetch_result(attr, result)  # type: ignore[arg-type]
 
         await self._prime_rtsps_streams(pb, previous_streams)
         return pb

@@ -151,13 +151,16 @@ requests") before the reactive `429` retry recovers.
 
 To stay _under_ the budget instead of recovering _after_ exceeding it, every
 `public_api=True` request is paced by a **per-client** limiter (never shared
-across consoles): it cold-starts at ~6 requests/second — enough headroom under
-the 10/s ceiling for the WebSocket — then steers from the server's own
-`RateLimit` accounting, slowing further (or briefly pausing) as the remaining
-budget tightens so the keepalive keeps its slice. The reactive `429` retry
-stays in place as the backstop for cases the limiter can't predict (another
-client sharing the key, a server-side policy change). The pacing is automatic
-and transparent to callers — no configuration is required.
+across consoles). The limiter is **fully header-driven**: it derives its
+ceiling from the server's own `RateLimit-Policy` quota — `rate = (quota −
+headroom) / window`, which is a steady ~6 requests/second under today's `q=10,
+w=1` policy — and reserves a headroom slice for the WebSocket keepalive. As the
+remaining budget tightens it slows further (or briefly pauses until the window
+resets). Because the budget comes from the headers, the pacing self-adapts if
+Ubiquiti changes the server values, and it does nothing on firmware old enough
+to predate the limiter middleware (no `RateLimit` headers → no pacing). The
+reactive `429` retry stays in place as the universal backstop. The pacing is
+automatic and transparent to callers — no configuration is required.
 
 ## Public vs. private API
 
