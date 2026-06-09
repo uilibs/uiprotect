@@ -149,18 +149,23 @@ The Public Integration API enforces a **per-API-key request budget** (observed
 overshoot the ceiling and knock the live connection off (`1008` "Too many
 requests") before the reactive `429` retry recovers.
 
-To stay _under_ the budget instead of recovering _after_ exceeding it, every
-`public_api=True` request is paced by a **per-client** limiter (never shared
+To stay _under_ the budget instead of recovering _after_ exceeding it,
+`public_api=True` traffic is paced by a **per-client** limiter (never shared
 across consoles). The limiter is **fully header-driven**: it derives its
 ceiling from the server's own `RateLimit-Policy` quota — `rate = (quota −
 headroom) / window`, which is a steady ~8 requests/second under today's `q=10,
 w=1` policy — and reserves a headroom slice for the WebSocket keepalive. As the
 remaining budget tightens it slows further (or briefly pauses until the window
-resets). Because the budget comes from the headers, the pacing self-adapts if
-Ubiquiti changes the server values, and it does nothing on firmware old enough
-to predate the limiter middleware (no `RateLimit` headers → no pacing). The
-reactive `429` retry stays in place as the universal backstop. The pacing is
-automatic and transparent to callers — no configuration is required.
+resets). Because the budget comes from the headers, the limiter only engages
+once it has seen the first parseable `RateLimit`/`RateLimit-Policy` response:
+the opening request(s) on a fresh client — before any headers have arrived —
+run unpaced, and pacing then takes over from the server's accounting.
+`update_public()` seeds the limiter with a single cheap fetch before its
+fan-out for exactly this reason. The pacing self-adapts if Ubiquiti changes the
+server values, and does nothing on firmware old enough to predate the limiter
+middleware (no `RateLimit` headers → no pacing). The reactive `429` retry stays
+in place as the universal backstop. The pacing is automatic and transparent to
+callers — no configuration is required.
 
 ## Public vs. private API
 
