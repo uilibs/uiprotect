@@ -34,6 +34,7 @@ from uiprotect.data.nvr import MetaInfo
 from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
 
 from ._compat import cached_property
+from ._public_api import public_get, public_patch, public_post
 from .data import (
     NVR,
     ArmProfile,
@@ -3534,22 +3535,20 @@ class ProtectApiClient(BaseApiClient):
 
     # Public API Methods
 
+    @public_get("/v1/nvrs", returns=PublicNVR)
     async def get_nvr_public(self) -> PublicNVR:
         """Get NVR information using public API."""
-        data = await self.api_request_obj(url="/v1/nvrs", public_api=True)
-        return PublicNVR.from_unifi_dict(**data, api=self)
+        raise NotImplementedError
 
+    @public_get("/v1/lights", item=PublicLight)
     async def get_lights_public(self) -> list[PublicLight]:
         """Get all lights using public API."""
-        data = await self.api_request_list(url="/v1/lights", public_api=True)
-        return [
-            PublicLight.from_unifi_dict(**light_data, api=self) for light_data in data
-        ]
+        raise NotImplementedError
 
+    @public_get("/v1/lights/{light_id}", returns=PublicLight)
     async def get_light_public(self, light_id: str) -> PublicLight:
         """Get a specific light using public API."""
-        data = await self.api_request_obj(url=f"/v1/lights/{light_id}", public_api=True)
-        return PublicLight.from_unifi_dict(**data, api=self)
+        raise NotImplementedError
 
     async def update_light_public(
         self,
@@ -3604,20 +3603,15 @@ class ProtectApiClient(BaseApiClient):
         )
         return PublicLight.from_unifi_dict(**result, api=self)
 
+    @public_get("/v1/cameras", item=PublicCamera)
     async def get_cameras_public(self) -> list[PublicCamera]:
         """Get all cameras using public API."""
-        data = await self.api_request_list(url="/v1/cameras", public_api=True)
-        return [
-            PublicCamera.from_unifi_dict(**camera_data, api=self)
-            for camera_data in data
-        ]
+        raise NotImplementedError
 
+    @public_get("/v1/cameras/{camera_id}", returns=PublicCamera)
     async def get_camera_public(self, camera_id: str) -> PublicCamera:
         """Get a specific camera using public API."""
-        data = await self.api_request_obj(
-            url=f"/v1/cameras/{camera_id}", public_api=True
-        )
-        return PublicCamera.from_unifi_dict(**data, api=self)
+        raise NotImplementedError
 
     async def update_camera_public(
         self,
@@ -3696,18 +3690,17 @@ class ProtectApiClient(BaseApiClient):
         )
         return PublicCamera.from_unifi_dict(**result, api=self)
 
+    @public_get("/v1/chimes", item=PublicChime)
     async def get_chimes_public(self) -> list[PublicChime]:
         """Get all chimes using public API."""
-        data = await self.api_request_list(url="/v1/chimes", public_api=True)
-        return [
-            PublicChime.from_unifi_dict(**chime_data, api=self) for chime_data in data
-        ]
+        raise NotImplementedError
 
+    @public_get("/v1/chimes/{chime_id}", returns=PublicChime)
     async def get_chime_public(self, chime_id: str) -> PublicChime:
         """Get a specific chime using public API."""
-        data = await self.api_request_obj(url=f"/v1/chimes/{chime_id}", public_api=True)
-        return PublicChime.from_unifi_dict(**data, api=self)
+        raise NotImplementedError
 
+    @public_patch("/v1/chimes/{chime_id}", returns=PublicChime)
     async def update_chime_public(
         self,
         chime_id: str,
@@ -3739,24 +3732,7 @@ class ProtectApiClient(BaseApiClient):
             BadRequest: If no parameters are provided
 
         """
-        data: PublicApiChimePatchRequest = {}
-        if name is not None:
-            data["name"] = name
-        if camera_ids is not None:
-            data["cameraIds"] = camera_ids
-        if ring_settings is not None:
-            data["ringSettings"] = ring_settings
-
-        if not data:
-            raise BadRequest("At least one parameter must be provided")
-
-        result = await self.api_request_obj(
-            url=f"/v1/chimes/{chime_id}",
-            method="patch",
-            json=data,
-            public_api=True,
-        )
-        return PublicChime.from_unifi_dict(**result, api=self)
+        raise NotImplementedError
 
     # PTZ Control Private API Methods
 
@@ -3782,29 +3758,20 @@ class ProtectApiClient(BaseApiClient):
 
     # PTZ Control Public API Methods
 
+    @public_post("/v1/cameras/{camera_id}/ptz/goto/{slot}")
     async def ptz_goto_preset_public(self, camera_id: str, *, slot: int) -> None:
         """Move PTZ camera to preset position using public API."""
-        await self.api_request_raw(
-            url=f"/v1/cameras/{camera_id}/ptz/goto/{slot}",
-            method="post",
-            public_api=True,
-        )
+        raise NotImplementedError
 
+    @public_post("/v1/cameras/{camera_id}/ptz/patrol/start/{slot}")
     async def ptz_patrol_start_public(self, camera_id: str, *, slot: int) -> None:
         """Start a PTZ patrol using public API."""
-        await self.api_request_raw(
-            url=f"/v1/cameras/{camera_id}/ptz/patrol/start/{slot}",
-            method="post",
-            public_api=True,
-        )
+        raise NotImplementedError
 
+    @public_post("/v1/cameras/{camera_id}/ptz/patrol/stop")
     async def ptz_patrol_stop_public(self, camera_id: str) -> None:
         """Stop the active PTZ patrol using public API."""
-        await self.api_request_raw(
-            url=f"/v1/cameras/{camera_id}/ptz/patrol/stop",
-            method="post",
-            public_api=True,
-        )
+        raise NotImplementedError
 
     async def create_talkback_session_public(self, camera_id: str) -> TalkbackSession:
         """
@@ -3839,17 +3806,15 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Sensors
     # ------------------------------------------------------------------
 
+    @public_get("/v1/sensors", item=PublicSensor)
     async def get_sensors_public(self) -> list[PublicSensor]:
         """Get all sensors using public API."""
-        data = await self.api_request_list(url="/v1/sensors", public_api=True)
-        return [PublicSensor.from_unifi_dict(**item, api=self) for item in data]
+        raise NotImplementedError
 
+    @public_get("/v1/sensors/{sensor_id}", returns=PublicSensor)
     async def get_sensor_public(self, sensor_id: str) -> PublicSensor:
         """Get a specific sensor using public API."""
-        data = await self.api_request_obj(
-            url=f"/v1/sensors/{sensor_id}", public_api=True
-        )
-        return PublicSensor.from_unifi_dict(**data, api=self)
+        raise NotImplementedError
 
     async def update_sensor_public(
         self,
@@ -3914,15 +3879,15 @@ class ProtectApiClient(BaseApiClient):
         """Return a dict from key-value pairs, dropping any pair whose value is None."""
         return {k: v for k, v in items if v is not None}
 
+    @public_get("/v1/sirens", item=Siren)
     async def get_sirens_public(self) -> list[Siren]:
         """Get all sirens using public API."""
-        data = await self.api_request_list(url="/v1/sirens", public_api=True)
-        return [Siren.from_unifi_dict(**item, api=self) for item in data]
+        raise NotImplementedError
 
+    @public_get("/v1/sirens/{siren_id}", returns=Siren)
     async def get_siren_public(self, siren_id: str) -> Siren:
         """Get a specific siren using public API."""
-        data = await self.api_request_obj(url=f"/v1/sirens/{siren_id}", public_api=True)
-        return Siren.from_unifi_dict(**data, api=self)
+        raise NotImplementedError
 
     async def update_siren_public(
         self,
@@ -3974,13 +3939,10 @@ class ProtectApiClient(BaseApiClient):
             json={"duration": norm_duration},
         )
 
+    @public_post("/v1/sirens/{siren_id}/stop")
     async def stop_siren_public(self, siren_id: str) -> None:
         """Stop an active siren."""
-        await self.api_request_raw(
-            url=f"/v1/sirens/{siren_id}/stop",
-            method="post",
-            public_api=True,
-        )
+        raise NotImplementedError
 
     async def test_siren_sound_public(
         self, siren_id: str, *, volume: int | None = None
@@ -4000,15 +3962,15 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Relays
     # ------------------------------------------------------------------
 
+    @public_get("/v1/relays", item=Relay)
     async def get_relays_public(self) -> list[Relay]:
         """Get all relays using public API."""
-        data = await self.api_request_list(url="/v1/relays", public_api=True)
-        return [Relay.from_unifi_dict(**item, api=self) for item in data]
+        raise NotImplementedError
 
+    @public_get("/v1/relays/{relay_id}", returns=Relay)
     async def get_relay_public(self, relay_id: str) -> Relay:
         """Get a specific relay using public API."""
-        data = await self.api_request_obj(url=f"/v1/relays/{relay_id}", public_api=True)
-        return Relay.from_unifi_dict(**data, api=self)
+        raise NotImplementedError
 
     async def update_relay_public(
         self,
@@ -4067,44 +4029,36 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Fobs
     # ------------------------------------------------------------------
 
+    @public_get("/v1/fobs", item=Fob)
     async def get_fobs_public(self) -> list[Fob]:
         """Get all key fobs using public API."""
-        data = await self.api_request_list(url="/v1/fobs", public_api=True)
-        return [Fob.from_unifi_dict(**item, api=self) for item in data]
+        raise NotImplementedError
 
+    @public_get("/v1/fobs/{fob_id}", returns=Fob)
     async def get_fob_public(self, fob_id: str) -> Fob:
         """Get a specific key fob using public API."""
-        data = await self.api_request_obj(url=f"/v1/fobs/{fob_id}", public_api=True)
-        return Fob.from_unifi_dict(**data, api=self)
+        raise NotImplementedError
 
+    @public_patch("/v1/fobs/{fob_id}", returns=Fob)
     async def update_fob_public(self, fob_id: str, *, name: str | None = None) -> Fob:
         """Patch key-fob settings using public API."""
-        body: dict[str, Any] = {}
-        if name is not None:
-            body["name"] = name
-        if not body:
-            raise BadRequest("At least one parameter must be provided")
-        result = await self.api_request_obj(
-            url=f"/v1/fobs/{fob_id}", method="patch", json=body, public_api=True
-        )
-        return Fob.from_unifi_dict(**result, api=self)
+        raise NotImplementedError
 
     # ------------------------------------------------------------------
     # Public API: Speakers
     # ------------------------------------------------------------------
 
+    @public_get("/v1/speakers", item=Speaker)
     async def get_speakers_public(self) -> list[Speaker]:
         """Get all speakers using public API."""
-        data = await self.api_request_list(url="/v1/speakers", public_api=True)
-        return [Speaker.from_unifi_dict(**item, api=self) for item in data]
+        raise NotImplementedError
 
+    @public_get("/v1/speakers/{speaker_id}", returns=Speaker)
     async def get_speaker_public(self, speaker_id: str) -> Speaker:
         """Get a specific speaker using public API."""
-        data = await self.api_request_obj(
-            url=f"/v1/speakers/{speaker_id}", public_api=True
-        )
-        return Speaker.from_unifi_dict(**data, api=self)
+        raise NotImplementedError
 
+    @public_patch("/v1/speakers/{speaker_id}", returns=Speaker)
     async def update_speaker_public(
         self,
         speaker_id: str,
@@ -4115,24 +4069,7 @@ class ProtectApiClient(BaseApiClient):
         is_mic_enabled: bool | None = None,
     ) -> Speaker:
         """Patch speaker settings using public API."""
-        body: dict[str, Any] = {}
-        if name is not None:
-            body["name"] = name
-        if volume is not None:
-            body["volume"] = volume
-        if mic_volume is not None:
-            body["micVolume"] = mic_volume
-        if is_mic_enabled is not None:
-            body["isMicEnabled"] = is_mic_enabled
-        if not body:
-            raise BadRequest("At least one parameter must be provided")
-        result = await self.api_request_obj(
-            url=f"/v1/speakers/{speaker_id}",
-            method="patch",
-            json=body,
-            public_api=True,
-        )
-        return Speaker.from_unifi_dict(**result, api=self)
+        raise NotImplementedError
 
     async def test_speaker_sound_public(
         self, speaker_id: str, *, volume: int | None = None
@@ -4152,22 +4089,20 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Link stations / Alarm hubs
     # ------------------------------------------------------------------
 
+    @public_get("/v1/link-stations", item=LinkStation)
     async def get_link_stations_public(self) -> list[LinkStation]:
         """Get all link stations using public API."""
-        data = await self.api_request_list(url="/v1/link-stations", public_api=True)
-        return [LinkStation.from_unifi_dict(**item, api=self) for item in data]
+        raise NotImplementedError
 
     async def get_alarm_hubs_public(self) -> list[LinkStation]:
         """Get all alarm hubs using public API."""
         data = await self.api_request_list(url="/v1/alarm-hubs", public_api=True)
         return [LinkStation.from_unifi_dict(**item, api=self) for item in data]
 
+    @public_get("/v1/link-stations/{link_station_id}", returns=LinkStation)
     async def get_link_station_public(self, link_station_id: str) -> LinkStation:
         """Get a specific link station using public API."""
-        data = await self.api_request_obj(
-            url=f"/v1/link-stations/{link_station_id}", public_api=True
-        )
-        return LinkStation.from_unifi_dict(**data, api=self)
+        raise NotImplementedError
 
     async def get_alarm_hub_public(self, hub_id: str) -> LinkStation:
         """Get a specific alarm hub using public API."""
@@ -4176,22 +4111,12 @@ class ProtectApiClient(BaseApiClient):
         )
         return LinkStation.from_unifi_dict(**data, api=self)
 
+    @public_patch("/v1/link-stations/{link_station_id}", returns=LinkStation)
     async def update_link_station_public(
         self, link_station_id: str, *, name: str | None = None
     ) -> LinkStation:
         """Patch link station settings using public API."""
-        body: dict[str, Any] = {}
-        if name is not None:
-            body["name"] = name
-        if not body:
-            raise BadRequest("At least one parameter must be provided")
-        result = await self.api_request_obj(
-            url=f"/v1/link-stations/{link_station_id}",
-            method="patch",
-            json=body,
-            public_api=True,
-        )
-        return LinkStation.from_unifi_dict(**result, api=self)
+        raise NotImplementedError
 
     async def update_alarm_hub_public(
         self, hub_id: str, *, name: str | None = None
@@ -4242,10 +4167,10 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Bridges
     # ------------------------------------------------------------------
 
+    @public_get("/v1/bridges", item=PublicBridge)
     async def get_bridges_public(self) -> list[PublicBridge]:
         """Get all bridges using public API."""
-        data = await self.api_request_list(url="/v1/bridges", public_api=True)
-        return [PublicBridge.from_unifi_dict(**item, api=self) for item in data]
+        raise NotImplementedError
 
     async def get_bridge_public(self, bridge_id: str) -> PublicBridge:
         """Get a specific bridge using public API."""
@@ -4281,10 +4206,10 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Viewers
     # ------------------------------------------------------------------
 
+    @public_get("/v1/viewers", item=PublicViewer)
     async def get_viewers_public(self) -> list[PublicViewer]:
         """Get all viewers using public API."""
-        data = await self.api_request_list(url="/v1/viewers", public_api=True)
-        return [PublicViewer.from_unifi_dict(**item, api=self) for item in data]
+        raise NotImplementedError
 
     async def get_viewer_public(self, viewer_id: str) -> PublicViewer:
         """Get a specific viewer using public API."""
@@ -4328,10 +4253,10 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Liveviews
     # ------------------------------------------------------------------
 
+    @public_get("/v1/liveviews", item=PublicLiveview)
     async def get_liveviews_public(self) -> list[PublicLiveview]:
         """Get all liveviews using public API."""
-        data = await self.api_request_list(url="/v1/liveviews", public_api=True)
-        return [PublicLiveview.from_unifi_dict(**item, api=self) for item in data]
+        raise NotImplementedError
 
     async def get_liveview_public(self, liveview_id: str) -> PublicLiveview:
         """Get a specific liveview using public API."""
@@ -4579,31 +4504,29 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Users
     # ------------------------------------------------------------------
 
+    @public_get("/v1/users", item=PublicUser)
     async def get_users_public(self) -> list[PublicUser]:
         """Get all Protect users using public API."""
-        data = await self.api_request_list(url="/v1/users", public_api=True)
-        return [PublicUser.from_unifi_dict(**item, api=self) for item in data]
+        raise NotImplementedError
 
+    @public_get("/v1/users/{user_id}", returns=PublicUser)
     async def get_user_public(self, user_id: str) -> PublicUser:
         """Get a specific Protect user using public API."""
-        data = await self.api_request_obj(url=f"/v1/users/{user_id}", public_api=True)
-        return PublicUser.from_unifi_dict(**data, api=self)
+        raise NotImplementedError
 
     # ------------------------------------------------------------------
     # Public API: ULP users (UniFi Identity)
     # ------------------------------------------------------------------
 
+    @public_get("/v1/ulp-users", item=PublicUlpUser)
     async def get_ulp_users_public(self) -> list[PublicUlpUser]:
         """Get all UniFi Identity users using public API."""
-        data = await self.api_request_list(url="/v1/ulp-users", public_api=True)
-        return [PublicUlpUser.from_unifi_dict(**item, api=self) for item in data]
+        raise NotImplementedError
 
+    @public_get("/v1/ulp-users/{ulp_user_id}", returns=PublicUlpUser)
     async def get_ulp_user_public(self, ulp_user_id: str) -> PublicUlpUser:
         """Get a specific UniFi Identity user using public API."""
-        data = await self.api_request_obj(
-            url=f"/v1/ulp-users/{ulp_user_id}", public_api=True
-        )
-        return PublicUlpUser.from_unifi_dict(**data, api=self)
+        raise NotImplementedError
 
     # ------------------------------------------------------------------
     # Public API: Files (device assets)

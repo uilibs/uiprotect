@@ -107,3 +107,41 @@ uiprotect generate-sample-data
 export UFP_SAMPLE_DIR=/workspaces/uiprotect/test-data
 pytest
 ```
+
+## Adding a public API endpoint
+
+The uniform slice of the Public Integration API surface on `ProtectApiClient` is declared with decorators from `uiprotect._public_api`. You keep the hand-written `async def` signature and one-line docstring (mypy-strict and the rendered API reference depend on them); the decorator supplies the body — path binding, payload assembly, dispatch through the existing `api_request_*` helpers, and model construction. The body is a stub (`raise NotImplementedError`, which is never reached because the decorator replaces it).
+
+There are three forms:
+
+```python
+from ._public_api import public_get, public_patch, public_post
+
+# List GET — one model per array entry
+@public_get("/v1/cameras", item=PublicCamera)
+async def get_cameras_public(self) -> list[PublicCamera]:
+    """Get all cameras using public API."""
+    raise NotImplementedError
+
+# Object GET — a single model; placeholders bind from same-named params
+@public_get("/v1/cameras/{camera_id}", returns=PublicCamera)
+async def get_camera_public(self, camera_id: str) -> PublicCamera:
+    """Get a specific camera using public API."""
+    raise NotImplementedError
+
+# Flat PATCH — body is the non-None keyword params, snake_case → camelCase
+@public_patch("/v1/fobs/{fob_id}", returns=Fob)
+async def update_fob_public(self, fob_id: str, *, name: str | None = None) -> Fob:
+    """Patch key-fob settings using public API."""
+    raise NotImplementedError
+
+# Fire-and-forget POST — path-only, no body, no return value
+@public_post("/v1/sirens/{siren_id}/stop")
+async def stop_siren_public(self, siren_id: str) -> None:
+    """Stop an active siren."""
+    raise NotImplementedError
+```
+
+Each decorator registers its `(verb, path)` against the class at import time; declaring the same `(verb, path)` twice raises immediately. The model class is passed as an argument (`returns=`/`item=`), so `_public_api.py` imports nothing from `uiprotect.data` and stays circular-import-safe.
+
+**The PATCH form is flat-body only.** A `@public_patch` body is built mechanically: every non-`None` keyword parameter becomes one camelCase wire key, and an empty body raises `BadRequest("At least one parameter must be provided")`. Path placeholders never leak into the body. This rule is correct only for genuinely uniform methods — anything that groups keys into nested objects (`ledSettings`/`osdSettings`), renames non-mechanically, validates ranges, carries a nullable `_UNSET` sentinel, or writes through to the public bootstrap cache (e.g. `update_camera_public`, `update_light_public`, `update_viewer_public`) stays hand-written. When in doubt, keep the body hand-written — behavior parity beats terseness. The hand-written exceptions are covered by their recorded example calls.
