@@ -2354,10 +2354,10 @@ async def test_get_meta_info_calls_public_api():
         api_key="my_key",
         verify_ssl=False,
     )
-    client.api_request = AsyncMock(return_value={"applicationVersion": "1.0.0"})
+    client.api_request_obj = AsyncMock(return_value={"applicationVersion": "1.0.0"})
     result = await client.get_meta_info()
     assert result.application_version == "1.0.0"
-    client.api_request.assert_called_with(url="/v1/meta/info", public_api=True)
+    client.api_request_obj.assert_called_with(url="/v1/meta/info", public_api=True)
 
 
 @pytest.mark.asyncio()
@@ -2422,9 +2422,9 @@ async def test_get_meta_info_invalid_response_type():
         api_key="my_key",
         verify_ssl=False,
     )
-    # Mock api_request to return a non-dict value
+    # Mock api_request to return a non-dict value; api_request_obj raises NvrError
     client.api_request = AsyncMock(return_value=None)
-    with pytest.raises(NvrError, match="Failed to retrieve meta info from public API"):
+    with pytest.raises(NvrError, match="Could not decode object from /v1/meta/info"):
         await client.get_meta_info()
 
 
