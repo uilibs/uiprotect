@@ -9,8 +9,8 @@ import pytest
 from uiprotect._superseded import (
     SupersededMethod,
     _SupersessionRegistry,
-    superseded_by,
     registry,
+    superseded_by,
 )
 
 

@@ -1,0 +1,58 @@
+name: Private API removal candidates
+
+on:
+  schedule:
+    # Weekly, Monday 07:23 UTC — off the hour to avoid scheduler contention.
+    - cron: "23 7 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print the report without opening any issues"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: private-api-removal
+  cancel-in-progress: false
+
+jobs:
+  find-removable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Generate removal report
+        id: report
+        run: |
+          python scripts/find_removable_private_api.py --sleep 3 > report.md || true
+          cat report.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Open deduped removal issues
+        if: ${{ inputs.dry_run != true }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # One issue per safe-to-remove symbol; dedupe by exact title.
+          grep -oE '\*\*safe to remove\*\*: `[a-zA-Z0-9_]+`' report.md \
+            | sed -E 's/.*`([a-zA-Z0-9_]+)`.*/\1/' \
+            | while read -r method; do
+              [ -z "$method" ] && continue
+              title="safe to remove: ${method}"
+              existing="$(gh issue list --state open --search "$title in:title" \
+                --json title --jq "map(select(.title == \"${title}\")) | length")"
+              if [ "$existing" != "0" ]; then
+                echo "Issue already open for ${method}, skipping."
+                continue
+              fi
+              gh issue create --title "$title" --body-file report.md
+            done
