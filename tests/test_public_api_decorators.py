@@ -175,7 +175,7 @@ _REGISTERED_METHODS = sorted(_REGISTRY.values())
 
 
 def test_registry_is_non_empty_and_covers_converted_endpoints() -> None:
-    assert len(_REGISTRY) == 34
+    assert len(_REGISTRY) == 35
     # paths are unique per (verb, path) key by construction
     assert len(set(_REGISTRY)) == len(_REGISTRY)
 

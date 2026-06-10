@@ -3469,6 +3469,7 @@ class ProtectApiClient(BaseApiClient):
         """Check if the API key is set."""
         return bool(self._api_key)
 
+    @public_get("/v1/meta/info", returns=MetaInfo)
     async def get_meta_info(self) -> MetaInfo:
         """
         Get metadata about the NVR via the Public Integration API.
@@ -3478,13 +3479,7 @@ class ProtectApiClient(BaseApiClient):
         :attr:`MetaInfo.version` is a :class:`Version` comparable to the
         private ``NVR.version`` min-version gate.
         """
-        data = await self.api_request(
-            url="/v1/meta/info",
-            public_api=True,
-        )
-        if not isinstance(data, dict):
-            raise NvrError("Failed to retrieve meta info from public API")
-        return MetaInfo.from_unifi_dict(**data)
+        raise NotImplementedError
 
     async def get_console_mac(self) -> str | None:
         """
