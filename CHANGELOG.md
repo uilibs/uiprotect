@@ -1,5 +1,13 @@
 # Changelog
 
+## v13.0.0 (2026-06-10)
+
+### Features
+
+
+- Rename metainfo.applicationversion to application_version ([`e682d4d`](https://github.com/uilibs/uiprotect/commit/e682d4d82f0b9468a3711cce8a73a9e459f09f64))
+
+
 ## v12.1.0 (2026-06-09)
 
 ### Features
