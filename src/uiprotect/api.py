@@ -129,11 +129,12 @@ from .utils import (
 from .websocket import Websocket, WebsocketState
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
 
     from uiprotect.data.devices import LightDeviceSettings, LightModeSettings
 
     from .data.base import ProtectModelWithId
+    from .data.public_bootstrap import FetchResult
     from .devices import ProtectDeviceChange
     from .events import EventChange, ProtectEvent
 
@@ -3488,6 +3489,11 @@ class ProtectApiClient(BaseApiClient):
         if not api_key:
             raise BadRequest("API key cannot be empty")
 
+        if api_key != self._api_key:
+            # A new key gets a fresh per-key budget: learned rate/block/disabled
+            # state from the prior key must not leak across credentials.
+            self._public_api_limiter = PublicApiRateLimiter()
+
         self._api_key = api_key
 
     def is_api_key_set(self) -> bool:
@@ -4608,18 +4614,21 @@ class ProtectApiClient(BaseApiClient):
         # Seed the rate limiter before the fan-out: a single cheap fetch primes
         # the header-driven budget (and the token bucket) so the concurrent
         # burst below is paced from its first request instead of steering
-        # mid-flight. The NVR fetch doubles as that seed.
-        try:
-            pb.nvr = await self.get_nvr_public()
-        except BaseException as nvr_err:
-            _log_or_raise("nvr", nvr_err)
+        # mid-flight. The NVR fetch doubles as that seed, so a seed failure must
+        # abort here (``pb.nvr`` unset, fan-out unpaced) rather than degrade to
+        # an optional endpoint.
+        pb.nvr = await self.get_nvr_public()
+
+        # ``get_arm_profiles_public`` writes into ``pb`` itself on success and
+        # returns ``ArmProfile`` (not a ``ProtectModelWithId``), so it stays out
+        # of the typed device fan-out below; run it concurrently as its own task
+        # and swallow its failure like the rest. ``armMode`` is part of the NVR
+        # response; no separate call needed.
+        arm_task = asyncio.ensure_future(self.get_arm_profiles_public())
 
         # Bind coroutines to their labels and attribute names to avoid
         # manual index synchronization bugs.
-        # ``get_arm_profiles_public`` writes into ``pb`` itself on success;
-        # we gather it for concurrency and to swallow failures.
-        # ``armMode`` is part of the NVR response; no separate call needed.
-        endpoints = [
+        endpoints: list[tuple[Awaitable[FetchResult], str, str]] = [
             (self.get_cameras_public(), "cameras", "cameras"),
             (self.get_lights_public(), "lights", "lights"),
             (self.get_chimes_public(), "chimes", "chimes"),
@@ -4633,23 +4642,22 @@ class ProtectApiClient(BaseApiClient):
             (self.get_bridges_public(), "bridges", "bridges"),
             (self.get_viewers_public(), "viewers", "viewers"),
             (self.get_ulp_users_public(), "ulp-users", "ulp_users"),
-            (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles"),
         ]
 
         results = await asyncio.gather(
-            *[coro for coro, _, _ in endpoints], return_exceptions=True
+            *(coro for coro, _, _ in endpoints), return_exceptions=True
         )
+
+        await asyncio.gather(arm_task, return_exceptions=True)
+        if (arm_err := arm_task.exception()) is not None:
+            _log_or_raise("arm-profiles", arm_err)
 
         # Process results with their corresponding labels and attributes.
         for (_, label, attr), result in zip(endpoints, results, strict=True):
             if isinstance(result, BaseException):
                 _log_or_raise(label, result)
                 continue
-            if attr == "arm_profiles":
-                # arm_profiles are already applied by get_arm_profiles_public;
-                # skip here to avoid overwriting the in-place dict.
-                continue
-            pb.apply_fetch_result(attr, result)  # type: ignore[arg-type]
+            pb.apply_fetch_result(attr, result)
 
         await self._prime_rtsps_streams(pb, previous_streams)
         return pb

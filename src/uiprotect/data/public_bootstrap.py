@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import logging
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
@@ -65,6 +65,12 @@ if TYPE_CHECKING:
 
 
 _LOGGER = logging.getLogger(__name__)
+
+# One ``update_public`` endpoint's worth of fetched devices. ``Sequence`` (not
+# ``list``) so the per-type results (``list[PublicCamera]`` etc.) assign
+# covariantly without a per-call ``type: ignore``.
+FetchResult = Sequence[ProtectModelWithId]
+
 
 # Default cap on the public event cache. Matches the private Bootstrap
 # default so memory behaviour is symmetric between the two caches.
@@ -242,7 +248,7 @@ class PublicBootstrap:
                 return getattr(obj, "mac", None)
         return None
 
-    def apply_fetch_result(self, attr: str, objs: list[ProtectModelWithId]) -> None:
+    def apply_fetch_result(self, attr: str, objs: FetchResult) -> None:
         """
         Merge fetched objects into ``self.<attr>`` without wholesale replace.
 
