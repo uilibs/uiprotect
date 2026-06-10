@@ -151,7 +151,8 @@ requests") before the reactive `429` retry recovers.
 
 To stay _under_ the budget instead of recovering _after_ exceeding it,
 `public_api=True` traffic is paced by a **per-client** limiter (never shared
-across consoles). The limiter is **fully header-driven**: it derives its
+across consoles) — once it has a budget to pace against. The limiter is
+**fully header-driven**: it derives its
 ceiling from the server's own `RateLimit-Policy` quota — `rate = (quota −
 headroom) / window`, which is a steady ~8 requests/second under today's `q=10,
 w=1` policy — and reserves a headroom slice for the WebSocket keepalive. As the
