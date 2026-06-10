@@ -3383,4 +3383,4 @@ cli = ["dateparser", "pillow", "rich", "typer"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "65bdbfe8f0972ac640c5c242ebb0d344d5d82664d46f375cde43e85cb714db52"
+content-hash = "75eaee83bae67ba3e2bd14925fc3c8eefa73efbcfaad621c2378b8bcdb18acdf"

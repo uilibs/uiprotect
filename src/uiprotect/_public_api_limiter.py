@@ -35,7 +35,7 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from http_sfv import Item, List
+from http_sfv import List
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Mapping
@@ -56,24 +56,38 @@ PUBLIC_API_RATE_HEADROOM = 2.0
 # retry stays the backstop for genuine overshoot.
 PUBLIC_API_MIN_RATE = 1.0
 
+# Upper bound on a header-supplied block, mirroring ``api.RETRY_MAX_DELAY`` (kept
+# in sync by hand rather than imported to avoid a circular import). A buggy
+# middlebox sending a huge ``t`` would otherwise stall all public traffic for
+# the raw duration; cap it so a bad reset can't wedge the client for a day.
+PUBLIC_API_MAX_BLOCK = 30.0
+
 
 def parse_ratelimit_header(value: str | None) -> tuple[float, float] | None:
     """
-    Parse a draft-8 ``RateLimit`` sf-item into ``(remaining, reset_seconds)``.
+    Parse a draft-8 ``RateLimit`` sf-list into ``(remaining, reset_seconds)``.
 
-    Returns ``None`` if the value is empty or lacks the ``r``/``t`` params.
-    Raises ``ValueError`` on a value that is not a valid structured-field item
-    (e.g. a draft-7 ``limit=…, remaining=…`` line) so the caller can treat it
-    as an unparsable header.
+    The header may carry several items (one per server-side limiter instance,
+    each emitted via ``response.append()`` and joined into a single line); the
+    most restrictive — lowest ``r`` remaining, ties broken by the shortest ``t``
+    reset — wins. Returns ``None`` if the value is empty or no item carries an
+    ``r``/``t`` pair. Raises ``ValueError`` on a value that is not a valid
+    structured-field list (e.g. a draft-7 ``limit=…, remaining=…`` line) so the
+    caller can treat it as an unparsable header.
     """
     if not value:
         return None
-    item = Item()
-    item.parse(value.encode())
-    params = item.params
-    if "r" in params and "t" in params:
-        return float(params["r"]), float(params["t"])
-    return None
+    items = List()
+    items.parse(value.encode())
+    best: tuple[float, float] | None = None
+    for item in items:
+        params = item.params
+        if "r" not in params or "t" not in params:
+            continue
+        candidate = (float(params["r"]), float(params["t"]))
+        if best is None or candidate < best:
+            best = candidate
+    return best
 
 
 def parse_ratelimit_policy(value: str | None) -> tuple[float, float] | None:
@@ -203,6 +217,6 @@ class PublicApiRateLimiter:
             # Budget within the headroom floor (a 429's ``r=0`` lands here):
             # pause new requests until the window resets so the websocket
             # keepalive keeps its slice.
-            self._blocked_until = self._time() + reset
+            self._blocked_until = self._time() + min(reset, PUBLIC_API_MAX_BLOCK)
         else:
             self._blocked_until = 0.0

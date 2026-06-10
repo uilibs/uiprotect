@@ -86,6 +86,20 @@ def test_parse_header_draft7_raises() -> None:
         parse_ratelimit_header("limit=10, remaining=6, reset=1")
 
 
+def test_parse_header_multi_item_picks_most_restrictive() -> None:
+    """A joined multi-item RateLimit list yields the lowest-remaining member."""
+    # Two limiter instances doubled the header; the r=3 member binds.
+    assert parse_ratelimit_header('"10-in-1sec";r=8;t=1, "10-in-1sec";r=3;t=2') == (
+        3.0,
+        2.0,
+    )
+
+
+def test_parse_header_multi_item_tie_breaks_on_reset() -> None:
+    """Equal remaining ties break to the shortest reset."""
+    assert parse_ratelimit_header('"x";r=5;t=4, "x";r=5;t=1') == (5.0, 1.0)
+
+
 # =============================================================================
 # parse_ratelimit_policy
 # =============================================================================
@@ -221,6 +235,16 @@ async def test_blocks_until_reset_within_headroom() -> None:
     _seed(limiter, q=10, w=1, r=4, t=1)
     await limiter.acquire()
     assert clock.sleeps[-1] == pytest.approx(1.0)
+
+
+@pytest.mark.asyncio()
+async def test_block_duration_is_clamped() -> None:
+    """A huge server-supplied reset is capped so it can't stall for a day."""
+    limiter, clock = _make_limiter(headroom=4.0)
+    # remaining within headroom -> block, but t=86400 must clamp to 30s.
+    _seed(limiter, q=10, w=1, r=4, t=86400)
+    await limiter.acquire()
+    assert clock.sleeps[-1] == pytest.approx(30.0)
 
 
 @pytest.mark.asyncio()
