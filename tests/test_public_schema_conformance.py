@@ -28,6 +28,7 @@ from validate_spec import (  # local import via conftest sys.path insert
     SPEC_PATH,
     _leaf_model,
     _resolve_object_props,
+    check_completeness,
     run_checks,
 )
 
@@ -100,3 +101,9 @@ def test_spec_validation_has_no_errors() -> None:
     spec = json.loads(_SPEC_PATH.read_text())
     errors, _warnings = run_checks(spec)
     assert not errors, "spec drift:\n" + "\n".join(errors)
+
+
+def test_every_public_coroutine_is_covered() -> None:
+    """No public-API coroutine is left out of the derived coverage set (spec-free)."""
+    gaps = check_completeness()
+    assert not gaps, "uncovered public-API coroutines:\n" + "\n".join(gaps)

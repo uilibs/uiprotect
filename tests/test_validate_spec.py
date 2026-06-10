@@ -12,18 +12,25 @@ from typing import TYPE_CHECKING, Any
 import orjson
 import validate_spec  # local import via conftest sys.path insert
 from validate_spec import (
+    _EXAMPLE_CALLS,
     _leaf_model,
+    _normalize_path,
+    _public_api_coroutines,
     _resolve_object_props,
     _spec_field_name,
+    check_completeness,
     check_endpoints,
     check_enums,
     check_model_fields,
     check_required,
+    covered_endpoints,
     format_summary,
     main,
     run_checks,
 )
 
+from uiprotect._public_api import registry
+from uiprotect.api import ProtectApiClient
 from uiprotect.data import PublicChime
 
 if TYPE_CHECKING:
@@ -67,6 +74,81 @@ def test_check_endpoints_new_endpoint_warns() -> None:
     assert errors == []
     assert len(warnings) == 1
     assert "POST /v1/teleporter" in warnings[0]
+
+
+def test_check_endpoints_parametrized_path_normalized() -> None:
+    """A declarative endpoint covers the spec path despite differing param names."""
+    # Registry template is ``/v1/cameras/{camera_id}``; spec uses ``{id}``.
+    spec = {"paths": {"/v1/cameras/{id}": {"get": {}, "patch": {}}}}
+    errors, warnings = check_endpoints(spec)
+    assert errors == []
+    assert warnings == []
+
+
+def test_check_endpoints_recorded_exception_method_covers() -> None:
+    """A hand-written (non-declarative) method's path is covered via its example call."""
+    # ``update_camera_public`` is not decorated; the alarm-hub alias GET is only
+    # reachable through a recorded example call, never the registry.
+    spec = {"paths": {"/v1/alarm-hubs/{id}": {"get": {}}}}
+    errors, warnings = check_endpoints(spec)
+    assert errors == []
+    assert warnings == []
+
+
+def test_check_endpoints_subscribe_paths_covered() -> None:
+    spec = {
+        "paths": {
+            "/v1/subscribe/events": {"get": {}},
+            "/v1/subscribe/devices": {"get": {}},
+        }
+    }
+    _errors, warnings = check_endpoints(spec)
+    assert warnings == []
+
+
+# --------------------------------------------------------------------------- #
+# Derived coverage: normalization, completeness, example-call table
+# --------------------------------------------------------------------------- #
+
+
+def test_normalize_path_collapses_params_and_sentinel() -> None:
+    assert _normalize_path("/v1/cameras/{camera_id}") == "/v1/cameras/{}"
+    assert _normalize_path("/v1/cameras/{id}/snapshot") == "/v1/cameras/{}/snapshot"
+    assert (
+        _normalize_path(f"/v1/files/{validate_spec._RECORD_SENTINEL}") == "/v1/files/{}"
+    )
+
+
+def test_covered_endpoints_union_sources() -> None:
+    covered = covered_endpoints()
+    # Declarative (registry), recorded example call, and websocket subscription.
+    assert ("GET", "/v1/cameras/{}") in covered
+    assert ("PATCH", "/v1/cameras/{}") in covered  # update_camera_public (recorded)
+    assert ("GET", "/v1/alarm-hubs/{}") in covered  # get_alarm_hub_public (recorded)
+    assert ("GET", "/v1/subscribe/events") in covered
+    assert ("GET", "/v1/subscribe/devices") in covered
+
+
+def test_example_calls_match_nondeclarative_coroutines() -> None:
+    """The example-call table is exactly the set of non-declarative public coroutines."""
+    declarative = set(registry.for_class(ProtectApiClient.__name__).values())
+    expected = _public_api_coroutines() - declarative
+    assert set(_EXAMPLE_CALLS) == expected
+
+
+def test_check_completeness_clean() -> None:
+    assert check_completeness() == []
+
+
+def test_check_completeness_flags_unwired_method(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dropping an example call for a non-declarative coroutine surfaces a gap."""
+    trimmed = dict(_EXAMPLE_CALLS)
+    trimmed.pop("update_camera_public")
+    monkeypatch.setattr(validate_spec, "_EXAMPLE_CALLS", trimmed)
+    errors = check_completeness()
+    assert any("update_camera_public" in e for e in errors)
 
 
 # --------------------------------------------------------------------------- #
@@ -257,3 +339,17 @@ def test_main_error_spec(
     monkeypatch.setattr(validate_spec, "SPEC_PATH", spec_file)
     assert main() == 1
     assert "ring_settings" in capsys.readouterr().out
+
+
+def test_main_reports_completeness_gap(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any, capsys: Any
+) -> None:
+    """A non-declarative coroutine with no example call fails the run via main()."""
+    trimmed = dict(_EXAMPLE_CALLS)
+    trimmed.pop("update_camera_public")
+    monkeypatch.setattr(validate_spec, "_EXAMPLE_CALLS", trimmed)
+    spec_file = tmp_path / "spec.json"
+    spec_file.write_bytes(orjson.dumps(_chime_spec()))
+    monkeypatch.setattr(validate_spec, "SPEC_PATH", spec_file)
+    assert main() == 1
+    assert "update_camera_public" in capsys.readouterr().out

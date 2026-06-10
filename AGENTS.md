@@ -329,9 +329,14 @@ is unit-tested network-free against in-memory mock specs in
 cron runs the full validation at most once per Protect release — opening a
 marker-bump PR when green or a single drift issue when red — and short-circuits
 on a firmware-API check before downloading anything while the marker is current
-or a drift issue is already open. The endpoint coverage table in
-`validate_spec.py` is hand-maintained: adding a `*_public` method requires
-adding its `(METHOD, path)` row.
+or a drift issue is already open. Endpoint coverage is **derived, not hand-
+maintained**: the declarative `@public_*` decorator registry
+(`uiprotect._public_api.registry`) covers every uniform endpoint, and the
+hand-written exception methods are covered by one recorded example call each
+(`_EXAMPLE_CALLS` — a request spy captures `(verb, path)` then short-circuits).
+`check_completeness` asserts every public-API coroutine is accounted for, so a
+new method that nobody wired up fails the suite instead of silently leaving its
+endpoint uncovered.
 
 ## Reporting security issues
 

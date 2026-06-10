@@ -6,7 +6,9 @@ Reads ``openapi/integration.json`` (fetched on demand by
 ``scripts/fetch_openapi.py``; gitignored, never committed) and reports drift
 between Ubiquiti's spec and the hand-maintained client surface:
 
-* spec endpoints with no covering ``*_public`` client method (warning),
+* spec endpoints with no covering client method — derived from the declarative
+  ``@public_*`` decorator registry plus one recorded example call per
+  hand-written exception method, never a hand-maintained table (warning),
 * model fields the spec dropped or retyped (error) and fields the spec added
   that the model lacks (warning),
 * spec ``required`` fields that are optional on the model (warning — the
@@ -23,9 +25,14 @@ spec locally runs the full validation for free.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
+import functools
+import inspect
+import re
 import sys
 from pathlib import Path
-from typing import Any, get_args
+from typing import TYPE_CHECKING, Any, get_args
 
 import orjson
 
@@ -35,6 +42,8 @@ _SRC = Path(__file__).resolve().parents[1] / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
+from uiprotect._public_api import registry  # noqa: E402
+from uiprotect.api import ProtectApiClient  # noqa: E402
 from uiprotect.data import (  # noqa: E402
     PublicBridge,
     PublicCamera,
@@ -49,118 +58,169 @@ from uiprotect.data.base import ProtectBaseObject  # noqa: E402
 from uiprotect.data.types import DeviceState  # noqa: E402
 from uiprotect.utils import to_snake_case  # noqa: E402
 
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
 SPEC_PATH = Path(__file__).resolve().parents[1] / "openapi" / "integration.json"
 
 
 # ---------------------------------------------------------------------------
-# Endpoint coverage table.
+# Endpoint coverage source.
 #
-# AUTHORITATIVE, HAND-MAINTAINED mapping of every covered spec endpoint to the
-# client method that implements it. Adding a new ``*_public`` method (or any
-# other public-API call) REQUIRES adding its ``(METHOD, path)`` row here — a
-# spec endpoint missing from this table reads as a new/uncovered endpoint and
-# raises a warning. Keys use the spec's own path strings (``{id}`` etc.).
+# The set of covered endpoints is DERIVED, never hand-maintained:
+#
+# * Declarative endpoints come straight from the import-time ``@public_get`` /
+#   ``@public_patch`` / ``@public_post`` registry — the decorator *is* the
+#   implementation, so it cannot drift out of sync with the client.
+# * The hand-written exception methods (grouped/validated PATCHes, the
+#   alarm-hub URL aliases, file upload, ``update_public``, etc.) are covered by
+#   one executable example call each, recorded by spying on
+#   ``BaseApiClient.request`` (see ``_record_example_calls``).
+# * The two websocket subscriptions are not REST calls; their paths are read
+#   straight off the client's ``*_ws_path`` attributes.
+#
+# A spec endpoint absent from this derived union reads as a new/uncovered
+# endpoint and raises a warning. ``check_completeness`` separately asserts every
+# public-API coroutine is itself accounted for, so a newly added method that
+# nobody wired up cannot silently leave a gap.
 # ---------------------------------------------------------------------------
-_ENDPOINT_TO_METHOD: dict[tuple[str, str], str] = {
-    ("GET", "/v1/meta/info"): "get_meta_info",
-    ("GET", "/v1/nvrs"): "get_nvr_public",
-    # Cameras
-    ("GET", "/v1/cameras"): "get_cameras_public",
-    ("GET", "/v1/cameras/{id}"): "get_camera_public",
-    ("PATCH", "/v1/cameras/{id}"): "update_camera_public",
-    ("GET", "/v1/cameras/{id}/snapshot"): "get_public_api_camera_snapshot",
-    ("POST", "/v1/cameras/{id}/rtsps-stream"): "create_camera_rtsps_streams",
-    ("GET", "/v1/cameras/{id}/rtsps-stream"): "get_camera_rtsps_streams",
-    ("DELETE", "/v1/cameras/{id}/rtsps-stream"): "delete_camera_rtsps_streams",
-    ("POST", "/v1/cameras/{id}/talkback-session"): "create_talkback_session_public",
-    (
-        "POST",
-        "/v1/cameras/{id}/disable-mic-permanently",
-    ): "disable_camera_mic_permanently_public",
-    ("POST", "/v1/cameras/{id}/ptz/goto/{slot}"): "ptz_goto_preset_public",
-    ("POST", "/v1/cameras/{id}/ptz/patrol/start/{slot}"): "ptz_patrol_start_public",
-    ("POST", "/v1/cameras/{id}/ptz/patrol/stop"): "ptz_patrol_stop_public",
-    # Lights
-    ("GET", "/v1/lights"): "get_lights_public",
-    ("GET", "/v1/lights/{id}"): "get_light_public",
-    ("PATCH", "/v1/lights/{id}"): "update_light_public",
-    # Chimes
-    ("GET", "/v1/chimes"): "get_chimes_public",
-    ("GET", "/v1/chimes/{id}"): "get_chime_public",
-    ("PATCH", "/v1/chimes/{id}"): "update_chime_public",
-    # Sensors
-    ("GET", "/v1/sensors"): "get_sensors_public",
-    ("GET", "/v1/sensors/{id}"): "get_sensor_public",
-    ("PATCH", "/v1/sensors/{id}"): "update_sensor_public",
-    # Sirens
-    ("GET", "/v1/sirens"): "get_sirens_public",
-    ("GET", "/v1/sirens/{id}"): "get_siren_public",
-    ("PATCH", "/v1/sirens/{id}"): "update_siren_public",
-    ("POST", "/v1/sirens/{id}/play"): "play_siren_public",
-    ("POST", "/v1/sirens/{id}/stop"): "stop_siren_public",
-    ("POST", "/v1/sirens/{id}/test-sound"): "test_siren_sound_public",
-    # Relays
-    ("GET", "/v1/relays"): "get_relays_public",
-    ("GET", "/v1/relays/{id}"): "get_relay_public",
-    ("PATCH", "/v1/relays/{id}"): "update_relay_public",
-    (
-        "POST",
-        "/v1/relays/{id}/outputs/{outputId}/activate",
-    ): "activate_relay_output_public",
-    # Fobs
-    ("GET", "/v1/fobs"): "get_fobs_public",
-    ("GET", "/v1/fobs/{id}"): "get_fob_public",
-    ("PATCH", "/v1/fobs/{id}"): "update_fob_public",
-    # Speakers
-    ("GET", "/v1/speakers"): "get_speakers_public",
-    ("GET", "/v1/speakers/{id}"): "get_speaker_public",
-    ("PATCH", "/v1/speakers/{id}"): "update_speaker_public",
-    ("POST", "/v1/speakers/{id}/test-sound"): "test_speaker_sound_public",
-    # Link stations / alarm hubs (one device family, two URL aliases)
-    ("GET", "/v1/link-stations"): "get_link_stations_public",
-    ("GET", "/v1/link-stations/{id}"): "get_link_station_public",
-    ("PATCH", "/v1/link-stations/{id}"): "update_link_station_public",
-    ("GET", "/v1/alarm-hubs"): "get_alarm_hubs_public",
-    ("GET", "/v1/alarm-hubs/{id}"): "get_alarm_hub_public",
-    ("PATCH", "/v1/alarm-hubs/{id}"): "update_alarm_hub_public",
-    (
-        "POST",
-        "/v1/alarm-hubs/{id}/outputs/{outputId}/trigger",
-    ): "trigger_alarm_hub_output_public",
-    # Bridges
-    ("GET", "/v1/bridges"): "get_bridges_public",
-    ("GET", "/v1/bridges/{id}"): "get_bridge_public",
-    ("PATCH", "/v1/bridges/{id}"): "update_bridge_public",
-    # Viewers
-    ("GET", "/v1/viewers"): "get_viewers_public",
-    ("GET", "/v1/viewers/{id}"): "get_viewer_public",
-    ("PATCH", "/v1/viewers/{id}"): "update_viewer_public",
-    # Liveviews
-    ("GET", "/v1/liveviews"): "get_liveviews_public",
-    ("POST", "/v1/liveviews"): "create_liveview_public",
-    ("GET", "/v1/liveviews/{id}"): "get_liveview_public",
-    ("PATCH", "/v1/liveviews/{id}"): "update_liveview_public",
-    # Arm profiles / alarm manager
-    ("GET", "/v1/arm-profiles"): "get_arm_profiles_public",
-    ("POST", "/v1/arm-profiles"): "create_arm_profile_public",
-    ("PATCH", "/v1/arm-profiles/{id}"): "update_arm_profile_public",
-    ("DELETE", "/v1/arm-profiles/{id}"): "delete_arm_profile_public",
-    ("PATCH", "/v1/arm-profiles/settings"): "set_current_arm_profile_public",
-    ("POST", "/v1/arm-profiles/enable"): "enable_arm_alarm_public",
-    ("POST", "/v1/arm-profiles/disable"): "disable_arm_alarm_public",
-    ("POST", "/v1/alarm-manager/webhook/{id}"): "send_alarm_webhook_public",
-    # Users
-    ("GET", "/v1/users"): "get_users_public",
-    ("GET", "/v1/users/{id}"): "get_user_public",
-    ("GET", "/v1/ulp-users"): "get_ulp_users_public",
-    ("GET", "/v1/ulp-users/{id}"): "get_ulp_user_public",
-    # Files
-    ("GET", "/v1/files/{fileType}"): "get_files_public",
-    ("POST", "/v1/files/{fileType}"): "upload_file_public",
-    # WebSocket subscriptions
-    ("GET", "/v1/subscribe/events"): "subscribe_events",
-    ("GET", "/v1/subscribe/devices"): "subscribe_devices",
+
+# Registry path templates use Python parameter names (``/v1/cameras/{camera_id}``)
+# while the spec uses its own (``/v1/cameras/{id}``); recorded example calls
+# inject this sentinel where a path parameter goes. Normalizing every ``{...}``
+# placeholder and the sentinel to a bare ``{}`` lets the three sources compare
+# equal regardless of the parameter name.
+_PATH_PARAM_RE = re.compile(r"\{[^/{}]+\}")
+_RECORD_SENTINEL = "__spec_param__"
+
+
+def _normalize_path(path: str) -> str:
+    """Collapse named path placeholders and the record sentinel to a bare ``{}``."""
+    return _PATH_PARAM_RE.sub("{}", path).replace(_RECORD_SENTINEL, "{}")
+
+
+# Public-API coroutines that issue requests but are neither decorated nor named
+# ``*_public`` (so the completeness scan would otherwise miss them).
+_EXTRA_PUBLIC_COROUTINES = frozenset(
+    {
+        "get_public_api_camera_snapshot",
+        "create_camera_rtsps_streams",
+        "get_camera_rtsps_streams",
+        "delete_camera_rtsps_streams",
+    }
+)
+
+
+# One executable example call per hand-written (non-declarative) public-API
+# coroutine. Each is invoked against a throw-away client whose ``request`` is
+# spied on, so the call records its ``(verb, path)`` and then short-circuits
+# before any network I/O. Path parameters get ``_RECORD_SENTINEL``; PATCH bodies
+# get a single field so the "at least one parameter" guards pass.
+_S = _RECORD_SENTINEL
+_EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
+    "get_public_api_camera_snapshot": lambda c: c.get_public_api_camera_snapshot(_S),
+    "create_camera_rtsps_streams": lambda c: c.create_camera_rtsps_streams(_S, "high"),
+    "get_camera_rtsps_streams": lambda c: c.get_camera_rtsps_streams(_S),
+    "delete_camera_rtsps_streams": lambda c: c.delete_camera_rtsps_streams(_S, "high"),
+    "create_talkback_session_public": lambda c: c.create_talkback_session_public(_S),
+    "disable_camera_mic_permanently_public": (
+        lambda c: c.disable_camera_mic_permanently_public(_S)
+    ),
+    "update_camera_public": lambda c: c.update_camera_public(_S, name=_S),
+    "update_light_public": lambda c: c.update_light_public(_S, name=_S),
+    "update_sensor_public": lambda c: c.update_sensor_public(_S, name=_S),
+    "update_siren_public": lambda c: c.update_siren_public(_S, name=_S),
+    "play_siren_public": lambda c: c.play_siren_public(_S),
+    "test_siren_sound_public": lambda c: c.test_siren_sound_public(_S),
+    "update_relay_public": lambda c: c.update_relay_public(_S, name=_S),
+    "activate_relay_output_public": (
+        lambda c: c.activate_relay_output_public(_S, _S, state="on")
+    ),
+    "test_speaker_sound_public": lambda c: c.test_speaker_sound_public(_S),
+    "get_alarm_hubs_public": lambda c: c.get_alarm_hubs_public(),
+    "get_alarm_hub_public": lambda c: c.get_alarm_hub_public(_S),
+    "update_alarm_hub_public": lambda c: c.update_alarm_hub_public(_S, name=_S),
+    "trigger_alarm_hub_output_public": (
+        lambda c: c.trigger_alarm_hub_output_public(_S, _S, enable=True)
+    ),
+    "get_bridge_public": lambda c: c.get_bridge_public(_S),
+    "update_bridge_public": lambda c: c.update_bridge_public(_S, name=_S),
+    "get_viewer_public": lambda c: c.get_viewer_public(_S),
+    "update_viewer_public": lambda c: c.update_viewer_public(_S, name=_S),
+    "get_liveview_public": lambda c: c.get_liveview_public(_S),
+    "create_liveview_public": lambda c: c.create_liveview_public(
+        name=_S, is_default=False, is_global=False, owner=_S, layout=1, slots=[]
+    ),
+    "update_liveview_public": lambda c: c.update_liveview_public(_S, name=_S),
+    "send_alarm_webhook_public": lambda c: c.send_alarm_webhook_public(_S),
+    "get_arm_profiles_public": lambda c: c.get_arm_profiles_public(),
+    "create_arm_profile_public": lambda c: c.create_arm_profile_public(
+        name=_S,
+        automations=[],
+        schedules=[],
+        record_everything=False,
+        activation_delay=0,
+    ),
+    "update_arm_profile_public": lambda c: c.update_arm_profile_public(_S, name=_S),
+    "delete_arm_profile_public": lambda c: c.delete_arm_profile_public(_S),
+    "get_arm_manager_settings_public": lambda c: c.get_arm_manager_settings_public(),
+    "set_current_arm_profile_public": lambda c: c.set_current_arm_profile_public(_S),
+    "enable_arm_alarm_public": lambda c: c.enable_arm_alarm_public(),
+    "disable_arm_alarm_public": lambda c: c.disable_arm_alarm_public(),
+    "get_files_public": lambda c: c.get_files_public(_S),
+    "upload_file_public": lambda c: c.upload_file_public(_S, b"x", "asset.png"),
+    "update_public": lambda c: c.update_public(),
 }
+
+
+class _ShortCircuitError(Exception):
+    """Raised by the request spy to abort an example call before network I/O."""
+
+
+async def _record_example_calls() -> set[tuple[str, str]]:
+    """Run every example call against a spied client; return recorded ``(verb, path)``."""
+    client = ProtectApiClient.public_only("127.0.0.1", 443, api_key="x")
+    recorded: set[tuple[str, str]] = set()
+    prefix = client.public_api_path
+
+    async def _spy(method: str, url: str, *_args: Any, **_kwargs: Any) -> Any:
+        recorded.add((method.upper(), _normalize_path(url.removeprefix(prefix))))
+        raise _ShortCircuitError
+
+    client.request = _spy  # type: ignore[method-assign]
+    for call in _EXAMPLE_CALLS.values():
+        # ``update_public`` gathers its fetches with ``return_exceptions=True``
+        # and swallows the sentinel; the others propagate it. Either way the
+        # spy has already recorded every path the call reached.
+        with contextlib.suppress(_ShortCircuitError):
+            await call(client)
+    return recorded
+
+
+def _registry_endpoints() -> set[tuple[str, str]]:
+    """Covered ``(VERB, path)`` for every declaratively-decorated endpoint."""
+    return {
+        (verb.upper(), _normalize_path(path))
+        for verb, path in registry.for_class(ProtectApiClient.__name__)
+    }
+
+
+def _subscribe_endpoints() -> set[tuple[str, str]]:
+    """The two websocket subscription paths, read off the client's path attributes."""
+    prefix = ProtectApiClient.public_api_path
+    endpoints: set[tuple[str, str]] = set()
+    for attr in ("events_ws_path", "devices_ws_path"):
+        path: str = getattr(ProtectApiClient, attr)
+        endpoints.add(("GET", _normalize_path(path.removeprefix(prefix))))
+    return endpoints
+
+
+@functools.cache
+def covered_endpoints() -> frozenset[tuple[str, str]]:
+    """Derived union of declarative, recorded, and websocket-subscription endpoints."""
+    recorded = asyncio.run(_record_example_calls())
+    return frozenset(_registry_endpoints() | recorded | _subscribe_endpoints())
+
 
 # (model class, spec schema name) pairs validated field-for-field.
 _MODEL_SCHEMAS: list[tuple[type[ProtectBaseObject], str]] = [
@@ -233,20 +293,52 @@ def _spec_field_name(key: str, remaps: dict[str, str]) -> str:
 
 
 def check_endpoints(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
-    """Spec endpoints with no row in the coverage table are new-endpoint warnings."""
+    """Spec endpoints absent from the derived covered set are new-endpoint warnings."""
     errors: list[str] = []
     warnings: list[str] = []
+    covered = covered_endpoints()
     for path, operations in spec.get("paths", {}).items():
         for method in operations:
             if method not in _HTTP_METHODS:
                 continue
-            key = (method.upper(), path)
-            if key not in _ENDPOINT_TO_METHOD:
+            if (method.upper(), _normalize_path(path)) not in covered:
                 warnings.append(
-                    f"new endpoint `{method.upper()} {path}` has no client method "
-                    f"(add a row to `_ENDPOINT_TO_METHOD`)"
+                    f"new endpoint `{method.upper()} {path}` has no covering client "
+                    f"method (declarative decorator or recorded example call)"
                 )
     return errors, warnings
+
+
+def _public_api_coroutines() -> set[str]:
+    """Names of every public-API coroutine on ``ProtectApiClient``."""
+    return {
+        name
+        for name, member in inspect.getmembers(
+            ProtectApiClient, inspect.iscoroutinefunction
+        )
+        if name.endswith("_public")
+        or hasattr(member, "__public_endpoint__")
+        or name in _EXTRA_PUBLIC_COROUTINES
+    }
+
+
+def check_completeness() -> list[str]:
+    """
+    Every public-API coroutine must be covered, declaratively or by example call.
+
+    The endpoint coverage set is only as complete as the example-call table, so
+    this guards the table itself: a newly added public method that nobody wired
+    up surfaces here instead of silently leaving its endpoint uncovered. Spec-
+    independent — it checks the client against itself, not against the spec.
+    """
+    declarative = set(registry.for_class(ProtectApiClient.__name__).values())
+    accounted = declarative | set(_EXAMPLE_CALLS)
+    missing = _public_api_coroutines() - accounted
+    return [
+        f"public-API coroutine `{name}` has no declarative decorator and no "
+        f"recorded example call (add one to `_EXAMPLE_CALLS`)"
+        for name in sorted(missing)
+    ]
 
 
 def check_model_fields(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
@@ -375,6 +467,7 @@ def main() -> int:
     spec = orjson.loads(SPEC_PATH.read_bytes())
     version = spec.get("info", {}).get("version")
     errors, warnings = run_checks(spec)
+    errors.extend(check_completeness())
     print(format_summary(errors, warnings, version))
     return 1 if errors else 0
 
