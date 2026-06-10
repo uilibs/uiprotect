@@ -8,6 +8,7 @@ import pytest
 
 from uiprotect._superseded import (
     SupersededMethod,
+    _append_admonition,
     _SupersessionRegistry,
     registry,
     superseded_by,
@@ -96,6 +97,11 @@ def test_admonition_skipped_when_no_docstring():
         async def old(self) -> None: ...
 
     assert Thing.old.__doc__ is None
+
+
+def test_admonition_not_double_appended():
+    doc = "Summary.\n\n.. deprecated:: 1.0.0\n    Use :meth:`x` instead."
+    assert _append_admonition(doc, "y_public", "2.0.0") == doc
 
 
 def test_for_class_returns_copy():
