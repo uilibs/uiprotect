@@ -145,3 +145,21 @@ async def stop_siren_public(self, siren_id: str) -> None:
 `item=` always means a single model, `items=` a list; `public_get` takes exactly one of them (XOR), while `public_patch` returns one `item=` and `public_post` takes neither. Each decorator registers its `(verb, path)` against the class at import time; declaring the same `(verb, path)` twice raises immediately. The signature is validated at decoration too — every `{placeholder}` must name a real parameter, and a body-less `public_get`/`public_post` may not carry any non-placeholder parameter — so a declaration that lies fails the import, not a later call. The model class is passed as an argument (`item=`/`items=`), so `_public_api.py` imports nothing from `uiprotect.data` and stays circular-import-safe.
 
 **The PATCH form is flat-body only.** A `@public_patch` body is built mechanically: every non-`None` keyword parameter becomes one camelCase wire key, and an empty body raises `BadRequest("At least one parameter must be provided")`. Path placeholders never leak into the body. This rule is correct only for genuinely uniform methods — anything that groups keys into nested objects (`ledSettings`/`osdSettings`), renames non-mechanically, validates ranges, carries a nullable `_UNSET` sentinel, or writes through to the public bootstrap cache (e.g. `update_camera_public`, `update_light_public`, `update_viewer_public`) stays hand-written. When in doubt, keep the body hand-written — behavior parity beats terseness. The hand-written exceptions are covered by their recorded example calls.
+
+## Deprecating a private-API method
+
+Once a private-API method's capability is feature-complete on the public API, mark the private one with `@superseded_by` from `uiprotect._superseded` instead of hand-writing a `warnings.warn(...)` block:
+
+```python
+from .._superseded import superseded_by
+
+
+@superseded_by("set_volume_for_camera_public", since="12.2.0")
+async def set_volume(self, level: int) -> None:
+    """Set the speaker volume on chime."""
+    ...  # original body runs after the warning
+```
+
+The decorator _wraps_ the method (the opposite of `@public_*`, which replaces the body): it emits one standardized `DeprecationWarning` — `"<Class>.<method> is deprecated since <since>; use <replacement> instead."` — and then runs the original body, which still carries the real logic (`queue_update`, `save_device`, validation). It also appends a `.. deprecated:: {since}` admonition to the rendered docstring, and registers `(class, method, replacement, since)` in a write-once per-class registry keyed by `__qualname__`. Pass the public replacement as a plain string (dotted is fine, e.g. `"ProtectApiClient.update_viewer_public"`); `_superseded.py` imports nothing from `uiprotect.data`, so it stays circular-import-safe.
+
+That registry is what schedules the private path's own teardown. The weekly `private-api-removal` workflow runs `scripts/find_removable_private_api.py`, which reads the registry and — for each record whose replacement ends in `_public` — greps the released Home-Assistant integration (`homeassistant/components/unifiprotect/`) for remaining call sites. A symbol with zero references gets a deduped `safe to remove: <method>` tracker issue with the search evidence attached. The automation only _finds_ candidates; removal PRs stay human-initiated (typed `feat!:`/`refactor!:`). Private→private deprecations (replacement not ending in `_public`, e.g. `set_hdr` → `set_hdr_mode`) are valid uses of the decorator but are skipped by the removal probe — they have no public-parity removal criterion.

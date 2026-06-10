@@ -283,14 +283,26 @@ public-only clients — the key is supplied pre-provisioned.
 **Deprecate private-API counterparts when the public API is feature-
 complete for a given capability.** Once a device method or endpoint is
 fully covered by the public API, mark the corresponding private-API
-method with a `DeprecationWarning` pointing to the public replacement.
+method with `@superseded_by("replacement_public", since="X.Y.Z")` from
+`uiprotect._superseded` rather than a hand-written `DeprecationWarning`.
+The decorator wraps (does not replace) the method: it emits one
+standardized warning, runs the original body, appends a deprecation
+admonition to the docs, and registers the supersession in the per-class
+registry the removal automation reads. See "Deprecating a private-API
+method" in [docs/dev.md](docs/dev.md).
 
 **Remove private-API code that the Home Assistant integration no longer
-uses.** Before removing a private-API method or model, check whether
-the latest released version of the HA integration still references it:
-search `homeassistant/components/unifiprotect/` in the
-`home-assistant/core` GitHub repository. If the symbol does not
-appear there, it is safe to remove.
+uses.** This criterion is now mechanized: the weekly
+`private-api-removal` workflow runs
+`scripts/find_removable_private_api.py`, which reads the supersession
+registry and greps the released HA integration
+(`homeassistant/components/unifiprotect/` in `home-assistant/core`) for
+each superseded symbol, opening a deduped "safe to remove" issue when a
+symbol is no longer referenced. The automation only _finds_ candidates
+and never deletes code — the removal PR stays human-initiated (typed
+`feat!:`/`refactor!:`). You can still check by hand before removing a
+private-API method or model that the latest released HA integration does
+not reference it.
 
 ## Public Integration API spec
 
