@@ -1567,13 +1567,12 @@ async def test_update_public_tolerates_missing_endpoints(
 
 
 @pytest.mark.asyncio()
-async def test_update_public_tolerates_every_endpoint_failing(
+async def test_update_public_tolerates_every_device_endpoint_failing(
     protect_client: ProtectApiClient,
 ) -> None:
-    """Even core endpoints (cameras/lights/chimes/nvr) are best-effort."""
+    """Every device endpoint (cameras/lights/chimes/...) is best-effort."""
     _mock_update_public_endpoints(
         protect_client,
-        get_nvr_public=AsyncMock(side_effect=BadRequest("X")),
         get_cameras_public=AsyncMock(side_effect=BadRequest("X")),
         get_lights_public=AsyncMock(side_effect=BadRequest("X")),
         get_chimes_public=AsyncMock(side_effect=BadRequest("X")),
@@ -1587,7 +1586,21 @@ async def test_update_public_tolerates_every_endpoint_failing(
     assert pb.cameras == {}
     assert pb.lights == {}
     assert pb.chimes == {}
-    assert pb.nvr is None
+    assert pb.nvr is not None
+
+
+@pytest.mark.asyncio()
+async def test_update_public_propagates_nvr_seed_failure(
+    protect_client: ProtectApiClient,
+) -> None:
+    """The NVR seed fetch is not best-effort: its failure aborts update_public."""
+    _mock_update_public_endpoints(
+        protect_client,
+        get_nvr_public=AsyncMock(side_effect=BadRequest("X")),
+    )
+
+    with pytest.raises(BadRequest):
+        await protect_client.update_public()
 
 
 @pytest.mark.asyncio()

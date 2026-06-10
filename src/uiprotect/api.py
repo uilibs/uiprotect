@@ -4587,12 +4587,14 @@ class ProtectApiClient(BaseApiClient):
         updated in place on subsequent calls. All endpoint fetches run
         concurrently.
 
-        Each endpoint is requested best-effort; endpoints that the NVR
+        Each device endpoint is requested best-effort; endpoints that the NVR
         doesn't (yet) expose (``BadRequest`` / ``NvrError``) are logged at
         ``DEBUG`` and ignored, and a partial public bootstrap is returned.
         If an endpoint fails, its previously cached data is left unchanged
         (not cleared). Unexpected exceptions (e.g. validation errors from a
-        new server payload) propagate to the caller.
+        new server payload) propagate to the caller. The NVR fetch is the
+        exception: it seeds the rate limiter ahead of the fan-out, so its
+        failure aborts and propagates rather than degrading to a partial.
 
         A revoked or invalid API key surfaces as :class:`NotAuthorized`; catch
         it as the reauth signal.
