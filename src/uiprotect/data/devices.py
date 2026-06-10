@@ -16,6 +16,7 @@ from convertertools import pop_dict_set_if_none, pop_dict_tuple
 from pydantic import model_validator
 from pydantic.fields import PrivateAttr
 
+from .._superseded import superseded_by
 from ..exceptions import BadRequest, NotAuthorized, StreamError
 from ..stream import TalkbackSession, TalkbackStream
 from ..utils import (
@@ -2464,14 +2465,9 @@ class Camera(ProtectMotionDeviceModel):
 
         await self.queue_update(callback)
 
+    @superseded_by("set_hdr_mode", since="3.0.0")
     async def set_hdr(self, enabled: bool) -> None:
         """Sets HDR (High Dynamic Range) on camera"""
-        warnings.warn(
-            "set_hdr is deprecated and replaced with set_hdr_mode for versions of UniFi Protect v3.0+",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
         if not self.feature_flags.has_hdr:
             raise BadRequest("Camera does not have HDR")
 
@@ -3265,22 +3261,9 @@ class Viewer(ProtectAdoptableDeviceModel):
         # user may not have permission to see the liveview
         return self._api.bootstrap.liveviews.get(self.liveview_id)
 
+    @superseded_by("ProtectApiClient.update_viewer_public", since="12.2.0")
     async def set_liveview(self, liveview: Liveview) -> None:
-        """
-        Set the liveview for this viewer.
-
-        .. deprecated::
-            Use :meth:`ProtectApiClient.update_viewer_public` instead; the
-            public-API counterpart is feature-complete for renaming and
-            liveview assignment.
-        """
-        warnings.warn(
-            "Viewer.set_liveview is deprecated; use "
-            "ProtectApiClient.update_viewer_public(viewer_id, liveview=...) "
-            "instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        """Set the liveview for this viewer."""
         if self._api is not None and liveview.id not in self._api.bootstrap.liveviews:
             raise BadRequest("Unknown liveview")
 
@@ -3841,19 +3824,9 @@ class Chime(ProtectAdoptableDeviceModel):
             return []
         return [self._api.bootstrap.cameras[c] for c in self.camera_ids]
 
+    @superseded_by("set_volume_for_camera_public", since="12.2.0")
     async def set_volume(self, level: int) -> None:
-        """
-        Set the speaker volume on chime.
-
-        .. deprecated::
-            Use :meth:`set_volume_for_camera_public` instead. This method
-            updates the speaker volume but not the doorbell ring volume.
-        """
-        warnings.warn(
-            "set_volume is deprecated, use set_volume_for_camera_public instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        """Set the speaker volume on chime."""
         old_value = self.volume
         new_value = PercentInt(level)
 
@@ -3865,19 +3838,9 @@ class Chime(ProtectAdoptableDeviceModel):
 
         await self.queue_update(callback)
 
+    @superseded_by("set_volume_for_camera_public", since="12.2.0")
     async def set_volume_for_camera(self, camera: Camera, level: int) -> None:
-        """
-        Set the ring volume on chime for a specific camera.
-
-        .. deprecated::
-            Use :meth:`set_volume_for_camera_public` instead. This method uses
-            the private API which may not properly update the ring volume.
-        """
-        warnings.warn(
-            "set_volume_for_camera is deprecated, use set_volume_for_camera_public instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        """Set the ring volume on chime for a specific camera."""
 
         def callback() -> None:
             handled = False
