@@ -2356,7 +2356,7 @@ async def test_get_meta_info_calls_public_api():
     )
     client.api_request = AsyncMock(return_value={"applicationVersion": "1.0.0"})
     result = await client.get_meta_info()
-    assert result.applicationVersion == "1.0.0"
+    assert result.application_version == "1.0.0"
     client.api_request.assert_called_with(url="/v1/meta/info", public_api=True)
 
 

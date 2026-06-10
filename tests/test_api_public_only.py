@@ -273,9 +273,15 @@ async def test_get_console_mac_timeout_returns_none() -> None:
 
 
 def test_meta_info_version_is_parsed() -> None:
-    meta = MetaInfo(applicationVersion="7.0.104")
+    meta = MetaInfo(application_version="7.0.104")
     assert meta.version == Version("7.0.104")
     assert meta.version >= Version("5.0.0")
+
+
+def test_meta_info_from_unifi_dict_maps_wire_key() -> None:
+    meta = MetaInfo.from_unifi_dict(applicationVersion="7.0.104")
+    assert meta.application_version == "7.0.104"
+    assert meta.version == Version("7.0.104")
 
 
 # ---------------------------------------------------------------------------
