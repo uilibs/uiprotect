@@ -3469,16 +3469,9 @@ class ProtectApiClient(BaseApiClient):
         """Check if the API key is set."""
         return bool(self._api_key)
 
-    @public_get("/v1/meta/info", returns=MetaInfo)
+    @public_get("/v1/meta/info", item=MetaInfo)
     async def get_meta_info(self) -> MetaInfo:
-        """
-        Get metadata about the NVR via the Public Integration API.
-
-        A revoked, invalid, or missing API key surfaces as
-        :class:`NotAuthorized`; catch it as the reauth signal. The returned
-        :attr:`MetaInfo.version` is a :class:`Version` comparable to the
-        private ``NVR.version`` min-version gate.
-        """
+        """Get NVR metadata via the Public Integration API."""
         raise NotImplementedError
 
     async def get_console_mac(self) -> str | None:
@@ -3530,17 +3523,17 @@ class ProtectApiClient(BaseApiClient):
 
     # Public API Methods
 
-    @public_get("/v1/nvrs", returns=PublicNVR)
+    @public_get("/v1/nvrs", item=PublicNVR)
     async def get_nvr_public(self) -> PublicNVR:
         """Get NVR information using public API."""
         raise NotImplementedError
 
-    @public_get("/v1/lights", item=PublicLight)
+    @public_get("/v1/lights", items=PublicLight)
     async def get_lights_public(self) -> list[PublicLight]:
         """Get all lights using public API."""
         raise NotImplementedError
 
-    @public_get("/v1/lights/{light_id}", returns=PublicLight)
+    @public_get("/v1/lights/{light_id}", item=PublicLight)
     async def get_light_public(self, light_id: str) -> PublicLight:
         """Get a specific light using public API."""
         raise NotImplementedError
@@ -3598,12 +3591,12 @@ class ProtectApiClient(BaseApiClient):
         )
         return PublicLight.from_unifi_dict(**result, api=self)
 
-    @public_get("/v1/cameras", item=PublicCamera)
+    @public_get("/v1/cameras", items=PublicCamera)
     async def get_cameras_public(self) -> list[PublicCamera]:
         """Get all cameras using public API."""
         raise NotImplementedError
 
-    @public_get("/v1/cameras/{camera_id}", returns=PublicCamera)
+    @public_get("/v1/cameras/{camera_id}", item=PublicCamera)
     async def get_camera_public(self, camera_id: str) -> PublicCamera:
         """Get a specific camera using public API."""
         raise NotImplementedError
@@ -3685,17 +3678,17 @@ class ProtectApiClient(BaseApiClient):
         )
         return PublicCamera.from_unifi_dict(**result, api=self)
 
-    @public_get("/v1/chimes", item=PublicChime)
+    @public_get("/v1/chimes", items=PublicChime)
     async def get_chimes_public(self) -> list[PublicChime]:
         """Get all chimes using public API."""
         raise NotImplementedError
 
-    @public_get("/v1/chimes/{chime_id}", returns=PublicChime)
+    @public_get("/v1/chimes/{chime_id}", item=PublicChime)
     async def get_chime_public(self, chime_id: str) -> PublicChime:
         """Get a specific chime using public API."""
         raise NotImplementedError
 
-    @public_patch("/v1/chimes/{chime_id}", returns=PublicChime)
+    @public_patch("/v1/chimes/{chime_id}", item=PublicChime)
     async def update_chime_public(
         self,
         chime_id: str,
@@ -3704,29 +3697,7 @@ class ProtectApiClient(BaseApiClient):
         camera_ids: list[str] | None = None,
         ring_settings: list[PublicApiChimeRingSettingRequest] | None = None,
     ) -> PublicChime:
-        """
-        Update chime settings using public API.
-
-        Args:
-        ----
-            chime_id: The chime's ID
-            name: Chime name
-            camera_ids: List of paired doorbell camera IDs
-            ring_settings: List of ring settings per camera. Each dict should contain:
-                - cameraId: The camera ID this setting applies to
-                - volume: Ring volume (0-100)
-                - repeatTimes: How many times to repeat (1-10)
-                - ringtoneId (optional): The ringtone ID to use
-
-        Returns:
-        -------
-            Updated Chime object
-
-        Raises:
-        ------
-            BadRequest: If no parameters are provided
-
-        """
+        """Update chime settings using public API."""
         raise NotImplementedError
 
     # PTZ Control Private API Methods
@@ -3801,12 +3772,12 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Sensors
     # ------------------------------------------------------------------
 
-    @public_get("/v1/sensors", item=PublicSensor)
+    @public_get("/v1/sensors", items=PublicSensor)
     async def get_sensors_public(self) -> list[PublicSensor]:
         """Get all sensors using public API."""
         raise NotImplementedError
 
-    @public_get("/v1/sensors/{sensor_id}", returns=PublicSensor)
+    @public_get("/v1/sensors/{sensor_id}", item=PublicSensor)
     async def get_sensor_public(self, sensor_id: str) -> PublicSensor:
         """Get a specific sensor using public API."""
         raise NotImplementedError
@@ -3874,12 +3845,12 @@ class ProtectApiClient(BaseApiClient):
         """Return a dict from key-value pairs, dropping any pair whose value is None."""
         return {k: v for k, v in items if v is not None}
 
-    @public_get("/v1/sirens", item=Siren)
+    @public_get("/v1/sirens", items=Siren)
     async def get_sirens_public(self) -> list[Siren]:
         """Get all sirens using public API."""
         raise NotImplementedError
 
-    @public_get("/v1/sirens/{siren_id}", returns=Siren)
+    @public_get("/v1/sirens/{siren_id}", item=Siren)
     async def get_siren_public(self, siren_id: str) -> Siren:
         """Get a specific siren using public API."""
         raise NotImplementedError
@@ -3957,12 +3928,12 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Relays
     # ------------------------------------------------------------------
 
-    @public_get("/v1/relays", item=Relay)
+    @public_get("/v1/relays", items=Relay)
     async def get_relays_public(self) -> list[Relay]:
         """Get all relays using public API."""
         raise NotImplementedError
 
-    @public_get("/v1/relays/{relay_id}", returns=Relay)
+    @public_get("/v1/relays/{relay_id}", item=Relay)
     async def get_relay_public(self, relay_id: str) -> Relay:
         """Get a specific relay using public API."""
         raise NotImplementedError
@@ -4024,17 +3995,17 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Fobs
     # ------------------------------------------------------------------
 
-    @public_get("/v1/fobs", item=Fob)
+    @public_get("/v1/fobs", items=Fob)
     async def get_fobs_public(self) -> list[Fob]:
         """Get all key fobs using public API."""
         raise NotImplementedError
 
-    @public_get("/v1/fobs/{fob_id}", returns=Fob)
+    @public_get("/v1/fobs/{fob_id}", item=Fob)
     async def get_fob_public(self, fob_id: str) -> Fob:
         """Get a specific key fob using public API."""
         raise NotImplementedError
 
-    @public_patch("/v1/fobs/{fob_id}", returns=Fob)
+    @public_patch("/v1/fobs/{fob_id}", item=Fob)
     async def update_fob_public(self, fob_id: str, *, name: str | None = None) -> Fob:
         """Patch key-fob settings using public API."""
         raise NotImplementedError
@@ -4043,17 +4014,17 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Speakers
     # ------------------------------------------------------------------
 
-    @public_get("/v1/speakers", item=Speaker)
+    @public_get("/v1/speakers", items=Speaker)
     async def get_speakers_public(self) -> list[Speaker]:
         """Get all speakers using public API."""
         raise NotImplementedError
 
-    @public_get("/v1/speakers/{speaker_id}", returns=Speaker)
+    @public_get("/v1/speakers/{speaker_id}", item=Speaker)
     async def get_speaker_public(self, speaker_id: str) -> Speaker:
         """Get a specific speaker using public API."""
         raise NotImplementedError
 
-    @public_patch("/v1/speakers/{speaker_id}", returns=Speaker)
+    @public_patch("/v1/speakers/{speaker_id}", item=Speaker)
     async def update_speaker_public(
         self,
         speaker_id: str,
@@ -4084,7 +4055,7 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Link stations / Alarm hubs
     # ------------------------------------------------------------------
 
-    @public_get("/v1/link-stations", item=LinkStation)
+    @public_get("/v1/link-stations", items=LinkStation)
     async def get_link_stations_public(self) -> list[LinkStation]:
         """Get all link stations using public API."""
         raise NotImplementedError
@@ -4094,7 +4065,7 @@ class ProtectApiClient(BaseApiClient):
         data = await self.api_request_list(url="/v1/alarm-hubs", public_api=True)
         return [LinkStation.from_unifi_dict(**item, api=self) for item in data]
 
-    @public_get("/v1/link-stations/{link_station_id}", returns=LinkStation)
+    @public_get("/v1/link-stations/{link_station_id}", item=LinkStation)
     async def get_link_station_public(self, link_station_id: str) -> LinkStation:
         """Get a specific link station using public API."""
         raise NotImplementedError
@@ -4106,7 +4077,7 @@ class ProtectApiClient(BaseApiClient):
         )
         return LinkStation.from_unifi_dict(**data, api=self)
 
-    @public_patch("/v1/link-stations/{link_station_id}", returns=LinkStation)
+    @public_patch("/v1/link-stations/{link_station_id}", item=LinkStation)
     async def update_link_station_public(
         self, link_station_id: str, *, name: str | None = None
     ) -> LinkStation:
@@ -4162,7 +4133,7 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Bridges
     # ------------------------------------------------------------------
 
-    @public_get("/v1/bridges", item=PublicBridge)
+    @public_get("/v1/bridges", items=PublicBridge)
     async def get_bridges_public(self) -> list[PublicBridge]:
         """Get all bridges using public API."""
         raise NotImplementedError
@@ -4201,7 +4172,7 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Viewers
     # ------------------------------------------------------------------
 
-    @public_get("/v1/viewers", item=PublicViewer)
+    @public_get("/v1/viewers", items=PublicViewer)
     async def get_viewers_public(self) -> list[PublicViewer]:
         """Get all viewers using public API."""
         raise NotImplementedError
@@ -4248,7 +4219,7 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Liveviews
     # ------------------------------------------------------------------
 
-    @public_get("/v1/liveviews", item=PublicLiveview)
+    @public_get("/v1/liveviews", items=PublicLiveview)
     async def get_liveviews_public(self) -> list[PublicLiveview]:
         """Get all liveviews using public API."""
         raise NotImplementedError
@@ -4499,12 +4470,12 @@ class ProtectApiClient(BaseApiClient):
     # Public API: Users
     # ------------------------------------------------------------------
 
-    @public_get("/v1/users", item=PublicUser)
+    @public_get("/v1/users", items=PublicUser)
     async def get_users_public(self) -> list[PublicUser]:
         """Get all Protect users using public API."""
         raise NotImplementedError
 
-    @public_get("/v1/users/{user_id}", returns=PublicUser)
+    @public_get("/v1/users/{user_id}", item=PublicUser)
     async def get_user_public(self, user_id: str) -> PublicUser:
         """Get a specific Protect user using public API."""
         raise NotImplementedError
@@ -4513,12 +4484,12 @@ class ProtectApiClient(BaseApiClient):
     # Public API: ULP users (UniFi Identity)
     # ------------------------------------------------------------------
 
-    @public_get("/v1/ulp-users", item=PublicUlpUser)
+    @public_get("/v1/ulp-users", items=PublicUlpUser)
     async def get_ulp_users_public(self) -> list[PublicUlpUser]:
         """Get all UniFi Identity users using public API."""
         raise NotImplementedError
 
-    @public_get("/v1/ulp-users/{ulp_user_id}", returns=PublicUlpUser)
+    @public_get("/v1/ulp-users/{ulp_user_id}", item=PublicUlpUser)
     async def get_ulp_user_public(self, ulp_user_id: str) -> PublicUlpUser:
         """Get a specific UniFi Identity user using public API."""
         raise NotImplementedError

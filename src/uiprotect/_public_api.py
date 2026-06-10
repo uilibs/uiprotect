@@ -9,7 +9,7 @@ body — path binding, payload assembly, dispatch through the existing
 ``api_request_*`` helpers, and model construction.
 
 The module imports nothing from :mod:`uiprotect.data`: model classes arrive as
-decorator arguments (``returns=``/``item=``), so it stays import-clean and
+decorator arguments (``item=``/``items=``), so it stays import-clean and
 circular-import-safe. It depends only on the stdlib plus the public exception
 type.
 """
@@ -81,32 +81,58 @@ def _build_body(
     return body
 
 
+def _validate_signature(
+    func: _Method[_P, _R],
+    sig: inspect.Signature,
+    placeholders: frozenset[str],
+    has_body: bool,
+) -> None:
+    """Fail loudly at decoration if the declaration and signature disagree."""
+    params = sig.parameters
+    missing = sorted(name for name in placeholders if name not in params)
+    if missing:
+        raise TypeError(
+            f"{func.__qualname__}: path placeholder(s) {missing} have no "
+            f"matching parameter"
+        )
+    if not has_body:
+        extras = sorted(
+            name for name in params if name != "self" and name not in placeholders
+        )
+        if extras:
+            raise TypeError(
+                f"{func.__qualname__}: body-less endpoint has non-placeholder "
+                f"parameter(s) {extras}"
+            )
+
+
 def _endpoint(
     verb: str,
     path: str,
     *,
     item: type[Any] | None,
-    returns: type[Any] | None,
+    items: type[Any] | None,
     has_body: bool,
 ) -> Callable[[_Method[_P, _R]], _Method[_P, _R]]:
     placeholders = frozenset(_PLACEHOLDER_RE.findall(path))
 
     def decorator(func: _Method[_P, _R]) -> _Method[_P, _R]:
         sig = inspect.signature(func)
+        _validate_signature(func, sig, placeholders, has_body)
         cls_name = func.__qualname__.rsplit(".", 1)[0]
         registry.register(cls_name, verb, path, func.__name__)
 
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            self = args[0]
             bound = sig.bind(*args, **kwargs)
             bound.apply_defaults()
             arguments = bound.arguments
+            self = arguments["self"]
             url = path.format(**{name: arguments[name] for name in placeholders})
 
-            if item is not None:
+            if items is not None:
                 data = await self.api_request_list(url=url, public_api=True)
-                return [item.from_unifi_dict(**entry, api=self) for entry in data]
+                return [items.from_unifi_dict(**entry, api=self) for entry in data]
 
             if has_body:
                 body = _build_body(sig, arguments, placeholders)
@@ -115,11 +141,11 @@ def _endpoint(
                 result = await self.api_request_obj(
                     url=url, method=verb, json=body, public_api=True
                 )
-                return returns.from_unifi_dict(**result, api=self)  # type: ignore[union-attr]
+                return item.from_unifi_dict(**result, api=self)  # type: ignore[union-attr]
 
-            if returns is not None:
+            if item is not None:
                 data = await self.api_request_obj(url=url, public_api=True)
-                return returns.from_unifi_dict(**data, api=self)
+                return item.from_unifi_dict(**data, api=self)
 
             await self.api_request_raw(url=url, method=verb, public_api=True)
             return None
@@ -134,21 +160,23 @@ def public_get(
     path: str,
     *,
     item: type[Any] | None = None,
-    returns: type[Any] | None = None,
+    items: type[Any] | None = None,
 ) -> Callable[[_Method[_P, _R]], _Method[_P, _R]]:
-    """Declare a GET endpoint: ``item=`` for a list, ``returns=`` for one object."""
-    return _endpoint("get", path, item=item, returns=returns, has_body=False)
+    """Declare a GET endpoint: ``item=`` for one object, ``items=`` for a list."""
+    if (item is None) == (items is None):
+        raise TypeError(f"public_get('{path}') requires exactly one of item= or items=")
+    return _endpoint("get", path, item=item, items=items, has_body=False)
 
 
 def public_patch(
-    path: str, *, returns: type[Any]
+    path: str, *, item: type[Any]
 ) -> Callable[[_Method[_P, _R]], _Method[_P, _R]]:
     """Declare a flat-body PATCH endpoint; empty body raises ``BadRequest``."""
-    return _endpoint("patch", path, item=None, returns=returns, has_body=True)
+    return _endpoint("patch", path, item=item, items=None, has_body=True)
 
 
 def public_post(
     path: str,
 ) -> Callable[[_Method[_P, _R]], _Method[_P, _R]]:
     """Declare a fire-and-forget POST endpoint (path-only, no return value)."""
-    return _endpoint("post", path, item=None, returns=None, has_body=False)
+    return _endpoint("post", path, item=None, items=None, has_body=False)

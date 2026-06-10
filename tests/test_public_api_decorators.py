@@ -8,7 +8,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from uiprotect import _public_api
 from uiprotect._public_api import (
+    _PublicEndpointRegistry,
     _to_camel,
     public_get,
     public_patch,
@@ -29,17 +31,17 @@ class _Model:
 
 
 class _Client:
-    @public_get("/v1/things", item=_Model)
+    @public_get("/v1/things", items=_Model)
     async def list_things(self) -> list[_Model]:
         """List things."""
         raise NotImplementedError
 
-    @public_get("/v1/things/{thing_id}", returns=_Model)
+    @public_get("/v1/things/{thing_id}", item=_Model)
     async def get_thing(self, thing_id: str) -> _Model:
         """Get a thing."""
         raise NotImplementedError
 
-    @public_patch("/v1/things/{thing_id}", returns=_Model)
+    @public_patch("/v1/things/{thing_id}", item=_Model)
     async def update_thing(
         self,
         thing_id: str,
@@ -151,18 +153,48 @@ async def test_post_fire_and_forget_binds_all_path_params() -> None:
     )
 
 
-def test_duplicate_endpoint_raises_at_decoration() -> None:
+def test_duplicate_endpoint_raises_at_decoration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(_public_api, "registry", _PublicEndpointRegistry())
     with pytest.raises(RuntimeError, match="Duplicate public endpoint"):
 
         class _Dup:
-            @public_get("/v1/dup", returns=_Model)
+            @public_get("/v1/dup", item=_Model)
             async def a(self) -> _Model:
                 """First."""
                 raise NotImplementedError
 
-            @public_get("/v1/dup", returns=_Model)
+            @public_get("/v1/dup", item=_Model)
             async def b(self) -> _Model:
                 """Second."""
+                raise NotImplementedError
+
+
+def test_public_get_requires_exactly_one_model() -> None:
+    with pytest.raises(TypeError, match="exactly one of item= or items="):
+        public_get("/v1/x")
+    with pytest.raises(TypeError, match="exactly one of item= or items="):
+        public_get("/v1/x", item=_Model, items=_Model)
+
+
+def test_unknown_path_placeholder_rejected_at_decoration() -> None:
+    with pytest.raises(TypeError, match=r"placeholder.*missing"):
+
+        class _Bad:
+            @public_get("/v1/things/{missing}", item=_Model)
+            async def get(self) -> _Model:
+                """Bad."""
+                raise NotImplementedError
+
+
+def test_body_less_endpoint_rejects_extra_param_at_decoration() -> None:
+    with pytest.raises(TypeError, match=r"non-placeholder parameter.*extra"):
+
+        class _Bad:
+            @public_post("/v1/things/{thing_id}/go")
+            async def go(self, thing_id: str, *, extra: int) -> None:
+                """Bad."""
                 raise NotImplementedError
 
 
