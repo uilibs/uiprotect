@@ -3483,7 +3483,7 @@ class ProtectApiClient(BaseApiClient):
         )
         if not isinstance(data, dict):
             raise NvrError("Failed to retrieve meta info from public API")
-        return MetaInfo(**data)
+        return MetaInfo.from_unifi_dict(**data)
 
     async def get_console_mac(self) -> str | None:
         """
