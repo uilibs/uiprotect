@@ -66,8 +66,8 @@ def virtual_clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
         ("", None),
         ("q=10", None),  # missing w
         ("w=1", None),  # missing q
-        ("q=oops; w=1", None),  # unparseable quota
-        ("q=10; w=bad", None),  # unparseable window
+        ("q=oops; w=1", None),  # unparsable quota
+        ("q=10; w=bad", None),  # unparsable window
         ("q=0; w=1", None),  # zero quota
         ("q=10; w=0", None),  # zero window
     ],
@@ -165,7 +165,7 @@ async def test_seed_is_one_shot(virtual_clock: list[float]) -> None:
 @pytest.mark.asyncio
 async def test_absent_policy_keeps_default(virtual_clock: list[float]) -> None:
     limiter = PublicApiRateLimiter()
-    limiter.seed_from_policy(None)  # unparseable → stays at fallback rate
+    limiter.seed_from_policy(None)  # unparsable → stays at fallback rate
     await limiter.acquire()
     await limiter.acquire()
     assert virtual_clock[0] == pytest.approx(1 / DEFAULT_RATE)
