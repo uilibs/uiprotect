@@ -1,5 +1,25 @@
 # Changelog
 
+## v13.1.0 (2026-06-12)
+
+### Features
+
+
+- Pace public path with in-house rate limiter (alt to #984) ([`45c721d`](https://github.com/uilibs/uiprotect/commit/45c721d5c636966f30bac48faf8bff858fc144c1))
+
+
+- Pace public path with in-house rate limiter seeded from ratelimit-policy ([`45c721d`](https://github.com/uilibs/uiprotect/commit/45c721d5c636966f30bac48faf8bff858fc144c1))
+
+
+### Refactoring
+
+
+- Declarative decorators for uniform public-api endpoints ([`755cd5c`](https://github.com/uilibs/uiprotect/commit/755cd5c67cb2489ed29a2d70b57cd73e7283d84d))
+
+
+- Declarative decorators for uniform public-api endpoints ([`755cd5c`](https://github.com/uilibs/uiprotect/commit/755cd5c67cb2489ed29a2d70b57cd73e7283d84d))
+
+
 ## v13.0.0 (2026-06-10)
 
 ### Features
