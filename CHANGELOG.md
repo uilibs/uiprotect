@@ -1,5 +1,13 @@
 # Changelog
 
+## v13.1.1 (2026-06-12)
+
+### Bug fixes
+
+
+- Relax av floor to >=17.0.1 for home assistant compatibility ([`c4ed9e1`](https://github.com/uilibs/uiprotect/commit/c4ed9e1fb44841e5c9c1468becb4133ccd91b630))
+
+
 ## v13.1.0 (2026-06-12)
 
 ### Features
