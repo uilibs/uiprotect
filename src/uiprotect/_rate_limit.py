@@ -1,15 +1,8 @@
-"""
-Lightweight event-loop-safe pacer for the Public Integration API.
-
-The public API enforces a per-API-key request budget (observed as ~10 req/1s,
-advertised via draft-8 ``RateLimit``/``RateLimit-Policy`` headers). The public
-WebSocket draws from the *same* budget. Pacing the request path proactively
-keeps the bootstrap fan-out from tripping a 429 storm or a WS ``1008``
-disconnect.
-"""
+"""Lightweight event-loop-safe pacer for the Public Integration API."""
 
 from __future__ import annotations
 
+import math
 from asyncio import Lock, get_running_loop, sleep
 
 # Requests/second used until a ``RateLimit-Policy`` header seeds the real rate.
@@ -22,13 +15,7 @@ SAFETY_MARGIN: float = 0.8
 
 
 class PublicApiRateLimiter:
-    """
-    Fixed-interval async gate for one client's public path.
-
-    ``acquire()`` spaces successive requests at least ``1 / rate`` seconds apart
-    on the running loop — no threads, no background tasks. All state lives on the
-    instance so several clients in one process never share a budget.
-    """
+    """Fixed-interval async gate for one client's public path."""
 
     def __init__(self, rate: float = DEFAULT_RATE) -> None:
         self._lock = Lock()
@@ -53,7 +40,12 @@ class PublicApiRateLimiter:
         rate = _parse_policy_rate(policy)
         if rate is None:
             return
-        self._interval = 1.0 / (rate * SAFETY_MARGIN)
+        new_interval = 1.0 / (rate * SAFETY_MARGIN)
+        # Seeding a slower rate must not let one request slip out at the old,
+        # faster spacing — push the next slot out by the widening delta.
+        if self._next_allowed and new_interval > self._interval:
+            self._next_allowed += new_interval - self._interval
+        self._interval = new_interval
         self._seeded = True
 
 
@@ -77,6 +69,7 @@ def _parse_policy_rate(policy: str | None) -> float | None:
 
 def _to_float(value: str) -> float | None:
     try:
-        return float(value)
+        result = float(value)
     except ValueError:
         return None
+    return result if math.isfinite(result) else None

@@ -70,6 +70,9 @@ def virtual_clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
         ("q=10; w=bad", None),  # unparsable window
         ("q=0; w=1", None),  # zero quota
         ("q=10; w=0", None),  # zero window
+        ("q=nan; w=1", None),  # non-finite quota
+        ("q=inf; w=1", None),  # non-finite quota
+        ("q=10; w=nan", None),  # non-finite window
     ],
 )
 def test_parse_policy_rate(policy: str | None, expected: float | None) -> None:
@@ -79,6 +82,8 @@ def test_parse_policy_rate(policy: str | None, expected: float | None) -> None:
 def test_to_float() -> None:
     assert _to_float("3.5") == 3.5
     assert _to_float("nope") is None
+    assert _to_float("nan") is None
+    assert _to_float("inf") is None
 
 
 # ---------------------------------------------------------------------------
@@ -160,6 +165,16 @@ async def test_seed_is_one_shot(virtual_clock: list[float]) -> None:
     await limiter.acquire()
     await limiter.acquire()
     assert virtual_clock[0] == pytest.approx(1 / (20 * SAFETY_MARGIN))
+
+
+@pytest.mark.asyncio
+async def test_seed_slower_rate_clamps_schedule(virtual_clock: list[float]) -> None:
+    limiter = PublicApiRateLimiter(rate=10.0)  # 0.1s spacing
+    await limiter.acquire()  # arms _next_allowed at 0.1
+    limiter.seed_from_policy("q=2; w=1")  # 2 * 0.8 = 1.6/s → 0.625s spacing
+    await limiter.acquire()
+    # Next slot honors the new, slower interval rather than the old 0.1s.
+    assert virtual_clock[0] == pytest.approx(1 / (2 * SAFETY_MARGIN))
 
 
 @pytest.mark.asyncio
