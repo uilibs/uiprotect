@@ -35,6 +35,7 @@ from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
 
 from ._compat import cached_property
 from ._public_api import public_get, public_patch, public_post
+from ._rate_limit import PublicApiRateLimiter
 from .data import (
     NVR,
     ArmProfile,
@@ -424,6 +425,9 @@ class BaseApiClient:
         # Per-instance (never a class-level mutable default — one process can
         # drive several consoles). Cancelled in :meth:`close_session`.
         self._rtsps_refresh_tasks: dict[str, asyncio.Task[None]] = {}
+        # Proactive per-API-key pacer for the public path. Per-instance so
+        # several consoles in one process never share a budget.
+        self._public_rate_limiter = PublicApiRateLimiter()
         self._max_retries = max_retries
 
         self.config_dir = config_dir or (Path(user_config_dir()) / "ufp")
@@ -652,6 +656,27 @@ class BaseApiClient:
         else:
             self.headers[key] = value
 
+    async def _paced_request(
+        self,
+        session: aiohttp.ClientSession,
+        method: str,
+        request_url: URL,
+        headers: dict[str, str],
+        public_api: bool,
+        **kwargs: Any,
+    ) -> aiohttp.ClientResponse:
+        """Gate the public path through the rate limiter, then send the request."""
+        if public_api:
+            await self._public_rate_limiter.acquire()
+        response = await self._do_request(
+            session, method, request_url, headers, **kwargs
+        )
+        if public_api:
+            self._public_rate_limiter.seed_from_policy(
+                response.headers.get("RateLimit-Policy")
+            )
+        return response
+
     async def _do_request(
         self,
         session: aiohttp.ClientSession,
@@ -726,8 +751,8 @@ class BaseApiClient:
             session = await self.get_session()
 
         # First attempt (always happens, even with max_retries=0)
-        response = await self._do_request(
-            session, method, request_url, headers, **kwargs
+        response = await self._paced_request(
+            session, method, request_url, headers, public_api, **kwargs
         )
 
         # Retry loop for transient errors
@@ -752,8 +777,8 @@ class BaseApiClient:
                 self._max_retries,
             )
             await asyncio.sleep(delay)
-            response = await self._do_request(
-                session, method, request_url, headers, **kwargs
+            response = await self._paced_request(
+                session, method, request_url, headers, public_api, **kwargs
             )
 
         if auto_close:
@@ -3464,6 +3489,9 @@ class ProtectApiClient(BaseApiClient):
             raise BadRequest("API key cannot be empty")
 
         self._api_key = api_key
+        # The budget is per-key; a new key gets a fresh limiter (re-seeded from
+        # the next response's RateLimit-Policy header).
+        self._public_rate_limiter = PublicApiRateLimiter()
 
     def is_api_key_set(self) -> bool:
         """Check if the API key is set."""
