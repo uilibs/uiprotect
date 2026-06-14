@@ -2210,7 +2210,16 @@ class ProtectApiClient(BaseApiClient):
                     msg.action,
                 )
                 return
-            dispatcher.dispatch(msg.action, msg.new_obj, old_obj)
+            action = msg.action
+            if action is WSAction.UPDATE and old_obj is None:
+                # Born-closed event: the store synthesized a brand-new Event
+                # from a lone ``update`` (no preceding ``add``). A normal
+                # unknown-id update yields no merged Event and was dropped
+                # above, so a merged Event with no prior snapshot can only be
+                # this promotion. Treat it as an ADD so the close-window logic
+                # emits STARTED + ENDED.
+                action = WSAction.ADD
+            dispatcher.dispatch(action, msg.new_obj, old_obj)
             return
         if msg.action is WSAction.REMOVE:
             if old_obj is None:

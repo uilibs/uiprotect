@@ -70,6 +70,11 @@ _LOGGER = logging.getLogger(__name__)
 # default so memory behaviour is symmetric between the two caches.
 DEFAULT_PUBLIC_EVENT_CACHE_SIZE = 1000
 
+# Fields a lone ``update`` event frame must carry (all non-``None``) before it
+# can be promoted to a synthesized ``add`` — only *completed* events whose
+# payload is self-sufficient qualify, so no dangling open event is ever created.
+_BORN_CLOSED_REQUIRED_FIELDS = ("id", "type", "start", "end", "device")
+
 
 # Single source of truth: ``ModelType`` -> (store attribute, public model
 # class | None). Only the device types the Public Integration API actually
@@ -530,24 +535,82 @@ class PublicBootstrap:
 
         if action_type == "update":
             if old is None:
-                # Update for an object not in the cache — typical when the
-                # cache hasn't been primed yet. Drop; the reconnect hook /
-                # next ``update_public`` refetches full state.
-                # NOTE: returns ``(None, None)`` — distinct from a
-                # merge-failure on a *known* id, which returns ``(None, old)``
-                # (cache entry preserved; only the diff could not be applied).
-                _LOGGER.debug(
-                    "Public WS update for unknown %s id=%s; needs full refresh",
-                    model_type.value,
-                    obj_id,
-                )
-                return None, None
+                return self._apply_unknown_update(api, item, model_type, slot, obj_id)
             merged = _merge(old, item, self._warned_merge_failures)
             if merged is not None:
                 slot.put(obj_id, merged)
                 return merged, old
 
         return None, old
+
+    def _apply_unknown_update(
+        self,
+        api: ProtectApiClient,
+        item: dict[str, Any],
+        model_type: ModelType,
+        slot: _Slot,
+        obj_id: str,
+    ) -> tuple[ProtectModelWithId | None, ProtectModelWithId | None]:
+        """
+        Handle an ``update`` whose id is not in the cache.
+
+        Born-closed event: a lone ``update`` for an unseen event id whose
+        payload is self-sufficient and already closed (package smart-detect
+        arrives this way — one closed frame, no preceding ``add``) is promoted
+        to an ``add`` so the dispatcher's close-window logic can emit STARTED +
+        ENDED. Returns ``(new, None)`` on promotion.
+
+        Otherwise drops: returns ``(None, None)`` — distinct from a merge
+        failure on a *known* id, which returns ``(None, old)`` (cache entry
+        preserved; only the diff could not be applied). The reconnect hook /
+        next ``update_public`` refetches full state.
+        """
+        synthesized = self._synthesize_born_closed_event(api, item, model_type)
+        if synthesized is not None:
+            slot.put(obj_id, synthesized)
+            return synthesized, None
+        _LOGGER.debug(
+            "Public WS update for unknown %s id=%s; needs full refresh",
+            model_type.value,
+            obj_id,
+        )
+        return None, None
+
+    def _synthesize_born_closed_event(
+        self,
+        api: ProtectApiClient,
+        item: dict[str, Any],
+        model_type: ModelType,
+    ) -> ProtectModelWithId | None:
+        """
+        Build a closed :class:`Event` from a lone ``update`` for an unseen id.
+
+        Returns the event only when scoped to the EVENT store and the payload
+        is self-sufficient and already closed (every field in
+        :data:`_BORN_CLOSED_REQUIRED_FIELDS` set); otherwise ``None`` so the
+        caller keeps the drop-and-refresh behaviour. Devices/NVR are never
+        synthesized from a partial diff.
+        """
+        if model_type is not ModelType.EVENT:
+            return None
+        if any(
+            item.get(field_name) is None for field_name in _BORN_CLOSED_REQUIRED_FIELDS
+        ):
+            return None
+        try:
+            return cast(
+                "ProtectModelWithId",
+                create_from_unifi_dict(item, api=api, model_type=ModelType.EVENT),
+            )
+        except Exception as err:
+            _warn_once(
+                self._warned_merge_failures,
+                ("born_closed", model_type.value),
+                "Could not synthesize %s from public API born-closed update: %s",
+                model_type.value,
+                err,
+            )
+            return None
 
     # ------------------------------------------------------------------
     # Slot factories

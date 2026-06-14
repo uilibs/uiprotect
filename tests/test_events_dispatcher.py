@@ -12,8 +12,8 @@ from tests.conftest import SAMPLE_DATA_DIRECTORY
 from uiprotect.api import ProtectApiClient
 from uiprotect.data.nvr import Event
 from uiprotect.data.public_bootstrap import PublicBootstrap
-from uiprotect.data.types import EventType
-from uiprotect.data.websocket import WSAction
+from uiprotect.data.types import EventType, ModelType
+from uiprotect.data.websocket import WSAction, WSSubscriptionMessage
 from uiprotect.events import EventChange, ProtectEvent
 from uiprotect.events.dispatcher import EventDispatcher
 
@@ -519,6 +519,112 @@ async def test_start_ttl_sweep_idempotent_while_running(
     dispatcher.start_ttl_sweep()
     assert dispatcher._sweep_task is first
     dispatcher.stop_ttl_sweep()
+
+
+def _feed_ws(
+    api: ProtectApiClient, dispatcher: EventDispatcher, frame: dict[str, Any]
+) -> None:
+    """Drive a raw events-WS frame through store + adapter, as the WS path does."""
+    api._event_dispatcher = dispatcher
+    new_event, old_event = api.public_bootstrap.process_events_ws_message(api, frame)
+    msg = WSSubscriptionMessage(
+        action=WSAction(frame["type"]),
+        new_update_id=frame["item"]["id"],
+        changed_data=frame["item"],
+        new_obj=new_event,
+        old_obj=old_event,
+    )
+    api._adapt_events_ws_message(msg)
+
+
+def test_born_closed_update_dispatches_started_and_ended(
+    api: ProtectApiClient, dispatcher: EventDispatcher
+) -> None:
+    received = _collect(dispatcher)
+    frame = _load("package_born_closed_update.json")
+
+    _feed_ws(api, dispatcher, frame)
+
+    assert [c for _, c in received] == [EventChange.STARTED, EventChange.ENDED]
+    assert received[0][0].id == frame["item"]["id"]
+    # Synthesized into the store as a closed event; not surfaced as active.
+    assert dispatcher.active_events() == []
+
+
+def test_born_closed_update_retransmit_suppressed(
+    api: ProtectApiClient, dispatcher: EventDispatcher
+) -> None:
+    received = _collect(dispatcher)
+    frame = _load("package_born_closed_update.json")
+
+    _feed_ws(api, dispatcher, frame)
+    _feed_ws(api, dispatcher, frame)
+
+    changes = [c for _, c in received]
+    assert changes.count(EventChange.STARTED) == 1
+    assert changes.count(EventChange.ENDED) == 1
+
+
+def test_open_unknown_update_still_drops(
+    api: ProtectApiClient, dispatcher: EventDispatcher
+) -> None:
+    received = _collect(dispatcher)
+    frame = {
+        "type": "update",
+        "item": {
+            "id": "unseen-open",
+            "modelKey": "event",
+            "type": "smartDetectZone",
+            "start": 1735690000000,
+            "device": "aabbccddeeff00112233aabb",
+            "smartDetectTypes": ["package"],
+        },
+    }
+
+    _feed_ws(api, dispatcher, frame)
+
+    assert received == []
+    assert "unseen-open" not in api.public_bootstrap.events
+
+
+def test_born_closed_synthesis_skipped_when_construction_fails(
+    api: ProtectApiClient,
+) -> None:
+    frame = {
+        "type": "update",
+        "item": {
+            "id": "bad-event",
+            "modelKey": "event",
+            "type": "smartDetectZone",
+            "start": "not-a-timestamp",
+            "end": 1735690006000,
+            "device": "aabbccddeeff00112233aabb",
+        },
+    }
+
+    new_event, old_event = api.public_bootstrap.process_events_ws_message(api, frame)
+
+    assert new_event is None
+    assert old_event is None
+    assert "bad-event" not in api.public_bootstrap.events
+
+
+def test_born_closed_synthesis_scoped_to_events_only(
+    api: ProtectApiClient,
+) -> None:
+    """A closed-looking update for a non-event model is never synthesized."""
+    item = {
+        "id": "cam-unseen",
+        "modelKey": "camera",
+        "type": "smartDetectZone",
+        "start": 1735690000000,
+        "end": 1735690006000,
+        "device": "aabbccddeeff00112233aabb",
+    }
+    synthesized = api.public_bootstrap._synthesize_born_closed_event(
+        api, item, ModelType.CAMERA
+    )
+    assert synthesized is None
 
 
 def test_merge_precedes_fan_out_invariant(
