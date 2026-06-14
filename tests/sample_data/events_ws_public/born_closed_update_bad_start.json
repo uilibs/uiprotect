@@ -1,0 +1,11 @@
+{
+  "type": "update",
+  "item": {
+    "id": "bad-event",
+    "modelKey": "event",
+    "type": "smartDetectZone",
+    "start": "not-a-timestamp",
+    "end": 1735690006000,
+    "device": "aabbccddeeff00112233aabb"
+  }
+}

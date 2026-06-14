@@ -1,0 +1,11 @@
+{
+  "type": "update",
+  "item": {
+    "id": "unseen-open",
+    "modelKey": "event",
+    "type": "smartDetectZone",
+    "start": 1735690000000,
+    "device": "aabbccddeeff00112233aabb",
+    "smartDetectTypes": ["package"]
+  }
+}

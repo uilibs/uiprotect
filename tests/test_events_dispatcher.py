@@ -569,17 +569,7 @@ def test_open_unknown_update_still_drops(
     api: ProtectApiClient, dispatcher: EventDispatcher
 ) -> None:
     received = _collect(dispatcher)
-    frame = {
-        "type": "update",
-        "item": {
-            "id": "unseen-open",
-            "modelKey": "event",
-            "type": "smartDetectZone",
-            "start": 1735690000000,
-            "device": "aabbccddeeff00112233aabb",
-            "smartDetectTypes": ["package"],
-        },
-    }
+    frame = _load("open_unknown_update.json")
 
     _feed_ws(api, dispatcher, frame)
 
@@ -590,17 +580,7 @@ def test_open_unknown_update_still_drops(
 def test_born_closed_synthesis_skipped_when_construction_fails(
     api: ProtectApiClient,
 ) -> None:
-    frame = {
-        "type": "update",
-        "item": {
-            "id": "bad-event",
-            "modelKey": "event",
-            "type": "smartDetectZone",
-            "start": "not-a-timestamp",
-            "end": 1735690006000,
-            "device": "aabbccddeeff00112233aabb",
-        },
-    }
+    frame = _load("born_closed_update_bad_start.json")
 
     new_event, old_event = api.public_bootstrap.process_events_ws_message(api, frame)
 
