@@ -1,5 +1,13 @@
 # Changelog
 
+## v13.1.2 (2026-06-14)
+
+### Bug fixes
+
+
+- Deliver born-closed public events (lone update, no add) ([`a3a503a`](https://github.com/uilibs/uiprotect/commit/a3a503a5003b84a37e5a20b6850e36aa8a94c146))
+
+
 ## v13.1.1 (2026-06-12)
 
 ### Bug fixes
