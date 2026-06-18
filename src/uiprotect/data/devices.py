@@ -5,11 +5,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
 from functools import cache, lru_cache
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
@@ -358,12 +359,14 @@ class Light(ProtectMotionDeviceModel):
             self.light_device_settings = device_settings
 
 
-_RTSPS_QUALITY_BY_CHANNEL_ID: dict[int, ChannelQuality] = {
-    0: ChannelQuality.HIGH,
-    1: ChannelQuality.MEDIUM,
-    2: ChannelQuality.LOW,
-    3: ChannelQuality.PACKAGE,
-}
+_RTSPS_QUALITY_BY_CHANNEL_ID: Mapping[int, ChannelQuality] = MappingProxyType(
+    {
+        0: ChannelQuality.HIGH,
+        1: ChannelQuality.MEDIUM,
+        2: ChannelQuality.LOW,
+        3: ChannelQuality.PACKAGE,
+    }
+)
 
 
 class CameraChannel(ProtectBaseObject):
