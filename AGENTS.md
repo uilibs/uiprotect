@@ -311,9 +311,10 @@ endpoint. If the file is absent, run the script first.
 `scripts/validate_spec.py` checks the public-API client against a fetched
 spec and reports drift: spec endpoints with no covering `*_public` method
 (warning), model fields the spec dropped/retyped (error) or added (warning),
-spec `required` fields modelled optional (warning — the library models every
-public-API field optional by design), and new enum values (warning). It exits
-non-zero on any error and prints a markdown summary. Reproduce locally with:
+and new enum values (warning). Spec `required` vs. model `optional` is not
+checked — the library models every public-API field optional by design, so it
+would be guaranteed noise. It exits non-zero on any error and prints a markdown
+summary. Reproduce locally with:
 
 ```bash
 python scripts/fetch_openapi.py --version "$(cat openapi/.validated-version)"

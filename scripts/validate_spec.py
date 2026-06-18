@@ -11,11 +11,11 @@ between Ubiquiti's spec and the hand-maintained client surface:
   hand-written exception method, never a hand-maintained table (warning),
 * model fields the spec dropped or retyped (error) and fields the spec added
   that the model lacks (warning),
-* spec ``required`` fields that are optional on the model (warning — the
-  library deliberately models every public-API field optional, since older
-  firmware and partial/reference responses omit them, so this is informational
-  rather than a contract violation),
 * spec enum values absent from the matching library enum (warning).
+
+The library deliberately models every public-API field optional (older firmware
+and partial/reference responses omit them), so spec ``required`` vs. model
+``optional`` is not checked — it would be guaranteed noise on every run.
 
 Exits non-zero on any error and prints a markdown summary the spec-validation
 workflow embeds in a drift issue. The check functions are also imported by
@@ -372,36 +372,6 @@ def check_model_fields(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
-def check_required(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
-    """
-    Spec ``required`` fields that are optional on the model are warnings.
-
-    The library deliberately models every public-API field optional (older
-    firmware and partial/reference responses omit them), so a required-vs-
-    optional mismatch is informational, not a contract violation — it never
-    blocks the green marker-bump path.
-    """
-    errors: list[str] = []
-    warnings: list[str] = []
-    schemas = spec.get("components", {}).get("schemas", {})
-    for cls, schema_name in _MODEL_SCHEMAS:
-        schema = schemas.get(schema_name)
-        if schema is None:
-            continue
-        remaps = cls._get_unifi_remaps()
-        for key in schema.get("required", []):
-            name = _spec_field_name(key, remaps)
-            field = cls.model_fields.get(name)
-            if field is None:
-                continue  # missing field already flagged by check_model_fields
-            if not field.is_required():
-                warnings.append(
-                    f"{schema_name}: spec requires `{key}` but model field "
-                    f"`{name}` is optional"
-                )
-    return errors, warnings
-
-
 def check_enums(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     """Spec enum values absent from the matching library enum are warnings."""
     errors: list[str] = []
@@ -421,7 +391,7 @@ def check_enums(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
-_CHECKS = (check_endpoints, check_model_fields, check_required, check_enums)
+_CHECKS = (check_endpoints, check_model_fields, check_enums)
 
 
 def run_checks(spec: dict[str, Any]) -> tuple[list[str], list[str]]:

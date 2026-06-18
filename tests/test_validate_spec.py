@@ -22,7 +22,6 @@ from validate_spec import (
     check_endpoints,
     check_enums,
     check_model_fields,
-    check_required,
     covered_endpoints,
     format_summary,
     main,
@@ -41,7 +40,6 @@ def _chime_spec(
     *,
     extra: str | None = None,
     drop: str | None = None,
-    required: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build a minimal spec whose ``chime`` schema mirrors ``PublicChime`` fields."""
     fields = set(PublicChime.model_fields)
@@ -50,10 +48,9 @@ def _chime_spec(
     props = {("modelKey" if f == "model" else f): {"type": "string"} for f in fields}
     if extra is not None:
         props[extra] = {"type": "string"}
-    schema: dict[str, Any] = {"type": "object", "properties": props}
-    if required is not None:
-        schema["required"] = required
-    return {"components": {"schemas": {"chime": schema}}}
+    return {
+        "components": {"schemas": {"chime": {"type": "object", "properties": props}}}
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -184,35 +181,6 @@ def test_check_model_fields_non_object_schema_errors() -> None:
     spec = {"components": {"schemas": {"chime": {"type": "string"}}}}
     errors, _warnings = check_model_fields(spec)
     assert any("not object-shaped" in e for e in errors)
-
-
-# --------------------------------------------------------------------------- #
-# check_required
-# --------------------------------------------------------------------------- #
-
-
-def test_check_required_optional_field_warns() -> None:
-    errors, warnings = check_required(_chime_spec(required=["name"]))
-    assert errors == []
-    assert any("name" in w for w in warnings)
-
-
-def test_check_required_required_field_ok() -> None:
-    errors, warnings = check_required(_chime_spec(required=["mac"]))
-    assert errors == []
-    assert warnings == []
-
-
-def test_check_required_unknown_field_skipped() -> None:
-    errors, warnings = check_required(_chime_spec(required=["notAModelField"]))
-    assert errors == []
-    assert warnings == []
-
-
-def test_check_required_missing_schema_skipped() -> None:
-    errors, warnings = check_required({"components": {"schemas": {}}})
-    assert errors == []
-    assert warnings == []
 
 
 # --------------------------------------------------------------------------- #
