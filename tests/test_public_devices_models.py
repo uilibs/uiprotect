@@ -11,6 +11,7 @@ from uiprotect.api import RTSPSStreams
 from uiprotect.data import (
     PublicCamera,
     PublicChime,
+    PublicDeviceModel,
     PublicLight,
     PublicSensor,
 )
@@ -185,6 +186,24 @@ def test_public_model_name_nullable(cls: type, payload: dict[str, Any]) -> None:
     data["name"] = None
     obj = cls.from_unifi_dict(api=Mock(), **data)
     assert obj.name is None
+
+
+@pytest.mark.parametrize(
+    ("cls", "payload"),
+    [
+        (PublicCamera, CAMERA_PAYLOAD),
+        (PublicLight, LIGHT_PAYLOAD),
+        (PublicSensor, SENSOR_PAYLOAD),
+        (PublicChime, CHIME_PAYLOAD),
+    ],
+)
+def test_public_device_model_shared_base(cls: type, payload: dict[str, Any]) -> None:
+    """Dedicated public devices share ``PublicDeviceModel`` and type ``mac`` / ``state``."""
+    assert issubclass(cls, PublicDeviceModel)
+    assert PublicDeviceModel.model_fields.keys() >= {"mac", "state"}
+    obj: PublicDeviceModel = cls.from_unifi_dict(api=Mock(), **dict(payload))
+    assert obj.mac == payload["mac"]
+    assert obj.state.value == payload["state"]
 
 
 def test_public_camera_drops_private_only_fields() -> None:
