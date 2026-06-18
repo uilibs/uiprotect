@@ -2,17 +2,174 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import TYPE_CHECKING
 
 import pytest
 from pydantic import ValidationError
 
-from tests.conftest import TEST_CAMERA_EXISTS, TEST_SENSOR_EXISTS
-from uiprotect.data.types import MountType
+from tests.conftest import TEST_CAMERA_EXISTS, TEST_SENSOR_EXISTS, read_json_file
+from uiprotect.data import create_from_unifi_dict
+from uiprotect.data.types import MountType, SensorRingLedMetric, SensorStatusType
 from uiprotect.exceptions import BadRequest
 
 if TYPE_CHECKING:
     from uiprotect.data import Camera, Light, Sensor
+
+
+def test_air_quality_sensor_from_private_payload():
+    sensor = create_from_unifi_dict(read_json_file("sample_up_airquality_sensor"))
+
+    assert sensor.air_quality is not None
+    assert sensor.air_quality.co2 is not None
+    assert sensor.air_quality.co2.value == 670
+    assert sensor.air_quality.co2.status is SensorStatusType.NEUTRAL
+    assert sensor.air_quality.pm25 is not None
+    assert sensor.air_quality.pm25.value == 3
+    assert sensor.air_quality.pm10 is not None
+    assert sensor.air_quality.pm10.value == 5
+    assert sensor.air_quality.temperature is not None
+    assert sensor.air_quality.temperature.value == 21.4
+    assert sensor.air_quality.humidity is not None
+    assert sensor.air_quality.humidity.value == 42
+
+    assert sensor.air_quality_settings is not None
+    assert sensor.air_quality_settings.ring_led_brightness == 75
+    assert sensor.air_quality_settings.ring_led_metric is SensorRingLedMetric.CO2
+    assert sensor.air_quality_settings.night_mode_enabled is True
+    assert sensor.air_quality_settings.night_mode_start_time == "22:00"
+    assert sensor.air_quality_settings.night_mode_end_time == "06:00"
+    assert sensor.air_quality_settings.reading_interval == 15
+    assert sensor.air_quality_settings.co2 is not None
+    assert sensor.air_quality_settings.co2.is_enabled is True
+    assert sensor.air_quality_settings.co2.high_threshold == 1000
+    assert sensor.air_quality_settings.pm25 is not None
+    assert sensor.air_quality_settings.pm25.high_threshold == 25
+    assert sensor.air_quality_settings.vape_sensitivity_settings is not None
+    assert sensor.air_quality_settings.vape_sensitivity_settings.is_enabled is True
+    assert sensor.air_quality_settings.vape_sensitivity_settings.sensitivity == 50
+    assert sensor.air_quality_settings.temperature is not None
+    assert sensor.air_quality_settings.temperature.low_threshold == 15
+
+    sensor_dict = sensor.unifi_dict()
+    assert sensor_dict["airQuality"]["co2"] == {
+        "value": 670,
+        "status": "neutral",
+    }
+    assert sensor_dict["airQuality"]["pm2p5"] == {
+        "value": 3,
+        "status": "neutral",
+    }
+    assert sensor_dict["airQualitySettings"]["ringLedBrightness"] == 75
+    assert sensor_dict["airQualitySettings"]["co2Settings"] == {
+        "isEnabled": True,
+        "lowThreshold": None,
+        "highThreshold": 1000,
+    }
+    assert sensor_dict["airQualitySettings"]["pm2p5Settings"] == {
+        "isEnabled": True,
+        "lowThreshold": None,
+        "highThreshold": 25,
+    }
+    assert sensor_dict["airQualitySettings"]["vapeSensitivitySettings"] == {
+        "isEnabled": True,
+        "sensitivity": 50,
+    }
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+def test_legacy_sensor_without_air_quality_fields(sensor):
+    sensor_obj = create_from_unifi_dict(deepcopy(sensor))
+
+    assert sensor_obj.air_quality is None
+    assert sensor_obj.air_quality_settings is None
+
+    # Existing (non-air-quality) sensors must serialize without the new keys so
+    # their wire payload is unchanged.
+    sensor_dict = sensor_obj.unifi_dict()
+    assert "airQuality" not in sensor_dict
+    assert "airQualitySettings" not in sensor_dict
+
+
+def test_air_quality_ring_led_metric_unknown_value():
+    data = read_json_file("sample_up_airquality_sensor")
+    data["airQualitySettings"]["ringLedMetric"] = 7
+
+    sensor = create_from_unifi_dict(data)
+
+    assert sensor.air_quality_settings is not None
+    assert sensor.air_quality_settings.ring_led_metric is SensorRingLedMetric.UNKNOWN
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_sensor_set_ring_led_brightness(air_quality_sensor_obj: Sensor):
+    air_quality_sensor_obj.api.api_request.reset_mock()
+    air_quality_sensor_obj.air_quality_settings.ring_led_brightness = 50
+
+    await air_quality_sensor_obj.set_ring_led_brightness(80)
+
+    air_quality_sensor_obj.api.api_request.assert_called_with(
+        f"sensors/{air_quality_sensor_obj.id}",
+        method="patch",
+        json={"airQualitySettings": {"ringLedBrightness": 80}},
+    )
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_sensor_set_ring_led_metric(air_quality_sensor_obj: Sensor):
+    air_quality_sensor_obj.api.api_request.reset_mock()
+    air_quality_sensor_obj.air_quality_settings.ring_led_metric = (
+        SensorRingLedMetric.CO2
+    )
+
+    await air_quality_sensor_obj.set_ring_led_metric(SensorRingLedMetric.AIR_QUALITY)
+
+    air_quality_sensor_obj.api.api_request.assert_called_with(
+        f"sensors/{air_quality_sensor_obj.id}",
+        method="patch",
+        json={"airQualitySettings": {"ringLedMetric": 1}},
+    )
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_sensor_set_night_mode(air_quality_sensor_obj: Sensor):
+    air_quality_sensor_obj.api.api_request.reset_mock()
+    air_quality_sensor_obj.air_quality_settings.night_mode_enabled = True
+
+    await air_quality_sensor_obj.set_night_mode(False)
+
+    air_quality_sensor_obj.api.api_request.assert_called_with(
+        f"sensors/{air_quality_sensor_obj.id}",
+        method="patch",
+        json={"airQualitySettings": {"nightModeEnabled": False}},
+    )
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_sensor_set_night_mode_brightness(air_quality_sensor_obj: Sensor):
+    air_quality_sensor_obj.api.api_request.reset_mock()
+    air_quality_sensor_obj.air_quality_settings.night_mode_brightness = 50
+
+    await air_quality_sensor_obj.set_night_mode_brightness(30)
+
+    air_quality_sensor_obj.api.api_request.assert_called_with(
+        f"sensors/{air_quality_sensor_obj.id}",
+        method="patch",
+        json={"airQualitySettings": {"nightModeBrightness": 30}},
+    )
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_sensor_air_quality_setters_require_air_quality(sensor_obj: Sensor):
+    assert sensor_obj.air_quality_settings is None
+
+    with pytest.raises(BadRequest):
+        await sensor_obj.set_ring_led_brightness(80)
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")

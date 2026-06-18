@@ -22,7 +22,7 @@ from tests.conftest import (
 from uiprotect.data import EventType, WSPacket
 from uiprotect.data.base import ProtectModel
 from uiprotect.data.devices import EVENT_PING_INTERVAL, Camera
-from uiprotect.data.types import ModelType
+from uiprotect.data.types import ModelType, SensorStatusType
 from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
 from uiprotect.data.websocket import (
     WSAction,
@@ -575,6 +575,71 @@ async def test_ws_event_update(
     bootstrap = protect_client.bootstrap.unifi_dict()
 
     assert bootstrap == bootstrap_before
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_ws_emit_sensor_air_quality_update(
+    protect_client: ProtectApiClient,
+    sensor,
+    packet: WSPacket,
+):
+    protect_client.emit_message = Mock()  # type: ignore[method-assign]
+
+    obj = protect_client.bootstrap.sensors[sensor["id"]]
+    assert obj.air_quality is None
+    assert obj.air_quality_settings is None
+
+    expected_updated_id = "6a805f60-9281-4a99-bb4b-ffbdb45cf35a"
+
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {
+        "airQuality": {
+            "co2": {"value": 690, "status": "neutral"},
+            "pm2p5": {"value": 4, "status": "neutral"},
+        },
+        "airQualitySettings": {
+            "ringLedBrightness": 80,
+            "co2Settings": {"highThreshold": 1100},
+        },
+    }
+
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": "update",
+        "newUpdateId": expected_updated_id,
+        "modelKey": "sensor",
+        "id": sensor["id"],
+    }
+
+    msg = MagicMock()
+    msg.data = packet.pack_frames()
+
+    protect_client._process_ws_message(msg)
+
+    assert obj.air_quality is not None
+    assert obj.air_quality.co2 is not None
+    assert obj.air_quality.co2.value == 690
+    assert obj.air_quality.co2.status is SensorStatusType.NEUTRAL
+    assert obj.air_quality.pm25 is not None
+    assert obj.air_quality.pm25.value == 4
+    assert obj.air_quality_settings is not None
+    assert obj.air_quality_settings.ring_led_brightness == 80
+    assert obj.air_quality_settings.co2 is not None
+    assert obj.air_quality_settings.co2.high_threshold == 1100
+
+    message: WSSubscriptionMessage = protect_client.emit_message.call_args[0][0]
+    assert message.new_update_id == expected_updated_id
+    assert message.changed_data == {
+        "air_quality": {
+            "co2": {"value": 690, "status": SensorStatusType.NEUTRAL},
+            "pm25": {"value": 4, "status": SensorStatusType.NEUTRAL},
+        },
+        "air_quality_settings": {
+            "ring_led_brightness": 80,
+            "co2": {"high_threshold": 1100},
+        },
+    }
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")

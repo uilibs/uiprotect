@@ -561,6 +561,20 @@ class SensorScheduleMode(UnknownValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
+class SensorRingLedMetric(enum.IntEnum):
+    """LED ring status metric for UP-AirQuality (`ringLedMetric`)."""
+
+    CO2 = 0
+    AIR_QUALITY = 1
+    UNKNOWN = -1
+
+    @classmethod
+    def _missing_(cls, value: object) -> SensorRingLedMetric:
+        _LOGGER.debug("Unknown SensorRingLedMetric value: %s", value)
+        return cls.UNKNOWN
+
+
+@enum.unique
 class SleepStateType(ValuesEnumMixin, enum.StrEnum):
     DISCONNECTED = "disconnected"
     AWAKE = "awake"

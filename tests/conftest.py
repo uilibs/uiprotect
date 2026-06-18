@@ -21,7 +21,7 @@ import pytest_asyncio
 
 from tests.sample_data.constants import CONSTANTS
 from uiprotect import ProtectApiClient
-from uiprotect.data import NVR, Camera, ModelType
+from uiprotect.data import NVR, Camera, ModelType, create_from_unifi_dict
 from uiprotect.data.devices import PTZRange, PTZZoomRange
 from uiprotect.data.nvr import Event
 from uiprotect.data.types import EventType
@@ -549,6 +549,18 @@ async def sensor_obj(protect_client: ProtectApiClient):
         return None
 
     return next(iter(protect_client.bootstrap.sensors.values()))
+
+
+@pytest_asyncio.fixture
+async def air_quality_sensor_obj(protect_client: ProtectApiClient):
+    if not TEST_SENSOR_EXISTS:
+        return None
+
+    obj = create_from_unifi_dict(
+        read_json_file("sample_up_airquality_sensor"), api=protect_client
+    )
+    protect_client.bootstrap.sensors[obj.id] = obj
+    return obj
 
 
 @pytest_asyncio.fixture(name="doorlock_obj")

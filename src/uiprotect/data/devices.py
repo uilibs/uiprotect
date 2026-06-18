@@ -76,6 +76,7 @@ from .types import (
     PublicHdrMode,
     RecordingMode,
     RepeatTimes,
+    SensorRingLedMetric,
     SensorStatusType,
     SmartDetectAudioType,
     SmartDetectObjectType,
@@ -3345,9 +3346,93 @@ class SensorStats(ProtectBaseObject):
     temperature: SensorStat
 
 
+class SensorAirQuality(ProtectBaseObject):
+    aqi: SensorStat | None = None
+    vape: SensorStat | None = None
+    co2: SensorStat | None = None
+    tvoc: SensorStat | None = None
+    voc: SensorStat | None = None
+    # nox is advertised on the UP-AirQuality spec sheet but absent from the
+    # firmware 1.0.12 payload; modeled so it populates if a later build adds it.
+    nox: SensorStat | None = None
+    pm1: SensorStat | None = None
+    pm25: SensorStat | None = None
+    pm4: SensorStat | None = None
+    pm10: SensorStat | None = None
+    temperature: SensorStat | None = None
+    humidity: SensorStat | None = None
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {
+            **super()._get_unifi_remaps(),
+            "pm1p0": "pm1",
+            "pm2p5": "pm25",
+            "pm4p0": "pm4",
+            "pm10p0": "pm10",
+        }
+
+
+class SensorAirQualityThresholdSettings(ProtectBaseObject):
+    is_enabled: bool | None = None
+    low_threshold: float | None = None
+    high_threshold: float | None = None
+
+
+class SensorAirQualitySensitivitySettings(ProtectBaseObject):
+    is_enabled: bool | None = None
+    sensitivity: PercentInt | None = None
+
+
+class SensorAirQualitySettings(ProtectBaseObject):
+    alert_interval: int | None = None
+    reading_interval: int | None = None
+    ring_led_brightness: PercentInt | None = None
+    ring_led_metric: SensorRingLedMetric | None = None
+    night_mode_enabled: bool | None = None
+    night_mode_brightness: PercentInt | None = None
+    night_mode_start_time: str | None = None
+    night_mode_end_time: str | None = None
+    aqi: SensorAirQualityThresholdSettings | None = None
+    vape: SensorAirQualityThresholdSettings | None = None
+    vape_sensitivity_settings: SensorAirQualitySensitivitySettings | None = None
+    co2: SensorAirQualityThresholdSettings | None = None
+    tvoc: SensorAirQualityThresholdSettings | None = None
+    voc: SensorAirQualityThresholdSettings | None = None
+    nox: SensorAirQualityThresholdSettings | None = None
+    pm1: SensorAirQualityThresholdSettings | None = None
+    pm25: SensorAirQualityThresholdSettings | None = None
+    pm4: SensorAirQualityThresholdSettings | None = None
+    pm10: SensorAirQualityThresholdSettings | None = None
+    temperature: SensorAirQualityThresholdSettings | None = None
+    humidity: SensorAirQualityThresholdSettings | None = None
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {
+            **super()._get_unifi_remaps(),
+            "aqiSettings": "aqi",
+            "vapeSettings": "vape",
+            "co2Settings": "co2",
+            "tvocSettings": "tvoc",
+            "vocSettings": "voc",
+            "noxSettings": "nox",
+            "pm1p0Settings": "pm1",
+            "pm2p5Settings": "pm25",
+            "pm4p0Settings": "pm4",
+            "pm10p0Settings": "pm10",
+            "temperatureSettings": "temperature",
+            "humiditySettings": "humidity",
+        }
+
+
 class Sensor(ProtectAdoptableDeviceModel):
     alarm_settings: SensorSettingsBase
     alarm_triggered_at: datetime | None = None
+    air_quality: SensorAirQuality | None = None
+    air_quality_settings: SensorAirQualitySettings | None = None
     battery_status: SensorBatteryStatus
     camera_id: str | None = None
     humidity_settings: SensorThresholdSettings
@@ -3389,6 +3474,7 @@ class Sensor(ProtectAdoptableDeviceModel):
             "isOpened",
             "openStatusChangedAt",
             "alarmTriggeredAt",
+            "airQuality",
             "motionDetectedAt",
             "stats",
         }
@@ -3409,6 +3495,9 @@ class Sensor(ProtectAdoptableDeviceModel):
                 "extremeValueDetectedAt",
             ),
         )
+        # air-quality fields only exist on UP-AirQuality; drop them when absent
+        # so non-air-quality sensors round-trip identically to their payload.
+        pop_dict_set_if_none(data, {"airQuality", "airQualitySettings"})
         return data
 
     @property
@@ -3628,6 +3717,47 @@ class Sensor(ProtectAdoptableDeviceModel):
             self.alarm_settings.is_enabled = enabled
 
         await self.queue_update(callback)
+
+    async def set_ring_led_brightness(self, brightness: int) -> None:
+        """Sets the LED ring brightness (0-100) for a UP-AirQuality sensor."""
+        settings = self._require_air_quality_settings()
+
+        def callback() -> None:
+            settings.ring_led_brightness = PercentInt(brightness)
+
+        await self.queue_update(callback)
+
+    async def set_ring_led_metric(self, metric: SensorRingLedMetric) -> None:
+        """Sets the LED ring status metric (CO2/Air Quality) for a UP-AirQuality sensor."""
+        settings = self._require_air_quality_settings()
+
+        def callback() -> None:
+            settings.ring_led_metric = metric
+
+        await self.queue_update(callback)
+
+    async def set_night_mode(self, enabled: bool) -> None:
+        """Toggles LED ring night mode for a UP-AirQuality sensor."""
+        settings = self._require_air_quality_settings()
+
+        def callback() -> None:
+            settings.night_mode_enabled = enabled
+
+        await self.queue_update(callback)
+
+    async def set_night_mode_brightness(self, brightness: int) -> None:
+        """Sets the LED ring night-mode brightness (0-100) for a UP-AirQuality sensor."""
+        settings = self._require_air_quality_settings()
+
+        def callback() -> None:
+            settings.night_mode_brightness = PercentInt(brightness)
+
+        await self.queue_update(callback)
+
+    def _require_air_quality_settings(self) -> SensorAirQualitySettings:
+        if (settings := self.air_quality_settings) is None:
+            raise BadRequest("Sensor does not have air quality settings")
+        return settings
 
     async def set_paired_camera(self, camera: Camera | None) -> None:
         """Sets the camera paired with the sensor"""
