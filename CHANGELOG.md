@@ -1,5 +1,16 @@
 # Changelog
 
+## v13.3.0 (2026-06-18)
+
+### Features
+
+
+- Add camerachannel.rtsps_quality mapping ([`958ebdd`](https://github.com/uilibs/uiprotect/commit/958ebdd75a84c43871c05180d211765d8454084a))
+
+
+- Add camerachannel.rtsps_quality mapping ([`958ebdd`](https://github.com/uilibs/uiprotect/commit/958ebdd75a84c43871c05180d211765d8454084a))
+
+
 ## v13.2.0 (2026-06-18)
 
 ### Features
