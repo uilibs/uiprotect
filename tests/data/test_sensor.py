@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from pydantic import ValidationError
@@ -327,3 +328,192 @@ async def test_sensor_set_paired_camera(sensor_obj: Light, camera_obj: Camera):
         method="patch",
         json={"camera": camera_obj.id},
     )
+
+
+# Public API convenience setters
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_sensor_set_name_public(sensor_obj: Sensor):
+    response = Mock()
+    response.name = "Renamed"
+    sensor_obj.api.update_sensor_public = AsyncMock(return_value=response)
+
+    await sensor_obj.set_name_public("Renamed")
+
+    sensor_obj.api.update_sensor_public.assert_called_once_with(
+        sensor_obj.id, name="Renamed"
+    )
+    assert sensor_obj.name == "Renamed"
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("status", [True, False])
+@pytest.mark.asyncio()
+async def test_sensor_set_motion_status_public(sensor_obj: Sensor, status: bool):
+    sensor_obj.motion_settings.is_enabled = not status
+    sensor_obj.api.update_sensor_public = AsyncMock()
+
+    await sensor_obj.set_motion_status_public(status)
+
+    sensor_obj.api.update_sensor_public.assert_called_once_with(
+        sensor_obj.id, motion_settings={"isEnabled": status}
+    )
+    assert sensor_obj.motion_settings.is_enabled is status
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("sensitivity", [-10, 50, 100])
+@pytest.mark.asyncio()
+async def test_sensor_set_motion_sensitivity_public(
+    sensor_obj: Sensor, sensitivity: int
+):
+    sensor_obj.motion_settings.sensitivity = 1
+    sensor_obj.api.update_sensor_public = AsyncMock()
+
+    if sensitivity == -10:
+        with pytest.raises(ValidationError):
+            await sensor_obj.set_motion_sensitivity_public(sensitivity)
+        assert not sensor_obj.api.update_sensor_public.called
+    else:
+        await sensor_obj.set_motion_sensitivity_public(sensitivity)
+        sensor_obj.api.update_sensor_public.assert_called_once_with(
+            sensor_obj.id, motion_settings={"sensitivity": sensitivity}
+        )
+        assert sensor_obj.motion_settings.sensitivity == sensitivity
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("status", [True, False])
+@pytest.mark.asyncio()
+async def test_sensor_set_temperature_status_public(sensor_obj: Sensor, status: bool):
+    sensor_obj.temperature_settings.is_enabled = not status
+    sensor_obj.api.update_sensor_public = AsyncMock()
+
+    await sensor_obj.set_temperature_status_public(status)
+
+    sensor_obj.api.update_sensor_public.assert_called_once_with(
+        sensor_obj.id, temperature_settings={"isEnabled": status}
+    )
+    assert sensor_obj.temperature_settings.is_enabled is status
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("low", [-1.0, 0.0, 25.0])
+@pytest.mark.parametrize("high", [20.0, 45.0, 50.0])
+@pytest.mark.asyncio()
+async def test_sensor_set_temperature_safe_range_public(
+    sensor_obj: Sensor, low: float, high: float
+):
+    sensor_obj.temperature_settings.low_threshold = None
+    sensor_obj.temperature_settings.high_threshold = None
+    sensor_obj.api.update_sensor_public = AsyncMock()
+
+    if low == -1.0 or high == 50.0 or low > high:
+        with pytest.raises(BadRequest):
+            await sensor_obj.set_temperature_safe_range_public(low, high)
+        assert not sensor_obj.api.update_sensor_public.called
+    else:
+        await sensor_obj.set_temperature_safe_range_public(low, high)
+        sensor_obj.api.update_sensor_public.assert_called_once_with(
+            sensor_obj.id,
+            temperature_settings={"lowThreshold": low, "highThreshold": high},
+        )
+        assert sensor_obj.temperature_settings.low_threshold == low
+        assert sensor_obj.temperature_settings.high_threshold == high
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("status", [True, False])
+@pytest.mark.asyncio()
+async def test_sensor_set_humidity_status_public(sensor_obj: Sensor, status: bool):
+    sensor_obj.humidity_settings.is_enabled = not status
+    sensor_obj.api.update_sensor_public = AsyncMock()
+
+    await sensor_obj.set_humidity_status_public(status)
+
+    sensor_obj.api.update_sensor_public.assert_called_once_with(
+        sensor_obj.id, humidity_settings={"isEnabled": status}
+    )
+    assert sensor_obj.humidity_settings.is_enabled is status
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("low", [0, 1, 50])
+@pytest.mark.parametrize("high", [45, 99, 100])
+@pytest.mark.asyncio()
+async def test_sensor_set_humidity_safe_range_public(
+    sensor_obj: Sensor, low: int, high: int
+):
+    sensor_obj.humidity_settings.low_threshold = None
+    sensor_obj.humidity_settings.high_threshold = None
+    sensor_obj.api.update_sensor_public = AsyncMock()
+
+    if low == 0 or high == 100 or low > high:
+        with pytest.raises(BadRequest):
+            await sensor_obj.set_humidity_safe_range_public(low, high)
+        assert not sensor_obj.api.update_sensor_public.called
+    else:
+        await sensor_obj.set_humidity_safe_range_public(low, high)
+        sensor_obj.api.update_sensor_public.assert_called_once_with(
+            sensor_obj.id,
+            humidity_settings={"lowThreshold": low, "highThreshold": high},
+        )
+        assert sensor_obj.humidity_settings.low_threshold == low
+        assert sensor_obj.humidity_settings.high_threshold == high
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("status", [True, False])
+@pytest.mark.asyncio()
+async def test_sensor_set_light_status_public(sensor_obj: Sensor, status: bool):
+    sensor_obj.light_settings.is_enabled = not status
+    sensor_obj.api.update_sensor_public = AsyncMock()
+
+    await sensor_obj.set_light_status_public(status)
+
+    sensor_obj.api.update_sensor_public.assert_called_once_with(
+        sensor_obj.id, light_settings={"isEnabled": status}
+    )
+    assert sensor_obj.light_settings.is_enabled is status
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("low", [0, 1, 500])
+@pytest.mark.parametrize("high", [400, 1000, 1001])
+@pytest.mark.asyncio()
+async def test_sensor_set_light_safe_range_public(
+    sensor_obj: Sensor, low: int, high: int
+):
+    sensor_obj.light_settings.low_threshold = None
+    sensor_obj.light_settings.high_threshold = None
+    sensor_obj.api.update_sensor_public = AsyncMock()
+
+    if low == 0 or high == 1001 or low > high:
+        with pytest.raises(BadRequest):
+            await sensor_obj.set_light_safe_range_public(low, high)
+        assert not sensor_obj.api.update_sensor_public.called
+    else:
+        await sensor_obj.set_light_safe_range_public(low, high)
+        sensor_obj.api.update_sensor_public.assert_called_once_with(
+            sensor_obj.id,
+            light_settings={"lowThreshold": low, "highThreshold": high},
+        )
+        assert sensor_obj.light_settings.low_threshold == low
+        assert sensor_obj.light_settings.high_threshold == high
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("status", [True, False])
+@pytest.mark.asyncio()
+async def test_sensor_set_alarm_status_public(sensor_obj: Sensor, status: bool):
+    sensor_obj.alarm_settings.is_enabled = not status
+    sensor_obj.api.update_sensor_public = AsyncMock()
+
+    await sensor_obj.set_alarm_status_public(status)
+
+    sensor_obj.api.update_sensor_public.assert_called_once_with(
+        sensor_obj.id, alarm_settings={"isEnabled": status}
+    )
+    assert sensor_obj.alarm_settings.is_enabled is status

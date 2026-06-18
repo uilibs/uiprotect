@@ -3652,6 +3652,102 @@ class Sensor(ProtectAdoptableDeviceModel):
             )
         await self._api.clear_tamper_sensor(self.id)
 
+    async def set_name_public(self, name: str) -> None:
+        """Set sensor name via public API."""
+        updated = await self._api.update_sensor_public(self.id, name=name)
+        self.name = updated.name
+
+    async def set_motion_status_public(self, enabled: bool) -> None:
+        """Toggle motion detection via public API."""
+        await self._api.update_sensor_public(
+            self.id, motion_settings={"isEnabled": enabled}
+        )
+        self.motion_settings.is_enabled = enabled
+
+    async def set_motion_sensitivity_public(self, sensitivity: int) -> None:
+        """Set motion sensitivity (0-100) via public API."""
+        settings = self.motion_settings.model_copy()
+        settings.sensitivity = PercentInt(sensitivity)
+        await self._api.update_sensor_public(
+            self.id, motion_settings={"sensitivity": settings.sensitivity}
+        )
+        self.motion_settings = settings
+
+    async def set_temperature_status_public(self, enabled: bool) -> None:
+        """Toggle temperature detection via public API."""
+        await self._api.update_sensor_public(
+            self.id, temperature_settings={"isEnabled": enabled}
+        )
+        self.temperature_settings.is_enabled = enabled
+
+    async def set_temperature_safe_range_public(
+        self, low: float, high: float
+    ) -> None:
+        """Set the temperature safe range via public API."""
+        if low < 0.0:
+            raise BadRequest("Minimum value is 0°C")
+        if high > 45.0:
+            raise BadRequest("Maximum value is 45°C")
+        if high <= low:
+            raise BadRequest("High value must be above low value")
+        await self._api.update_sensor_public(
+            self.id,
+            temperature_settings={"lowThreshold": low, "highThreshold": high},
+        )
+        self.temperature_settings.low_threshold = low
+        self.temperature_settings.high_threshold = high
+
+    async def set_humidity_status_public(self, enabled: bool) -> None:
+        """Toggle humidity detection via public API."""
+        await self._api.update_sensor_public(
+            self.id, humidity_settings={"isEnabled": enabled}
+        )
+        self.humidity_settings.is_enabled = enabled
+
+    async def set_humidity_safe_range_public(self, low: int, high: int) -> None:
+        """Set the humidity safe range via public API."""
+        if low < 1:
+            raise BadRequest("Minimum value is 1%")
+        if high > 99:
+            raise BadRequest("Maximum value is 99%")
+        if high <= low:
+            raise BadRequest("High value must be above low value")
+        await self._api.update_sensor_public(
+            self.id,
+            humidity_settings={"lowThreshold": low, "highThreshold": high},
+        )
+        self.humidity_settings.low_threshold = low
+        self.humidity_settings.high_threshold = high
+
+    async def set_light_status_public(self, enabled: bool) -> None:
+        """Toggle light detection via public API."""
+        await self._api.update_sensor_public(
+            self.id, light_settings={"isEnabled": enabled}
+        )
+        self.light_settings.is_enabled = enabled
+
+    async def set_light_safe_range_public(self, low: int, high: int) -> None:
+        """Set the light safe range via public API."""
+        if low < 1:
+            raise BadRequest("Minimum value is 1 lux")
+        if high > 1000:
+            raise BadRequest("Maximum value is 1000 lux")
+        if high <= low:
+            raise BadRequest("High value must be above low value")
+        await self._api.update_sensor_public(
+            self.id,
+            light_settings={"lowThreshold": low, "highThreshold": high},
+        )
+        self.light_settings.low_threshold = low
+        self.light_settings.high_threshold = high
+
+    async def set_alarm_status_public(self, enabled: bool) -> None:
+        """Toggle alarm (glass-break/loud-noise) detection via public API."""
+        await self._api.update_sensor_public(
+            self.id, alarm_settings={"isEnabled": enabled}
+        )
+        self.alarm_settings.is_enabled = enabled
+
 
 class Doorlock(ProtectAdoptableDeviceModel):
     credentials: str | None = None
