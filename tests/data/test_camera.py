@@ -76,9 +76,7 @@ def test_camera_channel_is_package(channel_id: int, fps: int | None, expected: b
         (4, None),
     ],
 )
-def test_camera_channel_rtsps_quality(
-    channel_id: int, expected: ChannelQuality | None
-):
+def test_camera_channel_rtsps_quality(channel_id: int, expected: ChannelQuality | None):
     """Test CameraChannel.rtsps_quality maps channel id to RTSPS quality tier."""
     channel = CameraChannel.from_unifi_dict(
         id=channel_id,
