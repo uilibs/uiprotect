@@ -1,5 +1,19 @@
 # Changelog
 
+## v13.2.0 (2026-06-18)
+
+### Features
+
+
+- Add publicdevicemodel base for public mac/state ([`2e2e5ff`](https://github.com/uilibs/uiprotect/commit/2e2e5ffc8ab68a3f0a194a7000096e25e48a7cba))
+
+
+### Refactoring
+
+
+- Add publicdevicemodel base for public mac/state fields ([`2e2e5ff`](https://github.com/uilibs/uiprotect/commit/2e2e5ffc8ab68a3f0a194a7000096e25e48a7cba))
+
+
 ## v13.1.2 (2026-06-14)
 
 ### Bug fixes
