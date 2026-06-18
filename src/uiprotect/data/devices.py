@@ -362,6 +362,7 @@ _RTSPS_QUALITY_BY_CHANNEL_ID: dict[int, ChannelQuality] = {
     0: ChannelQuality.HIGH,
     1: ChannelQuality.MEDIUM,
     2: ChannelQuality.LOW,
+    3: ChannelQuality.PACKAGE,
 }
 
 
@@ -439,7 +440,7 @@ class CameraChannel(ProtectBaseObject):
 
     @property
     def rtsps_quality(self) -> ChannelQuality | None:
-        """RTSPS quality tier for this channel (id 0→HIGH, 1→MEDIUM, 2→LOW)."""
+        """RTSPS quality tier for this channel (id 0→HIGH, 1→MEDIUM, 2→LOW, 3→PACKAGE)."""
         return _RTSPS_QUALITY_BY_CHANNEL_ID.get(self.id)
 
     @property

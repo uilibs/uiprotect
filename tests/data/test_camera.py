@@ -72,7 +72,7 @@ def test_camera_channel_is_package(channel_id: int, fps: int | None, expected: b
         (0, ChannelQuality.HIGH),
         (1, ChannelQuality.MEDIUM),
         (2, ChannelQuality.LOW),
-        (3, None),
+        (3, ChannelQuality.PACKAGE),
         (4, None),
     ],
 )
