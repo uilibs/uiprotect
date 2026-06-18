@@ -358,6 +358,13 @@ class Light(ProtectMotionDeviceModel):
             self.light_device_settings = device_settings
 
 
+_RTSPS_QUALITY_BY_CHANNEL_ID: dict[int, ChannelQuality] = {
+    0: ChannelQuality.HIGH,
+    1: ChannelQuality.MEDIUM,
+    2: ChannelQuality.LOW,
+}
+
+
 class CameraChannel(ProtectBaseObject):
     id: int  # read only
     video_id: str  # read only
@@ -429,6 +436,11 @@ class CameraChannel(ProtectBaseObject):
             f"rtsps://{host}:{self._api.bootstrap.nvr.ports.rtsps}/{self.rtsp_alias}"
         )
         return self._rtsps_no_srtp_url
+
+    @property
+    def rtsps_quality(self) -> ChannelQuality | None:
+        """RTSPS quality tier for this channel (id 0→HIGH, 1→MEDIUM, 2→LOW)."""
+        return _RTSPS_QUALITY_BY_CHANNEL_ID.get(self.id)
 
     @property
     def is_package(self) -> bool:

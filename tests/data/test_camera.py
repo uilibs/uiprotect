@@ -13,6 +13,7 @@ from tests.conftest import TEST_CAMERA_EXISTS
 from uiprotect import ProtectApiClient
 from uiprotect.data import (
     Camera,
+    ChannelQuality,
     ChimeType,
     DoorbellMessageType,
     HDRMode,
@@ -63,6 +64,36 @@ def test_camera_channel_is_package(channel_id: int, fps: int | None, expected: b
         idrInterval=1,
     )
     assert channel.is_package is expected
+
+
+@pytest.mark.parametrize(
+    ("channel_id", "expected"),
+    [
+        (0, ChannelQuality.HIGH),
+        (1, ChannelQuality.MEDIUM),
+        (2, ChannelQuality.LOW),
+        (3, None),
+        (4, None),
+    ],
+)
+def test_camera_channel_rtsps_quality(
+    channel_id: int, expected: ChannelQuality | None
+):
+    """Test CameraChannel.rtsps_quality maps channel id to RTSPS quality tier."""
+    channel = CameraChannel.from_unifi_dict(
+        id=channel_id,
+        videoId="test",
+        name="test",
+        enabled=True,
+        isRtspEnabled=False,
+        width=1920,
+        height=1080,
+        fps=15,
+        bitrate=1000,
+        fpsValues=[],
+        idrInterval=1,
+    )
+    assert channel.rtsps_quality is expected
 
 
 @pytest.mark.parametrize(
