@@ -245,14 +245,19 @@ class RTSPSStreams(ProtectBaseObject):
         ]
 
 
-class PublicCamera(ProtectModelWithId):
+class PublicDeviceModel(ProtectModelWithId):
+    """Shared base for dedicated public device models carrying ``mac`` / ``state``."""
+
+    state: DeviceState
+    mac: str
+
+
+class PublicCamera(PublicDeviceModel):
     """Public API camera device (``GET /v1/cameras``)."""
 
     model: ModelType | None = ModelType.CAMERA
-    state: DeviceState
     # Nullable on the wire (spec: ``oneOf [string, null]``).
     name: str | None = None
-    mac: str
     is_mic_enabled: bool
     osd_settings: PublicOsdSettings
     led_settings: PublicCameraLedSettings
@@ -304,14 +309,12 @@ class PublicLightDeviceSettings(ProtectBaseObject):
     led_level: int | None = None
 
 
-class PublicLight(ProtectModelWithId):
+class PublicLight(PublicDeviceModel):
     """Public API light device (``GET /v1/lights``)."""
 
     model: ModelType | None = ModelType.LIGHT
-    state: DeviceState
     # Nullable on the wire (spec: ``oneOf [string, null]``).
     name: str | None = None
-    mac: str
     light_mode_settings: PublicLightModeSettings
     light_device_settings: PublicLightDeviceSettings
     is_dark: bool
@@ -381,14 +384,12 @@ class PublicSensorLeakSettings(ProtectBaseObject):
     is_external_enabled: bool = False
 
 
-class PublicSensor(ProtectModelWithId):
+class PublicSensor(PublicDeviceModel):
     """Public API sensor device (``GET /v1/sensors``)."""
 
     model: ModelType | None = ModelType.SENSOR
-    state: DeviceState
     # Nullable on the wire (spec: ``oneOf [string, null]``).
     name: str | None = None
-    mac: str
     mount_type: MountType
     battery_status: PublicBatteryStatus
     stats: PublicSensorStats
@@ -436,14 +437,12 @@ class PublicRingSettings(ProtectBaseObject):
     volume: int | None = None
 
 
-class PublicChime(ProtectModelWithId):
+class PublicChime(PublicDeviceModel):
     """Public API chime device (``GET /v1/chimes``)."""
 
     model: ModelType | None = ModelType.CHIME
-    state: DeviceState
     # Nullable on the wire (spec: ``oneOf [string, null]``).
     name: str | None = None
-    mac: str
     camera_ids: list[str] = Field(default_factory=list)
     ring_settings: list[PublicRingSettings] = Field(default_factory=list)
 
