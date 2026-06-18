@@ -5,11 +5,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
 from functools import cache, lru_cache
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
@@ -358,6 +359,16 @@ class Light(ProtectMotionDeviceModel):
             self.light_device_settings = device_settings
 
 
+_RTSPS_QUALITY_BY_CHANNEL_ID: Mapping[int, ChannelQuality] = MappingProxyType(
+    {
+        0: ChannelQuality.HIGH,
+        1: ChannelQuality.MEDIUM,
+        2: ChannelQuality.LOW,
+        3: ChannelQuality.PACKAGE,
+    }
+)
+
+
 class CameraChannel(ProtectBaseObject):
     id: int  # read only
     video_id: str  # read only
@@ -429,6 +440,11 @@ class CameraChannel(ProtectBaseObject):
             f"rtsps://{host}:{self._api.bootstrap.nvr.ports.rtsps}/{self.rtsp_alias}"
         )
         return self._rtsps_no_srtp_url
+
+    @property
+    def rtsps_quality(self) -> ChannelQuality | None:
+        """RTSPS quality tier for this channel (id 0→HIGH, 1→MEDIUM, 2→LOW, 3→PACKAGE)."""
+        return _RTSPS_QUALITY_BY_CHANNEL_ID.get(self.id)
 
     @property
     def is_package(self) -> bool:
