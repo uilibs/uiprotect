@@ -3680,9 +3680,7 @@ class Sensor(ProtectAdoptableDeviceModel):
         )
         self.temperature_settings.is_enabled = enabled
 
-    async def set_temperature_safe_range_public(
-        self, low: float, high: float
-    ) -> None:
+    async def set_temperature_safe_range_public(self, low: float, high: float) -> None:
         """Set the temperature safe range via public API."""
         if low < 0.0:
             raise BadRequest("Minimum value is 0°C")
