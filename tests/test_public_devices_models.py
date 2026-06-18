@@ -197,9 +197,7 @@ def test_public_model_name_nullable(cls: type, payload: dict[str, Any]) -> None:
         (PublicChime, CHIME_PAYLOAD),
     ],
 )
-def test_public_device_model_shared_base(
-    cls: type, payload: dict[str, Any]
-) -> None:
+def test_public_device_model_shared_base(cls: type, payload: dict[str, Any]) -> None:
     """Dedicated public devices share ``PublicDeviceModel`` and type ``mac`` / ``state``."""
     assert issubclass(cls, PublicDeviceModel)
     assert PublicDeviceModel.model_fields.keys() >= {"mac", "state"}
