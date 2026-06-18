@@ -92,6 +92,9 @@ TEST_SMART_TRACK_EXISTS = (
 ).exists()
 TEST_LIGHT_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_light.json").exists()
 TEST_SENSOR_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_sensor.json").exists()
+TEST_AIR_QUALITY_SENSOR_EXISTS = (
+    SAMPLE_DATA_DIRECTORY / "sample_up_airquality_sensor.json"
+).exists()
 TEST_VIEWPORT_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_viewport.json").exists()
 TEST_BRIDGE_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_bridge.json").exists()
 TEST_LIVEVIEW_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_liveview.json").exists()
@@ -553,8 +556,8 @@ async def sensor_obj(protect_client: ProtectApiClient):
 
 @pytest_asyncio.fixture
 async def air_quality_sensor_obj(protect_client: ProtectApiClient):
-    if not TEST_SENSOR_EXISTS:
-        return None
+    if not TEST_AIR_QUALITY_SENSOR_EXISTS:
+        pytest.skip("Missing air quality sensor testdata")
 
     obj = create_from_unifi_dict(
         read_json_file("sample_up_airquality_sensor"), api=protect_client

@@ -8,7 +8,12 @@ from typing import TYPE_CHECKING
 import pytest
 from pydantic import ValidationError
 
-from tests.conftest import TEST_CAMERA_EXISTS, TEST_SENSOR_EXISTS, read_json_file
+from tests.conftest import (
+    TEST_AIR_QUALITY_SENSOR_EXISTS,
+    TEST_CAMERA_EXISTS,
+    TEST_SENSOR_EXISTS,
+    read_json_file,
+)
 from uiprotect.data import create_from_unifi_dict
 from uiprotect.data.types import MountType, SensorRingLedMetric, SensorStatusType
 from uiprotect.exceptions import BadRequest
@@ -17,6 +22,10 @@ if TYPE_CHECKING:
     from uiprotect.data import Camera, Light, Sensor
 
 
+@pytest.mark.skipif(
+    not TEST_AIR_QUALITY_SENSOR_EXISTS,
+    reason="Missing air quality sensor testdata",
+)
 def test_air_quality_sensor_from_private_payload():
     sensor = create_from_unifi_dict(read_json_file("sample_up_airquality_sensor"))
 
@@ -91,6 +100,10 @@ def test_legacy_sensor_without_air_quality_fields(sensor):
     assert "airQualitySettings" not in sensor_dict
 
 
+@pytest.mark.skipif(
+    not TEST_AIR_QUALITY_SENSOR_EXISTS,
+    reason="Missing air quality sensor testdata",
+)
 def test_air_quality_ring_led_metric_unknown_value():
     data = read_json_file("sample_up_airquality_sensor")
     data["airQualitySettings"]["ringLedMetric"] = 7
@@ -101,7 +114,10 @@ def test_air_quality_ring_led_metric_unknown_value():
     assert sensor.air_quality_settings.ring_led_metric is SensorRingLedMetric.UNKNOWN
 
 
-@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.skipif(
+    not TEST_AIR_QUALITY_SENSOR_EXISTS,
+    reason="Missing air quality sensor testdata",
+)
 @pytest.mark.asyncio()
 async def test_sensor_set_ring_led_brightness(air_quality_sensor_obj: Sensor):
     air_quality_sensor_obj.api.api_request.reset_mock()
@@ -116,7 +132,10 @@ async def test_sensor_set_ring_led_brightness(air_quality_sensor_obj: Sensor):
     )
 
 
-@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.skipif(
+    not TEST_AIR_QUALITY_SENSOR_EXISTS,
+    reason="Missing air quality sensor testdata",
+)
 @pytest.mark.asyncio()
 async def test_sensor_set_ring_led_metric(air_quality_sensor_obj: Sensor):
     air_quality_sensor_obj.api.api_request.reset_mock()
@@ -133,7 +152,10 @@ async def test_sensor_set_ring_led_metric(air_quality_sensor_obj: Sensor):
     )
 
 
-@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.skipif(
+    not TEST_AIR_QUALITY_SENSOR_EXISTS,
+    reason="Missing air quality sensor testdata",
+)
 @pytest.mark.asyncio()
 async def test_sensor_set_night_mode(air_quality_sensor_obj: Sensor):
     air_quality_sensor_obj.api.api_request.reset_mock()
@@ -148,7 +170,10 @@ async def test_sensor_set_night_mode(air_quality_sensor_obj: Sensor):
     )
 
 
-@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.skipif(
+    not TEST_AIR_QUALITY_SENSOR_EXISTS,
+    reason="Missing air quality sensor testdata",
+)
 @pytest.mark.asyncio()
 async def test_sensor_set_night_mode_brightness(air_quality_sensor_obj: Sensor):
     air_quality_sensor_obj.api.api_request.reset_mock()
