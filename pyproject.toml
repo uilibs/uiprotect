@@ -63,7 +63,7 @@ pydantic-extra-types = ">=2.10.1"
 aiozoneinfo = ">=0.2.3"
 
 [tool.poetry.group.dev.dependencies]
-pytest = ">=9.0.3,<10"
+pytest = ">=9.1.0,<10"
 pytest-cov = ">=3,<8"
 aiosqlite = ">=0.20.0"
 pytest-asyncio = ">=1.4.0,<1.5.0"
