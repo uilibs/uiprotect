@@ -56,7 +56,7 @@ Full documentation for the project is available at [uiprotect.readthedocs.io](ht
 If you want to install `uiprotect` natively, the below are the requirements:
 
 - [UniFi Protect](https://ui.com/camera-security) version 7.1+
-  - Only UniFi Protect version 7.1 and newer are supported. The library is generally tested against the latest stable version.
+  - The library is generally tested against the latest stable version.
 - [Python](https://www.python.org/) 3.11+
 - POSIX compatible system
   - Tested in CI on Linux and macOS; there is no reason the library should not work on any modern Linux distribution or macOS.
