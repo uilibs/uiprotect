@@ -30,6 +30,14 @@ from uiprotect.utils import _BAD_UUID, set_debug, set_no_debug
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+# ``scripts/`` is not an importable package; expose it so tests can import the
+# spec-validation helpers (``scripts/validate_spec.py``).
+import sys
+
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1] / "scripts")
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
 try:
     from blockbuster import BlockBuster, blockbuster_ctx
 except ImportError:

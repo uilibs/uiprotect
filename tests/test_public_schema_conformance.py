@@ -11,14 +11,26 @@
 # model targeting the latest shape stays a subset of any newer spec; and fields
 # added in a release after our minimum-supported Protect version are modelled as
 # optional, so "spec has a field the model doesn't" is expected, not a failure.
+#
+# The resolution helpers and the four check functions live in
+# ``scripts/validate_spec.py`` (the source of truth shared with the
+# spec-validation workflow); this module imports them so the local hook runs the
+# full validation for free when a contributor has fetched the spec.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-from typing import Any, get_args
+from typing import TYPE_CHECKING, Any
 
+import orjson
 import pytest
+from validate_spec import (  # local import via conftest sys.path insert
+    _LIBRARY_OWNED_FIELDS,
+    SPEC_PATH,
+    _leaf_model,
+    _resolve_object_props,
+    check_completeness,
+    run_checks,
+)
 
 from uiprotect.data import (
     PublicCamera,
@@ -26,55 +38,12 @@ from uiprotect.data import (
     PublicLight,
     PublicSensor,
 )
-from uiprotect.data.base import ProtectBaseObject
 from uiprotect.utils import to_snake_case
 
-_SPEC_PATH = Path(__file__).resolve().parents[1] / "openapi" / "integration.json"
+if TYPE_CHECKING:
+    from uiprotect.data.base import ProtectBaseObject
 
-
-def _resolve_object_props(
-    node: dict[str, Any], schemas: dict[str, Any]
-) -> dict[str, dict[str, Any]] | None:
-    """Return ``{property: schema}`` for an object node, ``None`` for scalar leaves."""
-    if "$ref" in node:
-        return _resolve_object_props(schemas[node["$ref"].split("/")[-1]], schemas)
-    if "allOf" in node:
-        merged: dict[str, dict[str, Any]] = {}
-        is_object = False
-        for sub in node["allOf"]:
-            resolved = _resolve_object_props(sub, schemas)
-            if resolved is not None:
-                merged.update(resolved)
-                is_object = True
-        return merged if is_object else None
-    if "oneOf" in node:
-        for sub in node["oneOf"]:
-            resolved = _resolve_object_props(sub, schemas)
-            if resolved is not None:
-                return resolved
-        return None
-    if node.get("type") == "array":
-        return _resolve_object_props(node.get("items", {}), schemas)
-    if "properties" in node:
-        return dict(node["properties"])
-    return None
-
-
-def _leaf_model(annotation: Any) -> type[ProtectBaseObject] | None:
-    """Unwrap ``Optional`` / ``list`` to the ``ProtectBaseObject`` leaf, if any."""
-    if isinstance(annotation, type) and issubclass(annotation, ProtectBaseObject):
-        return annotation
-    for arg in get_args(annotation):
-        leaf = _leaf_model(arg)
-        if leaf is not None:
-            return leaf
-    return None
-
-
-# Library-owned fields populated out-of-band, absent from the spec schema, keyed by spec path.
-_LIBRARY_OWNED_FIELDS: dict[str, set[str]] = {
-    "camera": {"rtsps_streams"},
-}
+_SPEC_PATH = SPEC_PATH
 
 
 def _assert_matches(
@@ -120,7 +89,21 @@ def test_public_model_matches_spec(
     cls: type[ProtectBaseObject], schema_name: str
 ) -> None:
     """``model_fields`` is a subset of the resolved spec property set, including nested leaves."""
-    schemas = json.loads(_SPEC_PATH.read_text())["components"]["schemas"]
+    schemas = orjson.loads(_SPEC_PATH.read_bytes())["components"]["schemas"]
     _assert_matches(
         cls, {"$ref": f"#/components/schemas/{schema_name}"}, schemas, schema_name
     )
+
+
+@pytest.mark.skipif(not _SPEC_PATH.exists(), reason="openapi/integration.json absent")
+def test_spec_validation_has_no_errors() -> None:
+    """The full spec-validation check suite reports no errors against the on-disk spec."""
+    spec = orjson.loads(_SPEC_PATH.read_bytes())
+    errors, _warnings = run_checks(spec)
+    assert not errors, "spec drift:\n" + "\n".join(errors)
+
+
+def test_every_public_coroutine_is_covered() -> None:
+    """No public-API coroutine is left out of the derived coverage set (spec-free)."""
+    gaps = check_completeness()
+    assert not gaps, "uncovered public-API coroutines:\n" + "\n".join(gaps)

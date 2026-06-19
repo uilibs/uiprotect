@@ -306,6 +306,39 @@ Output: `openapi/integration.json` (gitignored) — request/response shapes,
 required fields, enums, and allowed HTTP methods for every `/integration/v1/…`
 endpoint. If the file is absent, run the script first.
 
+### Spec conformance validation
+
+`scripts/validate_spec.py` checks the public-API client against a fetched
+spec and reports drift: spec endpoints with no covering `*_public` method
+(warning), model fields the spec dropped/retyped (error) or added (warning),
+and new enum values (warning). Spec `required` vs. model `optional` is not
+checked — the library models every public-API field optional by design, so it
+would be guaranteed noise. It exits non-zero on any error and prints a markdown
+summary. Reproduce locally with:
+
+```bash
+python scripts/fetch_openapi.py --version "$(cat openapi/.validated-version)"
+python scripts/validate_spec.py
+```
+
+The only committed artifact is `openapi/.validated-version` — a bare version
+string (no IP) whose git history records when conformance last moved forward.
+`tests/test_public_schema_conformance.py` runs the same checks when a spec is
+present and skips cleanly when it is absent (the CI default); the logic itself
+is unit-tested network-free against in-memory mock specs in
+`tests/test_validate_spec.py`. The `.github/workflows/spec-validation.yml`
+cron runs the full validation at most once per Protect release — opening a
+marker-bump PR when green or a single drift issue when red — and short-circuits
+on a firmware-API check before downloading anything while the marker is current
+or a drift issue is already open. Endpoint coverage is **derived, not hand-
+maintained**: the declarative `@public_*` decorator registry
+(`uiprotect._public_api.registry`) covers every uniform endpoint, and the
+hand-written exception methods are covered by one recorded example call each
+(`_EXAMPLE_CALLS` — a request spy captures `(verb, path)` then short-circuits).
+`check_completeness` asserts every public-API coroutine is accounted for, so a
+new method that nobody wired up fails the suite instead of silently leaving its
+endpoint uncovered.
+
 ## Reporting security issues
 
 Suspected security vulnerabilities go through GitHub's [private
