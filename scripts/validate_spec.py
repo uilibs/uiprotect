@@ -137,9 +137,6 @@ _EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
         lambda c: c.activate_relay_output_public(_S, _S, state="on")
     ),
     "test_speaker_sound_public": lambda c: c.test_speaker_sound_public(_S),
-    "get_alarm_hubs_public": lambda c: c.get_alarm_hubs_public(),
-    "get_alarm_hub_public": lambda c: c.get_alarm_hub_public(_S),
-    "update_alarm_hub_public": lambda c: c.update_alarm_hub_public(_S, name=_S),
     "trigger_alarm_hub_output_public": (
         lambda c: c.trigger_alarm_hub_output_public(_S, _S, enable=True)
     ),
