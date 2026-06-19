@@ -39,232 +39,26 @@
 
 ---
 
-Python API for UniFi Protect (Unofficial)
+## About
 
-## Looking for maintainers
+Python API and CLI for UniFi Protect (Unofficial).
 
-This project is looking for maintainers.
+This module communicates with UniFi Protect surveillance software installed on a UniFi OS Console such as a Ubiquiti CloudKey+ (Cloud Key Gen2 Plus), a UniFi Network Video Recorder (UNVR or UNVR Pro), or a UniFi Dream Machine Pro, SE, or Pro Max.
 
-## Contributing
-
-Please **open an issue and agree on the approach before implementing** anything — it
-avoids wasted effort on changes that don't fit the project's direction.
-
-<a id="no-new-private-api-features"></a>
-
-> [!IMPORTANT]
-> **This library does not accept new features built on the private API.**
-> uiprotect is migrating from the reverse-engineered private API to UniFi's official
-> Public Integration API. If a capability is missing from the public API, the right
-> path is to request it from Ubiquiti / wait for it to be exposed there — **not** to
-> add it on the private path. Issues or PRs that introduce new private-API
-> functionality will be closed.
-
-<a id="ai-contributions"></a>
-
-**Using AI? Fine — but you have to drive it.** We use AI tooling ourselves, so an
-unreviewed AI-generated PR or issue doesn't save us anything; it just shifts the
-review and cleanup cost onto us. AI-assisted contributions are welcome **only when
-you genuinely understand the architecture and the project's strategic direction, and
-the approach has been agreed in an issue first.**
-
-Where a contribution actually helps is the part AI can't supply — often because it
-involves a device none of the maintainers happen to own. We have plenty of UniFi
-hardware, just not every model, so testing and validation on a device we don't have,
-sanitized payload captures from it, or first-hand knowledge of how it behaves in the
-field are genuinely valuable — shaped to fit the architecture (see
-[`AGENTS.md`](AGENTS.md)). Raw AI output that skips the prior discussion or ignores
-these guidelines just creates review burden and will be closed.
-
-## Installation
-
-Install this via pip (or your favorite package manager):
-
-`pip install uiprotect`
-
-## Developer Setup
-
-The recommended way to develop is using the provided **devcontainer** with VS Code:
-
-1. Install [VS Code](https://code.visualstudio.com/) and the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-2. Open the project in VS Code
-3. When prompted, click "Reopen in Container" (or use Command Palette: "Dev Containers: Reopen in Container")
-4. The devcontainer will automatically set up Python, Poetry, pre-commit hooks, and all dependencies
-
-Alternatively, if you want to develop natively without devcontainer:
-
-```bash
-# Install dependencies (--all-extras installs the cli extra for CLI tests)
-poetry install --with dev --all-extras
-
-# Install pre-commit hooks
-poetry run pre-commit install --install-hooks
-
-# Run tests
-poetry run pytest
-
-# Run pre-commit checks manually
-poetry run pre-commit run --all-files
-```
-
-## Subscribing to events
-
-`ProtectApiClient` exposes two parallel websocket contracts. The raw
-`subscribe_events_websocket` continues to deliver `WSSubscriptionMessage`
-frames for advanced callers, and the typed `subscribe_events` API
-delivers `(ProtectEvent, EventChange)` pairs intended for application
-code. The typed path goes through the Public Integration API, so the
-`ProtectApiClient` must be configured with an API key and
-`update_public()` must have been called at least once before calling
-`subscribe_events`. The raw `subscribe_events_websocket` path does not
-require an API key.
-
-```python
-import logging
-
-from uiprotect import EventChange, ProtectApiClient, ProtectEvent
-
-_LOGGER = logging.getLogger(__name__)
-
-protect = ProtectApiClient(..., api_key="...")
-await protect.update_public()
-
-def on_event(event: ProtectEvent, change: EventChange) -> None:
-    if change is EventChange.STARTED:
-        _LOGGER.info("%s on %s: %s", event.type, event.device_id, event.identity)
-    elif change is EventChange.ENDED:
-        _LOGGER.info("%s ended after %s", event.type, event.end - event.start)
-
-unsubscribe = protect.subscribe_events(on_event)
-# ...
-unsubscribe()
-```
-
-Notes:
-
-- `subscribe_events` delivers only events whose `EventType` maps to a
-  non-`OTHER` `ProtectEventChannel` (detection / sensor / alarm-hub /
-  access). Administrative events such as `provision`, `factoryReset` and
-  `fwUpdate` are dropped. Callers that need the unfiltered stream
-  should use `subscribe_events_websocket`.
-- `event.raw` is a permanent escape hatch onto the underlying private-API
-  `Event` model when the public contract does not expose the field you
-  need. In particular, smart-detect _detected attributes_ (license-plate
-  text, face-match name) are **not** available over the public API today,
-  so consumers that need them must fall back to the private path via
-  `event.raw`.
-- `EventChange.UPDATED` may carry no public-visible delta — diff
-  `event.raw` if you need to know exactly what changed.
-- `protect.active_events(device_id=...)` returns the in-flight set,
-  derived directly from the public bootstrap cache. Useful for restoring
-  binary-sensor state after a reload — it works before any
-  `subscribe_events` call as long as `update_public()` has primed the
-  cache.
-- All runtime state is sourced from `public_bootstrap`: lifecycle/active
-  state from `public_bootstrap.events`, credential-event identity from
-  `public_bootstrap.ulp_users` (UniFi Identity), and `event.device_mac`
-  from the bootstrap device stores. All are refreshed by `update_public()`
-  — including automatically on websocket reconnect — and resolve with
-  eventual consistency: an `identity` that resolves to
-  `UnknownIdentity(reason="ulp_user_not_cached")` for a freshly-enrolled
-  ULP user, or a `device_mac` of `None` for a device not yet in the
-  bootstrap, both fill in on the next `update_public()` / reconnect resync.
-
-## Subscribing to device state
-
-`subscribe_devices` is the device-side analog of `subscribe_events`: it
-delivers a typed `ProtectDeviceChange` for each `ADDED` / `UPDATED` /
-`REMOVED` device over the Public Integration API. Together with
-`public_bootstrap` (the device snapshot) and `subscribe_events`
-(detection / sensor events), it gives a thin consumer the three
-concern-separated primitives it needs without any model-type routing or
-merge logic of its own.
-
-Like `subscribe_events`, it requires `update_public()` to have primed the
-public bootstrap (the merged public models live in that cache), so call
-`update_public()` _before_ subscribing — subscribing first raises
-`RuntimeError`. Callers that need the websocket live during priming should
-use the raw `subscribe_devices_websocket` instead.
-
-```python
-import logging
-
-from uiprotect import DeviceChange, ProtectApiClient, ProtectDeviceChange
-
-_LOGGER = logging.getLogger(__name__)
-
-protect = ProtectApiClient(..., api_key="...")
-
-def on_device(change: ProtectDeviceChange) -> None:
-    if change.change is DeviceChange.UPDATED and "state" in change.changed_fields:
-        _LOGGER.info("%s -> %s", change.device_id, change.model.state)
-
-await protect.update_public()
-unsubscribe = protect.subscribe_devices(on_device)
-# ...
-unsubscribe()
-```
-
-Notes:
-
-- Each change carries the merged `Public*` model in `change.model`
-  (`None` for `REMOVED`, where only an id / `modelKey` reference is
-  delivered). `change.changed_fields` is populated only for `UPDATED`.
-- Single and bulk WS envelopes are expanded transparently to one change
-  per device, so consumers never see batched `id` arrays.
-- Connection / `state` transitions surface as ordinary `UPDATED`s with
-  `state` in `changed_fields` — there is no separate side channel.
-- The callback must not raise: an exception is caught and logged but
-  otherwise swallowed.
-- `change.device_mac` resolves with eventual consistency — a device not
-  yet in the bootstrap yields `None` until the next `update_public()` /
-  reconnect resync.
-- This is device _state_ only. It does not synthesize detection / motion
-  (use `subscribe_events`) and there is no adoption concept folded in.
-
-## History
-
-This project was split off from `pyunifiprotect` because that project changed its license to one that would not be accepted in Home Assistant. This project is committed to keeping the MIT license.
-
-## Credits
-
-- Bjarne Riis ([@briis](https://github.com/briis/)) for the original pyunifiprotect package
-- Christopher Bailey ([@AngellusMortis](https://github.com/AngellusMortis/)) for the maintaining the pyunifiprotect package
-
-## Contributors ✨
-
-Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
-
-<!-- prettier-ignore-start -->
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- markdownlint-disable -->
-<!-- markdownlint-enable -->
-<!-- ALL-CONTRIBUTORS-LIST:END -->
-<!-- prettier-ignore-end -->
-
-This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
-
-`uiprotect` is an unofficial API for UniFi Protect. There is no affiliation with Ubiquiti.
-
-This module communicates with UniFi Protect surveillance software installed on a UniFi OS Console such as a Ubiquiti CloudKey+ or UniFi Dream Machine Pro.
-
-The API is not documented by Ubiquiti, so there might be misses and/or frequent changes in this module, as Ubiquiti evolves the software.
+`uiprotect` is increasingly built on Ubiquiti's official, documented Public Integration API. Where a capability is not yet available there, it falls back to the older private API, which is undocumented and can change as Ubiquiti evolves the software — so those parts may have gaps or shift between firmware releases.
 
 The module is primarily written for the purpose of being used in Home Assistant core [integration for UniFi Protect](https://www.home-assistant.io/integrations/unifiprotect) but might be used for other purposes also.
 
-## Documentation
-
-[Full documentation for the project](https://uiprotect.readthedocs.io/).
+Full documentation for the project is available at [uiprotect.readthedocs.io](https://uiprotect.readthedocs.io/).
 
 ## Requirements
 
 If you want to install `uiprotect` natively, the below are the requirements:
 
-- [UniFi Protect](https://ui.com/camera-security) version 6.0+
-  - Only UniFi Protect version 6 and newer are supported. The library is generally tested against the latest stable version and the latest EA version.
+- [UniFi Protect](https://ui.com/camera-security) version 7.1+
+  - The library is generally tested against the latest stable version.
 - [Python](https://www.python.org/) 3.11+
 - POSIX compatible system
-  - Library is only tested on Linux, specifically the latest Debian version available for the official Python Docker images, but there is no reason the library should not work on any Linux distro or macOS.
 - [PyAV](https://pyav.org/) (av) - included as a dependency
   - PyAV is used for audio streaming to camera speakers (talkback feature)
 
@@ -272,11 +66,11 @@ Alternatively you can use the [provided Docker container](#using-docker-containe
 
 Windows is **not supported**. If you need to use `uiprotect` on Windows, use Docker Desktop and the provided docker container or [WSL](https://docs.microsoft.com/en-us/windows/wsl/install).
 
-## Install
+## Installation
 
-### From PyPi
+### From PyPI
 
-`uiprotect` is available on PyPi:
+`uiprotect` is available on PyPI:
 
 ```bash
 pip install uiprotect
@@ -327,6 +121,9 @@ Some notes about the Docker version since it is running inside a container:
 
 > [!WARNING]
 > Ubiquiti SSO accounts are not supported and actively discouraged from being used. There is no option to use MFA. You are expected to use local access user. `uiprotect` is not designed to allow you to use your owner account to access the console or to be used over the public internet as both pose a security risk.
+
+> [!NOTE]
+> `uiprotect` is increasingly built on Ubiquiti's official Public Integration API, which authenticates with a console-scoped **API key** instead of a username/password — no SSO, MFA, or owner account involved. New functionality targets this path first, and it is expected to become the primary — and eventually the only — supported authentication method. See [Public-only mode](#public-only-mode) below.
 
 ```bash
 export UFP_USERNAME=YOUR_USERNAME_HERE
@@ -420,27 +217,195 @@ await protect.update_public()
 for siren in await protect.get_sirens_public():
     print(siren.name)
 
-# the public API exposes no NVR mac, so resolve the console's mac-based
-# identity out-of-band via the UniFi-OS /api/system endpoint (transitional —
-# the end-state identity is the public-API primary key nvr.id)
+# the public API exposes no NVR mac; get_console_mac() resolves it out-of-band
+# via the UniFi-OS /api/system endpoint. For new code, prefer the public-API
+# primary key (nvr.id) as the device identity rather than the mac.
 console_mac = await protect.get_console_mac()
 ```
 
-## TODO / Planned / Not Implemented
+## Usage
 
-Switching from Protect Private API to the New Public API
+### Subscribing to events
 
-Generally any feature missing from the library is planned to be done eventually / nice to have with the following exceptions
+`ProtectApiClient` exposes two parallel websocket contracts. The raw
+`subscribe_events_websocket` continues to deliver `WSSubscriptionMessage`
+frames for advanced callers, and the typed `subscribe_events` API
+delivers `(ProtectEvent, EventChange)` pairs intended for application
+code. The typed path goes through the Public Integration API, so the
+`ProtectApiClient` must be configured with an API key and
+`update_public()` must have been called at least once before calling
+`subscribe_events`.
 
-### UniFi OS Features
+```python
+import logging
 
-Anything that is strictly a UniFi OS feature. If it is ever done, it will be in a separate library that interacts with this one. Examples include:
+from uiprotect import EventChange, ProtectApiClient, ProtectEvent
 
-- Managing RAID and disks
-- Creating and managing users
+_LOGGER = logging.getLogger(__name__)
 
-### Remote Access / Ubiquiti Cloud Features
+protect = ProtectApiClient(..., api_key="...")
+await protect.update_public()
 
-Some features that require an Ubiquiti Account or "Remote Access" to be enabled are currently not implemented. Examples include:
+def on_event(event: ProtectEvent, change: EventChange) -> None:
+    if change is EventChange.STARTED:
+        _LOGGER.info("%s on %s: %s", event.type, event.device_id, event.identity)
+    elif change is EventChange.ENDED:
+        _LOGGER.info("%s ended after %s", event.type, event.end - event.start)
 
-- Stream sharing
+unsubscribe = protect.subscribe_events(on_event)
+# ...
+unsubscribe()
+```
+
+Notes:
+
+- `subscribe_events` delivers only events whose `EventType` maps to a
+  non-`OTHER` `ProtectEventChannel` (detection / sensor / alarm-hub /
+  access). Administrative events such as `provision`, `factoryReset` and
+  `fwUpdate` are dropped. Callers that need the unfiltered stream
+  should use `subscribe_events_websocket`.
+- `event.raw` is a permanent escape hatch onto the underlying private-API
+  `Event` model when the public contract does not expose the field you
+  need. In particular, smart-detect _detected attributes_ (license-plate
+  text, face-match name) are **not** available over the public API today,
+  so consumers that need them must fall back to the private path via
+  `event.raw`.
+- `EventChange.UPDATED` may carry no public-visible delta — diff
+  `event.raw` if you need to know exactly what changed.
+- `protect.active_events(device_id=...)` returns the in-flight set,
+  derived directly from the public bootstrap cache. Useful for restoring
+  binary-sensor state after a reload — it works before any
+  `subscribe_events` call as long as `update_public()` has primed the
+  cache.
+- All runtime state is sourced from `public_bootstrap`: lifecycle/active
+  state from `public_bootstrap.events`, credential-event identity from
+  `public_bootstrap.ulp_users` (UniFi Identity), and `event.device_mac`
+  from the bootstrap device stores. All are refreshed by `update_public()`
+  — including automatically on websocket reconnect — and resolve with
+  eventual consistency: an `identity` that resolves to
+  `UnknownIdentity(reason="ulp_user_not_cached")` for a freshly-enrolled
+  ULP user, or a `device_mac` of `None` for a device not yet in the
+  bootstrap, both fill in on the next `update_public()` / reconnect resync.
+
+### Subscribing to device state
+
+`subscribe_devices` is the device-side analog of `subscribe_events`: it
+delivers a typed `ProtectDeviceChange` for each `ADDED` / `UPDATED` /
+`REMOVED` device over the Public Integration API. Together with
+`public_bootstrap` (the device snapshot) and `subscribe_events`
+(detection / sensor events), it gives a thin consumer the three
+concern-separated primitives it needs without any model-type routing or
+merge logic of its own.
+
+Like `subscribe_events`, it requires `update_public()` to have primed the
+public bootstrap (the merged public models live in that cache), so call
+`update_public()` _before_ subscribing — subscribing first raises
+`RuntimeError`. Callers that need the websocket live during priming should
+use the raw `subscribe_devices_websocket` instead.
+
+```python
+import logging
+
+from uiprotect import DeviceChange, ProtectApiClient, ProtectDeviceChange
+
+_LOGGER = logging.getLogger(__name__)
+
+protect = ProtectApiClient(..., api_key="...")
+
+def on_device(change: ProtectDeviceChange) -> None:
+    if change.change is DeviceChange.UPDATED and "state" in change.changed_fields:
+        _LOGGER.info("%s -> %s", change.device_id, change.model.state)
+
+await protect.update_public()
+unsubscribe = protect.subscribe_devices(on_device)
+# ...
+unsubscribe()
+```
+
+Notes:
+
+- Each change carries the merged `Public*` model in `change.model`
+  (`None` for `REMOVED`, where only an id / `modelKey` reference is
+  delivered). `change.changed_fields` is populated only for `UPDATED`.
+- Single and bulk WS envelopes are expanded transparently to one change
+  per device, so consumers never see batched `id` arrays.
+- Connection / `state` transitions surface as ordinary `UPDATED`s with
+  `state` in `changed_fields` — there is no separate side channel.
+- The callback must not raise: an exception is caught and logged but
+  otherwise swallowed.
+- `change.device_mac` resolves with eventual consistency — a device not
+  yet in the bootstrap yields `None` until the next `update_public()` /
+  reconnect resync.
+- This is device _state_ only. It does not synthesize detection / motion
+  (use `subscribe_events`) and there is no adoption concept folded in.
+
+## Roadmap & limitations
+
+The library is moving from the legacy private API to Ubiquiti's official Public Integration API. The private API is considered legacy and is being phased out — new work targets the public API, implemented spec-conformantly: covering the features the spec exposes and staying as close to it as possible.
+
+An explicit architectural goal is to keep the library shaped so the [Home Assistant integration](https://www.home-assistant.io/integrations/unifiprotect) can stay thin — capabilities, device models, and events are surfaced here so the integration carries as little logic of its own as possible.
+
+## Contributing
+
+Please **open an issue and agree on the approach before implementing** anything — it
+avoids wasted effort on changes that don't fit the project's direction.
+
+<a id="no-new-private-api-features"></a>
+
+> [!IMPORTANT]
+> **This library does not accept new features built on the private API.**
+> uiprotect is migrating from the reverse-engineered private API to UniFi's official
+> Public Integration API. If a capability is missing from the public API, the right
+> path is to request it from Ubiquiti / wait for it to be exposed there — **not** to
+> add it on the private path. Issues or PRs that introduce new private-API
+> functionality will be closed.
+
+<a id="ai-contributions"></a>
+
+**Using AI? Fine — but you have to drive it.** We use AI tooling ourselves, so an
+unreviewed AI-generated PR or issue doesn't save us anything; it just shifts the
+review and cleanup cost onto us. AI-assisted contributions are welcome **only when
+you genuinely understand the architecture and the project's strategic direction, and
+the approach has been agreed in an issue first.**
+
+Where a contribution actually helps is the part AI can't supply — often because it
+involves a device none of the maintainers happen to own. We have plenty of UniFi
+hardware, just not every model, so testing and validation on a device we don't have,
+sanitized payload captures from it, or first-hand knowledge of how it behaves in the
+field are genuinely valuable — shaped to fit the architecture (see
+[`AGENTS.md`](AGENTS.md)). Raw AI output that skips the prior discussion or ignores
+these guidelines just creates review burden and will be closed.
+
+### Developer Setup
+
+The recommended way to develop is using the provided **devcontainer** with VS Code:
+
+1. Install [VS Code](https://code.visualstudio.com/) and the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+2. Open the project in VS Code
+3. When prompted, click "Reopen in Container" (or use Command Palette: "Dev Containers: Reopen in Container")
+4. The devcontainer will automatically set up Python, Poetry, pre-commit hooks, and all dependencies
+
+Alternatively, if you want to develop natively without devcontainer:
+
+```bash
+# Install dependencies (--all-extras installs the cli extra for CLI tests)
+poetry install --with dev --all-extras
+
+# Install pre-commit hooks
+poetry run pre-commit install --install-hooks
+
+# Run tests
+poetry run pytest
+
+# Run pre-commit checks manually
+poetry run pre-commit run --all-files
+```
+
+## History
+
+This project was split off from `pyunifiprotect` because that project changed its license to one that would not be accepted in Home Assistant. This project is committed to keeping the MIT license.
+
+## Credits
+
+- Bjarne Riis ([@briis](https://github.com/briis/)) for the original pyunifiprotect package
+- Christopher Bailey ([@AngellusMortis](https://github.com/AngellusMortis/)) for the maintaining the pyunifiprotect package
