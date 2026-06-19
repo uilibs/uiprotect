@@ -45,9 +45,9 @@ Python API and CLI for UniFi Protect (Unofficial).
 
 `uiprotect` is an unofficial API for UniFi Protect. There is no affiliation with Ubiquiti.
 
-This module communicates with UniFi Protect surveillance software installed on a UniFi OS Console such as a Ubiquiti CloudKey+ or UniFi Dream Machine Pro.
+This module communicates with UniFi Protect surveillance software installed on a UniFi OS Console such as a Ubiquiti CloudKey+ (Cloud Key Gen2 Plus), a UniFi Network Video Recorder (UNVR or UNVR Pro), or a UniFi Dream Machine Pro, SE, or Pro Max.
 
-The API is not documented by Ubiquiti, so there might be misses and/or frequent changes in this module, as Ubiquiti evolves the software.
+`uiprotect` is increasingly built on Ubiquiti's official, documented Public Integration API. Where a capability is not yet available there, it falls back to the older private API, which is undocumented and can change as Ubiquiti evolves the software — so those parts may have gaps or shift between firmware releases.
 
 The module is primarily written for the purpose of being used in Home Assistant core [integration for UniFi Protect](https://www.home-assistant.io/integrations/unifiprotect) but might be used for other purposes also.
 
@@ -61,7 +61,7 @@ If you want to install `uiprotect` natively, the below are the requirements:
   - Only UniFi Protect version 6 and newer are supported. The library is generally tested against the latest stable version and the latest EA version.
 - [Python](https://www.python.org/) 3.11+
 - POSIX compatible system
-  - Library is only tested on Linux, specifically the latest Debian version available for the official Python Docker images, but there is no reason the library should not work on any Linux distro or macOS.
+  - Tested in CI on Linux and macOS; there is no reason the library should not work on any modern Linux distribution or macOS.
 - [PyAV](https://pyav.org/) (av) - included as a dependency
   - PyAV is used for audio streaming to camera speakers (talkback feature)
 
@@ -124,6 +124,9 @@ Some notes about the Docker version since it is running inside a container:
 
 > [!WARNING]
 > Ubiquiti SSO accounts are not supported and actively discouraged from being used. There is no option to use MFA. You are expected to use local access user. `uiprotect` is not designed to allow you to use your owner account to access the console or to be used over the public internet as both pose a security risk.
+
+> [!NOTE]
+> `uiprotect` is increasingly built on Ubiquiti's official Public Integration API, which authenticates with a console-scoped **API key** instead of a username/password — no SSO, MFA, or owner account involved. New functionality targets this path first, and it is expected to become the primary — and eventually the only — supported authentication method. See [Public-only mode](#public-only-mode) below.
 
 ```bash
 export UFP_USERNAME=YOUR_USERNAME_HERE
@@ -217,9 +220,9 @@ await protect.update_public()
 for siren in await protect.get_sirens_public():
     print(siren.name)
 
-# the public API exposes no NVR mac, so resolve the console's mac-based
-# identity out-of-band via the UniFi-OS /api/system endpoint (transitional —
-# the end-state identity is the public-API primary key nvr.id)
+# the public API exposes no NVR mac; get_console_mac() resolves it out-of-band
+# via the UniFi-OS /api/system endpoint. For new code, prefer the public-API
+# primary key (nvr.id) as the device identity rather than the mac.
 console_mac = await protect.get_console_mac()
 ```
 
@@ -342,26 +345,11 @@ Notes:
 
 ## Roadmap & limitations
 
-Switching from Protect Private API to the New Public API.
+The library is moving from the legacy private API to Ubiquiti's official Public Integration API. The private API is considered legacy and is being phased out — new work targets the public API, implemented spec-conformantly: covering the features the spec exposes and staying as close to it as possible. A further goal is to enable a thin [Home Assistant integration](https://www.home-assistant.io/integrations/unifiprotect).
 
-Generally any feature missing from the library is planned to be done eventually / nice to have, with the following exceptions:
-
-### UniFi OS Features
-
-Anything that is strictly a UniFi OS feature. If it is ever done, it will be in a separate library that interacts with this one. Examples include:
-
-- Managing RAID and disks
-- Creating and managing users
-
-### Remote Access / Ubiquiti Cloud Features
-
-Some features that require an Ubiquiti Account or "Remote Access" to be enabled are currently not implemented. Examples include:
-
-- Stream sharing
+Out of scope: features that are strictly UniFi OS (e.g. managing RAID/disks, creating users) — if ever added, they would live in a separate library — and features that require a Ubiquiti account or Remote Access (e.g. stream sharing).
 
 ## Contributing
-
-This project is looking for maintainers.
 
 Please **open an issue and agree on the approach before implementing** anything — it
 avoids wasted effort on changes that don't fit the project's direction.
@@ -425,16 +413,3 @@ This project was split off from `pyunifiprotect` because that project changed it
 
 - Bjarne Riis ([@briis](https://github.com/briis/)) for the original pyunifiprotect package
 - Christopher Bailey ([@AngellusMortis](https://github.com/AngellusMortis/)) for the maintaining the pyunifiprotect package
-
-## Contributors ✨
-
-Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
-
-<!-- prettier-ignore-start -->
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- markdownlint-disable -->
-<!-- markdownlint-enable -->
-<!-- ALL-CONTRIBUTORS-LIST:END -->
-<!-- prettier-ignore-end -->
-
-This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
