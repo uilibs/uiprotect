@@ -234,8 +234,7 @@ delivers `(ProtectEvent, EventChange)` pairs intended for application
 code. The typed path goes through the Public Integration API, so the
 `ProtectApiClient` must be configured with an API key and
 `update_public()` must have been called at least once before calling
-`subscribe_events`. The raw `subscribe_events_websocket` path does not
-require an API key.
+`subscribe_events`.
 
 ```python
 import logging
