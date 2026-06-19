@@ -38,5 +38,6 @@ def event_to_protect_event(
         end=end,
         smart_detect_types=tuple(raw.smart_detect_types),
         identity=identity,
+        alarm_type=raw.metadata.alarm_type if raw.metadata is not None else None,
         raw=raw,
     )

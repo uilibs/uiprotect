@@ -51,6 +51,7 @@ from .types import (
     RecordingMode,
     RecordingType,
     ResolutionStorageType,
+    SensorAlarmType,
     SensorStatusType,
     SensorType,
     SmartDetectObjectType,
@@ -303,7 +304,7 @@ class EventMetadata(ProtectBaseObject):
     to_value: str | None = None
     mount_type: MountType | None = None
     status: SensorStatusType | None = None
-    alarm_type: str | None = None
+    alarm_type: SensorAlarmType | None = None
     device_id: str | None = None
     mac: str | None = None
     # requires 2.11.13+

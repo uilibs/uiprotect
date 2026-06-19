@@ -10,7 +10,7 @@ import pytest
 
 from tests.conftest import SAMPLE_DATA_DIRECTORY
 from uiprotect.data.nvr import Event, NfcMetadata
-from uiprotect.data.types import EventType, SmartDetectObjectType
+from uiprotect.data.types import EventType, SensorAlarmType, SmartDetectObjectType
 from uiprotect.events import EVENT_TYPE_TO_CHANNEL, ProtectEventChannel
 from uiprotect.events._mapping import event_to_protect_event
 
@@ -75,6 +75,55 @@ def test_map_smart_detect_carries_smart_types() -> None:
     out = event_to_protect_event(event, channel, identity=None)
     assert SmartDetectObjectType.PERSON in out.smart_detect_types
     assert isinstance(out.smart_detect_types, tuple)
+
+
+def _sensor_alarm_event(alarm_text: str) -> Any:
+    return _event_from_payload(
+        {
+            "id": "11111111-1111-1111-1111-1111111111aa",
+            "modelKey": "event",
+            "type": "sensorAlarm",
+            "start": 1735689900000,
+            "device": "aabbccddeeff00112233aabb",
+            "metadata": {"alarmType": {"text": alarm_text}},
+        }
+    )
+
+
+def test_map_sensor_alarm_carries_alarm_type() -> None:
+    """``sensorAlarm`` exposes the collapsed ``metadata.alarmType.text`` as the enum."""
+    event = _sensor_alarm_event("glassBreak")
+    out = event_to_protect_event(
+        event, EVENT_TYPE_TO_CHANNEL[event.type], identity=None
+    )
+    assert out.alarm_type is SensorAlarmType.GLASS_BREAK
+
+
+def test_map_sensor_alarm_unknown_value_coerces() -> None:
+    """An alarm sound absent from the enum coerces to ``UNKNOWN`` rather than raising."""
+    event = _sensor_alarm_event("somethingNew")
+    out = event_to_protect_event(
+        event, EVENT_TYPE_TO_CHANNEL[event.type], identity=None
+    )
+    assert out.alarm_type is SensorAlarmType.UNKNOWN
+
+
+def test_event_metadata_alarm_type_round_trips() -> None:
+    """The collapsed ``alarmType`` enum re-wraps to ``{"text": ...}`` on serialisation."""
+    event = _sensor_alarm_event("glassBreak")
+    assert event.metadata is not None
+    assert event.metadata.alarm_type is SensorAlarmType.GLASS_BREAK
+    assert event.unifi_dict()["metadata"]["alarmType"] == {"text": "glassBreak"}
+
+
+def test_map_event_without_alarm_type_is_none() -> None:
+    """Non-alarm events leave ``alarm_type`` unset."""
+    payload = _load("light_motion_add.json")["item"]
+    event = _event_from_payload(payload)
+    out = event_to_protect_event(
+        event, EVENT_TYPE_TO_CHANNEL[event.type], identity=None
+    )
+    assert out.alarm_type is None
 
 
 def test_fingerprint_payload_with_ulpid_null() -> None:

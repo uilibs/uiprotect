@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..data.nvr import Event
 from ..data.public_devices import PublicUlpUser
-from ..data.types import EventType, SmartDetectObjectType
+from ..data.types import EventType, SensorAlarmType, SmartDetectObjectType
 
 
 class ProtectEventChannel(enum.StrEnum):
@@ -159,4 +159,7 @@ class ProtectEvent(BaseModel):
     end: datetime | None = None
     smart_detect_types: tuple[SmartDetectObjectType, ...] = ()
     identity: EventIdentity | None = None
+    # Sensor alarm sound (``sensorAlarm`` events), collapsed from the public
+    # ``metadata.alarmType.text``; ``None`` for other event types.
+    alarm_type: SensorAlarmType | None = None
     raw: Event | None = Field(default=None, repr=False, exclude=True)

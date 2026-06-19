@@ -238,8 +238,18 @@ _ENUM_SCHEMAS: list[tuple[type[Any], str]] = [
 ]
 
 # Library-owned fields populated out-of-band, absent from the spec schema.
+# Fields the library owns that no spec revision lists (computed convenience).
 _LIBRARY_OWNED_FIELDS: dict[str, set[str]] = {
     "camera": {"rtsps_streams"},
+}
+
+# Model fields not present in the spec schema; excluded from the drift error.
+_EXTRA_MODEL_FIELDS: dict[str, set[str]] = {
+    "camera": {"device_type", "device_guid"},
+    "light": {"device_type", "device_guid"},
+    "sensor": {"device_type", "device_guid", "feature_flags"},
+    "chime": {"device_type", "device_guid"},
+    "nvr": {"device_type", "device_guid"},
 }
 
 _HTTP_METHODS = ("get", "post", "put", "patch", "delete")
@@ -285,8 +295,8 @@ def _leaf_model(annotation: Any) -> type[ProtectBaseObject] | None:
 
 
 def _spec_field_name(key: str, remaps: dict[str, str]) -> str:
-    """Map a spec property key to its model field name, honoring lib remaps."""
-    return remaps.get(key) or to_snake_case(key)
+    """Return the model field name for a spec key after remap + snake-case normalization."""
+    return to_snake_case(remaps.get(key) or key)
 
 
 def check_endpoints(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
@@ -358,8 +368,9 @@ def check_model_fields(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
         spec_fields = {_spec_field_name(key, remaps) for key in props}
         model_fields = set(cls.model_fields)
         owned = _LIBRARY_OWNED_FIELDS.get(schema_name, set())
+        extra = _EXTRA_MODEL_FIELDS.get(schema_name, set())
 
-        removed = model_fields - spec_fields - owned
+        removed = model_fields - spec_fields - owned - extra
         errors.extend(
             f"{schema_name}: model field `{name}` absent from spec "
             f"(server removed/retyped it)"

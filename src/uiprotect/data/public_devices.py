@@ -15,6 +15,7 @@ are ``Optional``.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from functools import cache
 from typing import Any, Literal, TypedDict
 
@@ -245,7 +246,28 @@ class RTSPSStreams(ProtectBaseObject):
         ]
 
 
-class PublicDeviceModel(ProtectModelWithId):
+class PublicIdentifiedModel(ProtectModelWithId):
+    """Public model carrying the optional device self-description (``type`` / ``guid``)."""
+
+    # Present on newer firmware; older consoles omit both, so they default to
+    # ``None`` and ``from_unifi_dict`` must not raise on the old shape.
+    # ``device_type`` is the human model name (wire ``type``), distinct from
+    # ``model`` (the modelKey enum); ``device_guid`` (wire ``guid``) is a stable
+    # identifier.
+    device_type: str | None = None
+    device_guid: str | None = None
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {
+            **super()._get_unifi_remaps(),
+            "type": "deviceType",
+            "guid": "deviceGuid",
+        }
+
+
+class PublicDeviceModel(PublicIdentifiedModel):
     """Shared base for dedicated public device models carrying ``mac`` / ``state``."""
 
     state: DeviceState
@@ -384,6 +406,38 @@ class PublicSensorLeakSettings(ProtectBaseObject):
     is_external_enabled: bool = False
 
 
+class SensorFeatureCapability(StrEnum):
+    """A capability a sensor can advertise in :class:`PublicSensorFeatureFlags`."""
+
+    TEMPERATURE = "temperature"
+    HUMIDITY = "humidity"
+    LIGHT = "light"
+    MOTION = "motion"
+    WATER_LEAK = "water_leak"
+    OPEN = "open"
+    TAMPER = "tamper"
+    SMOKE = "smoke"
+
+
+class PublicSensorFeatureCapability(ProtectBaseObject):
+    """One capability slice; ``channel_count`` defaults to ``0`` when the wire omits it."""
+
+    channel_count: int = 0
+
+
+class PublicSensorFeatureFlags(ProtectBaseObject):
+    """Per-sensor capability map. An absent key means the capability is unsupported."""
+
+    temperature: PublicSensorFeatureCapability | None = None
+    humidity: PublicSensorFeatureCapability | None = None
+    light: PublicSensorFeatureCapability | None = None
+    motion: PublicSensorFeatureCapability | None = None
+    water_leak: PublicSensorFeatureCapability | None = None
+    open: PublicSensorFeatureCapability | None = None
+    tamper: PublicSensorFeatureCapability | None = None
+    smoke: PublicSensorFeatureCapability | None = None
+
+
 class PublicSensor(PublicDeviceModel):
     """Public API sensor device (``GET /v1/sensors``)."""
 
@@ -417,6 +471,67 @@ class PublicSensor(PublicDeviceModel):
     )
     arm_profile_ids: list[str] | None = None
     has_custom_sensitivity_when_armed: bool = False
+    # Capability map, present only on newer firmware (older consoles omit it).
+    feature_flags: PublicSensorFeatureFlags | None = None
+
+    @property
+    def has_feature_flags(self) -> bool:
+        """Whether a capability map was reported; ``False`` means unavailable, not empty."""
+        return self.feature_flags is not None
+
+    def supports(self, capability: SensorFeatureCapability) -> bool:
+        """Whether the sensor advertises ``capability`` (``False`` without a feature map)."""
+        if self.feature_flags is None:
+            return False
+        return getattr(self.feature_flags, capability.value, None) is not None
+
+    @property
+    def is_leak_detected(self) -> bool:
+        """Whether a leak is detected on either the internal or external channel."""
+        return (
+            self.leak_detected_at is not None
+            or self.external_leak_detected_at is not None
+        )
+
+    @property
+    def is_tampering_detected(self) -> bool:
+        """Whether the tamper switch is currently triggered."""
+        return self.tampering_detected_at is not None
+
+    # Environmental metrics are suppressed on leak mounts; the leak metric only
+    # applies there.
+    @property
+    def is_temperature_sensor_enabled(self) -> bool:
+        return (
+            self.mount_type is not MountType.LEAK
+            and self.temperature_settings.is_enabled
+        )
+
+    @property
+    def is_humidity_sensor_enabled(self) -> bool:
+        return (
+            self.mount_type is not MountType.LEAK and self.humidity_settings.is_enabled
+        )
+
+    @property
+    def is_light_sensor_enabled(self) -> bool:
+        return self.mount_type is not MountType.LEAK and self.light_settings.is_enabled
+
+    @property
+    def is_motion_sensor_enabled(self) -> bool:
+        return self.mount_type is not MountType.LEAK and self.motion_settings.is_enabled
+
+    @property
+    def is_alarm_sensor_enabled(self) -> bool:
+        return self.mount_type is not MountType.LEAK and self.alarm_settings.is_enabled
+
+    @property
+    def is_leak_sensor_enabled(self) -> bool:
+        return self.mount_type is MountType.LEAK
+
+    @property
+    def is_contact_sensor_enabled(self) -> bool:
+        return self.mount_type in {MountType.DOOR, MountType.WINDOW, MountType.GARAGE}
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
@@ -986,7 +1101,7 @@ class PublicDoorbellSettings(ProtectBaseObject):
     custom_images: list[PublicDoorbellCustomImage] = Field(default_factory=list)
 
 
-class PublicNVR(ProtectModelWithId):
+class PublicNVR(PublicIdentifiedModel):
     """
     NVR device as exposed by the Public Integration API (``GET /v1/nvrs``).
 

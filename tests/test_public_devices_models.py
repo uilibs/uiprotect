@@ -13,7 +13,10 @@ from uiprotect.data import (
     PublicChime,
     PublicDeviceModel,
     PublicLight,
+    PublicNVR,
     PublicSensor,
+    PublicSensorFeatureFlags,
+    SensorFeatureCapability,
 )
 from uiprotect.data.public_bootstrap import PublicBootstrap
 from uiprotect.data.types import ChannelQuality, ModelType, SensorScheduleMode
@@ -156,10 +159,10 @@ CHIME_PAYLOAD: dict[str, Any] = {
 @pytest.mark.parametrize(
     ("cls", "payload", "field_count"),
     [
-        (PublicCamera, CAMERA_PAYLOAD, 17),
-        (PublicLight, LIGHT_PAYLOAD, 13),
-        (PublicSensor, SENSOR_PAYLOAD, 27),
-        (PublicChime, CHIME_PAYLOAD, 7),
+        (PublicCamera, CAMERA_PAYLOAD, 19),
+        (PublicLight, LIGHT_PAYLOAD, 15),
+        (PublicSensor, SENSOR_PAYLOAD, 30),
+        (PublicChime, CHIME_PAYLOAD, 9),
     ],
 )
 def test_public_model_field_set(
@@ -253,6 +256,137 @@ def test_public_sensor_sub_models_typed() -> None:
     assert sensor.motion_settings.sensitivity_when_armed == 80
     assert sensor.arm_profile_ids == ["profile1"]
     assert sensor.has_custom_sensitivity_when_armed is True
+
+
+def test_public_device_identity_optional_and_round_trips() -> None:
+    """``type`` / ``guid`` map to ``device_type`` / ``device_guid`` and round-trip."""
+    data = dict(SENSOR_PAYLOAD)
+    data["type"] = "Example-Model"
+    data["guid"] = "00000000-0000-0000-0000-000000000000"
+    sensor = PublicSensor.from_unifi_dict(api=Mock(), **data)
+    assert sensor.device_type == "Example-Model"
+    assert sensor.device_guid == "00000000-0000-0000-0000-000000000000"
+    # ``model`` (the modelKey enum) is untouched by the new fields.
+    assert sensor.model is ModelType.SENSOR
+    dumped = sensor.unifi_dict()
+    assert dumped["type"] == "Example-Model"
+    assert dumped["guid"] == "00000000-0000-0000-0000-000000000000"
+
+
+def test_sensor_feature_capability_enum_matches_flag_fields() -> None:
+    """``supports`` does ``getattr`` by enum value, so the names must stay in lockstep."""
+    assert {c.value for c in SensorFeatureCapability} == set(
+        PublicSensorFeatureFlags.model_fields
+    )
+
+
+def test_public_sensor_feature_flags_capabilities() -> None:
+    """``featureFlags`` parses into the capability map and the presence helpers."""
+    data = dict(SENSOR_PAYLOAD)
+    data["featureFlags"] = {
+        "temperature": {"channelCount": 1},
+        "humidity": {"channelCount": 1},
+        "light": {"channelCount": 1},
+        "waterLeak": {"channelCount": 2},
+        # A present capability that omits ``channelCount`` must not raise.
+        "motion": {},
+    }
+    sensor = PublicSensor.from_unifi_dict(api=Mock(), **data)
+    assert sensor.has_feature_flags is True
+    assert sensor.feature_flags.water_leak.channel_count == 2
+    assert sensor.feature_flags.motion.channel_count == 0
+    assert sensor.supports(SensorFeatureCapability.TEMPERATURE) is True
+    assert sensor.supports(SensorFeatureCapability.WATER_LEAK) is True
+    assert sensor.supports(SensorFeatureCapability.MOTION) is True
+    # An absent capability key means "not supported".
+    assert sensor.supports(SensorFeatureCapability.SMOKE) is False
+
+
+@pytest.mark.parametrize(
+    ("internal", "external", "expected"),
+    [(None, None, False), (1, None, True), (None, 1, True), (1, 1, True)],
+)
+def test_public_sensor_is_leak_detected_aggregates_channels(
+    internal: int | None, external: int | None, expected: bool
+) -> None:
+    """``is_leak_detected`` is the OR of the internal and external leak channels."""
+    data = dict(SENSOR_PAYLOAD)
+    data["leakDetectedAt"] = internal
+    data["externalLeakDetectedAt"] = external
+    sensor = PublicSensor.from_unifi_dict(api=Mock(), **data)
+    assert sensor.is_leak_detected is expected
+
+
+@pytest.mark.parametrize(("at", "expected"), [(None, False), (123, True)])
+def test_public_sensor_is_tampering_detected(at: int | None, expected: bool) -> None:
+    sensor = PublicSensor.from_unifi_dict(
+        api=Mock(), **{**SENSOR_PAYLOAD, "tamperingDetectedAt": at}
+    )
+    assert sensor.is_tampering_detected is expected
+
+
+@pytest.mark.parametrize(
+    ("mount_type", "temp_en", "leak_en", "contact_en"),
+    [
+        ("door", True, False, True),
+        ("leak", False, True, False),
+        ("none", True, False, False),
+    ],
+)
+def test_public_sensor_enabled_properties_respect_mount_type(
+    mount_type: str, temp_en: bool, leak_en: bool, contact_en: bool
+) -> None:
+    """Environmental metrics are suppressed on leak mounts; leak only on leak mounts."""
+    data = dict(SENSOR_PAYLOAD)
+    data["mountType"] = mount_type
+    for key in (
+        "temperatureSettings",
+        "humiditySettings",
+        "lightSettings",
+        "motionSettings",
+        "alarmSettings",
+    ):
+        data[key] = {"isEnabled": True}
+    sensor = PublicSensor.from_unifi_dict(api=Mock(), **data)
+    # The five environmental/alarm metrics share the same gate (enabled unless
+    # leak-mounted), so they all track ``temp_en``.
+    assert sensor.is_temperature_sensor_enabled is temp_en
+    assert sensor.is_humidity_sensor_enabled is temp_en
+    assert sensor.is_light_sensor_enabled is temp_en
+    assert sensor.is_motion_sensor_enabled is temp_en
+    assert sensor.is_alarm_sensor_enabled is temp_en
+    assert sensor.is_leak_sensor_enabled is leak_en
+    assert sensor.is_contact_sensor_enabled is contact_en
+
+
+def test_public_sensor_old_shape_has_no_capabilities() -> None:
+    """Older firmware omits the new fields; they default and the capability helpers degrade safely."""
+    sensor = PublicSensor.from_unifi_dict(api=Mock(), **dict(SENSOR_PAYLOAD))
+    assert sensor.device_type is None
+    assert sensor.device_guid is None
+    assert sensor.feature_flags is None
+    assert sensor.has_feature_flags is False
+    assert sensor.supports(SensorFeatureCapability.TEMPERATURE) is False
+
+
+def test_public_nvr_device_identity_round_trips() -> None:
+    """``type`` / ``guid`` map onto the NVR and round-trip; absent → ``None``."""
+    nvr = PublicNVR.from_unifi_dict(
+        api=Mock(),
+        id="nvr1",
+        modelKey="nvr",
+        type="Example-Model",
+        guid="00000000-0000-0000-0000-000000000000",
+    )
+    assert nvr.device_type == "Example-Model"
+    assert nvr.device_guid == "00000000-0000-0000-0000-000000000000"
+    dumped = nvr.unifi_dict()
+    assert dumped["type"] == "Example-Model"
+    assert dumped["guid"] == "00000000-0000-0000-0000-000000000000"
+
+    bare = PublicNVR.from_unifi_dict(api=Mock(), id="nvr1", modelKey="nvr")
+    assert bare.device_type is None
+    assert bare.device_guid is None
 
 
 @pytest.mark.parametrize(
