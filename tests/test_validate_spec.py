@@ -12,14 +12,18 @@ from typing import TYPE_CHECKING, Any
 import orjson
 import validate_spec  # local import via conftest sys.path insert
 from validate_spec import (
+    _ENUM_COVERAGE_WAIVERS,
     _EXAMPLE_CALLS,
+    _iter_spec_enums,
     _leaf_model,
+    _library_enum_value_sets,
     _normalize_path,
     _public_api_coroutines,
     _resolve_object_props,
     _spec_field_name,
     check_completeness,
     check_endpoints,
+    check_enum_coverage,
     check_enums,
     check_model_fields,
     covered_endpoints,
@@ -232,6 +236,102 @@ def test_check_enums_non_enum_schema_errors() -> None:
     spec = {"components": {"schemas": {"deviceState": {"type": "string"}}}}
     errors, _warnings = check_enums(spec)
     assert any("no longer declares `enum`" in e for e in errors)
+
+
+# --------------------------------------------------------------------------- #
+# check_enum_coverage (inline-aware enum coverage)
+# --------------------------------------------------------------------------- #
+
+
+def test_iter_spec_enums_collects_named_and_inline() -> None:
+    """Inline enums (nested under metadata) and named schema enums are both found."""
+    spec = {
+        "components": {
+            "schemas": {
+                "deviceState": {"enum": ["CONNECTED"]},
+                "someEvent": {
+                    "properties": {
+                        "metadata": {
+                            "properties": {"text": {"enum": ["zorp", "unknown"]}}
+                        }
+                    }
+                },
+            }
+        },
+        # A query-param enum nested in a list, reached via the ``paths`` walk.
+        "paths": {
+            "/v1/widgets": {"get": {"parameters": [{"schema": {"enum": ["quux"]}}]}}
+        },
+    }
+    found = dict(_iter_spec_enums(spec))
+    # ``unknown`` is stripped from the value-set.
+    assert frozenset({"zorp"}) in found
+    assert frozenset({"CONNECTED"}) in found
+    assert frozenset({"quux"}) in found  # reached through the list branch
+    inline_path = found[frozenset({"zorp"})]
+    assert inline_path.endswith("metadata.properties.text")
+
+
+def test_check_enum_coverage_modelled_passes() -> None:
+    """A spec enum whose value-set a library enum covers raises no warning."""
+    # ``DeviceState`` models exactly these values.
+    spec = {
+        "components": {
+            "schemas": {
+                "deviceState": {"enum": ["CONNECTED", "CONNECTING", "DISCONNECTED"]}
+            }
+        }
+    }
+    errors, warnings = check_enum_coverage(spec)
+    assert errors == []
+    assert warnings == []
+
+
+def test_check_enum_coverage_inline_unmodelled_flagged() -> None:
+    """An inline enum no library enum covers and no waiver names is flagged."""
+    spec = {
+        "components": {
+            "schemas": {
+                "weirdEvent": {
+                    "properties": {
+                        "metadata": {
+                            "properties": {"text": {"enum": ["frobnicate", "baz"]}}
+                        }
+                    }
+                }
+            }
+        }
+    }
+    errors, warnings = check_enum_coverage(spec)
+    assert errors == []
+    assert len(warnings) == 1
+    assert "frobnicate" in warnings[0]
+    assert "metadata.properties.text" in warnings[0]
+
+
+def test_check_enum_coverage_waiver_respected() -> None:
+    """A spec enum whose value-set is waived raises no warning."""
+    waived = next(iter(_ENUM_COVERAGE_WAIVERS))
+    spec = {"components": {"schemas": {"thing": {"enum": sorted(waived)}}}}
+    errors, warnings = check_enum_coverage(spec)
+    assert errors == []
+    assert warnings == []
+
+
+def test_check_enum_coverage_sentinel_only_enum_ignored() -> None:
+    """An enum that is nothing but the ``unknown`` sentinel is not flagged."""
+    spec = {"components": {"schemas": {"thing": {"enum": ["unknown"]}}}}
+    errors, warnings = check_enum_coverage(spec)
+    assert errors == []
+    assert warnings == []
+
+
+def test_library_enum_value_sets_excludes_sentinel() -> None:
+    """Collected library value-sets never contain the bare ``unknown`` sentinel."""
+    sets = _library_enum_value_sets()
+    assert sets  # discovery found enums
+    # DeviceState's value-set is present and sentinel-free.
+    assert frozenset({"CONNECTED", "CONNECTING", "DISCONNECTED"}) in sets
 
 
 # --------------------------------------------------------------------------- #

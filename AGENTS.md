@@ -311,7 +311,13 @@ endpoint. If the file is absent, run the script first.
 `scripts/validate_spec.py` checks the public-API client against a fetched
 spec and reports drift: spec endpoints with no covering `*_public` method
 (warning), model fields the spec dropped/retyped (error) or added (warning),
-and new enum values (warning). Spec `required` vs. model `optional` is not
+new values on a named, tracked enum (warning), and any spec enum — named **or**
+inline (nested under `metadata.*.text`, query params, …) — whose value-set no
+library enum under `uiprotect.data` covers and that has no entry in the
+documented `_ENUM_COVERAGE_WAIVERS` map (warning). The coverage check walks the
+whole spec keyed by value-set, so a value-set change re-surfaces a waived enum
+for review; the `unknown` forward-compat sentinel is ignored on both sides.
+Spec `required` vs. model `optional` is not
 checked — the library models every public-API field optional by design, so it
 would be guaranteed noise. It exits non-zero on any error and prints a markdown
 summary. Reproduce locally with:
