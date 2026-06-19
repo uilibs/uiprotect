@@ -348,7 +348,11 @@ def check_model_fields(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     schemas = spec.get("components", {}).get("schemas", {})
     for cls, schema_name in _MODEL_SCHEMAS:
         if schema_name not in schemas:
-            continue  # private-only model or schema renamed — skip, don't crash
+            errors.append(
+                f"{schema_name}: tracked schema absent from spec "
+                f"(server removed/renamed it)"
+            )
+            continue
         props = _resolve_object_props({"$ref": f"#/.../{schema_name}"}, schemas)
         if props is None:
             errors.append(f"{schema_name}: spec schema is not object-shaped")
@@ -379,7 +383,16 @@ def check_enums(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     schemas = spec.get("components", {}).get("schemas", {})
     for enum_cls, schema_name in _ENUM_SCHEMAS:
         schema = schemas.get(schema_name)
-        if schema is None or "enum" not in schema:
+        if schema is None:
+            errors.append(
+                f"{schema_name}: tracked schema absent from spec "
+                f"(server removed/renamed it)"
+            )
+            continue
+        if "enum" not in schema:
+            errors.append(
+                f"{schema_name}: tracked enum schema no longer declares `enum`"
+            )
             continue
         lib_values = {member.value for member in enum_cls}
         warnings.extend(

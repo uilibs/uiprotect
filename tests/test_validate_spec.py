@@ -36,21 +36,33 @@ if TYPE_CHECKING:
     import pytest
 
 
+def _model_props(cls: Any, name: str) -> dict[str, dict[str, Any]]:
+    """Build green spec ``properties`` for one tracked model schema."""
+    inv = {v: k for k, v in cls._get_unifi_remaps().items()}
+    owned = validate_spec._LIBRARY_OWNED_FIELDS.get(name, set())
+    return {
+        inv.get(f, f): {"type": "string"} for f in cls.model_fields if f not in owned
+    }
+
+
 def _chime_spec(
     *,
     extra: str | None = None,
     drop: str | None = None,
 ) -> dict[str, Any]:
-    """Build a minimal spec whose ``chime`` schema mirrors ``PublicChime`` fields."""
-    fields = set(PublicChime.model_fields)
-    if drop is not None:
-        fields.discard(drop)
-    props = {("modelKey" if f == "model" else f): {"type": "string"} for f in fields}
-    if extra is not None:
-        props[extra] = {"type": "string"}
-    return {
-        "components": {"schemas": {"chime": {"type": "object", "properties": props}}}
-    }
+    """Build a full green spec; ``extra``/``drop`` perturb only the ``chime`` schema."""
+    schemas: dict[str, Any] = {}
+    for cls, name in validate_spec._MODEL_SCHEMAS:
+        props = _model_props(cls, name)
+        if name == "chime":
+            if drop is not None:
+                props.pop(drop, None)
+            if extra is not None:
+                props[extra] = {"type": "string"}
+        schemas[name] = {"type": "object", "properties": props}
+    for enum_cls, name in validate_spec._ENUM_SCHEMAS:
+        schemas[name] = {"enum": [m.value for m in enum_cls]}
+    return {"components": {"schemas": schemas}}
 
 
 # --------------------------------------------------------------------------- #
@@ -171,10 +183,9 @@ def test_check_model_fields_added_field_warns() -> None:
     assert any("new_server_field" in w for w in warnings)
 
 
-def test_check_model_fields_missing_schema_skipped() -> None:
-    errors, warnings = check_model_fields({"components": {"schemas": {}}})
-    assert errors == []
-    assert warnings == []
+def test_check_model_fields_missing_schema_errors() -> None:
+    errors, _warnings = check_model_fields({"components": {"schemas": {}}})
+    assert any("tracked schema absent from spec" in e for e in errors)
 
 
 def test_check_model_fields_non_object_schema_errors() -> None:
@@ -212,10 +223,15 @@ def test_check_enums_known_values_ok() -> None:
     assert warnings == []
 
 
-def test_check_enums_missing_schema_skipped() -> None:
-    errors, warnings = check_enums({"components": {"schemas": {}}})
-    assert errors == []
-    assert warnings == []
+def test_check_enums_missing_schema_errors() -> None:
+    errors, _warnings = check_enums({"components": {"schemas": {}}})
+    assert any("tracked schema absent from spec" in e for e in errors)
+
+
+def test_check_enums_non_enum_schema_errors() -> None:
+    spec = {"components": {"schemas": {"deviceState": {"type": "string"}}}}
+    errors, _warnings = check_enums(spec)
+    assert any("no longer declares `enum`" in e for e in errors)
 
 
 # --------------------------------------------------------------------------- #

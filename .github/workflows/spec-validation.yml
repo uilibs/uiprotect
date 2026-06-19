@@ -89,7 +89,7 @@ jobs:
         run: |
           set -euo pipefail
           title="spec drift: protect ${{ steps.resolve.outputs.latest }}"
-          count=$(gh issue list --state open --search "in:title \"$title\"" --json title \
+          count=$(gh issue list --state open --limit 200 --search "in:title \"$title\"" --json title \
             --jq "[.[] | select(.title == \"$title\")] | length")
           if [ "$count" -gt 0 ]; then
             echo "Drift issue already open for ${{ steps.resolve.outputs.latest }}; skipping fetch."
@@ -134,7 +134,7 @@ jobs:
             echo "[dry-run] would open PR bumping .validated-version to $LATEST"
             exit 0
           fi
-          open=$(gh pr list --state open --head "$branch" --json number --jq "length")
+          open=$(gh pr list --state open --limit 200 --head "$branch" --json number --jq "length")
           if [ "$open" -gt 0 ]; then
             echo "Marker-bump PR already open for $branch; nothing to do."
             exit 0
@@ -169,7 +169,7 @@ jobs:
           fi
           gh issue create --title "$title" --body-file report.md
           # Close older drift issues as superseded.
-          gh issue list --state open --search 'in:title "spec drift: protect"' \
+          gh issue list --state open --limit 200 --search 'in:title "spec drift: protect"' \
             --json number,title \
             --jq ".[] | select(.title != \"$title\") | .number" | while read -r num; do
             [ -z "$num" ] && continue

@@ -19,9 +19,9 @@
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any
 
+import orjson
 import pytest
 from validate_spec import (  # local import via conftest sys.path insert
     _LIBRARY_OWNED_FIELDS,
@@ -89,7 +89,7 @@ def test_public_model_matches_spec(
     cls: type[ProtectBaseObject], schema_name: str
 ) -> None:
     """``model_fields`` is a subset of the resolved spec property set, including nested leaves."""
-    schemas = json.loads(_SPEC_PATH.read_text())["components"]["schemas"]
+    schemas = orjson.loads(_SPEC_PATH.read_bytes())["components"]["schemas"]
     _assert_matches(
         cls, {"$ref": f"#/components/schemas/{schema_name}"}, schemas, schema_name
     )
@@ -98,7 +98,7 @@ def test_public_model_matches_spec(
 @pytest.mark.skipif(not _SPEC_PATH.exists(), reason="openapi/integration.json absent")
 def test_spec_validation_has_no_errors() -> None:
     """The full spec-validation check suite reports no errors against the on-disk spec."""
-    spec = json.loads(_SPEC_PATH.read_text())
+    spec = orjson.loads(_SPEC_PATH.read_bytes())
     errors, _warnings = run_checks(spec)
     assert not errors, "spec drift:\n" + "\n".join(errors)
 
