@@ -1,5 +1,28 @@
 # Changelog
 
+## v13.4.0 (2026-06-19)
+
+### Features
+
+
+- Add device type/guid, sensor feature flags, and event alarm_type ([`7a60cf7`](https://github.com/uilibs/uiprotect/commit/7a60cf7e06fd952883f9be43d1211470ab4cd866))
+
+
+- Add device type/guid, sensor feature flags, and event alarm_type ([`7a60cf7`](https://github.com/uilibs/uiprotect/commit/7a60cf7e06fd952883f9be43d1211470ab4cd866))
+
+
+### Documentation
+
+
+- Add contributing section (no new private-api features, ai policy) ([`593af0b`](https://github.com/uilibs/uiprotect/commit/593af0b75163c57297f206ad0d7863bb43ca20df))
+
+
+### Refactoring
+
+
+- Decorate uniform alarm-hub public methods ([`3cbc521`](https://github.com/uilibs/uiprotect/commit/3cbc52197e7963e9fee731050b47199572233693))
+
+
 ## v13.3.0 (2026-06-18)
 
 ### Features
