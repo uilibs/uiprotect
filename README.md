@@ -59,7 +59,6 @@ If you want to install `uiprotect` natively, the below are the requirements:
   - The library is generally tested against the latest stable version.
 - [Python](https://www.python.org/) 3.11+
 - POSIX compatible system
-  - Tested in CI on Linux and macOS; there is no reason the library should not work on any modern Linux distribution or macOS.
 - [PyAV](https://pyav.org/) (av) - included as a dependency
   - PyAV is used for audio streaming to camera speakers (talkback feature)
 
