@@ -8,9 +8,9 @@ name: Spec conformance
 # spec (~74 MB deb) is fetched ephemerally and never committed or uploaded.
 
 on:
-  schedule:
-    # Daily at 06:17 UTC. Cheap until a release actually drifts.
-    - cron: "17 6 * * *"
+  # schedule disabled: deb download (fw-download.ubnt.com) returns 403 from
+  # GitHub-hosted runners (datacenter IP block). Re-enable once a direct spec
+  # download or self-hosted runner is in place.
   workflow_dispatch:
     inputs:
       version:
