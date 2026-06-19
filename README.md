@@ -341,9 +341,9 @@ Notes:
 
 ## Roadmap & limitations
 
-The library is moving from the legacy private API to Ubiquiti's official Public Integration API. The private API is considered legacy and is being phased out — new work targets the public API, implemented spec-conformantly: covering the features the spec exposes and staying as close to it as possible. A further goal is to enable a thin [Home Assistant integration](https://www.home-assistant.io/integrations/unifiprotect).
+The library is moving from the legacy private API to Ubiquiti's official Public Integration API. The private API is considered legacy and is being phased out — new work targets the public API, implemented spec-conformantly: covering the features the spec exposes and staying as close to it as possible.
 
-Out of scope: features that are strictly UniFi OS (e.g. managing RAID/disks, creating users) — if ever added, they would live in a separate library — and features that require a Ubiquiti account or Remote Access (e.g. stream sharing).
+An explicit architectural goal is to keep the library shaped so the [Home Assistant integration](https://www.home-assistant.io/integrations/unifiprotect) can stay thin — capabilities, device models, and events are surfaced here so the integration carries as little logic of its own as possible.
 
 ## Contributing
 
