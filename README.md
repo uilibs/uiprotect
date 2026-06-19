@@ -45,6 +45,37 @@ Python API for UniFi Protect (Unofficial)
 
 This project is looking for maintainers.
 
+## Contributing
+
+Please **open an issue and agree on the approach before implementing** anything — it
+avoids wasted effort on changes that don't fit the project's direction.
+
+<a id="no-new-private-api-features"></a>
+
+> [!IMPORTANT]
+> **This library does not accept new features built on the private API.**
+> uiprotect is migrating from the reverse-engineered private API to UniFi's official
+> Public Integration API. If a capability is missing from the public API, the right
+> path is to request it from Ubiquiti / wait for it to be exposed there — **not** to
+> add it on the private path. Issues or PRs that introduce new private-API
+> functionality will be closed.
+
+<a id="ai-contributions"></a>
+
+**Using AI? Fine — but you have to drive it.** We use AI tooling ourselves, so an
+unreviewed AI-generated PR or issue doesn't save us anything; it just shifts the
+review and cleanup cost onto us. AI-assisted contributions are welcome **only when
+you genuinely understand the architecture and the project's strategic direction, and
+the approach has been agreed in an issue first.**
+
+Where a contribution actually helps is the part AI can't supply — often because it
+involves a device none of the maintainers happen to own. We have plenty of UniFi
+hardware, just not every model, so testing and validation on a device we don't have,
+sanitized payload captures from it, or first-hand knowledge of how it behaves in the
+field are genuinely valuable — shaped to fit the architecture (see
+[`AGENTS.md`](AGENTS.md)). Raw AI output that skips the prior discussion or ignores
+these guidelines just creates review burden and will be closed.
+
 ## Installation
 
 Install this via pip (or your favorite package manager):
