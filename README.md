@@ -43,8 +43,6 @@
 
 Python API and CLI for UniFi Protect (Unofficial).
 
-`uiprotect` is an unofficial API for UniFi Protect. There is no affiliation with Ubiquiti.
-
 This module communicates with UniFi Protect surveillance software installed on a UniFi OS Console such as a Ubiquiti CloudKey+ (Cloud Key Gen2 Plus), a UniFi Network Video Recorder (UNVR or UNVR Pro), or a UniFi Dream Machine Pro, SE, or Pro Max.
 
 `uiprotect` is increasingly built on Ubiquiti's official, documented Public Integration API. Where a capability is not yet available there, it falls back to the older private API, which is undocumented and can change as Ubiquiti evolves the software — so those parts may have gaps or shift between firmware releases.
