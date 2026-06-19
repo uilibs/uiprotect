@@ -9,12 +9,11 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import sys
 import tarfile
 import urllib.request
 from pathlib import Path
-
-import orjson
 
 FIRMWARE_API = "https://fw-update.ubnt.com/api/v2/firmware-latest"
 SPEC_MEMBER = "./usr/share/unifi-protect/app/fixtures/integration/openapi.json"
@@ -35,7 +34,7 @@ def fetch_spec(version: str | None = None, output: Path = DEFAULT_OUTPUT) -> Non
 
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(spec_bytes)
-    spec = orjson.loads(spec_bytes)
+    spec = json.loads(spec_bytes)
     print(
         f"Written {output}  "
         f"(version {spec['info']['version']}, "
@@ -65,7 +64,7 @@ def _get_download_url(version: str | None) -> tuple[str, str]:
 
     url = f"{FIRMWARE_API}?{'&'.join(params)}"
     with urllib.request.urlopen(url, timeout=60) as resp:  # noqa: S310
-        data = orjson.loads(resp.read())
+        data = json.loads(resp.read())
 
     entries = data["_embedded"]["firmware"]
     if not entries:
