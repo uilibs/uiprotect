@@ -38,6 +38,9 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       DRY_RUN: ${{ inputs.dry_run }}
+      # Passed via env (never interpolated into a run script) to avoid shell
+      # template injection from the workflow_dispatch input.
+      VERSION: ${{ inputs.version }}
     steps:
       - uses: actions/checkout@v6
 
@@ -59,8 +62,8 @@ jobs:
         id: resolve
         run: |
           set -euo pipefail
-          if [ -n "${{ inputs.version }}" ]; then
-            latest=$(python scripts/fetch_openapi.py --print-version --version "${{ inputs.version }}")
+          if [ -n "$VERSION" ]; then
+            latest=$(python scripts/fetch_openapi.py --print-version --version "$VERSION")
           else
             latest=$(python scripts/fetch_openapi.py --print-version)
           fi
@@ -108,8 +111,8 @@ jobs:
         if: steps.steady.outputs.skip != 'true' && steps.known.outputs.skip != 'true'
         run: |
           set -euo pipefail
-          if [ -n "${{ inputs.version }}" ]; then
-            poetry run python scripts/fetch_openapi.py --version "${{ inputs.version }}"
+          if [ -n "$VERSION" ]; then
+            poetry run python scripts/fetch_openapi.py --version "$VERSION"
           else
             poetry run python scripts/fetch_openapi.py
           fi
