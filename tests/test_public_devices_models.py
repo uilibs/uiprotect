@@ -360,12 +360,7 @@ def test_public_sensor_enabled_properties_respect_mount_type(
 
 
 def test_public_sensor_old_shape_has_no_capabilities() -> None:
-    """
-    Older firmware omits the new fields — they default, and helpers degrade safely.
-
-    ``has_feature_flags`` is ``False`` (capability info unavailable, NOT "no
-    capabilities"); ``supports`` is ``False`` for everything so callers fall back.
-    """
+    """Older firmware omits the new fields; they default and the capability helpers degrade safely."""
     sensor = PublicSensor.from_unifi_dict(api=Mock(), **dict(SENSOR_PAYLOAD))
     assert sensor.device_type is None
     assert sensor.device_guid is None

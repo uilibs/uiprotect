@@ -295,13 +295,7 @@ def _leaf_model(annotation: Any) -> type[ProtectBaseObject] | None:
 
 
 def _spec_field_name(key: str, remaps: dict[str, str]) -> str:
-    """
-    Map a spec property key to its model field name, honoring lib remaps.
-
-    Remap values are the lib's intermediate camelCase (e.g. ``liveview`` ->
-    ``liveviewId``), which ``from_unifi_dict`` then snake-cases; do the same here
-    so remapped fields (``liveview_id``, ...) line up with their model field names.
-    """
+    """Return the model field name for a spec key after remap + snake-case normalization."""
     return to_snake_case(remaps.get(key) or key)
 
 

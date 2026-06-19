@@ -108,6 +108,14 @@ def test_map_sensor_alarm_unknown_value_coerces() -> None:
     assert out.alarm_type is SensorAlarmType.UNKNOWN
 
 
+def test_event_metadata_alarm_type_round_trips() -> None:
+    """The collapsed ``alarmType`` enum re-wraps to ``{"text": ...}`` on serialisation."""
+    event = _sensor_alarm_event("glassBreak")
+    assert event.metadata is not None
+    assert event.metadata.alarm_type is SensorAlarmType.GLASS_BREAK
+    assert event.unifi_dict()["metadata"]["alarmType"] == {"text": "glassBreak"}
+
+
 def test_map_event_without_alarm_type_is_none() -> None:
     """Non-alarm events leave ``alarm_type`` unset."""
     payload = _load("light_motion_add.json")["item"]
