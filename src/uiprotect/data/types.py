@@ -679,6 +679,20 @@ class NvrArmModeStatus(UnknownValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
+@enum.unique
+class SensorAlarmType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm sound of a ``sensorAlarm`` / ``alarmHub*`` event (``metadata.alarmType.text``)."""
+
+    SMOKE = "smoke"
+    CO = "CO"
+    GLASS_BREAK = "glassBreak"
+    SENSOR_BUTTON_PRESS = "sensorButtonPress"
+    TAMPER = "tamper"
+    SHORT = "short"
+    CUT = "cut"
+    UNKNOWN = "unknown"
+
+
 class AlarmHubInputType(UnknownValuesEnumMixin, enum.StrEnum):
     """Alarm-hub input zone kind (``alarmHub.input[].inputType`` field)."""
 

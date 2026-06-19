@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any
 import orjson
 import pytest
 from validate_spec import (  # local import via conftest sys.path insert
+    _EXTRA_MODEL_FIELDS,
     _LIBRARY_OWNED_FIELDS,
     SPEC_PATH,
     _leaf_model,
@@ -59,7 +60,12 @@ def _assert_matches(
     # ``modelKey`` is remapped to the ``model`` field on ProtectModel.
     spec_fields = {to_snake_case(key) for key in props}
     model_fields = {"model_key" if f == "model" else f for f in cls.model_fields}
-    phantom = model_fields - spec_fields - _LIBRARY_OWNED_FIELDS.get(path, set())
+    phantom = (
+        model_fields
+        - spec_fields
+        - _LIBRARY_OWNED_FIELDS.get(path, set())
+        - _EXTRA_MODEL_FIELDS.get(path, set())
+    )
     assert not phantom, (
         f"{path}: model declares field(s) absent from the spec: {sorted(phantom)}"
     )
