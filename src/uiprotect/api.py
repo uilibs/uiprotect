@@ -4097,22 +4097,20 @@ class ProtectApiClient(BaseApiClient):
         """Get all link stations using public API."""
         raise NotImplementedError
 
+    @public_get("/v1/alarm-hubs", items=LinkStation)
     async def get_alarm_hubs_public(self) -> list[LinkStation]:
         """Get all alarm hubs using public API."""
-        data = await self.api_request_list(url="/v1/alarm-hubs", public_api=True)
-        return [LinkStation.from_unifi_dict(**item, api=self) for item in data]
+        raise NotImplementedError
 
     @public_get("/v1/link-stations/{link_station_id}", item=LinkStation)
     async def get_link_station_public(self, link_station_id: str) -> LinkStation:
         """Get a specific link station using public API."""
         raise NotImplementedError
 
+    @public_get("/v1/alarm-hubs/{hub_id}", item=LinkStation)
     async def get_alarm_hub_public(self, hub_id: str) -> LinkStation:
         """Get a specific alarm hub using public API."""
-        data = await self.api_request_obj(
-            url=f"/v1/alarm-hubs/{hub_id}", public_api=True
-        )
-        return LinkStation.from_unifi_dict(**data, api=self)
+        raise NotImplementedError
 
     @public_patch("/v1/link-stations/{link_station_id}", item=LinkStation)
     async def update_link_station_public(
@@ -4121,22 +4119,12 @@ class ProtectApiClient(BaseApiClient):
         """Patch link station settings using public API."""
         raise NotImplementedError
 
+    @public_patch("/v1/alarm-hubs/{hub_id}", item=LinkStation)
     async def update_alarm_hub_public(
         self, hub_id: str, *, name: str | None = None
     ) -> LinkStation:
         """Patch alarm hub settings using public API."""
-        body: dict[str, Any] = {}
-        if name is not None:
-            body["name"] = name
-        if not body:
-            raise BadRequest("At least one parameter must be provided")
-        result = await self.api_request_obj(
-            url=f"/v1/alarm-hubs/{hub_id}",
-            method="patch",
-            json=body,
-            public_api=True,
-        )
-        return LinkStation.from_unifi_dict(**result, api=self)
+        raise NotImplementedError
 
     async def trigger_alarm_hub_output_public(
         self,

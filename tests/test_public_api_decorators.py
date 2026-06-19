@@ -207,7 +207,7 @@ _REGISTERED_METHODS = sorted(_REGISTRY.values())
 
 
 def test_registry_is_non_empty_and_covers_converted_endpoints() -> None:
-    assert len(_REGISTRY) == 35
+    assert len(_REGISTRY) == 38
     # paths are unique per (verb, path) key by construction
     assert len(set(_REGISTRY)) == len(_REGISTRY)
 
@@ -231,12 +231,25 @@ def test_each_registered_method_appears_exactly_once(method_name: str) -> None:
         "get_viewer_public",
         "get_liveview_public",
         "send_alarm_webhook_public",
-        "get_alarm_hubs_public",
         "update_public",
     ],
 )
 def test_hand_written_exceptions_absent_from_registry(excluded: str) -> None:
     assert excluded not in _REGISTERED_METHODS
+
+
+@pytest.mark.parametrize(
+    ("method_name", "endpoint"),
+    [
+        ("get_alarm_hubs_public", ("get", "/v1/alarm-hubs")),
+        ("get_alarm_hub_public", ("get", "/v1/alarm-hubs/{hub_id}")),
+        ("update_alarm_hub_public", ("patch", "/v1/alarm-hubs/{hub_id}")),
+    ],
+)
+def test_alarm_hub_family_is_declarative(
+    method_name: str, endpoint: tuple[str, str]
+) -> None:
+    assert _REGISTRY[endpoint] == method_name
 
 
 def test_signature_preserved() -> None:
