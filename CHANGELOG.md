@@ -1,5 +1,16 @@
 # Changelog
 
+## v13.5.1 (2026-06-20)
+
+### Bug fixes
+
+
+- Re-auth and retry once on private 401 ([`93201f4`](https://github.com/uilibs/uiprotect/commit/93201f4a45ac5cebc2c597b6b09035f91e892481))
+
+
+- Re-auth and retry once on private 401 ([`93201f4`](https://github.com/uilibs/uiprotect/commit/93201f4a45ac5cebc2c597b6b09035f91e892481))
+
+
 ## v13.5.0 (2026-06-20)
 
 ### Features
