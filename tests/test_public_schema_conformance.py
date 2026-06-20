@@ -30,6 +30,7 @@ from validate_spec import (  # local import via conftest sys.path insert
     _leaf_model,
     _resolve_object_props,
     check_completeness,
+    check_enum_coverage,
     run_checks,
 )
 
@@ -107,6 +108,14 @@ def test_spec_validation_has_no_errors() -> None:
     spec = orjson.loads(_SPEC_PATH.read_bytes())
     errors, _warnings = run_checks(spec)
     assert not errors, "spec drift:\n" + "\n".join(errors)
+
+
+@pytest.mark.skipif(not _SPEC_PATH.exists(), reason="openapi/integration.json absent")
+def test_every_inbound_spec_enum_is_modelled_or_waived() -> None:
+    """Every inbound spec enum is exact-matched, pinned to a superset, or waived."""
+    spec = orjson.loads(_SPEC_PATH.read_bytes())
+    _errors, warnings = check_enum_coverage(spec)
+    assert not warnings, "unmodelled, unwaived spec enums:\n" + "\n".join(warnings)
 
 
 def test_every_public_coroutine_is_covered() -> None:
