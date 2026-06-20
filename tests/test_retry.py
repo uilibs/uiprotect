@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import aiohttp
@@ -393,6 +394,163 @@ async def test_no_retry_when_max_retries_zero(protect_client_factory) -> None:
 
     assert result is response_503
     assert mock_request.await_count == 1  # No retries
+
+
+# =============================================================================
+# 401 Re-auth-and-retry Tests
+# =============================================================================
+
+
+@pytest.mark.asyncio()
+async def test_private_401_reauths_and_retries_once(protect_client_factory) -> None:
+    """A 401 on a private authed request triggers one re-auth + retry."""
+    client = protect_client_factory(max_retries=0)
+    client.ensure_authenticated = AsyncMock()
+    client._reauthenticate = AsyncMock()
+    response_401 = _mock_response(401)
+    response_200 = _mock_response(200)
+    call_count = 0
+
+    async def mock_do_request(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return response_401 if call_count == 1 else response_200
+
+    with patch.object(client, "_do_request", side_effect=mock_do_request):
+        result = await client.request(
+            "get", "/test", require_auth=True, auto_close=False
+        )
+
+    assert result is response_200
+    assert call_count == 2
+    client._reauthenticate.assert_awaited_once()
+
+
+@pytest.mark.asyncio()
+async def test_private_401_persists_returns_401(protect_client_factory) -> None:
+    """A persistent 401 retries exactly once then returns the 401 response."""
+    client = protect_client_factory(max_retries=0)
+    client.ensure_authenticated = AsyncMock()
+    client._reauthenticate = AsyncMock()
+    response_401 = _mock_response(401)
+
+    with patch.object(client, "_do_request", return_value=response_401) as mock_request:
+        result = await client.request(
+            "get", "/test", require_auth=True, auto_close=False
+        )
+
+    assert result is response_401
+    assert mock_request.await_count == 2  # 1 initial + 1 re-auth retry
+    client._reauthenticate.assert_awaited_once()
+
+
+@pytest.mark.asyncio()
+async def test_public_401_not_reauthed(protect_client_factory) -> None:
+    """A 401 on the public-API path is propagated without re-auth."""
+    client = protect_client_factory(max_retries=0)
+    client._api_key = "key"
+    client.get_public_api_session = AsyncMock(return_value=AsyncMock())
+    client._reauthenticate = AsyncMock()
+    response_401 = _mock_response(401)
+
+    with patch.object(client, "_do_request", return_value=response_401) as mock_request:
+        result = await client.request(
+            "get", "/test", require_auth=True, public_api=True, auto_close=False
+        )
+
+    assert result is response_401
+    assert mock_request.await_count == 1
+    client._reauthenticate.assert_not_awaited()
+
+
+@pytest.mark.asyncio()
+async def test_unauthed_401_not_reauthed(protect_client_factory) -> None:
+    """A 401 without require_auth does not trigger re-auth."""
+    client = protect_client_factory(max_retries=0)
+    client._reauthenticate = AsyncMock()
+    response_401 = _mock_response(401)
+
+    with patch.object(client, "_do_request", return_value=response_401) as mock_request:
+        result = await client.request("get", "/test", auto_close=False)
+
+    assert result is response_401
+    assert mock_request.await_count == 1
+    client._reauthenticate.assert_not_awaited()
+
+
+@pytest.mark.asyncio()
+async def test_reauthenticate_clears_state_and_reauths(
+    protect_client_factory,
+) -> None:
+    """_reauthenticate drops the dead session then re-authenticates."""
+    client = protect_client_factory(max_retries=0)
+    client._session = MagicMock()
+    client.headers = {"cookie": "dead", "x-csrf-token": "old"}
+    client._is_authenticated = True
+    client.ensure_authenticated = AsyncMock()
+
+    await client._reauthenticate()
+
+    client._session.cookie_jar.clear.assert_called_once()
+    assert "cookie" not in client.headers
+    assert "x-csrf-token" not in client.headers
+    assert client._is_authenticated is False
+    client.ensure_authenticated.assert_awaited_once()
+
+
+@pytest.mark.asyncio()
+async def test_concurrent_authenticate_logs_in_once(protect_client_factory) -> None:
+    """Concurrent authenticate() calls serialize and POST login only once."""
+    client = protect_client_factory(max_retries=0)
+    login_posts = 0
+
+    async def fake_request(method, url=None, **kwargs):
+        nonlocal login_posts
+        login_posts += 1
+        await asyncio.sleep(0)
+        return _mock_response(200, {"set-cookie": "new-cookie"})
+
+    with patch.object(client, "request", side_effect=fake_request):
+        await asyncio.gather(*(client.authenticate() for _ in range(5)))
+
+    assert login_posts == 1
+
+
+@pytest.mark.asyncio()
+async def test_private_401_retry_sends_refreshed_cookie(
+    protect_client_factory,
+) -> None:
+    """
+    The retried request carries the fresh cookie minted by the real re-auth.
+
+    Runs ``_reauthenticate`` for real (only the login transport is mocked) so the
+    in-place ``self.headers`` refresh the guard relies on is exercised end-to-end.
+    """
+    client = protect_client_factory(max_retries=0)
+    client.store_sessions = False
+    client._load_session = AsyncMock()
+    client._session = MagicMock()
+    client._is_authenticated = True
+    client._last_token_cookie = MagicMock()
+    client._last_token_cookie_decode = {"exp": 9999999999}
+    client.headers = {"cookie": "stale-cookie"}
+
+    sent_cookies: list[str | None] = []
+
+    async def mock_do_request(session, method, request_url, headers, **kwargs):
+        if method == "post":  # the real re-auth login mints a fresh session cookie
+            return _mock_response(200, {"set-cookie": "fresh-cookie"})
+        sent_cookies.append(headers.get("cookie"))
+        return _mock_response(401) if len(sent_cookies) == 1 else _mock_response(200)
+
+    with patch.object(client, "_do_request", side_effect=mock_do_request):
+        result = await client.request(
+            "get", "/test", require_auth=True, auto_close=False
+        )
+
+    assert result.status == 200
+    assert sent_cookies == ["stale-cookie", "fresh-cookie"]
+    assert client.headers["cookie"] == "fresh-cookie"
 
 
 # =============================================================================
