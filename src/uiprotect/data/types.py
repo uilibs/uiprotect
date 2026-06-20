@@ -737,7 +737,11 @@ class SmokeTestSource(UnknownValuesEnumMixin, enum.StrEnum):
 
 @enum.unique
 class EventButtonType(UnknownValuesEnumMixin, enum.StrEnum):
-    """Button of a ``sensorButtonPressed`` / ``alarmHubButtonPress`` event (``metadata.button.text``)."""
+    """
+    Button of a ``sensorButtonPressed`` / ``alarmHubButtonPress`` event.
+
+    Sourced from ``metadata.button.text``.
+    """
 
     FUNCTION = "function"
     ALARM_HUB_BUTTON = "alarmHubButton"
