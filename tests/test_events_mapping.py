@@ -9,7 +9,7 @@ import orjson
 import pytest
 
 from tests.conftest import SAMPLE_DATA_DIRECTORY
-from uiprotect.data.nvr import Event, NfcMetadata
+from uiprotect.data.public_event import PublicEvent, PublicNfcMetadata
 from uiprotect.data.types import EventType, SensorAlarmType, SmartDetectObjectType
 from uiprotect.events import EVENT_TYPE_TO_CHANNEL, ProtectEventChannel
 from uiprotect.events._mapping import event_to_protect_event
@@ -21,22 +21,19 @@ def _load(name: str) -> Any:
     return orjson.loads((_FIXTURES / name).read_bytes())
 
 
-def _event_from_payload(item: dict[str, Any]) -> Event:
-    return Event.from_unifi_dict(**item)
+def _event_from_payload(item: dict[str, Any]) -> PublicEvent:
+    return PublicEvent.from_unifi_dict(**item)
 
 
 def test_nfc_metadata_optionality_and_ulp_id() -> None:
-    md = NfcMetadata.from_unifi_dict(ulpId="22222222-2222-2222-2222-222222222222")
+    md = PublicNfcMetadata.from_unifi_dict(ulpId="22222222-2222-2222-2222-222222222222")
     assert md.ulp_id == "22222222-2222-2222-2222-222222222222"
-    assert md.nfc_id is None
-    assert md.user_id is None
 
 
 def test_event_device_id_remap_from_public_payload() -> None:
     payload = _load("nfc_add_with_end.json")["item"]
     event = _event_from_payload(payload)
     assert event.device_id == "aabbccddeeff00112233aabb"
-    assert event.camera_id is None
 
 
 def test_map_nfc_event_to_access_channel() -> None:

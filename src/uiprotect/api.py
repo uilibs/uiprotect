@@ -63,6 +63,7 @@ from .data import (
     PublicBridge,
     PublicCamera,
     PublicChime,
+    PublicEvent,
     PublicFile,
     PublicHdrMode,
     PublicLight,
@@ -2188,7 +2189,7 @@ class ProtectApiClient(BaseApiClient):
         if self._event_dispatcher is None:
             return
         dispatcher = self._event_dispatcher
-        old_obj = msg.old_obj if isinstance(msg.old_obj, Event) else None
+        old_obj = msg.old_obj if isinstance(msg.old_obj, PublicEvent) else None
         if msg.action in (WSAction.ADD, WSAction.UPDATE):
             if msg.new_obj is None:
                 # Benign in normal desync/reconnect: an UPDATE for an event id
@@ -2202,7 +2203,7 @@ class ProtectApiClient(BaseApiClient):
                     event_id,
                 )
                 return
-            if not isinstance(msg.new_obj, Event):
+            if not isinstance(msg.new_obj, PublicEvent):
                 # A merged object of the wrong type is a genuine shape violation.
                 _LOGGER.warning(
                     "Events-WS %s merged obj is not an Event — dropping frame"

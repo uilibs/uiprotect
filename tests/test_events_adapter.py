@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 from uiprotect.api import ProtectApiClient
-from uiprotect.data.nvr import Event
+from uiprotect.data.public_event import PublicEvent
 from uiprotect.data.types import EventType
 from uiprotect.data.websocket import WSAction, WSSubscriptionMessage
 from uiprotect.events.dispatcher import EventDispatcher
@@ -39,8 +39,8 @@ def _attach(
     return dispatcher, received
 
 
-def _motion(api: ProtectApiClient, event_id: str = "m1") -> Event:
-    return Event(
+def _motion(api: ProtectApiClient, event_id: str = "m1") -> PublicEvent:
+    return PublicEvent(
         api=api,
         id=event_id,
         type=EventType.MOTION,

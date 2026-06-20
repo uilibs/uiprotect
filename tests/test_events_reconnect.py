@@ -9,8 +9,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from uiprotect.api import ProtectApiClient
-from uiprotect.data.nvr import Event
 from uiprotect.data.public_bootstrap import PublicBootstrap
+from uiprotect.data.public_event import PublicEvent
 from uiprotect.data.types import EventType
 from uiprotect.data.websocket import WSAction
 from uiprotect.events import EventChange, ProtectEvent
@@ -34,7 +34,7 @@ def _store_started(
 ) -> str:
     start = datetime.now(tz=UTC) - age
     eid = event_id or f"e-{int(start.timestamp() * 1000)}"
-    ev = Event(
+    ev = PublicEvent(
         api=api,
         id=eid,
         type=EventType.MOTION,

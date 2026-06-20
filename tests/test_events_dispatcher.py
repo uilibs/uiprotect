@@ -10,8 +10,8 @@ import pytest
 
 from tests.conftest import SAMPLE_DATA_DIRECTORY
 from uiprotect.api import ProtectApiClient
-from uiprotect.data.nvr import Event
 from uiprotect.data.public_bootstrap import PublicBootstrap
+from uiprotect.data.public_event import PublicEvent
 from uiprotect.data.types import EventType, ModelType
 from uiprotect.data.websocket import WSAction, WSSubscriptionMessage
 from uiprotect.events import EventChange, ProtectEvent
@@ -24,8 +24,8 @@ def _load(name: str) -> Any:
     return orjson.loads((_FIXTURES / name).read_bytes())
 
 
-def _payload_to_event(api: ProtectApiClient, payload: dict[str, Any]) -> Event:
-    return Event.from_unifi_dict(api=api, **payload)
+def _payload_to_event(api: ProtectApiClient, payload: dict[str, Any]) -> PublicEvent:
+    return PublicEvent.from_unifi_dict(api=api, **payload)
 
 
 def _make_client() -> ProtectApiClient:
@@ -59,7 +59,7 @@ def _collect(
     return received
 
 
-def _store(api: ProtectApiClient, event: Event) -> None:
+def _store(api: ProtectApiClient, event: PublicEvent) -> None:
     """Place ``event`` in the single store, mirroring the WS merge path."""
     api.public_bootstrap.events[event.id] = event
 
@@ -68,7 +68,7 @@ def test_dispatch_drops_non_device_event(
     api: ProtectApiClient, dispatcher: EventDispatcher
 ) -> None:
     received = _collect(dispatcher)
-    event = Event(
+    event = PublicEvent(
         api=api,
         id="x",
         type=EventType.REBOOT,
@@ -85,7 +85,7 @@ def test_dispatch_drops_missing_device_id(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     received = _collect(dispatcher)
-    event = Event(
+    event = PublicEvent(
         api=api,
         id="y",
         type=EventType.MOTION,
@@ -102,7 +102,7 @@ def test_dispatch_started_then_ended_through_update(
 ) -> None:
     received = _collect(dispatcher)
     start = datetime(2026, 1, 1, tzinfo=UTC)
-    add = Event(
+    add = PublicEvent(
         api=api,
         id="m1",
         type=EventType.MOTION,
@@ -180,7 +180,7 @@ def test_dispatch_smartdetect_lifecycle_idempotent_ended(
     received = _collect(dispatcher)
     payloads = _load("smartdetect_lifecycle.json")
     merged: dict[str, Any] = {}
-    prev: Event | None = None
+    prev: PublicEvent | None = None
     for frame in payloads:
         merged.update(frame["item"])
         event = _payload_to_event(api, dict(merged))
@@ -200,7 +200,9 @@ def test_dispatch_update_to_end_retransmit_suppressed(
 ) -> None:
     received = _collect(dispatcher)
     start = datetime(2026, 1, 1, tzinfo=UTC)
-    add = Event(api=api, id="r", type=EventType.MOTION, start=start, device_id="cam-1")
+    add = PublicEvent(
+        api=api, id="r", type=EventType.MOTION, start=start, device_id="cam-1"
+    )
     _store(api, add)
     dispatcher.dispatch(WSAction.ADD, add, None)
 
@@ -221,7 +223,9 @@ def test_dispatch_update_still_open_is_updated(
 ) -> None:
     received = _collect(dispatcher)
     start = datetime(2026, 1, 1, tzinfo=UTC)
-    add = Event(api=api, id="u", type=EventType.MOTION, start=start, device_id="cam-1")
+    add = PublicEvent(
+        api=api, id="u", type=EventType.MOTION, start=start, device_id="cam-1"
+    )
     _store(api, add)
     dispatcher.dispatch(WSAction.ADD, add, None)
     snapshot = add.model_copy()
@@ -234,7 +238,7 @@ def test_dispatch_remove_terminates(
 ) -> None:
     received = _collect(dispatcher)
     start = datetime(2026, 1, 1, tzinfo=UTC)
-    add = Event(
+    add = PublicEvent(
         api=api,
         id="r1",
         type=EventType.MOTION,
@@ -255,7 +259,7 @@ def test_dispatch_remove_already_terminal_suppressed(
 ) -> None:
     received = _collect(dispatcher)
     start = datetime(2026, 1, 1, tzinfo=UTC)
-    ended = Event(
+    ended = PublicEvent(
         api=api,
         id="r2",
         type=EventType.MOTION,
@@ -279,7 +283,7 @@ def test_subscriber_exception_isolation(
     dispatcher.add_subscriber(bad)
     dispatcher.add_subscriber(lambda e, c: good.append((e, c)))
 
-    add = Event(
+    add = PublicEvent(
         api=api,
         id="m",
         type=EventType.MOTION,
@@ -296,7 +300,7 @@ def test_active_events_filter_by_device(
 ) -> None:
     start = datetime(2026, 1, 1, tzinfo=UTC)
     for idx, dev in enumerate(["cam-a", "cam-b"]):
-        event = Event(
+        event = PublicEvent(
             api=api,
             id=f"e-{idx}",
             type=EventType.MOTION,
@@ -312,13 +316,13 @@ def test_active_events_skips_ended_and_other(
     api: ProtectApiClient, dispatcher: EventDispatcher
 ) -> None:
     start = datetime(2026, 1, 1, tzinfo=UTC)
-    open_a = Event(
+    open_a = PublicEvent(
         api=api, id="open-a", type=EventType.MOTION, start=start, device_id="cam-a"
     )
-    open_b = Event(
+    open_b = PublicEvent(
         api=api, id="open-b", type=EventType.RING, start=start, device_id="cam-b"
     )
-    ended = Event(
+    ended = PublicEvent(
         api=api,
         id="ended",
         type=EventType.MOTION,
@@ -326,7 +330,7 @@ def test_active_events_skips_ended_and_other(
         end=start + timedelta(seconds=1),
         device_id="cam-a",
     )
-    other = Event(
+    other = PublicEvent(
         api=api, id="other", type=EventType.REBOOT, start=start, device_id="cam-a"
     )
     for ev in (open_a, open_b, ended, other):
@@ -347,7 +351,7 @@ def test_dispatch_resolves_device_mac_when_device_known(
 ) -> None:
     received = _collect(dispatcher)
     api.public_bootstrap.cameras["cam-1"] = _MacStub("cam-1", "aabbccddeeff")  # type: ignore[assignment]
-    add = Event(
+    add = PublicEvent(
         api=api,
         id="m1",
         type=EventType.MOTION,
@@ -363,7 +367,7 @@ def test_dispatch_device_mac_none_when_device_absent(
     api: ProtectApiClient, dispatcher: EventDispatcher
 ) -> None:
     received = _collect(dispatcher)
-    add = Event(
+    add = PublicEvent(
         api=api,
         id="m2",
         type=EventType.MOTION,
@@ -410,7 +414,7 @@ def test_unsubscribe_during_fan_out_does_not_skip(
 
     dispatcher.add_subscriber(first)
     dispatcher.add_subscriber(second)
-    add = Event(
+    add = PublicEvent(
         api=api,
         id="fo1",
         type=EventType.MOTION,
@@ -434,7 +438,7 @@ def test_active_events_derives_before_subscribe(
 ) -> None:
     assert api._event_dispatcher is None
     start = datetime(2026, 1, 1, tzinfo=UTC)
-    event = Event(
+    event = PublicEvent(
         api=api, id="pre", type=EventType.MOTION, start=start, device_id="cam-1"
     )
     _store(api, event)
@@ -447,7 +451,7 @@ def test_active_events_with_dispatcher_delegates(
     api._event_dispatcher = dispatcher
     start = datetime(2026, 1, 1, tzinfo=UTC)
     for idx, dev in enumerate(["cam-a", "cam-b"]):
-        event = Event(
+        event = PublicEvent(
             api=api,
             id=f"api-e-{idx}",
             type=EventType.MOTION,
@@ -617,7 +621,7 @@ def test_merge_precedes_fan_out_invariant(
         seen.append(event.id in api.public_bootstrap.events)
 
     dispatcher.add_subscriber(cb)
-    add = Event(
+    add = PublicEvent(
         api=api,
         id="inv",
         type=EventType.MOTION,

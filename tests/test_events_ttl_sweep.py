@@ -8,8 +8,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from uiprotect.api import ProtectApiClient
-from uiprotect.data.nvr import Event
 from uiprotect.data.public_bootstrap import PublicBootstrap
+from uiprotect.data.public_event import PublicEvent
 from uiprotect.data.types import EventType
 from uiprotect.events import EventChange, ProtectEvent
 from uiprotect.events.dispatcher import (
@@ -34,7 +34,7 @@ def _make_client() -> ProtectApiClient:
 def _store_started(api: ProtectApiClient, *, age: timedelta) -> str:
     start = datetime.now(tz=UTC) - age
     eid = f"e-{int(start.timestamp() * 1000)}"
-    ev = Event(
+    ev = PublicEvent(
         api=api,
         id=eid,
         type=EventType.MOTION,
@@ -68,10 +68,10 @@ def test_sweep_skips_other_channel_and_missing_device_id() -> None:
     dispatcher.add_subscriber(lambda e, c: received.append((e, c)))
 
     stale = datetime.now(tz=UTC) - (EVENTS_ACTIVE_TTL + timedelta(seconds=10))
-    other = Event(
+    other = PublicEvent(
         api=api, id="other", type=EventType.REBOOT, start=stale, device_id="cam-1"
     )
-    no_device = Event(api=api, id="no-device", type=EventType.MOTION, start=stale)
+    no_device = PublicEvent(api=api, id="no-device", type=EventType.MOTION, start=stale)
     api.public_bootstrap.events["other"] = other
     api.public_bootstrap.events["no-device"] = no_device
 

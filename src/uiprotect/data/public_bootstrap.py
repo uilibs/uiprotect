@@ -39,7 +39,6 @@ from typing import TYPE_CHECKING, Any, cast
 
 from .base import ProtectModelWithId
 from .convert import create_from_unifi_dict
-from .nvr import Event
 from .public_devices import (
     ArmProfile,
     Fob,
@@ -58,6 +57,7 @@ from .public_devices import (
     Siren,
     Speaker,
 )
+from .public_event import PublicEvent
 from .types import DeviceState, ModelType
 
 if TYPE_CHECKING:
@@ -176,7 +176,7 @@ class PublicBootstrap:
     # Entries may be synthetically end-marked (``end`` set) by the public
     # events TTL/reconnect sweep, not only by a server-sent close frame — so a
     # non-``None`` ``end`` here does not always correspond to a WS payload.
-    events: OrderedDict[str, Event] = field(default_factory=OrderedDict)
+    events: OrderedDict[str, PublicEvent] = field(default_factory=OrderedDict)
     max_event_cache_size: int = DEFAULT_PUBLIC_EVENT_CACHE_SIZE
 
     # UniFi Identity (ULP) users, indexed by ulp id. Single source of truth
@@ -449,7 +449,7 @@ class PublicBootstrap:
         self,
         api: ProtectApiClient,
         data: dict[str, Any],
-    ) -> tuple[Event | None, Event | None]:
+    ) -> tuple[PublicEvent | None, PublicEvent | None]:
         """
         Apply a public *events* WS payload to the event cache.
 
@@ -474,7 +474,7 @@ class PublicBootstrap:
         new, _old = self._apply_action(
             api, action_type, item, ModelType.EVENT, self._events_slot()
         )
-        return cast("Event | None", new), old_snapshot
+        return cast("PublicEvent | None", new), old_snapshot
 
     # ------------------------------------------------------------------
     # Action application (shared by devices / NVR / events)
@@ -583,7 +583,8 @@ class PublicBootstrap:
         model_type: ModelType,
     ) -> ProtectModelWithId | None:
         """
-        Build a closed :class:`Event` from a lone ``update`` for an unseen id.
+        Build a closed :class:`PublicEvent` from a lone ``update`` for an unseen
+        id.
 
         Returns the event only when scoped to the EVENT store and the payload
         is self-sufficient and already closed (every field in
@@ -598,10 +599,7 @@ class PublicBootstrap:
         ):
             return None
         try:
-            return cast(
-                "ProtectModelWithId",
-                create_from_unifi_dict(item, api=api, model_type=ModelType.EVENT),
-            )
+            return PublicEvent.from_unifi_dict(api=api, **item)
         except Exception as err:
             _warn_once(
                 self._warned_merge_failures,
@@ -675,7 +673,7 @@ class PublicBootstrap:
             return events.get(obj_id)
 
         def _put(obj_id: str, obj: ProtectModelWithId) -> None:
-            events[obj_id] = cast("Event", obj)
+            events[obj_id] = cast("PublicEvent", obj)
             events.move_to_end(obj_id)
             while events and len(events) > limit:
                 events.popitem(last=False)
@@ -683,7 +681,10 @@ class PublicBootstrap:
         def _delete(obj_id: str) -> None:
             events.pop(obj_id, None)
 
-        return _Slot(_get, _put, _delete)
+        def _factory(item: dict[str, Any], api: ProtectApiClient) -> PublicEvent:
+            return PublicEvent.from_unifi_dict(api=api, **item)
+
+        return _Slot(_get, _put, _delete, factory=_factory)
 
 
 @dataclass(frozen=True, slots=True)
