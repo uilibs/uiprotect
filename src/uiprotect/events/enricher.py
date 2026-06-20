@@ -9,7 +9,7 @@ from .protect_event import EventIdentity, UlpUserIdentity, UnknownIdentity
 
 if TYPE_CHECKING:
     from ..api import ProtectApiClient
-    from ..data.nvr import Event
+    from ..data.public_event import PublicEvent
 
 
 class EventEnricher:
@@ -18,14 +18,14 @@ class EventEnricher:
     def __init__(self, api: ProtectApiClient) -> None:
         self._api = api
 
-    def enrich(self, raw: Event) -> EventIdentity | None:
+    def enrich(self, raw: PublicEvent) -> EventIdentity | None:
         if raw.type is EventType.NFC_CARD_SCANNED:
             return self._resolve_nfc(raw)
         if raw.type is EventType.FINGERPRINT_IDENTIFIED:
             return self._resolve_fingerprint(raw)
         return None
 
-    def _resolve_nfc(self, raw: Event) -> EventIdentity:
+    def _resolve_nfc(self, raw: PublicEvent) -> EventIdentity:
         metadata = raw.metadata
         if metadata is None or metadata.nfc is None:
             return UnknownIdentity(reason="no_metadata")
@@ -34,7 +34,7 @@ class EventEnricher:
             return UnknownIdentity(reason="ulp_id_null")
         return self._lookup_ulp_user(ulp_id)
 
-    def _resolve_fingerprint(self, raw: Event) -> EventIdentity:
+    def _resolve_fingerprint(self, raw: PublicEvent) -> EventIdentity:
         metadata = raw.metadata
         if metadata is None or metadata.fingerprint is None:
             return UnknownIdentity(reason="no_metadata")

@@ -63,6 +63,7 @@ from .data import (
     PublicBridge,
     PublicCamera,
     PublicChime,
+    PublicEvent,
     PublicFile,
     PublicHdrMode,
     PublicLight,
@@ -1338,7 +1339,10 @@ class ProtectApiClient(BaseApiClient):
     _device_ws_adapter_unsub: Callable[[], None] | None = None
     # Monotonic timestamp of the last "REMOVE for unknown event" INFO log;
     # throttled so a burst of unknown-id removes does not flood the log.
-    _events_remove_unknown_last_log: float = 0.0
+    # Seeded to -inf (not 0.0) so the first unknown remove always logs: with
+    # 0.0 the gate ``now - last >= 60`` only opens once ``monotonic()`` has
+    # passed 60s, silently swallowing an early remove on a freshly-booted host.
+    _events_remove_unknown_last_log: float = float("-inf")
     # Non-throttled running total of unknown-id REMOVE frames. The INFO log is
     # rate-limited, so this counter keeps a sustained cache/server desync
     # observable even when individual lines are suppressed.
@@ -2188,7 +2192,7 @@ class ProtectApiClient(BaseApiClient):
         if self._event_dispatcher is None:
             return
         dispatcher = self._event_dispatcher
-        old_obj = msg.old_obj if isinstance(msg.old_obj, Event) else None
+        old_obj = msg.old_obj if isinstance(msg.old_obj, PublicEvent) else None
         if msg.action in (WSAction.ADD, WSAction.UPDATE):
             if msg.new_obj is None:
                 # Benign in normal desync/reconnect: an UPDATE for an event id
@@ -2202,7 +2206,7 @@ class ProtectApiClient(BaseApiClient):
                     event_id,
                 )
                 return
-            if not isinstance(msg.new_obj, Event):
+            if not isinstance(msg.new_obj, PublicEvent):
                 # A merged object of the wrong type is a genuine shape violation.
                 _LOGGER.warning(
                     "Events-WS %s merged obj is not an Event — dropping frame"

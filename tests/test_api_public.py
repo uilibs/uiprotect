@@ -2154,7 +2154,6 @@ def test_events_ws_motion_minimal_add_and_end_update(
     assert new_event.id == "evt-motion-1"
     assert new_event.type.value == "motion"
     assert new_event.end is None
-    assert new_event.score == 0  # default applied
     assert new_event.smart_detect_types == []  # default applied
     assert "evt-motion-1" in pb.events
 

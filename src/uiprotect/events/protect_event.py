@@ -8,8 +8,8 @@ from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..data.nvr import Event
 from ..data.public_devices import PublicUlpUser
+from ..data.public_event import PublicEvent, PublicEventMetadata
 from ..data.types import EventType, SensorAlarmType, SmartDetectObjectType
 
 
@@ -48,6 +48,12 @@ _SENSOR: frozenset[EventType] = frozenset(
         EventType.SENSOR_BATTERY_LOW,
         EventType.SENSOR_SMOKE_TEST,
         EventType.SENSOR_TAMPER,
+        EventType.SENSOR_VAPE,
+        EventType.SENSOR_SMOKE_BATTERY_LOW,
+        EventType.SENSOR_SMOKE_NEEDS_CLEANING,
+        EventType.SENSOR_SMOKE_FAULT,
+        EventType.SENSOR_CO_FAULT,
+        EventType.SENSOR_SMOKE_END_OF_LIFE,
     }
 )
 
@@ -162,4 +168,12 @@ class ProtectEvent(BaseModel):
     # Sensor alarm sound (``sensorAlarm`` events), collapsed from the public
     # ``metadata.alarmType.text``; ``None`` for other event types.
     alarm_type: SensorAlarmType | None = None
-    raw: Event | None = Field(default=None, repr=False, exclude=True)
+    # Strongly-typed metadata union (all fields optional). Consumers read typed
+    # values off here (``metadata.sensor_type``, ``metadata.input_state``, …)
+    # rather than parsing raw strings. ``None`` for events without metadata.
+    # Live typed view over the cached ``PublicEvent`` (not a deep snapshot),
+    # matching the ``raw`` semantics below.
+    metadata: PublicEventMetadata | None = None
+    # Live view onto the cached source event, not a deep snapshot: it aliases
+    # the same ``PublicEvent`` the bootstrap cache holds and mutates in place.
+    raw: PublicEvent | None = Field(default=None, repr=False, exclude=True)

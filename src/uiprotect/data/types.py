@@ -309,6 +309,12 @@ class EventType(ValuesEnumMixin, enum.StrEnum):
     SENSOR_BATTERY_LOW = "sensorBatteryLow"
     SENSOR_SMOKE_TEST = "sensorSmokeTest"
     SENSOR_TAMPER = "sensorTamper"
+    SENSOR_VAPE = "sensorVape"
+    SENSOR_SMOKE_BATTERY_LOW = "sensorSmokeBatteryLow"
+    SENSOR_SMOKE_NEEDS_CLEANING = "sensorSmokeNeedsCleaning"
+    SENSOR_SMOKE_FAULT = "sensorSmokeFault"
+    SENSOR_CO_FAULT = "sensorCoFault"
+    SENSOR_SMOKE_END_OF_LIFE = "sensorSmokeEndOfLife"
     RELAY_INPUT_CHANGED = "relayInputChanged"
     ALARM_HUB_MOTION = "alarmHubMotion"
     ALARM_HUB_ENTRY_OPENED = "alarmHubEntryOpened"
@@ -689,6 +695,64 @@ class SensorAlarmType(UnknownValuesEnumMixin, enum.StrEnum):
     TAMPER = "tamper"
     SHORT = "short"
     CUT = "cut"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class SensorExtremeMetricType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Metric of a ``sensorExtremeValues`` event (``metadata.sensorType.text``)."""
+
+    TEMPERATURE = "temperature"
+    LIGHT = "light"
+    HUMIDITY = "humidity"
+    AQI = "aqi"
+    VAPE = "vape"
+    TVOC = "tvoc"
+    PM1P0 = "pm1p0"
+    PM2P5 = "pm2p5"
+    PM4P0 = "pm4p0"
+    PM10P0 = "pm10p0"
+    CO2 = "co2"
+    VOC = "voc"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class RelayInputCircuitState(UnknownValuesEnumMixin, enum.StrEnum):
+    """Relay input circuit state (``relayInputChanged`` ``metadata.inputState.text``)."""
+
+    CIRCUIT_CLOSED = "circuitClosed"
+    CIRCUIT_OPEN = "circuitOpen"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class SmokeTestSource(UnknownValuesEnumMixin, enum.StrEnum):
+    """Origin of a ``sensorSmokeTest`` event (flat ``metadata.source``)."""
+
+    LOCAL = "local"
+    REMOTE = "remote"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class EventButtonType(UnknownValuesEnumMixin, enum.StrEnum):
+    """
+    Button of a ``sensorButtonPressed`` / ``alarmHubButtonPress`` event.
+
+    Sourced from ``metadata.button.text``.
+    """
+
+    FUNCTION = "function"
+    ALARM_HUB_BUTTON = "alarmHubButton"
+    ARM = "arm"
+    DISARM = "disarm"
+    NIGHT = "night"
+    PANIC = "panic"
+    LEFT = "left"
+    RIGHT = "right"
+    INPUT1 = "input1"
+    INPUT2 = "input2"
     UNKNOWN = "unknown"
 
 

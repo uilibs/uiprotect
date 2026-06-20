@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from ..api import ProtectApiClient
-    from ..data.nvr import Event
+    from ..data.public_event import PublicEvent
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -98,8 +98,8 @@ class EventDispatcher:
     def dispatch(
         self,
         action: WSAction,
-        new_event: Event | None,
-        old_event: Event | None,
+        new_event: PublicEvent | None,
+        old_event: PublicEvent | None,
     ) -> None:
         # ``new_event`` is the post-merge cached object (``None`` only on
         # REMOVE); ``old_event`` is the pre-merge snapshot the store handed
@@ -129,10 +129,10 @@ class EventDispatcher:
     def _derive(
         self,
         action: WSAction,
-        subject: Event,
+        subject: PublicEvent,
         channel: ProtectEventChannel,
-        new_event: Event | None,
-        old_event: Event | None,
+        new_event: PublicEvent | None,
+        old_event: PublicEvent | None,
     ) -> list[tuple[ProtectEvent, EventChange]]:
         identity = self._enricher.enrich(subject)
         device_mac = self._device_mac(subject.device_id)
