@@ -1,5 +1,25 @@
 # Changelog
 
+## v13.5.0 (2026-06-20)
+
+### Features
+
+
+- Decouple public events path onto a typed public event model ([`018c05e`](https://github.com/uilibs/uiprotect/commit/018c05e79cf8445282773938e4ba95d79e21bea7))
+
+
+- Add strongly-typed public event model and metadata enums ([`018c05e`](https://github.com/uilibs/uiprotect/commit/018c05e79cf8445282773938e4ba95d79e21bea7))
+
+
+### Documentation
+
+
+- Refresh readme for the public-api direction and clean up ([`a9bc45d`](https://github.com/uilibs/uiprotect/commit/a9bc45d17e9a45407535f9a6794ca28d4415ea84))
+
+
+- Reorganize and de-duplicate the readme ([`a9bc45d`](https://github.com/uilibs/uiprotect/commit/a9bc45d17e9a45407535f9a6794ca28d4415ea84))
+
+
 ## v13.4.0 (2026-06-19)
 
 ### Features
