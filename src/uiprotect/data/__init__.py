@@ -98,6 +98,12 @@ from .public_devices import (
     Siren,
     Speaker,
 )
+from .public_event import (
+    PublicEvent,
+    PublicEventMetadata,
+    PublicFingerprintMetadata,
+    PublicNfcMetadata,
+)
 from .types import (
     DEFAULT,
     DEFAULT_TYPE,
@@ -269,7 +275,10 @@ __all__ = [
     "PublicDeviceModel",
     "PublicDoorbellCustomImage",
     "PublicDoorbellSettings",
+    "PublicEvent",
+    "PublicEventMetadata",
     "PublicFile",
+    "PublicFingerprintMetadata",
     "PublicFobFeatureFlags",
     "PublicHdrMode",
     "PublicLcdMessage",
@@ -281,6 +290,7 @@ __all__ = [
     "PublicLiveviewSlot",
     "PublicLiveviewSlotDict",
     "PublicNVR",
+    "PublicNfcMetadata",
     "PublicOsdSettings",
     "PublicRelayInput",
     "PublicRelayOutput",
