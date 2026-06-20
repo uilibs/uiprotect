@@ -516,6 +516,43 @@ async def test_concurrent_authenticate_logs_in_once(protect_client_factory) -> N
     assert login_posts == 1
 
 
+@pytest.mark.asyncio()
+async def test_private_401_retry_sends_refreshed_cookie(
+    protect_client_factory,
+) -> None:
+    """
+    The retried request carries the fresh cookie minted by the real re-auth.
+
+    Runs ``_reauthenticate`` for real (only the login transport is mocked) so the
+    in-place ``self.headers`` refresh the guard relies on is exercised end-to-end.
+    """
+    client = protect_client_factory(max_retries=0)
+    client.store_sessions = False
+    client._load_session = AsyncMock()
+    client._session = MagicMock()
+    client._is_authenticated = True
+    client._last_token_cookie = MagicMock()
+    client._last_token_cookie_decode = {"exp": 9999999999}
+    client.headers = {"cookie": "stale-cookie"}
+
+    sent_cookies: list[str | None] = []
+
+    async def mock_do_request(session, method, request_url, headers, **kwargs):
+        if method == "post":  # the real re-auth login mints a fresh session cookie
+            return _mock_response(200, {"set-cookie": "fresh-cookie"})
+        sent_cookies.append(headers.get("cookie"))
+        return _mock_response(401) if len(sent_cookies) == 1 else _mock_response(200)
+
+    with patch.object(client, "_do_request", side_effect=mock_do_request):
+        result = await client.request(
+            "get", "/test", require_auth=True, auto_close=False
+        )
+
+    assert result.status == 200
+    assert sent_cookies == ["stale-cookie", "fresh-cookie"]
+    assert client.headers["cookie"] == "fresh-cookie"
+
+
 # =============================================================================
 # _do_request Exception Handling Tests
 # =============================================================================
