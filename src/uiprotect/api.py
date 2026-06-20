@@ -1339,7 +1339,10 @@ class ProtectApiClient(BaseApiClient):
     _device_ws_adapter_unsub: Callable[[], None] | None = None
     # Monotonic timestamp of the last "REMOVE for unknown event" INFO log;
     # throttled so a burst of unknown-id removes does not flood the log.
-    _events_remove_unknown_last_log: float = 0.0
+    # Seeded to -inf (not 0.0) so the first unknown remove always logs: with
+    # 0.0 the gate ``now - last >= 60`` only opens once ``monotonic()`` has
+    # passed 60s, silently swallowing an early remove on a freshly-booted host.
+    _events_remove_unknown_last_log: float = float("-inf")
     # Non-throttled running total of unknown-id REMOVE frames. The INFO log is
     # rate-limited, so this counter keeps a sustained cache/server desync
     # observable even when individual lines are suppressed.
