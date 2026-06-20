@@ -315,9 +315,9 @@ new values on a named, tracked enum (warning), and any spec enum — named **or*
 inline — that is not faithfully typed in the library (warning). The enum-
 coverage check walks the whole spec keyed by value-set (the `unknown` forward-
 compat sentinel ignored on both sides) and counts a value-set covered only when
-it *equals* a single library enum, or is explicitly pinned in
+it _equals_ a single library enum, or is explicitly pinned in
 `_MODELLED_AS_SUBSET` to one named superset enum the public models already type
-the field with — never a coincidental subset of *any* enum, which is the value-
+the field with — never a coincidental subset of _any_ enum, which is the value-
 set collision an earlier any-subset check let slip. Enums are classified
 inbound (reachable from a response the library deserializes) vs. outbound-only
 (request param/body) by `$ref` reachability: outbound-only enums are waived by
