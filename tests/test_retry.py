@@ -434,9 +434,7 @@ async def test_private_401_persists_returns_401(protect_client_factory) -> None:
     client._reauthenticate = AsyncMock()
     response_401 = _mock_response(401)
 
-    with patch.object(
-        client, "_do_request", return_value=response_401
-    ) as mock_request:
+    with patch.object(client, "_do_request", return_value=response_401) as mock_request:
         result = await client.request(
             "get", "/test", require_auth=True, auto_close=False
         )
@@ -455,9 +453,7 @@ async def test_public_401_not_reauthed(protect_client_factory) -> None:
     client._reauthenticate = AsyncMock()
     response_401 = _mock_response(401)
 
-    with patch.object(
-        client, "_do_request", return_value=response_401
-    ) as mock_request:
+    with patch.object(client, "_do_request", return_value=response_401) as mock_request:
         result = await client.request(
             "get", "/test", require_auth=True, public_api=True, auto_close=False
         )
@@ -474,9 +470,7 @@ async def test_unauthed_401_not_reauthed(protect_client_factory) -> None:
     client._reauthenticate = AsyncMock()
     response_401 = _mock_response(401)
 
-    with patch.object(
-        client, "_do_request", return_value=response_401
-    ) as mock_request:
+    with patch.object(client, "_do_request", return_value=response_401) as mock_request:
         result = await client.request("get", "/test", auto_close=False)
 
     assert result is response_401
