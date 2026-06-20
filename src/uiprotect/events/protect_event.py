@@ -171,5 +171,9 @@ class ProtectEvent(BaseModel):
     # Strongly-typed metadata union (all fields optional). Consumers read typed
     # values off here (``metadata.sensor_type``, ``metadata.input_state``, …)
     # rather than parsing raw strings. ``None`` for events without metadata.
+    # Live typed view over the cached ``PublicEvent`` (not a deep snapshot),
+    # matching the ``raw`` semantics below.
     metadata: PublicEventMetadata | None = None
+    # Live view onto the cached source event, not a deep snapshot: it aliases
+    # the same ``PublicEvent`` the bootstrap cache holds and mutates in place.
     raw: PublicEvent | None = Field(default=None, repr=False, exclude=True)

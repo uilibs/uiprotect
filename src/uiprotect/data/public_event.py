@@ -93,6 +93,7 @@ class PublicEventMetadata(ProtectBaseObject):
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
+        """Collapse the ``{text|number: value}`` metadata envelopes to inner values."""
         for inner_key, wire_keys in (
             ("text", cls._text_keys),
             ("number", cls._number_keys),
@@ -111,6 +112,7 @@ class PublicEventMetadata(ProtectBaseObject):
         data: dict[str, Any] | None = None,
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
+        """Serialise, dropping ``None`` fields and re-wrapping metadata envelopes."""
         data = super().unifi_dict(data=data, exclude=exclude)
         for key, value in list(data.items()):
             if value is None:
@@ -137,11 +139,13 @@ class PublicEvent(ProtectModelWithId):
     @classmethod
     @cache
     def _get_unifi_remaps(cls) -> dict[str, str]:
+        """Remap the wire ``device`` key onto ``deviceId``."""
         return {**super()._get_unifi_remaps(), "device": "deviceId"}
 
     @classmethod
     @cache
     def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        """Parse the ``start`` / ``end`` wire timestamps into ``datetime``."""
         return (
             dict.fromkeys(("start", "end"), convert_to_datetime)
             | super().unifi_dict_conversions()
