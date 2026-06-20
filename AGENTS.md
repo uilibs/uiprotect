@@ -311,7 +311,19 @@ endpoint. If the file is absent, run the script first.
 `scripts/validate_spec.py` checks the public-API client against a fetched
 spec and reports drift: spec endpoints with no covering `*_public` method
 (warning), model fields the spec dropped/retyped (error) or added (warning),
-and new enum values (warning). Spec `required` vs. model `optional` is not
+new values on a named, tracked enum (warning), and any spec enum — named **or**
+inline — that is not faithfully typed in the library (warning). The enum-
+coverage check walks the whole spec keyed by value-set (the `unknown` forward-
+compat sentinel ignored on both sides) and counts a value-set covered only when
+it *equals* a single library enum, or is explicitly pinned in
+`_MODELLED_AS_SUBSET` to one named superset enum the public models already type
+the field with — never a coincidental subset of *any* enum, which is the value-
+set collision an earlier any-subset check let slip. Enums are classified
+inbound (reachable from a response the library deserializes) vs. outbound-only
+(request param/body) by `$ref` reachability: outbound-only enums are waived by
+direction, while an inbound enum left untyped needs an explicit, documented
+entry in `_ENUM_COVERAGE_WAIVERS`. The default is to model; waivers are the rare
+exception. Spec `required` vs. model `optional` is not
 checked — the library models every public-API field optional by design, so it
 would be guaranteed noise. It exits non-zero on any error and prints a markdown
 summary. Reproduce locally with:
