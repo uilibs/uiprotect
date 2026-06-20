@@ -525,13 +525,9 @@ class BaseApiClient:
     async def _auth_websocket(self, force: bool) -> dict[str, str] | None:
         """Authenticate for Websocket."""
         if force:
-            if self._session is not None:
-                self._session.cookie_jar.clear()
-            self.set_header("cookie", None)
-            self.set_header("x-csrf-token", None)
-            self._is_authenticated = False
-
-        await self.ensure_authenticated()
+            await self._reauthenticate()
+        else:
+            await self.ensure_authenticated()
         return self.headers
 
     async def _auth_public_api_websocket(
@@ -782,6 +778,27 @@ class BaseApiClient:
                 session, method, request_url, headers, public_api, **kwargs
             )
 
+        # Re-auth-and-retry guard for early server-side session invalidation.
+        # UniFi OS can drop a private session before its JWT cookie expires, so
+        # is_authenticated() still trusts the dead cookie and the request 401s.
+        # Mirror the websocket path: clear the session, log in fresh, retry once.
+        # The public-API path is excluded — a 401 there is a bad API key, not a
+        # recoverable session.
+        if (
+            require_auth
+            and not public_api
+            and response.status == HTTPStatus.UNAUTHORIZED.value
+        ):
+            response.release()
+            await self._reauthenticate()
+            # headers references self.headers, which _reauthenticate refreshes
+            # in place; rebuild only when the caller supplied its own headers.
+            if kwargs.get("headers") is None:
+                headers = self.headers or {}
+            response = await self._paced_request(
+                session, method, request_url, headers, public_api, **kwargs
+            )
+
         if auto_close:
             try:
                 _LOGGER.debug(
@@ -1021,6 +1038,24 @@ class BaseApiClient:
                         break  # auth response only contains single cookie (TOKEN or UOS_TOKEN)
 
             _LOGGER.debug("Authenticated successfully!")
+
+    async def _reauthenticate(self) -> None:
+        """
+        Force a fresh private-API login after a dead session.
+
+        Clears the invalidated session (cookie jar + headers +
+        ``_is_authenticated``) so ``ensure_authenticated`` performs a real
+        login instead of trusting the stale JWT cookie. The clear is
+        synchronous and the re-login serializes on ``authenticate``'s
+        ``_auth_lock``, so concurrent callers (e.g. simultaneous 401s) collapse
+        onto a single re-login without a thundering herd.
+        """
+        if self._session is not None:
+            self._session.cookie_jar.clear()
+        self.set_header("cookie", None)
+        self.set_header("x-csrf-token", None)
+        self._is_authenticated = False
+        await self.ensure_authenticated()
 
     async def _update_last_token_cookie(self, response: aiohttp.ClientResponse) -> None:
         """Update the last token cookie."""
