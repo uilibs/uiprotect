@@ -1,5 +1,13 @@
 # Changelog
 
+## v14.0.0 (2026-06-21)
+
+### Features
+
+
+- Remove standalone doorlock device support ([`339ac55`](https://github.com/uilibs/uiprotect/commit/339ac5572c07476491cdabcc4b54dfac8fcfba22))
+
+
 ## v13.5.1 (2026-06-20)
 
 ### Bug fixes
