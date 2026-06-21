@@ -514,6 +514,195 @@ async def test_chime_set_volume_for_camera_public_invalid_level(
     reason="Missing testdata",
 )
 @pytest.mark.asyncio()
+async def test_chime_set_repeat_times_for_camera_public(
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
+) -> None:
+    """Test set_repeat_times_for_camera_public sets repeat times for specific camera."""
+    if chime_obj is None:
+        pytest.skip("No chime_obj found")
+    if camera_obj is None:
+        pytest.skip("No camera_obj found")
+
+    chime_obj.ring_settings = [
+        RingSetting(
+            camera_id=camera_obj.id,
+            repeat_times=2,  # type: ignore[arg-type]
+            ringtone_id=RINGTONE_ID,
+            volume=50,
+        ),
+    ]
+
+    updated_chime = Mock()
+    updated_chime.ring_settings = [
+        RingSetting(
+            camera_id=camera_obj.id,
+            repeat_times=4,  # type: ignore[arg-type]
+            ringtone_id=RINGTONE_ID,
+            volume=50,
+        ),
+    ]
+    chime_obj.api.update_chime_public = AsyncMock(return_value=updated_chime)
+
+    await chime_obj.set_repeat_times_for_camera_public(camera_obj, 4)
+
+    chime_obj.api.update_chime_public.assert_called_once()
+    call_args = chime_obj.api.update_chime_public.call_args
+    assert call_args[0][0] == chime_obj.id
+    ring_settings = call_args[1]["ring_settings"]
+    assert len(ring_settings) == 1
+    assert ring_settings[0]["cameraId"] == camera_obj.id
+    assert ring_settings[0]["repeatTimes"] == 4
+    assert ring_settings[0]["volume"] == 50
+    assert ring_settings[0]["ringtoneId"] == RINGTONE_ID
+
+
+@pytest.mark.skipif(
+    not TEST_CHIME_EXISTS or not TEST_CAMERA_EXISTS,
+    reason="Missing testdata",
+)
+@pytest.mark.asyncio()
+async def test_chime_set_repeat_times_for_camera_public_not_paired(
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
+) -> None:
+    """Test set_repeat_times_for_camera_public raises BadRequest for unpaired camera."""
+    if chime_obj is None:
+        pytest.skip("No chime_obj found")
+    if camera_obj is None:
+        pytest.skip("No camera_obj found")
+
+    chime_obj.ring_settings = [
+        RingSetting(
+            camera_id="other-camera-id",
+            repeat_times=1,  # type: ignore[arg-type]
+            ringtone_id=RINGTONE_ID,
+            volume=50,
+        ),
+    ]
+
+    with pytest.raises(BadRequest):
+        await chime_obj.set_repeat_times_for_camera_public(camera_obj, 4)
+
+
+@pytest.mark.skipif(
+    not TEST_CHIME_EXISTS or not TEST_CAMERA_EXISTS,
+    reason="Missing testdata",
+)
+@pytest.mark.asyncio()
+async def test_chime_set_repeat_times_for_camera_public_multiple_cameras(
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
+) -> None:
+    """Test set_repeat_times_for_camera_public preserves settings for other cameras."""
+    if chime_obj is None:
+        pytest.skip("No chime_obj found")
+    if camera_obj is None:
+        pytest.skip("No camera_obj found")
+
+    other_camera_id = "other-doorbell-camera"
+
+    chime_obj.ring_settings = [
+        RingSetting(
+            camera_id=camera_obj.id,
+            repeat_times=2,  # type: ignore[arg-type]
+            ringtone_id=RINGTONE_ID,
+            volume=50,
+        ),
+        RingSetting(
+            camera_id=other_camera_id,
+            repeat_times=1,  # type: ignore[arg-type]
+            ringtone_id="other-ringtone",
+            volume=70,
+        ),
+    ]
+
+    updated_chime = Mock()
+    updated_chime.ring_settings = chime_obj.ring_settings
+    chime_obj.api.update_chime_public = AsyncMock(return_value=updated_chime)
+
+    await chime_obj.set_repeat_times_for_camera_public(camera_obj, 5)
+
+    call_args = chime_obj.api.update_chime_public.call_args
+    ring_settings = call_args[1]["ring_settings"]
+    assert len(ring_settings) == 2
+
+    target_setting = next(s for s in ring_settings if s["cameraId"] == camera_obj.id)
+    other_setting = next(s for s in ring_settings if s["cameraId"] == other_camera_id)
+
+    assert target_setting["repeatTimes"] == 5
+    assert target_setting["volume"] == 50
+
+    assert other_setting["repeatTimes"] == 1
+    assert other_setting["volume"] == 70
+
+    assert ring_settings[0]["cameraId"] == camera_obj.id
+    assert ring_settings[1]["cameraId"] == other_camera_id
+
+
+@pytest.mark.skipif(
+    not TEST_CHIME_EXISTS or not TEST_CAMERA_EXISTS,
+    reason="Missing testdata",
+)
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("invalid_value", [0, 7, 100])
+async def test_chime_set_repeat_times_for_camera_public_invalid_value(
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
+    invalid_value: int,
+) -> None:
+    """Test set_repeat_times_for_camera_public raises ValidationError for out-of-range value."""
+    if chime_obj is None:
+        pytest.skip("No chime_obj found")
+    if camera_obj is None:
+        pytest.skip("No camera_obj found")
+
+    chime_obj.ring_settings = [
+        RingSetting(
+            camera_id=camera_obj.id,
+            repeat_times=1,  # type: ignore[arg-type]
+            ringtone_id=RINGTONE_ID,
+            volume=50,
+        ),
+    ]
+
+    with pytest.raises(ValidationError):
+        await chime_obj.set_repeat_times_for_camera_public(camera_obj, invalid_value)
+
+
+@pytest.mark.skipif(
+    not TEST_CHIME_EXISTS or not TEST_CAMERA_EXISTS,
+    reason="Missing testdata",
+)
+@pytest.mark.asyncio()
+async def test_ring_setting_to_api_dict_repeat_times_override(
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
+) -> None:
+    """Test that to_api_dict applies the repeat_times override."""
+    if chime_obj is None:
+        pytest.skip("No chime_obj found")
+    if camera_obj is None:
+        pytest.skip("No camera_obj found")
+
+    ring_setting = RingSetting(
+        camera_id=camera_obj.id,
+        repeat_times=2,  # type: ignore[arg-type]
+        ringtone_id=RINGTONE_ID,
+        volume=50,
+    )
+
+    result = ring_setting.to_api_dict(repeat_times=5)
+
+    assert result["repeatTimes"] == 5
+    assert result["volume"] == 50
+
+
+@pytest.mark.skipif(
+    not TEST_CHIME_EXISTS or not TEST_CAMERA_EXISTS,
+    reason="Missing testdata",
+)
+@pytest.mark.asyncio()
 async def test_ring_setting_to_api_dict_omits_none_ringtone_id(
     chime_obj: Chime | None,
     camera_obj: Camera | None,

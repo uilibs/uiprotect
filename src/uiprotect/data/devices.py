@@ -3678,7 +3678,7 @@ class RingSetting(ProtectBaseObject):
         return {**super()._get_unifi_remaps(), "camera": "cameraId"}
 
     def to_api_dict(
-        self, volume: int | None = None
+        self, volume: int | None = None, repeat_times: int | None = None
     ) -> PublicApiChimeRingSettingRequest:
         """
         Convert to API dict format for Public API requests.
@@ -3686,6 +3686,8 @@ class RingSetting(ProtectBaseObject):
         Args:
         ----
             volume: Override volume value. If None, uses current volume.
+            repeat_times: Override repeat-times value. If None, uses current
+                repeat_times.
 
         Returns:
         -------
@@ -3695,7 +3697,9 @@ class RingSetting(ProtectBaseObject):
         result: PublicApiChimeRingSettingRequest = {
             "cameraId": self.camera_id,
             "volume": volume if volume is not None else self.volume,
-            "repeatTimes": self.repeat_times,
+            "repeatTimes": repeat_times
+            if repeat_times is not None
+            else self.repeat_times,
         }
         if self.ringtone_id is not None:
             result["ringtoneId"] = self.ringtone_id
@@ -4012,6 +4016,51 @@ class Chime(ProtectAdoptableDeviceModel):
         # Build the update payload preserving original order
         ring_settings_update: list[PublicApiChimeRingSettingRequest] = [
             setting.to_api_dict(volume=level)
+            if setting.camera_id == camera.id
+            else setting.to_api_dict()
+            for setting in self.ring_settings
+        ]
+
+        await self.set_ring_settings_public(ring_settings_update)
+
+    async def set_repeat_times_for_camera_public(
+        self,
+        camera: Camera,
+        value: int,
+    ) -> None:
+        """
+        Set the ring repeat times for a specific camera using public API.
+
+        This is the preferred method to change ring repeat times as it uses
+        the official public API.
+
+        Args:
+        ----
+            camera: The doorbell camera to set repeat times for
+            value: Number of times to repeat the ring (1-6)
+
+        Raises:
+        ------
+            BadRequest: If the camera is not paired with this chime
+            ValidationError: If value is not in range 1-6
+
+        """
+        # Validate value using RepeatTimes (raises ValidationError if invalid)
+        RepeatTimes(value)
+
+        # Find the current ring setting for this camera
+        ring_setting = None
+        for setting in self.ring_settings:
+            if setting.camera_id == camera.id:
+                ring_setting = setting
+                break
+
+        if ring_setting is None:
+            raise BadRequest(f"Camera {camera.id} is not paired with chime")
+
+        # Build the update payload preserving original order
+        ring_settings_update: list[PublicApiChimeRingSettingRequest] = [
+            setting.to_api_dict(repeat_times=value)
             if setting.camera_id == camera.id
             else setting.to_api_dict()
             for setting in self.ring_settings
