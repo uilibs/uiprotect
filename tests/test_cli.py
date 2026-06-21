@@ -10,12 +10,15 @@ import pytest
 # absent (a minimal install without --all-extras) instead of failing collection.
 pytest.importorskip("uiprotect.cli")
 
+import typer
 from typer.testing import CliRunner
 
 from uiprotect.cli import _is_ssl_error, app
 from uiprotect.cli.arm import app as arm_app
 from uiprotect.cli.bridges import app as bridges_app
 from uiprotect.cli.cameras import app as cameras_app
+from uiprotect.cli.chimes import app as chime_app
+from uiprotect.cli.chimes import cameras, set_repeat_times, set_volume
 from uiprotect.cli.files_public import app as files_public_app
 from uiprotect.cli.fobs import app as fob_app
 from uiprotect.cli.link_stations import app as link_station_app
@@ -26,6 +29,7 @@ from uiprotect.cli.speakers import app as speaker_app
 from uiprotect.cli.ulp_users_public import app as ulp_users_public_app
 from uiprotect.cli.users_public import app as users_public_app
 from uiprotect.cli.viewers_public import app as viewer_public_app
+from uiprotect.data import RingSetting
 from uiprotect.exceptions import BadRequest
 
 runner = CliRunner()
@@ -474,3 +478,276 @@ def test_non_ssl_failure_still_exits_with_message() -> None:
     output = result.stdout + (result.stderr or "")
     assert "Connection failed" in output
     assert client_cls.call_count == 1
+
+
+# ---------------------------------------------------------------------------
+# Chime CLI — public-API migration
+# ---------------------------------------------------------------------------
+
+
+def _make_chime_ctx(
+    *,
+    ring_settings: list[RingSetting] | None = None,
+    camera_ids: list[str] | None = None,
+    cameras_map: dict[str, MagicMock] | None = None,
+):
+    """Build a typer context double wired to mocked chime + client."""
+    chime = MagicMock()
+    chime.id = "chime-1"
+    chime.ring_settings = ring_settings if ring_settings is not None else []
+    chime.camera_ids = camera_ids if camera_ids is not None else []
+    chime.cameras = []
+    chime.set_volume_for_camera_public = AsyncMock()
+    chime.set_ring_settings_public = AsyncMock()
+
+    protect = MagicMock()
+    protect.update_chime_public = AsyncMock()
+    protect.close_session = AsyncMock()
+    protect.close_public_api_session = AsyncMock()
+    protect.bootstrap.cameras = cameras_map if cameras_map is not None else {}
+
+    ctx = MagicMock()
+    ctx.obj.device = chime
+    ctx.obj.protect = protect
+    return ctx, chime, protect
+
+
+def _doorbell_camera(camera_id: str) -> MagicMock:
+    camera = MagicMock()
+    camera.id = camera_id
+    camera.feature_flags.is_doorbell = True
+    return camera
+
+
+def test_chime_help() -> None:
+    """Chime CLI exposes its subcommands."""
+    result = runner.invoke(chime_app, ["--help"])
+    assert result.exit_code == 0
+    assert "cameras" in result.stdout
+    assert "set-volume" in result.stdout
+    assert "set-repeat-times" in result.stdout
+
+
+def test_chime_cameras_set_uses_update_chime_public() -> None:
+    """Setting cameras patches via the public API, not save_device."""
+    camera = _doorbell_camera("cam-1")
+    ctx, _chime, protect = _make_chime_ctx(cameras_map={"cam-1": camera})
+
+    cameras(ctx, camera_ids=["cam-1"], add=False, remove=False)
+
+    protect.update_chime_public.assert_awaited_once_with(
+        "chime-1", camera_ids=["cam-1"]
+    )
+
+
+def test_chime_cameras_empty_clears_list() -> None:
+    """`[]` sentinel clears paired cameras via the public API."""
+    ctx, _chime, protect = _make_chime_ctx(camera_ids=["cam-1"])
+
+    cameras(ctx, camera_ids=["[]"], add=False, remove=False)
+
+    protect.update_chime_public.assert_awaited_once_with("chime-1", camera_ids=[])
+
+
+def test_chime_cameras_add_merges_existing() -> None:
+    """--add unions with current cameras."""
+    camera = _doorbell_camera("cam-2")
+    ctx, _chime, protect = _make_chime_ctx(
+        camera_ids=["cam-1"], cameras_map={"cam-2": camera}
+    )
+
+    cameras(ctx, camera_ids=["cam-2"], add=True, remove=False)
+
+    protect.update_chime_public.assert_awaited_once()
+    sent = protect.update_chime_public.await_args.kwargs["camera_ids"]
+    assert set(sent) == {"cam-1", "cam-2"}
+
+
+def test_chime_cameras_remove_subtracts() -> None:
+    """--remove drops the named cameras."""
+    camera = _doorbell_camera("cam-1")
+    ctx, _chime, protect = _make_chime_ctx(
+        camera_ids=["cam-1", "cam-2"], cameras_map={"cam-1": camera}
+    )
+
+    cameras(ctx, camera_ids=["cam-1"], add=False, remove=True)
+
+    protect.update_chime_public.assert_awaited_once()
+    sent = protect.update_chime_public.await_args.kwargs["camera_ids"]
+    assert set(sent) == {"cam-2"}
+
+
+def test_chime_cameras_add_and_remove_rejected() -> None:
+    """--add and --remove are mutually exclusive."""
+    ctx, _chime, protect = _make_chime_ctx()
+
+    with pytest.raises(typer.Exit) as exc:
+        cameras(ctx, camera_ids=["cam-1"], add=True, remove=True)
+
+    assert exc.value.exit_code == 1
+    protect.update_chime_public.assert_not_called()
+
+
+def test_chime_cameras_no_args_lists_cameras() -> None:
+    """No camera ids prints the current pairing."""
+    ctx, _chime, protect = _make_chime_ctx()
+
+    cameras(ctx, camera_ids=[], add=False, remove=False)
+
+    protect.update_chime_public.assert_not_called()
+
+
+def test_chime_cameras_invalid_id_rejected() -> None:
+    """Unknown camera id exits 1."""
+    ctx, _chime, protect = _make_chime_ctx(cameras_map={})
+
+    with pytest.raises(typer.Exit) as exc:
+        cameras(ctx, camera_ids=["nope"], add=False, remove=False)
+
+    assert exc.value.exit_code == 1
+    protect.update_chime_public.assert_not_called()
+
+
+def test_chime_cameras_non_doorbell_rejected() -> None:
+    """Non-doorbell camera exits 1."""
+    camera = _doorbell_camera("cam-1")
+    camera.feature_flags.is_doorbell = False
+    ctx, _chime, protect = _make_chime_ctx(cameras_map={"cam-1": camera})
+
+    with pytest.raises(typer.Exit) as exc:
+        cameras(ctx, camera_ids=["cam-1"], add=False, remove=False)
+
+    assert exc.value.exit_code == 1
+    protect.update_chime_public.assert_not_called()
+
+
+def test_chime_set_volume_whole_device_uses_ring_settings() -> None:
+    """Whole-device volume routes through update_chime_public(ring_settings=...)."""
+    ring = RingSetting(
+        camera_id="cam-1",
+        repeat_times=2,  # type: ignore[arg-type]
+        ringtone_id="rt-1",
+        volume=20,
+    )
+    ctx, _chime, protect = _make_chime_ctx(ring_settings=[ring])
+
+    set_volume(ctx, value=80, camera_id=None)
+
+    protect.update_chime_public.assert_awaited_once_with(
+        "chime-1",
+        ring_settings=[
+            {
+                "cameraId": "cam-1",
+                "volume": 80,
+                "repeatTimes": 2,
+                "ringtoneId": "rt-1",
+            }
+        ],
+    )
+
+
+def test_chime_set_volume_per_camera_uses_public_wrapper() -> None:
+    """Per-camera volume uses set_volume_for_camera_public."""
+    camera = _doorbell_camera("cam-1")
+    ctx, chime, protect = _make_chime_ctx(cameras_map={"cam-1": camera})
+
+    set_volume(ctx, value=55, camera_id="cam-1")
+
+    chime.set_volume_for_camera_public.assert_awaited_once_with(camera, 55)
+    protect.update_chime_public.assert_not_called()
+
+
+def test_chime_set_volume_per_camera_invalid_id_rejected() -> None:
+    """Per-camera volume with unknown camera exits 1."""
+    ctx, chime, _protect = _make_chime_ctx(cameras_map={})
+
+    with pytest.raises(typer.Exit) as exc:
+        set_volume(ctx, value=55, camera_id="nope")
+
+    assert exc.value.exit_code == 1
+    chime.set_volume_for_camera_public.assert_not_called()
+
+
+def test_chime_set_repeat_times_whole_device_uses_ring_settings() -> None:
+    """Whole-device repeat routes through update_chime_public(ring_settings=...)."""
+    ring = RingSetting(
+        camera_id="cam-1",
+        repeat_times=1,  # type: ignore[arg-type]
+        ringtone_id="rt-1",
+        volume=20,
+    )
+    ctx, _chime, protect = _make_chime_ctx(ring_settings=[ring])
+
+    set_repeat_times(ctx, value=4, camera_id=None)
+
+    protect.update_chime_public.assert_awaited_once_with(
+        "chime-1",
+        ring_settings=[
+            {
+                "cameraId": "cam-1",
+                "volume": 20,
+                "repeatTimes": 4,
+                "ringtoneId": "rt-1",
+            }
+        ],
+    )
+
+
+def test_chime_set_repeat_times_per_camera_uses_ring_settings_public() -> None:
+    """Per-camera repeat uses set_ring_settings_public with the camera updated."""
+    rings = [
+        RingSetting(
+            camera_id="cam-1",
+            repeat_times=1,  # type: ignore[arg-type]
+            volume=20,
+        ),
+        RingSetting(
+            camera_id="cam-2",
+            repeat_times=1,  # type: ignore[arg-type]
+            volume=30,
+        ),
+    ]
+    camera = _doorbell_camera("cam-1")
+    ctx, chime, protect = _make_chime_ctx(
+        ring_settings=rings, cameras_map={"cam-1": camera}
+    )
+
+    set_repeat_times(ctx, value=5, camera_id="cam-1")
+
+    chime.set_ring_settings_public.assert_awaited_once_with(
+        [
+            {"cameraId": "cam-1", "volume": 20, "repeatTimes": 5},
+            {"cameraId": "cam-2", "volume": 30, "repeatTimes": 1},
+        ]
+    )
+    protect.update_chime_public.assert_not_called()
+
+
+def test_chime_set_repeat_times_per_camera_invalid_id_rejected() -> None:
+    """Per-camera repeat with unknown camera exits 1."""
+    ctx, chime, _protect = _make_chime_ctx(cameras_map={})
+
+    with pytest.raises(typer.Exit) as exc:
+        set_repeat_times(ctx, value=5, camera_id="nope")
+
+    assert exc.value.exit_code == 1
+    chime.set_ring_settings_public.assert_not_called()
+
+
+def test_chime_set_repeat_times_per_camera_unpaired_rejected() -> None:
+    """Per-camera repeat for an unpaired camera exits 1."""
+    ring = RingSetting(
+        camera_id="other",
+        repeat_times=1,  # type: ignore[arg-type]
+        volume=20,
+    )
+    camera = _doorbell_camera("cam-1")
+    ctx, chime, _protect = _make_chime_ctx(
+        ring_settings=[ring], cameras_map={"cam-1": camera}
+    )
+
+    with pytest.raises(typer.Exit) as exc:
+        set_repeat_times(ctx, value=5, camera_id="cam-1")
+
+    assert exc.value.exit_code == 1
+    chime.set_ring_settings_public.assert_not_called()

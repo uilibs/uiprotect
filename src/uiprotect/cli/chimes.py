@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import typer
 
-from ..api import ProtectApiClient
+from ..api import ProtectApiClient, PublicApiChimeRingSettingRequest
 from ..cli import base
 from ..data import Chime
 
@@ -104,9 +104,7 @@ def cameras(
     elif remove:
         camera_ids = list(set(obj.camera_ids) - set(camera_ids))
 
-    data_before_changes = obj.dict_with_excludes()
-    obj.camera_ids = camera_ids
-    base.run(ctx, obj.save_device(data_before_changes))
+    base.run(ctx, protect.update_chime_public(obj.id, camera_ids=camera_ids))
 
 
 @app.command()
@@ -123,15 +121,16 @@ def set_volume(
     """Set volume level for chime rings."""
     base.require_device_id(ctx)
     obj: Chime = ctx.obj.device
+    protect: ProtectApiClient = ctx.obj.protect
     if camera_id is None:
-        base.run(ctx, obj.set_volume(value))
+        ring_settings = [s.to_api_dict(volume=value) for s in obj.ring_settings]
+        base.run(ctx, protect.update_chime_public(obj.id, ring_settings=ring_settings))
     else:
-        protect: ProtectApiClient = ctx.obj.protect
         camera = protect.bootstrap.cameras.get(camera_id)
         if camera is None:
             typer.secho(f"Invalid camera ID: {camera_id}", fg="red")
             raise typer.Exit(1)
-        base.run(ctx, obj.set_volume_for_camera(camera, value))
+        base.run(ctx, obj.set_volume_for_camera_public(camera, value))
 
 
 @app.command()
@@ -168,12 +167,28 @@ def set_repeat_times(
     """Set number of times for a chime to repeat when doorbell is rang."""
     base.require_device_id(ctx)
     obj: Chime = ctx.obj.device
+    protect: ProtectApiClient = ctx.obj.protect
     if camera_id is None:
-        base.run(ctx, obj.set_repeat_times(value))
+        ring_settings: list[PublicApiChimeRingSettingRequest] = []
+        for setting in obj.ring_settings:
+            payload = setting.to_api_dict()
+            payload["repeatTimes"] = value
+            ring_settings.append(payload)
+        base.run(ctx, protect.update_chime_public(obj.id, ring_settings=ring_settings))
     else:
-        protect: ProtectApiClient = ctx.obj.protect
         camera = protect.bootstrap.cameras.get(camera_id)
         if camera is None:
             typer.secho(f"Invalid camera ID: {camera_id}", fg="red")
             raise typer.Exit(1)
-        base.run(ctx, obj.set_repeat_times_for_camera(camera, value))
+        ring_settings = []
+        handled = False
+        for setting in obj.ring_settings:
+            payload = setting.to_api_dict()
+            if setting.camera_id == camera.id:
+                payload["repeatTimes"] = value
+                handled = True
+            ring_settings.append(payload)
+        if not handled:
+            typer.secho(f"Camera is not paired with chime: {camera_id}", fg="red")
+            raise typer.Exit(1)
+        base.run(ctx, obj.set_ring_settings_public(ring_settings))
