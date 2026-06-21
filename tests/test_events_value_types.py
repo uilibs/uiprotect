@@ -46,7 +46,6 @@ def test_event_type_to_channel_buckets() -> None:
         EVENT_TYPE_TO_CHANNEL[EventType.FINGERPRINT_IDENTIFIED]
         is ProtectEventChannel.ACCESS
     )
-    assert EVENT_TYPE_TO_CHANNEL[EventType.DOORLOCK_OPEN] is ProtectEventChannel.ACCESS
     assert EVENT_TYPE_TO_CHANNEL[EventType.REBOOT] is ProtectEventChannel.OTHER
 
 

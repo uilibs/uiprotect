@@ -78,9 +78,6 @@ _ACCESS: frozenset[EventType] = frozenset(
         EventType.FINGERPRINT_IDENTIFIED,
         EventType.DOOR_ACCESS,
         EventType.ACCESS,
-        EventType.DOORLOCK_OPEN,
-        EventType.DOORLOCK_CLOSE,
-        EventType.DOORLOCK_BATTERY_LOW,
     }
 )
 

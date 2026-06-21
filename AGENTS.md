@@ -234,7 +234,7 @@ live leg is optional and is not gated for typical PRs.
 | `src/uiprotect/data/__init__.py`         | Pydantic model re-exports — the typed surface most callers consume               |
 | `src/uiprotect/data/base.py`             | `ProtectBaseObject` / `ProtectModel` base classes shared by every Protect model  |
 | `src/uiprotect/data/bootstrap.py`        | `Bootstrap` — the cached snapshot returned by `protect.bootstrap`                |
-| `src/uiprotect/data/devices.py`          | Camera / Light / Sensor / Viewer / Chime / Doorlock / AiPort device models       |
+| `src/uiprotect/data/devices.py`          | Camera / Light / Sensor / Viewer / Chime / AiPort device models                  |
 | `src/uiprotect/data/nvr.py`              | `NVR`, `Event`, `Liveview`, related top-level models                             |
 | `src/uiprotect/data/user.py`             | User / permission / cloud-account models                                         |
 | `src/uiprotect/data/websocket.py`        | WebSocket frame decoder + `WSSubscriptionMessage` definition                     |

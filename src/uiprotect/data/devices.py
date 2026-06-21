@@ -60,7 +60,6 @@ from .types import (
     LensType,
     LightModeEnableType,
     LightModeType,
-    LockStatusType,
     LowMedHigh,
     ModelType,
     MotionAlgorithm,
@@ -3651,102 +3650,6 @@ class Sensor(ProtectAdoptableDeviceModel):
                 f"Do not have permission to clear tamper for sensor: {self.id}",
             )
         await self._api.clear_tamper_sensor(self.id)
-
-
-class Doorlock(ProtectAdoptableDeviceModel):
-    credentials: str | None = None
-    lock_status: LockStatusType
-    enable_homekit: bool
-    auto_close_time: timedelta
-    led_settings: SensorSettingsBase
-    battery_status: SensorBatteryStatus
-    camera_id: str | None = None
-    has_homekit: bool
-    private_token: str
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {
-            **super()._get_unifi_remaps(),
-            "camera": "cameraId",
-            "autoCloseTimeMs": "autoCloseTime",
-        }
-
-    @classmethod
-    @cache
-    def _get_read_only_fields(cls) -> set[str]:
-        return super()._get_read_only_fields() | {
-            "credentials",
-            "lockStatus",
-            "batteryStatus",
-        }
-
-    @classmethod
-    @cache
-    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
-        return {
-            "autoCloseTimeMs": lambda x: timedelta(milliseconds=x)
-        } | super().unifi_dict_conversions()
-
-    @property
-    def camera(self) -> Camera | None:
-        """Paired Camera will always be none if no camera is paired"""
-        if self.camera_id is None:
-            return None
-
-        return self._api.bootstrap.cameras[self.camera_id]
-
-    async def set_paired_camera(self, camera: Camera | None) -> None:
-        """Sets the camera paired with the sensor"""
-
-        def callback() -> None:
-            if camera is None:
-                self.camera_id = None
-            else:
-                self.camera_id = camera.id
-
-        await self.queue_update(callback)
-
-    async def set_status_light(self, enabled: bool) -> None:
-        """Sets the status indicator light for the doorlock"""
-
-        def callback() -> None:
-            self.led_settings.is_enabled = enabled
-
-        await self.queue_update(callback)
-
-    async def set_auto_close_time(self, duration: timedelta) -> None:
-        """Sets the auto-close time for doorlock. 0 seconds = disabled."""
-        if duration > timedelta(hours=1):
-            raise BadRequest("Max duration is 1 hour")
-
-        def callback() -> None:
-            self.auto_close_time = duration
-
-        await self.queue_update(callback)
-
-    async def close_lock(self) -> None:
-        """Close doorlock (lock)"""
-        if self.lock_status != LockStatusType.OPEN:
-            raise BadRequest("Lock is not open")
-
-        await self._api.close_lock(self.id)
-
-    async def open_lock(self) -> None:
-        """Open doorlock (unlock)"""
-        if self.lock_status != LockStatusType.CLOSED:
-            raise BadRequest("Lock is not closed")
-
-        await self._api.open_lock(self.id)
-
-    async def calibrate(self) -> None:
-        """
-        Calibrate the doorlock.
-
-        Door must be open and lock unlocked.
-        """
-        await self._api.calibrate_lock(self.id)
 
 
 class ChimeFeatureFlags(ProtectBaseObject):

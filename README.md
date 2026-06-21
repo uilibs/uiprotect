@@ -161,7 +161,6 @@ uiprotect nvr
 - `uiprotect viewers` - Viewer management
 - `uiprotect liveviews` - Live view configuration
 - `uiprotect chimes` - Chime management
-- `uiprotect doorlocks` - Door lock management
 - `uiprotect aiports` - AI port management
 
 For more details on any command, use `uiprotect <command> --help`.

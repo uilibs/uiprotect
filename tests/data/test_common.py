@@ -17,7 +17,6 @@ import pytest
 from tests.conftest import (
     TEST_BRIDGE_EXISTS,
     TEST_CAMERA_EXISTS,
-    TEST_DOORLOCK_EXISTS,
     TEST_LIGHT_EXISTS,
     TEST_SENSOR_EXISTS,
     TEST_VIEWPORT_EXISTS,
@@ -159,11 +158,6 @@ def test_camera(camera):
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 def test_sensor(sensor):
     compare_devices(sensor)
-
-
-@pytest.mark.skipif(not TEST_DOORLOCK_EXISTS, reason="Missing testdata")
-def test_doorlock(doorlock):
-    compare_devices(doorlock)
 
 
 @pytest.mark.skipif(not TEST_BRIDGE_EXISTS, reason="Missing testdata")
@@ -1109,29 +1103,10 @@ def test_bootstrap_aiports_missing(bootstrap: dict[str, Any]):
         assert obj.aiports == {}
 
 
-def test_bootstrap_doorlocks_missing(bootstrap: dict[str, Any]):
-    """Test that missing doorlocks field (older Protect versions) is handled gracefully."""
-    deepcopied_bootstrap = deepcopy(bootstrap)
-    deepcopied_bootstrap.pop("doorlocks", None)
-
-    logger = logging.getLogger("uiprotect.data.bootstrap")
-    with patch.object(logger, "error") as mock_log_error:
-        obj = Bootstrap.from_unifi_dict(**deepcopied_bootstrap)
-        # doorlocks is in optional_fields, so no error should be logged
-        mock_log_error.assert_not_called()
-        assert obj.doorlocks == {}
-
-
-def test_bootstrap_doorlocks_present(bootstrap: dict[str, Any]):
-    """Test that doorlocks field (newer Protect versions) is handled correctly."""
-    deepcopied_bootstrap = deepcopy(bootstrap)
-    # Ensure doorlocks is present (it should be in test data)
-    if "doorlocks" not in deepcopied_bootstrap:
-        deepcopied_bootstrap["doorlocks"] = []
-
-    obj = Bootstrap.from_unifi_dict(**deepcopied_bootstrap)
-    assert isinstance(obj.doorlocks, dict)
-    assert len(obj.doorlocks) == len(deepcopied_bootstrap["doorlocks"])
+def test_doorlock_modelkey_resolves_unknown():
+    """An abandoned doorlock modelKey degrades to UNKNOWN instead of raising."""
+    assert ModelType.from_string("doorlock") is ModelType.UNKNOWN
+    assert "doorlock" not in ModelType.bootstrap_models_set
 
 
 def test_unifi_dict_exclude(bootstrap: dict[str, Any]):

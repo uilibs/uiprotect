@@ -44,7 +44,6 @@ from .data import (
     Camera,
     ChannelQuality,
     DeviceState,
-    Doorlock,
     Event,
     EventCategories,
     EventType,
@@ -2681,17 +2680,6 @@ class ProtectApiClient(BaseApiClient):
         """
         return cast("list[Sensor]", await self.get_devices(ModelType.SENSOR, Sensor))
 
-    async def get_doorlocks(self) -> list[Doorlock]:
-        """
-        Gets the list of doorlocks straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.doorlocks`
-        """
-        return cast(
-            "list[Doorlock]",
-            await self.get_devices(ModelType.DOORLOCK, Doorlock),
-        )
-
     async def get_chimes(self) -> list[Chime]:
         """
         Gets the list of chimes straight from the NVR.
@@ -2814,17 +2802,6 @@ class ProtectApiClient(BaseApiClient):
         """
         return cast(
             "Sensor", await self.get_device(ModelType.SENSOR, device_id, Sensor)
-        )
-
-    async def get_doorlock(self, device_id: str) -> Doorlock:
-        """
-        Gets a doorlock straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.doorlocks[device_id]`
-        """
-        return cast(
-            "Doorlock",
-            await self.get_device(ModelType.DOORLOCK, device_id, Doorlock),
         )
 
     async def get_chime(self, device_id: str) -> Chime:
@@ -3378,26 +3355,6 @@ class ProtectApiClient(BaseApiClient):
 
         if not data.get(key, {}).get(device_id, {}).get("adopted", False):
             raise BadRequest("Could not adopt device")
-
-    async def close_lock(self, device_id: str) -> None:
-        """Close doorlock (lock)"""
-        await self.api_request(f"doorlocks/{device_id}/close", method="post")
-
-    async def open_lock(self, device_id: str) -> None:
-        """Open doorlock (unlock)"""
-        await self.api_request(f"doorlocks/{device_id}/open", method="post")
-
-    async def calibrate_lock(self, device_id: str) -> None:
-        """
-        Calibrate the doorlock.
-
-        Door must be open and lock unlocked.
-        """
-        await self.api_request(
-            f"doorlocks/{device_id}/calibrate",
-            method="post",
-            json={"auto": True},
-        )
 
     async def play_speaker(
         self,

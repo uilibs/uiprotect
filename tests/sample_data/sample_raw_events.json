@@ -25821,78 +25821,6 @@
         "timestamp": null
     },
     {
-        "id": "6f032fcac2f0ba94d8bc23df",
-        "type": "doorlockOpened",
-        "start": 1643050947168,
-        "end": 1643050947168,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-6f032fcac2f0ba94d8bc23df",
-        "heatmap": "e-6f032fcac2f0ba94d8bc23df",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
-        "id": "2e1486e5e0a812e60e130dfe",
-        "type": "doorlockClosed",
-        "start": 1643050954166,
-        "end": 1643050954166,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-2e1486e5e0a812e60e130dfe",
-        "heatmap": "e-2e1486e5e0a812e60e130dfe",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
-        "id": "852988152f4d22576c364e14",
-        "type": "doorlockOpened",
-        "start": 1643050961304,
-        "end": 1643050961304,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-852988152f4d22576c364e14",
-        "heatmap": "e-852988152f4d22576c364e14",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
         "id": "8ec6c6880ef39712c22dc560",
         "type": "sensorMotion",
         "start": 1643050965895,
@@ -25947,54 +25875,6 @@
         "timestamp": null
     },
     {
-        "id": "0f9ee11ce6847125e9d64706",
-        "type": "doorlockClosed",
-        "start": 1643050970912,
-        "end": 1643050970912,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-0f9ee11ce6847125e9d64706",
-        "heatmap": "e-0f9ee11ce6847125e9d64706",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
-        "id": "3649b9888912bcaabe8dc7d9",
-        "type": "doorlockOpened",
-        "start": 1643050971287,
-        "end": 1643050971287,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-3649b9888912bcaabe8dc7d9",
-        "heatmap": "e-3649b9888912bcaabe8dc7d9",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
         "id": "5b642886f0b8a3f453aeeae6",
         "type": "sensorMotion",
         "start": 1643050972719,
@@ -26018,30 +25898,6 @@
         },
         "thumbnail": "e-5b642886f0b8a3f453aeeae6",
         "heatmap": "e-5b642886f0b8a3f453aeeae6",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
-        "id": "bbe6f957034a6af369bae386",
-        "type": "doorlockClosed",
-        "start": 1643050976663,
-        "end": 1643050976663,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-bbe6f957034a6af369bae386",
-        "heatmap": "e-bbe6f957034a6af369bae386",
         "modelKey": "event",
         "timestamp": null
     },
@@ -26073,30 +25929,6 @@
         "timestamp": null
     },
     {
-        "id": "7244b8f1007f21cf69818c1f",
-        "type": "doorlockClosed",
-        "start": 1643050989055,
-        "end": 1643050989055,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-7244b8f1007f21cf69818c1f",
-        "heatmap": "e-7244b8f1007f21cf69818c1f",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
         "id": "c5b6dead2f4ffa5877c26184",
         "type": "sensorMotion",
         "start": 1643050991648,
@@ -26124,30 +25956,6 @@
         "timestamp": null
     },
     {
-        "id": "ad4d4d1a2840b5b9c6cb322b",
-        "type": "doorlockOpened",
-        "start": 1643050992288,
-        "end": 1643050992288,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-ad4d4d1a2840b5b9c6cb322b",
-        "heatmap": "e-ad4d4d1a2840b5b9c6cb322b",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
         "id": "0c1b026ef03f0d5b320b7755",
         "type": "motion",
         "start": 1643050992642,
@@ -26163,126 +25971,6 @@
         "heatmap": "e-0c1b026ef03f0d5b320b7755",
         "modelKey": "event",
         "timestamp": 1643051003809
-    },
-    {
-        "id": "b5eea6cfc703199b4c78c14b",
-        "type": "doorlockClosed",
-        "start": 1643050993413,
-        "end": 1643050993413,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-b5eea6cfc703199b4c78c14b",
-        "heatmap": "e-b5eea6cfc703199b4c78c14b",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
-        "id": "6f3b8af9e74db5e77a0b4eb3",
-        "type": "doorlockOpened",
-        "start": 1643050993929,
-        "end": 1643050993929,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-6f3b8af9e74db5e77a0b4eb3",
-        "heatmap": "e-6f3b8af9e74db5e77a0b4eb3",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
-        "id": "668ecf9192ea123996b745e6",
-        "type": "doorlockClosed",
-        "start": 1643050994571,
-        "end": 1643050994571,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-668ecf9192ea123996b745e6",
-        "heatmap": "e-668ecf9192ea123996b745e6",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
-        "id": "f7a1bcd7c329562ec6f9fc98",
-        "type": "doorlockOpened",
-        "start": 1643050995696,
-        "end": 1643050995696,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-f7a1bcd7c329562ec6f9fc98",
-        "heatmap": "e-f7a1bcd7c329562ec6f9fc98",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
-        "id": "93414955714fedcd1c20231a",
-        "type": "doorlockClosed",
-        "start": 1643050997929,
-        "end": 1643050997929,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-93414955714fedcd1c20231a",
-        "heatmap": "e-93414955714fedcd1c20231a",
-        "modelKey": "event",
-        "timestamp": null
     },
     {
         "id": "dc6718a6dd54639bbd552f76",
@@ -26331,30 +26019,6 @@
         "timestamp": 1643051014635
     },
     {
-        "id": "75657a497663837582c4b4a7",
-        "type": "doorlockOpened",
-        "start": 1643051005196,
-        "end": 1643051005196,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-75657a497663837582c4b4a7",
-        "heatmap": "e-75657a497663837582c4b4a7",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
         "id": "d641d2a03babd4ab428294ad",
         "type": "motion",
         "start": 1643051006311,
@@ -26372,30 +26036,6 @@
         "heatmap": "e-d641d2a03babd4ab428294ad",
         "modelKey": "event",
         "timestamp": 1643051020812
-    },
-    {
-        "id": "30f4fa2beff3e96767209f65",
-        "type": "doorlockClosed",
-        "start": 1643051012290,
-        "end": 1643051012290,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-30f4fa2beff3e96767209f65",
-        "heatmap": "e-30f4fa2beff3e96767209f65",
-        "modelKey": "event",
-        "timestamp": null
     },
     {
         "id": "91d361a40390415512ca0879",
@@ -26448,30 +26088,6 @@
         },
         "thumbnail": "e-8b7814a057ce666a7d4e1e10",
         "heatmap": "e-8b7814a057ce666a7d4e1e10",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
-        "id": "b37a1a2145aaefd3973299c5",
-        "type": "doorlockOpened",
-        "start": 1643051022541,
-        "end": 1643051022541,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-b37a1a2145aaefd3973299c5",
-        "heatmap": "e-b37a1a2145aaefd3973299c5",
         "modelKey": "event",
         "timestamp": null
     },
@@ -26530,30 +26146,6 @@
         "timestamp": null
     },
     {
-        "id": "1590ee685cf2d63178878cef",
-        "type": "doorlockClosed",
-        "start": 1643051029572,
-        "end": 1643051029572,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-1590ee685cf2d63178878cef",
-        "heatmap": "e-1590ee685cf2d63178878cef",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
         "id": "362e855a9acdd341f7008a01",
         "type": "motion",
         "start": 1643051090846,
@@ -26607,54 +26199,6 @@
         "timestamp": 1643051236101
     },
     {
-        "id": "4efab3ba3311922baac8732f",
-        "type": "doorlockOpened",
-        "start": 1643051232921,
-        "end": 1643051232921,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-4efab3ba3311922baac8732f",
-        "heatmap": "e-4efab3ba3311922baac8732f",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
-        "id": "0bea7b4e4c7f25775e56ebdc",
-        "type": "doorlockClosed",
-        "start": 1643051245329,
-        "end": 1643051245329,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-0bea7b4e4c7f25775e56ebdc",
-        "heatmap": "e-0bea7b4e4c7f25775e56ebdc",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
         "id": "62302386a66c10b483664b3c",
         "type": "motion",
         "start": 1643051446018,
@@ -26691,30 +26235,6 @@
         "timestamp": null
     },
     {
-        "id": "947e9acb2748c6b32e5eaa61",
-        "type": "doorlockOpened",
-        "start": 1643051737063,
-        "end": 1643051737063,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-947e9acb2748c6b32e5eaa61",
-        "heatmap": "e-947e9acb2748c6b32e5eaa61",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
         "id": "d72d56d2822625546319b811",
         "type": "access",
         "start": 1643051780121,
@@ -26734,78 +26254,6 @@
         "timestamp": null
     },
     {
-        "id": "131d2b0065fdcbac740b35ad",
-        "type": "doorlockClosed",
-        "start": 1643051792456,
-        "end": 1643051792456,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-131d2b0065fdcbac740b35ad",
-        "heatmap": "e-131d2b0065fdcbac740b35ad",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
-        "id": "ed5cd7f162967d8a59be1ad2",
-        "type": "doorlockOpened",
-        "start": 1643051801855,
-        "end": 1643051801855,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-ed5cd7f162967d8a59be1ad2",
-        "heatmap": "e-ed5cd7f162967d8a59be1ad2",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
-        "id": "11427f0ba17e684ff8537e2e",
-        "type": "doorlockClosed",
-        "start": 1643051822610,
-        "end": 1643051822610,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-11427f0ba17e684ff8537e2e",
-        "heatmap": "e-11427f0ba17e684ff8537e2e",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
         "id": "738360365585e537d12f81df",
         "type": "access",
         "start": 1643051831465,
@@ -26821,30 +26269,6 @@
         },
         "thumbnail": "e-738360365585e537d12f81df",
         "heatmap": "e-738360365585e537d12f81df",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
-        "id": "f99fd77ed0d11b541c8625bb",
-        "type": "doorlockOpened",
-        "start": 1643051843234,
-        "end": 1643051843234,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-f99fd77ed0d11b541c8625bb",
-        "heatmap": "e-f99fd77ed0d11b541c8625bb",
         "modelKey": "event",
         "timestamp": null
     },
@@ -26881,30 +26305,6 @@
         "heatmap": "e-2069cd1e332a0c02d454aaa2",
         "modelKey": "event",
         "timestamp": 1643051863820
-    },
-    {
-        "id": "4406517a4fe3006248c644cd",
-        "type": "doorlockClosed",
-        "start": 1643051853487,
-        "end": 1643051853487,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-4406517a4fe3006248c644cd",
-        "heatmap": "e-4406517a4fe3006248c644cd",
-        "modelKey": "event",
-        "timestamp": null
     },
     {
         "id": "a6de77b02fa60d941d2c8ac8",
@@ -28832,30 +28232,6 @@
         "timestamp": null
     },
     {
-        "id": "69334ef9ad4c5d10e3c7f6a4",
-        "type": "doorlockOpened",
-        "start": 1643055440126,
-        "end": 1643055440126,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-69334ef9ad4c5d10e3c7f6a4",
-        "heatmap": "e-69334ef9ad4c5d10e3c7f6a4",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
         "id": "cae56878dda06c28448931ef",
         "type": "smartDetectZone",
         "start": 1643055443840,
@@ -29026,30 +28402,6 @@
         },
         "thumbnail": "e-6ca308338938954b596dec93",
         "heatmap": "e-6ca308338938954b596dec93",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
-        "id": "179a89d5508b1da7884c0e06",
-        "type": "doorlockClosed",
-        "start": 1643055464144,
-        "end": 1643055464144,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-179a89d5508b1da7884c0e06",
-        "heatmap": "e-179a89d5508b1da7884c0e06",
         "modelKey": "event",
         "timestamp": null
     },
@@ -29831,30 +29183,6 @@
         "metadata": {},
         "thumbnail": "e-dcaafd507e8a37badffb97de",
         "heatmap": "e-dcaafd507e8a37badffb97de",
-        "modelKey": "event",
-        "timestamp": null
-    },
-    {
-        "id": "0df472afadf13ef46fb8b606",
-        "type": "doorlockOpened",
-        "start": 1643055802893,
-        "end": 1643055802893,
-        "score": 0,
-        "smartDetectTypes": [],
-        "smartDetectEvents": [],
-        "camera": null,
-        "partition": null,
-        "user": null,
-        "metadata": {
-            "doorlockId": {
-                "text": "61eeeeef03de9d03e700c532"
-            },
-            "doorlockName": {
-                "text": "Garage Front Door Lock"
-            }
-        },
-        "thumbnail": "e-0df472afadf13ef46fb8b606",
-        "heatmap": "e-0df472afadf13ef46fb8b606",
         "modelKey": "event",
         "timestamp": null
     },

@@ -27,7 +27,6 @@ from .devices import (
     Bridge,
     Camera,
     Chime,
-    Doorlock,
     Light,
     ProtectAdoptableDeviceModel,
     Ringtone,
@@ -288,7 +287,6 @@ class Bootstrap(ProtectBaseObject):
     lights: dict[str, Light] = {}
     bridges: dict[str, Bridge] = {}
     sensors: dict[str, Sensor] = {}
-    doorlocks: dict[str, Doorlock] = {}
     chimes: dict[str, Chime] = {}
     aiports: dict[str, AiPort] = {}
     ringtones: list[Ringtone]
@@ -321,7 +319,7 @@ class Bootstrap(ProtectBaseObject):
         data["macLookup"] = mac_lookup
 
         # Fields that are not (always?) available in newer Protect versions
-        optional_fields = {"doorlocks"}
+        optional_fields: set[str] = set()
 
         for model_type in ModelType.bootstrap_models_types_set:
             key = model_type.devices_key  # type: ignore[attr-defined]

@@ -103,7 +103,6 @@ TEST_SENSOR_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_sensor.json").exists()
 TEST_VIEWPORT_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_viewport.json").exists()
 TEST_BRIDGE_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_bridge.json").exists()
 TEST_LIVEVIEW_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_liveview.json").exists()
-TEST_DOORLOCK_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_doorlock.json").exists()
 TEST_CHIME_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_chime.json").exists()
 TEST_AIPORT_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_aiport.json").exists()
 
@@ -251,8 +250,6 @@ async def mock_api_request(url: str, *args, **kwargs):
         return [read_json_file("sample_bridge")]
     if url == "liveviews":
         return [read_json_file("sample_liveview")]
-    if url == "doorlocks":
-        return [read_json_file("sample_doorlock")]
     if url == "chimes":
         return [read_json_file("sample_chime")]
     if url == "aiports":
@@ -291,8 +288,6 @@ async def mock_api_request(url: str, *args, **kwargs):
         return read_json_file("sample_bridge")
     if url.startswith("liveviews/"):
         return read_json_file("sample_liveview")
-    if url.startswith("doorlocks"):
-        return read_json_file("sample_doorlock")
     if url.startswith("chimes"):
         return read_json_file("sample_chime")
     if url.startswith("aiports"):
@@ -559,14 +554,6 @@ async def sensor_obj(protect_client: ProtectApiClient):
     return next(iter(protect_client.bootstrap.sensors.values()))
 
 
-@pytest_asyncio.fixture(name="doorlock_obj")
-async def doorlock_obj_fixture(protect_client: ProtectApiClient):
-    if not TEST_DOORLOCK_EXISTS:
-        return None
-
-    return next(iter(protect_client.bootstrap.doorlocks.values()))
-
-
 @pytest_asyncio.fixture(name="chime_obj")
 async def chime_obj_fixture(protect_client: ProtectApiClient):
     if not TEST_CHIME_EXISTS:
@@ -645,14 +632,6 @@ def sensor():
 
 
 @pytest.fixture()
-def doorlock():
-    if not TEST_DOORLOCK_EXISTS:
-        return None
-
-    return read_json_file("sample_doorlock")
-
-
-@pytest.fixture()
 def chime():
     if not TEST_CHIME_EXISTS:
         return None
@@ -714,14 +693,6 @@ def sensors():
         return []
 
     return [read_json_file("sample_sensor")]
-
-
-@pytest.fixture()
-def doorlocks():
-    if not TEST_DOORLOCK_EXISTS:
-        return []
-
-    return [read_json_file("sample_doorlock")]
 
 
 @pytest.fixture()
@@ -1046,7 +1017,7 @@ def compare_objs(obj_type, expected, actual):
         # delete all extra metadata keys, many of which are not modeled
         for key in set(expected_keys).difference(actual_keys):
             del expected["metadata"][key]
-    elif obj_type in {ModelType.SENSOR.value, ModelType.DOORLOCK.value}:
+    elif obj_type == ModelType.SENSOR.value:
         del expected["bridgeCandidates"]
         actual.pop("host", None)
         expected.pop("host", None)

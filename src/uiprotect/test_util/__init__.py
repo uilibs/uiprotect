@@ -194,7 +194,6 @@ class SampleDataGenerator:
             "light": len(bootstrap.get("lights", [])),
             "bridge": len(bootstrap.get("bridges", [])),
             "sensor": len(bootstrap.get("sensors", [])),
-            "doorlock": len(bootstrap.get("doorlocks", [])),
             "chime": len(bootstrap.get("chimes", [])),
             "aiport": len(bootstrap.get("aiports", [])),
         }
@@ -380,7 +379,6 @@ class SampleDataGenerator:
             self.generate_light_data(),
             self.generate_viewport_data(),
             self.generate_sensor_data(),
-            self.generate_lock_data(),
             self.generate_chime_data(),
             self.generate_aiport_data(),
             self.generate_bridge_data(),
@@ -550,26 +548,6 @@ class SampleDataGenerator:
 
         obj = await self.client.api_request_obj(f"sensors/{device_id}")
         await self.write_json_file("sample_sensor", obj)
-
-    async def generate_lock_data(self) -> None:
-        try:
-            objs = await self.client.api_request_list("doorlocks")
-        except BadRequest:
-            self.log("No doorlock endpoint available. Skipping doorlock endpoints...")
-            return
-
-        device_id: str | None = None
-        for obj_dict in objs:
-            device_id = obj_dict["id"]
-            if is_online(obj_dict):
-                break
-
-        if device_id is None:
-            self.log("No doorlock found. Skipping doorlock endpoints...")
-            return
-
-        obj = await self.client.api_request_obj(f"doorlocks/{device_id}")
-        await self.write_json_file("sample_doorlock", obj)
 
     async def generate_chime_data(self) -> None:
         objs = await self.client.api_request_list("chimes")

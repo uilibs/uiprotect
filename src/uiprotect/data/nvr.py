@@ -298,8 +298,6 @@ class EventMetadata(ProtectBaseObject):
     sensor_id: str | None = None
     sensor_name: str | None = None
     sensor_type: SensorType | None = None
-    doorlock_id: str | None = None
-    doorlock_name: str | None = None
     from_value: str | None = None
     to_value: str | None = None
     mount_type: MountType | None = None
@@ -320,8 +318,6 @@ class EventMetadata(ProtectBaseObject):
         "sensorId",
         "sensorName",
         "sensorType",
-        "doorlockId",
-        "doorlockName",
         "mountType",
         "status",
         "alarmType",
@@ -388,7 +384,7 @@ class Event(ProtectModelWithId):
     # Public Integration API ``add`` payloads carry the originating device
     # identifier under a top-level ``device`` field; private-API payloads
     # never populate this. Distinct from ``camera_id`` because non-camera
-    # events (sensors, alarm hubs, doorlocks) flow through the public WS.
+    # events (sensors, alarm hubs) flow through the public WS.
     device_id: str | None = None
     smart_detect_types: list[SmartDetectObjectType] = Field(default_factory=list)
     smart_detect_event_ids: list[str] = Field(default_factory=list)
