@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import typer
 
-from ..api import ProtectApiClient, PublicApiChimeRingSettingRequest
+from ..api import ProtectApiClient
 from ..cli import base
 from ..data import Chime
 
@@ -169,26 +169,11 @@ def set_repeat_times(
     obj: Chime = ctx.obj.device
     protect: ProtectApiClient = ctx.obj.protect
     if camera_id is None:
-        ring_settings: list[PublicApiChimeRingSettingRequest] = []
-        for setting in obj.ring_settings:
-            payload = setting.to_api_dict()
-            payload["repeatTimes"] = value
-            ring_settings.append(payload)
+        ring_settings = [s.to_api_dict(repeat_times=value) for s in obj.ring_settings]
         base.run(ctx, protect.update_chime_public(obj.id, ring_settings=ring_settings))
     else:
         camera = protect.bootstrap.cameras.get(camera_id)
         if camera is None:
             typer.secho(f"Invalid camera ID: {camera_id}", fg="red")
             raise typer.Exit(1)
-        ring_settings = []
-        handled = False
-        for setting in obj.ring_settings:
-            payload = setting.to_api_dict()
-            if setting.camera_id == camera.id:
-                payload["repeatTimes"] = value
-                handled = True
-            ring_settings.append(payload)
-        if not handled:
-            typer.secho(f"Camera is not paired with chime: {camera_id}", fg="red")
-            raise typer.Exit(1)
-        base.run(ctx, obj.set_ring_settings_public(ring_settings))
+        base.run(ctx, obj.set_repeat_times_for_camera_public(camera, value))

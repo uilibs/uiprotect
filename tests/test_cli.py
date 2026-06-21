@@ -499,6 +499,7 @@ def _make_chime_ctx(
     chime.cameras = []
     chime.set_volume_for_camera_public = AsyncMock()
     chime.set_ring_settings_public = AsyncMock()
+    chime.set_repeat_times_for_camera_public = AsyncMock()
 
     protect = MagicMock()
     protect.update_chime_public = AsyncMock()
@@ -693,33 +694,14 @@ def test_chime_set_repeat_times_whole_device_uses_ring_settings() -> None:
     )
 
 
-def test_chime_set_repeat_times_per_camera_uses_ring_settings_public() -> None:
-    """Per-camera repeat uses set_ring_settings_public with the camera updated."""
-    rings = [
-        RingSetting(
-            camera_id="cam-1",
-            repeat_times=1,  # type: ignore[arg-type]
-            volume=20,
-        ),
-        RingSetting(
-            camera_id="cam-2",
-            repeat_times=1,  # type: ignore[arg-type]
-            volume=30,
-        ),
-    ]
+def test_chime_set_repeat_times_per_camera_uses_public_wrapper() -> None:
+    """Per-camera repeat delegates to set_repeat_times_for_camera_public."""
     camera = _doorbell_camera("cam-1")
-    ctx, chime, protect = _make_chime_ctx(
-        ring_settings=rings, cameras_map={"cam-1": camera}
-    )
+    ctx, chime, protect = _make_chime_ctx(cameras_map={"cam-1": camera})
 
     set_repeat_times(ctx, value=5, camera_id="cam-1")
 
-    chime.set_ring_settings_public.assert_awaited_once_with(
-        [
-            {"cameraId": "cam-1", "volume": 20, "repeatTimes": 5},
-            {"cameraId": "cam-2", "volume": 30, "repeatTimes": 1},
-        ]
-    )
+    chime.set_repeat_times_for_camera_public.assert_awaited_once_with(camera, 5)
     protect.update_chime_public.assert_not_called()
 
 
@@ -731,23 +713,4 @@ def test_chime_set_repeat_times_per_camera_invalid_id_rejected() -> None:
         set_repeat_times(ctx, value=5, camera_id="nope")
 
     assert exc.value.exit_code == 1
-    chime.set_ring_settings_public.assert_not_called()
-
-
-def test_chime_set_repeat_times_per_camera_unpaired_rejected() -> None:
-    """Per-camera repeat for an unpaired camera exits 1."""
-    ring = RingSetting(
-        camera_id="other",
-        repeat_times=1,  # type: ignore[arg-type]
-        volume=20,
-    )
-    camera = _doorbell_camera("cam-1")
-    ctx, chime, _protect = _make_chime_ctx(
-        ring_settings=[ring], cameras_map={"cam-1": camera}
-    )
-
-    with pytest.raises(typer.Exit) as exc:
-        set_repeat_times(ctx, value=5, camera_id="cam-1")
-
-    assert exc.value.exit_code == 1
-    chime.set_ring_settings_public.assert_not_called()
+    chime.set_repeat_times_for_camera_public.assert_not_called()
