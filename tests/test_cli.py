@@ -28,6 +28,8 @@ from uiprotect.cli.sirens import app as siren_app
 from uiprotect.cli.speakers import app as speaker_app
 from uiprotect.cli.ulp_users_public import app as ulp_users_public_app
 from uiprotect.cli.users_public import app as users_public_app
+from uiprotect.cli.viewers import app as viewer_app
+from uiprotect.cli.viewers import liveview
 from uiprotect.cli.viewers_public import app as viewer_public_app
 from uiprotect.data import RingSetting
 from uiprotect.exceptions import BadRequest
@@ -714,3 +716,49 @@ def test_chime_set_repeat_times_per_camera_invalid_id_rejected() -> None:
 
     assert exc.value.exit_code == 1
     chime.set_repeat_times_for_camera_public.assert_not_called()
+
+
+def _make_viewer_ctx(liveview_ids: list[str] | None = None):
+    """Build a typer context double wired to a mocked viewer + client."""
+    viewer = MagicMock()
+    viewer.id = "viewer-1"
+    viewer.set_liveview = AsyncMock()
+
+    protect = MagicMock()
+    protect.update_viewer_public = AsyncMock()
+    protect.close_session = AsyncMock()
+    protect.close_public_api_session = AsyncMock()
+    protect.bootstrap.liveviews = dict.fromkeys(liveview_ids or [], MagicMock())
+
+    ctx = MagicMock()
+    ctx.obj.device = viewer
+    ctx.obj.protect = protect
+    return ctx, viewer, protect
+
+
+def test_viewer_help() -> None:
+    """Private viewers CLI exposes its liveview subcommand."""
+    result = runner.invoke(viewer_app, ["--help"])
+    assert result.exit_code == 0
+    assert "liveview" in result.stdout
+
+
+def test_viewer_liveview_set_uses_update_viewer_public() -> None:
+    """Assigning a liveview patches via the public API, not the deprecated setter."""
+    ctx, viewer, protect = _make_viewer_ctx(liveview_ids=["lv-1"])
+
+    liveview(ctx, "lv-1")
+
+    protect.update_viewer_public.assert_awaited_once_with("viewer-1", liveview="lv-1")
+    viewer.set_liveview.assert_not_called()
+
+
+def test_viewer_liveview_set_rejects_unknown_id() -> None:
+    """An unknown liveview ID exits non-zero without a write."""
+    ctx, _viewer, protect = _make_viewer_ctx(liveview_ids=[])
+
+    with pytest.raises(typer.Exit) as exc:
+        liveview(ctx, "lv-missing")
+
+    assert exc.value.exit_code == 1
+    protect.update_viewer_public.assert_not_awaited()
