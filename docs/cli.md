@@ -86,7 +86,6 @@ The API column marks which is which; note that `viewers` (private) and
 | `chimes`               | Private | Chime device CLI.                                                |
 | `create-api-key`       | Private | Create a new API key for the current user.                       |
 | `decode-ws-msg`        | —       | Decodes a base64 encoded UniFi Protect Websocket binary message. |
-| `doorlocks`            | Private | Doorlock device CLI.                                             |
 | `events`               | Private | Events CLI.                                                      |
 | `files-public`         | Public  | Device asset file commands.                                      |
 | `fobs`                 | Public  | Key fob commands.                                                |
@@ -184,7 +183,7 @@ $ uiprotect cameras 61ddb66b018e2703e7008c19 save-snapshot output.jpg
 
 #### Adoptable Devices CLI Commands
 
-Adoptable devices (Cameras, Chimes, Doorlocks, Lights, Sensors, Viewers) all have some commands in common.
+Adoptable devices (Cameras, Chimes, Lights, Sensors, Viewers) all have some commands in common.
 
 | Command        | Description                                       |
 | -------------- | ------------------------------------------------- |

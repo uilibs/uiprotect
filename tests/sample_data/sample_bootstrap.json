@@ -7658,60 +7658,6 @@
             "modelKey": "sensor"
         }
     ],
-    "doorlocks": [
-        {
-            "mac": "F10599AB6955",
-            "host": null,
-            "connectionHost": "192.168.102.63",
-            "type": "UFP-LOCK-R",
-            "name": "Itvvaze Panc",
-            "upSince": 1643050461849,
-            "uptime": null,
-            "lastSeen": 1643052750858,
-            "connectedSince": 1643052765849,
-            "state": "CONNECTED",
-            "hardwareRevision": 7,
-            "firmwareVersion": "1.2.0",
-            "latestFirmwareVersion": "1.2.0",
-            "firmwareBuild": null,
-            "isUpdating": false,
-            "isAdopting": false,
-            "isAdopted": true,
-            "isAdoptedByOther": false,
-            "isProvisioned": false,
-            "isRebooting": false,
-            "isSshEnabled": false,
-            "canAdopt": false,
-            "isAttemptingToConnect": false,
-            "credentials": "0e84b2e9b732478bc2e0ba1d0ac7b88f90fb2ea06f31dcd779ee573487fa888c",
-            "lockStatus": "CLOSED",
-            "enableHomekit": false,
-            "autoCloseTimeMs": 15000,
-            "wiredConnectionState": {
-                "phyRate": null
-            },
-            "ledSettings": {
-                "isEnabled": true
-            },
-            "bluetoothConnectionState": {
-                "signalQuality": 72,
-                "signalStrength": -61
-            },
-            "batteryStatus": {
-                "percentage": 100,
-                "isLow": false
-            },
-            "bridge": "61b3f5c90050a703e700042a",
-            "camera": "e2ff0ade6be0f2a2beb61869",
-            "bridgeCandidates": [],
-            "id": "1c812e80fd693ab51535be38",
-            "isConnected": true,
-            "hasHomekit": false,
-            "marketName": "UP DoorLock",
-            "modelKey": "doorlock",
-            "privateToken": "XVZZQh71SN4WSAffLJUQCRJHOflBV0HEYCEOmDakPgNWUUECIRXzMQG6HWLDoGlAMQKQPyvKJ37oJVnKGjhgMPqOf3IQCKSywNTYYLGXPZZT8PqKbyqDoQhRfJsWyUP4XazFXLQQsPHONUeEZP4HBKDKQUHMQTqhS7WJDzbVV1CJMPsXIDPHmJNVRBMQWGVH"
-        }
-    ],
     "chimes": [
         {
             "mac": "BEEEE2FBE413",

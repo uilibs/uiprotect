@@ -137,7 +137,6 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
     VIEWPORT = "viewer"
     BRIDGE = "bridge"
     SENSOR = "sensor"
-    DOORLOCK = "doorlock"
     SCHEDULE = "schedule"
     CHIME = "chime"
     AIPORT = "aiport"
@@ -193,7 +192,6 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
             ModelType.LIGHT,
             ModelType.BRIDGE,
             ModelType.SENSOR,
-            ModelType.DOORLOCK,
             ModelType.CHIME,
             ModelType.AIPORT,
         )
@@ -329,10 +327,6 @@ class EventType(ValuesEnumMixin, enum.StrEnum):
     SMART_DETECT_LOITER = "smartDetectLoiterZone"
     # ---
     MOTION_LIGHT = "lightMotion"
-    # ---
-    DOORLOCK_OPEN = "doorlockOpened"
-    DOORLOCK_CLOSE = "doorlockClosed"
-    DOORLOCK_BATTERY_LOW = "doorlockBatteryLow"
     # ---
     DISRUPTED_CONDITIONS = "ringDisruptedConditions"
     # ---
@@ -982,22 +976,6 @@ class LiveviewCycleMode(UnknownValuesEnumMixin, enum.StrEnum):
     MOTION = "motion"
     TIME = "time"
     UNKNOWN = "unknown"
-
-
-@enum.unique
-class LockStatusType(ValuesEnumMixin, enum.StrEnum):
-    OPEN = "OPEN"
-    OPENING = "OPENING"
-    CLOSED = "CLOSED"
-    CLOSING = "CLOSING"
-    JAMMED_WHILE_CLOSING = "JAMMED_WHILE_CLOSING"
-    JAMMED_WHILE_OPENING = "JAMMED_WHILE_OPENING"
-    FAILED_WHILE_CLOSING = "FAILED_WHILE_CLOSING"
-    FAILED_WHILE_OPENING = "FAILED_WHILE_OPENING"
-    NOT_CALIBRATED = "NOT_CALIBRATED"
-    AUTO_CALIBRATION_IN_PROGRESS = "AUTO_CALIBRATION_IN_PROGRESS"
-    CALIBRATION_WAITING_OPEN = "CALIBRATION_WAITING_OPEN"
-    CALIBRATION_WAITING_CLOSE = "CALIBRATION_WAITING_CLOSE"
 
 
 @enum.unique
