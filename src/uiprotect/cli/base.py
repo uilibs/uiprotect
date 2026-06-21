@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Coroutine, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, TypeVar
@@ -30,7 +30,7 @@ class CliContext:
     output_format: OutputFormatEnum
 
 
-def run(ctx: typer.Context, func: Coroutine[Any, Any, T]) -> T:
+def run(ctx: typer.Context, func: Awaitable[T]) -> T:
     """Helper method to call async function and clean up API client"""
 
     async def callback() -> T:
