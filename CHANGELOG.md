@@ -1,5 +1,13 @@
 # Changelog
 
+## v14.1.0 (2026-06-21)
+
+### Features
+
+
+- Add chime.set_repeat_times_for_camera_public ([`dfcd552`](https://github.com/uilibs/uiprotect/commit/dfcd552cf4c9bbead6393423faa2f57b3d19078a))
+
+
 ## v14.0.0 (2026-06-21)
 
 ### Features
