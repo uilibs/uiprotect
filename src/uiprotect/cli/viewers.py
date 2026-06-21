@@ -69,7 +69,7 @@ def liveview(
         base.print_unifi_obj(obj.liveview, ctx.obj.output_format)
     else:
         protect: ProtectApiClient = ctx.obj.protect
-        if (liveview_obj := protect.bootstrap.liveviews.get(liveview_id)) is None:
+        if liveview_id not in protect.bootstrap.liveviews:
             typer.secho("Invalid liveview ID")
             raise typer.Exit(1)
-        base.run(ctx, obj.set_liveview(liveview_obj))
+        base.run(ctx, protect.update_viewer_public(obj.id, liveview=liveview_id))
