@@ -118,18 +118,41 @@ jobs:
           run: poetry run pytest tests/benchmarks --no-cov -o addopts="" --codspeed
           mode: simulation
 
+  # Dry run on PRs and non-main pushes. No environment, no publish
+  # permissions, no OIDC, so PR runs carry no release blast radius.
+  release-dry-run:
+    needs:
+      - test
+      - lint
+    if: github.ref_name != 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+      - name: Create local branch name
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: git switch -C "$BRANCH"
+      - name: Test release
+        uses: python-semantic-release/python-semantic-release@v10.5.3
+        with:
+          no_operation_mode: true
+
+  # Real release, only on main. The release environment and write/OIDC
+  # permissions are scoped to this job so they never apply to PR runs.
   release:
     needs:
       - test
       - lint
-
+    if: github.ref_name == 'main'
     runs-on: ubuntu-latest
-    # Only enter the protected 'release' environment when actually releasing
-    # from main; PR dry-runs would otherwise be blocked by the env's
-    # main-only branch policy.
-    environment: ${{ github.ref_name == 'main' && 'release' || '' }}
+    environment: release
     concurrency:
-      group: release-${{ github.head_ref || github.ref }}
+      group: release-${{ github.ref }}
       cancel-in-progress: false
     permissions:
       id-token: write
@@ -150,7 +173,7 @@ jobs:
 
       - name: Create local branch
         env:
-          BRANCH: ${{ github.head_ref || github.ref_name }}
+          BRANCH: ${{ github.ref_name }}
         run: git switch -C "$BRANCH"
 
       - name: Setup Git
@@ -158,18 +181,10 @@ jobs:
           git config user.name "uiprotectbot"
           git config user.email "uiprotect@koston.org"
 
-      # Do a dry run of PSR
-      - name: Test release
-        uses: python-semantic-release/python-semantic-release@v10.5.3
-        if: github.ref_name != 'main'
-        with:
-          no_operation_mode: true
-
       # On main branch: actual PSR + upload to PyPI & GitHub
       - name: Release
         uses: python-semantic-release/python-semantic-release@v10.5.3
         id: release
-        if: github.ref_name == 'main'
         with:
           github_token: ${{ secrets.BOT_ACCESS_TOKEN }}
 
