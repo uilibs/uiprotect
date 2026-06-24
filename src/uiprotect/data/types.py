@@ -522,6 +522,7 @@ class IRLEDMode(UnknownValuesEnumMixin, enum.StrEnum):
     OFF = "off"
     MANUAL = "manual"
     CUSTOM = "custom"
+    CUSTOM_FILTER_ONLY = "customFilterOnly"
     UNKNOWN = "unknown"
 
 
