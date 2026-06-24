@@ -75,6 +75,7 @@ from .types import (
     PublicHdrMode,
     RecordingMode,
     RepeatTimes,
+    SensorScheduleMode,
     SensorStatusType,
     SmartDetectAudioType,
     SmartDetectObjectType,
@@ -94,6 +95,12 @@ if TYPE_CHECKING:
     from .public_devices import (
         PublicCameraLedSettings,
         PublicOsdSettings,
+        PublicSensorAlarmSettings,
+        PublicSensorGlassBreakSettingsWrite,
+        PublicSensorHumiditySettings,
+        PublicSensorLightSettings,
+        PublicSensorMotionSettings,
+        PublicSensorTemperatureSettings,
     )
 
 PRIVACY_ZONE_NAME = "pyufp_privacy_zone"
@@ -3650,6 +3657,186 @@ class Sensor(ProtectAdoptableDeviceModel):
                 f"Do not have permission to clear tamper for sensor: {self.id}",
             )
         await self._api.clear_tamper_sensor(self.id)
+
+    async def set_name_public(self, name: str) -> None:
+        """Set sensor name via public API."""
+        updated = await self._api.update_sensor_public(self.id, name=name)
+        self.name = updated.name
+
+    async def set_temperature_settings_public(
+        self,
+        *,
+        is_enabled: bool | None = None,
+        low_threshold: float | None = None,
+        high_threshold: float | None = None,
+        margin: float | None = None,
+    ) -> None:
+        """Update temperature alert settings via public API."""
+        settings: PublicSensorTemperatureSettings = {}
+        if is_enabled is not None:
+            settings["isEnabled"] = is_enabled
+        if low_threshold is not None:
+            settings["lowThreshold"] = low_threshold
+        if high_threshold is not None:
+            settings["highThreshold"] = high_threshold
+        if margin is not None:
+            settings["margin"] = margin
+        if not settings:
+            raise BadRequest("At least one parameter must be provided")
+        await self._api.update_sensor_public(self.id, temperature_settings=settings)
+        self._merge_threshold_local(
+            "temperature_settings",
+            is_enabled=is_enabled,
+            low_threshold=low_threshold,
+            high_threshold=high_threshold,
+            margin=margin,
+        )
+
+    async def set_humidity_settings_public(
+        self,
+        *,
+        is_enabled: bool | None = None,
+        low_threshold: int | None = None,
+        high_threshold: int | None = None,
+        margin: int | None = None,
+    ) -> None:
+        """Update humidity alert settings via public API."""
+        settings: PublicSensorHumiditySettings = {}
+        if is_enabled is not None:
+            settings["isEnabled"] = is_enabled
+        if low_threshold is not None:
+            settings["lowThreshold"] = low_threshold
+        if high_threshold is not None:
+            settings["highThreshold"] = high_threshold
+        if margin is not None:
+            settings["margin"] = margin
+        if not settings:
+            raise BadRequest("At least one parameter must be provided")
+        await self._api.update_sensor_public(self.id, humidity_settings=settings)
+        self._merge_threshold_local(
+            "humidity_settings",
+            is_enabled=is_enabled,
+            low_threshold=low_threshold,
+            high_threshold=high_threshold,
+            margin=margin,
+        )
+
+    async def set_light_settings_public(
+        self,
+        *,
+        is_enabled: bool | None = None,
+        low_threshold: int | None = None,
+        high_threshold: int | None = None,
+        margin: int | None = None,
+    ) -> None:
+        """Update light (lux) alert settings via public API."""
+        settings: PublicSensorLightSettings = {}
+        if is_enabled is not None:
+            settings["isEnabled"] = is_enabled
+        if low_threshold is not None:
+            settings["lowThreshold"] = low_threshold
+        if high_threshold is not None:
+            settings["highThreshold"] = high_threshold
+        if margin is not None:
+            settings["margin"] = margin
+        if not settings:
+            raise BadRequest("At least one parameter must be provided")
+        await self._api.update_sensor_public(self.id, light_settings=settings)
+        self._merge_threshold_local(
+            "light_settings",
+            is_enabled=is_enabled,
+            low_threshold=low_threshold,
+            high_threshold=high_threshold,
+            margin=margin,
+        )
+
+    async def set_motion_settings_public(
+        self,
+        *,
+        is_enabled: bool | None = None,
+        sensitivity: int | None = None,
+        sensitivity_when_armed: int | None = None,
+    ) -> None:
+        """Update motion detection settings via public API."""
+        settings: PublicSensorMotionSettings = {}
+        if is_enabled is not None:
+            settings["isEnabled"] = is_enabled
+        if sensitivity is not None:
+            settings["sensitivity"] = sensitivity
+        if sensitivity_when_armed is not None:
+            settings["sensitivityWhenArmed"] = sensitivity_when_armed
+        if not settings:
+            raise BadRequest("At least one parameter must be provided")
+        await self._api.update_sensor_public(self.id, motion_settings=settings)
+        current = self.motion_settings.model_copy()
+        if is_enabled is not None:
+            current.is_enabled = is_enabled
+        if sensitivity is not None:
+            current.sensitivity = PercentInt(sensitivity)
+        self.motion_settings = current
+
+    async def set_glass_break_settings_public(
+        self,
+        *,
+        is_enabled: bool | None = None,
+        sensitivity: int | None = None,
+        sensitivity_when_armed: int | None = None,
+    ) -> None:
+        """Update glass-break detection settings via public API."""
+        settings: PublicSensorGlassBreakSettingsWrite = {}
+        if is_enabled is not None:
+            settings["isEnabled"] = is_enabled
+        if sensitivity is not None:
+            settings["sensitivity"] = sensitivity
+        if sensitivity_when_armed is not None:
+            settings["sensitivityWhenArmed"] = sensitivity_when_armed
+        if not settings:
+            raise BadRequest("At least one parameter must be provided")
+        await self._api.update_sensor_public(self.id, glass_break_settings=settings)
+
+    async def set_alarm_settings_public(self, enabled: bool) -> None:
+        """Toggle the (audio) alarm detection setting via public API."""
+        alarm_settings: PublicSensorAlarmSettings = {"isEnabled": enabled}
+        await self._api.update_sensor_public(self.id, alarm_settings=alarm_settings)
+        current = self.alarm_settings.model_copy()
+        current.is_enabled = enabled
+        self.alarm_settings = current
+
+    async def set_schedule_mode_public(self, mode: SensorScheduleMode) -> None:
+        """Set the arm-schedule mode via public API."""
+        await self._api.update_sensor_public(self.id, schedule_mode=mode)
+
+    async def set_arm_profile_ids_public(self, arm_profile_ids: list[str]) -> None:
+        """Set the arm-profile ids associated with the sensor via public API."""
+        await self._api.update_sensor_public(
+            self.id, arm_profile_ids=arm_profile_ids
+        )
+
+    async def set_custom_sensitivity_when_armed_public(self, enabled: bool) -> None:
+        """Toggle custom armed sensitivity via public API."""
+        await self._api.update_sensor_public(
+            self.id, has_custom_sensitivity_when_armed=enabled
+        )
+
+    def _merge_threshold_local(
+        self,
+        attr: str,
+        *,
+        is_enabled: bool | None,
+        low_threshold: float | None,
+        high_threshold: float | None,
+        margin: float | None,
+    ) -> None:
+        current: SensorThresholdSettings = getattr(self, attr).model_copy()
+        if is_enabled is not None:
+            current.is_enabled = is_enabled
+        if low_threshold is not None:
+            current.low_threshold = low_threshold
+        if high_threshold is not None:
+            current.high_threshold = high_threshold
+        if margin is not None:
+            current.margin = margin
+        setattr(self, attr, current)
 
 
 class ChimeFeatureFlags(ProtectBaseObject):
