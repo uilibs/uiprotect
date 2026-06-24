@@ -6,7 +6,7 @@ import typer
 
 from ..api import ProtectApiClient
 from ..cli import base
-from ..data import MountType, Sensor
+from ..data import MountType, Sensor, SensorScheduleMode
 
 app = typer.Typer(rich_markup_mode="rich")
 
@@ -275,3 +275,163 @@ def remove_light_range(ctx: typer.Context) -> None:
     obj: Sensor = ctx.obj.device
 
     base.run(ctx, obj.remove_light_safe_range())
+
+
+@app.command()
+def set_name_public(ctx: typer.Context, name: str) -> None:
+    """Sets sensor name via the public API."""
+    base.require_device_id(ctx)
+    obj: Sensor = ctx.obj.device
+
+    base.run(ctx, obj.set_name_public(name))
+
+
+@app.command()
+def set_temperature_settings_public(
+    ctx: typer.Context,
+    is_enabled: bool | None = typer.Option(None),
+    low_threshold: float | None = typer.Option(None),
+    high_threshold: float | None = typer.Option(None),
+    margin: float | None = typer.Option(None),
+) -> None:
+    """Updates temperature alert settings via the public API."""
+    base.require_device_id(ctx)
+    obj: Sensor = ctx.obj.device
+
+    base.run(
+        ctx,
+        obj.set_temperature_settings_public(
+            is_enabled=is_enabled,
+            low_threshold=low_threshold,
+            high_threshold=high_threshold,
+            margin=margin,
+        ),
+    )
+
+
+@app.command()
+def set_humidity_settings_public(
+    ctx: typer.Context,
+    is_enabled: bool | None = typer.Option(None),
+    low_threshold: int | None = typer.Option(None),
+    high_threshold: int | None = typer.Option(None),
+    margin: int | None = typer.Option(None),
+) -> None:
+    """Updates humidity alert settings via the public API."""
+    base.require_device_id(ctx)
+    obj: Sensor = ctx.obj.device
+
+    base.run(
+        ctx,
+        obj.set_humidity_settings_public(
+            is_enabled=is_enabled,
+            low_threshold=low_threshold,
+            high_threshold=high_threshold,
+            margin=margin,
+        ),
+    )
+
+
+@app.command()
+def set_light_settings_public(
+    ctx: typer.Context,
+    is_enabled: bool | None = typer.Option(None),
+    low_threshold: int | None = typer.Option(None),
+    high_threshold: int | None = typer.Option(None),
+    margin: int | None = typer.Option(None),
+) -> None:
+    """Updates light (lux) alert settings via the public API."""
+    base.require_device_id(ctx)
+    obj: Sensor = ctx.obj.device
+
+    base.run(
+        ctx,
+        obj.set_light_settings_public(
+            is_enabled=is_enabled,
+            low_threshold=low_threshold,
+            high_threshold=high_threshold,
+            margin=margin,
+        ),
+    )
+
+
+@app.command()
+def set_motion_settings_public(
+    ctx: typer.Context,
+    is_enabled: bool | None = typer.Option(None),
+    sensitivity: int | None = typer.Option(None),
+    sensitivity_when_armed: int | None = typer.Option(None),
+) -> None:
+    """Updates motion detection settings via the public API."""
+    base.require_device_id(ctx)
+    obj: Sensor = ctx.obj.device
+
+    base.run(
+        ctx,
+        obj.set_motion_settings_public(
+            is_enabled=is_enabled,
+            sensitivity=sensitivity,
+            sensitivity_when_armed=sensitivity_when_armed,
+        ),
+    )
+
+
+@app.command()
+def set_glass_break_settings_public(
+    ctx: typer.Context,
+    is_enabled: bool | None = typer.Option(None),
+    sensitivity: int | None = typer.Option(None),
+    sensitivity_when_armed: int | None = typer.Option(None),
+) -> None:
+    """Updates glass-break detection settings via the public API."""
+    base.require_device_id(ctx)
+    obj: Sensor = ctx.obj.device
+
+    base.run(
+        ctx,
+        obj.set_glass_break_settings_public(
+            is_enabled=is_enabled,
+            sensitivity=sensitivity,
+            sensitivity_when_armed=sensitivity_when_armed,
+        ),
+    )
+
+
+@app.command()
+def set_alarm_public(ctx: typer.Context, enabled: bool) -> None:
+    """Sets alarm detection setting via the public API."""
+    base.require_device_id(ctx)
+    obj: Sensor = ctx.obj.device
+
+    base.run(ctx, obj.set_alarm_settings_public(enabled))
+
+
+@app.command()
+def set_schedule_mode_public(
+    ctx: typer.Context, mode: SensorScheduleMode
+) -> None:
+    """Sets the arm-schedule mode via the public API."""
+    base.require_device_id(ctx)
+    obj: Sensor = ctx.obj.device
+
+    base.run(ctx, obj.set_schedule_mode_public(mode))
+
+
+@app.command()
+def set_arm_profiles_public(
+    ctx: typer.Context, arm_profile_ids: list[str]
+) -> None:
+    """Sets the arm-profile ids via the public API."""
+    base.require_device_id(ctx)
+    obj: Sensor = ctx.obj.device
+
+    base.run(ctx, obj.set_arm_profile_ids_public(arm_profile_ids))
+
+
+@app.command()
+def set_custom_sensitivity_public(ctx: typer.Context, enabled: bool) -> None:
+    """Toggles custom armed sensitivity via the public API."""
+    base.require_device_id(ctx)
+    obj: Sensor = ctx.obj.device
+
+    base.run(ctx, obj.set_custom_sensitivity_when_armed_public(enabled))
