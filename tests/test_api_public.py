@@ -53,6 +53,7 @@ from uiprotect.data.types import (
     EventType,
     LiveviewCycleMode,
     ModelType,
+    SensorScheduleMode,
     SirenDuration,
     UlpUserStatus,
 )
@@ -1842,6 +1843,32 @@ async def test_update_sensor_public_all_settings(
         "temperatureSettings": {"lowThreshold": 15.5},
         "motionSettings": {"sensitivity": 60},
         "alarmSettings": {"isEnabled": False},
+    }
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.PublicSensor.from_unifi_dict")
+async def test_update_sensor_public_armed_fields(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    mock_ctor.return_value = Mock(id=SENSOR_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": SENSOR_ID})
+    await protect_client.update_sensor_public(
+        SENSOR_ID,
+        motion_settings={"sensitivity": 60, "sensitivityWhenArmed": 90},
+        glass_break_settings={"isEnabled": True, "sensitivityWhenArmed": 80},
+        schedule_mode=SensorScheduleMode.WHEN_ARMED,
+        arm_profile_ids=["p1", "p2"],
+        has_custom_sensitivity_when_armed=True,
+    )
+    _, kwargs = protect_client.api_request_obj.call_args
+    assert kwargs["json"] == {
+        "motionSettings": {"sensitivity": 60, "sensitivityWhenArmed": 90},
+        "glassBreakSettings": {"isEnabled": True, "sensitivityWhenArmed": 80},
+        "scheduleMode": "when_armed",
+        "armProfileIds": ["p1", "p2"],
+        "hasCustomSensitivityWhenArmed": True,
     }
 
 

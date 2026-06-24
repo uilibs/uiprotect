@@ -71,6 +71,7 @@ from .data import (
     PublicNVR,
     PublicSensor,
     PublicSensorAlarmSettings,
+    PublicSensorGlassBreakSettingsWrite,
     PublicSensorHumiditySettings,
     PublicSensorLightSettings,
     PublicSensorMotionSettings,
@@ -101,6 +102,7 @@ from .data.types import (
     ProgressCallback,
     PTZPatrol,
     PTZPreset,
+    SensorScheduleMode,
     SirenDuration,
 )
 from .exceptions import (
@@ -3824,7 +3826,11 @@ class ProtectApiClient(BaseApiClient):
         humidity_settings: PublicSensorHumiditySettings | None = None,
         temperature_settings: PublicSensorTemperatureSettings | None = None,
         motion_settings: PublicSensorMotionSettings | None = None,
+        glass_break_settings: PublicSensorGlassBreakSettingsWrite | None = None,
         alarm_settings: PublicSensorAlarmSettings | None = None,
+        schedule_mode: SensorScheduleMode | str | None = None,
+        arm_profile_ids: list[str] | None = None,
+        has_custom_sensitivity_when_armed: bool | None = None,
     ) -> PublicSensor:
         """
         Patch sensor settings using public API.
@@ -3843,8 +3849,16 @@ class ProtectApiClient(BaseApiClient):
             body["temperatureSettings"] = dict(temperature_settings)
         if motion_settings is not None:
             body["motionSettings"] = dict(motion_settings)
+        if glass_break_settings is not None:
+            body["glassBreakSettings"] = dict(glass_break_settings)
         if alarm_settings is not None:
             body["alarmSettings"] = dict(alarm_settings)
+        if schedule_mode is not None:
+            body["scheduleMode"] = str(schedule_mode)
+        if arm_profile_ids is not None:
+            body["armProfileIds"] = list(arm_profile_ids)
+        if has_custom_sensitivity_when_armed is not None:
+            body["hasCustomSensitivityWhenArmed"] = has_custom_sensitivity_when_armed
 
         if not body:
             raise BadRequest("At least one parameter must be provided")
