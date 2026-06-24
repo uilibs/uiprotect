@@ -3307,6 +3307,18 @@ class Viewer(ProtectAdoptableDeviceModel):
             # UniFi Protect bug: changing the liveview does _not_ emit a WS message
             await self.save_device(data_before_changes, force_emit=True)
 
+    async def set_name_public(self, name: str) -> None:
+        """Set viewer name via public API."""
+        updated = await self._api.update_viewer_public(self.id, name=name)
+        self.name = updated.name
+
+    async def set_liveview_public(self, liveview_id: str | None) -> None:
+        """Set the viewer liveview via public API. Pass ``None`` to clear."""
+        updated = await self._api.update_viewer_public(self.id, liveview=liveview_id)
+        # ``liveview_id`` is non-optional on the private model; the public API
+        # represents a cleared liveview as ``None`` on the wire.
+        self.liveview_id = updated.liveview_id or ""
+
 
 class Bridge(ProtectAdoptableDeviceModel):
     platform: str
