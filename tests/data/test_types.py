@@ -33,6 +33,7 @@ async def test_model_type_from_string():
         (AudioStyle, "nature", AudioStyle.NATURE),
         (HDRMode, "normal", HDRMode.NORMAL),
         (IRLEDMode, "auto", IRLEDMode.AUTO),
+        (IRLEDMode, "customFilterOnly", IRLEDMode.CUSTOM_FILTER_ONLY),
         (MountType, "door", MountType.DOOR),
         (SensorType, "temperature", SensorType.TEMPERATURE),
         (SensorStatusType, "safe", SensorStatusType.SAFE),
