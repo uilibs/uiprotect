@@ -1,5 +1,28 @@
 # Changelog
 
+## v14.1.1 (2026-06-24)
+
+### Bug fixes
+
+
+- Add missing irledmode value customfilteronly ([`8b0ee1a`](https://github.com/uilibs/uiprotect/commit/8b0ee1ac437d96e41b0f0eb1d5d374ed8b0a402c))
+
+
+### Refactoring
+
+
+- Route private viewer liveview set through public api ([`125034f`](https://github.com/uilibs/uiprotect/commit/125034f9c664c8a74c15b002240a064d852d16ab))
+
+
+- Migrate chime cli to public-api setters ([`c2a5517`](https://github.com/uilibs/uiprotect/commit/c2a5517e77c34e125b038c047fd951870222b380))
+
+
+- Migrate chime cli to public-api setters ([`c2a5517`](https://github.com/uilibs/uiprotect/commit/c2a5517e77c34e125b038c047fd951870222b380))
+
+
+- Delegate per-camera chime repeat-times to model setter ([`c2a5517`](https://github.com/uilibs/uiprotect/commit/c2a5517e77c34e125b038c047fd951870222b380))
+
+
 ## v14.1.0 (2026-06-21)
 
 ### Features
