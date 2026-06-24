@@ -3808,9 +3808,7 @@ class Sensor(ProtectAdoptableDeviceModel):
 
     async def set_arm_profile_ids_public(self, arm_profile_ids: list[str]) -> None:
         """Set the arm-profile ids associated with the sensor via public API."""
-        await self._api.update_sensor_public(
-            self.id, arm_profile_ids=arm_profile_ids
-        )
+        await self._api.update_sensor_public(self.id, arm_profile_ids=arm_profile_ids)
 
     async def set_custom_sensitivity_when_armed_public(self, enabled: bool) -> None:
         """Toggle custom armed sensitivity via public API."""

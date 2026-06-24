@@ -407,9 +407,7 @@ def set_alarm_public(ctx: typer.Context, enabled: bool) -> None:
 
 
 @app.command()
-def set_schedule_mode_public(
-    ctx: typer.Context, mode: SensorScheduleMode
-) -> None:
+def set_schedule_mode_public(ctx: typer.Context, mode: SensorScheduleMode) -> None:
     """Sets the arm-schedule mode via the public API."""
     base.require_device_id(ctx)
     obj: Sensor = ctx.obj.device
@@ -418,9 +416,7 @@ def set_schedule_mode_public(
 
 
 @app.command()
-def set_arm_profiles_public(
-    ctx: typer.Context, arm_profile_ids: list[str]
-) -> None:
+def set_arm_profiles_public(ctx: typer.Context, arm_profile_ids: list[str]) -> None:
     """Sets the arm-profile ids via the public API."""
     base.require_device_id(ctx)
     obj: Sensor = ctx.obj.device
