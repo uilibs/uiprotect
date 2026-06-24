@@ -403,7 +403,64 @@ def set_alarm_public(ctx: typer.Context, enabled: bool) -> None:
     base.require_device_id(ctx)
     obj: Sensor = ctx.obj.device
 
-    base.run(ctx, obj.set_alarm_settings_public(enabled))
+    base.run(ctx, obj.set_alarm_public(enabled))
+
+
+@app.command()
+def set_motion_public(ctx: typer.Context, enabled: bool) -> None:
+    """Toggles motion detection via the public API."""
+    base.require_device_id(ctx)
+    obj: Sensor = ctx.obj.device
+
+    base.run(ctx, obj.set_motion_status_public(enabled))
+
+
+@app.command()
+def set_motion_sensitivity_public(
+    ctx: typer.Context,
+    sensitivity: int = typer.Argument(..., min=0, max=100),
+) -> None:
+    """Sets motion detection sensitivity via the public API."""
+    base.require_device_id(ctx)
+    obj: Sensor = ctx.obj.device
+
+    base.run(ctx, obj.set_motion_sensitivity_public(sensitivity))
+
+
+@app.command()
+def set_temperature_public(ctx: typer.Context, enabled: bool) -> None:
+    """Toggles temperature alerts via the public API."""
+    base.require_device_id(ctx)
+    obj: Sensor = ctx.obj.device
+
+    base.run(ctx, obj.set_temperature_status_public(enabled))
+
+
+@app.command()
+def set_humidity_public(ctx: typer.Context, enabled: bool) -> None:
+    """Toggles humidity alerts via the public API."""
+    base.require_device_id(ctx)
+    obj: Sensor = ctx.obj.device
+
+    base.run(ctx, obj.set_humidity_status_public(enabled))
+
+
+@app.command()
+def set_light_public(ctx: typer.Context, enabled: bool) -> None:
+    """Toggles light (lux) alerts via the public API."""
+    base.require_device_id(ctx)
+    obj: Sensor = ctx.obj.device
+
+    base.run(ctx, obj.set_light_status_public(enabled))
+
+
+@app.command()
+def set_glass_break_public(ctx: typer.Context, enabled: bool) -> None:
+    """Toggles glass-break detection via the public API."""
+    base.require_device_id(ctx)
+    obj: Sensor = ctx.obj.device
+
+    base.run(ctx, obj.set_glass_break_status_public(enabled))
 
 
 @app.command()

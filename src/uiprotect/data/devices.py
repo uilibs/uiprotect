@@ -3794,7 +3794,7 @@ class Sensor(ProtectAdoptableDeviceModel):
             raise BadRequest("At least one parameter must be provided")
         await self._api.update_sensor_public(self.id, glass_break_settings=settings)
 
-    async def set_alarm_settings_public(self, enabled: bool) -> None:
+    async def set_alarm_public(self, enabled: bool) -> None:
         """Toggle the (audio) alarm detection setting via public API."""
         alarm_settings: PublicSensorAlarmSettings = {"isEnabled": enabled}
         await self._api.update_sensor_public(self.id, alarm_settings=alarm_settings)
@@ -3815,6 +3815,30 @@ class Sensor(ProtectAdoptableDeviceModel):
         await self._api.update_sensor_public(
             self.id, has_custom_sensitivity_when_armed=enabled
         )
+
+    async def set_motion_status_public(self, enabled: bool) -> None:
+        """Toggle motion detection via public API."""
+        await self.set_motion_settings_public(is_enabled=enabled)
+
+    async def set_motion_sensitivity_public(self, sensitivity: int) -> None:
+        """Set motion detection sensitivity via public API."""
+        await self.set_motion_settings_public(sensitivity=sensitivity)
+
+    async def set_temperature_status_public(self, enabled: bool) -> None:
+        """Toggle temperature alerts via public API."""
+        await self.set_temperature_settings_public(is_enabled=enabled)
+
+    async def set_humidity_status_public(self, enabled: bool) -> None:
+        """Toggle humidity alerts via public API."""
+        await self.set_humidity_settings_public(is_enabled=enabled)
+
+    async def set_light_status_public(self, enabled: bool) -> None:
+        """Toggle light (lux) alerts via public API."""
+        await self.set_light_settings_public(is_enabled=enabled)
+
+    async def set_glass_break_status_public(self, enabled: bool) -> None:
+        """Toggle glass-break detection via public API."""
+        await self.set_glass_break_settings_public(is_enabled=enabled)
 
     def _merge_threshold_local(
         self,

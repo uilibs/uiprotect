@@ -458,11 +458,11 @@ async def test_sensor_set_glass_break_settings_public_requires_arg(sensor_obj: S
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("enabled", [True, False])
 @pytest.mark.asyncio()
-async def test_sensor_set_alarm_settings_public(sensor_obj: Sensor, enabled: bool):
+async def test_sensor_set_alarm_public(sensor_obj: Sensor, enabled: bool):
     sensor_obj.api.update_sensor_public = AsyncMock()
     sensor_obj.alarm_settings.is_enabled = not enabled
 
-    await sensor_obj.set_alarm_settings_public(enabled)
+    await sensor_obj.set_alarm_public(enabled)
 
     sensor_obj.api.update_sensor_public.assert_called_once_with(
         sensor_obj.id, alarm_settings={"isEnabled": enabled}
@@ -506,4 +506,61 @@ async def test_sensor_set_custom_sensitivity_when_armed_public(
 
     sensor_obj.api.update_sensor_public.assert_called_once_with(
         sensor_obj.id, has_custom_sensitivity_when_armed=enabled
+    )
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("enabled", [True, False])
+@pytest.mark.asyncio()
+async def test_sensor_set_motion_status_public(sensor_obj: Sensor, enabled: bool):
+    sensor_obj.api.update_sensor_public = AsyncMock()
+
+    await sensor_obj.set_motion_status_public(enabled)
+
+    sensor_obj.api.update_sensor_public.assert_called_once_with(
+        sensor_obj.id, motion_settings={"isEnabled": enabled}
+    )
+    assert sensor_obj.motion_settings.is_enabled is enabled
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_sensor_set_motion_sensitivity_public(sensor_obj: Sensor):
+    sensor_obj.api.update_sensor_public = AsyncMock()
+
+    await sensor_obj.set_motion_sensitivity_public(42)
+
+    sensor_obj.api.update_sensor_public.assert_called_once_with(
+        sensor_obj.id, motion_settings={"sensitivity": 42}
+    )
+    assert sensor_obj.motion_settings.sensitivity == 42
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("attr", ["temperature", "humidity", "light"])
+@pytest.mark.parametrize("enabled", [True, False])
+@pytest.mark.asyncio()
+async def test_sensor_set_threshold_status_public(
+    sensor_obj: Sensor, attr: str, enabled: bool
+):
+    sensor_obj.api.update_sensor_public = AsyncMock()
+
+    await getattr(sensor_obj, f"set_{attr}_status_public")(enabled)
+
+    sensor_obj.api.update_sensor_public.assert_called_once_with(
+        sensor_obj.id, **{f"{attr}_settings": {"isEnabled": enabled}}
+    )
+    assert getattr(sensor_obj, f"{attr}_settings").is_enabled is enabled
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("enabled", [True, False])
+@pytest.mark.asyncio()
+async def test_sensor_set_glass_break_status_public(sensor_obj: Sensor, enabled: bool):
+    sensor_obj.api.update_sensor_public = AsyncMock()
+
+    await sensor_obj.set_glass_break_status_public(enabled)
+
+    sensor_obj.api.update_sensor_public.assert_called_once_with(
+        sensor_obj.id, glass_break_settings={"isEnabled": enabled}
     )
