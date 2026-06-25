@@ -474,7 +474,27 @@ class PublicBootstrap:
         new, _old = self._apply_action(
             api, action_type, item, ModelType.EVENT, self._events_slot()
         )
-        return cast("PublicEvent | None", new), old_snapshot
+        new_event = cast("PublicEvent | None", new)
+        self._apply_camera_detection_state(action_type, new_event, old_snapshot)
+        return new_event, old_snapshot
+
+    def _apply_camera_detection_state(
+        self,
+        action_type: str,
+        new_event: PublicEvent | None,
+        old_event: PublicEvent | None,
+    ) -> None:
+        """Fold a public events-WS frame into the originating camera's detection state."""
+        event = new_event if new_event is not None else old_event
+        if event is None or event.device_id is None:
+            return
+        camera = self.cameras.get(event.device_id)
+        if camera is None:
+            return
+        if action_type == "remove":
+            camera._clear_detection_event(event.id)
+        elif new_event is not None:
+            camera._apply_detection_event(new_event)
 
     # ------------------------------------------------------------------
     # Action application (shared by devices / NVR / events)

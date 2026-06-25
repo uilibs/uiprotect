@@ -18,9 +18,10 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from functools import cache
-from typing import Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 from pydantic import Field
+from pydantic.fields import PrivateAttr
 
 from ..exceptions import BadRequest
 from ..utils import convert_to_datetime
@@ -37,6 +38,7 @@ from .types import (
     ChannelQuality,
     DeviceState,
     DoorbellMessageType,
+    EventType,
     FobAwayState,
     FobButton,
     LightModeEnableType,
@@ -64,6 +66,25 @@ from .types import (
     SpeakerStatus,
     UlpUserStatus,
     VideoMode,
+)
+
+if TYPE_CHECKING:
+    from .public_event import PublicEvent
+
+# Smart-detect object events. Protect 7.x emits overlapping ``smartDetectZone``
+# and ``smartDetectLine`` frames for the same detection, so both drive the smart
+# flags — mirroring the private ``Camera`` model (see ``CAMERA_EVENT_ATTR_MAP``
+# in ``bootstrap.py``, which maps both to the same ``last_smart_detect`` state).
+_SMART_DETECT_EVENT_TYPES = frozenset(
+    {EventType.SMART_DETECT, EventType.SMART_DETECT_LINE}
+)
+_MOTION_EVENT_TYPES = frozenset({EventType.MOTION})
+_SMART_AUDIO_EVENT_TYPES = frozenset({EventType.SMART_AUDIO_DETECT})
+
+# Public events-WS event types that drive the derived detection-state booleans
+# on :class:`PublicCamera`. Other event types are ignored by that machinery.
+_DETECTION_EVENT_TYPES = (
+    _MOTION_EVENT_TYPES | _SMART_AUDIO_EVENT_TYPES | _SMART_DETECT_EVENT_TYPES
 )
 
 # ---------------------------------------------------------------------------
@@ -311,12 +332,113 @@ class PublicCamera(PublicDeviceModel):
     # it synchronously.
     rtsps_streams: RTSPSStreams | None = None
 
+    # Open (not-yet-ended) detection events keyed by event id, maintained from
+    # the public events websocket. Per-instance (one process may drive several
+    # clients against different consoles), so it is a ``PrivateAttr`` with a
+    # per-instance default factory rather than a shared class attribute.
+    _active_detection_events: dict[str, PublicEvent] = PrivateAttr(default_factory=dict)
+
     def hardware_stream_qualities(self) -> list[ChannelQuality]:
         """Stream qualities the camera hardware supports (not the server's ``available`` list)."""
         qualities = [ChannelQuality.HIGH, ChannelQuality.MEDIUM, ChannelQuality.LOW]
         if self.has_package_camera:
             qualities.append(ChannelQuality.PACKAGE)
         return qualities
+
+    # ------------------------------------------------------------------
+    # Derived detection state (public events WS)
+    # ------------------------------------------------------------------
+    #
+    # The Public Integration API does not carry live detection booleans on the
+    # camera payload; they are derived here from the public events websocket,
+    # mirroring the private :class:`~uiprotect.data.devices.Camera` accessor
+    # names. An event turns the matching flag(s) on at start (``end is None``)
+    # and off once it ends, so overlapping detections of the same kind are
+    # handled by the per-id active-event set.
+
+    def _apply_detection_event(self, event: PublicEvent) -> None:
+        """Add/remove a detection event from the active set based on its ``end``."""
+        if event.type not in _DETECTION_EVENT_TYPES:
+            return
+        if event.end is None:
+            self._active_detection_events[event.id] = event
+        else:
+            self._active_detection_events.pop(event.id, None)
+
+    def _clear_detection_event(self, event_id: str) -> None:
+        """Drop an event from the active set (server ``remove`` frame)."""
+        self._active_detection_events.pop(event_id, None)
+
+    def _has_active_event(self, event_types: frozenset[EventType]) -> bool:
+        return any(
+            event.type in event_types
+            for event in self._active_detection_events.values()
+        )
+
+    def _has_active_smart_type(
+        self, event_types: frozenset[EventType], smart_type: SmartDetectObjectType
+    ) -> bool:
+        return any(
+            event.type in event_types and smart_type in event.smart_detect_types
+            for event in self._active_detection_events.values()
+        )
+
+    @property
+    def is_motion_detected(self) -> bool:
+        """Is a motion event currently active."""
+        return self._has_active_event(_MOTION_EVENT_TYPES)
+
+    @property
+    def is_smart_currently_detected(self) -> bool:
+        """Is a smart-detect event currently active."""
+        return self._has_active_event(_SMART_DETECT_EVENT_TYPES)
+
+    @property
+    def is_person_currently_detected(self) -> bool:
+        """Is a person currently being detected."""
+        return self._has_active_smart_type(
+            _SMART_DETECT_EVENT_TYPES, SmartDetectObjectType.PERSON
+        )
+
+    @property
+    def is_vehicle_currently_detected(self) -> bool:
+        """Is a vehicle currently being detected."""
+        return self._has_active_smart_type(
+            _SMART_DETECT_EVENT_TYPES, SmartDetectObjectType.VEHICLE
+        )
+
+    @property
+    def is_animal_currently_detected(self) -> bool:
+        """Is an animal currently being detected."""
+        return self._has_active_smart_type(
+            _SMART_DETECT_EVENT_TYPES, SmartDetectObjectType.ANIMAL
+        )
+
+    @property
+    def is_audio_currently_detected(self) -> bool:
+        """Is an audio smart-detect event currently active."""
+        return self._has_active_event(_SMART_AUDIO_EVENT_TYPES)
+
+    @property
+    def is_smoke_currently_detected(self) -> bool:
+        """Is a smoke alarm currently being detected."""
+        return self._has_active_smart_type(
+            _SMART_AUDIO_EVENT_TYPES, SmartDetectObjectType.SMOKE
+        )
+
+    @property
+    def is_cmonx_currently_detected(self) -> bool:
+        """Is a CO alarm currently being detected."""
+        return self._has_active_smart_type(
+            _SMART_AUDIO_EVENT_TYPES, SmartDetectObjectType.CMONX
+        )
+
+    @property
+    def is_siren_currently_detected(self) -> bool:
+        """Is a siren currently being detected."""
+        return self._has_active_smart_type(
+            _SMART_AUDIO_EVENT_TYPES, SmartDetectObjectType.SIREN
+        )
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
