@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.1.0 (2026-06-25)
+
+### Features
+
+
+- Derive public-events-ws detection state on publiccamera ([`f6c1f0c`](https://github.com/uilibs/uiprotect/commit/f6c1f0c9ea46b11bca1b8a7b58d537227dadb604))
+
+
 ## v15.0.0 (2026-06-25)
 
 ### Features
