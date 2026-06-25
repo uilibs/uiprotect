@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.0.0 (2026-06-25)
+
+### Features
+
+
+- Expose linkstation.last_event as datetime ([`e941549`](https://github.com/uilibs/uiprotect/commit/e94154935ef0e5e02cb36f6e68029282ca3a4df6))
+
+
 ## v14.3.0 (2026-06-25)
 
 ### Features
