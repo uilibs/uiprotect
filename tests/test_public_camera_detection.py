@@ -154,6 +154,45 @@ def test_overlapping_motion_events_stay_on_until_all_end() -> None:
     assert cam.is_motion_detected is False
 
 
+def test_overlapping_person_events_stay_on_until_all_end() -> None:
+    """Two concurrent smartDetectZone person events keep the person/smart flags set until both close."""
+    pb = _bootstrap_with_camera()
+    cam = pb.cameras["cam1"]
+
+    pb.process_events_ws_message(
+        Mock(),
+        _event(
+            "add",
+            id="p1",
+            type="smartDetectZone",
+            start=1000,
+            device="cam1",
+            smartDetectTypes=["person"],
+        ),
+    )
+    pb.process_events_ws_message(
+        Mock(),
+        _event(
+            "add",
+            id="p2",
+            type="smartDetectZone",
+            start=1100,
+            device="cam1",
+            smartDetectTypes=["person"],
+        ),
+    )
+    assert cam.is_smart_currently_detected is True
+    assert cam.is_person_currently_detected is True
+
+    pb.process_events_ws_message(Mock(), _event("update", id="p1", end=2000))
+    assert cam.is_smart_currently_detected is True
+    assert cam.is_person_currently_detected is True
+
+    pb.process_events_ws_message(Mock(), _event("update", id="p2", end=2100))
+    assert cam.is_smart_currently_detected is False
+    assert cam.is_person_currently_detected is False
+
+
 def test_remove_frame_clears_active_detection() -> None:
     """A server ``remove`` frame clears an active detection."""
     pb = _bootstrap_with_camera()
