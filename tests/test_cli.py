@@ -24,6 +24,25 @@ from uiprotect.cli.fobs import app as fob_app
 from uiprotect.cli.link_stations import app as link_station_app
 from uiprotect.cli.liveviews import app as liveview_app
 from uiprotect.cli.relays import app as relay_app
+from uiprotect.cli.sensors import app as sensor_app
+from uiprotect.cli.sensors import (
+    set_alarm_public,
+    set_arm_profiles_public,
+    set_custom_sensitivity_public,
+    set_glass_break_public,
+    set_glass_break_settings_public,
+    set_humidity_public,
+    set_humidity_settings_public,
+    set_light_public,
+    set_light_settings_public,
+    set_motion_public,
+    set_motion_sensitivity_public,
+    set_motion_settings_public,
+    set_name_public,
+    set_schedule_mode_public,
+    set_temperature_public,
+    set_temperature_settings_public,
+)
 from uiprotect.cli.sirens import app as siren_app
 from uiprotect.cli.speakers import app as speaker_app
 from uiprotect.cli.ulp_users_public import app as ulp_users_public_app
@@ -32,6 +51,7 @@ from uiprotect.cli.viewers import app as viewer_app
 from uiprotect.cli.viewers import liveview
 from uiprotect.cli.viewers_public import app as viewer_public_app
 from uiprotect.data import RingSetting
+from uiprotect.data.types import SensorScheduleMode
 from uiprotect.exceptions import BadRequest
 
 runner = CliRunner()
@@ -762,3 +782,162 @@ def test_viewer_liveview_set_rejects_unknown_id() -> None:
 
     assert exc.value.exit_code == 1
     protect.update_viewer_public.assert_not_awaited()
+
+
+def _make_sensor_ctx():
+    """Build a typer context double wired to a mocked sensor + client."""
+    sensor = MagicMock()
+    sensor.id = "sensor-1"
+    sensor.set_name_public = AsyncMock()
+    sensor.set_temperature_settings_public = AsyncMock()
+    sensor.set_humidity_settings_public = AsyncMock()
+    sensor.set_light_settings_public = AsyncMock()
+    sensor.set_motion_settings_public = AsyncMock()
+    sensor.set_glass_break_settings_public = AsyncMock()
+    sensor.set_alarm_public = AsyncMock()
+    sensor.set_motion_status_public = AsyncMock()
+    sensor.set_motion_sensitivity_public = AsyncMock()
+    sensor.set_temperature_status_public = AsyncMock()
+    sensor.set_humidity_status_public = AsyncMock()
+    sensor.set_light_status_public = AsyncMock()
+    sensor.set_glass_break_status_public = AsyncMock()
+    sensor.set_schedule_mode_public = AsyncMock()
+    sensor.set_arm_profile_ids_public = AsyncMock()
+    sensor.set_custom_sensitivity_when_armed_public = AsyncMock()
+
+    protect = MagicMock()
+    protect.close_session = AsyncMock()
+    protect.close_public_api_session = AsyncMock()
+
+    ctx = MagicMock()
+    ctx.obj.device = sensor
+    ctx.obj.protect = protect
+    return ctx, sensor
+
+
+def test_sensor_help() -> None:
+    """Sensor CLI exposes the public setter subcommands."""
+    result = runner.invoke(sensor_app, ["--help"])
+    assert result.exit_code == 0
+    plain_output = _ANSI_ESCAPE_RE.sub("", result.output)
+    assert "set-name-public" in plain_output
+    assert "set-glass-break-settings-public" in plain_output
+    assert "set-schedule-mode-public" in plain_output
+
+
+def test_sensor_set_name_public() -> None:
+    ctx, sensor = _make_sensor_ctx()
+    set_name_public(ctx, "Kitchen")
+    sensor.set_name_public.assert_awaited_once_with("Kitchen")
+
+
+def test_sensor_set_temperature_settings_public() -> None:
+    ctx, sensor = _make_sensor_ctx()
+    set_temperature_settings_public(
+        ctx, is_enabled=True, low_threshold=5.0, high_threshold=30.0, margin=1.0
+    )
+    sensor.set_temperature_settings_public.assert_awaited_once_with(
+        is_enabled=True, low_threshold=5.0, high_threshold=30.0, margin=1.0
+    )
+
+
+def test_sensor_set_humidity_settings_public() -> None:
+    ctx, sensor = _make_sensor_ctx()
+    set_humidity_settings_public(
+        ctx, is_enabled=True, low_threshold=10, high_threshold=80, margin=2
+    )
+    sensor.set_humidity_settings_public.assert_awaited_once_with(
+        is_enabled=True, low_threshold=10, high_threshold=80, margin=2
+    )
+
+
+def test_sensor_set_light_settings_public() -> None:
+    ctx, sensor = _make_sensor_ctx()
+    set_light_settings_public(
+        ctx, is_enabled=False, low_threshold=1, high_threshold=900, margin=5
+    )
+    sensor.set_light_settings_public.assert_awaited_once_with(
+        is_enabled=False, low_threshold=1, high_threshold=900, margin=5
+    )
+
+
+def test_sensor_set_motion_settings_public() -> None:
+    ctx, sensor = _make_sensor_ctx()
+    set_motion_settings_public(
+        ctx, is_enabled=True, sensitivity=70, sensitivity_when_armed=90
+    )
+    sensor.set_motion_settings_public.assert_awaited_once_with(
+        is_enabled=True, sensitivity=70, sensitivity_when_armed=90
+    )
+
+
+def test_sensor_set_glass_break_settings_public() -> None:
+    ctx, sensor = _make_sensor_ctx()
+    set_glass_break_settings_public(
+        ctx, is_enabled=True, sensitivity=55, sensitivity_when_armed=65
+    )
+    sensor.set_glass_break_settings_public.assert_awaited_once_with(
+        is_enabled=True, sensitivity=55, sensitivity_when_armed=65
+    )
+
+
+def test_sensor_set_alarm_public() -> None:
+    ctx, sensor = _make_sensor_ctx()
+    set_alarm_public(ctx, True)
+    sensor.set_alarm_public.assert_awaited_once_with(True)
+
+
+def test_sensor_set_motion_public() -> None:
+    ctx, sensor = _make_sensor_ctx()
+    set_motion_public(ctx, True)
+    sensor.set_motion_status_public.assert_awaited_once_with(True)
+
+
+def test_sensor_set_motion_sensitivity_public() -> None:
+    ctx, sensor = _make_sensor_ctx()
+    set_motion_sensitivity_public(ctx, 42)
+    sensor.set_motion_sensitivity_public.assert_awaited_once_with(42)
+
+
+def test_sensor_set_temperature_public() -> None:
+    ctx, sensor = _make_sensor_ctx()
+    set_temperature_public(ctx, False)
+    sensor.set_temperature_status_public.assert_awaited_once_with(False)
+
+
+def test_sensor_set_humidity_public() -> None:
+    ctx, sensor = _make_sensor_ctx()
+    set_humidity_public(ctx, True)
+    sensor.set_humidity_status_public.assert_awaited_once_with(True)
+
+
+def test_sensor_set_light_public() -> None:
+    ctx, sensor = _make_sensor_ctx()
+    set_light_public(ctx, False)
+    sensor.set_light_status_public.assert_awaited_once_with(False)
+
+
+def test_sensor_set_glass_break_public() -> None:
+    ctx, sensor = _make_sensor_ctx()
+    set_glass_break_public(ctx, True)
+    sensor.set_glass_break_status_public.assert_awaited_once_with(True)
+
+
+def test_sensor_set_schedule_mode_public() -> None:
+    ctx, sensor = _make_sensor_ctx()
+    set_schedule_mode_public(ctx, SensorScheduleMode.WHEN_ARMED)
+    sensor.set_schedule_mode_public.assert_awaited_once_with(
+        SensorScheduleMode.WHEN_ARMED
+    )
+
+
+def test_sensor_set_arm_profiles_public() -> None:
+    ctx, sensor = _make_sensor_ctx()
+    set_arm_profiles_public(ctx, ["p1", "p2"])
+    sensor.set_arm_profile_ids_public.assert_awaited_once_with(["p1", "p2"])
+
+
+def test_sensor_set_custom_sensitivity_public() -> None:
+    ctx, sensor = _make_sensor_ctx()
+    set_custom_sensitivity_public(ctx, True)
+    sensor.set_custom_sensitivity_when_armed_public.assert_awaited_once_with(True)

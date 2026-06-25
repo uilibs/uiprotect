@@ -102,6 +102,15 @@ class PublicSensorTemperatureSettings(TypedDict, total=False):
 class PublicSensorMotionSettings(TypedDict, total=False):
     isEnabled: bool
     sensitivity: int
+    sensitivityWhenArmed: int
+
+
+class PublicSensorGlassBreakSettingsWrite(TypedDict, total=False):
+    # Write shape for ``glassBreakSettings``; the read model is
+    # ``PublicSensorGlassBreakSettings``.
+    isEnabled: bool
+    sensitivity: int
+    sensitivityWhenArmed: int
 
 
 class PublicSensorAlarmSettings(TypedDict, total=False):
