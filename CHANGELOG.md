@@ -1,5 +1,13 @@
 # Changelog
 
+## v14.3.0 (2026-06-25)
+
+### Features
+
+
+- Add viewer.set_liveview_public and set_name_public ([`c908bb8`](https://github.com/uilibs/uiprotect/commit/c908bb826efd9dc7c0533477011b527627da9c06))
+
+
 ## v14.2.0 (2026-06-25)
 
 ### Features
