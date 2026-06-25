@@ -476,6 +476,22 @@ class PublicBootstrap:
         )
         return cast("PublicEvent | None", new), old_snapshot
 
+    def _sync_camera_detection_state(self, event: PublicEvent) -> None:
+        """Fold a cached event into its owning camera's active detection set."""
+        if event.device_id is None:
+            return
+        camera = self.cameras.get(event.device_id)
+        if camera is not None:
+            camera._apply_detection_event(event)
+
+    def _clear_camera_detection_event(self, event: PublicEvent) -> None:
+        """Drop an evicted/removed event from its owning camera's active set."""
+        if event.device_id is None:
+            return
+        camera = self.cameras.get(event.device_id)
+        if camera is not None:
+            camera._clear_detection_event(event.id)
+
     # ------------------------------------------------------------------
     # Action application (shared by devices / NVR / events)
     # ------------------------------------------------------------------
@@ -673,13 +689,23 @@ class PublicBootstrap:
             return events.get(obj_id)
 
         def _put(obj_id: str, obj: ProtectModelWithId) -> None:
-            events[obj_id] = cast("PublicEvent", obj)
+            event = cast("PublicEvent", obj)
+            events[obj_id] = event
             events.move_to_end(obj_id)
+            # Sync the owning camera's active set at the single cache choke
+            # point: an open event turns its flag(s) on, an ended one off.
+            self._sync_camera_detection_state(event)
             while events and len(events) > limit:
-                events.popitem(last=False)
+                _evicted_id, evicted = events.popitem(last=False)
+                # An evicted open event can never receive its close update, so
+                # clear it here to keep the camera flag from sticking on (and
+                # the active set bounded to the cache).
+                self._clear_camera_detection_event(cast("PublicEvent", evicted))
 
         def _delete(obj_id: str) -> None:
-            events.pop(obj_id, None)
+            evicted = events.pop(obj_id, None)
+            if evicted is not None:
+                self._clear_camera_detection_event(evicted)
 
         def _factory(item: dict[str, Any], api: ProtectApiClient) -> PublicEvent:
             return PublicEvent.from_unifi_dict(api=api, **item)
