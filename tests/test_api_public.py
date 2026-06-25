@@ -58,6 +58,7 @@ from uiprotect.data.types import (
     UlpUserStatus,
 )
 from uiprotect.exceptions import BadRequest, NotAuthorized
+from uiprotect.utils import convert_to_datetime
 from uiprotect.websocket import WebsocketState
 
 if TYPE_CHECKING:
@@ -654,7 +655,8 @@ def test_alarm_hub_model_from_unifi_dict() -> None:
     ah = LinkStation.from_unifi_dict(**deepcopy(_ALARM_HUB_FIXTURE))
     assert ah.id == ALARM_HUB_ID
     assert ah.is_alarm_hub is True
-    assert ah.last_event == 1700000000000
+    assert ah.last_event == convert_to_datetime(1700000000000)
+    assert ah.unifi_dict()["lastEvent"] == 1700000000000
     assert ah.alarm_hub is not None
     assert ah.alarm_hub["12v"] == {"state": "on"}
     assert ah.alarm_hub["+"] == "positive-terminal"

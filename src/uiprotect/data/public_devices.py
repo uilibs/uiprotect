@@ -14,6 +14,7 @@ are ``Optional``.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from functools import cache
@@ -22,6 +23,7 @@ from typing import Any, Literal, TypedDict
 from pydantic import Field
 
 from ..exceptions import BadRequest
+from ..utils import convert_to_datetime
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import (
     AlarmHubBatteryStatus,
@@ -915,8 +917,10 @@ class LinkStation(ProtectModelWithId):
     mac: str
     is_alarm_hub: bool
     led_settings: PublicLedSettings
-    # Top-level nullable epoch-ms timestamp of the last event, NOT an Event object.
-    last_event: int | None = None
+    # Top-level nullable timestamp of the last event, NOT an Event object.
+    # Sent on the wire as epoch-ms; converted to ``datetime`` via
+    # ``unifi_dict_conversions`` to match every other Protect timestamp field.
+    last_event: datetime | None = None
     # Retained as an opaque dict so the electrical sub-sections
     # (``connector``, ``*MeterStatus``, ``*TerminalStatus``, ``buckboost``,
     # ...) — whose keys are not valid Python identifiers (``"12v"``, ``"+"``,
@@ -928,6 +932,12 @@ class LinkStation(ProtectModelWithId):
     # ``alarm_hub_battery``, ``alarm_hub_cover``, ``alarm_hub_inputs``,
     # ``alarm_hub_outputs``).
     alarm_hub: dict[str, Any] | None = None
+
+    @classmethod
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        """Parse the ``lastEvent`` epoch-ms wire value into ``datetime``."""
+        return {"lastEvent": convert_to_datetime} | super().unifi_dict_conversions()
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
