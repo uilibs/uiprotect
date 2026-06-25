@@ -356,33 +356,6 @@ class PublicCamera(PublicDeviceModel):
     # and off once it ends, so overlapping detections of the same kind are
     # handled by the per-id active-event set.
 
-    def _apply_detection_event(self, event: PublicEvent) -> None:
-        """Add/remove a detection event from the active set based on its ``end``."""
-        if event.type not in _DETECTION_EVENT_TYPES:
-            return
-        if event.end is None:
-            self._active_detection_events[event.id] = event
-        else:
-            self._active_detection_events.pop(event.id, None)
-
-    def _clear_detection_event(self, event_id: str) -> None:
-        """Drop an event from the active set (server ``remove`` frame)."""
-        self._active_detection_events.pop(event_id, None)
-
-    def _has_active_event(self, event_types: frozenset[EventType]) -> bool:
-        return any(
-            event.type in event_types
-            for event in self._active_detection_events.values()
-        )
-
-    def _has_active_smart_type(
-        self, event_types: frozenset[EventType], smart_type: SmartDetectObjectType
-    ) -> bool:
-        return any(
-            event.type in event_types and smart_type in event.smart_detect_types
-            for event in self._active_detection_events.values()
-        )
-
     @property
     def is_motion_detected(self) -> bool:
         """Is a motion event currently active."""
@@ -438,6 +411,33 @@ class PublicCamera(PublicDeviceModel):
         """Is a siren currently being detected."""
         return self._has_active_smart_type(
             _SMART_AUDIO_EVENT_TYPES, SmartDetectObjectType.SIREN
+        )
+
+    def _apply_detection_event(self, event: PublicEvent) -> None:
+        """Add/remove a detection event from the active set based on its ``end``."""
+        if event.type not in _DETECTION_EVENT_TYPES:
+            return
+        if event.end is None:
+            self._active_detection_events[event.id] = event
+        else:
+            self._active_detection_events.pop(event.id, None)
+
+    def _clear_detection_event(self, event_id: str) -> None:
+        """Drop an event from the active set (eviction / server ``remove`` frame)."""
+        self._active_detection_events.pop(event_id, None)
+
+    def _has_active_event(self, event_types: frozenset[EventType]) -> bool:
+        return any(
+            event.type in event_types
+            for event in self._active_detection_events.values()
+        )
+
+    def _has_active_smart_type(
+        self, event_types: frozenset[EventType], smart_type: SmartDetectObjectType
+    ) -> bool:
+        return any(
+            event.type in event_types and smart_type in event.smart_detect_types
+            for event in self._active_detection_events.values()
         )
 
     async def _api_update(self, data: dict[str, Any]) -> None:

@@ -17,6 +17,14 @@ def _bootstrap_with_camera() -> PublicBootstrap:
     return pb
 
 
+def _bootstrap_with_two_cameras() -> PublicBootstrap:
+    pb = _bootstrap_with_camera()
+    second = dict(CAMERA_PAYLOAD)
+    second["id"] = "cam2"
+    pb.process_devices_ws_message(Mock(), {"type": "add", "item": second})
+    return pb
+
+
 def _event(action: str, **item: Any) -> dict[str, Any]:
     return {"type": action, "item": {"modelKey": "event", **item}}
 
@@ -212,6 +220,126 @@ def test_active_detection_set_is_per_instance() -> None:
     cam_b = PublicCamera.model_construct()
     cam_a._active_detection_events["m1"] = Mock()
     assert cam_b._active_detection_events == {}
+
+
+def test_smart_audio_cmonx_start_and_end() -> None:
+    """A smartAudioDetect CO event drives the audio + cmonx flags only."""
+    pb = _bootstrap_with_camera()
+    cam = pb.cameras["cam1"]
+
+    pb.process_events_ws_message(
+        Mock(),
+        _event(
+            "add",
+            id="a1",
+            type="smartAudioDetect",
+            start=1000,
+            device="cam1",
+            smartDetectTypes=["alrmCmonx"],
+        ),
+    )
+    assert cam.is_audio_currently_detected is True
+    assert cam.is_cmonx_currently_detected is True
+    assert cam.is_smoke_currently_detected is False
+    assert cam.is_siren_currently_detected is False
+
+    pb.process_events_ws_message(Mock(), _event("update", id="a1", end=2000))
+    assert cam.is_audio_currently_detected is False
+    assert cam.is_cmonx_currently_detected is False
+
+
+def test_smart_audio_siren_start_and_end() -> None:
+    """A smartAudioDetect siren event drives the audio + siren flags only."""
+    pb = _bootstrap_with_camera()
+    cam = pb.cameras["cam1"]
+
+    pb.process_events_ws_message(
+        Mock(),
+        _event(
+            "add",
+            id="a1",
+            type="smartAudioDetect",
+            start=1000,
+            device="cam1",
+            smartDetectTypes=["alrmSiren"],
+        ),
+    )
+    assert cam.is_audio_currently_detected is True
+    assert cam.is_siren_currently_detected is True
+    assert cam.is_smoke_currently_detected is False
+    assert cam.is_cmonx_currently_detected is False
+
+    pb.process_events_ws_message(Mock(), _event("update", id="a1", end=2000))
+    assert cam.is_audio_currently_detected is False
+    assert cam.is_siren_currently_detected is False
+
+
+def test_detection_state_is_isolated_per_camera() -> None:
+    """An event for one camera never leaks into another camera's flags."""
+    pb = _bootstrap_with_two_cameras()
+    cam1 = pb.cameras["cam1"]
+    cam2 = pb.cameras["cam2"]
+
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+    assert cam1.is_motion_detected is True
+    assert cam2.is_motion_detected is False
+
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m2", type="motion", start=1100, device="cam2")
+    )
+    pb.process_events_ws_message(Mock(), _event("update", id="m1", end=2000))
+    assert cam1.is_motion_detected is False
+    assert cam2.is_motion_detected is True
+
+
+def test_eviction_clears_stuck_open_detection() -> None:
+    """An open event evicted from the bounded cache turns its flag back off."""
+    pb = _bootstrap_with_camera()
+    pb.max_event_cache_size = 1
+    cam = pb.cameras["cam1"]
+
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+    assert cam.is_motion_detected is True
+
+    # A second cached event evicts the open motion event; without eviction-aware
+    # sync the flag would stay stuck on and the active set would grow unbounded.
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="r1", type="ring", start=1100, device="cam1")
+    )
+    assert cam.is_motion_detected is False
+    assert cam._active_detection_events == {}
+
+
+def test_evicted_open_event_close_update_is_a_noop() -> None:
+    """A close update arriving after eviction cannot resurrect the flag."""
+    pb = _bootstrap_with_camera()
+    pb.max_event_cache_size = 1
+    cam = pb.cameras["cam1"]
+
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="r1", type="ring", start=1100, device="cam1")
+    )
+    pb.process_events_ws_message(Mock(), _event("update", id="m1", end=2000))
+    assert cam.is_motion_detected is False
+
+
+def test_event_without_device_is_tolerated() -> None:
+    """An event carrying no ``device`` neither raises on add nor on remove."""
+    pb = _bootstrap_with_camera()
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000)
+    )
+    assert pb.cameras["cam1"].is_motion_detected is False
+
+    pb.process_events_ws_message(Mock(), _event("remove", id="m1"))
+    assert pb.cameras["cam1"].is_motion_detected is False
 
 
 def test_license_plate_state_not_exposed() -> None:
