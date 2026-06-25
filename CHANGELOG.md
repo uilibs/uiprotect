@@ -1,5 +1,25 @@
 # Changelog
 
+## v14.2.0 (2026-06-25)
+
+### Features
+
+
+- Add public-api sensor setters (patch /v1/sensors/{id}) ([`7e85c23`](https://github.com/uilibs/uiprotect/commit/7e85c23c729093d078ba328a09e5db8278258046))
+
+
+- Extend update_sensor_public with armed/glass-break fields ([`7e85c23`](https://github.com/uilibs/uiprotect/commit/7e85c23c729093d078ba328a09e5db8278258046))
+
+
+- Add public-api sensor setters on sensor ([`7e85c23`](https://github.com/uilibs/uiprotect/commit/7e85c23c729093d078ba328a09e5db8278258046))
+
+
+- Expose public-api sensor setters in the cli ([`7e85c23`](https://github.com/uilibs/uiprotect/commit/7e85c23c729093d078ba328a09e5db8278258046))
+
+
+- Add granular single-positional public sensor setters ([`7e85c23`](https://github.com/uilibs/uiprotect/commit/7e85c23c729093d078ba328a09e5db8278258046))
+
+
 ## v14.1.1 (2026-06-24)
 
 ### Bug fixes
