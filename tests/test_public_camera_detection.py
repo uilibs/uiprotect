@@ -7,6 +7,8 @@ from unittest.mock import Mock
 
 from uiprotect.data import PublicCamera
 from uiprotect.data.public_bootstrap import PublicBootstrap
+from uiprotect.data.public_event import PublicEvent
+from uiprotect.data.types import EventType
 
 from .test_public_devices_models import CAMERA_PAYLOAD
 
@@ -525,3 +527,38 @@ def test_net_transition_when_event_starts_and_evicts_same_frame() -> None:
     )
     assert pb.cameras["cam1"].is_motion_detected is False
     assert pb.drain_detection_transitions() == []
+
+
+def test_detection_state_memoized_until_mutation() -> None:
+    """Repeated reads share one cached dict; each mutation yields a fresh object."""
+    pb = _bootstrap_with_camera()
+    cam = pb.cameras["cam1"]
+
+    first = cam._detection_state()
+    assert cam._detection_state() is first
+
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+    after_add = cam._detection_state()
+    assert after_add is not first
+    assert cam._detection_state() is after_add
+
+    pb.process_events_ws_message(Mock(), _event("update", id="m1", end=2000))
+    after_end = cam._detection_state()
+    assert after_end is not after_add
+
+
+def test_snapshot_stays_distinct_from_post_mutation_state() -> None:
+    """A snapshot captured before a mutation is a distinct, unmutated object."""
+    cam = PublicCamera.model_construct()
+    before = cam._detection_state()
+
+    cam._apply_detection_event(
+        PublicEvent.model_construct(id="m1", type=EventType.MOTION, end=None)
+    )
+    after = cam._detection_state()
+
+    assert after is not before
+    assert before["is_motion_detected"] is False
+    assert after["is_motion_detected"] is True

@@ -354,6 +354,13 @@ class PublicCamera(PublicDeviceModel):
     # per-instance default factory rather than a shared class attribute.
     _active_detection_events: dict[str, PublicEvent] = PrivateAttr(default_factory=dict)
 
+    # Memoized derived detection booleans. ``None`` means "stale"; the next
+    # ``_detection_state`` call rebuilds a fresh dict and caches it. The two
+    # mutators of ``_active_detection_events`` invalidate by setting this back to
+    # ``None`` rather than mutating the dict in place, so a snapshot already
+    # captured by the events-WS diff stays a distinct object from the rebuild.
+    _detection_state_cache: dict[str, bool] | None = PrivateAttr(default=None)
+
     def hardware_stream_qualities(self) -> list[ChannelQuality]:
         """Stream qualities the camera hardware supports (not the server's ``available`` list)."""
         qualities = [ChannelQuality.HIGH, ChannelQuality.MEDIUM, ChannelQuality.LOW]
@@ -425,10 +432,12 @@ class PublicCamera(PublicDeviceModel):
             self._active_detection_events[event.id] = event
         else:
             self._active_detection_events.pop(event.id, None)
+        self._detection_state_cache = None
 
     def _clear_detection_event(self, event_id: str) -> None:
         """Drop an event from the active set (eviction / server ``remove`` frame)."""
         self._active_detection_events.pop(event_id, None)
+        self._detection_state_cache = None
 
     def _detection_state(self) -> dict[str, bool]:
         """
@@ -436,8 +445,13 @@ class PublicCamera(PublicDeviceModel):
 
         Single source of truth for the per-type predicates: the nine public
         ``is_*`` properties read their value out of this dict, so they and the
-        snapshot used for transition diffing can never drift apart.
+        snapshot used for transition diffing can never drift apart. The result
+        is memoized until the active set mutates, so a single-property read is an
+        O(1) cache lookup rather than a fresh pass over every active event.
         """
+        cached = self._detection_state_cache
+        if cached is not None:
+            return cached
         motion = smart = person = vehicle = animal = False
         audio = smoke = cmonx = siren = False
         for event in self._active_detection_events.values():
@@ -456,13 +470,15 @@ class PublicCamera(PublicDeviceModel):
                 smoke = smoke or SmartDetectObjectType.SMOKE in smart_types
                 cmonx = cmonx or SmartDetectObjectType.CMONX in smart_types
                 siren = siren or SmartDetectObjectType.SIREN in smart_types
-        return dict(
+        state = dict(
             zip(
                 _DETECTION_STATE_FIELDS,
                 (motion, smart, person, vehicle, animal, audio, smoke, cmonx, siren),
                 strict=True,
             )
         )
+        self._detection_state_cache = state
+        return state
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
