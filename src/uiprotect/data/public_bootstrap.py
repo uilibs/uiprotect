@@ -121,6 +121,16 @@ class DeviceWSResult:
     item: dict[str, Any]
 
 
+@dataclass(frozen=True, slots=True)
+class CameraDetectionTransition:
+    """A camera whose derived detection booleans flipped during an events frame."""
+
+    camera: PublicCamera
+    # Only the flipped fields, snake_cased, mapped to their new value, e.g.
+    # ``{"is_person_currently_detected": True}``.
+    changed_data: dict[str, bool]
+
+
 @dataclass
 class PublicBootstrap:
     """
@@ -193,6 +203,17 @@ class PublicBootstrap:
     # Protect servers in one process.
     _warned_merge_failures: set[tuple[str, str]] = field(
         default_factory=set,
+        init=False,
+        repr=False,
+    )
+
+    # Per-camera detection-state snapshots taken before the first mutation of an
+    # events-WS frame, keyed by camera id. Populated while a single
+    # :meth:`process_events_ws_message` call applies its frame (including any
+    # eviction it triggers) and drained by :meth:`drain_detection_transitions`.
+    # Transient within one synchronous call, so per-instance is sufficient.
+    _detection_state_before: dict[str, dict[str, bool]] = field(
+        default_factory=dict,
         init=False,
         repr=False,
     )
@@ -471,10 +492,38 @@ class PublicBootstrap:
         # shared, but a deep copy on every event frame is avoided on this hot
         # path.
         old_snapshot = cached.model_copy() if cached is not None else None
+        self._detection_state_before.clear()
         new, _old = self._apply_action(
             api, action_type, item, ModelType.EVENT, self._events_slot()
         )
         return cast("PublicEvent | None", new), old_snapshot
+
+    def drain_detection_transitions(self) -> list[CameraDetectionTransition]:
+        """
+        Return per-camera detection-boolean transitions from the last events frame.
+
+        Diffs each camera's pre-frame snapshot against its current derived
+        booleans and yields only cameras whose flags actually flipped, with
+        ``changed_data`` naming the flipped fields. Clears the pending snapshots,
+        so a second call returns an empty list. Call once after each
+        :meth:`process_events_ws_message`.
+        """
+        transitions: list[CameraDetectionTransition] = []
+        for camera_id, before in self._detection_state_before.items():
+            camera = self.cameras.get(camera_id)
+            if camera is None:
+                continue
+            after = camera._detection_state()
+            changed = {k: v for k, v in after.items() if v != before[k]}
+            if changed:
+                transitions.append(CameraDetectionTransition(camera, changed))
+        self._detection_state_before.clear()
+        return transitions
+
+    def _snapshot_camera_detection_state(self, camera: PublicCamera) -> None:
+        """Record a camera's pre-mutation detection snapshot once per events frame."""
+        if camera.id not in self._detection_state_before:
+            self._detection_state_before[camera.id] = camera._detection_state()
 
     def _sync_camera_detection_state(self, event: PublicEvent) -> None:
         """Fold a cached event into its owning camera's active detection set."""
@@ -482,6 +531,7 @@ class PublicBootstrap:
             return
         camera = self.cameras.get(event.device_id)
         if camera is not None:
+            self._snapshot_camera_detection_state(camera)
             camera._apply_detection_event(event)
 
     def _clear_camera_detection_event(self, event: PublicEvent) -> None:
@@ -490,6 +540,7 @@ class PublicBootstrap:
             return
         camera = self.cameras.get(event.device_id)
         if camera is not None:
+            self._snapshot_camera_detection_state(camera)
             camera._clear_detection_event(event.id)
 
     # ------------------------------------------------------------------

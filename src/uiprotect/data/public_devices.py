@@ -87,6 +87,22 @@ _DETECTION_EVENT_TYPES = (
     _MOTION_EVENT_TYPES | _SMART_AUDIO_EVENT_TYPES | _SMART_DETECT_EVENT_TYPES
 )
 
+# Derived detection-state boolean property names on :class:`PublicCamera`. A
+# transition in any of these (after an events-WS frame is folded into the active
+# set) is surfaced as a synthetic devices-WS update — see
+# :meth:`PublicCamera._detection_state` and the events-WS handler.
+_DETECTION_STATE_FIELDS = (
+    "is_motion_detected",
+    "is_smart_currently_detected",
+    "is_person_currently_detected",
+    "is_vehicle_currently_detected",
+    "is_animal_currently_detected",
+    "is_audio_currently_detected",
+    "is_smoke_currently_detected",
+    "is_cmonx_currently_detected",
+    "is_siren_currently_detected",
+)
+
 # ---------------------------------------------------------------------------
 # Write payloads (TypedDict — shape the client accepts and forwards)
 # ---------------------------------------------------------------------------
@@ -439,6 +455,10 @@ class PublicCamera(PublicDeviceModel):
             event.type in event_types and smart_type in event.smart_detect_types
             for event in self._active_detection_events.values()
         )
+
+    def _detection_state(self) -> dict[str, bool]:
+        """Snapshot every derived detection boolean (for transition diffing)."""
+        return {name: getattr(self, name) for name in _DETECTION_STATE_FIELDS}
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(

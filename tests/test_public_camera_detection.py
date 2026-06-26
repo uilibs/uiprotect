@@ -384,3 +384,144 @@ def test_event_without_device_is_tolerated() -> None:
 def test_license_plate_state_not_exposed() -> None:
     """License-plate recognition is deliberately out of scope on the public model."""
     assert not hasattr(PublicCamera, "is_license_plate_currently_detected")
+
+
+# ---------------------------------------------------------------------------
+# Detection-state transitions (drain_detection_transitions)
+# ---------------------------------------------------------------------------
+
+
+def test_motion_start_emits_transition() -> None:
+    """An open motion event yields a single ``is_motion_detected: True`` transition."""
+    pb = _bootstrap_with_camera()
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+    transitions = pb.drain_detection_transitions()
+    assert len(transitions) == 1
+    assert transitions[0].camera is pb.cameras["cam1"]
+    assert transitions[0].changed_data == {"is_motion_detected": True}
+
+
+def test_motion_end_emits_off_transition() -> None:
+    """The motion close frame yields a ``is_motion_detected: False`` transition."""
+    pb = _bootstrap_with_camera()
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+    pb.drain_detection_transitions()
+
+    pb.process_events_ws_message(Mock(), _event("update", id="m1", end=2000))
+    transitions = pb.drain_detection_transitions()
+    assert len(transitions) == 1
+    assert transitions[0].changed_data == {"is_motion_detected": False}
+
+
+def test_person_start_emits_both_smart_and_person() -> None:
+    """A person smartDetect start flips both the smart and person flags in one message."""
+    pb = _bootstrap_with_camera()
+    pb.process_events_ws_message(
+        Mock(),
+        _event(
+            "add",
+            id="p1",
+            type="smartDetectZone",
+            start=1000,
+            device="cam1",
+            smartDetectTypes=["person"],
+        ),
+    )
+    transitions = pb.drain_detection_transitions()
+    assert len(transitions) == 1
+    assert transitions[0].changed_data == {
+        "is_smart_currently_detected": True,
+        "is_person_currently_detected": True,
+    }
+
+
+def test_overlapping_motion_emits_no_second_transition() -> None:
+    """A second overlapping motion event does not re-emit a transition."""
+    pb = _bootstrap_with_camera()
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+    pb.drain_detection_transitions()
+
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m2", type="motion", start=1100, device="cam1")
+    )
+    assert pb.drain_detection_transitions() == []
+
+
+def test_non_detection_event_emits_no_transition() -> None:
+    """A non-detection event type produces no transition."""
+    pb = _bootstrap_with_camera()
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="r1", type="ring", start=1000, device="cam1")
+    )
+    assert pb.drain_detection_transitions() == []
+
+
+def test_eviction_emits_off_transition() -> None:
+    """An open event evicted from the cache emits a flag-off transition."""
+    pb = _bootstrap_with_camera()
+    pb.max_event_cache_size = 1
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+    pb.drain_detection_transitions()
+
+    # The ring event evicts the open motion event in the same frame.
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="r1", type="ring", start=1100, device="cam1")
+    )
+    transitions = pb.drain_detection_transitions()
+    assert len(transitions) == 1
+    assert transitions[0].camera is pb.cameras["cam1"]
+    assert transitions[0].changed_data == {"is_motion_detected": False}
+
+
+def test_remove_frame_emits_off_transition() -> None:
+    """A server ``remove`` frame for an open event emits a flag-off transition."""
+    pb = _bootstrap_with_camera()
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+    pb.drain_detection_transitions()
+
+    pb.process_events_ws_message(Mock(), _event("remove", id="m1"))
+    transitions = pb.drain_detection_transitions()
+    assert len(transitions) == 1
+    assert transitions[0].changed_data == {"is_motion_detected": False}
+
+
+def test_drain_is_idempotent() -> None:
+    """A second drain after the first returns an empty list."""
+    pb = _bootstrap_with_camera()
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+    assert pb.drain_detection_transitions()
+    assert pb.drain_detection_transitions() == []
+
+
+def test_transition_isolated_to_affected_camera() -> None:
+    """Only the camera owning the event reports a transition."""
+    pb = _bootstrap_with_two_cameras()
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+    transitions = pb.drain_detection_transitions()
+    assert len(transitions) == 1
+    assert transitions[0].camera is pb.cameras["cam1"]
+
+
+def test_net_transition_when_event_starts_and_evicts_same_frame() -> None:
+    """A frame that nets out to no change (start then self-evict) emits nothing."""
+    pb = _bootstrap_with_camera()
+    pb.max_event_cache_size = 0
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+    assert pb.cameras["cam1"].is_motion_detected is False
+    assert pb.drain_detection_transitions() == []

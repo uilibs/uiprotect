@@ -57,9 +57,12 @@ from uiprotect.data.types import (
     SirenDuration,
     UlpUserStatus,
 )
+from uiprotect.data.websocket import WSAction
 from uiprotect.exceptions import BadRequest, NotAuthorized
 from uiprotect.utils import convert_to_datetime
 from uiprotect.websocket import WebsocketState
+
+from .test_public_devices_models import CAMERA_PAYLOAD
 
 if TYPE_CHECKING:
     from uiprotect.api import ProtectApiClient
@@ -3075,6 +3078,81 @@ async def test_process_events_ws_message_uses_cache_when_materialised(
     assert len(captured) == 1
     assert captured[0].new_obj is not None
     assert captured[0].new_obj.id == "evt-cache"
+
+
+@pytest.mark.asyncio()
+async def test_detection_transition_emits_devices_ws_update(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A detection transition emits a devices-WS update alongside the events emit."""
+    pb = PublicBootstrap()
+    protect_client._public_bootstrap = pb
+    pb.process_devices_ws_message(Mock(), {"type": "add", "item": dict(CAMERA_PAYLOAD)})
+
+    events_got: list[Any] = []
+    devices_got: list[Any] = []
+    protect_client._events_ws_subscriptions.append(events_got.append)
+    protect_client._devices_ws_subscriptions.append(devices_got.append)
+
+    msg = aiohttp.WSMessage(
+        aiohttp.WSMsgType.TEXT,
+        orjson.dumps(
+            {
+                "type": "add",
+                "item": {
+                    "id": "m1",
+                    "modelKey": "event",
+                    "type": "motion",
+                    "start": 1700000000000,
+                    "device": "cam1",
+                },
+            }
+        ).decode(),
+        None,
+    )
+    protect_client._process_events_ws_message(msg)
+
+    # Existing events-WS emit is unchanged.
+    assert len(events_got) == 1
+    # A devices-WS update is additionally emitted for the affected camera.
+    assert len(devices_got) == 1
+    dmsg = devices_got[0]
+    assert dmsg.action is WSAction.UPDATE
+    assert dmsg.new_obj is pb.cameras["cam1"]
+    assert dmsg.new_update_id == "cam1"
+    assert dmsg.changed_data == {"is_motion_detected": True}
+
+
+@pytest.mark.asyncio()
+async def test_non_transition_event_emits_no_devices_ws_update(
+    protect_client: ProtectApiClient,
+) -> None:
+    """An events frame that flips no detection boolean emits no devices-WS update."""
+    pb = PublicBootstrap()
+    protect_client._public_bootstrap = pb
+    pb.process_devices_ws_message(Mock(), {"type": "add", "item": dict(CAMERA_PAYLOAD)})
+
+    devices_got: list[Any] = []
+    protect_client._devices_ws_subscriptions.append(devices_got.append)
+
+    msg = aiohttp.WSMessage(
+        aiohttp.WSMsgType.TEXT,
+        orjson.dumps(
+            {
+                "type": "add",
+                "item": {
+                    "id": "r1",
+                    "modelKey": "event",
+                    "type": "ring",
+                    "start": 1700000000000,
+                    "device": "cam1",
+                },
+            }
+        ).decode(),
+        None,
+    )
+    protect_client._process_events_ws_message(msg)
+    assert devices_got == []
 
 
 @pytest.mark.asyncio()

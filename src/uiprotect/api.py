@@ -1791,6 +1791,23 @@ class ProtectApiClient(BaseApiClient):
             )
 
             self.emit_events_message(msg_obj)
+
+            # A detection event that actually flips a derived camera boolean is
+            # additionally surfaced as a devices-WS update so consumers reading
+            # camera state via ``subscribe_devices`` (the ``ufp_public_value``
+            # pattern) are notified — and can self-heal a sticky flag from a
+            # missed ``end`` on the next full re-read.
+            if self._public_bootstrap is not None and model_type is ModelType.EVENT:
+                for transition in self._public_bootstrap.drain_detection_transitions():
+                    self.emit_devices_message(
+                        WSSubscriptionMessage(
+                            action=WSAction.UPDATE,
+                            new_update_id=transition.camera.id,
+                            changed_data=transition.changed_data,
+                            new_obj=transition.camera,
+                            old_obj=None,
+                        )
+                    )
         except Exception:
             _LOGGER.exception("Error processing public API events websocket message")
 
