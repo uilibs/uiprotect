@@ -1781,11 +1781,10 @@ class ProtectApiClient(BaseApiClient):
             # no event-specific branching here.
             model_updates: list[WSSubscriptionMessage] = []
             if self._public_bootstrap is not None and model_type is ModelType.EVENT:
-                new_event, old_event, model_updates = (
-                    self._public_bootstrap.process_events_ws_message(self, data)
-                )
-                new_obj = new_event
-                old_obj = old_event
+                result = self._public_bootstrap.process_events_ws_message(self, data)
+                new_obj = result.new_event
+                old_obj = result.old_event
+                model_updates = result.model_updates
 
             msg_obj = WSSubscriptionMessage(
                 action=WSAction(action_type),

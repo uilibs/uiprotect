@@ -35,7 +35,7 @@ import logging
 from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 from .base import ProtectModelWithId
 from .convert import create_from_unifi_dict
@@ -66,6 +66,15 @@ if TYPE_CHECKING:
 
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class EventsFrameResult(NamedTuple):
+    """Outputs of applying one public events-WS frame to the cache."""
+
+    new_event: PublicEvent | None
+    old_event: PublicEvent | None
+    model_updates: list[WSSubscriptionMessage]
+
 
 # Default cap on the public event cache. Matches the private Bootstrap
 # default so memory behaviour is symmetric between the two caches.
@@ -201,7 +210,7 @@ class PublicBootstrap:
     # Per-camera detection-state snapshots taken before the first mutation of an
     # events-WS frame, keyed by camera id. Populated while a single
     # :meth:`process_events_ws_message` call applies its frame (including any
-    # eviction it triggers) and drained by :meth:`drain_detection_transitions`.
+    # eviction it triggers) and drained by :meth:`_drain_detection_updates`.
     # Transient within one synchronous call, so per-instance is sufficient.
     _detection_state_before: dict[str, dict[str, bool]] = field(
         default_factory=dict,
@@ -461,11 +470,13 @@ class PublicBootstrap:
         self,
         api: ProtectApiClient,
         data: dict[str, Any],
-    ) -> tuple[PublicEvent | None, PublicEvent | None, list[WSSubscriptionMessage]]:
+    ) -> EventsFrameResult:
         """
         Apply a public *events* WS payload to the event cache.
 
-        Returns ``(new_event, old_event, model_updates)``. ``new_event`` /
+        Returns an :class:`EventsFrameResult` (a tuple-compatible
+        ``NamedTuple`` of ``new_event``, ``old_event``, ``model_updates``).
+        ``new_event`` /
         ``old_event`` may be ``None``; ``old_event`` is a **pre-merge snapshot**
         of the cached event taken before this frame is applied — ``update``
         merges its partial diff into the cached object *in place*, so without
@@ -482,7 +493,7 @@ class PublicBootstrap:
         """
         action_type, item, _obj_id = _parse_ws_envelope(data)
         if action_type is None or item.get("modelKey") != ModelType.EVENT.value:
-            return None, None, []
+            return EventsFrameResult(None, None, [])
         obj_id = item.get("id")
         cached = self.events.get(obj_id) if obj_id else None
         # Intentionally a shallow copy: the idempotency chokepoint only reads
@@ -494,7 +505,7 @@ class PublicBootstrap:
         new, _old = self._apply_action(
             api, action_type, item, ModelType.EVENT, self._events_slot()
         )
-        return (
+        return EventsFrameResult(
             cast("PublicEvent | None", new),
             old_snapshot,
             self._drain_detection_updates(),
