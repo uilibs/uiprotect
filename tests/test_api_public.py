@@ -3124,6 +3124,47 @@ async def test_detection_transition_emits_devices_ws_update(
 
 
 @pytest.mark.asyncio()
+async def test_detection_transition_typed_subscriber_resolves_camera(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A detection transition reaches ``subscribe_devices`` as a typed CAMERA change."""
+    pb = PublicBootstrap()
+    protect_client._public_bootstrap = pb
+    pb.process_devices_ws_message(Mock(), {"type": "add", "item": dict(CAMERA_PAYLOAD)})
+
+    changes: list[Any] = []
+    protect_client.subscribe_devices(changes.append)
+
+    msg = aiohttp.WSMessage(
+        aiohttp.WSMsgType.TEXT,
+        orjson.dumps(
+            {
+                "type": "add",
+                "item": {
+                    "id": "m1",
+                    "modelKey": "event",
+                    "type": "motion",
+                    "start": 1700000000000,
+                    "device": "cam1",
+                },
+            }
+        ).decode(),
+        None,
+    )
+    protect_client._process_events_ws_message(msg)
+
+    assert len(changes) == 1
+    change = changes[0]
+    # The synthetic ``changed_data`` lacks ``modelKey``; the dispatcher must
+    # still resolve CAMERA from ``new_obj`` rather than falling back to UNKNOWN.
+    assert change.model_type is ModelType.CAMERA
+    assert change.device_id == "cam1"
+    # ``device_mac`` is the camera's mac, not its id.
+    assert change.device_mac == CAMERA_PAYLOAD["mac"]
+    assert change.model is pb.cameras["cam1"]
+
+
+@pytest.mark.asyncio()
 async def test_non_transition_event_emits_no_devices_ws_update(
     protect_client: ProtectApiClient,
 ) -> None:

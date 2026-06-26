@@ -49,9 +49,14 @@ class DeviceDispatcher:
     def _derive(self, msg: WSSubscriptionMessage) -> ProtectDeviceChange | None:
         changed = msg.changed_data or {}
         model_key = changed.get("modelKey")
-        model_type = (
-            ModelType.from_string(model_key) if model_key else ModelType.UNKNOWN
-        )
+        if model_key:
+            model_type = ModelType.from_string(model_key)
+        else:
+            # Synthetic frames (e.g. the detection-transition devices-WS update)
+            # carry only the flipped fields in ``changed_data`` and no
+            # ``modelKey``; ``new_obj`` is then the authoritative source of the
+            # model type. Real device-WS frames always include ``modelKey``.
+            model_type = getattr(msg.new_obj, "model", None) or ModelType.UNKNOWN
         if msg.action is WSAction.REMOVE:
             return self._derive_remove(msg, changed, model_type)
         return self._derive_upsert(msg, changed, model_type)
