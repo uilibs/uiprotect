@@ -583,7 +583,12 @@ def test_sensor_leak_enabled_legacy_mount_type(sensor_obj: Sensor):
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize(
     ("internal", "external", "expected"),
-    [(False, False, False), (True, False, True), (False, True, True), (True, True, True)],
+    [
+        (False, False, False),
+        (True, False, True),
+        (False, True, True),
+        (True, True, True),
+    ],
 )
 def test_sensor_leak_enabled_via_leak_settings(
     sensor_obj: Sensor, internal: bool, external: bool, expected: bool
