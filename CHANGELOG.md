@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.3.0 (2026-06-26)
+
+### Features
+
+
+- Derive remaining smart-audio detection booleans on publiccamera ([`6d5a048`](https://github.com/uilibs/uiprotect/commit/6d5a04816e121b8d1700d8ed8cf2cfc2425cec2b))
+
+
 ## v15.2.0 (2026-06-26)
 
 ### Features
