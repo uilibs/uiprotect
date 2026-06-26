@@ -497,6 +497,17 @@ def test_remove_frame_emits_off_transition() -> None:
     assert transitions[0].changed_data == {"is_motion_detected": False}
 
 
+def test_drain_skips_camera_removed_after_snapshot() -> None:
+    """A camera dropped from the cache after its pre-frame snapshot yields no transition."""
+    pb = _bootstrap_with_camera()
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+    del pb.cameras["cam1"]
+
+    assert pb.drain_detection_transitions() == []
+
+
 def test_drain_is_idempotent() -> None:
     """A second drain after the first returns an empty list."""
     pb = _bootstrap_with_camera()
