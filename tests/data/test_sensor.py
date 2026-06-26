@@ -9,8 +9,10 @@ import pytest
 from pydantic import ValidationError
 
 from tests.conftest import TEST_CAMERA_EXISTS, TEST_SENSOR_EXISTS
+from uiprotect.data.devices import SensorLeakSettings
 from uiprotect.data.types import MountType, SensorScheduleMode
 from uiprotect.exceptions import BadRequest
+from uiprotect.utils import utc_now
 
 if TYPE_CHECKING:
     from uiprotect.data import Camera, Light, Sensor
@@ -564,3 +566,54 @@ async def test_sensor_set_glass_break_status_public(sensor_obj: Sensor, enabled:
     sensor_obj.api.update_sensor_public.assert_called_once_with(
         sensor_obj.id, glass_break_settings={"isEnabled": enabled}
     )
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+def test_sensor_leak_enabled_legacy_mount_type(sensor_obj: Sensor):
+    # Legacy UniFi Sensor (UP-Sense): leak role is selected via mount_type and
+    # there are no leak_settings.
+    sensor_obj.leak_settings = None
+    sensor_obj.mount_type = MountType.LEAK
+    assert sensor_obj.is_leak_sensor_enabled is True
+
+    sensor_obj.mount_type = MountType.DOOR
+    assert sensor_obj.is_leak_sensor_enabled is False
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    ("internal", "external", "expected"),
+    [(False, False, False), (True, False, True), (False, True, True), (True, True, True)],
+)
+def test_sensor_leak_enabled_via_leak_settings(
+    sensor_obj: Sensor, internal: bool, external: bool, expected: bool
+):
+    # USL-Environmental (SuperLink Environmental Sensor): mount_type stays NONE and
+    # leak detection is governed by leak_settings (internal pads / external probe).
+    sensor_obj.mount_type = MountType.NONE
+    sensor_obj.leak_settings = SensorLeakSettings(
+        is_internal_enabled=internal, is_external_enabled=external
+    )
+    assert sensor_obj.is_leak_sensor_enabled is expected
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+def test_sensor_external_leak_detected(sensor_obj: Sensor):
+    sensor_obj.leak_detected_at = None
+    sensor_obj.external_leak_detected_at = None
+    assert sensor_obj.is_leak_detected is False
+    assert sensor_obj.is_internal_leak_detected is False
+    assert sensor_obj.is_external_leak_detected is False
+
+    # external AUX probe leak
+    sensor_obj.external_leak_detected_at = utc_now()
+    assert sensor_obj.is_external_leak_detected is True
+    assert sensor_obj.is_internal_leak_detected is False
+    assert sensor_obj.is_leak_detected is True
+
+    # internal onboard-pad leak
+    sensor_obj.external_leak_detected_at = None
+    sensor_obj.leak_detected_at = utc_now()
+    assert sensor_obj.is_internal_leak_detected is True
+    assert sensor_obj.is_external_leak_detected is False
+    assert sensor_obj.is_leak_detected is True

@@ -3363,6 +3363,15 @@ class SensorStats(ProtectBaseObject):
     temperature: SensorStat
 
 
+class SensorLeakSettings(ProtectBaseObject):
+    # USL-Environmental (SuperLink Environmental Sensor) exposes two independent
+    # leak channels: the onboard water pads (internal) and the 3.5mm AUX probe
+    # (external). Either being enabled means the device is acting as a leak sensor,
+    # regardless of mount_type (which is "none" on these devices).
+    is_internal_enabled: bool = False
+    is_external_enabled: bool = False
+
+
 class Sensor(ProtectAdoptableDeviceModel):
     alarm_settings: SensorSettingsBase
     alarm_triggered_at: datetime | None = None
@@ -3372,6 +3381,8 @@ class Sensor(ProtectAdoptableDeviceModel):
     is_motion_detected: bool
     is_opened: bool
     leak_detected_at: datetime | None = None
+    external_leak_detected_at: datetime | None = None
+    leak_settings: SensorLeakSettings | None = None
     led_settings: LEDSettings
     light_settings: SensorThresholdSettings
     motion_detected_at: datetime | None = None
@@ -3403,6 +3414,7 @@ class Sensor(ProtectAdoptableDeviceModel):
             "batteryStatus",
             "isMotionDetected",
             "leakDetectedAt",
+            "externalLeakDetectedAt",
             "tamperingDetectedAt",
             "isOpened",
             "openStatusChangedAt",
@@ -3477,7 +3489,17 @@ class Sensor(ProtectAdoptableDeviceModel):
 
     @property
     def is_leak_sensor_enabled(self) -> bool:
-        return self.mount_type is MountType.LEAK
+        # Legacy UniFi Sensor (UP-Sense) selects a single role via mount_type.
+        # The USL-Environmental keeps mount_type="none" and enables leak detection
+        # via leak_settings (internal pads and/or external AUX probe) instead.
+        if self.mount_type is MountType.LEAK:
+            return True
+        if self.leak_settings is not None:
+            return (
+                self.leak_settings.is_internal_enabled
+                or self.leak_settings.is_external_enabled
+            )
+        return False
 
     def set_alarm_timeout(self) -> None:
         self._alarm_timeout = utc_now() + EVENT_PING_INTERVAL
@@ -3509,7 +3531,20 @@ class Sensor(ProtectAdoptableDeviceModel):
 
     @property
     def is_leak_detected(self) -> bool:
+        return (
+            self.leak_detected_at is not None
+            or self.external_leak_detected_at is not None
+        )
+
+    @property
+    def is_internal_leak_detected(self) -> bool:
+        """Leak detected by the onboard water pads."""
         return self.leak_detected_at is not None
+
+    @property
+    def is_external_leak_detected(self) -> bool:
+        """Leak detected by the external 3.5mm AUX leak probe."""
+        return self.external_leak_detected_at is not None
 
     async def set_status_light(self, enabled: bool) -> None:
         """Sets the status indicator light for the sensor"""
