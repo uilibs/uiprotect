@@ -101,6 +101,12 @@ _DETECTION_STATE_FIELDS = (
     "is_smoke_currently_detected",
     "is_cmonx_currently_detected",
     "is_siren_currently_detected",
+    "is_baby_cry_currently_detected",
+    "is_speaking_currently_detected",
+    "is_bark_currently_detected",
+    "is_car_alarm_currently_detected",
+    "is_car_horn_currently_detected",
+    "is_glass_break_currently_detected",
 )
 
 # ---------------------------------------------------------------------------
@@ -424,6 +430,36 @@ class PublicCamera(PublicDeviceModel):
         """Is a siren currently being detected."""
         return self._detection_state()["is_siren_currently_detected"]
 
+    @property
+    def is_baby_cry_currently_detected(self) -> bool:
+        """Is a baby cry currently being detected."""
+        return self._detection_state()["is_baby_cry_currently_detected"]
+
+    @property
+    def is_speaking_currently_detected(self) -> bool:
+        """Is speaking currently being detected."""
+        return self._detection_state()["is_speaking_currently_detected"]
+
+    @property
+    def is_bark_currently_detected(self) -> bool:
+        """Is a bark currently being detected."""
+        return self._detection_state()["is_bark_currently_detected"]
+
+    @property
+    def is_car_alarm_currently_detected(self) -> bool:
+        """Is a car alarm currently being detected."""
+        return self._detection_state()["is_car_alarm_currently_detected"]
+
+    @property
+    def is_car_horn_currently_detected(self) -> bool:
+        """Is a car horn currently being detected."""
+        return self._detection_state()["is_car_horn_currently_detected"]
+
+    @property
+    def is_glass_break_currently_detected(self) -> bool:
+        """Is glass breaking currently being detected."""
+        return self._detection_state()["is_glass_break_currently_detected"]
+
     def _apply_detection_event(self, event: PublicEvent) -> None:
         """Add/remove a detection event from the active set based on its ``end``."""
         if event.type not in _DETECTION_EVENT_TYPES:
@@ -454,6 +490,7 @@ class PublicCamera(PublicDeviceModel):
             return cached
         motion = smart = person = vehicle = animal = False
         audio = smoke = cmonx = siren = False
+        baby_cry = speaking = bark = car_alarm = car_horn = glass_break = False
         for event in self._active_detection_events.values():
             event_type = event.type
             if event_type in _MOTION_EVENT_TYPES:
@@ -470,10 +507,34 @@ class PublicCamera(PublicDeviceModel):
                 smoke = smoke or SmartDetectObjectType.SMOKE in smart_types
                 cmonx = cmonx or SmartDetectObjectType.CMONX in smart_types
                 siren = siren or SmartDetectObjectType.SIREN in smart_types
+                baby_cry = baby_cry or SmartDetectObjectType.BABY_CRY in smart_types
+                speaking = speaking or SmartDetectObjectType.SPEAK in smart_types
+                bark = bark or SmartDetectObjectType.BARK in smart_types
+                car_alarm = car_alarm or SmartDetectObjectType.BURGLAR in smart_types
+                car_horn = car_horn or SmartDetectObjectType.CAR_HORN in smart_types
+                glass_break = (
+                    glass_break or SmartDetectObjectType.GLASS_BREAK in smart_types
+                )
         state = dict(
             zip(
                 _DETECTION_STATE_FIELDS,
-                (motion, smart, person, vehicle, animal, audio, smoke, cmonx, siren),
+                (
+                    motion,
+                    smart,
+                    person,
+                    vehicle,
+                    animal,
+                    audio,
+                    smoke,
+                    cmonx,
+                    siren,
+                    baby_cry,
+                    speaking,
+                    bark,
+                    car_alarm,
+                    car_horn,
+                    glass_break,
+                ),
                 strict=True,
             )
         )

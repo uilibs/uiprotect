@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import Mock
 
+import pytest
+
 from uiprotect.data import PublicCamera
 from uiprotect.data.public_bootstrap import PublicBootstrap
 from uiprotect.data.public_event import PublicEvent
@@ -44,6 +46,12 @@ def test_no_active_events_all_false() -> None:
     assert cam.is_smoke_currently_detected is False
     assert cam.is_cmonx_currently_detected is False
     assert cam.is_siren_currently_detected is False
+    assert cam.is_baby_cry_currently_detected is False
+    assert cam.is_speaking_currently_detected is False
+    assert cam.is_bark_currently_detected is False
+    assert cam.is_car_alarm_currently_detected is False
+    assert cam.is_car_horn_currently_detected is False
+    assert cam.is_glass_break_currently_detected is False
 
 
 def test_motion_event_start_and_end() -> None:
@@ -314,6 +322,78 @@ def test_smart_audio_siren_start_and_end() -> None:
     pb.process_events_ws_message(Mock(), _event("update", id="a1", end=2000))
     assert cam.is_audio_currently_detected is False
     assert cam.is_siren_currently_detected is False
+
+
+# Each remaining smart-audio subtype: (wire smartDetectType, flag attribute).
+_AUDIO_SUBTYPES = [
+    ("alrmBabyCry", "is_baby_cry_currently_detected"),
+    ("alrmSpeak", "is_speaking_currently_detected"),
+    ("alrmBark", "is_bark_currently_detected"),
+    ("alrmBurglar", "is_car_alarm_currently_detected"),
+    ("alrmCarHorn", "is_car_horn_currently_detected"),
+    ("alrmGlassBreak", "is_glass_break_currently_detected"),
+]
+
+
+@pytest.mark.parametrize(("wire_type", "flag"), _AUDIO_SUBTYPES)
+def test_smart_audio_subtype_start_and_end(wire_type: str, flag: str) -> None:
+    """Each remaining smart-audio subtype drives the audio + its own flag only."""
+    pb = _bootstrap_with_camera()
+    cam = pb.cameras["cam1"]
+
+    pb.process_events_ws_message(
+        Mock(),
+        _event(
+            "add",
+            id="a1",
+            type="smartAudioDetect",
+            start=1000,
+            device="cam1",
+            smartDetectTypes=[wire_type],
+        ),
+    )
+    assert cam.is_audio_currently_detected is True
+    assert getattr(cam, flag) is True
+    # No cross-talk with the alarm-audio flags from #1054.
+    assert cam.is_smoke_currently_detected is False
+    assert cam.is_cmonx_currently_detected is False
+    assert cam.is_siren_currently_detected is False
+
+    pb.process_events_ws_message(Mock(), _event("update", id="a1", end=2000))
+    assert cam.is_audio_currently_detected is False
+    assert getattr(cam, flag) is False
+
+
+@pytest.mark.parametrize(("wire_type", "flag"), _AUDIO_SUBTYPES)
+def test_smart_audio_subtype_emits_transition(wire_type: str, flag: str) -> None:
+    """Each remaining smart-audio subtype emits its own start/end transitions."""
+    pb = _bootstrap_with_camera()
+
+    updates = pb.process_events_ws_message(
+        Mock(),
+        _event(
+            "add",
+            id="a1",
+            type="smartAudioDetect",
+            start=1000,
+            device="cam1",
+            smartDetectTypes=[wire_type],
+        ),
+    ).model_updates
+    assert len(updates) == 1
+    assert updates[0].changed_data == {
+        "is_audio_currently_detected": True,
+        flag: True,
+    }
+
+    updates = pb.process_events_ws_message(
+        Mock(), _event("update", id="a1", end=2000)
+    ).model_updates
+    assert len(updates) == 1
+    assert updates[0].changed_data == {
+        "is_audio_currently_detected": False,
+        flag: False,
+    }
 
 
 def test_detection_state_is_isolated_per_camera() -> None:
