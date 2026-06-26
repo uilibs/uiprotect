@@ -2169,7 +2169,7 @@ def test_events_ws_motion_minimal_add_and_end_update(
 
     # Minimal payload — the public integration websocket sends only
     # these fields on motion-start (no ``score`` / ``smartDetect*``).
-    new_event, old_event = pb.process_events_ws_message(
+    new_event, old_event, _ = pb.process_events_ws_message(
         protect_client,
         {
             "type": "add",
@@ -2190,7 +2190,7 @@ def test_events_ws_motion_minimal_add_and_end_update(
     assert "evt-motion-1" in pb.events
 
     # Partial update closing the event — only ``end`` on the wire.
-    new2, old2 = pb.process_events_ws_message(
+    new2, old2, _ = pb.process_events_ws_message(
         protect_client,
         {
             "type": "update",
@@ -2218,7 +2218,7 @@ def test_events_ws_sensor_button_pressed_add(
     pb = PublicBootstrap()
     protect_client._public_bootstrap = pb
 
-    new_event, old_event = pb.process_events_ws_message(
+    new_event, old_event, _ = pb.process_events_ws_message(
         protect_client,
         {
             "type": "add",
@@ -2273,7 +2273,7 @@ def test_events_ws_add_supports_additional_public_event_types(
     protect_client._public_bootstrap = pb
 
     event_id = f"evt-{event_type}"
-    new_event, old_event = pb.process_events_ws_message(
+    new_event, old_event, _ = pb.process_events_ws_message(
         protect_client,
         {
             "type": "add",
@@ -2789,12 +2789,12 @@ def test_process_events_ws_message_invalid_or_non_event(
 ) -> None:
     pb = PublicBootstrap()
     # Invalid envelope.
-    assert pb.process_events_ws_message(protect_client, {}) == (None, None)
+    assert pb.process_events_ws_message(protect_client, {}) == (None, None, [])
     # Non-event modelKey routed to the events handler.
     assert pb.process_events_ws_message(
         protect_client,
         {"type": "add", "item": {"id": "x", "modelKey": "siren"}},
-    ) == (None, None)
+    ) == (None, None, [])
 
 
 def test_apply_action_add_creation_failure(
@@ -2850,7 +2850,7 @@ def test_events_ws_remove_clears_cache(
             },
         },
     )
-    new, old = pb.process_events_ws_message(
+    new, old, _ = pb.process_events_ws_message(
         protect_client,
         {"type": "remove", "item": {"id": "evt-rm", "modelKey": "event"}},
     )

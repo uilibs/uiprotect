@@ -530,7 +530,7 @@ def _feed_ws(
 ) -> None:
     """Drive a raw events-WS frame through store + adapter, as the WS path does."""
     api._event_dispatcher = dispatcher
-    new_event, old_event = api.public_bootstrap.process_events_ws_message(api, frame)
+    new_event, old_event, _ = api.public_bootstrap.process_events_ws_message(api, frame)
     msg = WSSubscriptionMessage(
         action=WSAction(frame["type"]),
         new_update_id=frame["item"]["id"],
@@ -586,7 +586,7 @@ def test_born_closed_synthesis_skipped_when_construction_fails(
 ) -> None:
     frame = _load("born_closed_update_bad_start.json")
 
-    new_event, old_event = api.public_bootstrap.process_events_ws_message(api, frame)
+    new_event, old_event, _ = api.public_bootstrap.process_events_ws_message(api, frame)
 
     assert new_event is None
     assert old_event is None

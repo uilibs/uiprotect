@@ -59,6 +59,7 @@ from .public_devices import (
 )
 from .public_event import PublicEvent
 from .types import DeviceState, ModelType
+from .websocket import WSAction, WSSubscriptionMessage
 
 if TYPE_CHECKING:
     from ..api import ProtectApiClient
@@ -119,16 +120,6 @@ class DeviceWSResult:
     old_obj: ProtectModelWithId | None
     # Per-id raw payload (``id`` is always scalar here, even for bulk frames).
     item: dict[str, Any]
-
-
-@dataclass(frozen=True, slots=True)
-class CameraDetectionTransition:
-    """A camera whose derived detection booleans flipped during an events frame."""
-
-    camera: PublicCamera
-    # Only the flipped fields, snake_cased, mapped to their new value, e.g.
-    # ``{"is_person_currently_detected": True}``.
-    changed_data: dict[str, bool]
 
 
 @dataclass
@@ -470,21 +461,28 @@ class PublicBootstrap:
         self,
         api: ProtectApiClient,
         data: dict[str, Any],
-    ) -> tuple[PublicEvent | None, PublicEvent | None]:
+    ) -> tuple[PublicEvent | None, PublicEvent | None, list[WSSubscriptionMessage]]:
         """
         Apply a public *events* WS payload to the event cache.
 
-        Returns ``(new_event, old_event)``; either may be ``None``.
-        ``old_event`` is a **pre-merge snapshot** of the cached event taken
-        before this frame is applied — ``update`` merges its partial diff
-        into the cached object *in place*, so without the snapshot ``old``
-        and ``new`` would be the same mutated instance. The snapshot lets a
-        consumer detect the open→closed transition (``old.end is None`` and
-        ``new.end is not None``) and reject retransmits idempotently.
+        Returns ``(new_event, old_event, model_updates)``. ``new_event`` /
+        ``old_event`` may be ``None``; ``old_event`` is a **pre-merge snapshot**
+        of the cached event taken before this frame is applied — ``update``
+        merges its partial diff into the cached object *in place*, so without
+        the snapshot ``old`` and ``new`` would be the same mutated instance.
+        The snapshot lets a consumer detect the open→closed transition
+        (``old.end is None`` and ``new.end is not None``) and reject retransmits
+        idempotently.
+
+        ``model_updates`` are devices-WS ``update`` messages for any camera
+        whose derived detection booleans net-flipped over this frame — the
+        first-class device-model outputs of processing the events frame. The
+        api handler emits them through the standard devices channel with no
+        knowledge that they originated from a detection event.
         """
         action_type, item, _obj_id = _parse_ws_envelope(data)
         if action_type is None or item.get("modelKey") != ModelType.EVENT.value:
-            return None, None
+            return None, None, []
         obj_id = item.get("id")
         cached = self.events.get(obj_id) if obj_id else None
         # Intentionally a shallow copy: the idempotency chokepoint only reads
@@ -496,19 +494,22 @@ class PublicBootstrap:
         new, _old = self._apply_action(
             api, action_type, item, ModelType.EVENT, self._events_slot()
         )
-        return cast("PublicEvent | None", new), old_snapshot
+        return (
+            cast("PublicEvent | None", new),
+            old_snapshot,
+            self._drain_detection_updates(),
+        )
 
-    def drain_detection_transitions(self) -> list[CameraDetectionTransition]:
+    def _drain_detection_updates(self) -> list[WSSubscriptionMessage]:
         """
-        Return per-camera detection-boolean transitions from the last events frame.
+        Build devices-WS ``update`` messages for cameras whose detection flipped.
 
         Diffs each camera's pre-frame snapshot against its current derived
-        booleans and yields only cameras whose flags actually flipped, with
-        ``changed_data`` naming the flipped fields. Clears the pending snapshots,
-        so a second call returns an empty list. Call once after each
-        :meth:`process_events_ws_message`.
+        booleans, yielding one ``update`` (``new_obj=camera``, ``changed_data``
+        naming only the flipped fields) per camera whose flags actually changed.
+        Clears the pending snapshots, so a second call returns an empty list.
         """
-        transitions: list[CameraDetectionTransition] = []
+        updates: list[WSSubscriptionMessage] = []
         for camera_id, before in self._detection_state_before.items():
             camera = self.cameras.get(camera_id)
             if camera is None:
@@ -516,9 +517,17 @@ class PublicBootstrap:
             after = camera._detection_state()
             changed = {k: v for k, v in after.items() if v != before[k]}
             if changed:
-                transitions.append(CameraDetectionTransition(camera, changed))
+                updates.append(
+                    WSSubscriptionMessage(
+                        action=WSAction.UPDATE,
+                        new_update_id=camera.id,
+                        changed_data=cast("dict[str, Any]", changed),
+                        new_obj=camera,
+                        old_obj=None,
+                    )
+                )
         self._detection_state_before.clear()
-        return transitions
+        return updates
 
     def _snapshot_camera_detection_state(self, camera: PublicCamera) -> None:
         """Record a camera's pre-mutation detection snapshot once per events frame."""
