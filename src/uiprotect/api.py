@@ -1775,12 +1775,16 @@ class ProtectApiClient(BaseApiClient):
 
             new_obj: ProtectModelWithId | None = None
             old_obj: ProtectModelWithId | None = None
+            # Device-model updates produced by processing the events frame — a
+            # first-class output (e.g. a camera whose derived detection booleans
+            # flipped). Emitted through the standard devices channel below with
+            # no event-specific branching here.
+            model_updates: list[WSSubscriptionMessage] = []
             if self._public_bootstrap is not None and model_type is ModelType.EVENT:
-                new_event, old_event = self._public_bootstrap.process_events_ws_message(
-                    self, data
-                )
-                new_obj = new_event
-                old_obj = old_event
+                result = self._public_bootstrap.process_events_ws_message(self, data)
+                new_obj = result.new_event
+                old_obj = result.old_event
+                model_updates = result.model_updates
 
             msg_obj = WSSubscriptionMessage(
                 action=WSAction(action_type),
@@ -1791,6 +1795,9 @@ class ProtectApiClient(BaseApiClient):
             )
 
             self.emit_events_message(msg_obj)
+
+            for update in model_updates:
+                self.emit_devices_message(update)
         except Exception:
             _LOGGER.exception("Error processing public API events websocket message")
 

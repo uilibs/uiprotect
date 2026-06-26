@@ -7,6 +7,9 @@ from unittest.mock import Mock
 
 from uiprotect.data import PublicCamera
 from uiprotect.data.public_bootstrap import PublicBootstrap
+from uiprotect.data.public_event import PublicEvent
+from uiprotect.data.types import EventType
+from uiprotect.data.websocket import WSAction
 
 from .test_public_devices_models import CAMERA_PAYLOAD
 
@@ -384,3 +387,190 @@ def test_event_without_device_is_tolerated() -> None:
 def test_license_plate_state_not_exposed() -> None:
     """License-plate recognition is deliberately out of scope on the public model."""
     assert not hasattr(PublicCamera, "is_license_plate_currently_detected")
+
+
+# ---------------------------------------------------------------------------
+# Detection-state model updates (process_events_ws_message third return value)
+# ---------------------------------------------------------------------------
+
+
+def test_motion_start_emits_transition() -> None:
+    """An open motion event yields a single ``is_motion_detected: True`` update."""
+    pb = _bootstrap_with_camera()
+    updates = pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    ).model_updates
+    assert len(updates) == 1
+    assert updates[0].action is WSAction.UPDATE
+    assert updates[0].old_obj is None
+    assert updates[0].new_obj is pb.cameras["cam1"]
+    assert updates[0].new_update_id == "cam1"
+    assert updates[0].changed_data == {"is_motion_detected": True}
+
+
+def test_motion_end_emits_off_transition() -> None:
+    """The motion close frame yields a ``is_motion_detected: False`` update."""
+    pb = _bootstrap_with_camera()
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+
+    updates = pb.process_events_ws_message(
+        Mock(), _event("update", id="m1", end=2000)
+    ).model_updates
+    assert len(updates) == 1
+    assert updates[0].changed_data == {"is_motion_detected": False}
+
+
+def test_person_start_emits_both_smart_and_person() -> None:
+    """A person smartDetect start flips both the smart and person flags in one message."""
+    pb = _bootstrap_with_camera()
+    updates = pb.process_events_ws_message(
+        Mock(),
+        _event(
+            "add",
+            id="p1",
+            type="smartDetectZone",
+            start=1000,
+            device="cam1",
+            smartDetectTypes=["person"],
+        ),
+    ).model_updates
+    assert len(updates) == 1
+    assert updates[0].changed_data == {
+        "is_smart_currently_detected": True,
+        "is_person_currently_detected": True,
+    }
+
+
+def test_overlapping_motion_emits_no_second_transition() -> None:
+    """A second overlapping motion event does not re-emit an update."""
+    pb = _bootstrap_with_camera()
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+
+    updates = pb.process_events_ws_message(
+        Mock(), _event("add", id="m2", type="motion", start=1100, device="cam1")
+    ).model_updates
+    assert updates == []
+
+
+def test_non_detection_event_emits_no_transition() -> None:
+    """A non-detection event type produces no update."""
+    pb = _bootstrap_with_camera()
+    updates = pb.process_events_ws_message(
+        Mock(), _event("add", id="r1", type="ring", start=1000, device="cam1")
+    ).model_updates
+    assert updates == []
+
+
+def test_eviction_emits_off_transition() -> None:
+    """An open event evicted from the cache emits a flag-off update."""
+    pb = _bootstrap_with_camera()
+    pb.max_event_cache_size = 1
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+
+    # The ring event evicts the open motion event in the same frame.
+    updates = pb.process_events_ws_message(
+        Mock(), _event("add", id="r1", type="ring", start=1100, device="cam1")
+    ).model_updates
+    assert len(updates) == 1
+    assert updates[0].new_obj is pb.cameras["cam1"]
+    assert updates[0].changed_data == {"is_motion_detected": False}
+
+
+def test_remove_frame_emits_off_transition() -> None:
+    """A server ``remove`` frame for an open event emits a flag-off update."""
+    pb = _bootstrap_with_camera()
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+
+    updates = pb.process_events_ws_message(
+        Mock(), _event("remove", id="m1")
+    ).model_updates
+    assert len(updates) == 1
+    assert updates[0].changed_data == {"is_motion_detected": False}
+
+
+def test_drain_skips_camera_removed_after_snapshot() -> None:
+    """A camera dropped from the cache after its pre-frame snapshot yields no update."""
+    pb = _bootstrap_with_camera()
+    # Snapshot a camera, then remove it before the post-frame diff runs.
+    pb._detection_state_before["cam1"] = pb.cameras["cam1"]._detection_state()
+    del pb.cameras["cam1"]
+
+    assert pb._drain_detection_updates() == []
+
+
+def test_transition_state_does_not_leak_across_frames() -> None:
+    """A transition reported on one frame is not re-reported on the next."""
+    pb = _bootstrap_with_camera()
+    first = pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    ).model_updates
+    assert first
+    # Re-applying the same open motion event is a no-op flip — no fresh update.
+    second = pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    ).model_updates
+    assert second == []
+
+
+def test_transition_isolated_to_affected_camera() -> None:
+    """Only the camera owning the event reports an update."""
+    pb = _bootstrap_with_two_cameras()
+    updates = pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    ).model_updates
+    assert len(updates) == 1
+    assert updates[0].new_obj is pb.cameras["cam1"]
+
+
+def test_net_transition_when_event_starts_and_evicts_same_frame() -> None:
+    """A frame that nets out to no change (start then self-evict) emits nothing."""
+    pb = _bootstrap_with_camera()
+    pb.max_event_cache_size = 0
+    updates = pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    ).model_updates
+    assert pb.cameras["cam1"].is_motion_detected is False
+    assert updates == []
+
+
+def test_detection_state_memoized_until_mutation() -> None:
+    """Repeated reads share one cached dict; each mutation yields a fresh object."""
+    pb = _bootstrap_with_camera()
+    cam = pb.cameras["cam1"]
+
+    first = cam._detection_state()
+    assert cam._detection_state() is first
+
+    pb.process_events_ws_message(
+        Mock(), _event("add", id="m1", type="motion", start=1000, device="cam1")
+    )
+    after_add = cam._detection_state()
+    assert after_add is not first
+    assert cam._detection_state() is after_add
+
+    pb.process_events_ws_message(Mock(), _event("update", id="m1", end=2000))
+    after_end = cam._detection_state()
+    assert after_end is not after_add
+
+
+def test_snapshot_stays_distinct_from_post_mutation_state() -> None:
+    """A snapshot captured before a mutation is a distinct, unmutated object."""
+    cam = PublicCamera.model_construct()
+    before = cam._detection_state()
+
+    cam._apply_detection_event(
+        PublicEvent.model_construct(id="m1", type=EventType.MOTION, end=None)
+    )
+    after = cam._detection_state()
+
+    assert after is not before
+    assert before["is_motion_detected"] is False
+    assert after["is_motion_detected"] is True

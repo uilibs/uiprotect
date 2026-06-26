@@ -57,9 +57,12 @@ from uiprotect.data.types import (
     SirenDuration,
     UlpUserStatus,
 )
+from uiprotect.data.websocket import WSAction
 from uiprotect.exceptions import BadRequest, NotAuthorized
 from uiprotect.utils import convert_to_datetime
 from uiprotect.websocket import WebsocketState
+
+from .test_public_devices_models import CAMERA_PAYLOAD
 
 if TYPE_CHECKING:
     from uiprotect.api import ProtectApiClient
@@ -2166,7 +2169,7 @@ def test_events_ws_motion_minimal_add_and_end_update(
 
     # Minimal payload — the public integration websocket sends only
     # these fields on motion-start (no ``score`` / ``smartDetect*``).
-    new_event, old_event = pb.process_events_ws_message(
+    new_event, old_event, _ = pb.process_events_ws_message(
         protect_client,
         {
             "type": "add",
@@ -2187,7 +2190,7 @@ def test_events_ws_motion_minimal_add_and_end_update(
     assert "evt-motion-1" in pb.events
 
     # Partial update closing the event — only ``end`` on the wire.
-    new2, old2 = pb.process_events_ws_message(
+    new2, old2, _ = pb.process_events_ws_message(
         protect_client,
         {
             "type": "update",
@@ -2215,7 +2218,7 @@ def test_events_ws_sensor_button_pressed_add(
     pb = PublicBootstrap()
     protect_client._public_bootstrap = pb
 
-    new_event, old_event = pb.process_events_ws_message(
+    new_event, old_event, _ = pb.process_events_ws_message(
         protect_client,
         {
             "type": "add",
@@ -2270,7 +2273,7 @@ def test_events_ws_add_supports_additional_public_event_types(
     protect_client._public_bootstrap = pb
 
     event_id = f"evt-{event_type}"
-    new_event, old_event = pb.process_events_ws_message(
+    new_event, old_event, _ = pb.process_events_ws_message(
         protect_client,
         {
             "type": "add",
@@ -2786,12 +2789,12 @@ def test_process_events_ws_message_invalid_or_non_event(
 ) -> None:
     pb = PublicBootstrap()
     # Invalid envelope.
-    assert pb.process_events_ws_message(protect_client, {}) == (None, None)
+    assert pb.process_events_ws_message(protect_client, {}) == (None, None, [])
     # Non-event modelKey routed to the events handler.
     assert pb.process_events_ws_message(
         protect_client,
         {"type": "add", "item": {"id": "x", "modelKey": "siren"}},
-    ) == (None, None)
+    ) == (None, None, [])
 
 
 def test_apply_action_add_creation_failure(
@@ -2847,7 +2850,7 @@ def test_events_ws_remove_clears_cache(
             },
         },
     )
-    new, old = pb.process_events_ws_message(
+    new, old, _ = pb.process_events_ws_message(
         protect_client,
         {"type": "remove", "item": {"id": "evt-rm", "modelKey": "event"}},
     )
@@ -3075,6 +3078,122 @@ async def test_process_events_ws_message_uses_cache_when_materialised(
     assert len(captured) == 1
     assert captured[0].new_obj is not None
     assert captured[0].new_obj.id == "evt-cache"
+
+
+@pytest.mark.asyncio()
+async def test_detection_transition_emits_devices_ws_update(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A detection transition emits a devices-WS update alongside the events emit."""
+    pb = PublicBootstrap()
+    protect_client._public_bootstrap = pb
+    pb.process_devices_ws_message(Mock(), {"type": "add", "item": dict(CAMERA_PAYLOAD)})
+
+    events_got: list[Any] = []
+    devices_got: list[Any] = []
+    protect_client._events_ws_subscriptions.append(events_got.append)
+    protect_client._devices_ws_subscriptions.append(devices_got.append)
+
+    msg = aiohttp.WSMessage(
+        aiohttp.WSMsgType.TEXT,
+        orjson.dumps(
+            {
+                "type": "add",
+                "item": {
+                    "id": "m1",
+                    "modelKey": "event",
+                    "type": "motion",
+                    "start": 1700000000000,
+                    "device": "cam1",
+                },
+            }
+        ).decode(),
+        None,
+    )
+    protect_client._process_events_ws_message(msg)
+
+    # Existing events-WS emit is unchanged.
+    assert len(events_got) == 1
+    # A devices-WS update is additionally emitted for the affected camera.
+    assert len(devices_got) == 1
+    dmsg = devices_got[0]
+    assert dmsg.action is WSAction.UPDATE
+    assert dmsg.new_obj is pb.cameras["cam1"]
+    assert dmsg.new_update_id == "cam1"
+    assert dmsg.changed_data == {"is_motion_detected": True}
+
+
+@pytest.mark.asyncio()
+async def test_detection_transition_typed_subscriber_resolves_camera(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A detection transition reaches ``subscribe_devices`` as a typed CAMERA change."""
+    pb = PublicBootstrap()
+    protect_client._public_bootstrap = pb
+    pb.process_devices_ws_message(Mock(), {"type": "add", "item": dict(CAMERA_PAYLOAD)})
+
+    changes: list[Any] = []
+    protect_client.subscribe_devices(changes.append)
+
+    msg = aiohttp.WSMessage(
+        aiohttp.WSMsgType.TEXT,
+        orjson.dumps(
+            {
+                "type": "add",
+                "item": {
+                    "id": "m1",
+                    "modelKey": "event",
+                    "type": "motion",
+                    "start": 1700000000000,
+                    "device": "cam1",
+                },
+            }
+        ).decode(),
+        None,
+    )
+    protect_client._process_events_ws_message(msg)
+
+    assert len(changes) == 1
+    change = changes[0]
+    # The synthetic ``changed_data`` lacks ``modelKey``; the dispatcher must
+    # still resolve CAMERA from ``new_obj`` rather than falling back to UNKNOWN.
+    assert change.model_type is ModelType.CAMERA
+    assert change.device_id == "cam1"
+    # ``device_mac`` is the camera's mac, not its id.
+    assert change.device_mac == CAMERA_PAYLOAD["mac"]
+    assert change.model is pb.cameras["cam1"]
+
+
+@pytest.mark.asyncio()
+async def test_non_transition_event_emits_no_devices_ws_update(
+    protect_client: ProtectApiClient,
+) -> None:
+    """An events frame that flips no detection boolean emits no devices-WS update."""
+    pb = PublicBootstrap()
+    protect_client._public_bootstrap = pb
+    pb.process_devices_ws_message(Mock(), {"type": "add", "item": dict(CAMERA_PAYLOAD)})
+
+    devices_got: list[Any] = []
+    protect_client._devices_ws_subscriptions.append(devices_got.append)
+
+    msg = aiohttp.WSMessage(
+        aiohttp.WSMsgType.TEXT,
+        orjson.dumps(
+            {
+                "type": "add",
+                "item": {
+                    "id": "r1",
+                    "modelKey": "event",
+                    "type": "ring",
+                    "start": 1700000000000,
+                    "device": "cam1",
+                },
+            }
+        ).decode(),
+        None,
+    )
+    protect_client._process_events_ws_message(msg)
+    assert devices_got == []
 
 
 @pytest.mark.asyncio()

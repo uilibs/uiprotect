@@ -87,6 +87,22 @@ _DETECTION_EVENT_TYPES = (
     _MOTION_EVENT_TYPES | _SMART_AUDIO_EVENT_TYPES | _SMART_DETECT_EVENT_TYPES
 )
 
+# Derived detection-state boolean property names on :class:`PublicCamera`. A
+# transition in any of these (after an events-WS frame is folded into the active
+# set) is surfaced as a synthetic devices-WS update — see
+# :meth:`PublicCamera._detection_state` and the events-WS handler.
+_DETECTION_STATE_FIELDS = (
+    "is_motion_detected",
+    "is_smart_currently_detected",
+    "is_person_currently_detected",
+    "is_vehicle_currently_detected",
+    "is_animal_currently_detected",
+    "is_audio_currently_detected",
+    "is_smoke_currently_detected",
+    "is_cmonx_currently_detected",
+    "is_siren_currently_detected",
+)
+
 # ---------------------------------------------------------------------------
 # Write payloads (TypedDict — shape the client accepts and forwards)
 # ---------------------------------------------------------------------------
@@ -338,6 +354,13 @@ class PublicCamera(PublicDeviceModel):
     # per-instance default factory rather than a shared class attribute.
     _active_detection_events: dict[str, PublicEvent] = PrivateAttr(default_factory=dict)
 
+    # Memoized derived detection booleans. ``None`` means "stale"; the next
+    # ``_detection_state`` call rebuilds a fresh dict and caches it. The two
+    # mutators of ``_active_detection_events`` invalidate by setting this back to
+    # ``None`` rather than mutating the dict in place, so a snapshot already
+    # captured by the events-WS diff stays a distinct object from the rebuild.
+    _detection_state_cache: dict[str, bool] | None = PrivateAttr(default=None)
+
     def hardware_stream_qualities(self) -> list[ChannelQuality]:
         """Stream qualities the camera hardware supports (not the server's ``available`` list)."""
         qualities = [ChannelQuality.HIGH, ChannelQuality.MEDIUM, ChannelQuality.LOW]
@@ -359,59 +382,47 @@ class PublicCamera(PublicDeviceModel):
     @property
     def is_motion_detected(self) -> bool:
         """Is a motion event currently active."""
-        return self._has_active_event(_MOTION_EVENT_TYPES)
+        return self._detection_state()["is_motion_detected"]
 
     @property
     def is_smart_currently_detected(self) -> bool:
         """Is a smart-detect event currently active."""
-        return self._has_active_event(_SMART_DETECT_EVENT_TYPES)
+        return self._detection_state()["is_smart_currently_detected"]
 
     @property
     def is_person_currently_detected(self) -> bool:
         """Is a person currently being detected."""
-        return self._has_active_smart_type(
-            _SMART_DETECT_EVENT_TYPES, SmartDetectObjectType.PERSON
-        )
+        return self._detection_state()["is_person_currently_detected"]
 
     @property
     def is_vehicle_currently_detected(self) -> bool:
         """Is a vehicle currently being detected."""
-        return self._has_active_smart_type(
-            _SMART_DETECT_EVENT_TYPES, SmartDetectObjectType.VEHICLE
-        )
+        return self._detection_state()["is_vehicle_currently_detected"]
 
     @property
     def is_animal_currently_detected(self) -> bool:
         """Is an animal currently being detected."""
-        return self._has_active_smart_type(
-            _SMART_DETECT_EVENT_TYPES, SmartDetectObjectType.ANIMAL
-        )
+        return self._detection_state()["is_animal_currently_detected"]
 
     @property
     def is_audio_currently_detected(self) -> bool:
         """Is an audio smart-detect event currently active."""
-        return self._has_active_event(_SMART_AUDIO_EVENT_TYPES)
+        return self._detection_state()["is_audio_currently_detected"]
 
     @property
     def is_smoke_currently_detected(self) -> bool:
         """Is a smoke alarm currently being detected."""
-        return self._has_active_smart_type(
-            _SMART_AUDIO_EVENT_TYPES, SmartDetectObjectType.SMOKE
-        )
+        return self._detection_state()["is_smoke_currently_detected"]
 
     @property
     def is_cmonx_currently_detected(self) -> bool:
         """Is a CO alarm currently being detected."""
-        return self._has_active_smart_type(
-            _SMART_AUDIO_EVENT_TYPES, SmartDetectObjectType.CMONX
-        )
+        return self._detection_state()["is_cmonx_currently_detected"]
 
     @property
     def is_siren_currently_detected(self) -> bool:
         """Is a siren currently being detected."""
-        return self._has_active_smart_type(
-            _SMART_AUDIO_EVENT_TYPES, SmartDetectObjectType.SIREN
-        )
+        return self._detection_state()["is_siren_currently_detected"]
 
     def _apply_detection_event(self, event: PublicEvent) -> None:
         """Add/remove a detection event from the active set based on its ``end``."""
@@ -421,24 +432,53 @@ class PublicCamera(PublicDeviceModel):
             self._active_detection_events[event.id] = event
         else:
             self._active_detection_events.pop(event.id, None)
+        self._detection_state_cache = None
 
     def _clear_detection_event(self, event_id: str) -> None:
         """Drop an event from the active set (eviction / server ``remove`` frame)."""
         self._active_detection_events.pop(event_id, None)
+        self._detection_state_cache = None
 
-    def _has_active_event(self, event_types: frozenset[EventType]) -> bool:
-        return any(
-            event.type in event_types
-            for event in self._active_detection_events.values()
-        )
+    def _detection_state(self) -> dict[str, bool]:
+        """
+        Snapshot every derived detection boolean in one pass over the active set.
 
-    def _has_active_smart_type(
-        self, event_types: frozenset[EventType], smart_type: SmartDetectObjectType
-    ) -> bool:
-        return any(
-            event.type in event_types and smart_type in event.smart_detect_types
-            for event in self._active_detection_events.values()
+        Single source of truth for the per-type predicates: the nine public
+        ``is_*`` properties read their value out of this dict, so they and the
+        snapshot used for transition diffing can never drift apart. The result
+        is memoized until the active set mutates, so a single-property read is an
+        O(1) cache lookup rather than a fresh pass over every active event.
+        """
+        cached = self._detection_state_cache
+        if cached is not None:
+            return cached
+        motion = smart = person = vehicle = animal = False
+        audio = smoke = cmonx = siren = False
+        for event in self._active_detection_events.values():
+            event_type = event.type
+            if event_type in _MOTION_EVENT_TYPES:
+                motion = True
+            elif event_type in _SMART_DETECT_EVENT_TYPES:
+                smart = True
+                smart_types = event.smart_detect_types
+                person = person or SmartDetectObjectType.PERSON in smart_types
+                vehicle = vehicle or SmartDetectObjectType.VEHICLE in smart_types
+                animal = animal or SmartDetectObjectType.ANIMAL in smart_types
+            elif event_type in _SMART_AUDIO_EVENT_TYPES:
+                audio = True
+                smart_types = event.smart_detect_types
+                smoke = smoke or SmartDetectObjectType.SMOKE in smart_types
+                cmonx = cmonx or SmartDetectObjectType.CMONX in smart_types
+                siren = siren or SmartDetectObjectType.SIREN in smart_types
+        state = dict(
+            zip(
+                _DETECTION_STATE_FIELDS,
+                (motion, smart, person, vehicle, animal, audio, smoke, cmonx, siren),
+                strict=True,
+            )
         )
+        self._detection_state_cache = state
+        return state
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
