@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.2.0 (2026-06-26)
+
+### Features
+
+
+- Emit publiccamera devices-ws update on detection transition ([`f342e3d`](https://github.com/uilibs/uiprotect/commit/f342e3d10ae786b8aab80def4b89e3819ef0d594))
+
+
 ## v15.1.0 (2026-06-25)
 
 ### Features
