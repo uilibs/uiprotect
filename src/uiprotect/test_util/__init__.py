@@ -558,7 +558,7 @@ class SampleDataGenerator:
                 break
 
         if device_id is None:
-            self.log("No chime found. Skipping doorlock endpoints...")
+            self.log("No chime found. Skipping chime endpoints...")
             return
 
         obj = await self.client.api_request_obj(f"chimes/{device_id}")
