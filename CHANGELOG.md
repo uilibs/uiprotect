@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.4.0 (2026-07-02)
+
+### Features
+
+
+- Unify public device models under publicdevicemodel ([`1e54765`](https://github.com/uilibs/uiprotect/commit/1e547656a575e43a0ecb43ad4e860642f1171e8a))
+
+
 ## v15.3.0 (2026-06-26)
 
 ### Features
