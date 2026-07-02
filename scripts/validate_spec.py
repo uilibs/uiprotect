@@ -250,6 +250,8 @@ _EXTRA_MODEL_FIELDS: dict[str, set[str]] = {
     "sensor": {"device_type", "device_guid", "feature_flags"},
     "chime": {"device_type", "device_guid"},
     "nvr": {"device_type", "device_guid"},
+    "viewer": {"device_type", "device_guid"},
+    "bridge": {"device_type", "device_guid"},
 }
 
 _HTTP_METHODS = ("get", "post", "put", "patch", "delete")

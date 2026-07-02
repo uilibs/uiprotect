@@ -9,6 +9,9 @@ import pytest
 
 from uiprotect.api import RTSPSStreams
 from uiprotect.data import (
+    Fob,
+    LinkStation,
+    PublicBridge,
     PublicCamera,
     PublicChime,
     PublicDeviceModel,
@@ -16,7 +19,11 @@ from uiprotect.data import (
     PublicNVR,
     PublicSensor,
     PublicSensorFeatureFlags,
+    PublicViewer,
+    Relay,
     SensorFeatureCapability,
+    Siren,
+    Speaker,
 )
 from uiprotect.data.public_bootstrap import PublicBootstrap
 from uiprotect.data.types import ChannelQuality, ModelType, SensorScheduleMode
@@ -207,6 +214,33 @@ def test_public_device_model_shared_base(cls: type, payload: dict[str, Any]) -> 
     obj: PublicDeviceModel = cls.from_unifi_dict(api=Mock(), **dict(payload))
     assert obj.mac == payload["mac"]
     assert obj.state.value == payload["state"]
+
+
+@pytest.mark.parametrize(
+    "cls",
+    [Siren, Relay, Fob, Speaker, LinkStation, PublicBridge, PublicViewer],
+)
+def test_mac_state_devices_share_base(cls: type[PublicDeviceModel]) -> None:
+    """Every mac/state-carrying public device subclasses ``PublicDeviceModel``."""
+    assert issubclass(cls, PublicDeviceModel)
+    assert cls.model_fields.keys() >= {"mac", "state"}
+
+
+def test_reparented_viewer_is_public_device_model() -> None:
+    """A constructed viewer satisfies the generic ``isinstance`` dispatch guard."""
+    obj = PublicViewer.from_unifi_dict(
+        api=Mock(),
+        id="viewer-1",
+        modelKey="viewer",
+        state="CONNECTED",
+        name="Viewer 1",
+        mac="AABBCCDDEE01",
+        liveview="lv-1",
+        streamLimit=16,
+    )
+    assert isinstance(obj, PublicDeviceModel)
+    assert obj.mac == "AABBCCDDEE01"
+    assert obj.state.value == "CONNECTED"
 
 
 def test_public_camera_drops_private_only_fields() -> None:

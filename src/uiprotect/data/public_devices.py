@@ -832,13 +832,11 @@ class PublicSirenStatus(ProtectBaseObject):
         )
 
 
-class Siren(ProtectModelWithId):
+class Siren(PublicDeviceModel):
     """Public API siren device."""
 
     model: ModelType | None = ModelType.SIREN
-    state: DeviceState
     name: str
-    mac: str
     volume: int
     led_settings: PublicLedSettings
     siren_status: PublicSirenStatus
@@ -920,7 +918,7 @@ class PublicRelayInput(ProtectBaseObject):
     action_output_id: int | None = None
 
 
-class Relay(ProtectModelWithId):
+class Relay(PublicDeviceModel):
     """
     Public API relay device.
 
@@ -929,9 +927,7 @@ class Relay(ProtectModelWithId):
     """
 
     model: ModelType | None = ModelType.RELAY
-    state: DeviceState
     name: str
-    mac: str
     led_settings: PublicLedSettings
     outputs: list[PublicRelayOutput]
     inputs: list[PublicRelayInput]
@@ -991,20 +987,17 @@ class PublicFobFeatureFlags(ProtectBaseObject):
     buttons: list[FobButton]
 
 
-class Fob(ProtectModelWithId):
+class Fob(PublicDeviceModel):
     """Public API key fob device."""
 
     model: ModelType | None = ModelType.FOB
-    # ``DeviceState`` / ``FobAwayState`` carry an ``unknown`` member, so values
-    # added by newer firmware coerce to the ``UNKNOWN`` member rather than
-    # raising. ``wireless_connection_state`` (and the battery status it carries)
-    # is required by the spec — a fob is always a wireless battery device.
-    state: DeviceState
     # Nullable on the wire and in WS partial-updates.
     name: str | None = None
-    mac: str
+    # ``FobAwayState`` carries an ``unknown`` member, so values added by newer
+    # firmware coerce to the ``UNKNOWN`` member rather than raising.
     away_state: FobAwayState
     feature_flags: PublicFobFeatureFlags
+    # Required by the spec — a fob is always a wireless battery device.
     wireless_connection_state: PublicWirelessConnectionState
 
 
@@ -1024,14 +1017,12 @@ class PublicSpeakerState(ProtectBaseObject):
     mode: SpeakerMode
 
 
-class Speaker(ProtectModelWithId):
+class Speaker(PublicDeviceModel):
     """Public API speaker device."""
 
     model: ModelType | None = ModelType.SPEAKER
-    state: DeviceState
     # Nullable on the wire and in WS partial-updates.
     name: str | None = None
-    mac: str
     volume: int
     mic_volume: int
     is_mic_enabled: bool
@@ -1123,7 +1114,7 @@ class AlarmHubOutput(ProtectBaseObject):
     duration: int | None = None
 
 
-class LinkStation(ProtectModelWithId):
+class LinkStation(PublicDeviceModel):
     """
     Public API link station / alarm hub.
 
@@ -1134,10 +1125,8 @@ class LinkStation(ProtectModelWithId):
     """
 
     model: ModelType | None = ModelType.LINK_STATION
-    state: DeviceState
     # Nullable on the wire (spec: ``oneOf [string, null]``).
     name: str | None = None
-    mac: str
     is_alarm_hub: bool
     led_settings: PublicLedSettings
     # Top-level nullable timestamp of the last event, NOT an Event object.
@@ -1420,7 +1409,7 @@ class PublicLiveview(ProtectModelWithId):
 # ---------------------------------------------------------------------------
 
 
-class PublicBridge(ProtectModelWithId):
+class PublicBridge(PublicDeviceModel):
     """
     Public API bridge device.
 
@@ -1430,9 +1419,7 @@ class PublicBridge(ProtectModelWithId):
     """
 
     model: ModelType | None = ModelType.BRIDGE
-    state: DeviceState
     name: str | None = None
-    mac: str
     # ``bridgePlatform`` is typed ``[string, null]`` in the spec.
     platform: str | None = None
     clients: list[str]
@@ -1453,7 +1440,7 @@ class PublicBridge(ProtectModelWithId):
 # ---------------------------------------------------------------------------
 
 
-class PublicViewer(ProtectModelWithId):
+class PublicViewer(PublicDeviceModel):
     """
     Public API viewer device.
 
@@ -1466,9 +1453,7 @@ class PublicViewer(ProtectModelWithId):
     """
 
     model: ModelType | None = ModelType.VIEWPORT
-    state: DeviceState
     name: str | None = None
-    mac: str
     liveview_id: str | None = None
     stream_limit: int
 
