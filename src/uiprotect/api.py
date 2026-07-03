@@ -4718,8 +4718,7 @@ class ProtectApiClient(BaseApiClient):
                         if streams is not None:
                             break
                         _LOGGER.debug(
-                            "Primed no RTSPS streams for camera %s "
-                            "(attempt %d/%d)",
+                            "Primed no RTSPS streams for camera %s (attempt %d/%d)",
                             camera.id,
                             attempt + 1,
                             RTSPS_PRIME_RETRIES + 1,
