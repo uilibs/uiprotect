@@ -4715,7 +4715,15 @@ class ProtectApiClient(BaseApiClient):
                     try:
                         async with asyncio.timeout(RTSPS_PRIME_TIMEOUT):
                             streams = await self.get_camera_rtsps_streams(camera.id)
-                        break
+                        if streams is not None:
+                            break
+                        _LOGGER.debug(
+                            "Primed no RTSPS streams for camera %s "
+                            "(attempt %d/%d)",
+                            camera.id,
+                            attempt + 1,
+                            RTSPS_PRIME_RETRIES + 1,
+                        )
                     except Exception:
                         _LOGGER.debug(
                             "Failed to prime RTSPS streams for camera %s "

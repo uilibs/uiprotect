@@ -3582,6 +3582,59 @@ async def test_update_public_prime_aggregates_failures_into_one_warning(
 
 
 @pytest.mark.asyncio()
+async def test_update_public_prime_retries_none_result(
+    protect_client: ProtectApiClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A ``None`` prime result is retried and healed on the next attempt."""
+    cam1 = _public_camera("cam1", DeviceState.CONNECTED)
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(return_value=[cam1]),
+    )
+    healed = RTSPSStreams(high="rtsps://example.com/cam1")
+    calls = 0
+
+    async def _fetch(camera_id: str) -> RTSPSStreams | None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return None
+        return healed
+
+    protect_client.get_camera_rtsps_streams = _fetch  # type: ignore[method-assign]
+
+    with caplog.at_level("WARNING"):
+        pb = await protect_client.update_public()
+
+    assert calls == 2
+    assert pb.cameras["cam1"].rtsps_streams is healed
+    assert "Could not prime RTSPS streams" not in caplog.text
+
+
+@pytest.mark.asyncio()
+async def test_update_public_prime_none_result_warns(
+    protect_client: ProtectApiClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A camera returning ``None`` on every attempt lands in the aggregated WARNING."""
+    cam1 = _public_camera("cam1", DeviceState.CONNECTED)
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(return_value=[cam1]),
+    )
+    protect_client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
+        return_value=None
+    )
+
+    with caplog.at_level("WARNING"):
+        pb = await protect_client.update_public()
+
+    assert pb.cameras["cam1"].rtsps_streams is None
+    assert "Could not prime RTSPS streams for 1 camera(s): cam1" in caplog.text
+
+
+@pytest.mark.asyncio()
 async def test_update_public_reraises_unexpected_exception(
     protect_client: ProtectApiClient,
 ) -> None:
