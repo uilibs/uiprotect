@@ -1,5 +1,16 @@
 # Changelog
 
+## v15.4.1 (2026-07-03)
+
+### Bug fixes
+
+
+- Bound and surface rtsps stream priming failures in update_public ([`b577028`](https://github.com/uilibs/uiprotect/commit/b577028fc90123833cf673cf7c0d79b49f75163e))
+
+
+- Bound and surface rtsps stream priming failures in update_public ([`b577028`](https://github.com/uilibs/uiprotect/commit/b577028fc90123833cf673cf7c0d79b49f75163e))
+
+
 ## v15.4.0 (2026-07-02)
 
 ### Features
