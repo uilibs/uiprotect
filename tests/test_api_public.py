@@ -3487,6 +3487,101 @@ async def test_update_public_prime_respects_concurrency_bound(
 
 
 @pytest.mark.asyncio()
+async def test_update_public_prime_bounds_hung_fetch(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A camera whose prime fetch hangs is bounded by the per-request timeout."""
+    monkeypatch.setattr(api_module, "RTSPS_PRIME_TIMEOUT", 0.01)
+    monkeypatch.setattr(api_module, "RTSPS_PRIME_RETRIES", 0)
+    hung = _public_camera("cam1", DeviceState.CONNECTED)
+    good = _public_camera("cam2", DeviceState.CONNECTED)
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(return_value=[hung, good]),
+    )
+    fresh = RTSPSStreams(high="rtsps://example.com/cam2")
+
+    async def _fetch(camera_id: str) -> RTSPSStreams:
+        if camera_id == "cam1":
+            await asyncio.sleep(10)
+        return fresh
+
+    protect_client.get_camera_rtsps_streams = _fetch  # type: ignore[method-assign]
+
+    with caplog.at_level("WARNING"):
+        pb = await protect_client.update_public()
+
+    assert pb.cameras["cam1"].rtsps_streams is None
+    assert pb.cameras["cam2"].rtsps_streams is fresh
+    assert "Could not prime RTSPS streams for 1 camera(s): cam1" in caplog.text
+
+
+@pytest.mark.asyncio()
+async def test_update_public_prime_retries_transient_failure(
+    protect_client: ProtectApiClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A single transient prime failure is healed by the retry."""
+    cam1 = _public_camera("cam1", DeviceState.CONNECTED)
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(return_value=[cam1]),
+    )
+    healed = RTSPSStreams(high="rtsps://example.com/cam1")
+    calls = 0
+
+    async def _fetch(camera_id: str) -> RTSPSStreams:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("transient")
+        return healed
+
+    protect_client.get_camera_rtsps_streams = _fetch  # type: ignore[method-assign]
+
+    with caplog.at_level("WARNING"):
+        pb = await protect_client.update_public()
+
+    assert calls == 2
+    assert pb.cameras["cam1"].rtsps_streams is healed
+    assert "Could not prime RTSPS streams" not in caplog.text
+
+
+@pytest.mark.asyncio()
+async def test_update_public_prime_aggregates_failures_into_one_warning(
+    protect_client: ProtectApiClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Every camera that still fails after retries lands in a single WARNING."""
+    cam1 = _public_camera("cam1", DeviceState.CONNECTED)
+    cam2 = _public_camera("cam2", DeviceState.CONNECTED)
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(return_value=[cam1, cam2]),
+    )
+    protect_client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
+        side_effect=RuntimeError("offline")
+    )
+
+    with caplog.at_level("WARNING"):
+        pb = await protect_client.update_public()
+
+    assert pb.cameras["cam1"].rtsps_streams is None
+    assert pb.cameras["cam2"].rtsps_streams is None
+    warnings = [
+        record.message
+        for record in caplog.records
+        if "Could not prime RTSPS streams" in record.message
+    ]
+    assert len(warnings) == 1
+    assert "cam1" in warnings[0]
+    assert "cam2" in warnings[0]
+    assert "2 camera(s)" in warnings[0]
+
+
+@pytest.mark.asyncio()
 async def test_update_public_reraises_unexpected_exception(
     protect_client: ProtectApiClient,
 ) -> None:

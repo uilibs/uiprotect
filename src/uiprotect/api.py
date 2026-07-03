@@ -280,6 +280,17 @@ PUBLIC_RESYNC_MIN_INTERVAL = 10.0
 # dozens of requests at once.
 RTSPS_PRIME_CONCURRENCY = 8
 
+# Per-camera timeout for a single RTSPS-stream prime fetch. The public API
+# session carries no ``ClientTimeout``, so without this a camera whose GET hangs
+# (console under load right after an upgrade reboot) would hold its concurrency
+# slot for aiohttp's 300s default and stall ``update_public`` for minutes.
+RTSPS_PRIME_TIMEOUT = 10.0
+
+# Number of extra attempts per camera after the first prime fetch fails. One
+# short retry heals a single transient failure during a boot storm without
+# leaving the camera streamless for the whole session.
+RTSPS_PRIME_RETRIES = 1
+
 
 def calculate_retry_delay(attempt: int, retry_after: float | None = None) -> float:
     """
@@ -4676,10 +4687,12 @@ class ProtectApiClient(BaseApiClient):
 
         Carries forward the pre-re-parse streams by id, then fetches streams for
         the genuinely-missing connected cameras under a bounded concurrency
-        semaphore. Best-effort per camera: a failed fetch is logged at ``DEBUG``
-        and skipped so one slow/unreachable camera cannot abort the prime.
-        Disconnected cameras are skipped — they yield no usable stream, only a
-        per-camera timeout.
+        semaphore. Each fetch is bounded by ``RTSPS_PRIME_TIMEOUT`` and retried
+        ``RTSPS_PRIME_RETRIES`` times on transient failure. Best-effort per
+        camera: one slow/unreachable camera cannot abort the prime, and the
+        cameras that still fail are aggregated into a single ``WARNING`` so the
+        failure mode is diagnosable in the field. Disconnected cameras are
+        skipped — they yield no usable stream, only a per-camera timeout.
         """
         for camera_id, camera in pb.cameras.items():
             if camera.rtsps_streams is None and camera_id in previous_streams:
@@ -4695,17 +4708,25 @@ class ProtectApiClient(BaseApiClient):
 
         semaphore = asyncio.Semaphore(RTSPS_PRIME_CONCURRENCY)
 
-        async def _prime_one(camera: PublicCamera) -> None:
+        async def _prime_one(camera: PublicCamera) -> str | None:
             async with semaphore:
-                try:
-                    streams = await self.get_camera_rtsps_streams(camera.id)
-                except Exception:
-                    _LOGGER.debug(
-                        "Failed to prime RTSPS streams for camera %s",
-                        camera.id,
-                        exc_info=True,
-                    )
-                    return
+                streams: RTSPSStreams | None = None
+                for attempt in range(RTSPS_PRIME_RETRIES + 1):
+                    try:
+                        async with asyncio.timeout(RTSPS_PRIME_TIMEOUT):
+                            streams = await self.get_camera_rtsps_streams(camera.id)
+                        break
+                    except Exception:
+                        _LOGGER.debug(
+                            "Failed to prime RTSPS streams for camera %s "
+                            "(attempt %d/%d)",
+                            camera.id,
+                            attempt + 1,
+                            RTSPS_PRIME_RETRIES + 1,
+                            exc_info=True,
+                        )
+                else:
+                    return camera.id
                 # Only write if the camera is still the cached instance and
                 # still streamless — a concurrent write-through (create) or a
                 # remove/replace during the fetch await must not be clobbered or
@@ -4716,5 +4737,13 @@ class ProtectApiClient(BaseApiClient):
                     and camera.rtsps_streams is None
                 ):
                     camera.rtsps_streams = streams
+                return None
 
-        await asyncio.gather(*[_prime_one(camera) for camera in to_prime])
+        results = await asyncio.gather(*[_prime_one(camera) for camera in to_prime])
+        failed = [camera_id for camera_id in results if camera_id is not None]
+        if failed:
+            _LOGGER.warning(
+                "Could not prime RTSPS streams for %d camera(s): %s",
+                len(failed),
+                ", ".join(failed),
+            )
