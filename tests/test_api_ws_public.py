@@ -10,7 +10,7 @@ import aiohttp
 import orjson
 import pytest
 
-from uiprotect.api import BaseApiClient
+from uiprotect.api import PUBLIC_WS_HEARTBEAT, BaseApiClient
 from uiprotect.data import NvrArmModeStatus, PublicBootstrap, PublicNVR
 from uiprotect.data.websocket import WSAction, WSSubscriptionMessage
 from uiprotect.exceptions import NotAuthorized
@@ -777,6 +777,18 @@ async def test_get_devices_websocket(
     # Verify it's the same instance when called again
     ws2 = protect_client._get_devices_websocket()
     assert ws is ws2
+
+
+@pytest.mark.asyncio()
+async def test_public_websockets_use_heartbeat(
+    protect_client_no_debug: ProtectApiClient,
+) -> None:
+    """Both public WS keep the nginx tunnel alive with a heartbeat; private WS does not."""
+    protect_client = protect_client_no_debug
+
+    assert protect_client._get_events_websocket().heartbeat == PUBLIC_WS_HEARTBEAT
+    assert protect_client._get_devices_websocket().heartbeat == PUBLIC_WS_HEARTBEAT
+    assert protect_client._get_websocket().heartbeat is None
 
 
 @pytest.mark.asyncio()
