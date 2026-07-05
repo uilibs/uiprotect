@@ -275,6 +275,16 @@ NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
 # on flaky networks or controller reboots.
 PUBLIC_RESYNC_MIN_INTERVAL = 10.0
 
+# WebSocket heartbeat (seconds) for the public integration WS connections. The
+# UniFi OS nginx reverse proxy closes an idle tunnel after ``proxy_read_timeout
+# 10m``; the quiet ``subscribe/devices`` channel only pushes on a ~10-minute
+# cadence, so without keepalive the idle timer drops it every cycle. A ping
+# elicits a server pong — an upstream read that resets the proxy timer — and
+# also gives aiohttp liveness detection. 180s keeps ~3 touches per 10-min
+# window so a single lost frame does not trip the timeout. The private WS is
+# chatty and left unchanged.
+PUBLIC_WS_HEARTBEAT = 180.0
+
 # Max concurrent RTSPS-stream fetches issued while priming cameras in
 # ``update_public``. Bounds the GET fan-out so a large install does not fire
 # dozens of requests at once.
@@ -580,6 +590,7 @@ class BaseApiClient:
                 verify=self._verify_ssl,
                 timeout=self._ws_timeout,
                 receive_timeout=self._ws_receive_timeout,
+                heartbeat=PUBLIC_WS_HEARTBEAT,
             )
         return self._events_websocket
 
@@ -596,6 +607,7 @@ class BaseApiClient:
                 verify=self._verify_ssl,
                 timeout=self._ws_timeout,
                 receive_timeout=self._ws_receive_timeout,
+                heartbeat=PUBLIC_WS_HEARTBEAT,
             )
         return self._devices_websocket
 

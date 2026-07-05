@@ -59,11 +59,13 @@ class Websocket:
         backoff: int = 10,
         verify: bool = True,
         receive_timeout: float | None = None,
+        heartbeat: float | None = None,
     ) -> None:
         """Init Websocket."""
         self.get_url = get_url
         self.timeout = timeout
         self.receive_timeout = receive_timeout
+        self.heartbeat = heartbeat
         self.backoff = backoff
         self.verify = verify
         self._get_session = get_session
@@ -76,7 +78,7 @@ class Websocket:
 
     @property
     def is_connected(self) -> bool:
-        """Return if the websocket is connected and has received a valid message."""
+        """Return if the websocket connection is open."""
         return self._ws_connection is not None and not self._ws_connection.closed
 
     async def _websocket_loop(self) -> None:
@@ -132,7 +134,14 @@ class Websocket:
                 ssl=self.verify,
                 headers=self._headers,
                 timeout=aiohttp.ClientWSTimeout(ws_close=self.timeout),
+                heartbeat=self.heartbeat,
             )
+            # Connectivity, not data receipt, defines CONNECTED: ws_connect +
+            # auth have succeeded here, so emit it before the receive loop.
+            # On a quiet channel the first data frame can be minutes away;
+            # gating CONNECTED behind it flapped consumers. _seen_non_close_message
+            # stays purely for the bootstrap-invalidation heuristic below.
+            self._state_changed(WebsocketState.CONNECTED)
             while True:
                 msg = await self._ws_connection.receive(self.receive_timeout)
                 msg_type = msg.type
@@ -143,9 +152,7 @@ class Websocket:
                     _LOGGER.debug("Websocket closed: %s", msg)
                     break
 
-                if not self._seen_non_close_message:
-                    self._seen_non_close_message = True
-                    self._state_changed(WebsocketState.CONNECTED)
+                self._seen_non_close_message = True
                 try:
                     self._subscription(msg)
                 except Exception:

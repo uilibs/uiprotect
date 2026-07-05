@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
+from yarl import URL
 
 from tests.conftest import (
     TEST_CAMERA_EXISTS,
@@ -31,7 +32,7 @@ from uiprotect.data.websocket import (
 )
 from uiprotect.exceptions import DataDecodeError
 from uiprotect.utils import print_ws_stat_summary, to_js_time, utc_now
-from uiprotect.websocket import WebsocketState
+from uiprotect.websocket import Websocket, WebsocketState
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -675,6 +676,75 @@ async def test_check_ws_connected_state_callback(
     assert states == [WebsocketState.CONNECTED, WebsocketState.DISCONNECTED]
     unsub()
     unsub_state()
+
+
+class _QuietWebsocket:
+    """WS that connects but never delivers a data frame (blocks on receive)."""
+
+    is_closed = False
+
+    @property
+    def closed(self) -> bool:
+        return self.is_closed
+
+    async def close(self) -> None:
+        self.is_closed = True
+
+    async def receive(self, timeout: float | None) -> Any:
+        await asyncio.Event().wait()  # blocks until the task is cancelled
+
+
+def _build_websocket(session: Any, **kwargs: Any):
+    states: list[WebsocketState] = []
+    ws = Websocket(
+        lambda: URL("wss://test.example/ws"),
+        AsyncMock(return_value={}),
+        lambda: None,
+        AsyncMock(return_value=session),
+        lambda _: None,
+        states.append,
+        **kwargs,
+    )
+    return ws, states
+
+
+@pytest.mark.asyncio()
+async def test_ws_connected_emitted_before_first_frame():
+    """CONNECTED must fire on connect, not gated behind the first data frame."""
+    session = AsyncMock()
+    session.ws_connect = AsyncMock(return_value=_QuietWebsocket())
+    ws, states = _build_websocket(session)
+
+    ws.start()
+    try:
+        for _ in range(500):
+            if states:
+                break
+            await asyncio.sleep(0.01)
+        assert states == [WebsocketState.CONNECTED]
+        assert not ws._seen_non_close_message
+    finally:
+        ws.stop()
+        await ws.wait_closed()
+
+
+@pytest.mark.asyncio()
+async def test_ws_heartbeat_passed_to_ws_connect():
+    """The heartbeat kwarg is threaded through to aiohttp's ws_connect."""
+    session = AsyncMock()
+    session.ws_connect = AsyncMock(return_value=_QuietWebsocket())
+    ws, _ = _build_websocket(session, heartbeat=180.0)
+
+    ws.start()
+    try:
+        for _ in range(500):
+            if session.ws_connect.call_count:
+                break
+            await asyncio.sleep(0.01)
+        assert session.ws_connect.call_args.kwargs["heartbeat"] == 180.0
+    finally:
+        ws.stop()
+        await ws.wait_closed()
 
 
 @pytest.mark.asyncio()
