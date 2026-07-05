@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.4.2 (2026-07-05)
+
+### Bug fixes
+
+
+- Emit connected on connect and keepalive public ws ([`f4f96da`](https://github.com/uilibs/uiprotect/commit/f4f96da661097666ca4ff38f71583bdada946372))
+
+
 ## v15.4.1 (2026-07-03)
 
 ### Bug fixes
