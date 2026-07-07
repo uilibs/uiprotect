@@ -20,7 +20,7 @@ from pydantic import ConfigDict, Field
 from pydantic.fields import PrivateAttr
 
 from ..exceptions import BadRequest, NotAuthorized
-from ..utils import convert_to_datetime
+from ..utils import convert_smart_types, convert_to_datetime
 from .base import (
     ProtectBaseObject,
     ProtectDeviceModel,
@@ -426,6 +426,7 @@ class Event(ProtectModelWithId):
             dict.fromkeys(
                 ("start", "end", "timestamp", "deletedAt"), convert_to_datetime
             )
+            | {"smartDetectTypes": convert_smart_types}
             | super().unifi_dict_conversions()
         )
 

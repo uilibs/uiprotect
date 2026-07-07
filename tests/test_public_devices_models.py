@@ -26,7 +26,12 @@ from uiprotect.data import (
     Speaker,
 )
 from uiprotect.data.public_bootstrap import PublicBootstrap
-from uiprotect.data.types import ChannelQuality, ModelType, SensorScheduleMode
+from uiprotect.data.types import (
+    ChannelQuality,
+    ModelType,
+    SensorScheduleMode,
+    SmartDetectObjectType,
+)
 from uiprotect.exceptions import BadRequest
 
 CAMERA_PAYLOAD: dict[str, Any] = {
@@ -275,6 +280,29 @@ def test_public_camera_hardware_stream_qualities(
         api=Mock(), **{**CAMERA_PAYLOAD, "hasPackageCamera": has_package_camera}
     )
     assert obj.hardware_stream_qualities() == expected
+
+
+def test_public_camera_unknown_smart_detect_type_dropped(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A runtime-generated smart detect type (e.g. ``linecrossing_basic``) is dropped, not fatal."""
+    payload = {
+        **CAMERA_PAYLOAD,
+        "featureFlags": {
+            **CAMERA_PAYLOAD["featureFlags"],
+            "smartDetectTypes": ["person", "linecrossing_basic"],
+            "smartDetectAudioTypes": ["alrmSmoke", "linecrossing_audio"],
+            "videoModes": ["default", "linecrossing_video"],
+        },
+        "smartDetectSettings": {
+            "objectTypes": ["person", "linecrossing_basic"],
+            "audioTypes": ["alrmSmoke", "linecrossing_audio"],
+        },
+    }
+    obj = PublicCamera.from_unifi_dict(api=Mock(), **payload)
+    assert obj.feature_flags.smart_detect_types == [SmartDetectObjectType.PERSON]
+    assert obj.smart_detect_settings.object_types == [SmartDetectObjectType.PERSON]
+    assert "linecrossing_basic" in caplog.text
 
 
 def test_public_sensor_sub_models_typed() -> None:
