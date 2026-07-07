@@ -98,6 +98,17 @@ def test_event_envelope_fields() -> None:
     assert event.smart_detect_types == [SmartDetectObjectType.PERSON]
 
 
+def test_unknown_smart_detect_type_dropped() -> None:
+    """A runtime-generated smart detect type in an event payload is dropped, not fatal."""
+    event = PublicEvent.from_unifi_dict(
+        **_minimal(
+            "smartDetectZone",
+            smartDetectTypes=["person", "linecrossing_basic"],
+        )
+    )
+    assert event.smart_detect_types == [SmartDetectObjectType.PERSON]
+
+
 def test_sensor_extreme_metric_enum_resolves() -> None:
     event = PublicEvent.from_unifi_dict(
         **_minimal(

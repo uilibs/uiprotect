@@ -14,6 +14,8 @@ from uiprotect.data import (
     AnalyticsOption,
     DoorbellMessage,
     DoorbellMessageType,
+    Event,
+    EventType,
     RecordingMode,
 )
 from uiprotect.data.nvr import NVRSmartDetection, StorageDevice
@@ -39,6 +41,20 @@ def test_storage_device(data: dict, expected: dict):
     device = StorageDevice.from_unifi_dict(**data)
     for key, value in expected.items():
         assert getattr(device, key) == value
+
+
+def test_event_unknown_smart_detect_type_dropped() -> None:
+    """An unknown ``smartDetectTypes`` entry is dropped rather than aborting parsing."""
+    event = Event.from_unifi_dict(
+        api=Mock(),
+        id="evt-1",
+        modelKey="event",
+        type=EventType.SMART_DETECT.value,
+        start=1735689600000,
+        score=0,
+        smartDetectTypes=["person", "linecrossing_basic"],
+    )
+    assert event.smart_detect_types == [SmartDetectObjectType.PERSON]
 
 
 @pytest.mark.parametrize("status", [True, False])

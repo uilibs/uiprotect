@@ -24,7 +24,12 @@ from pydantic import Field
 from pydantic.fields import PrivateAttr
 
 from ..exceptions import BadRequest
-from ..utils import convert_to_datetime
+from ..utils import (
+    convert_smart_audio_types,
+    convert_smart_types,
+    convert_to_datetime,
+    convert_video_modes,
+)
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import (
     AlarmHubBatteryStatus,
@@ -244,10 +249,27 @@ class PublicCameraFeatureFlags(ProtectBaseObject):
     has_led_status: bool = False
     has_speaker: bool = False
 
+    @classmethod
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "smartDetectTypes": convert_smart_types,
+            "smartDetectAudioTypes": convert_smart_audio_types,
+            "videoModes": convert_video_modes,
+        } | super().unifi_dict_conversions()
+
 
 class PublicSmartDetectSettings(ProtectBaseObject):
     object_types: list[SmartDetectObjectType] = Field(default_factory=list)
     audio_types: list[SmartDetectAudioType] = Field(default_factory=list)
+
+    @classmethod
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        return {
+            "objectTypes": convert_smart_types,
+            "audioTypes": convert_smart_audio_types,
+        } | super().unifi_dict_conversions()
 
 
 class RTSPSStreams(ProtectBaseObject):

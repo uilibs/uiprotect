@@ -23,7 +23,7 @@ from typing import Any, ClassVar
 
 from pydantic import Field
 
-from ..utils import convert_to_datetime
+from ..utils import convert_smart_types, convert_to_datetime
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import (
     EventButtonType,
@@ -148,5 +148,6 @@ class PublicEvent(ProtectModelWithId):
         """Parse the ``start`` / ``end`` wire timestamps into ``datetime``."""
         return (
             dict.fromkeys(("start", "end"), convert_to_datetime)
+            | {"smartDetectTypes": convert_smart_types}
             | super().unifi_dict_conversions()
         )
