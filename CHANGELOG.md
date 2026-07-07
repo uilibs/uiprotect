@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.4.3 (2026-07-07)
+
+### Bug fixes
+
+
+- Tolerate unknown smart detect types on public models ([`eb3a1ac`](https://github.com/uilibs/uiprotect/commit/eb3a1ac3974b957bb5dfdd452ded3e7b2772c2e4))
+
+
 ## v15.4.2 (2026-07-05)
 
 ### Bug fixes
