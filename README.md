@@ -372,7 +372,7 @@ involves a device none of the maintainers happen to own. We have plenty of UniFi
 hardware, just not every model, so testing and validation on a device we don't have,
 sanitized payload captures from it, or first-hand knowledge of how it behaves in the
 field are genuinely valuable — shaped to fit the architecture (see
-[`AGENTS.md`](AGENTS.md)). Raw AI output that skips the prior discussion or ignores
+[`AGENTS.md`](https://github.com/uilibs/uiprotect/blob/main/AGENTS.md)). Raw AI output that skips the prior discussion or ignores
 these guidelines just creates review burden and will be closed.
 
 ### Developer Setup
