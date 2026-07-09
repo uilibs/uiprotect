@@ -1,5 +1,22 @@
 # Changelog
 
+## v15.4.4 (2026-07-09)
+
+### Documentation
+
+
+- Use absolute agents.md link so strict mkdocs build passes ([`be0cfec`](https://github.com/uilibs/uiprotect/commit/be0cfecd6fadf4e52e61441f1e89d93be7239295))
+
+
+### Bug fixes
+
+
+- Validate public numeric setters before the request ([`c3c3858`](https://github.com/uilibs/uiprotect/commit/c3c3858197a3f602beaac1a4d69417dd07fefebe))
+
+
+- Validate public numeric setters before the request ([`c3c3858`](https://github.com/uilibs/uiprotect/commit/c3c3858197a3f602beaac1a4d69417dd07fefebe))
+
+
 ## v15.4.3 (2026-07-07)
 
 ### Bug fixes
