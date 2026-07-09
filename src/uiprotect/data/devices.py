@@ -108,6 +108,42 @@ LUX_MAPPING_VALUES = [30, 25, 20, 15, 12, 10, 7, 5, 3, 1, 0]
 
 _LOGGER = logging.getLogger(__name__)
 
+# Public Integration API numeric bounds, taken from the OpenAPI spec. The
+# public schema is the source of truth for these and they differ from the
+# private/UI limits (e.g. ``PercentInt`` allows 101). A ``None`` upper bound is
+# a field the spec leaves unbounded above — the sensor ``highThreshold`` values.
+_PUBLIC_SENSITIVITY_RANGE: tuple[float, float | None] = (0, 100)
+_PUBLIC_MIC_VOLUME_RANGE: tuple[float, float | None] = (0, 100)
+_PUBLIC_TEMPERATURE_LOW_RANGE: tuple[float, float | None] = (-39, 124)
+_PUBLIC_HUMIDITY_LOW_RANGE: tuple[float, float | None] = (1, 99)
+_PUBLIC_LIGHT_LUX_LOW_RANGE: tuple[float, float | None] = (1, 503192)
+
+
+def _validate_public_range(
+    name: str,
+    value: float,
+    bounds: tuple[float, float | None],
+) -> None:
+    """Range-check a public-API number against the spec bounds (``highThreshold`` has no maximum)."""
+    minimum, maximum = bounds
+    if value < minimum or (maximum is not None and value > maximum):
+        limit = (
+            f"at least {minimum}"
+            if maximum is None
+            else f"between {minimum} and {maximum}"
+        )
+        raise BadRequest(f"{name} must be {limit}, got {value}")
+
+
+def _coerce_public_int(
+    name: str,
+    value: float,
+    bounds: tuple[float, float | None],
+) -> int:
+    """Validate a public-API number against the spec bounds and coerce it to ``int``."""
+    _validate_public_range(name, value, bounds)
+    return int(value)
+
 
 class LightDeviceSettings(ProtectBaseObject):
     # Status LED
@@ -287,7 +323,7 @@ class Light(ProtectMotionDeviceModel):
         )
         self.light_device_settings = device_settings
 
-    async def set_led_level_public(self, led_level: int) -> None:
+    async def set_led_level_public(self, led_level: float) -> None:
         """Set the LED brightness level via public API."""
         device_settings = self.light_device_settings.model_copy()
         device_settings.led_level = LEDLevel(led_level)
@@ -3036,10 +3072,11 @@ class Camera(ProtectMotionDeviceModel):
         updated = await self._api.update_camera_public(self.id, video_mode=mode)
         self.video_mode = updated.video_mode
 
-    async def set_mic_volume_public(self, level: int) -> None:
+    async def set_mic_volume_public(self, level: float) -> None:
         """Set microphone volume via public API."""
         if not self.feature_flags.has_mic:
             raise BadRequest("Camera does not have mic")
+        level = _coerce_public_int("mic_volume", level, _PUBLIC_MIC_VOLUME_RANGE)
         updated = await self._api.update_camera_public(self.id, mic_volume=level)
         self.mic_volume = updated.mic_volume
 
@@ -3684,12 +3721,15 @@ class Sensor(ProtectAdoptableDeviceModel):
         margin: float | None = None,
     ) -> None:
         """Update temperature alert settings via public API."""
+        low, high = _PUBLIC_TEMPERATURE_LOW_RANGE
         settings: PublicSensorTemperatureSettings = {}
         if is_enabled is not None:
             settings["isEnabled"] = is_enabled
         if low_threshold is not None:
+            _validate_public_range("low_threshold", low_threshold, (low, high))
             settings["lowThreshold"] = low_threshold
         if high_threshold is not None:
+            _validate_public_range("high_threshold", high_threshold, (low, None))
             settings["highThreshold"] = high_threshold
         if margin is not None:
             settings["margin"] = margin
@@ -3708,17 +3748,24 @@ class Sensor(ProtectAdoptableDeviceModel):
         self,
         *,
         is_enabled: bool | None = None,
-        low_threshold: int | None = None,
-        high_threshold: int | None = None,
+        low_threshold: float | None = None,
+        high_threshold: float | None = None,
         margin: int | None = None,
     ) -> None:
         """Update humidity alert settings via public API."""
+        low, high = _PUBLIC_HUMIDITY_LOW_RANGE
         settings: PublicSensorHumiditySettings = {}
         if is_enabled is not None:
             settings["isEnabled"] = is_enabled
         if low_threshold is not None:
+            low_threshold = _coerce_public_int(
+                "low_threshold", low_threshold, (low, high)
+            )
             settings["lowThreshold"] = low_threshold
         if high_threshold is not None:
+            high_threshold = _coerce_public_int(
+                "high_threshold", high_threshold, (low, None)
+            )
             settings["highThreshold"] = high_threshold
         if margin is not None:
             settings["margin"] = margin
@@ -3737,17 +3784,24 @@ class Sensor(ProtectAdoptableDeviceModel):
         self,
         *,
         is_enabled: bool | None = None,
-        low_threshold: int | None = None,
-        high_threshold: int | None = None,
+        low_threshold: float | None = None,
+        high_threshold: float | None = None,
         margin: int | None = None,
     ) -> None:
         """Update light (lux) alert settings via public API."""
+        low, high = _PUBLIC_LIGHT_LUX_LOW_RANGE
         settings: PublicSensorLightSettings = {}
         if is_enabled is not None:
             settings["isEnabled"] = is_enabled
         if low_threshold is not None:
+            low_threshold = _coerce_public_int(
+                "low_threshold", low_threshold, (low, high)
+            )
             settings["lowThreshold"] = low_threshold
         if high_threshold is not None:
+            high_threshold = _coerce_public_int(
+                "high_threshold", high_threshold, (low, None)
+            )
             settings["highThreshold"] = high_threshold
         if margin is not None:
             settings["margin"] = margin
@@ -3766,17 +3820,24 @@ class Sensor(ProtectAdoptableDeviceModel):
         self,
         *,
         is_enabled: bool | None = None,
-        sensitivity: int | None = None,
-        sensitivity_when_armed: int | None = None,
+        sensitivity: float | None = None,
+        sensitivity_when_armed: float | None = None,
     ) -> None:
         """Update motion detection settings via public API."""
         settings: PublicSensorMotionSettings = {}
         if is_enabled is not None:
             settings["isEnabled"] = is_enabled
         if sensitivity is not None:
+            sensitivity = _coerce_public_int(
+                "sensitivity", sensitivity, _PUBLIC_SENSITIVITY_RANGE
+            )
             settings["sensitivity"] = sensitivity
         if sensitivity_when_armed is not None:
-            settings["sensitivityWhenArmed"] = sensitivity_when_armed
+            settings["sensitivityWhenArmed"] = _coerce_public_int(
+                "sensitivity_when_armed",
+                sensitivity_when_armed,
+                _PUBLIC_SENSITIVITY_RANGE,
+            )
         if not settings:
             raise BadRequest("At least one parameter must be provided")
         await self._api.update_sensor_public(self.id, motion_settings=settings)
@@ -3791,17 +3852,23 @@ class Sensor(ProtectAdoptableDeviceModel):
         self,
         *,
         is_enabled: bool | None = None,
-        sensitivity: int | None = None,
-        sensitivity_when_armed: int | None = None,
+        sensitivity: float | None = None,
+        sensitivity_when_armed: float | None = None,
     ) -> None:
         """Update glass-break detection settings via public API."""
         settings: PublicSensorGlassBreakSettingsWrite = {}
         if is_enabled is not None:
             settings["isEnabled"] = is_enabled
         if sensitivity is not None:
-            settings["sensitivity"] = sensitivity
+            settings["sensitivity"] = _coerce_public_int(
+                "sensitivity", sensitivity, _PUBLIC_SENSITIVITY_RANGE
+            )
         if sensitivity_when_armed is not None:
-            settings["sensitivityWhenArmed"] = sensitivity_when_armed
+            settings["sensitivityWhenArmed"] = _coerce_public_int(
+                "sensitivity_when_armed",
+                sensitivity_when_armed,
+                _PUBLIC_SENSITIVITY_RANGE,
+            )
         if not settings:
             raise BadRequest("At least one parameter must be provided")
         await self._api.update_sensor_public(self.id, glass_break_settings=settings)
@@ -3832,7 +3899,7 @@ class Sensor(ProtectAdoptableDeviceModel):
         """Toggle motion detection via public API."""
         await self.set_motion_settings_public(is_enabled=enabled)
 
-    async def set_motion_sensitivity_public(self, sensitivity: int) -> None:
+    async def set_motion_sensitivity_public(self, sensitivity: float) -> None:
         """Set motion detection sensitivity via public API."""
         await self.set_motion_settings_public(sensitivity=sensitivity)
 

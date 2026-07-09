@@ -389,6 +389,23 @@ async def test_light_set_led_level_public(light_obj: Light, level: int) -> None:
 
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_light_set_led_level_public_coerces_float(light_obj: Light) -> None:
+    light_obj.api.update_light_public = AsyncMock()
+    light_obj.api.update_light_public.return_value = _public_light_response(
+        light_device_settings=PublicLightDeviceSettings(
+            is_indicator_enabled=light_obj.light_device_settings.is_indicator_enabled,
+            led_level=3,
+        ),
+    )
+
+    await light_obj.set_led_level_public(3.0)
+
+    sent = light_obj.api.update_light_public.call_args.kwargs["light_device_settings"]
+    assert sent.led_level == 3
+
+
+@pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("sensitivity", [1, 100, -10])
 @pytest.mark.asyncio()
 async def test_light_set_sensitivity_public(light_obj: Light, sensitivity: int) -> None:

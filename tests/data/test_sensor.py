@@ -456,6 +456,110 @@ async def test_sensor_set_glass_break_settings_public_requires_arg(sensor_obj: S
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("field", ["sensitivity", "sensitivity_when_armed"])
+@pytest.mark.parametrize("value", [-1, 101, 150])
+@pytest.mark.asyncio()
+async def test_sensor_set_motion_settings_public_rejects_out_of_range(
+    sensor_obj: Sensor, field: str, value: int
+):
+    sensor_obj.api.update_sensor_public = AsyncMock()
+
+    with pytest.raises(BadRequest):
+        await sensor_obj.set_motion_settings_public(**{field: value})
+
+    assert not sensor_obj.api.update_sensor_public.called
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_sensor_set_motion_settings_public_coerces_float(sensor_obj: Sensor):
+    sensor_obj.api.update_sensor_public = AsyncMock()
+
+    await sensor_obj.set_motion_settings_public(
+        sensitivity=70.0, sensitivity_when_armed=90.0
+    )
+
+    sensor_obj.api.update_sensor_public.assert_called_once_with(
+        sensor_obj.id,
+        motion_settings={"sensitivity": 70, "sensitivityWhenArmed": 90},
+    )
+    sent = sensor_obj.api.update_sensor_public.call_args.kwargs["motion_settings"]
+    assert isinstance(sent["sensitivity"], int)
+    assert isinstance(sent["sensitivityWhenArmed"], int)
+    assert sensor_obj.motion_settings.sensitivity == 70
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("value", [-1, 101])
+@pytest.mark.asyncio()
+async def test_sensor_set_glass_break_settings_public_rejects_out_of_range(
+    sensor_obj: Sensor, value: int
+):
+    sensor_obj.api.update_sensor_public = AsyncMock()
+
+    with pytest.raises(BadRequest):
+        await sensor_obj.set_glass_break_settings_public(sensitivity=value)
+
+    assert not sensor_obj.api.update_sensor_public.called
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    ("attr", "low_bad", "low_ok", "high_bad"),
+    [
+        ("temperature", -40, -39, -40),
+        ("temperature", 125, 124, None),
+        ("humidity", 0, 1, 0),
+        ("humidity", 100, 99, None),
+        ("light", 0, 1, 0),
+        ("light", 503193, 503192, None),
+    ],
+)
+@pytest.mark.asyncio()
+async def test_sensor_set_threshold_settings_public_rejects_out_of_range(
+    sensor_obj: Sensor,
+    attr: str,
+    low_bad: float,
+    low_ok: float,
+    high_bad: float | None,
+):
+    sensor_obj.api.update_sensor_public = AsyncMock()
+    setter = getattr(sensor_obj, f"set_{attr}_settings_public")
+
+    with pytest.raises(BadRequest):
+        await setter(low_threshold=low_bad)
+    if high_bad is not None:
+        with pytest.raises(BadRequest):
+            await setter(high_threshold=high_bad)
+    assert not sensor_obj.api.update_sensor_public.called
+
+    # A boundary value passes, and highThreshold has no spec maximum.
+    await setter(low_threshold=low_ok, high_threshold=10**9)
+    assert sensor_obj.api.update_sensor_public.called
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("attr", ["humidity", "light"])
+@pytest.mark.asyncio()
+async def test_sensor_set_threshold_settings_public_coerces_float(
+    sensor_obj: Sensor, attr: str
+):
+    sensor_obj.api.update_sensor_public = AsyncMock()
+    setter = getattr(sensor_obj, f"set_{attr}_settings_public")
+
+    await setter(low_threshold=30.7, high_threshold=80.9)
+
+    sent = sensor_obj.api.update_sensor_public.call_args.kwargs[f"{attr}_settings"]
+    assert sent == {"lowThreshold": 30, "highThreshold": 80}
+    assert isinstance(sent["lowThreshold"], int)
+    assert isinstance(sent["highThreshold"], int)
+    # Local cache must match what was sent, not the un-coerced float.
+    local = getattr(sensor_obj, f"{attr}_settings")
+    assert local.low_threshold == 30
+    assert local.high_threshold == 80
+
+
+@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("enabled", [True, False])
 @pytest.mark.asyncio()
 async def test_sensor_set_alarm_public(sensor_obj: Sensor, enabled: bool):
