@@ -363,13 +363,13 @@ async def test_light_set_status_light_public(light_obj: Light, status: bool) -> 
 
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize("level", [-1, 1, 6, 7])
+@pytest.mark.parametrize("level", [-1, 0, 1, 6, 7])
 @pytest.mark.asyncio()
 async def test_light_set_led_level_public(light_obj: Light, level: int) -> None:
     light_obj.api.update_light_public = AsyncMock()
 
-    if level in {-1, 7}:
-        with pytest.raises(ValidationError):
+    if level in {-1, 0, 7}:
+        with pytest.raises(BadRequest, match="led_level must be between 1 and 6"):
             await light_obj.set_led_level_public(level)
         assert not light_obj.api.update_light_public.called
         return
@@ -386,6 +386,37 @@ async def test_light_set_led_level_public(light_obj: Light, level: int) -> None:
     sent = light_obj.api.update_light_public.call_args.kwargs["light_device_settings"]
     assert sent.led_level == level
     assert light_obj.light_device_settings.led_level == level
+
+
+@pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_light_set_led_level_public_coerces_float(light_obj: Light) -> None:
+    light_obj.api.update_light_public = AsyncMock()
+    light_obj.api.update_light_public.return_value = _public_light_response(
+        light_device_settings=PublicLightDeviceSettings(
+            is_indicator_enabled=light_obj.light_device_settings.is_indicator_enabled,
+            led_level=3,
+        ),
+    )
+
+    await light_obj.set_led_level_public(3.0)
+
+    sent = light_obj.api.update_light_public.call_args.kwargs["light_device_settings"]
+    assert type(sent.led_level) is int
+    assert sent.led_level == 3
+
+
+@pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize("level", [float("nan"), float("inf"), float("-inf")])
+@pytest.mark.asyncio()
+async def test_light_set_led_level_public_rejects_non_finite(
+    light_obj: Light, level: float
+) -> None:
+    light_obj.api.update_light_public = AsyncMock()
+
+    with pytest.raises(BadRequest, match="led_level must be a finite number"):
+        await light_obj.set_led_level_public(level)
+    assert not light_obj.api.update_light_public.called
 
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
