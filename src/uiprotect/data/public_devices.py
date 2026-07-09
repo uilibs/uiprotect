@@ -480,6 +480,111 @@ class PublicCamera(PublicDeviceModel):
         """Is glass breaking currently being detected."""
         return self._detection_state()["is_glass_break_currently_detected"]
 
+    # ------------------------------------------------------------------
+    # Derived config state (enabled detections / mode)
+    # ------------------------------------------------------------------
+    #
+    # Config-derived parity accessors mirroring the private
+    # :class:`~uiprotect.data.devices.Camera` names. Unlike the private model,
+    # the public payload has no per-type feature-flag/global-settings
+    # indirection, so each ``is_*_detection_on`` is a plain membership test over
+    # ``smart_detect_settings`` — object types against ``object_types``, audio
+    # types against ``audio_types``.
+
+    @property
+    def is_person_detection_on(self) -> bool:
+        """Is person smart detection enabled."""
+        return SmartDetectObjectType.PERSON in self.smart_detect_settings.object_types
+
+    @property
+    def is_vehicle_detection_on(self) -> bool:
+        """Is vehicle smart detection enabled."""
+        return SmartDetectObjectType.VEHICLE in self.smart_detect_settings.object_types
+
+    @property
+    def is_face_detection_on(self) -> bool:
+        """Is face smart detection enabled."""
+        return SmartDetectObjectType.FACE in self.smart_detect_settings.object_types
+
+    @property
+    def is_license_plate_detection_on(self) -> bool:
+        """Is license plate smart detection enabled."""
+        return (
+            SmartDetectObjectType.LICENSE_PLATE
+            in self.smart_detect_settings.object_types
+        )
+
+    @property
+    def is_package_detection_on(self) -> bool:
+        """Is package smart detection enabled."""
+        return SmartDetectObjectType.PACKAGE in self.smart_detect_settings.object_types
+
+    @property
+    def is_animal_detection_on(self) -> bool:
+        """Is animal smart detection enabled."""
+        return SmartDetectObjectType.ANIMAL in self.smart_detect_settings.object_types
+
+    @property
+    def is_smoke_detection_on(self) -> bool:
+        """Is smoke alarm smart detection enabled."""
+        return SmartDetectAudioType.SMOKE in self.smart_detect_settings.audio_types
+
+    @property
+    def is_co_detection_on(self) -> bool:
+        """Is CO alarm smart detection enabled."""
+        return SmartDetectAudioType.CMONX in self.smart_detect_settings.audio_types
+
+    @property
+    def is_siren_detection_on(self) -> bool:
+        """Is siren smart detection enabled."""
+        return SmartDetectAudioType.SIREN in self.smart_detect_settings.audio_types
+
+    @property
+    def is_baby_cry_detection_on(self) -> bool:
+        """Is baby cry smart detection enabled."""
+        return SmartDetectAudioType.BABY_CRY in self.smart_detect_settings.audio_types
+
+    @property
+    def is_speaking_detection_on(self) -> bool:
+        """Is speaking smart detection enabled."""
+        return SmartDetectAudioType.SPEAK in self.smart_detect_settings.audio_types
+
+    @property
+    def is_bark_detection_on(self) -> bool:
+        """Is bark smart detection enabled."""
+        return SmartDetectAudioType.BARK in self.smart_detect_settings.audio_types
+
+    @property
+    def is_car_alarm_detection_on(self) -> bool:
+        """Is car alarm smart detection enabled."""
+        return SmartDetectAudioType.BURGLAR in self.smart_detect_settings.audio_types
+
+    @property
+    def is_car_horn_detection_on(self) -> bool:
+        """Is car horn smart detection enabled."""
+        return SmartDetectAudioType.CAR_HORN in self.smart_detect_settings.audio_types
+
+    @property
+    def is_glass_break_detection_on(self) -> bool:
+        """Is glass break smart detection enabled."""
+        return (
+            SmartDetectAudioType.GLASS_BREAK in self.smart_detect_settings.audio_types
+        )
+
+    @property
+    def is_high_fps_enabled(self) -> bool:
+        """Is the camera running in high-FPS video mode."""
+        return self.video_mode is VideoMode.HIGH_FPS
+
+    @property
+    def hdr_mode_display(self) -> Literal["auto", "off", "always"]:
+        """HDR mode as shown in the Protect interface (inverse of ``hdr_type``)."""
+        if self.hdr_type is PublicHdrMode.OFF:
+            return "off"
+        if self.hdr_type is PublicHdrMode.ON:
+            return "always"
+        return "auto"
+
     def _apply_detection_event(self, event: PublicEvent) -> None:
         """Add/remove a detection event from the active set based on its ``end``."""
         if event.type not in _DETECTION_EVENT_TYPES:

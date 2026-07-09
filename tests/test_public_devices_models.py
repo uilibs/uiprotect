@@ -305,6 +305,74 @@ def test_public_camera_unknown_smart_detect_type_dropped(
     assert "linecrossing_basic" in caplog.text
 
 
+@pytest.mark.parametrize(
+    ("object_types", "audio_types", "prop", "expected"),
+    [
+        (["person"], [], "is_person_detection_on", True),
+        ([], [], "is_person_detection_on", False),
+        (["vehicle"], [], "is_vehicle_detection_on", True),
+        (["face"], [], "is_face_detection_on", True),
+        (["licensePlate"], [], "is_license_plate_detection_on", True),
+        (["package"], [], "is_package_detection_on", True),
+        ([], [], "is_package_detection_on", False),
+        (["animal"], [], "is_animal_detection_on", True),
+        ([], ["alrmSmoke"], "is_smoke_detection_on", True),
+        ([], [], "is_smoke_detection_on", False),
+        ([], ["alrmCmonx"], "is_co_detection_on", True),
+        ([], ["alrmSiren"], "is_siren_detection_on", True),
+        ([], ["alrmBabyCry"], "is_baby_cry_detection_on", True),
+        ([], ["alrmSpeak"], "is_speaking_detection_on", True),
+        ([], ["alrmBark"], "is_bark_detection_on", True),
+        ([], ["alrmBurglar"], "is_car_alarm_detection_on", True),
+        ([], ["alrmCarHorn"], "is_car_horn_detection_on", True),
+        ([], ["alrmGlassBreak"], "is_glass_break_detection_on", True),
+        ([], ["alrmSmoke"], "is_siren_detection_on", False),
+    ],
+)
+def test_public_camera_detection_on_properties(
+    object_types: list[str],
+    audio_types: list[str],
+    prop: str,
+    expected: bool,
+) -> None:
+    """``is_*_detection_on`` are membership tests over the smart-detect settings."""
+    obj = PublicCamera.from_unifi_dict(
+        api=Mock(),
+        **{
+            **CAMERA_PAYLOAD,
+            "smartDetectSettings": {
+                "objectTypes": object_types,
+                "audioTypes": audio_types,
+            },
+        },
+    )
+    assert getattr(obj, prop) is expected
+
+
+@pytest.mark.parametrize(
+    ("video_mode", "expected"),
+    [("default", False), ("highFps", True)],
+)
+def test_public_camera_is_high_fps_enabled(video_mode: str, expected: bool) -> None:
+    """``is_high_fps_enabled`` tracks the ``highFps`` video mode."""
+    obj = PublicCamera.from_unifi_dict(
+        api=Mock(), **{**CAMERA_PAYLOAD, "videoMode": video_mode}
+    )
+    assert obj.is_high_fps_enabled is expected
+
+
+@pytest.mark.parametrize(
+    ("hdr_type", "expected"),
+    [("auto", "auto"), ("on", "always"), ("off", "off")],
+)
+def test_public_camera_hdr_mode_display(hdr_type: str, expected: str) -> None:
+    """``hdr_mode_display`` inverts the public HDR enum to the interface labels."""
+    obj = PublicCamera.from_unifi_dict(
+        api=Mock(), **{**CAMERA_PAYLOAD, "hdrType": hdr_type}
+    )
+    assert obj.hdr_mode_display == expected
+
+
 def test_public_sensor_sub_models_typed() -> None:
     """Sensor leaf payloads parse into the dedicated read-shape sub-models."""
     sensor = PublicSensor.from_unifi_dict(api=Mock(), **dict(SENSOR_PAYLOAD))
