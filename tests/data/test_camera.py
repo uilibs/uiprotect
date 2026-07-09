@@ -12,6 +12,8 @@ from pydantic import ValidationError
 from tests.conftest import TEST_CAMERA_EXISTS
 from uiprotect import ProtectApiClient
 from uiprotect.data import (
+    CHANNEL_ID_BY_RTSPS_QUALITY,
+    RTSPS_QUALITY_BY_CHANNEL_ID,
     Camera,
     ChannelQuality,
     ChimeType,
@@ -23,6 +25,8 @@ from uiprotect.data import (
     RecordingMode,
     SmartDetectAudioType,
     VideoMode,
+    channel_id_for_quality,
+    quality_for_channel_id,
 )
 from uiprotect.data.devices import (
     CameraChannel,
@@ -92,6 +96,44 @@ def test_camera_channel_rtsps_quality(channel_id: int, expected: ChannelQuality 
         idrInterval=1,
     )
     assert channel.rtsps_quality is expected
+
+
+@pytest.mark.parametrize(
+    ("channel_id", "expected"),
+    [
+        (0, ChannelQuality.HIGH),
+        (1, ChannelQuality.MEDIUM),
+        (2, ChannelQuality.LOW),
+        (3, ChannelQuality.PACKAGE),
+        (4, None),
+    ],
+)
+def test_quality_for_channel_id(channel_id: int, expected: ChannelQuality | None):
+    """Test quality_for_channel_id maps channel id to RTSPS quality tier."""
+    assert quality_for_channel_id(channel_id) is expected
+
+
+@pytest.mark.parametrize(
+    ("quality", "expected"),
+    [
+        (ChannelQuality.HIGH, 0),
+        (ChannelQuality.MEDIUM, 1),
+        (ChannelQuality.LOW, 2),
+        (ChannelQuality.PACKAGE, 3),
+        (ChannelQuality.UNKNOWN, None),
+    ],
+)
+def test_channel_id_for_quality(quality: ChannelQuality, expected: int | None):
+    """Test channel_id_for_quality inverts the RTSPS quality mapping."""
+    assert channel_id_for_quality(quality) == expected
+
+
+def test_rtsps_quality_mappings_are_inverses():
+    """Test the forward and inverse RTSPS quality mappings agree."""
+    assert {
+        quality: channel_id
+        for channel_id, quality in RTSPS_QUALITY_BY_CHANNEL_ID.items()
+    } == dict(CHANNEL_ID_BY_RTSPS_QUALITY)
 
 
 @pytest.mark.parametrize(
