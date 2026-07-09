@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import warnings
 from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
@@ -126,6 +127,8 @@ def _validate_public_range(
     bounds: tuple[float, float],
 ) -> None:
     """Range-check a public-API number against the spec bounds."""
+    if not math.isfinite(value):
+        raise BadRequest(f"{name} must be a finite number, got {value}")
     minimum, maximum = bounds
     if value < minimum or value > maximum:
         raise BadRequest(f"{name} must be between {minimum} and {maximum}, got {value}")
