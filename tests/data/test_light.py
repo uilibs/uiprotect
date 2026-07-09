@@ -363,13 +363,13 @@ async def test_light_set_status_light_public(light_obj: Light, status: bool) -> 
 
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize("level", [-1, 1, 6, 7])
+@pytest.mark.parametrize("level", [-1, 0, 1, 6, 7])
 @pytest.mark.asyncio()
 async def test_light_set_led_level_public(light_obj: Light, level: int) -> None:
     light_obj.api.update_light_public = AsyncMock()
 
-    if level in {-1, 7}:
-        with pytest.raises(ValidationError):
+    if level in {-1, 0, 7}:
+        with pytest.raises(BadRequest, match="led_level must be between 1 and 6"):
             await light_obj.set_led_level_public(level)
         assert not light_obj.api.update_light_public.called
         return

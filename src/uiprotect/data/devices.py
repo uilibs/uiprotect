@@ -110,35 +110,31 @@ _LOGGER = logging.getLogger(__name__)
 
 # Public Integration API numeric bounds, taken from the OpenAPI spec. The
 # public schema is the source of truth for these and they differ from the
-# private/UI limits (e.g. ``PercentInt`` allows 101). A ``None`` upper bound is
-# a field the spec leaves unbounded above — the sensor ``highThreshold`` values.
-_PUBLIC_SENSITIVITY_RANGE: tuple[float, float | None] = (0, 100)
-_PUBLIC_MIC_VOLUME_RANGE: tuple[float, float | None] = (0, 100)
-_PUBLIC_TEMPERATURE_LOW_RANGE: tuple[float, float | None] = (-39, 124)
-_PUBLIC_HUMIDITY_LOW_RANGE: tuple[float, float | None] = (1, 99)
-_PUBLIC_LIGHT_LUX_LOW_RANGE: tuple[float, float | None] = (1, 503192)
+# private/UI limits (e.g. ``PercentInt`` allows 101). The sensor
+# ``highThreshold`` fields are spec-unbounded, so they are not range-checked.
+_PUBLIC_SENSITIVITY_RANGE: tuple[float, float] = (0, 100)
+_PUBLIC_LED_LEVEL_RANGE: tuple[float, float] = (1, 6)
+_PUBLIC_MIC_VOLUME_RANGE: tuple[float, float] = (1, 100)
+_PUBLIC_TEMPERATURE_LOW_RANGE: tuple[float, float] = (-39, 124)
+_PUBLIC_HUMIDITY_LOW_RANGE: tuple[float, float] = (1, 99)
+_PUBLIC_LIGHT_LUX_LOW_RANGE: tuple[float, float] = (1, 503192)
 
 
 def _validate_public_range(
     name: str,
     value: float,
-    bounds: tuple[float, float | None],
+    bounds: tuple[float, float],
 ) -> None:
-    """Range-check a public-API number against the spec bounds (``highThreshold`` has no maximum)."""
+    """Range-check a public-API number against the spec bounds."""
     minimum, maximum = bounds
-    if value < minimum or (maximum is not None and value > maximum):
-        limit = (
-            f"at least {minimum}"
-            if maximum is None
-            else f"between {minimum} and {maximum}"
-        )
-        raise BadRequest(f"{name} must be {limit}, got {value}")
+    if value < minimum or value > maximum:
+        raise BadRequest(f"{name} must be between {minimum} and {maximum}, got {value}")
 
 
 def _coerce_public_int(
     name: str,
     value: float,
-    bounds: tuple[float, float | None],
+    bounds: tuple[float, float],
 ) -> int:
     """Validate a public-API number against the spec bounds and coerce it to ``int``."""
     _validate_public_range(name, value, bounds)
@@ -325,6 +321,7 @@ class Light(ProtectMotionDeviceModel):
 
     async def set_led_level_public(self, led_level: float) -> None:
         """Set the LED brightness level via public API."""
+        led_level = _coerce_public_int("led_level", led_level, _PUBLIC_LED_LEVEL_RANGE)
         device_settings = self.light_device_settings.model_copy()
         device_settings.led_level = LEDLevel(led_level)
         await self._api.update_light_public(
@@ -3729,7 +3726,6 @@ class Sensor(ProtectAdoptableDeviceModel):
             _validate_public_range("low_threshold", low_threshold, (low, high))
             settings["lowThreshold"] = low_threshold
         if high_threshold is not None:
-            _validate_public_range("high_threshold", high_threshold, (low, None))
             settings["highThreshold"] = high_threshold
         if margin is not None:
             settings["margin"] = margin
@@ -3758,14 +3754,9 @@ class Sensor(ProtectAdoptableDeviceModel):
         if is_enabled is not None:
             settings["isEnabled"] = is_enabled
         if low_threshold is not None:
-            low_threshold = _coerce_public_int(
-                "low_threshold", low_threshold, (low, high)
-            )
+            _validate_public_range("low_threshold", low_threshold, (low, high))
             settings["lowThreshold"] = low_threshold
         if high_threshold is not None:
-            high_threshold = _coerce_public_int(
-                "high_threshold", high_threshold, (low, None)
-            )
             settings["highThreshold"] = high_threshold
         if margin is not None:
             settings["margin"] = margin
@@ -3794,14 +3785,9 @@ class Sensor(ProtectAdoptableDeviceModel):
         if is_enabled is not None:
             settings["isEnabled"] = is_enabled
         if low_threshold is not None:
-            low_threshold = _coerce_public_int(
-                "low_threshold", low_threshold, (low, high)
-            )
+            _validate_public_range("low_threshold", low_threshold, (low, high))
             settings["lowThreshold"] = low_threshold
         if high_threshold is not None:
-            high_threshold = _coerce_public_int(
-                "high_threshold", high_threshold, (low, None)
-            )
             settings["highThreshold"] = high_threshold
         if margin is not None:
             settings["margin"] = margin

@@ -505,14 +505,14 @@ async def test_sensor_set_glass_break_settings_public_rejects_out_of_range(
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize(
-    ("attr", "low_bad", "low_ok", "high_bad"),
+    ("attr", "low_bad", "low_ok"),
     [
-        ("temperature", -40, -39, -40),
-        ("temperature", 125, 124, None),
-        ("humidity", 0, 1, 0),
-        ("humidity", 100, 99, None),
-        ("light", 0, 1, 0),
-        ("light", 503193, 503192, None),
+        ("temperature", -40, -39),
+        ("temperature", 125, 124),
+        ("humidity", 0, 1),
+        ("humidity", 100, 99),
+        ("light", 0, 1),
+        ("light", 503193, 503192),
     ],
 )
 @pytest.mark.asyncio()
@@ -521,27 +521,24 @@ async def test_sensor_set_threshold_settings_public_rejects_out_of_range(
     attr: str,
     low_bad: float,
     low_ok: float,
-    high_bad: float | None,
 ):
     sensor_obj.api.update_sensor_public = AsyncMock()
     setter = getattr(sensor_obj, f"set_{attr}_settings_public")
 
     with pytest.raises(BadRequest):
         await setter(low_threshold=low_bad)
-    if high_bad is not None:
-        with pytest.raises(BadRequest):
-            await setter(high_threshold=high_bad)
     assert not sensor_obj.api.update_sensor_public.called
 
-    # A boundary value passes, and highThreshold has no spec maximum.
-    await setter(low_threshold=low_ok, high_threshold=10**9)
+    # A boundary low value passes; highThreshold is spec-unbounded, so even a
+    # value below the low minimum is accepted for it.
+    await setter(low_threshold=low_ok, high_threshold=low_bad)
     assert sensor_obj.api.update_sensor_public.called
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("attr", ["humidity", "light"])
 @pytest.mark.asyncio()
-async def test_sensor_set_threshold_settings_public_coerces_float(
+async def test_sensor_set_threshold_settings_public_passes_float_through(
     sensor_obj: Sensor, attr: str
 ):
     sensor_obj.api.update_sensor_public = AsyncMock()
@@ -550,13 +547,12 @@ async def test_sensor_set_threshold_settings_public_coerces_float(
     await setter(low_threshold=30.7, high_threshold=80.9)
 
     sent = sensor_obj.api.update_sensor_public.call_args.kwargs[f"{attr}_settings"]
-    assert sent == {"lowThreshold": 30, "highThreshold": 80}
-    assert isinstance(sent["lowThreshold"], int)
-    assert isinstance(sent["highThreshold"], int)
-    # Local cache must match what was sent, not the un-coerced float.
+    assert sent == {"lowThreshold": 30.7, "highThreshold": 80.9}
+    # Spec types these as ``number`` — the caller's float is sent verbatim, not
+    # silently truncated to int.
     local = getattr(sensor_obj, f"{attr}_settings")
-    assert local.low_threshold == 30
-    assert local.high_threshold == 80
+    assert local.low_threshold == 30.7
+    assert local.high_threshold == 80.9
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")

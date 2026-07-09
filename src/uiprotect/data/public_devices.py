@@ -128,22 +128,20 @@ class PublicArmScheduleDict(TypedDict):
 
 class PublicSensorLightSettings(TypedDict, total=False):
     isEnabled: bool
-    lowThreshold: int
-    highThreshold: int
+    lowThreshold: float
+    highThreshold: float
     margin: int
 
 
 class PublicSensorHumiditySettings(TypedDict, total=False):
     isEnabled: bool
-    lowThreshold: int
-    highThreshold: int
+    lowThreshold: float
+    highThreshold: float
     margin: int
 
 
 class PublicSensorTemperatureSettings(TypedDict, total=False):
     isEnabled: bool
-    # Temperature values are floats (degrees). Do not confuse with
-    # ``PublicSensorHumiditySettings`` (which uses ``int`` percentages).
     lowThreshold: float
     highThreshold: float
     margin: float
