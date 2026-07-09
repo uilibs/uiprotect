@@ -1,5 +1,16 @@
 # Changelog
 
+## v15.5.0 (2026-07-09)
+
+### Features
+
+
+- Expose derived detection/config properties on publiccamera ([`245407b`](https://github.com/uilibs/uiprotect/commit/245407ba755a6b07b8bc486a716cf2a364189128))
+
+
+- Expose derived detection/config properties on publiccamera ([`245407b`](https://github.com/uilibs/uiprotect/commit/245407ba755a6b07b8bc486a716cf2a364189128))
+
+
 ## v15.4.4 (2026-07-09)
 
 ### Documentation
