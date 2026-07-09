@@ -489,7 +489,9 @@ class PublicCamera(PublicDeviceModel):
     # the public payload has no per-type feature-flag/global-settings
     # indirection, so each ``is_*_detection_on`` is a plain membership test over
     # ``smart_detect_settings`` — object types against ``object_types``, audio
-    # types against ``audio_types``.
+    # types against ``audio_types``. ``is_motion_detection_on`` is deliberately
+    # absent: its private semantics depend on ``recording_settings``, which the
+    # public payload does not expose.
 
     @property
     def is_person_detection_on(self) -> bool:
