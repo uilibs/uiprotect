@@ -194,3 +194,44 @@ async def test_reconnect_with_nothing_active_skips_warning(
         _reconnect(client)
 
     assert not any("reconnected after gap" in r.message for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_reconnect_force_end_raise_still_delivers_state(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A raising force-end is logged and does not skip CONNECTED delivery."""
+    client = _make_client()
+    client._events_ws_has_been_connected = True
+    dispatcher = EventDispatcher(client)
+    dispatcher.force_end_on_events_reconnect = Mock(side_effect=RuntimeError("boom"))  # type: ignore[method-assign]
+    client._event_dispatcher = dispatcher
+    states: list[WebsocketState] = []
+    client._events_ws_state_subscriptions.append(states.append)
+
+    with caplog.at_level("ERROR", logger="uiprotect.api"):
+        client._on_events_websocket_state_change(WebsocketState.CONNECTED)
+
+    assert states == [WebsocketState.CONNECTED]
+    assert any("force-ending events" in r.message for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_devices_reconnect_flush_raise_still_delivers_state(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A raising devices-WS flush is logged and does not skip CONNECTED delivery."""
+    client = _make_client()
+    client._devices_ws_has_been_connected = True
+    dispatcher = EventDispatcher(client)
+    dispatcher.add_subscriber(lambda e, c: None)
+    dispatcher.flush_stale_on_reconnect = Mock(side_effect=RuntimeError("boom"))  # type: ignore[method-assign]
+    client._event_dispatcher = dispatcher
+    states: list[WebsocketState] = []
+    client._devices_ws_state_subscriptions.append(states.append)
+
+    with caplog.at_level("ERROR", logger="uiprotect.api"):
+        client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+
+    assert states == [WebsocketState.CONNECTED]
+    assert any("flushing stale events" in r.message for r in caplog.records)

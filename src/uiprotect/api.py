@@ -2501,13 +2501,21 @@ class ProtectApiClient(BaseApiClient):
                     )
 
                     self._event_dispatcher = EventDispatcher(self)
-                count = self._event_dispatcher.force_end_on_events_reconnect()
-                if count > 0:
-                    _LOGGER.warning(
-                        "Events websocket reconnected after gap; some frames"
-                        " may have been missed (force-ended %d active/stale"
-                        " events).",
-                        count,
+                # Never let a raising force-end abort the CONNECTED state
+                # delivery below — subscribers must always see the transition.
+                try:
+                    count = self._event_dispatcher.force_end_on_events_reconnect()
+                    if count > 0:
+                        _LOGGER.warning(
+                            "Events websocket reconnected after gap; some frames"
+                            " may have been missed (force-ended %d active/stale"
+                            " events).",
+                            count,
+                        )
+                except Exception:
+                    _LOGGER.exception(
+                        "Exception while force-ending events on events"
+                        " websocket reconnect"
                     )
 
         for sub in self._events_ws_state_subscriptions:
@@ -2563,13 +2571,21 @@ class ProtectApiClient(BaseApiClient):
                     self._event_dispatcher is not None
                     and self._event_dispatcher.subscriber_count > 0
                 ):
-                    count = self._event_dispatcher.flush_stale_on_reconnect()
-                    if count > 0:
-                        _LOGGER.warning(
-                            "Websocket reconnected after gap; some events may"
-                            " have been missed (force-ended %d stale active"
-                            " events).",
-                            count,
+                    # Guard the flush so a raising sweep cannot skip the
+                    # CONNECTED state delivery to devices-WS subscribers.
+                    try:
+                        count = self._event_dispatcher.flush_stale_on_reconnect()
+                        if count > 0:
+                            _LOGGER.warning(
+                                "Websocket reconnected after gap; some events may"
+                                " have been missed (force-ended %d stale active"
+                                " events).",
+                                count,
+                            )
+                    except Exception:
+                        _LOGGER.exception(
+                            "Exception while flushing stale events on devices"
+                            " websocket reconnect"
                         )
 
         for sub in self._devices_ws_state_subscriptions:
