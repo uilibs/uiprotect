@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.7.0 (2026-07-10)
+
+### Features
+
+
+- Resolve nvr mac via public→private→console fallback ([`8800440`](https://github.com/uilibs/uiprotect/commit/88004402a4bb86d5acccaa707f75aed9156c038b))
+
+
 ## v15.6.0 (2026-07-10)
 
 ### Features
