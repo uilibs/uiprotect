@@ -1993,6 +1993,33 @@ async def test_get_nvr_public_sets_arm_mode_when_present(
     assert result.arm_mode.arm_profile_id == PROFILE_ID
 
 
+@pytest.mark.asyncio()
+async def test_get_nvr_public_mac_none_when_absent(
+    protect_client: ProtectApiClient,
+) -> None:
+    """get_nvr_public with no mac in payload (older firmware) → mac is None."""
+    protect_client.api_request_obj = AsyncMock(return_value=deepcopy(_NVR_RAW_BASE))
+    result = await protect_client.get_nvr_public()
+
+    assert isinstance(result, PublicNVR)
+    assert result.mac is None
+
+
+@pytest.mark.asyncio()
+async def test_get_nvr_public_parses_mac_when_present(
+    protect_client: ProtectApiClient,
+) -> None:
+    """get_nvr_public with mac in payload (Protect > 7.1) → mac is parsed."""
+    raw = deepcopy(_NVR_RAW_BASE)
+    raw["mac"] = "E4388332C9B1"
+    protect_client.api_request_obj = AsyncMock(return_value=raw)
+
+    result = await protect_client.get_nvr_public()
+
+    assert isinstance(result, PublicNVR)
+    assert result.mac == "E4388332C9B1"
+
+
 def test_ws_handler_without_cache_emits_none_obj(
     protect_client: ProtectApiClient,
 ) -> None:
