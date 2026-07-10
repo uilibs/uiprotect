@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.7.1 (2026-07-10)
+
+### Bug fixes
+
+
+- Flush stale active events on events-ws reconnect ([`6b1388d`](https://github.com/uilibs/uiprotect/commit/6b1388dd183098bbe0250adfef1cab34ad94f165))
+
+
 ## v15.7.0 (2026-07-10)
 
 ### Features
