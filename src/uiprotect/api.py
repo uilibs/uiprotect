@@ -1378,6 +1378,10 @@ class ProtectApiClient(BaseApiClient):
     # to distinguish the *initial* connect from a *reconnect*. Only the
     # latter triggers an automatic `update_public()` resync.
     _devices_ws_has_been_connected: bool = False
+    # True after the first time the events WS transitions to CONNECTED; only a
+    # *reconnect* (not the initial connect) force-ends events left open across
+    # the gap.
+    _events_ws_has_been_connected: bool = False
     # Monotonic timestamp of the last successful/attempted reconnect resync,
     # used to debounce a flapping websocket into a single refresh.
     _last_public_resync: float = 0.0
@@ -2477,6 +2481,43 @@ class ProtectApiClient(BaseApiClient):
 
     def _on_events_websocket_state_change(self, state: WebsocketState) -> None:
         """Events Websocket state changed."""
+        # Events (motion / smart / sensor / …) arrive *only* on this WS. On a
+        # reconnect an END missed during the gap leaves the event active, so a
+        # camera's derived ``is_*_currently_detected`` sticks ON until the TTL
+        # sweep (~45 min worst case). Force-end active detection events (and
+        # flush other stale channels) so the derived state clears immediately.
+        # No-op on the first connect and when the cache was never materialised.
+        if state is WebsocketState.CONNECTED:
+            if not self._events_ws_has_been_connected:
+                self._events_ws_has_been_connected = True
+            elif self._public_bootstrap is not None:
+                # Materialise the dispatcher if needed: the force-end fixes the
+                # camera model + emits devices-WS updates, which matter to
+                # subscribe_devices / pull consumers even with no events
+                # subscriber.
+                if self._event_dispatcher is None:
+                    from .events.dispatcher import (  # noqa: PLC0415
+                        EventDispatcher,
+                    )
+
+                    self._event_dispatcher = EventDispatcher(self)
+                # Never let a raising force-end abort the CONNECTED state
+                # delivery below — subscribers must always see the transition.
+                try:
+                    count = self._event_dispatcher.force_end_on_events_reconnect()
+                    if count > 0:
+                        _LOGGER.warning(
+                            "Events websocket reconnected after gap; some frames"
+                            " may have been missed (force-ended %d active/stale"
+                            " events).",
+                            count,
+                        )
+                except Exception:
+                    _LOGGER.exception(
+                        "Exception while force-ending events on events"
+                        " websocket reconnect"
+                    )
+
         for sub in self._events_ws_state_subscriptions:
             try:
                 sub(state)
@@ -2530,13 +2571,21 @@ class ProtectApiClient(BaseApiClient):
                     self._event_dispatcher is not None
                     and self._event_dispatcher.subscriber_count > 0
                 ):
-                    count = self._event_dispatcher.flush_stale_on_reconnect()
-                    if count > 0:
-                        _LOGGER.warning(
-                            "Websocket reconnected after gap; some events may"
-                            " have been missed (force-ended %d stale active"
-                            " events).",
-                            count,
+                    # Guard the flush so a raising sweep cannot skip the
+                    # CONNECTED state delivery to devices-WS subscribers.
+                    try:
+                        count = self._event_dispatcher.flush_stale_on_reconnect()
+                        if count > 0:
+                            _LOGGER.warning(
+                                "Websocket reconnected after gap; some events may"
+                                " have been missed (force-ended %d stale active"
+                                " events).",
+                                count,
+                            )
+                    except Exception:
+                        _LOGGER.exception(
+                            "Exception while flushing stale events on devices"
+                            " websocket reconnect"
                         )
 
         for sub in self._devices_ws_state_subscriptions:

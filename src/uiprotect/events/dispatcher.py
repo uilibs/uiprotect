@@ -225,15 +225,34 @@ class EventDispatcher:
         """Force-end events open past the reconnect staleness window."""
         return self._sweep(EVENTS_RECONNECT_STALENESS_WINDOW)
 
-    def _sweep(self, staleness_window: timedelta) -> int:
+    def force_end_on_events_reconnect(self) -> int:
+        """
+        Reconcile the store after an events-WS reconnect.
+
+        Events arrive *only* on the events WS, so an END missed during the gap
+        leaves the event active and a camera's derived ``is_*_currently_detected``
+        stuck ON. The staleness window is 1 h, which would miss a short blip, so
+        detection-channel events are force-ended regardless of age — a genuinely
+        still-active detection re-asserts on its next frame. Other channels keep
+        the age gate.
+        """
+        return self._sweep(EVENTS_RECONNECT_STALENESS_WINDOW, force_detection=True)
+
+    def _sweep(
+        self, staleness_window: timedelta, *, force_detection: bool = False
+    ) -> int:
         now = utc_now()
         cutoff = now - staleness_window
-        count = 0
-        for raw in list(self._api.public_bootstrap.events.values()):
-            if raw.end is not None or raw.start >= cutoff:
+        pb = self._api.public_bootstrap
+        ended: list[PublicEvent] = []
+        for raw in list(pb.events.values()):
+            if raw.end is not None:
                 continue
             channel = EVENT_TYPE_TO_CHANNEL.get(raw.type, ProtectEventChannel.OTHER)
             if channel is ProtectEventChannel.OTHER or raw.device_id is None:
+                continue
+            forced = force_detection and channel is ProtectEventChannel.DETECTION
+            if not forced and raw.start >= cutoff:
                 continue
             # Mark the stored event ended so a later close retransmit is
             # suppressed by the dispatch chokepoint and derivation stays
@@ -246,8 +265,13 @@ class EventDispatcher:
                 device_mac=self._device_mac(raw.device_id),
             )
             self._fan_out(event, EventChange.ENDED)
-            count += 1
-        return count
+            ended.append(raw)
+        # Sync the owning cameras' derived detection state through the store's
+        # single choke point and push the resulting device updates so pull and
+        # subscribe_devices consumers see the flag drop, not just the TTL sweep.
+        for update in pb._sync_force_ended_events(ended):
+            self._api.emit_devices_message(update)
+        return len(ended)
 
     async def _ttl_sweep_loop(self) -> None:
         try:
