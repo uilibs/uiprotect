@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.6.0 (2026-07-10)
+
+### Features
+
+
+- Expose rtsps quality ↔ channel-id mapping publicly ([`0a175b8`](https://github.com/uilibs/uiprotect/commit/0a175b860909dac2907848848adcdc21dfac4daa))
+
+
 ## v15.5.0 (2026-07-09)
 
 ### Features
