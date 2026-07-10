@@ -101,6 +101,18 @@ does not require an API key. The parallel `subscribe_events_websocket` drives
 the Public Integration API WebSocket and **does** require an API key. See the
 project README for the full notes on the typed event contract.
 
+Events arrive **only** on the events WebSocket, so if it drops and reconnects
+while the devices WebSocket stays up, an `end` frame missed during the gap
+would otherwise leave the event active — a camera's derived
+`is_*_currently_detected` stuck ON until the periodic TTL sweep (~45 min worst
+case) closes it. On events-WS reconnect the client therefore **force-ends
+active detection events regardless of age** (a still-active detection
+re-asserts on its next frame) and flushes other channels past the 1 h
+staleness window. Both the typed `subscribe_events` stream (an `ENDED` change)
+and `subscribe_devices` (a camera update naming the flipped `is_*_detected`
+fields) see the drop immediately, and the derived camera flags read correct on
+the next synchronous access.
+
 ## Camera RTSPS streams
 
 RTSPS stream URLs live on the camera as `PublicCamera.rtsps_streams`. The

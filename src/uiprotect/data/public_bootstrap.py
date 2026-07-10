@@ -563,6 +563,22 @@ class PublicBootstrap:
             self._snapshot_camera_detection_state(camera)
             camera._clear_detection_event(event.id)
 
+    def _sync_force_ended_events(
+        self, events: list[PublicEvent]
+    ) -> list[WSSubscriptionMessage]:
+        """
+        Clear force-ended events from their cameras' active detection sets.
+
+        Returns one devices-WS ``update`` per camera whose derived detection
+        flags flipped, so a sweep that force-ends events out-of-band (TTL /
+        reconnect) keeps the camera model and its subscribers in sync through
+        the same choke point the normal events path uses.
+        """
+        self._detection_state_before.clear()
+        for event in events:
+            self._clear_camera_detection_event(event)
+        return self._drain_detection_updates()
+
     # ------------------------------------------------------------------
     # Action application (shared by devices / NVR / events)
     # ------------------------------------------------------------------

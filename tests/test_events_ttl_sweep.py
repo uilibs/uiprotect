@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
+from unittest.mock import Mock
 
 import pytest
 
@@ -16,6 +18,11 @@ from uiprotect.events.dispatcher import (
     EVENTS_ACTIVE_TTL,
     EventDispatcher,
 )
+
+from .test_public_devices_models import CAMERA_PAYLOAD
+
+if TYPE_CHECKING:
+    from uiprotect.data.websocket import WSSubscriptionMessage
 
 
 def _make_client() -> ProtectApiClient:
@@ -104,6 +111,38 @@ def test_sweep_marks_store_so_retransmit_not_refired() -> None:
     assert dispatcher.sweep_stale() == 0
     assert received == []
     assert api.public_bootstrap.events[stale].end is not None
+
+
+def test_sweep_clears_camera_detection_and_emits_device_update() -> None:
+    api = _make_client()
+    api.public_bootstrap.process_devices_ws_message(
+        Mock(), {"type": "add", "item": dict(CAMERA_PAYLOAD)}
+    )
+    cam = api.public_bootstrap.cameras["cam1"]
+    device_updates: list[WSSubscriptionMessage] = []
+    api._devices_ws_subscriptions.append(device_updates.append)
+    dispatcher = EventDispatcher(api)
+
+    start = datetime.now(tz=UTC) - (EVENTS_ACTIVE_TTL + timedelta(seconds=10))
+    api.public_bootstrap.process_events_ws_message(
+        Mock(),
+        {
+            "type": "add",
+            "item": {
+                "modelKey": "event",
+                "id": "m1",
+                "type": "motion",
+                "start": int(start.timestamp() * 1000),
+                "device": "cam1",
+            },
+        },
+    )
+    assert cam.is_motion_detected is True
+
+    assert dispatcher.sweep_stale() == 1
+    assert cam.is_motion_detected is False
+    assert len(device_updates) == 1
+    assert list(device_updates[0].changed_data) == ["is_motion_detected"]
 
 
 @pytest.mark.asyncio
