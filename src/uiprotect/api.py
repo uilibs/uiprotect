@@ -123,6 +123,7 @@ from .utils import (
     format_host_for_url,
     get_response_reason,
     ip_from_host,
+    normalize_mac,
     pybool_to_json_bool,
     set_debug,
     to_js_time,
@@ -3585,6 +3586,37 @@ class ProtectApiClient(BaseApiClient):
             return None
         mac = data.get("mac")
         return mac if isinstance(mac, str) and mac else None
+
+    async def resolve_nvr_mac(self) -> str | None:
+        """
+        Resolve the NVR mac by source priority, normalized.
+
+        The NVR mac has no single source across firmwares/modes, so this tries,
+        in order:
+
+        1. the public bootstrap ``nvr.mac`` (Protect newer than 7.1, from
+           ``GET /v1/nvrs``) when :meth:`update_public` has been called,
+        2. the private bootstrap ``nvr.mac`` when a private session is present
+           (``update`` has been called),
+        3. the off-contract ``/api/system`` console fallback
+           (:meth:`get_console_mac`).
+
+        Only step 3 does I/O; the bootstraps are read from cache. Returns the
+        mac canonicalized via :func:`~uiprotect.utils.normalize_mac` so a
+        source transition (e.g. a reconnect that flips public↔console) never
+        changes the identity representation, or ``None`` when no source
+        resolves.
+        """
+        if self._public_bootstrap is not None:
+            nvr = self._public_bootstrap.nvr
+            if nvr is not None and nvr.mac:
+                return normalize_mac(nvr.mac)
+
+        if self._bootstrap is not None and self._bootstrap.nvr.mac:
+            return normalize_mac(self._bootstrap.nvr.mac)
+
+        mac = await self.get_console_mac()
+        return normalize_mac(mac) if mac else None
 
     # Public API Methods
 

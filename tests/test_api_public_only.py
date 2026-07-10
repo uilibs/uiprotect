@@ -268,6 +268,60 @@ async def test_get_console_mac_timeout_returns_none() -> None:
 
 
 # ---------------------------------------------------------------------------
+# NVR mac resolver (public → private → console fallback, normalized)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_resolve_nvr_mac_prefers_public_bootstrap() -> None:
+    client = _public_only_client()
+    client._public_bootstrap = Mock(nvr=Mock(mac="AA:BB:CC:DD:EE:FF"))
+    client._bootstrap = Mock(nvr=Mock(mac="112233445566"))
+    console = AsyncMock(return_value="778899AABBCC")
+    with patch.object(client, "get_console_mac", new=console):
+        assert await client.resolve_nvr_mac() == "aabbccddeeff"
+    console.assert_not_awaited()
+
+
+@pytest.mark.asyncio()
+async def test_resolve_nvr_mac_falls_back_to_private_bootstrap() -> None:
+    client = _public_only_client()
+    client._public_bootstrap = Mock(nvr=Mock(mac=None))
+    client._bootstrap = Mock(nvr=Mock(mac="11:22:33:44:55:66"))
+    console = AsyncMock(return_value="778899AABBCC")
+    with patch.object(client, "get_console_mac", new=console):
+        assert await client.resolve_nvr_mac() == "112233445566"
+    console.assert_not_awaited()
+
+
+@pytest.mark.asyncio()
+async def test_resolve_nvr_mac_skips_public_when_nvr_absent() -> None:
+    client = _public_only_client()
+    client._public_bootstrap = Mock(nvr=None)
+    client._bootstrap = Mock(nvr=Mock(mac="11:22:33:44:55:66"))
+    with patch.object(client, "get_console_mac", new=AsyncMock()):
+        assert await client.resolve_nvr_mac() == "112233445566"
+
+
+@pytest.mark.asyncio()
+async def test_resolve_nvr_mac_falls_back_to_console() -> None:
+    client = _public_only_client()
+    assert client._public_bootstrap is None
+    assert client._bootstrap is None
+    with patch.object(
+        client, "get_console_mac", new=AsyncMock(return_value="E4:38:83:32:C9:B1")
+    ):
+        assert await client.resolve_nvr_mac() == "e4388332c9b1"
+
+
+@pytest.mark.asyncio()
+async def test_resolve_nvr_mac_returns_none_when_no_source() -> None:
+    client = _public_only_client()
+    with patch.object(client, "get_console_mac", new=AsyncMock(return_value=None)):
+        assert await client.resolve_nvr_mac() is None
+
+
+# ---------------------------------------------------------------------------
 # Min-version source
 # ---------------------------------------------------------------------------
 
