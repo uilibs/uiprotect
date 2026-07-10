@@ -123,6 +123,7 @@ from .utils import (
     format_host_for_url,
     get_response_reason,
     ip_from_host,
+    normalize_mac,
     pybool_to_json_bool,
     set_debug,
     to_js_time,
@@ -3543,11 +3544,11 @@ class ProtectApiClient(BaseApiClient):
         """
         Resolve the console/NVR mac via the UniFi-OS ``/api/system`` endpoint.
 
-        The public Protect Integration API exposes **no NVR mac** — every
-        device schema carries ``mac`` but the ``nvr`` schema does not (gap
-        #925), so :class:`PublicNVR` has no mac either. This helper fills that
-        gap so a :meth:`public_only` client can still derive the console's
-        stable, mac-based identity.
+        The public Protect Integration API only exposes the NVR ``mac`` on
+        Protect newer than 7.1; older firmware omits it (:attr:`PublicNVR.mac`
+        is then ``None``). This helper fills that gap so a :meth:`public_only`
+        client on older firmware can still derive the console's stable,
+        mac-based identity.
 
         This is a **transitional workaround** for the hybrid/parallel phase in
         which the private and public paths coexist: identity must stay
@@ -3563,9 +3564,10 @@ class ProtectApiClient(BaseApiClient):
         ``"E4388332C9B1"``, matching the private ``NVR.mac`` format) or
         ``None`` when the endpoint is unreachable or carries no mac.
         """
-        # Off-contract UniFi-OS endpoint, used only because the public Protect
-        # API has no NVR mac (#925). Unauthenticated; targets the configured
-        # Protect host. Transitional — retire once consumers migrate to nvr.id.
+        # Off-contract UniFi-OS endpoint, the fallback when the bootstraps
+        # carry no NVR mac (older firmware). Unauthenticated; targets the
+        # configured Protect host. Transitional — retire once consumers
+        # migrate to nvr.id.
         try:
             data = await self.api_request(
                 url="/system",
@@ -3585,6 +3587,23 @@ class ProtectApiClient(BaseApiClient):
             return None
         mac = data.get("mac")
         return mac if isinstance(mac, str) and mac else None
+
+    async def resolve_nvr_mac(self) -> str | None:
+        """
+        Resolve the NVR mac, normalized, by source priority: public
+        bootstrap, then private bootstrap, then the ``/api/system`` console
+        fallback; ``None`` if none resolve.
+        """
+        if self._public_bootstrap is not None:
+            nvr = self._public_bootstrap.nvr
+            if nvr is not None and nvr.mac:
+                return normalize_mac(nvr.mac)
+
+        if self._bootstrap is not None and self._bootstrap.nvr.mac:
+            return normalize_mac(self._bootstrap.nvr.mac)
+
+        mac = await self.get_console_mac()
+        return normalize_mac(mac) if mac else None
 
     # Public API Methods
 

@@ -249,7 +249,9 @@ _EXTRA_MODEL_FIELDS: dict[str, set[str]] = {
     "light": {"device_type", "device_guid"},
     "sensor": {"device_type", "device_guid", "feature_flags"},
     "chime": {"device_type", "device_guid"},
-    "nvr": {"device_type", "device_guid"},
+    # ``mac`` is exposed on ``GET /v1/nvrs`` only from Protect newer than 7.1;
+    # older validated specs omit it, so exempt it from the drift error.
+    "nvr": {"device_type", "device_guid", "mac"},
     "viewer": {"device_type", "device_guid"},
     "bridge": {"device_type", "device_guid"},
 }

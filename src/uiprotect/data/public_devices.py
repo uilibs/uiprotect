@@ -1464,9 +1464,13 @@ class PublicNVR(PublicIdentifiedModel):
     NVR device as exposed by the Public Integration API (``GET /v1/nvrs``).
 
     This model reflects the public schema: ``id``, ``modelKey``, ``name``,
-    ``doorbellSettings``, and optionally ``armMode``.
+    ``doorbellSettings``, and optionally ``armMode`` / ``mac``.
 
     ``name`` is nullable — the API schema declares it as ``oneOf: [string, null]``.
+
+    ``mac`` is exposed on ``GET /v1/nvrs`` from Protect newer than 7.1 and is
+    ``None`` on older firmware that omits the key (and absent from WS
+    partial-update diffs).
 
     ``doorbell_settings`` is ``None`` on older firmware that does not yet
     expose the ``doorbellSettings`` key, and is absent from WS partial-update
@@ -1482,6 +1486,7 @@ class PublicNVR(PublicIdentifiedModel):
 
     model: ModelType | None = ModelType.NVR
     name: str | None = None
+    mac: str | None = None
     doorbell_settings: PublicDoorbellSettings | None = None
     arm_mode: NvrArmMode | None = None
 
