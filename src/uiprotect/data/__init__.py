@@ -10,6 +10,8 @@ from .base import (
 from .bootstrap import Bootstrap
 from .convert import create_from_unifi_dict
 from .devices import (
+    CHANNEL_ID_BY_RTSPS_QUALITY,
+    RTSPS_QUALITY_BY_CHANNEL_ID,
     AiPort,
     Bridge,
     Camera,
@@ -20,6 +22,8 @@ from .devices import (
     RingSetting,
     Sensor,
     Viewer,
+    channel_id_for_quality,
+    quality_for_channel_id,
 )
 from .nvr import (
     NVR,
@@ -186,10 +190,12 @@ from .websocket import (
 )
 
 __all__ = [
+    "CHANNEL_ID_BY_RTSPS_QUALITY",
     "DEFAULT",
     "DEFAULT_TYPE",
     "NVR",
     "PTZ_HOME_SLOT",
+    "RTSPS_QUALITY_BY_CHANNEL_ID",
     "WS_HEADER_SIZE",
     "AiPort",
     "AlarmHubBattery",
@@ -359,5 +365,7 @@ __all__ = [
     "WSPacketFrameHeader",
     "WSRawPacketFrame",
     "WSSubscriptionMessage",
+    "channel_id_for_quality",
     "create_from_unifi_dict",
+    "quality_for_channel_id",
 ]

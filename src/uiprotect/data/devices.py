@@ -401,7 +401,7 @@ class Light(ProtectMotionDeviceModel):
             self.light_device_settings = device_settings
 
 
-_RTSPS_QUALITY_BY_CHANNEL_ID: Mapping[int, ChannelQuality] = MappingProxyType(
+RTSPS_QUALITY_BY_CHANNEL_ID: Mapping[int, ChannelQuality] = MappingProxyType(
     {
         0: ChannelQuality.HIGH,
         1: ChannelQuality.MEDIUM,
@@ -409,6 +409,19 @@ _RTSPS_QUALITY_BY_CHANNEL_ID: Mapping[int, ChannelQuality] = MappingProxyType(
         3: ChannelQuality.PACKAGE,
     }
 )
+CHANNEL_ID_BY_RTSPS_QUALITY: Mapping[ChannelQuality, int] = MappingProxyType(
+    {quality: channel_id for channel_id, quality in RTSPS_QUALITY_BY_CHANNEL_ID.items()}
+)
+
+
+def quality_for_channel_id(channel_id: int) -> ChannelQuality | None:
+    """RTSPS quality tier for a channel id (0→HIGH, 1→MEDIUM, 2→LOW, 3→PACKAGE)."""
+    return RTSPS_QUALITY_BY_CHANNEL_ID.get(channel_id)
+
+
+def channel_id_for_quality(quality: ChannelQuality) -> int | None:
+    """Channel id for an RTSPS quality tier (inverse of quality_for_channel_id)."""
+    return CHANNEL_ID_BY_RTSPS_QUALITY.get(quality)
 
 
 class CameraChannel(ProtectBaseObject):
@@ -486,7 +499,7 @@ class CameraChannel(ProtectBaseObject):
     @property
     def rtsps_quality(self) -> ChannelQuality | None:
         """RTSPS quality tier for this channel (id 0→HIGH, 1→MEDIUM, 2→LOW, 3→PACKAGE)."""
-        return _RTSPS_QUALITY_BY_CHANNEL_ID.get(self.id)
+        return quality_for_channel_id(self.id)
 
     @property
     def is_package(self) -> bool:
