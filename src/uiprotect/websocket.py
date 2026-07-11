@@ -31,10 +31,19 @@ GetSessionCallbackType = Callable[[], Awaitable[ClientSession]]
 UpdateBootstrapCallbackType = Callable[[], None]
 _CLOSE_MESSAGE_TYPES = {WSMsgType.CLOSE, WSMsgType.CLOSING, WSMsgType.CLOSED}
 
+# Consecutive 401 handshakes before AUTH_FAILED is surfaced. One retry lets a
+# private-WS forced re-auth heal a transient/expired session before we cry wolf;
+# a static public key still fails the second attempt and surfaces immediately.
+_AUTH_FAILURE_THRESHOLD = 2
+
 
 class WebsocketState(Enum):
     CONNECTED = True
     DISCONNECTED = False
+    # A 401 handshake that repeated past the retry threshold. For a public
+    # (API-key) websocket the key is static and cannot self-recover, so this
+    # is the reauth trigger a subscribe-only consumer never got before.
+    AUTH_FAILED = "auth_failed"
 
 
 class Websocket:
@@ -57,6 +66,7 @@ class Websocket:
         *,
         timeout: float = 30.0,
         backoff: int = 10,
+        auth_failed_backoff: int = 120,
         verify: bool = True,
         receive_timeout: float | None = None,
         heartbeat: float | None = None,
@@ -67,6 +77,7 @@ class Websocket:
         self.receive_timeout = receive_timeout
         self.heartbeat = heartbeat
         self.backoff = backoff
+        self.auth_failed_backoff = auth_failed_backoff
         self.verify = verify
         self._get_session = get_session
         self._auth = auth_callback
@@ -75,6 +86,8 @@ class Websocket:
         self._seen_non_close_message = False
         self._websocket_state = state_callback
         self._current_state: WebsocketState = WebsocketState.DISCONNECTED
+        self._consecutive_auth_failures = 0
+        self._reconnect_now = asyncio.Event()
 
     @property
     def is_connected(self) -> bool:
@@ -84,35 +97,56 @@ class Websocket:
     async def _websocket_loop(self) -> None:
         """Running loop for websocket."""
         await self.wait_closed()
-        backoff = self.backoff
 
         while True:
             url = self.get_url()
-            try:
-                await self._websocket_inner_loop(url)
-            except ClientError as ex:
-                level = logging.ERROR if self._seen_non_close_message else logging.DEBUG
-                if isinstance(ex, WSServerHandshakeError):
-                    if ex.status == HTTPStatus.UNAUTHORIZED.value:
-                        _LOGGER.log(
-                            level, "Websocket authentication error: %s: %s", url, ex
-                        )
-                        await self._attempt_auth(True)
-                    else:
-                        _LOGGER.log(level, "Websocket handshake error: %s: %s", url, ex)
-                else:
-                    _LOGGER.log(level, "Websocket disconnect error: %s: %s", url, ex)
-            except TimeoutError:
-                level = logging.ERROR if self._seen_non_close_message else logging.DEBUG
-                _LOGGER.log(level, "Websocket timeout: %s", url)
-            except Exception:
-                _LOGGER.exception("Unexpected error in websocket loop")
+            auth_failed = await self._run_inner_loop(url)
 
-            self._state_changed(WebsocketState.DISCONNECTED)
+            if (
+                auth_failed
+                and self._consecutive_auth_failures >= _AUTH_FAILURE_THRESHOLD
+            ):
+                self._state_changed(WebsocketState.AUTH_FAILED)
+                backoff = self.auth_failed_backoff
+            else:
+                self._state_changed(WebsocketState.DISCONNECTED)
+                backoff = self.backoff
+
             if self._running is False:
                 break
             _LOGGER.debug("Reconnecting websocket in %s seconds", backoff)
-            await asyncio.sleep(self.backoff)
+            try:
+                await asyncio.wait_for(self._reconnect_now.wait(), timeout=backoff)
+            except TimeoutError:
+                pass
+            finally:
+                self._reconnect_now.clear()
+
+    async def _run_inner_loop(self, url: URL) -> bool:
+        """Run one connect/receive cycle; return whether it ended on a 401."""
+        try:
+            await self._websocket_inner_loop(url)
+        except ClientError as ex:
+            level = logging.ERROR if self._seen_non_close_message else logging.DEBUG
+            if isinstance(ex, WSServerHandshakeError):
+                if ex.status == HTTPStatus.UNAUTHORIZED.value:
+                    _LOGGER.log(
+                        level, "Websocket authentication error: %s: %s", url, ex
+                    )
+                    await self._attempt_auth(True)
+                    self._consecutive_auth_failures += 1
+                    return True
+                _LOGGER.log(level, "Websocket handshake error: %s: %s", url, ex)
+            else:
+                _LOGGER.log(level, "Websocket disconnect error: %s: %s", url, ex)
+        except TimeoutError:
+            level = logging.ERROR if self._seen_non_close_message else logging.DEBUG
+            _LOGGER.log(level, "Websocket timeout: %s", url)
+        except Exception:
+            _LOGGER.exception("Unexpected error in websocket loop")
+
+        self._consecutive_auth_failures = 0
+        return False
 
     def _state_changed(self, state: WebsocketState) -> None:
         """State changed."""
@@ -142,6 +176,7 @@ class Websocket:
             # gating CONNECTED behind it flapped consumers. _seen_non_close_message
             # stays purely for the bootstrap-invalidation heuristic below.
             self._state_changed(WebsocketState.CONNECTED)
+            self._consecutive_auth_failures = 0
             while True:
                 msg = await self._ws_connection.receive(self.receive_timeout)
                 msg_type = msg.type
@@ -207,6 +242,16 @@ class Websocket:
             self._stop(ws_connection, websocket_loop_task)
         )
         self._state_changed(WebsocketState.DISCONNECTED)
+
+    def reset_auth_failure(self) -> None:
+        """
+        Clear the auth-failure backoff and wake the reconnect loop.
+
+        Call after installing a fresh credential (e.g. a new API key) so a
+        websocket parked on the long ``auth_failed_backoff`` retries at once.
+        """
+        self._consecutive_auth_failures = 0
+        self._reconnect_now.set()
 
     async def wait_closed(self) -> None:
         """Wait for the websocket to close."""

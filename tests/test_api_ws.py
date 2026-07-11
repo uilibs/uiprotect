@@ -11,7 +11,9 @@ from http.cookies import SimpleCookie
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+import aiohttp
 import pytest
+from aiohttp import WSServerHandshakeError
 from yarl import URL
 
 from tests.conftest import (
@@ -742,6 +744,123 @@ async def test_ws_heartbeat_passed_to_ws_connect():
                 break
             await asyncio.sleep(0.01)
         assert session.ws_connect.call_args.kwargs["heartbeat"] == 180.0
+    finally:
+        ws.stop()
+        await ws.wait_closed()
+
+
+def test_websocket_state_auth_failed_is_distinct_member():
+    """AUTH_FAILED is a third, non-aliasing WebsocketState member."""
+    assert len(WebsocketState) == 3
+    assert WebsocketState.AUTH_FAILED not in (
+        WebsocketState.CONNECTED,
+        WebsocketState.DISCONNECTED,
+    )
+    assert WebsocketState.AUTH_FAILED.value == "auth_failed"
+
+
+def _handshake_401() -> WSServerHandshakeError:
+    return WSServerHandshakeError(
+        request_info=Mock(),
+        history=(),
+        status=401,
+        message="Unauthorized",
+    )
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        WSServerHandshakeError(
+            request_info=Mock(), history=(), status=500, message="Boom"
+        ),
+        aiohttp.ClientError(),
+        TimeoutError(),
+        ValueError("unexpected"),
+    ],
+)
+@pytest.mark.asyncio()
+async def test_run_inner_loop_non_auth_error_resets_counter(exc: Exception):
+    """Any non-401 failure returns False and zeroes the auth-failure counter."""
+    session = AsyncMock()
+    session.ws_connect = AsyncMock(side_effect=exc)
+    ws, _ = _build_websocket(session)
+    ws._consecutive_auth_failures = 5
+
+    result = await ws._run_inner_loop(URL("wss://test.example/ws"))
+
+    assert result is False
+    assert ws._consecutive_auth_failures == 0
+
+
+@pytest.mark.asyncio()
+async def test_ws_auth_failed_emitted_after_repeated_401():
+    """Repeated 401 handshakes surface a single AUTH_FAILED edge, not CONNECTED."""
+    session = AsyncMock()
+    session.ws_connect = AsyncMock(side_effect=_handshake_401())
+    ws, states = _build_websocket(session, backoff=0, auth_failed_backoff=0)
+
+    ws.start()
+    try:
+        for _ in range(500):
+            if WebsocketState.AUTH_FAILED in states:
+                break
+            await asyncio.sleep(0.01)
+        assert WebsocketState.AUTH_FAILED in states
+        assert WebsocketState.CONNECTED not in states
+        # a single AUTH_FAILED edge despite repeated 401s (dedup)
+        assert states.count(WebsocketState.AUTH_FAILED) == 1
+        # AUTH_FAILED needs at least the threshold (2) consecutive handshakes
+        assert session.ws_connect.call_count >= 2
+    finally:
+        ws.stop()
+        await ws.wait_closed()
+
+
+@pytest.mark.asyncio()
+async def test_ws_single_401_then_connect_does_not_emit_auth_failed():
+    """A transient 401 that reconnects successfully never trips AUTH_FAILED."""
+    session = AsyncMock()
+    session.ws_connect = AsyncMock(side_effect=[_handshake_401(), _QuietWebsocket()])
+    ws, states = _build_websocket(session, backoff=0, auth_failed_backoff=0)
+
+    ws.start()
+    try:
+        for _ in range(500):
+            if WebsocketState.CONNECTED in states:
+                break
+            await asyncio.sleep(0.01)
+        assert WebsocketState.CONNECTED in states
+        assert WebsocketState.AUTH_FAILED not in states
+    finally:
+        ws.stop()
+        await ws.wait_closed()
+
+
+@pytest.mark.asyncio()
+async def test_reset_auth_failure_wakes_backoff():
+    """reset_auth_failure() interrupts a long post-auth-failure backoff."""
+    session = AsyncMock()
+    session.ws_connect = AsyncMock(side_effect=_handshake_401())
+    ws, states = _build_websocket(session, backoff=0, auth_failed_backoff=1000)
+
+    ws.start()
+    try:
+        for _ in range(500):
+            if WebsocketState.AUTH_FAILED in states:
+                break
+            await asyncio.sleep(0.01)
+        assert WebsocketState.AUTH_FAILED in states
+        calls_before = session.ws_connect.call_count
+
+        ws.reset_auth_failure()  # would otherwise wait ~1000s
+
+        for _ in range(500):
+            if session.ws_connect.call_count > calls_before:
+                break
+            await asyncio.sleep(0.01)
+        # the parked 1000s backoff was interrupted: a fresh dial happened
+        assert session.ws_connect.call_count > calls_before
     finally:
         ws.stop()
         await ws.wait_closed()
