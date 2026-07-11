@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.8.0 (2026-07-11)
+
+### Features
+
+
+- Surface public-ws auth failure via auth_failed state ([`11a1d90`](https://github.com/uilibs/uiprotect/commit/11a1d90a5d809cb0cded72fe6d1f2230f3383330))
+
+
 ## v15.7.1 (2026-07-10)
 
 ### Bug fixes
