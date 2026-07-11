@@ -14,11 +14,12 @@ are ``Optional``.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from functools import cache
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, TypedDict
 
 from pydantic import Field
 from pydantic.fields import PrivateAttr
@@ -29,9 +30,12 @@ from ..utils import (
     convert_smart_types,
     convert_to_datetime,
     convert_video_modes,
+    to_js_time,
 )
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import (
+    DEFAULT,
+    DEFAULT_TYPE,
     AlarmHubBatteryStatus,
     AlarmHubConnectionState,
     AlarmHubCoverStatus,
@@ -74,7 +78,52 @@ from .types import (
 )
 
 if TYPE_CHECKING:
+    from ..api import CameraPublicApiLcdMessageRequest, PublicApiChimeRingSettingRequest
     from .public_event import PublicEvent
+
+# Public Integration API numeric bounds, taken from the OpenAPI spec. The
+# public schema is the source of truth for these and they differ from the
+# private/UI limits (e.g. ``PercentInt`` allows 101). The sensor
+# ``highThreshold`` fields are spec-unbounded, so they are not range-checked.
+_PUBLIC_SENSITIVITY_RANGE: tuple[float, float] = (0, 100)
+_PUBLIC_LED_LEVEL_RANGE: tuple[float, float] = (1, 6)
+_PUBLIC_MIC_VOLUME_RANGE: tuple[float, float] = (1, 100)
+_PUBLIC_TEMPERATURE_LOW_RANGE: tuple[float, float] = (-39, 124)
+_PUBLIC_HUMIDITY_LOW_RANGE: tuple[float, float] = (1, 99)
+_PUBLIC_LIGHT_LUX_LOW_RANGE: tuple[float, float] = (1, 503192)
+_PUBLIC_RING_VOLUME_RANGE: tuple[float, float] = (0, 100)
+_PUBLIC_RING_REPEAT_RANGE: tuple[float, float] = (1, 6)
+
+
+def _validate_public_range(
+    name: str,
+    value: float,
+    bounds: tuple[float, float],
+) -> None:
+    """Range-check a public-API number against the spec bounds."""
+    if not math.isfinite(value):
+        raise BadRequest(f"{name} must be a finite number, got {value}")
+    minimum, maximum = bounds
+    if value < minimum or value > maximum:
+        raise BadRequest(f"{name} must be between {minimum} and {maximum}, got {value}")
+
+
+def _coerce_public_int(
+    name: str,
+    value: float,
+    bounds: tuple[float, float],
+) -> int:
+    """Validate a public-API number against the spec bounds and coerce it to ``int``."""
+    _validate_public_range(name, value, bounds)
+    return int(value)
+
+
+# Doorbell LCD message types that require accompanying ``text``; the rest must
+# omit it.
+_LCD_TYPES_REQUIRING_TEXT: frozenset[DoorbellMessageType] = frozenset(
+    {DoorbellMessageType.CUSTOM_MESSAGE, DoorbellMessageType.IMAGE}
+)
+
 
 # Smart-detect object events. Protect 7.x emits overlapping ``smartDetectZone``
 # and ``smartDetectLine`` frames for the same detection, so both drive the smart
@@ -347,10 +396,39 @@ class PublicDeviceModel(PublicIdentifiedModel):
     state: DeviceState
     mac: str
 
+    # Fields a write-through merge must never overwrite from a PATCH response:
+    # stable identity plus any library-owned out-of-band state. Subclasses
+    # extend this (see :class:`PublicCamera`). ``_update_sync.lock`` (inherited
+    # from :class:`~uiprotect.data.base.ProtectModelWithId`) is what serializes
+    # the read-modify-write setters below — no separate lock is introduced.
+    _WRITE_THROUGH_SKIP: ClassVar[frozenset[str]] = frozenset({"id"})
+
+    def _apply_from_response(self, response: Self) -> None:
+        """
+        Merge a fresh PATCH-response model into this cached instance in place.
+
+        Lock-free by design: it performs a run of plain attribute assignments
+        with no ``await`` in between, so it is atomic with respect to the event
+        loop. Read-modify-write setters take ``self._update_sync.lock`` around
+        their read+patch+apply themselves; this helper must not, or a setter
+        holding that lock would deadlock on the non-reentrant ``asyncio.Lock``.
+        Private ``PrivateAttr`` state (detection caches, ...) is not part of
+        ``model_fields`` and is therefore preserved untouched.
+        """
+        skip = type(self)._WRITE_THROUGH_SKIP
+        for name in type(self).model_fields:
+            if name in skip:
+                continue
+            setattr(self, name, getattr(response, name))
+
 
 class PublicCamera(PublicDeviceModel):
     """Public API camera device (``GET /v1/cameras``)."""
 
+    # ``rtsps_streams`` is primed out-of-band by the library (see the field
+    # docstring below) and is never carried on a PATCH response, so a
+    # write-through merge must skip it or a setter call would null it.
+    _WRITE_THROUGH_SKIP: ClassVar[frozenset[str]] = frozenset({"id", "rtsps_streams"})
     model: ModelType | None = ModelType.CAMERA
     # Nullable on the wire (spec: ``oneOf [string, null]``).
     name: str | None = None
@@ -674,6 +752,244 @@ class PublicCamera(PublicDeviceModel):
             "(update_camera_public)."
         )
 
+    # ------------------------------------------------------------------
+    # Convenience setters (public API)
+    # ------------------------------------------------------------------
+
+    async def set_status_light(self, enabled: bool) -> PublicCamera:
+        """Set the status LED via the public API."""
+        if not self.feature_flags.has_led_status:
+            raise BadRequest("Camera does not have status light")
+        updated = await self._api.update_camera_public(self.id, led_is_enabled=enabled)
+        self._apply_from_response(updated)
+        return self
+
+    async def set_welcome_led(self, enabled: bool) -> PublicCamera:
+        """Set the welcome LED via the public API."""
+        if not self.feature_flags.has_led_status:
+            raise BadRequest("Camera does not have status light")
+        if self.led_settings.welcome_led is None:
+            raise BadRequest("Camera does not have welcome LED")
+        updated = await self._api.update_camera_public(self.id, led_welcome_led=enabled)
+        self._apply_from_response(updated)
+        return self
+
+    async def set_flood_led(self, enabled: bool) -> PublicCamera:
+        """Set the flood LED via the public API."""
+        if not self.feature_flags.has_led_status:
+            raise BadRequest("Camera does not have status light")
+        if self.led_settings.flood_led is None:
+            raise BadRequest("Camera does not have flood LED")
+        updated = await self._api.update_camera_public(self.id, led_flood_led=enabled)
+        self._apply_from_response(updated)
+        return self
+
+    async def set_hdr_mode(self, mode: PublicHdrMode) -> PublicCamera:
+        """Set HDR mode via the public API."""
+        if not self.feature_flags.has_hdr:
+            raise BadRequest("Camera does not have HDR")
+        updated = await self._api.update_camera_public(self.id, hdr_type=mode)
+        self._apply_from_response(updated)
+        return self
+
+    async def set_video_mode(self, mode: VideoMode) -> PublicCamera:
+        """Set the video mode via the public API."""
+        if mode not in self.feature_flags.video_modes:
+            raise BadRequest(f"Camera does not have {mode}")
+        updated = await self._api.update_camera_public(self.id, video_mode=mode)
+        self._apply_from_response(updated)
+        return self
+
+    async def set_mic_volume(self, level: int) -> PublicCamera:
+        """Set microphone volume (1-100) via the public API."""
+        if not self.feature_flags.has_mic:
+            raise BadRequest("Camera does not have mic")
+        level = _coerce_public_int("mic_volume", level, _PUBLIC_MIC_VOLUME_RANGE)
+        updated = await self._api.update_camera_public(self.id, mic_volume=level)
+        self._apply_from_response(updated)
+        return self
+
+    async def set_lcd_message(
+        self,
+        text_type: DoorbellMessageType,
+        text: str | None = None,
+        reset_at: datetime | None | DEFAULT_TYPE = DEFAULT,
+    ) -> PublicCamera:
+        """
+        Set the doorbell LCD message via the public API.
+
+        ``text`` is required for CUSTOM_MESSAGE and IMAGE and must be omitted
+        otherwise. ``reset_at`` controls when the message clears: omit for the
+        NVR default, pass ``None`` for "forever", or a specific datetime.
+        """
+        if text_type in _LCD_TYPES_REQUIRING_TEXT:
+            if text is None:
+                raise BadRequest(f"{text_type} requires text")
+        elif text is not None:
+            raise BadRequest(f"{text_type} does not accept text")
+        message: CameraPublicApiLcdMessageRequest = {"type": text_type}
+        if text is not None:
+            message["text"] = text
+        if isinstance(reset_at, datetime):
+            message["resetAt"] = to_js_time(reset_at)
+        elif reset_at is None:
+            message["resetAt"] = None
+        updated = await self._api.update_camera_public(self.id, lcd_message=message)
+        self._apply_from_response(updated)
+        return self
+
+    async def set_osd_name(self, enabled: bool) -> PublicCamera:
+        """Toggle the name overlay (OSD) via the public API."""
+        updated = await self._api.update_camera_public(
+            self.id, osd_name_enabled=enabled
+        )
+        self._apply_from_response(updated)
+        return self
+
+    async def set_osd_date(self, enabled: bool) -> PublicCamera:
+        """Toggle the date overlay (OSD) via the public API."""
+        updated = await self._api.update_camera_public(
+            self.id, osd_date_enabled=enabled
+        )
+        self._apply_from_response(updated)
+        return self
+
+    async def set_osd_logo(self, enabled: bool) -> PublicCamera:
+        """Toggle the logo overlay (OSD) via the public API."""
+        updated = await self._api.update_camera_public(
+            self.id, osd_logo_enabled=enabled
+        )
+        self._apply_from_response(updated)
+        return self
+
+    async def set_osd_nerd_mode(self, enabled: bool) -> PublicCamera:
+        """Toggle the bitrate/debug overlay (OSD) via the public API."""
+        updated = await self._api.update_camera_public(
+            self.id, osd_nerd_mode_enabled=enabled
+        )
+        self._apply_from_response(updated)
+        return self
+
+    async def set_osd_overlay_location(
+        self, location: OsdOverlayLocation
+    ) -> PublicCamera:
+        """Set the OSD overlay location via the public API."""
+        updated = await self._api.update_camera_public(
+            self.id, osd_overlay_location=location
+        )
+        self._apply_from_response(updated)
+        return self
+
+    async def set_person_detection(self, enabled: bool) -> PublicCamera:
+        """Toggle person smart detection via the public API."""
+        return await self._set_smart_detect_object(
+            SmartDetectObjectType.PERSON, enabled
+        )
+
+    async def set_vehicle_detection(self, enabled: bool) -> PublicCamera:
+        """Toggle vehicle smart detection via the public API."""
+        return await self._set_smart_detect_object(
+            SmartDetectObjectType.VEHICLE, enabled
+        )
+
+    async def set_package_detection(self, enabled: bool) -> PublicCamera:
+        """Toggle package smart detection via the public API."""
+        return await self._set_smart_detect_object(
+            SmartDetectObjectType.PACKAGE, enabled
+        )
+
+    async def set_license_plate_detection(self, enabled: bool) -> PublicCamera:
+        """Toggle license plate smart detection via the public API."""
+        return await self._set_smart_detect_object(
+            SmartDetectObjectType.LICENSE_PLATE, enabled
+        )
+
+    async def set_animal_detection(self, enabled: bool) -> PublicCamera:
+        """Toggle animal smart detection via the public API."""
+        return await self._set_smart_detect_object(
+            SmartDetectObjectType.ANIMAL, enabled
+        )
+
+    async def set_face_detection(self, enabled: bool) -> PublicCamera:
+        """Toggle face smart detection via the public API."""
+        return await self._set_smart_detect_object(SmartDetectObjectType.FACE, enabled)
+
+    async def set_smoke_detection(self, enabled: bool) -> PublicCamera:
+        """Toggle smoke audio detection via the public API."""
+        return await self._set_smart_detect_audio(SmartDetectAudioType.SMOKE, enabled)
+
+    async def set_co_detection(self, enabled: bool) -> PublicCamera:
+        """Toggle CO audio detection via the public API."""
+        return await self._set_smart_detect_audio(SmartDetectAudioType.CMONX, enabled)
+
+    async def set_siren_detection(self, enabled: bool) -> PublicCamera:
+        """Toggle siren audio detection via the public API."""
+        return await self._set_smart_detect_audio(SmartDetectAudioType.SIREN, enabled)
+
+    async def set_baby_cry_detection(self, enabled: bool) -> PublicCamera:
+        """Toggle baby cry audio detection via the public API."""
+        return await self._set_smart_detect_audio(
+            SmartDetectAudioType.BABY_CRY, enabled
+        )
+
+    async def set_speaking_detection(self, enabled: bool) -> PublicCamera:
+        """Toggle speaking audio detection via the public API."""
+        return await self._set_smart_detect_audio(SmartDetectAudioType.SPEAK, enabled)
+
+    async def set_bark_detection(self, enabled: bool) -> PublicCamera:
+        """Toggle bark audio detection via the public API."""
+        return await self._set_smart_detect_audio(SmartDetectAudioType.BARK, enabled)
+
+    async def set_burglar_detection(self, enabled: bool) -> PublicCamera:
+        """Toggle burglar audio detection via the public API."""
+        return await self._set_smart_detect_audio(SmartDetectAudioType.BURGLAR, enabled)
+
+    async def set_car_horn_detection(self, enabled: bool) -> PublicCamera:
+        """Toggle car horn audio detection via the public API."""
+        return await self._set_smart_detect_audio(
+            SmartDetectAudioType.CAR_HORN, enabled
+        )
+
+    async def set_glass_break_detection(self, enabled: bool) -> PublicCamera:
+        """Toggle glass break audio detection via the public API."""
+        return await self._set_smart_detect_audio(
+            SmartDetectAudioType.GLASS_BREAK, enabled
+        )
+
+    async def _set_smart_detect_object(
+        self, obj_type: SmartDetectObjectType, enabled: bool
+    ) -> PublicCamera:
+        if obj_type not in self.feature_flags.smart_detect_types:
+            raise BadRequest(f"Camera does not support {obj_type} detection")
+        async with self._update_sync.lock:
+            types = list(self.smart_detect_settings.object_types)
+            if enabled and obj_type not in types:
+                types.append(obj_type)
+            elif not enabled and obj_type in types:
+                types.remove(obj_type)
+            updated = await self._api.update_camera_public(
+                self.id, smart_detect_object_types=types
+            )
+            self._apply_from_response(updated)
+        return self
+
+    async def _set_smart_detect_audio(
+        self, audio_type: SmartDetectAudioType, enabled: bool
+    ) -> PublicCamera:
+        if audio_type not in self.feature_flags.smart_detect_audio_types:
+            raise BadRequest(f"Camera does not support {audio_type} detection")
+        async with self._update_sync.lock:
+            types = list(self.smart_detect_settings.audio_types)
+            if enabled and audio_type not in types:
+                types.append(audio_type)
+            elif not enabled and audio_type in types:
+                types.remove(audio_type)
+            updated = await self._api.update_camera_public(
+                self.id, smart_detect_audio_types=types
+            )
+            self._apply_from_response(updated)
+        return self
+
 
 # ---------------------------------------------------------------------------
 # Light (public) — leaf sub-models + device
@@ -713,6 +1029,125 @@ class PublicLight(PublicDeviceModel):
             "Light mutations must go through the dedicated public API helpers "
             "(update_light_public)."
         )
+
+    # ------------------------------------------------------------------
+    # Convenience setters (public API)
+    # ------------------------------------------------------------------
+
+    async def set_name(self, name: str) -> PublicLight:
+        """Set the light name via the public API."""
+        updated = await self._api.update_light_public(self.id, name=name)
+        self._apply_from_response(updated)
+        return self
+
+    async def set_flood_light(self, enabled: bool) -> PublicLight:
+        """Force the flood light on/off via the public API."""
+        updated = await self._api.update_light_public(
+            self.id, is_light_force_enabled=enabled
+        )
+        self._apply_from_response(updated)
+        return self
+
+    async def set_status_light(self, enabled: bool) -> PublicLight:
+        """Toggle the status indicator LED via the public API."""
+        async with self._update_sync.lock:
+            settings = self.light_device_settings.model_copy()
+            settings.is_indicator_enabled = enabled
+            updated = await self._api.update_light_public(
+                self.id, light_device_settings=settings
+            )
+            self._apply_from_response(updated)
+        return self
+
+    async def set_led_level(self, led_level: int) -> PublicLight:
+        """Set the indicator LED brightness (1-6) via the public API."""
+        led_level = _coerce_public_int("led_level", led_level, _PUBLIC_LED_LEVEL_RANGE)
+        async with self._update_sync.lock:
+            settings = self.light_device_settings.model_copy()
+            settings.led_level = led_level
+            updated = await self._api.update_light_public(
+                self.id, light_device_settings=settings
+            )
+            self._apply_from_response(updated)
+        return self
+
+    async def set_sensitivity(self, sensitivity: int) -> PublicLight:
+        """Set PIR motion sensitivity (0-100) via the public API."""
+        sensitivity = _coerce_public_int(
+            "sensitivity", sensitivity, _PUBLIC_SENSITIVITY_RANGE
+        )
+        async with self._update_sync.lock:
+            settings = self.light_device_settings.model_copy()
+            settings.pir_sensitivity = sensitivity
+            updated = await self._api.update_light_public(
+                self.id, light_device_settings=settings
+            )
+            self._apply_from_response(updated)
+        return self
+
+    async def set_duration(self, duration: timedelta) -> PublicLight:
+        """Set how long the light stays on after motion (15s-900s) via the public API."""
+        if duration.total_seconds() < 15 or duration.total_seconds() > 900:
+            raise BadRequest("Duration outside of 15s to 900s range")
+        async with self._update_sync.lock:
+            settings = self.light_device_settings.model_copy()
+            settings.pir_duration = int(duration.total_seconds() * 1000)
+            updated = await self._api.update_light_public(
+                self.id, light_device_settings=settings
+            )
+            self._apply_from_response(updated)
+        return self
+
+    async def set_light_mode(
+        self,
+        mode: LightModeType,
+        enable_at: LightModeEnableType | None = None,
+    ) -> PublicLight:
+        """Set the lighting trigger mode (and optional schedule) via the public API."""
+        async with self._update_sync.lock:
+            settings = self.light_mode_settings.model_copy()
+            settings.mode = mode
+            if enable_at is not None:
+                settings.enable_at = enable_at
+            updated = await self._api.update_light_public(
+                self.id, light_mode_settings=settings
+            )
+            self._apply_from_response(updated)
+        return self
+
+    async def set_light_settings(
+        self,
+        mode: LightModeType,
+        enable_at: LightModeEnableType | None = None,
+        duration: timedelta | None = None,
+        sensitivity: int | None = None,
+    ) -> PublicLight:
+        """Update mode, schedule, duration and PIR sensitivity via the public API."""
+        if duration is not None and (
+            duration.total_seconds() < 15 or duration.total_seconds() > 900
+        ):
+            raise BadRequest("Duration outside of 15s to 900s range")
+        async with self._update_sync.lock:
+            mode_settings = self.light_mode_settings.model_copy()
+            mode_settings.mode = mode
+            if enable_at is not None:
+                mode_settings.enable_at = enable_at
+            device_settings: PublicLightDeviceSettings | None = None
+            if duration is not None or sensitivity is not None:
+                device_settings = self.light_device_settings.model_copy()
+                if duration is not None:
+                    device_settings.pir_duration = int(duration.total_seconds() * 1000)
+                if sensitivity is not None:
+                    device_settings.pir_sensitivity = _coerce_public_int(
+                        "sensitivity", sensitivity, _PUBLIC_SENSITIVITY_RANGE
+                    )
+            updated = await self._api.update_light_public(
+                self.id,
+                light_mode_settings=mode_settings,
+                light_device_settings=device_settings,
+            )
+            self._apply_from_response(updated)
+        return self
 
 
 # ---------------------------------------------------------------------------
@@ -900,6 +1335,214 @@ class PublicSensor(PublicDeviceModel):
             "(update_sensor_public)."
         )
 
+    # ------------------------------------------------------------------
+    # Convenience setters (public API)
+    # ------------------------------------------------------------------
+
+    async def set_name(self, name: str) -> PublicSensor:
+        """Set the sensor name via the public API."""
+        updated = await self._api.update_sensor_public(self.id, name=name)
+        self._apply_from_response(updated)
+        return self
+
+    async def set_temperature_settings(
+        self,
+        *,
+        is_enabled: bool | None = None,
+        low_threshold: float | None = None,
+        high_threshold: float | None = None,
+        margin: float | None = None,
+    ) -> PublicSensor:
+        """Update temperature alert settings via the public API."""
+        settings: PublicSensorTemperatureSettings = {}
+        if is_enabled is not None:
+            settings["isEnabled"] = is_enabled
+        if low_threshold is not None:
+            _validate_public_range(
+                "low_threshold", low_threshold, _PUBLIC_TEMPERATURE_LOW_RANGE
+            )
+            settings["lowThreshold"] = low_threshold
+        if high_threshold is not None:
+            settings["highThreshold"] = high_threshold
+        if margin is not None:
+            settings["margin"] = margin
+        if not settings:
+            raise BadRequest("At least one parameter must be provided")
+        updated = await self._api.update_sensor_public(
+            self.id, temperature_settings=settings
+        )
+        self._apply_from_response(updated)
+        return self
+
+    async def set_humidity_settings(
+        self,
+        *,
+        is_enabled: bool | None = None,
+        low_threshold: float | None = None,
+        high_threshold: float | None = None,
+        margin: int | None = None,
+    ) -> PublicSensor:
+        """Update humidity alert settings via the public API."""
+        settings: PublicSensorHumiditySettings = {}
+        if is_enabled is not None:
+            settings["isEnabled"] = is_enabled
+        if low_threshold is not None:
+            _validate_public_range(
+                "low_threshold", low_threshold, _PUBLIC_HUMIDITY_LOW_RANGE
+            )
+            settings["lowThreshold"] = low_threshold
+        if high_threshold is not None:
+            settings["highThreshold"] = high_threshold
+        if margin is not None:
+            settings["margin"] = margin
+        if not settings:
+            raise BadRequest("At least one parameter must be provided")
+        updated = await self._api.update_sensor_public(
+            self.id, humidity_settings=settings
+        )
+        self._apply_from_response(updated)
+        return self
+
+    async def set_light_settings(
+        self,
+        *,
+        is_enabled: bool | None = None,
+        low_threshold: float | None = None,
+        high_threshold: float | None = None,
+        margin: int | None = None,
+    ) -> PublicSensor:
+        """Update light (lux) alert settings via the public API."""
+        settings: PublicSensorLightSettings = {}
+        if is_enabled is not None:
+            settings["isEnabled"] = is_enabled
+        if low_threshold is not None:
+            _validate_public_range(
+                "low_threshold", low_threshold, _PUBLIC_LIGHT_LUX_LOW_RANGE
+            )
+            settings["lowThreshold"] = low_threshold
+        if high_threshold is not None:
+            settings["highThreshold"] = high_threshold
+        if margin is not None:
+            settings["margin"] = margin
+        if not settings:
+            raise BadRequest("At least one parameter must be provided")
+        updated = await self._api.update_sensor_public(self.id, light_settings=settings)
+        self._apply_from_response(updated)
+        return self
+
+    async def set_motion_settings(
+        self,
+        *,
+        is_enabled: bool | None = None,
+        sensitivity: float | None = None,
+        sensitivity_when_armed: float | None = None,
+    ) -> PublicSensor:
+        """Update motion detection settings via the public API."""
+        settings: PublicSensorMotionSettings = {}
+        if is_enabled is not None:
+            settings["isEnabled"] = is_enabled
+        if sensitivity is not None:
+            settings["sensitivity"] = _coerce_public_int(
+                "sensitivity", sensitivity, _PUBLIC_SENSITIVITY_RANGE
+            )
+        if sensitivity_when_armed is not None:
+            settings["sensitivityWhenArmed"] = _coerce_public_int(
+                "sensitivity_when_armed",
+                sensitivity_when_armed,
+                _PUBLIC_SENSITIVITY_RANGE,
+            )
+        if not settings:
+            raise BadRequest("At least one parameter must be provided")
+        updated = await self._api.update_sensor_public(
+            self.id, motion_settings=settings
+        )
+        self._apply_from_response(updated)
+        return self
+
+    async def set_glass_break_settings(
+        self,
+        *,
+        is_enabled: bool | None = None,
+        sensitivity: float | None = None,
+        sensitivity_when_armed: float | None = None,
+    ) -> PublicSensor:
+        """Update glass-break detection settings via the public API."""
+        settings: PublicSensorGlassBreakSettingsWrite = {}
+        if is_enabled is not None:
+            settings["isEnabled"] = is_enabled
+        if sensitivity is not None:
+            settings["sensitivity"] = _coerce_public_int(
+                "sensitivity", sensitivity, _PUBLIC_SENSITIVITY_RANGE
+            )
+        if sensitivity_when_armed is not None:
+            settings["sensitivityWhenArmed"] = _coerce_public_int(
+                "sensitivity_when_armed",
+                sensitivity_when_armed,
+                _PUBLIC_SENSITIVITY_RANGE,
+            )
+        if not settings:
+            raise BadRequest("At least one parameter must be provided")
+        updated = await self._api.update_sensor_public(
+            self.id, glass_break_settings=settings
+        )
+        self._apply_from_response(updated)
+        return self
+
+    async def set_alarm(self, enabled: bool) -> PublicSensor:
+        """Toggle the (audio) alarm detection setting via the public API."""
+        alarm_settings: PublicSensorAlarmSettings = {"isEnabled": enabled}
+        updated = await self._api.update_sensor_public(
+            self.id, alarm_settings=alarm_settings
+        )
+        self._apply_from_response(updated)
+        return self
+
+    async def set_schedule_mode(self, mode: SensorScheduleMode) -> PublicSensor:
+        """Set the arm-schedule mode via the public API."""
+        updated = await self._api.update_sensor_public(self.id, schedule_mode=mode)
+        self._apply_from_response(updated)
+        return self
+
+    async def set_arm_profile_ids(self, arm_profile_ids: list[str]) -> PublicSensor:
+        """Set the arm-profile ids associated with the sensor via the public API."""
+        updated = await self._api.update_sensor_public(
+            self.id, arm_profile_ids=arm_profile_ids
+        )
+        self._apply_from_response(updated)
+        return self
+
+    async def set_custom_sensitivity_when_armed(self, enabled: bool) -> PublicSensor:
+        """Toggle custom armed sensitivity via the public API."""
+        updated = await self._api.update_sensor_public(
+            self.id, has_custom_sensitivity_when_armed=enabled
+        )
+        self._apply_from_response(updated)
+        return self
+
+    async def set_motion_status(self, enabled: bool) -> PublicSensor:
+        """Toggle motion detection via the public API."""
+        return await self.set_motion_settings(is_enabled=enabled)
+
+    async def set_motion_sensitivity(self, sensitivity: float) -> PublicSensor:
+        """Set motion detection sensitivity via the public API."""
+        return await self.set_motion_settings(sensitivity=sensitivity)
+
+    async def set_temperature_status(self, enabled: bool) -> PublicSensor:
+        """Toggle temperature alerts via the public API."""
+        return await self.set_temperature_settings(is_enabled=enabled)
+
+    async def set_humidity_status(self, enabled: bool) -> PublicSensor:
+        """Toggle humidity alerts via the public API."""
+        return await self.set_humidity_settings(is_enabled=enabled)
+
+    async def set_light_status(self, enabled: bool) -> PublicSensor:
+        """Toggle light (lux) alerts via the public API."""
+        return await self.set_light_settings(is_enabled=enabled)
+
+    async def set_glass_break_status(self, enabled: bool) -> PublicSensor:
+        """Toggle glass-break detection via the public API."""
+        return await self.set_glass_break_settings(is_enabled=enabled)
+
 
 # ---------------------------------------------------------------------------
 # Chime (public) — leaf sub-model + device
@@ -927,6 +1570,73 @@ class PublicChime(PublicDeviceModel):
             "Chime mutations must go through the dedicated public API helpers "
             "(update_chime_public)."
         )
+
+    # ------------------------------------------------------------------
+    # Convenience setters (public API)
+    # ------------------------------------------------------------------
+
+    async def set_ring_settings(
+        self,
+        ring_settings: list[PublicApiChimeRingSettingRequest],
+    ) -> PublicChime:
+        """Replace the full per-camera ring settings via the public API."""
+        updated = await self._api.update_chime_public(
+            self.id, ring_settings=ring_settings
+        )
+        self._apply_from_response(updated)
+        return self
+
+    async def set_volume_for_camera(self, camera_id: str, level: int) -> PublicChime:
+        """Set the ring volume for one paired camera via the public API."""
+        level = _coerce_public_int("volume", level, _PUBLIC_RING_VOLUME_RANGE)
+        # The whole read-modify-write is held under the lock: two concurrent
+        # callers must not each read the pre-mutation list and clobber each
+        # other (last PATCH wins).
+        async with self._update_sync.lock:
+            body = self._ring_settings_body(camera_id, volume=level)
+            updated = await self._api.update_chime_public(self.id, ring_settings=body)
+            self._apply_from_response(updated)
+        return self
+
+    async def set_repeat_times_for_camera(
+        self, camera_id: str, value: int
+    ) -> PublicChime:
+        """Set the ring repeat count for one paired camera via the public API."""
+        value = _coerce_public_int("repeat_times", value, _PUBLIC_RING_REPEAT_RANGE)
+        async with self._update_sync.lock:
+            body = self._ring_settings_body(camera_id, repeat_times=value)
+            updated = await self._api.update_chime_public(self.id, ring_settings=body)
+            self._apply_from_response(updated)
+        return self
+
+    def _ring_settings_body(
+        self,
+        camera_id: str,
+        *,
+        volume: int | None = None,
+        repeat_times: int | None = None,
+    ) -> list[PublicApiChimeRingSettingRequest]:
+        """Build a full ring-settings PATCH body overriding one camera's entry."""
+        if not any(rs.camera_id == camera_id for rs in self.ring_settings):
+            raise BadRequest(f"Camera {camera_id} is not paired with chime")
+        body: list[PublicApiChimeRingSettingRequest] = []
+        for rs in self.ring_settings:
+            override = rs.camera_id == camera_id
+            entry: PublicApiChimeRingSettingRequest = {
+                "cameraId": rs.camera_id or "",
+                "volume": volume
+                if override and volume is not None
+                else (rs.volume or 0),
+                "repeatTimes": (
+                    repeat_times
+                    if override and repeat_times is not None
+                    else (rs.repeat_times or 1)
+                ),
+            }
+            if rs.ringtone_id is not None:
+                entry["ringtoneId"] = rs.ringtone_id
+            body.append(entry)
+        return body
 
 
 # ---------------------------------------------------------------------------
