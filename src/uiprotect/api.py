@@ -1112,13 +1112,13 @@ class BaseApiClient:
 
     def _write_payload_atomic(self, payload: bytes) -> None:
         """Sync helper: replace config file with payload at mode 0o600."""
-        os.makedirs(self.config_dir, exist_ok=True)
+        self.config_dir.mkdir(parents=True, exist_ok=True)
         # Tighten the dir even if it pre-existed with looser perms (e.g. 0o755
         # from an older umask, or pre-fix installs). The file contains a valid
         # bearer cookie; the dir is not allowed to be world-traversable.
         if sys.platform != "win32":
             with contextlib.suppress(OSError):
-                os.chmod(self.config_dir, 0o700)
+                self.config_dir.chmod(0o700)
 
         # tempfile.mkstemp creates a unique file at mode 0o600 from the
         # kernel call, so the bearer cookie is never world-readable. The
@@ -1130,10 +1130,10 @@ class BaseApiClient:
         try:
             with os.fdopen(fd, "wb") as f:
                 f.write(payload)
-            os.replace(tmp, self.config_file)
+            Path(tmp).replace(self.config_file)
         except BaseException:
             with contextlib.suppress(FileNotFoundError):
-                os.remove(tmp)
+                Path(tmp).unlink()
             raise
 
     async def _update_auth_config(self, cookie: Morsel[str]) -> None:

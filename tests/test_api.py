@@ -2479,7 +2479,7 @@ async def test_update_auth_config_no_tmp_leftover(tmp_path: Path) -> None:
 async def test_update_auth_config_cleans_tmp_on_replace_failure(
     tmp_path: Path,
 ) -> None:
-    """If os.replace raises, the .tmp file must be removed and the error re-raised."""
+    """If the atomic replace raises, the .tmp file must be removed and the error re-raised."""
     client = ProtectApiClient(
         "127.0.0.1",
         0,
@@ -2497,7 +2497,7 @@ async def test_update_auth_config_cleans_tmp_on_replace_failure(
     client.set_header("x-csrf-token", "csrf-token-value")
 
     with (
-        patch("uiprotect.api.os.replace", side_effect=OSError("boom")),
+        patch("uiprotect.api.Path.replace", side_effect=OSError("boom")),
         pytest.raises(OSError, match="boom"),
     ):
         await client._update_auth_config(cookie["TOKEN"])
