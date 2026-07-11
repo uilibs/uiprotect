@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import math
 import warnings
 from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
@@ -38,6 +37,16 @@ from .base import (
     ProtectAdoptableDeviceModel,
     ProtectBaseObject,
     ProtectMotionDeviceModel,
+)
+from .public_devices import (
+    _PUBLIC_HUMIDITY_LOW_RANGE,
+    _PUBLIC_LED_LEVEL_RANGE,
+    _PUBLIC_LIGHT_LUX_LOW_RANGE,
+    _PUBLIC_MIC_VOLUME_RANGE,
+    _PUBLIC_SENSITIVITY_RANGE,
+    _PUBLIC_TEMPERATURE_LOW_RANGE,
+    _coerce_public_int,
+    _validate_public_range,
 )
 from .types import (
     DEFAULT,
@@ -108,40 +117,6 @@ PRIVACY_ZONE_NAME = "pyufp_privacy_zone"
 LUX_MAPPING_VALUES = [30, 25, 20, 15, 12, 10, 7, 5, 3, 1, 0]
 
 _LOGGER = logging.getLogger(__name__)
-
-# Public Integration API numeric bounds, taken from the OpenAPI spec. The
-# public schema is the source of truth for these and they differ from the
-# private/UI limits (e.g. ``PercentInt`` allows 101). The sensor
-# ``highThreshold`` fields are spec-unbounded, so they are not range-checked.
-_PUBLIC_SENSITIVITY_RANGE: tuple[float, float] = (0, 100)
-_PUBLIC_LED_LEVEL_RANGE: tuple[float, float] = (1, 6)
-_PUBLIC_MIC_VOLUME_RANGE: tuple[float, float] = (1, 100)
-_PUBLIC_TEMPERATURE_LOW_RANGE: tuple[float, float] = (-39, 124)
-_PUBLIC_HUMIDITY_LOW_RANGE: tuple[float, float] = (1, 99)
-_PUBLIC_LIGHT_LUX_LOW_RANGE: tuple[float, float] = (1, 503192)
-
-
-def _validate_public_range(
-    name: str,
-    value: float,
-    bounds: tuple[float, float],
-) -> None:
-    """Range-check a public-API number against the spec bounds."""
-    if not math.isfinite(value):
-        raise BadRequest(f"{name} must be a finite number, got {value}")
-    minimum, maximum = bounds
-    if value < minimum or value > maximum:
-        raise BadRequest(f"{name} must be between {minimum} and {maximum}, got {value}")
-
-
-def _coerce_public_int(
-    name: str,
-    value: float,
-    bounds: tuple[float, float],
-) -> int:
-    """Validate a public-API number against the spec bounds and coerce it to ``int``."""
-    _validate_public_range(name, value, bounds)
-    return int(value)
 
 
 class LightDeviceSettings(ProtectBaseObject):
@@ -3395,6 +3370,18 @@ class SensorThresholdSettings(SensorSettingsBase):
 
 class SensorSensitivitySettings(SensorSettingsBase):
     sensitivity: PercentInt
+    # Armed-mode sensitivity override. Absent on older firmware / not carried by
+    # every console, so it is optional and dropped from the wire dict when unset.
+    sensitivity_when_armed: PercentInt | None = None
+
+    def unifi_dict(
+        self,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
+    ) -> dict[str, Any]:
+        data = super().unifi_dict(data=data, exclude=exclude)
+        pop_dict_set_if_none(data, {"sensitivityWhenArmed"})
+        return data
 
 
 class SensorBatteryStatus(ProtectBaseObject):
@@ -3848,6 +3835,8 @@ class Sensor(ProtectAdoptableDeviceModel):
             current.is_enabled = is_enabled
         if sensitivity is not None:
             current.sensitivity = PercentInt(sensitivity)
+        if sensitivity_when_armed is not None:
+            current.sensitivity_when_armed = PercentInt(sensitivity_when_armed)
         self.motion_settings = current
 
     async def set_glass_break_settings_public(
@@ -4255,6 +4244,7 @@ class Chime(ProtectAdoptableDeviceModel):
             self.id,
             ring_settings=ring_settings,
         )
+        self._api._write_through_public_twin(updated)
         # The public response carries ``PublicRingSettings`` (every field typed
         # optional); rebuild the strict private ``RingSetting`` list from it,
         # skipping entries the wire left incomplete so a partial response can't
@@ -4293,25 +4283,29 @@ class Chime(ProtectAdoptableDeviceModel):
         # Validate level using PercentInt (raises ValidationError if invalid)
         PercentInt(level)
 
-        # Find the current ring setting for this camera
-        ring_setting = None
-        for setting in self.ring_settings:
-            if setting.camera_id == camera.id:
-                ring_setting = setting
-                break
+        # Hold the lock across the whole read-modify-write: two concurrent
+        # callers must not each read the pre-mutation list and clobber each
+        # other's change (last PATCH wins).
+        async with self._update_sync.lock:
+            # Find the current ring setting for this camera
+            ring_setting = None
+            for setting in self.ring_settings:
+                if setting.camera_id == camera.id:
+                    ring_setting = setting
+                    break
 
-        if ring_setting is None:
-            raise BadRequest(f"Camera {camera.id} is not paired with chime")
+            if ring_setting is None:
+                raise BadRequest(f"Camera {camera.id} is not paired with chime")
 
-        # Build the update payload preserving original order
-        ring_settings_update: list[PublicApiChimeRingSettingRequest] = [
-            setting.to_api_dict(volume=level)
-            if setting.camera_id == camera.id
-            else setting.to_api_dict()
-            for setting in self.ring_settings
-        ]
+            # Build the update payload preserving original order
+            ring_settings_update: list[PublicApiChimeRingSettingRequest] = [
+                setting.to_api_dict(volume=level)
+                if setting.camera_id == camera.id
+                else setting.to_api_dict()
+                for setting in self.ring_settings
+            ]
 
-        await self.set_ring_settings_public(ring_settings_update)
+            await self.set_ring_settings_public(ring_settings_update)
 
     async def set_repeat_times_for_camera_public(
         self,
@@ -4338,25 +4332,28 @@ class Chime(ProtectAdoptableDeviceModel):
         # Validate value using RepeatTimes (raises ValidationError if invalid)
         RepeatTimes(value)
 
-        # Find the current ring setting for this camera
-        ring_setting = None
-        for setting in self.ring_settings:
-            if setting.camera_id == camera.id:
-                ring_setting = setting
-                break
+        # Hold the lock across the whole read-modify-write (see
+        # ``set_volume_for_camera_public``).
+        async with self._update_sync.lock:
+            # Find the current ring setting for this camera
+            ring_setting = None
+            for setting in self.ring_settings:
+                if setting.camera_id == camera.id:
+                    ring_setting = setting
+                    break
 
-        if ring_setting is None:
-            raise BadRequest(f"Camera {camera.id} is not paired with chime")
+            if ring_setting is None:
+                raise BadRequest(f"Camera {camera.id} is not paired with chime")
 
-        # Build the update payload preserving original order
-        ring_settings_update: list[PublicApiChimeRingSettingRequest] = [
-            setting.to_api_dict(repeat_times=value)
-            if setting.camera_id == camera.id
-            else setting.to_api_dict()
-            for setting in self.ring_settings
-        ]
+            # Build the update payload preserving original order
+            ring_settings_update: list[PublicApiChimeRingSettingRequest] = [
+                setting.to_api_dict(repeat_times=value)
+                if setting.camera_id == camera.id
+                else setting.to_api_dict()
+                for setting in self.ring_settings
+            ]
 
-        await self.set_ring_settings_public(ring_settings_update)
+            await self.set_ring_settings_public(ring_settings_update)
 
 
 class AiPort(Camera):
