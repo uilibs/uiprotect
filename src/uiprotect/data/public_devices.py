@@ -1050,23 +1050,25 @@ class PublicLight(PublicDeviceModel):
 
     async def set_status_light(self, enabled: bool) -> PublicLight:
         """Toggle the status indicator LED via the public API."""
-        settings = self.light_device_settings.model_copy()
-        settings.is_indicator_enabled = enabled
-        updated = await self._api.update_light_public(
-            self.id, light_device_settings=settings
-        )
-        self._apply_from_response(updated)
+        async with self._update_sync.lock:
+            settings = self.light_device_settings.model_copy()
+            settings.is_indicator_enabled = enabled
+            updated = await self._api.update_light_public(
+                self.id, light_device_settings=settings
+            )
+            self._apply_from_response(updated)
         return self
 
     async def set_led_level(self, led_level: int) -> PublicLight:
         """Set the indicator LED brightness (1-6) via the public API."""
         led_level = _coerce_public_int("led_level", led_level, _PUBLIC_LED_LEVEL_RANGE)
-        settings = self.light_device_settings.model_copy()
-        settings.led_level = led_level
-        updated = await self._api.update_light_public(
-            self.id, light_device_settings=settings
-        )
-        self._apply_from_response(updated)
+        async with self._update_sync.lock:
+            settings = self.light_device_settings.model_copy()
+            settings.led_level = led_level
+            updated = await self._api.update_light_public(
+                self.id, light_device_settings=settings
+            )
+            self._apply_from_response(updated)
         return self
 
     async def set_sensitivity(self, sensitivity: int) -> PublicLight:
@@ -1074,24 +1076,26 @@ class PublicLight(PublicDeviceModel):
         sensitivity = _coerce_public_int(
             "sensitivity", sensitivity, _PUBLIC_SENSITIVITY_RANGE
         )
-        settings = self.light_device_settings.model_copy()
-        settings.pir_sensitivity = sensitivity
-        updated = await self._api.update_light_public(
-            self.id, light_device_settings=settings
-        )
-        self._apply_from_response(updated)
+        async with self._update_sync.lock:
+            settings = self.light_device_settings.model_copy()
+            settings.pir_sensitivity = sensitivity
+            updated = await self._api.update_light_public(
+                self.id, light_device_settings=settings
+            )
+            self._apply_from_response(updated)
         return self
 
     async def set_duration(self, duration: timedelta) -> PublicLight:
         """Set how long the light stays on after motion (15s-900s) via the public API."""
         if duration.total_seconds() < 15 or duration.total_seconds() > 900:
             raise BadRequest("Duration outside of 15s to 900s range")
-        settings = self.light_device_settings.model_copy()
-        settings.pir_duration = int(duration.total_seconds() * 1000)
-        updated = await self._api.update_light_public(
-            self.id, light_device_settings=settings
-        )
-        self._apply_from_response(updated)
+        async with self._update_sync.lock:
+            settings = self.light_device_settings.model_copy()
+            settings.pir_duration = int(duration.total_seconds() * 1000)
+            updated = await self._api.update_light_public(
+                self.id, light_device_settings=settings
+            )
+            self._apply_from_response(updated)
         return self
 
     async def set_light_mode(
@@ -1100,14 +1104,15 @@ class PublicLight(PublicDeviceModel):
         enable_at: LightModeEnableType | None = None,
     ) -> PublicLight:
         """Set the lighting trigger mode (and optional schedule) via the public API."""
-        settings = self.light_mode_settings.model_copy()
-        settings.mode = mode
-        if enable_at is not None:
-            settings.enable_at = enable_at
-        updated = await self._api.update_light_public(
-            self.id, light_mode_settings=settings
-        )
-        self._apply_from_response(updated)
+        async with self._update_sync.lock:
+            settings = self.light_mode_settings.model_copy()
+            settings.mode = mode
+            if enable_at is not None:
+                settings.enable_at = enable_at
+            updated = await self._api.update_light_public(
+                self.id, light_mode_settings=settings
+            )
+            self._apply_from_response(updated)
         return self
 
     async def set_light_settings(
@@ -1122,25 +1127,26 @@ class PublicLight(PublicDeviceModel):
             duration.total_seconds() < 15 or duration.total_seconds() > 900
         ):
             raise BadRequest("Duration outside of 15s to 900s range")
-        mode_settings = self.light_mode_settings.model_copy()
-        mode_settings.mode = mode
-        if enable_at is not None:
-            mode_settings.enable_at = enable_at
-        device_settings: PublicLightDeviceSettings | None = None
-        if duration is not None or sensitivity is not None:
-            device_settings = self.light_device_settings.model_copy()
-            if duration is not None:
-                device_settings.pir_duration = int(duration.total_seconds() * 1000)
-            if sensitivity is not None:
-                device_settings.pir_sensitivity = _coerce_public_int(
-                    "sensitivity", sensitivity, _PUBLIC_SENSITIVITY_RANGE
-                )
-        updated = await self._api.update_light_public(
-            self.id,
-            light_mode_settings=mode_settings,
-            light_device_settings=device_settings,
-        )
-        self._apply_from_response(updated)
+        async with self._update_sync.lock:
+            mode_settings = self.light_mode_settings.model_copy()
+            mode_settings.mode = mode
+            if enable_at is not None:
+                mode_settings.enable_at = enable_at
+            device_settings: PublicLightDeviceSettings | None = None
+            if duration is not None or sensitivity is not None:
+                device_settings = self.light_device_settings.model_copy()
+                if duration is not None:
+                    device_settings.pir_duration = int(duration.total_seconds() * 1000)
+                if sensitivity is not None:
+                    device_settings.pir_sensitivity = _coerce_public_int(
+                        "sensitivity", sensitivity, _PUBLIC_SENSITIVITY_RANGE
+                    )
+            updated = await self._api.update_light_public(
+                self.id,
+                light_mode_settings=mode_settings,
+                light_device_settings=device_settings,
+            )
+            self._apply_from_response(updated)
         return self
 
 

@@ -220,7 +220,8 @@ assert protect.public_bootstrap.cameras[camera.id].mic_volume == 50
 Each setter validates the device's capability flags (e.g. a camera without a
 microphone rejects `set_mic_volume`), applies the same numeric bounds the server
 enforces, and serialises concurrent read-modify-write setters (chime ring
-volume, camera smart-detect toggles) on one device under a per-object lock.
+volume, camera smart-detect toggles, light mode/device settings) on one device
+under a per-object lock.
 `PublicCamera.rtsps_streams` is owned out-of-band by the library and is never
 touched by a setter.
 

@@ -1044,6 +1044,29 @@ async def test_public_chime_concurrent_volume_no_lost_update() -> None:
     assert volumes == {"cam-a": 10, "cam-b": 90}
 
 
+@pytest.mark.asyncio
+async def test_public_light_concurrent_settings_no_lost_update() -> None:
+    api = MagicMock()
+    light = _light(api)
+
+    async def fake_update(cid: str, *, light_device_settings: Any) -> PublicLight:
+        # Yield mid-flight so a second unlocked caller could interleave; the
+        # per-object lock must serialise the whole-object PATCH so neither
+        # caller reads a stale ``light_device_settings`` and clobbers the other.
+        await asyncio.sleep(0)
+        return light.model_copy(update={"light_device_settings": light_device_settings})
+
+    api.update_light_public = AsyncMock(side_effect=fake_update)
+
+    await asyncio.gather(
+        light.set_led_level(4),
+        light.set_sensitivity(80),
+    )
+
+    assert light.light_device_settings.led_level == 4
+    assert light.light_device_settings.pir_sensitivity == 80
+
+
 # ---------------------------------------------------------------------------
 # Central write-through (private-with-public-bootstrap keeps the twin fresh)
 # ---------------------------------------------------------------------------
