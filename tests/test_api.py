@@ -2343,8 +2343,8 @@ async def test_update_auth_config_writes_file_with_mode_0600(tmp_path: Path) -> 
     await client._update_auth_config(cookie["TOKEN"])
 
     config_file = client.config_file
-    assert config_file.exists()
-    assert (config_file.stat().st_mode & 0o777) == 0o600
+    assert await aos.path.exists(config_file)
+    assert ((await aos.stat(config_file)).st_mode & 0o777) == 0o600
 
 
 @pytest.mark.asyncio()
@@ -2410,8 +2410,8 @@ async def test_update_auth_config_creates_dir_with_mode_0700(tmp_path: Path) -> 
 
     await client._update_auth_config(cookie["TOKEN"])
 
-    assert config_dir.is_dir()
-    assert (config_dir.stat().st_mode & 0o777) == 0o700
+    assert await aos.path.isdir(config_dir)
+    assert ((await aos.stat(config_dir)).st_mode & 0o777) == 0o700
 
 
 @pytest.mark.asyncio()
@@ -2421,7 +2421,7 @@ async def test_update_auth_config_creates_dir_with_mode_0700(tmp_path: Path) -> 
 async def test_update_auth_config_tightens_preexisting_dir(tmp_path: Path) -> None:
     """An existing world-readable config dir is tightened to owner-only on write."""
     config_dir = tmp_path / "ufp"
-    config_dir.mkdir(mode=0o755)
+    await asyncio.to_thread(config_dir.mkdir, mode=0o755)
 
     client = ProtectApiClient(
         "127.0.0.1",
@@ -2441,7 +2441,7 @@ async def test_update_auth_config_tightens_preexisting_dir(tmp_path: Path) -> No
 
     await client._update_auth_config(cookie["TOKEN"])
 
-    assert (config_dir.stat().st_mode & 0o777) == 0o700
+    assert ((await aos.stat(config_dir)).st_mode & 0o777) == 0o700
 
 
 @pytest.mark.asyncio()
@@ -2468,7 +2468,7 @@ async def test_update_auth_config_no_tmp_leftover(tmp_path: Path) -> None:
 
     await client._update_auth_config(cookie["TOKEN"])
 
-    leftovers = list((tmp_path / "ufp").glob("*.tmp"))
+    leftovers = await asyncio.to_thread(lambda: list((tmp_path / "ufp").glob("*.tmp")))
     assert leftovers == []
 
 
@@ -2502,7 +2502,7 @@ async def test_update_auth_config_cleans_tmp_on_replace_failure(
     ):
         await client._update_auth_config(cookie["TOKEN"])
 
-    leftovers = list((tmp_path / "ufp").glob("*.tmp"))
+    leftovers = await asyncio.to_thread(lambda: list((tmp_path / "ufp").glob("*.tmp")))
     assert leftovers == []
 
 
@@ -2540,13 +2540,13 @@ async def test_clear_session_preserves_file_mode_0600(tmp_path: Path) -> None:
         }
     }
     config_file = tmp_path / "unifi_protect.json"
-    config_file.write_bytes(orjson.dumps(config))
-    config_file.chmod(0o644)
+    await asyncio.to_thread(config_file.write_bytes, orjson.dumps(config))
+    await asyncio.to_thread(config_file.chmod, 0o644)
 
     await client.clear_session()
 
-    assert config_file.exists()
-    assert (config_file.stat().st_mode & 0o777) == 0o600
+    assert await aos.path.exists(config_file)
+    assert ((await aos.stat(config_file)).st_mode & 0o777) == 0o600
 
 
 @pytest.mark.asyncio()
