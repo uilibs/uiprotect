@@ -412,6 +412,7 @@ async def test_sensor_set_motion_settings_public(sensor_obj: Sensor):
     )
     assert sensor_obj.motion_settings.is_enabled is True
     assert sensor_obj.motion_settings.sensitivity == 70
+    assert sensor_obj.motion_settings.sensitivity_when_armed == 90
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
