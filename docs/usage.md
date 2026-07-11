@@ -101,6 +101,26 @@ does not require an API key. The parallel `subscribe_events_websocket` drives
 the Public Integration API WebSocket and **does** require an API key. See the
 project README for the full notes on the typed event contract.
 
+### Detecting a revoked API key
+
+A revoked or invalid API key can't be re-authenticated from inside the client
+— the key is static — so the public WebSocket would otherwise redial forever on
+repeated `401` handshakes without the consumer ever learning the key died.
+After two consecutive `401`s the client emits `WebsocketState.AUTH_FAILED` over
+the existing state channels (`subscribe_events_websocket_state` /
+`subscribe_devices_websocket_state`) and switches to a longer backoff to stop
+hammering the NVR. Subscribe to that channel to be notified, then install a
+fresh key with `set_api_key()` — it re-arms both public WebSockets immediately
+so recovery doesn't wait out the backoff:
+
+```python
+def on_state(state: WebsocketState) -> None:
+    if state is WebsocketState.AUTH_FAILED:
+        protect.set_api_key(fetch_new_api_key())
+
+unsub = protect.subscribe_events_websocket_state(on_state)
+```
+
 Events arrive **only** on the events WebSocket, so if it drops and reconnects
 while the devices WebSocket stays up, an `end` frame missed during the gap
 would otherwise leave the event active — a camera's derived

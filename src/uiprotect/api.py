@@ -2202,6 +2202,10 @@ class ProtectApiClient(BaseApiClient):
         detected attributes (license-plate text, face-match name) are not
         exposed over the public API today — fall back to the private path
         via ``event.raw`` when you need them.
+
+        A revoked or invalid API key surfaces as ``WebsocketState.AUTH_FAILED``
+        via ``subscribe_events_websocket_state`` after repeated 401 handshakes;
+        call ``set_api_key()`` with a fresh key to re-arm.
         """
         if self._public_bootstrap is None:
             raise RuntimeError(
@@ -2341,6 +2345,10 @@ class ProtectApiClient(BaseApiClient):
         otherwise swallowed. ``device_mac`` resolves with eventual consistency
         — a device not yet in the bootstrap yields ``None`` until the next
         ``update_public()`` / reconnect resync.
+
+        A revoked or invalid API key surfaces as ``WebsocketState.AUTH_FAILED``
+        via ``subscribe_devices_websocket_state`` after repeated 401 handshakes;
+        call ``set_api_key()`` with a fresh key to re-arm.
         """
         if self._public_bootstrap is None:
             raise RuntimeError(
@@ -3579,6 +3587,11 @@ class ProtectApiClient(BaseApiClient):
         # The budget is per-key; a new key gets a fresh limiter (re-seeded from
         # the next response's RateLimit-Policy header).
         self._public_rate_limiter = PublicApiRateLimiter()
+        # A revoked key parks the public websockets on the long auth-failed
+        # backoff; a fresh key should recover them without waiting it out.
+        for websocket in (self._events_websocket, self._devices_websocket):
+            if websocket is not None:
+                websocket.reset_auth_failure()
 
     def is_api_key_set(self) -> bool:
         """Check if the API key is set."""

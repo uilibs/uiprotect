@@ -2636,6 +2636,28 @@ def test_set_api_key_empty_raises():
         client.set_api_key("")
 
 
+def test_set_api_key_rearms_public_websockets():
+    """set_api_key() clears auth-failure backoff on both public websockets."""
+    client = ProtectApiClient(
+        "127.0.0.1",
+        0,
+        "user",
+        "pass",
+        api_key=None,
+        verify_ssl=False,
+    )
+    events_ws = Mock()
+    devices_ws = Mock()
+    client._events_websocket = events_ws
+    client._devices_websocket = devices_ws
+
+    client.set_api_key("fresh-key")
+
+    assert client._api_key == "fresh-key"
+    events_ws.reset_auth_failure.assert_called_once_with()
+    devices_ws.reset_auth_failure.assert_called_once_with()
+
+
 def test_is_api_key_set_true():
     client = ProtectApiClient(
         "127.0.0.1",
