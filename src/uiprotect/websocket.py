@@ -130,7 +130,9 @@ class Websocket:
             level = logging.ERROR if self._seen_non_close_message else logging.DEBUG
             if isinstance(ex, WSServerHandshakeError):
                 if ex.status == HTTPStatus.UNAUTHORIZED.value:
-                    _LOGGER.log(level, "Websocket authentication error: %s: %s", url, ex)
+                    _LOGGER.log(
+                        level, "Websocket authentication error: %s: %s", url, ex
+                    )
                     await self._attempt_auth(True)
                     self._consecutive_auth_failures += 1
                     return True
