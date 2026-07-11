@@ -198,3 +198,33 @@ from the second to the first:
 Prefer the public API for new code. Reach for the private API only for
 capabilities the public API does not yet expose; treat that as a temporary
 escape hatch rather than the default path.
+
+## Device convenience setters (public API)
+
+Camera, light, sensor and chime devices from `public_bootstrap` expose `set_*`
+convenience methods that patch a single setting and write the server's response
+straight back into the cached device — so a **public-only client** (API key, no
+username/password) can mutate a device without hand-building nested
+`update_*_public` bodies:
+
+```python
+await protect.update_public()
+camera = next(iter(protect.public_bootstrap.cameras.values()))
+
+# Write-through: the cached camera reflects the change on return.
+await camera.set_status_light(True)
+await camera.set_mic_volume(50)
+assert protect.public_bootstrap.cameras[camera.id].mic_volume == 50
+```
+
+Each setter validates the device's capability flags (e.g. a camera without a
+microphone rejects `set_mic_volume`), applies the same numeric bounds the server
+enforces, and serialises concurrent read-modify-write setters (chime ring
+volume, camera smart-detect toggles) on one device under a per-object lock.
+`PublicCamera.rtsps_streams` is owned out-of-band by the library and is never
+touched by a setter.
+
+The private-API `Device.set_*_public` methods remain and are unchanged; when a
+public bootstrap is loaded they keep the cached public twin fresh through the
+same `update_*_public` endpoints, so the Home Assistant integration and the CLI
+continue to work as before.
