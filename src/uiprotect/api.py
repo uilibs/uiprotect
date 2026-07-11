@@ -4509,15 +4509,24 @@ class ProtectApiClient(BaseApiClient):
 
     async def get_arm_profiles_public(self) -> list[ArmProfile]:
         """Get all arm profiles."""
-        data = await self.api_request_list(url="/v1/arm-profiles", public_api=True)
-        profiles = [ArmProfile.from_unifi_dict(**item, api=self) for item in data]
-        if self._public_bootstrap is not None:
-            # Update in place to preserve dict identity for consumers holding
-            # a reference to ``public_bootstrap.arm_profiles``.
-            arm_profiles = self._public_bootstrap.arm_profiles
-            arm_profiles.clear()
-            arm_profiles.update({p.id: p for p in profiles})
+        profiles = await self._fetch_arm_profiles_public()
+        self._apply_arm_profiles(profiles)
         return profiles
+
+    async def _fetch_arm_profiles_public(self) -> list[ArmProfile]:
+        """Fetch arm profiles without mutating the cached bootstrap."""
+        data = await self.api_request_list(url="/v1/arm-profiles", public_api=True)
+        return [ArmProfile.from_unifi_dict(**item, api=self) for item in data]
+
+    def _apply_arm_profiles(self, profiles: list[ArmProfile]) -> None:
+        """Merge fetched arm profiles into the cache in place, preserving identity."""
+        if self._public_bootstrap is None:
+            return
+        # Update in place to preserve dict identity for consumers holding
+        # a reference to ``public_bootstrap.arm_profiles``.
+        arm_profiles = self._public_bootstrap.arm_profiles
+        arm_profiles.clear()
+        arm_profiles.update({p.id: p for p in profiles})
 
     async def create_arm_profile_public(
         self,
@@ -4743,8 +4752,10 @@ class ProtectApiClient(BaseApiClient):
         doesn't (yet) expose (``BadRequest`` / ``NvrError``) are logged at
         ``DEBUG`` and ignored, and a partial public bootstrap is returned.
         If an endpoint fails, its previously cached data is left unchanged
-        (not cleared). Unexpected exceptions (e.g. validation errors from a
-        new server payload) propagate to the caller.
+        (not cleared). All results are classified before any are applied: an
+        unexpected exception (e.g. a validation error from a new server
+        payload) propagates to the caller with the snapshot left untouched,
+        never half-applied.
 
         A revoked or invalid API key surfaces as :class:`NotAuthorized`; catch
         it as the reauth signal.
@@ -4772,8 +4783,8 @@ class ProtectApiClient(BaseApiClient):
 
         # Bind coroutines to their labels and attribute names to avoid
         # manual index synchronization bugs.
-        # ``get_arm_profiles_public`` writes into ``pb`` itself on success;
-        # we gather it for concurrency and to swallow failures.
+        # ``_fetch_arm_profiles_public`` fetches without self-applying so
+        # arm-profiles can be applied atomically in the batch phase below.
         # ``armMode`` is part of the NVR response; no separate call needed.
         endpoints = [
             (self.get_nvr_public(), "nvr", "nvr"),
@@ -4790,23 +4801,30 @@ class ProtectApiClient(BaseApiClient):
             (self.get_bridges_public(), "bridges", "bridges"),
             (self.get_viewers_public(), "viewers", "viewers"),
             (self.get_ulp_users_public(), "ulp-users", "ulp_users"),
-            (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles"),
+            (self._fetch_arm_profiles_public(), "arm-profiles", "arm_profiles"),
         ]
 
         results = await asyncio.gather(
             *[coro for coro, _, _ in endpoints], return_exceptions=True
         )
 
-        # Process results with their corresponding labels and attributes.
-        for (_, label, attr), result in zip(endpoints, results, strict=True):
+        # Phase 1 — classify every result before touching the snapshot.
+        # Tolerated endpoint-unavailable errors (BadRequest/NvrError) are
+        # logged; any other exception re-raises here, leaving the previous
+        # consistent bootstrap intact instead of half-applied.
+        for (_, label, _attr), result in zip(endpoints, results, strict=True):
             if isinstance(result, BaseException):
                 _log_or_raise(label, result)
+
+        # Phase 2 — no unexpected error: apply the whole batch. No ``await``
+        # between writes, so a concurrent public-WS frame cannot interleave a
+        # torn state. Tolerated-missing endpoints keep their prior cached data.
+        for (_, _label, attr), result in zip(endpoints, results, strict=True):
+            if isinstance(result, BaseException):
                 continue
             if attr == "arm_profiles":
-                # arm_profiles are already applied by get_arm_profiles_public;
-                # skip here to avoid overwriting the in-place dict.
-                continue
-            if attr == "nvr":
+                self._apply_arm_profiles(result)  # type: ignore[arg-type]
+            elif attr == "nvr":
                 pb.nvr = result  # type: ignore[assignment]
             else:
                 pb.apply_fetch_result(attr, result)  # type: ignore[arg-type]
