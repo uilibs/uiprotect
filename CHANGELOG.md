@@ -1,5 +1,25 @@
 # Changelog
 
+## v15.9.0 (2026-07-11)
+
+### Features
+
+
+- Unify device convenience setters on the public model tree ([`ceedc47`](https://github.com/uilibs/uiprotect/commit/ceedc47bcc2f58765ad1d63614fac4328f588960))
+
+
+### Testing
+
+
+- Cover public device convenience setters and write-through ([`ceedc47`](https://github.com/uilibs/uiprotect/commit/ceedc47bcc2f58765ad1d63614fac4328f588960))
+
+
+### Documentation
+
+
+- Document public-tree device convenience setters ([`ceedc47`](https://github.com/uilibs/uiprotect/commit/ceedc47bcc2f58765ad1d63614fac4328f588960))
+
+
 ## v15.8.0 (2026-07-11)
 
 ### Features
