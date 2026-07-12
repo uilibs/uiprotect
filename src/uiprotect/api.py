@@ -2686,8 +2686,32 @@ class ProtectApiClient(BaseApiClient):
                 and camera.rtsps_streams is initial
             ):
                 camera.rtsps_streams = streams
+                # The write is otherwise silent: no wire frame announces a
+                # library-primed field. Emit a synthetic devices-WS ``update``
+                # so subscribers observe the streams becoming available through
+                # the existing channel. Suppress it when the re-fetch is equal to
+                # the cached value so a no-op refresh stays quiet.
+                if streams != initial:
+                    self.emit_devices_message(self._build_rtsps_update(camera, streams))
         finally:
             self._rtsps_refresh_tasks.pop(camera_id, None)
+
+    @staticmethod
+    def _build_rtsps_update(
+        camera: PublicCamera, streams: RTSPSStreams
+    ) -> WSSubscriptionMessage:
+        """Build a synthetic devices-WS ``update`` announcing a camera's streams."""
+        return WSSubscriptionMessage(
+            action=WSAction.UPDATE,
+            new_update_id=camera.id,
+            changed_data={
+                "modelKey": ModelType.CAMERA.value,
+                "id": camera.id,
+                "rtsps_streams": streams.unifi_dict(),
+            },
+            new_obj=camera,
+            old_obj=None,
+        )
 
     def _cancel_rtsps_refresh(self, camera_id: str) -> None:
         """Cancel a pending background RTSPS refresh for a camera, if any."""
