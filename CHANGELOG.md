@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.10.0 (2026-07-12)
+
+### Features
+
+
+- Backfill public nvr mac from console fallback on older firmware ([`d9d5e3b`](https://github.com/uilibs/uiprotect/commit/d9d5e3b4bf4c254187430de129ea17f2bee63f5b))
+
+
 ## v15.9.0 (2026-07-11)
 
 ### Features
