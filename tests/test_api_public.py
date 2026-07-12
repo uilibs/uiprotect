@@ -1748,11 +1748,17 @@ async def test_update_public_replays_events_ws_frames_from_prime_window(
 async def test_update_public_disarms_buffer_when_prime_fails(
     protect_client: ProtectApiClient,
 ) -> None:
-    """An unexpected fetch error tears down the prime buffer."""
+    """A failed prime tears down the buffer but still delivers its frames."""
     client = protect_client
+    client._public_bootstrap = PublicBootstrap()
+    siren = Siren.from_unifi_dict(api=client, **deepcopy(_siren_snapshot_item()))
+    client._public_bootstrap.sirens[SIREN_ID] = siren
     update_msg = _mock_text_ws_message(
         {"type": "update", "item": {"id": SIREN_ID, "modelKey": "siren", "volume": 10}}
     )
+
+    captured: list[WSSubscriptionMessage] = []
+    client._devices_ws_subscriptions.append(captured.append)
 
     async def cameras_side_effect() -> list[Any]:
         client._process_devices_ws_message(update_msg)
@@ -1767,6 +1773,55 @@ async def test_update_public_disarms_buffer_when_prime_fails(
         await client.update_public()
 
     assert client._prime_ws_buffer is None
+    # The frame is not swallowed: it drains onto the previous cache (the
+    # pre-buffering live behavior) and reaches the subscriber.
+    assert client._public_bootstrap.sirens[SIREN_ID].volume == 10
+    assert len(captured) == 1
+    assert captured[0].action == WSAction.UPDATE
+
+
+@pytest.mark.asyncio()
+async def test_update_public_nested_call_leaves_buffer_to_owner(
+    protect_client: ProtectApiClient,
+) -> None:
+    """An overlapping ``update_public`` neither replays nor disarms the buffer."""
+    client = protect_client
+    siren = Siren.from_unifi_dict(api=client, **deepcopy(_siren_snapshot_item()))
+    update_msg = _mock_text_ws_message(
+        {"type": "update", "item": {"id": SIREN_ID, "modelKey": "siren", "volume": 10}}
+    )
+
+    captured: list[WSSubscriptionMessage] = []
+    client._devices_ws_subscriptions.append(captured.append)
+
+    inner_ran = False
+
+    async def cameras_side_effect() -> list[Any]:
+        nonlocal inner_ran
+        if inner_ran:
+            return []
+        inner_ran = True
+        # A frame lands in the outer prime window, then an overlapping
+        # (e.g. resync-triggered) prime runs to completion inside it.
+        client._process_devices_ws_message(update_msg)
+        await client.update_public()
+        # The inner call must leave the armed buffer to the outer owner.
+        assert client._prime_ws_buffer
+        assert captured == []
+        return []
+
+    _mock_update_public_endpoints(
+        client,
+        get_sirens_public=AsyncMock(return_value=[siren]),
+        get_cameras_public=AsyncMock(side_effect=cameras_side_effect),
+    )
+
+    pb = await client.update_public()
+
+    # Only the outer owner drains: exactly one replay, onto the final snapshot.
+    assert client._prime_ws_buffer is None
+    assert len(captured) == 1
+    assert pb.sirens[SIREN_ID].volume == 10
 
 
 @pytest.mark.asyncio()

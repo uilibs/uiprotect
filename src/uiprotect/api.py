@@ -4932,19 +4932,18 @@ class ProtectApiClient(BaseApiClient):
             # between writes, so a concurrent public-WS frame cannot interleave
             # a torn state. Tolerated-missing endpoints keep their prior data.
             self._apply_public_fetch_results(pb, endpoints, results)
-
-            # Snapshot applied: stop buffering and replay the captured frames
-            # onto the fresh cache. Clearing the buffer first means replayed
-            # (and any re-entrant) frames process live rather than re-queueing.
+        finally:
+            # Stop buffering and drain on success and failure alike: replayed
+            # frames land on the fresh snapshot when the prime succeeded, and
+            # on the previous cache when it raised (the pre-buffering live
+            # behavior, merely delayed) — a failed prime must not swallow them.
+            # Clearing the buffer first means replayed (and any re-entrant)
+            # frames process live rather than re-queueing.
             if owns_prime_buffer:
                 replay = self._prime_ws_buffer or []
                 self._prime_ws_buffer = None
                 for handler, msg in replay:
                     handler(msg)
-        finally:
-            # Never leave buffering armed if a fetch raised before the replay.
-            if owns_prime_buffer:
-                self._prime_ws_buffer = None
 
         await self._prime_rtsps_streams(pb, previous_streams)
         await self._backfill_public_nvr_mac(pb)
