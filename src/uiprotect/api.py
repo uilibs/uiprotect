@@ -4825,11 +4825,14 @@ class ProtectApiClient(BaseApiClient):
         console fallback and write it in that same native format so the value
         does not drift across firmware versions.
         """
-        nvr = pb.nvr
-        if nvr is None or nvr.mac:
+        if pb.nvr is None or pb.nvr.mac:
             return
         resolved = await self.resolve_nvr_mac()
-        if resolved:
+        if not resolved:
+            return
+        # ``pb.nvr`` may have been replaced by a websocket write-through while
+        # awaiting, so re-read it and skip if it now carries a mac.
+        if (nvr := pb.nvr) is not None and not nvr.mac:
             # resolve_nvr_mac() returns the normalized (lowercase, separator-
             # stripped) form; the public field natively holds uppercase-no-
             # separator on newer firmware, so upper() matches that exactly.

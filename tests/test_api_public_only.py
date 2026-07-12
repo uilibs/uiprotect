@@ -382,6 +382,41 @@ async def test_update_public_backfill_leaves_mac_none_when_unresolvable() -> Non
     assert pb.nvr.mac is None
 
 
+@pytest.mark.asyncio()
+async def test_update_public_backfill_respects_nvr_replaced_during_await() -> None:
+    """A websocket write-through that replaces pb.nvr mid-resolve is not clobbered."""
+    client = _public_only_client()
+    _mock_update_public_endpoints(client)  # default nvr has mac=None
+    replacement = _make_public_nvr(client)
+    replacement.mac = "AABBCCDDEEFF"
+
+    async def _resolve_and_swap() -> str:
+        client.public_bootstrap.nvr = replacement
+        return "ffffffffffff"
+
+    with patch.object(client, "resolve_nvr_mac", side_effect=_resolve_and_swap):
+        pb = await client.update_public()
+
+    assert pb.nvr is replacement
+    assert pb.nvr.mac == "AABBCCDDEEFF"
+
+
+@pytest.mark.asyncio()
+async def test_update_public_backfill_when_nvr_removed_during_await() -> None:
+    """pb.nvr removed mid-resolve leaves nothing to stamp, without crashing."""
+    client = _public_only_client()
+    _mock_update_public_endpoints(client)  # default nvr has mac=None
+
+    async def _resolve_and_remove() -> str:
+        client.public_bootstrap.nvr = None
+        return "aabbccddeeff"
+
+    with patch.object(client, "resolve_nvr_mac", side_effect=_resolve_and_remove):
+        pb = await client.update_public()
+
+    assert pb.nvr is None
+
+
 # ---------------------------------------------------------------------------
 # Min-version source
 # ---------------------------------------------------------------------------
