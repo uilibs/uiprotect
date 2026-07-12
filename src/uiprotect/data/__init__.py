@@ -3,6 +3,7 @@ from __future__ import annotations
 from .base import (
     ProtectAdoptableDeviceModel,
     ProtectBaseObject,
+    ProtectDeviceIdentity,
     ProtectDeviceModel,
     ProtectModel,
     ProtectModelWithId,
@@ -262,6 +263,7 @@ __all__ = [
     "PermissionNode",
     "ProtectAdoptableDeviceModel",
     "ProtectBaseObject",
+    "ProtectDeviceIdentity",
     "ProtectDeviceModel",
     "ProtectModel",
     "ProtectModelWithId",

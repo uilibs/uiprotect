@@ -11,6 +11,7 @@ from uiprotect.api import RTSPSStreams
 from uiprotect.data import (
     Fob,
     LinkStation,
+    ProtectDeviceIdentity,
     PublicBridge,
     PublicCamera,
     PublicChime,
@@ -517,6 +518,66 @@ def test_public_nvr_device_identity_round_trips() -> None:
     bare = PublicNVR.from_unifi_dict(api=Mock(), id="nvr1", modelKey="nvr")
     assert bare.device_type is None
     assert bare.device_guid is None
+
+
+@pytest.mark.parametrize(
+    ("cls", "payload"),
+    [
+        (PublicCamera, CAMERA_PAYLOAD),
+        (PublicLight, LIGHT_PAYLOAD),
+        (PublicSensor, SENSOR_PAYLOAD),
+        (PublicChime, CHIME_PAYLOAD),
+    ],
+)
+def test_public_type_aliases_device_type(cls: type, payload: dict[str, Any]) -> None:
+    """``type`` mirrors ``device_type`` (the private tree's ``type`` field)."""
+    data = dict(payload)
+    data["type"] = "Example-Model"
+    obj = cls.from_unifi_dict(api=Mock(), **data)
+    assert obj.type == "Example-Model"
+    assert obj.type == obj.device_type
+
+    bare = cls.from_unifi_dict(api=Mock(), **dict(payload))
+    assert bare.type is None
+
+
+@pytest.mark.parametrize(
+    ("name", "device_type", "expected"),
+    [
+        ("Front Door", "Example-Model", "Front Door"),
+        (None, "Example-Model", "Example-Model"),
+        (None, None, ""),
+    ],
+)
+def test_public_display_name_fallback(
+    name: str | None, device_type: str | None, expected: str
+) -> None:
+    """``display_name`` falls back ``name -> type -> ""`` like the private tree."""
+    nvr = PublicNVR.from_unifi_dict(
+        api=Mock(), id="nvr1", modelKey="nvr", name=name, type=device_type
+    )
+    assert nvr.display_name == expected
+
+
+@pytest.mark.asyncio
+async def test_shared_identity_protocol_spans_both_trees(
+    nvr_obj: Any, camera_obj: Any
+) -> None:
+    """One ``ProtectDeviceIdentity`` variable accepts either tree without ``cast()``."""
+    public_nvr = PublicNVR.from_unifi_dict(
+        api=Mock(), id="nvr1", modelKey="nvr", name="Console", type="UNVR"
+    )
+    public_camera = PublicCamera.from_unifi_dict(api=Mock(), **dict(CAMERA_PAYLOAD))
+
+    def identity_line(device: ProtectDeviceIdentity) -> str:
+        return f"{device.display_name} ({device.type}) [{device.mac}] {device.id}"
+
+    for device in (nvr_obj, camera_obj, public_nvr, public_camera):
+        assert isinstance(device, ProtectDeviceIdentity)
+        assert identity_line(device)
+
+    assert public_nvr.display_name == "Console"
+    assert public_nvr.type == "UNVR"
 
 
 @pytest.mark.parametrize(

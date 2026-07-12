@@ -9,7 +9,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import cache
 from ipaddress import IPv4Address, IPv6Address
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple, Protocol, runtime_checkable
 from uuid import UUID
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
@@ -800,6 +800,29 @@ class ProtectModelWithId(ProtectModel):
 
         if message is not None:
             self._api.emit_message(message)
+
+
+@runtime_checkable
+class ProtectDeviceIdentity(Protocol):
+    """Identity surface shared by the private and public device / NVR model trees.
+
+    Consumers that handle "the NVR" or "a camera" generically can type against
+    this instead of ``cast()``-ing between the unrelated private (``NVR`` /
+    ``Camera`` / ...) and public (``PublicNVR`` / ``PublicCamera`` / ...) types.
+    ``mac`` and ``type`` are ``Optional`` because the public tree omits them on
+    older firmware.
+    """
+
+    @property
+    def id(self) -> str: ...
+    @property
+    def mac(self) -> str | None: ...
+    @property
+    def display_name(self) -> str: ...
+    @property
+    def type(self) -> str | None: ...
+    @property
+    def model(self) -> ModelType | None: ...
 
 
 class ProtectDeviceModel(ProtectModelWithId):

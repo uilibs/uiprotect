@@ -229,3 +229,28 @@ The private-API `Device.set_*_public` methods remain and are unchanged; when a
 public bootstrap is loaded they keep the cached public twin fresh through the
 same `update_*_public` endpoints, so the Home Assistant integration and the CLI
 continue to work as before.
+
+## Shared identity interface
+
+The public device models expose the same derived identity attributes as the
+private tree: `display_name` (falling back `name → type`, mirroring the private
+`name → market_name → type`) and a `type` alias for the raw `device_type`
+field. So `PublicNVR().display_name` and `PublicCamera().type` work the same as
+their private-tree counterparts.
+
+Code that handles "the NVR" or "a camera" generically — for example the Home
+Assistant integration's device-info paths, which must now accept either tree —
+can type against the `ProtectDeviceIdentity` protocol instead of `cast()`-ing
+between the unrelated private (`NVR`, `Camera`, …) and public (`PublicNVR`,
+`PublicCamera`, …) types. Both trees satisfy it structurally:
+
+```python
+from uiprotect.data import ProtectDeviceIdentity
+
+def label(device: ProtectDeviceIdentity) -> str:
+    # Accepts an NVR or a PublicNVR (a Camera or a PublicCamera, …) unchanged.
+    return f"{device.display_name} ({device.type}) [{device.mac}] {device.id}"
+```
+
+The protocol covers `id`, `mac`, `display_name`, `type`, and `model`; `mac` and
+`type` are optional because the public tree omits them on older firmware.
