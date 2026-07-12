@@ -817,6 +817,63 @@ async def test_ws_auth_failed_emitted_after_repeated_401():
         await ws.wait_closed()
 
 
+class _ClosingWebsocket:
+    """WS that connects, then delivers a CLOSE frame so the loop reconnects."""
+
+    is_closed = False
+
+    @property
+    def closed(self) -> bool:
+        return self.is_closed
+
+    async def close(self) -> None:
+        self.is_closed = True
+
+    async def receive(self, timeout: float | None) -> Any:
+        self.is_closed = True
+        return aiohttp.WSMessage(aiohttp.WSMsgType.CLOSE, None, None)
+
+
+@pytest.mark.asyncio()
+async def test_ws_auth_failed_after_connected_emits_disconnected_first():
+    """CONNECTED -> AUTH_FAILED must surface a DISCONNECTED edge in between."""
+    session = AsyncMock()
+    calls = 0
+
+    def connect(*args: Any, **kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _ClosingWebsocket()
+        raise _handshake_401()
+
+    session.ws_connect = AsyncMock(side_effect=connect)
+    ws, states = _build_websocket(session, backoff=0, auth_failed_backoff=0)
+
+    ws.start()
+    try:
+        for _ in range(500):
+            if WebsocketState.AUTH_FAILED in states:
+                break
+            await asyncio.sleep(0.01)
+        assert WebsocketState.AUTH_FAILED in states
+        # a consumer tracking only connect/disconnect edges sees the loss
+        assert WebsocketState.DISCONNECTED in states
+        # ordering: CONNECTED, then DISCONNECTED, then AUTH_FAILED
+        assert states.index(WebsocketState.CONNECTED) < states.index(
+            WebsocketState.DISCONNECTED
+        )
+        assert states.index(WebsocketState.DISCONNECTED) < states.index(
+            WebsocketState.AUTH_FAILED
+        )
+        # AUTH_FAILED stays deduped across the backoff loop (no flapping)
+        assert states.count(WebsocketState.AUTH_FAILED) == 1
+        assert states.count(WebsocketState.DISCONNECTED) == 1
+    finally:
+        ws.stop()
+        await ws.wait_closed()
+
+
 @pytest.mark.asyncio()
 async def test_ws_single_401_then_connect_does_not_emit_auth_failed():
     """A transient 401 that reconnects successfully never trips AUTH_FAILED."""

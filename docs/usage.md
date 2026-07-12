@@ -109,9 +109,15 @@ repeated `401` handshakes without the consumer ever learning the key died.
 After two consecutive `401`s the client emits `WebsocketState.AUTH_FAILED` over
 the existing state channels (`subscribe_events_websocket_state` /
 `subscribe_devices_websocket_state`) and switches to a longer backoff to stop
-hammering the NVR. Subscribe to that channel to be notified, then install a
-fresh key with `set_api_key()` — it re-arms both public WebSockets immediately
-so recovery doesn't wait out the backoff:
+hammering the NVR. `AUTH_FAILED` **implies disconnected** — the socket is closed
+and cannot recover without a new key — so the client always emits a
+`DISCONNECTED` transition first when it trips. A consumer that tracks
+connectivity as `state is WebsocketState.CONNECTED` and one that only reacts to
+`DISCONNECTED` edges both observe the loss; `AUTH_FAILED` is the additional
+signal that the cause is a dead key rather than a transient drop. Subscribe to
+that channel to be notified, then install a fresh key with `set_api_key()` — it
+re-arms both public WebSockets immediately so recovery doesn't wait out the
+backoff:
 
 ```python
 def on_state(state: WebsocketState) -> None:
