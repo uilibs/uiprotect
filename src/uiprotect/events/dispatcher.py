@@ -43,10 +43,6 @@ class EventDispatcher:
         self._subscribers: list[Callable[[ProtectEvent, EventChange], None]] = []
         self._sweep_task: asyncio.Task[None] | None = None
 
-    # ------------------------------------------------------------------
-    # Subscriber book-keeping
-    # ------------------------------------------------------------------
-
     def add_subscriber(self, cb: Callable[[ProtectEvent, EventChange], None]) -> None:
         self._subscribers.append(cb)
 
@@ -67,10 +63,6 @@ class EventDispatcher:
             return None
         return self._api.public_bootstrap.get_device_mac(device_id)
 
-    # ------------------------------------------------------------------
-    # Active set — pure derivation over the single store
-    # ------------------------------------------------------------------
-
     def active_events(self, device_id: str | None = None) -> list[ProtectEvent]:
         out: list[ProtectEvent] = []
         for raw in self._api.public_bootstrap.events.values():
@@ -90,10 +82,6 @@ class EventDispatcher:
                 )
             )
         return out
-
-    # ------------------------------------------------------------------
-    # Main dispatch — one terminal chokepoint fed by the store's old/new
-    # ------------------------------------------------------------------
 
     def dispatch(
         self,
@@ -190,10 +178,6 @@ class EventDispatcher:
                 cb(event, change)
             except Exception:
                 _LOGGER.exception("Exception while running subscribe_events subscriber")
-
-    # ------------------------------------------------------------------
-    # TTL / reconnect sweep — one mechanism over the single store
-    # ------------------------------------------------------------------
 
     def start_ttl_sweep(self) -> None:
         if self._sweep_task is not None and not self._sweep_task.done():
