@@ -804,7 +804,8 @@ class ProtectModelWithId(ProtectModel):
 
 @runtime_checkable
 class ProtectDeviceIdentity(Protocol):
-    """Identity surface shared by the private and public device / NVR model trees.
+    """
+    Identity surface shared by the private and public device / NVR model trees.
 
     Consumers that handle "the NVR" or "a camera" generically can type against
     this instead of ``cast()``-ing between the unrelated private (``NVR`` /
