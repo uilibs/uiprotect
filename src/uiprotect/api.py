@@ -258,7 +258,9 @@ _GLOBAL_ALARM_MANAGER_REASON = "global alarm manager"
 _ARM_ALARM_ARMED_REASON = "arm alarm is armed"
 
 
-def _log_or_raise(label: str, exc: BaseException) -> None:
+def _log_or_raise(
+    label: str, exc: BaseException, *, tolerate_not_authorized: bool = False
+) -> None:
     """
     Log expected endpoint-unavailable errors; re-raise anything unexpected.
 
@@ -270,9 +272,16 @@ def _log_or_raise(label: str, exc: BaseException) -> None:
 
     ``NotAuthorized`` subclasses ``BadRequest`` but is re-raised: a 401 is an
     auth failure (revoked/invalid key), not an unavailable endpoint, so it must
-    surface as the reauth signal rather than be swallowed.
+    surface as the reauth signal rather than be swallowed. The one exception is
+    ``tolerate_not_authorized`` endpoints (ulp-users), where a 401 means the
+    ULP/Identity feature is disabled on an otherwise-valid key.
     """
     if isinstance(exc, NotAuthorized):
+        if tolerate_not_authorized:
+            _LOGGER.debug(
+                "%s endpoint not authorized (feature disabled?): %s", label, exc
+            )
+            return
         raise exc
     if isinstance(exc, (BadRequest, NvrError)):
         _LOGGER.debug("%s endpoint unavailable: %s", label, exc)
@@ -4820,7 +4829,9 @@ class ProtectApiClient(BaseApiClient):
         # consistent bootstrap intact instead of half-applied.
         for (_, label, _attr), result in zip(endpoints, results, strict=True):
             if isinstance(result, BaseException):
-                _log_or_raise(label, result)
+                _log_or_raise(
+                    label, result, tolerate_not_authorized=label == "ulp-users"
+                )
 
         # Phase 2 — no unexpected error: apply the whole batch. No ``await``
         # between writes, so a concurrent public-WS frame cannot interleave a
