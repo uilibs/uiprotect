@@ -267,7 +267,13 @@ def _log_or_raise(label: str, exc: BaseException) -> None:
     may not exist on all systems.  Any other exception type is re-raised
     immediately — the caller must handle it (e.g. ``CancelledError``,
     validation errors from an updated server payload).
+
+    ``NotAuthorized`` subclasses ``BadRequest`` but is re-raised: a 401 is an
+    auth failure (revoked/invalid key), not an unavailable endpoint, so it must
+    surface as the reauth signal rather than be swallowed.
     """
+    if isinstance(exc, NotAuthorized):
+        raise exc
     if isinstance(exc, (BadRequest, NvrError)):
         _LOGGER.debug("%s endpoint unavailable: %s", label, exc)
     else:
@@ -4509,11 +4515,11 @@ class ProtectApiClient(BaseApiClient):
 
     async def get_arm_profiles_public(self) -> list[ArmProfile]:
         """Get all arm profiles."""
-        profiles = await self._fetch_arm_profiles_public()
+        profiles = await self._fetch_arm_profiles()
         self._apply_arm_profiles(profiles)
         return profiles
 
-    async def _fetch_arm_profiles_public(self) -> list[ArmProfile]:
+    async def _fetch_arm_profiles(self) -> list[ArmProfile]:
         """Fetch arm profiles without mutating the cached bootstrap."""
         data = await self.api_request_list(url="/v1/arm-profiles", public_api=True)
         return [ArmProfile.from_unifi_dict(**item, api=self) for item in data]
@@ -4783,7 +4789,7 @@ class ProtectApiClient(BaseApiClient):
 
         # Bind coroutines to their labels and attribute names to avoid
         # manual index synchronization bugs.
-        # ``_fetch_arm_profiles_public`` fetches without self-applying so
+        # ``_fetch_arm_profiles`` fetches without self-applying so
         # arm-profiles can be applied atomically in the batch phase below.
         # ``armMode`` is part of the NVR response; no separate call needed.
         endpoints = [
@@ -4801,7 +4807,7 @@ class ProtectApiClient(BaseApiClient):
             (self.get_bridges_public(), "bridges", "bridges"),
             (self.get_viewers_public(), "viewers", "viewers"),
             (self.get_ulp_users_public(), "ulp-users", "ulp_users"),
-            (self._fetch_arm_profiles_public(), "arm-profiles", "arm_profiles"),
+            (self._fetch_arm_profiles(), "arm-profiles", "arm_profiles"),
         ]
 
         results = await asyncio.gather(
