@@ -4748,6 +4748,13 @@ class ProtectApiClient(BaseApiClient):
 
         A revoked or invalid API key surfaces as :class:`NotAuthorized`; catch
         it as the reauth signal.
+
+        After priming, ``public_bootstrap.nvr.mac`` carries the NVR mac
+        whenever it is resolvable. On firmware that omits ``mac`` from the
+        public payload it is backfilled from the console fallback and stored
+        in the native UniFi format (uppercase, no separators) — the same
+        format newer firmware already provides — so consumers can read a
+        self-consistent mac regardless of firmware.
         """
         if self._public_bootstrap is None:
             self._public_bootstrap = PublicBootstrap()
@@ -4805,7 +4812,28 @@ class ProtectApiClient(BaseApiClient):
                 pb.apply_fetch_result(attr, result)  # type: ignore[arg-type]
 
         await self._prime_rtsps_streams(pb, previous_streams)
+        await self._backfill_public_nvr_mac(pb)
         return pb
+
+    async def _backfill_public_nvr_mac(self, pb: PublicBootstrap) -> None:
+        """
+        Stamp the NVR mac onto ``pb`` when firmware omits it from the payload.
+
+        Protect newer than 7.1 already carries ``mac`` on ``GET /v1/nvrs`` in
+        native UniFi format (uppercase, no separators), so this is a no-op
+        there. On older firmware the field is ``None``; resolve it via the
+        console fallback and write it in that same native format so the value
+        does not drift across firmware versions.
+        """
+        nvr = pb.nvr
+        if nvr is None or nvr.mac:
+            return
+        resolved = await self.resolve_nvr_mac()
+        if resolved:
+            # resolve_nvr_mac() returns the normalized (lowercase, separator-
+            # stripped) form; the public field natively holds uppercase-no-
+            # separator on newer firmware, so upper() matches that exactly.
+            nvr.mac = resolved.upper()
 
     async def _prime_rtsps_streams(
         self,
