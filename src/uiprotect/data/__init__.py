@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .base import (
     ProtectAdoptableDeviceModel,
     ProtectBaseObject,
+    ProtectDeviceIdentity,
     ProtectDeviceModel,
     ProtectModel,
     ProtectModelWithId,
@@ -262,6 +265,7 @@ __all__ = [
     "PermissionNode",
     "ProtectAdoptableDeviceModel",
     "ProtectBaseObject",
+    "ProtectDeviceIdentity",
     "ProtectDeviceModel",
     "ProtectModel",
     "ProtectModelWithId",
@@ -369,3 +373,15 @@ __all__ = [
     "create_from_unifi_dict",
     "quality_for_channel_id",
 ]
+
+if TYPE_CHECKING:
+
+    def _shared_identity_probe(
+        private_nvr: NVR,
+        private_camera: Camera,
+        public_nvr: PublicNVR,
+        public_camera: PublicCamera,
+    ) -> list[ProtectDeviceIdentity]:
+        # Static guard, never executed: mypy fails here if a model change
+        # breaks the structural ``ProtectDeviceIdentity`` match of either tree.
+        return [private_nvr, private_camera, public_nvr, public_camera]

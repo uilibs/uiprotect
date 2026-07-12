@@ -379,6 +379,7 @@ class PublicIdentifiedModel(ProtectModelWithId):
     # identifier.
     device_type: str | None = None
     device_guid: str | None = None
+    name: str | None = None
 
     @classmethod
     @cache
@@ -388,6 +389,16 @@ class PublicIdentifiedModel(ProtectModelWithId):
             "type": "deviceType",
             "guid": "deviceGuid",
         }
+
+    @property
+    def type(self) -> str | None:
+        """Alias for ``device_type`` mirroring the private tree's ``type`` field."""
+        return self.device_type
+
+    @property
+    def display_name(self) -> str:
+        """Human-facing name, falling back ``name -> type`` (no ``market_name`` here)."""
+        return self.name or self.type or ""
 
 
 class PublicDeviceModel(PublicIdentifiedModel):
