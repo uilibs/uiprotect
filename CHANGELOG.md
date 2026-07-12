@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.10.1 (2026-07-12)
+
+### Bug fixes
+
+
+- Apply update_public bootstrap batch atomically ([`fa934fd`](https://github.com/uilibs/uiprotect/commit/fa934fddd89a2411aedd28d27c9c3ede17d809bd))
+
+
 ## v15.10.0 (2026-07-12)
 
 ### Features
