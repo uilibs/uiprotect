@@ -3751,6 +3751,25 @@ async def test_update_public_revoked_key_aborts(
 
 
 @pytest.mark.asyncio()
+async def test_update_public_first_refresh_failure_leaves_bootstrap_none(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A failed first refresh must not publish an empty bootstrap."""
+    protect_client._public_bootstrap = None
+
+    _mock_update_public_endpoints(
+        protect_client,
+        get_nvr_public=AsyncMock(side_effect=RuntimeError("boom")),
+    )
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await protect_client.update_public()
+
+    assert protect_client._public_bootstrap is None
+    assert protect_client.has_public_bootstrap is False
+
+
+@pytest.mark.asyncio()
 async def test_update_public_applies_arm_profiles_in_batch(
     protect_client: ProtectApiClient,
 ) -> None:

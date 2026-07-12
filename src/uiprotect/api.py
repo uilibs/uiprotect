@@ -262,19 +262,9 @@ def _log_or_raise(
     label: str, exc: BaseException, *, tolerate_not_authorized: bool = False
 ) -> None:
     """
-    Log expected endpoint-unavailable errors; re-raise anything unexpected.
-
-    ``NvrError`` and ``BadRequest`` are treated as expected failures for
-    optional Public API endpoints (e.g., alarm-manager, sirens, relays) that
-    may not exist on all systems.  Any other exception type is re-raised
-    immediately — the caller must handle it (e.g. ``CancelledError``,
-    validation errors from an updated server payload).
-
-    ``NotAuthorized`` subclasses ``BadRequest`` but is re-raised: a 401 is an
-    auth failure (revoked/invalid key), not an unavailable endpoint, so it must
-    surface as the reauth signal rather than be swallowed. The one exception is
-    ``tolerate_not_authorized`` endpoints (ulp-users), where a 401 means the
-    ULP/Identity feature is disabled on an otherwise-valid key.
+    Log ``BadRequest``/``NvrError`` (endpoint unavailable); re-raise anything
+    else. ``NotAuthorized`` (a ``BadRequest`` subclass) is re-raised unless
+    ``tolerate_not_authorized`` is set, in which case it is logged.
     """
     if isinstance(exc, NotAuthorized):
         if tolerate_not_authorized:
@@ -4782,9 +4772,12 @@ class ProtectApiClient(BaseApiClient):
         format newer firmware already provides — so consumers can read a
         self-consistent mac regardless of firmware.
         """
-        if self._public_bootstrap is None:
-            self._public_bootstrap = PublicBootstrap()
+        # Keep a candidate bootstrap local until Phase 1 classification
+        # succeeds; on a first refresh that fails, ``_public_bootstrap`` must
+        # stay ``None`` so the ``subscribe_events`` prime guard still fires.
         pb = self._public_bootstrap
+        if pb is None:
+            pb = PublicBootstrap()
 
         # Snapshot existing streams before the re-parse below replaces the
         # camera objects with freshly-built ones (whose ``rtsps_streams``
@@ -4833,6 +4826,10 @@ class ProtectApiClient(BaseApiClient):
                     label, result, tolerate_not_authorized=label == "ulp-users"
                 )
 
+        # Classification passed: publish the candidate. ``_apply_arm_profiles``
+        # reads ``self._public_bootstrap``, so this must precede Phase 2.
+        self._public_bootstrap = pb
+
         # Phase 2 — no unexpected error: apply the whole batch. No ``await``
         # between writes, so a concurrent public-WS frame cannot interleave a
         # torn state. Tolerated-missing endpoints keep their prior cached data.
@@ -4840,7 +4837,7 @@ class ProtectApiClient(BaseApiClient):
             if isinstance(result, BaseException):
                 continue
             if attr == "arm_profiles":
-                self._apply_arm_profiles(result)  # type: ignore[arg-type]
+                self._apply_arm_profiles(cast("list[ArmProfile]", result))
             elif attr == "nvr":
                 pb.nvr = result  # type: ignore[assignment]
             else:
