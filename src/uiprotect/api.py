@@ -258,16 +258,21 @@ _GLOBAL_ALARM_MANAGER_REASON = "global alarm manager"
 _ARM_ALARM_ARMED_REASON = "arm alarm is armed"
 
 
-def _log_or_raise(label: str, exc: BaseException) -> None:
+def _log_or_raise(
+    label: str, exc: BaseException, *, tolerate_not_authorized: bool = False
+) -> None:
     """
-    Log expected endpoint-unavailable errors; re-raise anything unexpected.
-
-    ``NvrError`` and ``BadRequest`` are treated as expected failures for
-    optional Public API endpoints (e.g., alarm-manager, sirens, relays) that
-    may not exist on all systems.  Any other exception type is re-raised
-    immediately — the caller must handle it (e.g. ``CancelledError``,
-    validation errors from an updated server payload).
+    Log ``BadRequest``/``NvrError`` (endpoint unavailable); re-raise anything
+    else. ``NotAuthorized`` (a ``BadRequest`` subclass) is re-raised unless
+    ``tolerate_not_authorized`` is set, in which case it is logged.
     """
+    if isinstance(exc, NotAuthorized):
+        if tolerate_not_authorized:
+            _LOGGER.debug(
+                "%s endpoint not authorized (feature disabled?): %s", label, exc
+            )
+            return
+        raise exc
     if isinstance(exc, (BadRequest, NvrError)):
         _LOGGER.debug("%s endpoint unavailable: %s", label, exc)
     else:
@@ -4509,15 +4514,24 @@ class ProtectApiClient(BaseApiClient):
 
     async def get_arm_profiles_public(self) -> list[ArmProfile]:
         """Get all arm profiles."""
-        data = await self.api_request_list(url="/v1/arm-profiles", public_api=True)
-        profiles = [ArmProfile.from_unifi_dict(**item, api=self) for item in data]
-        if self._public_bootstrap is not None:
-            # Update in place to preserve dict identity for consumers holding
-            # a reference to ``public_bootstrap.arm_profiles``.
-            arm_profiles = self._public_bootstrap.arm_profiles
-            arm_profiles.clear()
-            arm_profiles.update({p.id: p for p in profiles})
+        profiles = await self._fetch_arm_profiles()
+        self._apply_arm_profiles(profiles)
         return profiles
+
+    async def _fetch_arm_profiles(self) -> list[ArmProfile]:
+        """Fetch arm profiles without mutating the cached bootstrap."""
+        data = await self.api_request_list(url="/v1/arm-profiles", public_api=True)
+        return [ArmProfile.from_unifi_dict(**item, api=self) for item in data]
+
+    def _apply_arm_profiles(self, profiles: list[ArmProfile]) -> None:
+        """Merge fetched arm profiles into the cache in place, preserving identity."""
+        if self._public_bootstrap is None:
+            return
+        # Update in place to preserve dict identity for consumers holding
+        # a reference to ``public_bootstrap.arm_profiles``.
+        arm_profiles = self._public_bootstrap.arm_profiles
+        arm_profiles.clear()
+        arm_profiles.update({p.id: p for p in profiles})
 
     async def create_arm_profile_public(
         self,
@@ -4743,8 +4757,10 @@ class ProtectApiClient(BaseApiClient):
         doesn't (yet) expose (``BadRequest`` / ``NvrError``) are logged at
         ``DEBUG`` and ignored, and a partial public bootstrap is returned.
         If an endpoint fails, its previously cached data is left unchanged
-        (not cleared). Unexpected exceptions (e.g. validation errors from a
-        new server payload) propagate to the caller.
+        (not cleared). All results are classified before any are applied: an
+        unexpected exception (e.g. a validation error from a new server
+        payload) propagates to the caller with the snapshot left untouched,
+        never half-applied.
 
         A revoked or invalid API key surfaces as :class:`NotAuthorized`; catch
         it as the reauth signal.
@@ -4756,9 +4772,12 @@ class ProtectApiClient(BaseApiClient):
         format newer firmware already provides — so consumers can read a
         self-consistent mac regardless of firmware.
         """
-        if self._public_bootstrap is None:
-            self._public_bootstrap = PublicBootstrap()
+        # Keep a candidate bootstrap local until Phase 1 classification
+        # succeeds; on a first refresh that fails, ``_public_bootstrap`` must
+        # stay ``None`` so the ``subscribe_events`` prime guard still fires.
         pb = self._public_bootstrap
+        if pb is None:
+            pb = PublicBootstrap()
 
         # Snapshot existing streams before the re-parse below replaces the
         # camera objects with freshly-built ones (whose ``rtsps_streams``
@@ -4772,8 +4791,8 @@ class ProtectApiClient(BaseApiClient):
 
         # Bind coroutines to their labels and attribute names to avoid
         # manual index synchronization bugs.
-        # ``get_arm_profiles_public`` writes into ``pb`` itself on success;
-        # we gather it for concurrency and to swallow failures.
+        # ``_fetch_arm_profiles`` fetches without self-applying so
+        # arm-profiles can be applied atomically in the batch phase below.
         # ``armMode`` is part of the NVR response; no separate call needed.
         endpoints = [
             (self.get_nvr_public(), "nvr", "nvr"),
@@ -4790,23 +4809,36 @@ class ProtectApiClient(BaseApiClient):
             (self.get_bridges_public(), "bridges", "bridges"),
             (self.get_viewers_public(), "viewers", "viewers"),
             (self.get_ulp_users_public(), "ulp-users", "ulp_users"),
-            (self.get_arm_profiles_public(), "arm-profiles", "arm_profiles"),
+            (self._fetch_arm_profiles(), "arm-profiles", "arm_profiles"),
         ]
 
         results = await asyncio.gather(
             *[coro for coro, _, _ in endpoints], return_exceptions=True
         )
 
-        # Process results with their corresponding labels and attributes.
-        for (_, label, attr), result in zip(endpoints, results, strict=True):
+        # Phase 1 — classify every result before touching the snapshot.
+        # Tolerated endpoint-unavailable errors (BadRequest/NvrError) are
+        # logged; any other exception re-raises here, leaving the previous
+        # consistent bootstrap intact instead of half-applied.
+        for (_, label, _attr), result in zip(endpoints, results, strict=True):
             if isinstance(result, BaseException):
-                _log_or_raise(label, result)
+                _log_or_raise(
+                    label, result, tolerate_not_authorized=label == "ulp-users"
+                )
+
+        # Classification passed: publish the candidate. ``_apply_arm_profiles``
+        # reads ``self._public_bootstrap``, so this must precede Phase 2.
+        self._public_bootstrap = pb
+
+        # Phase 2 — no unexpected error: apply the whole batch. No ``await``
+        # between writes, so a concurrent public-WS frame cannot interleave a
+        # torn state. Tolerated-missing endpoints keep their prior cached data.
+        for (_, _label, attr), result in zip(endpoints, results, strict=True):
+            if isinstance(result, BaseException):
                 continue
             if attr == "arm_profiles":
-                # arm_profiles are already applied by get_arm_profiles_public;
-                # skip here to avoid overwriting the in-place dict.
-                continue
-            if attr == "nvr":
+                self._apply_arm_profiles(cast("list[ArmProfile]", result))
+            elif attr == "nvr":
                 pb.nvr = result  # type: ignore[assignment]
             else:
                 pb.apply_fetch_result(attr, result)  # type: ignore[arg-type]

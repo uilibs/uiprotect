@@ -140,7 +140,7 @@ def _mock_update_public_endpoints(client: ProtectApiClient, **overrides: Any) ->
         "get_bridges_public": AsyncMock(return_value=[]),
         "get_viewers_public": AsyncMock(return_value=[]),
         "get_ulp_users_public": AsyncMock(return_value=[]),
-        "get_arm_profiles_public": AsyncMock(return_value=[]),
+        "_fetch_arm_profiles": AsyncMock(return_value=[]),
     }
     defaults.update(overrides)
     for name, value in defaults.items():
@@ -958,6 +958,23 @@ async def test_get_arm_profiles_populates_cache(
 
 
 @pytest.mark.asyncio()
+@patch("uiprotect.api.ArmProfile.from_unifi_dict")
+async def test_get_arm_profiles_no_bootstrap(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    """Standalone fetch with no bootstrap still returns profiles without applying."""
+    mock_ctor.side_effect = [Mock(id=PROFILE_ID)]
+    protect_client.api_request_list = AsyncMock(return_value=[{"id": PROFILE_ID}])
+    protect_client._public_bootstrap = None
+
+    profiles = await protect_client.get_arm_profiles_public()
+
+    assert [p.id for p in profiles] == [PROFILE_ID]
+    assert protect_client._public_bootstrap is None
+
+
+@pytest.mark.asyncio()
 async def test_update_arm_profile_empty(
     protect_client: ProtectApiClient,
 ) -> None:
@@ -1513,7 +1530,7 @@ async def test_update_public_populates_cache(
     assert "r1" in pb.relays
     assert "fb1" in pb.fobs
     assert "sp1" in pb.speakers
-    protect_client.get_arm_profiles_public.assert_awaited_once()
+    protect_client._fetch_arm_profiles.assert_awaited_once()
     assert pb.nvr is not None
 
 
@@ -1563,7 +1580,7 @@ async def test_update_public_tolerates_missing_endpoints(
         get_sensors_public=AsyncMock(side_effect=BadRequest("404")),
         get_sirens_public=AsyncMock(side_effect=BadRequest("404")),
         get_relays_public=AsyncMock(side_effect=BadRequest("404")),
-        get_arm_profiles_public=AsyncMock(side_effect=BadRequest("404")),
+        _fetch_arm_profiles=AsyncMock(side_effect=BadRequest("404")),
     )
 
     pb = await protect_client.update_public()
@@ -1586,7 +1603,7 @@ async def test_update_public_tolerates_every_endpoint_failing(
         get_sensors_public=AsyncMock(side_effect=BadRequest("X")),
         get_sirens_public=AsyncMock(side_effect=BadRequest("X")),
         get_relays_public=AsyncMock(side_effect=BadRequest("X")),
-        get_arm_profiles_public=AsyncMock(side_effect=BadRequest("X")),
+        _fetch_arm_profiles=AsyncMock(side_effect=BadRequest("X")),
     )
 
     pb = await protect_client.update_public()
@@ -1601,12 +1618,12 @@ async def test_update_public_tolerates_arm_profiles_failure(
     protect_client: ProtectApiClient,
 ) -> None:
     """
-    Firmware without alarm-manager endpoints: get_arm_profiles_public raises;
+    Firmware without alarm-manager endpoints: _fetch_arm_profiles raises;
     update_public must still complete, leave arm_profiles empty, and not propagate.
     """
     _mock_update_public_endpoints(
         protect_client,
-        get_arm_profiles_public=AsyncMock(side_effect=BadRequest("404")),
+        _fetch_arm_profiles=AsyncMock(side_effect=BadRequest("404")),
     )
 
     pb = await protect_client.update_public()
@@ -1614,7 +1631,7 @@ async def test_update_public_tolerates_arm_profiles_failure(
     assert pb.arm_profiles == {}
     assert pb.nvr is not None
     assert pb.arm_mode is None
-    protect_client.get_arm_profiles_public.assert_awaited_once()
+    protect_client._fetch_arm_profiles.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------
@@ -2076,7 +2093,7 @@ async def test_update_public_runs_concurrently(
         "get_sensors_public",
         "get_sirens_public",
         "get_relays_public",
-        "get_arm_profiles_public",
+        "_fetch_arm_profiles",
     ):
         setattr(protect_client, name, _slow_empty)
     await protect_client.update_public()
@@ -3684,6 +3701,96 @@ async def test_update_public_reraises_unexpected_exception(
         await protect_client.update_public()
 
 
+@pytest.mark.asyncio()
+async def test_update_public_unexpected_error_leaves_snapshot_untouched(
+    protect_client: ProtectApiClient,
+) -> None:
+    """An unexpected error mid-batch must not half-apply the bootstrap."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    pb = protect_client.public_bootstrap
+    prior_camera = Mock(id="old-cam")
+    pb.cameras["old-cam"] = prior_camera
+    prior_profile = Mock(id="old-profile")
+    pb.arm_profiles["old-profile"] = prior_profile
+
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(return_value=[Mock(id="new-cam")]),
+        get_sensors_public=AsyncMock(side_effect=RuntimeError("boom")),
+        _fetch_arm_profiles=AsyncMock(return_value=[Mock(id="new-profile")]),
+    )
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await protect_client.update_public()
+
+    # A successful endpoint (cameras) is NOT applied; arm profiles NOT re-applied.
+    assert pb.cameras == {"old-cam": prior_camera}
+    assert pb.arm_profiles == {"old-profile": prior_profile}
+
+
+@pytest.mark.asyncio()
+async def test_update_public_revoked_key_aborts(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A revoked key (401) surfaces as NotAuthorized before anything is applied."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    pb = protect_client.public_bootstrap
+    prior_camera = Mock(id="old-cam")
+    pb.cameras["old-cam"] = prior_camera
+
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(return_value=[Mock(id="new-cam")]),
+        get_nvr_public=AsyncMock(side_effect=NotAuthorized("401")),
+    )
+
+    with pytest.raises(NotAuthorized):
+        await protect_client.update_public()
+
+    assert pb.cameras == {"old-cam": prior_camera}
+
+
+@pytest.mark.asyncio()
+async def test_update_public_first_refresh_failure_leaves_bootstrap_none(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A failed first refresh must not publish an empty bootstrap."""
+    protect_client._public_bootstrap = None
+
+    _mock_update_public_endpoints(
+        protect_client,
+        get_nvr_public=AsyncMock(side_effect=RuntimeError("boom")),
+    )
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await protect_client.update_public()
+
+    assert protect_client._public_bootstrap is None
+    assert protect_client.has_public_bootstrap is False
+
+
+@pytest.mark.asyncio()
+async def test_update_public_applies_arm_profiles_in_batch(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Arm profiles are applied in place during update_public's batch phase."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    pb = protect_client.public_bootstrap
+    pb.arm_profiles["stale"] = Mock(id="stale")
+    original_dict = pb.arm_profiles
+
+    _mock_update_public_endpoints(
+        protect_client,
+        _fetch_arm_profiles=AsyncMock(return_value=[Mock(id="ap1")]),
+    )
+
+    await protect_client.update_public()
+
+    assert pb.arm_profiles is original_dict  # identity preserved
+    assert "stale" not in pb.arm_profiles
+    assert "ap1" in pb.arm_profiles
+
+
 def test_process_events_ws_message_invalid_envelope_early_return(
     protect_client: ProtectApiClient,
 ) -> None:
@@ -3737,6 +3844,31 @@ async def test_get_arm_profiles_preserves_dict_identity(
 
     await protect_client.get_arm_profiles_public()
 
+    assert pb.arm_profiles is original_dict  # identity preserved
+    assert "stale" not in pb.arm_profiles
+    assert PROFILE_ID in pb.arm_profiles
+
+
+@pytest.mark.asyncio()
+@patch("uiprotect.api.ArmProfile.from_unifi_dict")
+async def test_fetch_arm_profiles_does_not_mutate_cache(
+    mock_ctor: Mock,
+    protect_client: ProtectApiClient,
+) -> None:
+    """`_fetch_arm_profiles` returns profiles without touching the cache."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    pb = protect_client.public_bootstrap
+    pb.arm_profiles["stale"] = Mock(id="stale")
+    mock_ctor.side_effect = [Mock(id=PROFILE_ID)]
+    protect_client.api_request_list = AsyncMock(return_value=[{"id": PROFILE_ID}])
+
+    profiles = await protect_client._fetch_arm_profiles()
+
+    assert [p.id for p in profiles] == [PROFILE_ID]
+    assert pb.arm_profiles == {"stale": pb.arm_profiles["stale"]}  # untouched
+
+    original_dict = pb.arm_profiles
+    protect_client._apply_arm_profiles(profiles)
     assert pb.arm_profiles is original_dict  # identity preserved
     assert "stale" not in pb.arm_profiles
     assert PROFILE_ID in pb.arm_profiles
