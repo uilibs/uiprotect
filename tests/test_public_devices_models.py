@@ -564,6 +564,9 @@ async def test_shared_identity_protocol_spans_both_trees(
     nvr_obj: Any, camera_obj: Any
 ) -> None:
     """One ``ProtectDeviceIdentity`` variable accepts either tree without ``cast()``."""
+    if camera_obj is None:
+        pytest.skip("No camera_obj found")
+
     public_nvr = PublicNVR.from_unifi_dict(
         api=Mock(), id="nvr1", modelKey="nvr", name="Console", type="UNVR"
     )
