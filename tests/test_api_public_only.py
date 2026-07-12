@@ -169,9 +169,7 @@ async def test_update_public_keeps_native_nvr_mac_without_console() -> None:
     nvr = _make_public_nvr(client)
     nvr.mac = "AABBCCDDEEFF"
     console = AsyncMock(return_value="E4388332C9B1")
-    _mock_update_public_endpoints(
-        client, get_nvr_public=AsyncMock(return_value=nvr)
-    )
+    _mock_update_public_endpoints(client, get_nvr_public=AsyncMock(return_value=nvr))
     with patch.object(client, "get_console_mac", new=console):
         pb = await client.update_public()
     assert pb.nvr is not None
