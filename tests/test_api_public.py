@@ -1634,6 +1634,100 @@ async def test_update_public_tolerates_arm_profiles_failure(
     protect_client._fetch_arm_profiles.assert_awaited_once()
 
 
+def _siren_snapshot_item() -> dict[str, Any]:
+    """A full siren payload usable as an ``update_public`` snapshot device."""
+    return {
+        "id": SIREN_ID,
+        "modelKey": "siren",
+        "state": "CONNECTED",
+        "name": "Siren",
+        "mac": "AA",
+        "volume": 50,
+        "ledSettings": {"isEnabled": True},
+        "sirenStatus": {"isActive": False, "activatedAt": None, "duration": None},
+        "connectionType": "lora",
+        "wirelessConnectionState": {
+            "signalState": {"signalQuality": 80, "signalStrength": -50},
+            "batteryStatus": {"percentage": 100, "isLow": False},
+            "bridge": None,
+        },
+    }
+
+
+def _mock_text_ws_message(payload: dict[str, Any]) -> Mock:
+    """Build a TEXT public-WS message mock carrying ``payload``."""
+    msg = Mock()
+    msg.type = aiohttp.WSMsgType.TEXT
+    msg.data = orjson.dumps(payload)
+    return msg
+
+
+@pytest.mark.asyncio()
+async def test_update_public_replays_ws_frames_from_prime_window(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A devices-WS update landing mid-prime is replayed onto the fresh snapshot."""
+    client = protect_client
+    siren = Siren.from_unifi_dict(api=client, **deepcopy(_siren_snapshot_item()))
+    update_msg = _mock_text_ws_message(
+        {"type": "update", "item": {"id": SIREN_ID, "modelKey": "siren", "volume": 10}}
+    )
+
+    captured: list[WSSubscriptionMessage] = []
+    client._devices_ws_subscriptions.append(captured.append)
+
+    async def cameras_side_effect() -> list[Any]:
+        # Simulate a frame arriving while the snapshot is still being fetched:
+        # it must be buffered (not applied to the empty cache) and not yet
+        # delivered to the subscriber.
+        client._process_devices_ws_message(update_msg)
+        assert client._prime_ws_buffer
+        assert captured == []
+        return []
+
+    _mock_update_public_endpoints(
+        client,
+        get_sirens_public=AsyncMock(return_value=[siren]),
+        get_cameras_public=AsyncMock(side_effect=cameras_side_effect),
+    )
+
+    pb = await client.update_public()
+
+    # Snapshot volume (50) overwritten by the replayed WS diff (10).
+    assert pb.sirens[SIREN_ID].volume == 10
+    assert client._prime_ws_buffer is None
+    # Exactly one merged frame delivered, after priming.
+    assert len(captured) == 1
+    assert captured[0].action == WSAction.UPDATE
+    assert captured[0].new_obj is not None
+    assert captured[0].new_obj.volume == 10
+
+
+@pytest.mark.asyncio()
+async def test_update_public_disarms_buffer_when_prime_fails(
+    protect_client: ProtectApiClient,
+) -> None:
+    """An unexpected fetch error tears down the prime buffer."""
+    client = protect_client
+    update_msg = _mock_text_ws_message(
+        {"type": "update", "item": {"id": SIREN_ID, "modelKey": "siren", "volume": 10}}
+    )
+
+    async def cameras_side_effect() -> list[Any]:
+        client._process_devices_ws_message(update_msg)
+        raise NotAuthorized("boom")
+
+    _mock_update_public_endpoints(
+        client,
+        get_cameras_public=AsyncMock(side_effect=cameras_side_effect),
+    )
+
+    with pytest.raises(NotAuthorized):
+        await client.update_public()
+
+    assert client._prime_ws_buffer is None
+
+
 # ---------------------------------------------------------------------------
 # Relay pulse guard & dict access
 # ---------------------------------------------------------------------------

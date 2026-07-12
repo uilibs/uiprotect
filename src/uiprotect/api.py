@@ -1421,6 +1421,13 @@ class ProtectApiClient(BaseApiClient):
     # rate-limited, so this counter keeps a sustained cache/server desync
     # observable even when individual lines are suppressed.
     _events_remove_unknown_count: int = 0
+    # Public events/devices WS frames that arrive while ``update_public`` is
+    # priming are captured here and replayed after the fresh snapshot is
+    # applied, so an update landing in the prime window is never lost to the
+    # snapshot replacing the cached objects. ``None`` outside a prime.
+    _prime_ws_buffer: (
+        list[tuple[Callable[[aiohttp.WSMessage], None], aiohttp.WSMessage]] | None
+    ) = None
 
     ignore_unadopted: bool
 
@@ -1782,6 +1789,10 @@ class ProtectApiClient(BaseApiClient):
             _LOGGER.debug("Ignoring non-text websocket message: %s", msg.type)
             return
 
+        if self._prime_ws_buffer is not None:
+            self._prime_ws_buffer.append((self._process_events_ws_message, msg))
+            return
+
         try:
             data = orjson.loads(msg.data)
             action_type = data.get("type")
@@ -1843,6 +1854,10 @@ class ProtectApiClient(BaseApiClient):
         """Process devices websocket message (Public API - JSON format)."""
         if msg.type != aiohttp.WSMsgType.TEXT:
             _LOGGER.debug("Ignoring non-text websocket message: %s", msg.type)
+            return
+
+        if self._prime_ws_buffer is not None:
+            self._prime_ws_buffer.append((self._process_devices_ws_message, msg))
             return
 
         try:
@@ -4765,6 +4780,14 @@ class ProtectApiClient(BaseApiClient):
         A revoked or invalid API key surfaces as :class:`NotAuthorized`; catch
         it as the reauth signal.
 
+        Public events/devices WS frames that arrive while this method is
+        priming are captured and replayed onto the fresh snapshot before it
+        returns, so a subscriber that is already connected does not lose an
+        update to the prime window — the subscribe-then-prime ordering is a
+        library guarantee, not a caller obligation. To also make the
+        prime-then-subscribe ordering moot for the typed callbacks, use
+        :meth:`subscribe_devices_and_prime` / :meth:`subscribe_events_and_prime`.
+
         After priming, ``public_bootstrap.nvr.mac`` carries the NVR mac
         whenever it is resolvable. On firmware that omits ``mac`` from the
         public payload it is backfilled from the console fallback and stored
@@ -4812,40 +4835,72 @@ class ProtectApiClient(BaseApiClient):
             (self._fetch_arm_profiles(), "arm-profiles", "arm_profiles"),
         ]
 
-        results = await asyncio.gather(
-            *[coro for coro, _, _ in endpoints], return_exceptions=True
-        )
+        # Capture any public-WS frame that lands while the snapshot is being
+        # fetched/applied so it can be replayed onto the fresh cache below,
+        # instead of being merged into (or dropped by) the about-to-be-replaced
+        # objects. Ownership guards against a nested/overlapping resync
+        # ``update_public`` clobbering the buffer the outer call will drain.
+        owns_prime_buffer = self._prime_ws_buffer is None
+        if owns_prime_buffer:
+            self._prime_ws_buffer = []
+        try:
+            results = await asyncio.gather(
+                *[coro for coro, _, _ in endpoints], return_exceptions=True
+            )
 
-        # Phase 1 — classify every result before touching the snapshot.
-        # Tolerated endpoint-unavailable errors (BadRequest/NvrError) are
-        # logged; any other exception re-raises here, leaving the previous
-        # consistent bootstrap intact instead of half-applied.
-        for (_, label, _attr), result in zip(endpoints, results, strict=True):
-            if isinstance(result, BaseException):
-                _log_or_raise(
-                    label, result, tolerate_not_authorized=label == "ulp-users"
-                )
+            # Phase 1 — classify every result before touching the snapshot.
+            # Tolerated endpoint-unavailable errors (BadRequest/NvrError) are
+            # logged; any other exception re-raises here, leaving the previous
+            # consistent bootstrap intact instead of half-applied.
+            for (_, label, _attr), result in zip(endpoints, results, strict=True):
+                if isinstance(result, BaseException):
+                    _log_or_raise(
+                        label, result, tolerate_not_authorized=label == "ulp-users"
+                    )
 
-        # Classification passed: publish the candidate. ``_apply_arm_profiles``
-        # reads ``self._public_bootstrap``, so this must precede Phase 2.
-        self._public_bootstrap = pb
+            # Classification passed: publish the candidate.
+            # ``_apply_arm_profiles`` reads ``self._public_bootstrap``, so this
+            # must precede Phase 2.
+            self._public_bootstrap = pb
 
-        # Phase 2 — no unexpected error: apply the whole batch. No ``await``
-        # between writes, so a concurrent public-WS frame cannot interleave a
-        # torn state. Tolerated-missing endpoints keep their prior cached data.
+            # Phase 2 — no unexpected error: apply the whole batch. No ``await``
+            # between writes, so a concurrent public-WS frame cannot interleave
+            # a torn state. Tolerated-missing endpoints keep their prior data.
+            self._apply_public_fetch_results(pb, endpoints, results)
+
+            # Snapshot applied: stop buffering and replay the captured frames
+            # onto the fresh cache. Clearing the buffer first means replayed
+            # (and any re-entrant) frames process live rather than re-queueing.
+            if owns_prime_buffer:
+                replay = self._prime_ws_buffer or []
+                self._prime_ws_buffer = None
+                for handler, msg in replay:
+                    handler(msg)
+        finally:
+            # Never leave buffering armed if a fetch raised before the replay.
+            if owns_prime_buffer:
+                self._prime_ws_buffer = None
+
+        await self._prime_rtsps_streams(pb, previous_streams)
+        await self._backfill_public_nvr_mac(pb)
+        return pb
+
+    def _apply_public_fetch_results(
+        self,
+        pb: PublicBootstrap,
+        endpoints: list[tuple[Any, str, str]],
+        results: list[Any],
+    ) -> None:
+        """Apply the classified ``update_public`` fetch results to ``pb``."""
         for (_, _label, attr), result in zip(endpoints, results, strict=True):
             if isinstance(result, BaseException):
                 continue
             if attr == "arm_profiles":
                 self._apply_arm_profiles(cast("list[ArmProfile]", result))
             elif attr == "nvr":
-                pb.nvr = result  # type: ignore[assignment]
+                pb.nvr = result
             else:
-                pb.apply_fetch_result(attr, result)  # type: ignore[arg-type]
-
-        await self._prime_rtsps_streams(pb, previous_streams)
-        await self._backfill_public_nvr_mac(pb)
-        return pb
+                pb.apply_fetch_result(attr, result)
 
     async def _backfill_public_nvr_mac(self, pb: PublicBootstrap) -> None:
         """
