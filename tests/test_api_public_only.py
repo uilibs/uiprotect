@@ -220,10 +220,10 @@ async def test_get_console_mac_returns_mac() -> None:
     with patch.object(
         client,
         "api_request",
-        new=AsyncMock(return_value={"mac": "E4388332C9B1", "name": "UNVR"}),
+        new=AsyncMock(return_value={"mac": "AABBCCDDEEFF", "name": "UNVR"}),
     ) as api_request:
         mac = await client.get_console_mac()
-    assert mac == "E4388332C9B1"
+    assert mac == "AABBCCDDEEFF"
     api_request.assert_awaited_once()
     kwargs = api_request.await_args.kwargs
     assert kwargs["url"] == "/system"
@@ -311,9 +311,9 @@ async def test_resolve_nvr_mac_falls_back_to_console() -> None:
     assert client._public_bootstrap is None
     assert client._bootstrap is None
     with patch.object(
-        client, "get_console_mac", new=AsyncMock(return_value="E4:38:83:32:C9:B1")
+        client, "get_console_mac", new=AsyncMock(return_value="AA:BB:CC:DD:EE:FF")
     ):
-        assert await client.resolve_nvr_mac() == "e4388332c9b1"
+        assert await client.resolve_nvr_mac() == "aabbccddeeff"
 
 
 @pytest.mark.asyncio()
@@ -334,11 +334,11 @@ async def test_update_public_backfills_nvr_mac_from_console() -> None:
     """Older firmware: a mac-less public nvr is stamped in native format."""
     client = _public_only_client()
     _mock_update_public_endpoints(client)  # default nvr has mac=None
-    console = AsyncMock(return_value="E4:38:83:32:C9:B1")
+    console = AsyncMock(return_value="AA:BB:CC:DD:EE:FF")
     with patch.object(client, "get_console_mac", new=console):
         pb = await client.update_public()
     assert pb.nvr is not None
-    assert pb.nvr.mac == "E4388332C9B1"  # native: uppercase, no separators
+    assert pb.nvr.mac == "AABBCCDDEEFF"  # native: uppercase, no separators
     console.assert_awaited_once()
 
 
@@ -347,13 +347,13 @@ async def test_update_public_skips_backfill_when_mac_present() -> None:
     """Newer firmware: mac already on the payload, no console request made."""
     client = _public_only_client()
     nvr = _make_public_nvr(client)
-    nvr.mac = "E4388332C9B1"
+    nvr.mac = "AABBCCDDEEFF"
     _mock_update_public_endpoints(client, get_nvr_public=AsyncMock(return_value=nvr))
     console = AsyncMock(return_value="AA:BB:CC:DD:EE:FF")
     with patch.object(client, "get_console_mac", new=console):
         pb = await client.update_public()
     assert pb.nvr is not None
-    assert pb.nvr.mac == "E4388332C9B1"
+    assert pb.nvr.mac == "AABBCCDDEEFF"
     console.assert_not_awaited()
 
 
@@ -364,7 +364,7 @@ async def test_update_public_backfill_noop_when_nvr_absent() -> None:
     _mock_update_public_endpoints(
         client, get_nvr_public=AsyncMock(side_effect=NvrError("no nvr"))
     )
-    console = AsyncMock(return_value="E4388332C9B1")
+    console = AsyncMock(return_value="AABBCCDDEEFF")
     with patch.object(client, "get_console_mac", new=console):
         pb = await client.update_public()
     assert pb.nvr is None

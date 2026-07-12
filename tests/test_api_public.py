@@ -2011,13 +2011,13 @@ async def test_get_nvr_public_parses_mac_when_present(
 ) -> None:
     """get_nvr_public with mac in payload (Protect > 7.1) → mac is parsed."""
     raw = deepcopy(_NVR_RAW_BASE)
-    raw["mac"] = "E4388332C9B1"
+    raw["mac"] = "AABBCCDDEEFF"
     protect_client.api_request_obj = AsyncMock(return_value=raw)
 
     result = await protect_client.get_nvr_public()
 
     assert isinstance(result, PublicNVR)
-    assert result.mac == "E4388332C9B1"
+    assert result.mac == "AABBCCDDEEFF"
 
 
 def test_ws_handler_without_cache_emits_none_obj(
@@ -2065,7 +2065,7 @@ async def test_update_public_runs_concurrently(
         await asyncio.sleep(0.01)
         active -= 1
         nvr = _make_public_nvr(protect_client)
-        nvr.mac = "E4388332C9B1"  # present → no console backfill
+        nvr.mac = "AABBCCDDEEFF"  # present → no console backfill
         return nvr
 
     protect_client.get_nvr_public = _slow_nvr  # type: ignore[method-assign]

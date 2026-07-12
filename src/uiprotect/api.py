@@ -3628,7 +3628,7 @@ class ProtectApiClient(BaseApiClient):
         ``/api/system`` is an **off-contract UniFi-OS endpoint** (not the
         public Protect API): unauthenticated, and it returns the mac of the
         device at the configured Protect host. Returns the mac string (e.g.
-        ``"E4388332C9B1"``, matching the private ``NVR.mac`` format) or
+        ``"AABBCCDDEEFF"``, matching the private ``NVR.mac`` format) or
         ``None`` when the endpoint is unreachable or carries no mac.
         """
         # Off-contract UniFi-OS endpoint, the fallback when the bootstraps
