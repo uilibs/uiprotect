@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.11.0 (2026-07-12)
+
+### Features
+
+
+- Shared identity interface across model trees ([`20c48cd`](https://github.com/uilibs/uiprotect/commit/20c48cd43e8913d012f36cdfbb01ac455c2d1832))
+
+
 ## v15.10.1 (2026-07-12)
 
 ### Bug fixes
