@@ -58,7 +58,13 @@ asyncio.run(main())
 The typed event stream delivers `(ProtectEvent, EventChange)` pairs. It is
 backed by the Public Integration API, so the client must be configured with
 an `api_key` and `update_public()` must have run at least once before calling
-`subscribe_events`:
+`subscribe_events`. The example below primes then subscribes; to avoid
+encoding that ordering yourself, call `subscribe_events_and_prime()` (or
+`subscribe_devices_and_prime()` for device state), which connects the
+WebSocket and primes in the correct order in a single call. Either way,
+frames that arrive while `update_public()` is priming are buffered and
+replayed onto the fresh snapshot, so a connected subscriber never loses an
+update to the prime window:
 
 ```python
 import asyncio

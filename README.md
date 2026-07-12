@@ -233,7 +233,8 @@ delivers `(ProtectEvent, EventChange)` pairs intended for application
 code. The typed path goes through the Public Integration API, so the
 `ProtectApiClient` must be configured with an API key and
 `update_public()` must have been called at least once before calling
-`subscribe_events`.
+`subscribe_events`. Use `subscribe_events_and_prime()` to subscribe and prime
+in one order-independent call.
 
 ```python
 import logging
@@ -243,7 +244,6 @@ from uiprotect import EventChange, ProtectApiClient, ProtectEvent
 _LOGGER = logging.getLogger(__name__)
 
 protect = ProtectApiClient(..., api_key="...")
-await protect.update_public()
 
 def on_event(event: ProtectEvent, change: EventChange) -> None:
     if change is EventChange.STARTED:
@@ -251,7 +251,8 @@ def on_event(event: ProtectEvent, change: EventChange) -> None:
     elif change is EventChange.ENDED:
         _LOGGER.info("%s ended after %s", event.type, event.end - event.start)
 
-unsubscribe = protect.subscribe_events(on_event)
+# Order-independent: subscribes and primes in the correct order.
+unsubscribe = await protect.subscribe_events_and_prime(on_event)
 # ...
 unsubscribe()
 ```
@@ -296,11 +297,14 @@ delivers a typed `ProtectDeviceChange` for each `ADDED` / `UPDATED` /
 concern-separated primitives it needs without any model-type routing or
 merge logic of its own.
 
-Like `subscribe_events`, it requires `update_public()` to have primed the
-public bootstrap (the merged public models live in that cache), so call
-`update_public()` _before_ subscribing — subscribing first raises
-`RuntimeError`. Callers that need the websocket live during priming should
-use the raw `subscribe_devices_websocket` instead.
+Like `subscribe_events`, it delivers merged public models from the primed
+cache, so `subscribe_devices` requires `update_public()` to have run first and
+raises `RuntimeError` otherwise. To avoid encoding that ordering yourself, use
+`subscribe_devices_and_prime()`, which connects the websocket and primes in the
+correct order in one call so the prime/subscribe ordering is moot. Either way,
+updates that arrive while `update_public()` is priming are buffered and
+replayed onto the fresh snapshot, so a connected subscriber never loses an
+update to the prime window.
 
 ```python
 import logging
@@ -315,9 +319,11 @@ def on_device(change: ProtectDeviceChange) -> None:
     if change.change is DeviceChange.UPDATED and "state" in change.changed_fields:
         _LOGGER.info("%s -> %s", change.device_id, change.model.state)
 
-await protect.update_public()
-unsubscribe = protect.subscribe_devices(on_device)
-# ...
+# Order-independent: subscribes and primes in the correct order.
+unsubscribe = await protect.subscribe_devices_and_prime(on_device)
+# ...or the explicit two-step form, which must prime before subscribing:
+# await protect.update_public()
+# unsubscribe = protect.subscribe_devices(on_device)
 unsubscribe()
 ```
 

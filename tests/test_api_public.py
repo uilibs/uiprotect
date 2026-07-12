@@ -58,6 +58,7 @@ from uiprotect.data.types import (
     UlpUserStatus,
 )
 from uiprotect.data.websocket import WSAction
+from uiprotect.devices import DeviceChange, ProtectDeviceChange
 from uiprotect.exceptions import BadRequest, NotAuthorized
 from uiprotect.utils import convert_to_datetime
 from uiprotect.websocket import WebsocketState
@@ -1704,6 +1705,46 @@ async def test_update_public_replays_ws_frames_from_prime_window(
 
 
 @pytest.mark.asyncio()
+async def test_update_public_replays_events_ws_frames_from_prime_window(
+    protect_client: ProtectApiClient,
+) -> None:
+    """An events-WS frame landing mid-prime is buffered and replayed."""
+    client = protect_client
+    add_msg = _mock_text_ws_message(
+        {
+            "type": "add",
+            "item": {
+                "id": "evt-1",
+                "modelKey": "event",
+                "type": "motion",
+                "start": 1234567890,
+            },
+        }
+    )
+
+    captured: list[WSSubscriptionMessage] = []
+    client._events_ws_subscriptions.append(captured.append)
+
+    async def cameras_side_effect() -> list[Any]:
+        client._process_events_ws_message(add_msg)
+        assert client._prime_ws_buffer
+        assert captured == []
+        return []
+
+    _mock_update_public_endpoints(
+        client, get_cameras_public=AsyncMock(side_effect=cameras_side_effect)
+    )
+
+    await client.update_public()
+
+    assert client._prime_ws_buffer is None
+    # Replayed after priming; the primed cache builds a merged event object.
+    assert len(captured) == 1
+    assert captured[0].action == WSAction.ADD
+    assert captured[0].new_obj is not None
+
+
+@pytest.mark.asyncio()
 async def test_update_public_disarms_buffer_when_prime_fails(
     protect_client: ProtectApiClient,
 ) -> None:
@@ -1726,6 +1767,99 @@ async def test_update_public_disarms_buffer_when_prime_fails(
         await client.update_public()
 
     assert client._prime_ws_buffer is None
+
+
+@pytest.mark.asyncio()
+async def test_subscribe_devices_and_prime_is_order_independent(
+    protect_client: ProtectApiClient,
+) -> None:
+    """The combined entrypoint delivers a mid-prime frame to the typed sub."""
+    client = protect_client
+    client._public_bootstrap = None
+    siren = Siren.from_unifi_dict(api=client, **deepcopy(_siren_snapshot_item()))
+    update_msg = _mock_text_ws_message(
+        {"type": "update", "item": {"id": SIREN_ID, "modelKey": "siren", "volume": 10}}
+    )
+    received: list[ProtectDeviceChange] = []
+
+    async def sirens_side_effect() -> list[Any]:
+        client._process_devices_ws_message(update_msg)
+        return [siren]
+
+    _mock_update_public_endpoints(
+        client, get_sirens_public=AsyncMock(side_effect=sirens_side_effect)
+    )
+
+    with patch.object(client, "_get_devices_websocket", return_value=Mock()):
+        unsub = await client.subscribe_devices_and_prime(received.append)
+
+    assert client.has_public_bootstrap
+    assert client.public_bootstrap.sirens[SIREN_ID].volume == 10
+    assert [(c.device_id, c.change) for c in received if c.device_id == SIREN_ID] == [
+        (SIREN_ID, DeviceChange.UPDATED)
+    ]
+    unsub()
+
+
+@pytest.mark.asyncio()
+async def test_subscribe_devices_and_prime_rolls_back_on_failure(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A prime failure unsubscribes the typed device sub before propagating."""
+    client = protect_client
+    client._public_bootstrap = None
+    _mock_update_public_endpoints(
+        client, get_cameras_public=AsyncMock(side_effect=NotAuthorized("boom"))
+    )
+
+    with (
+        patch.object(client, "_get_devices_websocket", return_value=Mock()),
+        pytest.raises(NotAuthorized),
+    ):
+        await client.subscribe_devices_and_prime(lambda _c: None)
+
+    assert client._device_dispatcher is not None
+    assert client._device_dispatcher.subscriber_count == 0
+
+
+@pytest.mark.asyncio()
+async def test_subscribe_events_and_prime_primes_and_registers(
+    protect_client: ProtectApiClient,
+) -> None:
+    """The events combined entrypoint primes and registers without prior prime."""
+    client = protect_client
+    client._public_bootstrap = None
+    _mock_update_public_endpoints(client)
+
+    with patch.object(client, "_get_events_websocket", return_value=Mock()):
+        unsub = await client.subscribe_events_and_prime(lambda _e, _c: None)
+
+    assert client.has_public_bootstrap
+    assert client._event_dispatcher is not None
+    assert client._event_dispatcher.subscriber_count == 1
+    unsub()
+    assert client._event_dispatcher.subscriber_count == 0
+
+
+@pytest.mark.asyncio()
+async def test_subscribe_events_and_prime_rolls_back_on_failure(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A prime failure unsubscribes the typed event sub before propagating."""
+    client = protect_client
+    client._public_bootstrap = None
+    _mock_update_public_endpoints(
+        client, get_cameras_public=AsyncMock(side_effect=NotAuthorized("boom"))
+    )
+
+    with (
+        patch.object(client, "_get_events_websocket", return_value=Mock()),
+        pytest.raises(NotAuthorized),
+    ):
+        await client.subscribe_events_and_prime(lambda _e, _c: None)
+
+    assert client._event_dispatcher is not None
+    assert client._event_dispatcher.subscriber_count == 0
 
 
 # ---------------------------------------------------------------------------

@@ -2237,7 +2237,13 @@ class ProtectApiClient(BaseApiClient):
                 "subscribe_events() requires update_public() to have been called"
                 " at least once"
             )
+        return self._register_event_subscriber(callback)
 
+    def _register_event_subscriber(
+        self,
+        callback: Callable[[ProtectEvent, EventChange], None],
+    ) -> Callable[[], None]:
+        """Wire a typed events subscriber and connect the WS on the first one."""
         # Local import to avoid circular import (events.dispatcher → api).
         from .events.dispatcher import EventDispatcher  # noqa: PLC0415
 
@@ -2255,6 +2261,32 @@ class ProtectApiClient(BaseApiClient):
             dispatcher.start_ttl_sweep()
 
         return partial(self._unsubscribe_events, callback)
+
+    async def subscribe_events_and_prime(
+        self,
+        callback: Callable[[ProtectEvent, EventChange], None],
+    ) -> Callable[[], None]:
+        """
+        Subscribe to typed event changes and prime the public bootstrap,
+        order-independent.
+
+        The events-side analog of :meth:`subscribe_devices_and_prime`: connects
+        the events websocket *before* priming, then awaits :meth:`update_public`.
+        Frames arriving during the prime are buffered and replayed onto the
+        fresh snapshot, so ordering is moot and the bootstrap need not be primed
+        beforehand.
+
+        Returns the same unsubscribe callable as :meth:`subscribe_events`. If
+        priming raises, the subscription is rolled back before the error
+        propagates.
+        """
+        unsub = self._register_event_subscriber(callback)
+        try:
+            await self.update_public()
+        except BaseException:
+            unsub()
+            raise
+        return unsub
 
     def _unsubscribe_events(
         self,
@@ -2380,7 +2412,13 @@ class ProtectApiClient(BaseApiClient):
                 "subscribe_devices() requires update_public() to have been called"
                 " at least once"
             )
+        return self._register_device_subscriber(callback)
 
+    def _register_device_subscriber(
+        self,
+        callback: Callable[[ProtectDeviceChange], None],
+    ) -> Callable[[], None]:
+        """Wire a typed devices subscriber and connect the WS on the first one."""
         # Local import to avoid circular import (devices.dispatcher → api).
         from .devices.dispatcher import DeviceDispatcher  # noqa: PLC0415
 
@@ -2397,6 +2435,33 @@ class ProtectApiClient(BaseApiClient):
             )
 
         return partial(self._unsubscribe_devices, callback)
+
+    async def subscribe_devices_and_prime(
+        self,
+        callback: Callable[[ProtectDeviceChange], None],
+    ) -> Callable[[], None]:
+        """
+        Subscribe to typed device changes and prime the public bootstrap,
+        order-independent.
+
+        Connects the devices websocket *before* priming, then awaits
+        :meth:`update_public`. Frames arriving during the prime are buffered and
+        replayed onto the fresh snapshot, so no update is lost regardless of
+        when the caller invokes this — it makes the prime/subscribe ordering
+        question moot. Unlike :meth:`subscribe_devices`, it does not require the
+        bootstrap to be primed beforehand.
+
+        Returns the same unsubscribe callable as :meth:`subscribe_devices`. If
+        priming raises (e.g. :class:`NotAuthorized`), the subscription is rolled
+        back before the error propagates.
+        """
+        unsub = self._register_device_subscriber(callback)
+        try:
+            await self.update_public()
+        except BaseException:
+            unsub()
+            raise
+        return unsub
 
     def _unsubscribe_devices(
         self,
