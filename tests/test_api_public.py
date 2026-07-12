@@ -1781,10 +1781,15 @@ async def test_update_public_disarms_buffer_when_prime_fails(
 
 
 @pytest.mark.asyncio()
-async def test_update_public_nested_call_leaves_buffer_to_owner(
+async def test_update_public_concurrent_calls_serialize(
     protect_client: ProtectApiClient,
 ) -> None:
-    """An overlapping ``update_public`` neither replays nor disarms the buffer."""
+    """
+    Concurrent primes serialize: the second fetches after the first drains.
+
+    Without serialization, the second prime could apply an older snapshot over
+    the frame the first prime replayed, losing the update.
+    """
     client = protect_client
     siren = Siren.from_unifi_dict(api=client, **deepcopy(_siren_snapshot_item()))
     update_msg = _mock_text_ws_message(
@@ -1794,20 +1799,23 @@ async def test_update_public_nested_call_leaves_buffer_to_owner(
     captured: list[WSSubscriptionMessage] = []
     client._devices_ws_subscriptions.append(captured.append)
 
-    inner_ran = False
+    order: list[str] = []
+    first_fetch_started = asyncio.Event()
+    release_first = asyncio.Event()
 
     async def cameras_side_effect() -> list[Any]:
-        nonlocal inner_ran
-        if inner_ran:
+        if not order:
+            order.append("first-fetch")
+            first_fetch_started.set()
+            # A frame lands in the first prime window...
+            client._process_devices_ws_message(update_msg)
+            # ...and the first prime is held open while the second call starts.
+            await release_first.wait()
             return []
-        inner_ran = True
-        # A frame lands in the outer prime window, then an overlapping
-        # (e.g. resync-triggered) prime runs to completion inside it.
-        client._process_devices_ws_message(update_msg)
-        await client.update_public()
-        # The inner call must leave the armed buffer to the outer owner.
-        assert client._prime_ws_buffer
-        assert captured == []
+        order.append("second-fetch")
+        # The second prime only fetches after the first drained its buffer.
+        assert client._prime_ws_buffer == []
+        assert len(captured) == 1
         return []
 
     _mock_update_public_endpoints(
@@ -1816,12 +1824,19 @@ async def test_update_public_nested_call_leaves_buffer_to_owner(
         get_cameras_public=AsyncMock(side_effect=cameras_side_effect),
     )
 
-    pb = await client.update_public()
+    task1 = asyncio.create_task(client.update_public())
+    await first_fetch_started.wait()
+    task2 = asyncio.create_task(client.update_public())
+    await asyncio.sleep(0)
+    release_first.set()
+    pb1 = await task1
+    pb2 = await task2
 
-    # Only the outer owner drains: exactly one replay, onto the final snapshot.
-    assert client._prime_ws_buffer is None
+    assert order == ["first-fetch", "second-fetch"]
+    # The buffered frame is delivered exactly once and nothing regresses it.
     assert len(captured) == 1
-    assert pb.sirens[SIREN_ID].volume == 10
+    assert client._prime_ws_buffer is None
+    assert pb1 is pb2
 
 
 @pytest.mark.asyncio()

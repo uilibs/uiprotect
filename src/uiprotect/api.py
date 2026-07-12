@@ -443,6 +443,9 @@ class BaseApiClient:
             )
 
         self._auth_lock = asyncio.Lock()
+        # Serializes ``update_public()``: an overlapping prime could apply an
+        # older snapshot over a newer one (and over live WS merges in between).
+        self._public_update_lock = asyncio.Lock()
         self._host = host
         self._port = port
 
@@ -1424,7 +1427,8 @@ class ProtectApiClient(BaseApiClient):
     # Public events/devices WS frames that arrive while ``update_public`` is
     # priming are captured here and replayed after the fresh snapshot is
     # applied, so an update landing in the prime window is never lost to the
-    # snapshot replacing the cached objects. ``None`` outside a prime.
+    # snapshot replacing the cached objects. ``None`` outside a prime; primes
+    # are serialized by ``_public_update_lock``, so exactly one prime owns it.
     _prime_ws_buffer: (
         list[tuple[Callable[[aiohttp.WSMessage], None], aiohttp.WSMessage]] | None
     ) = None
@@ -4859,7 +4863,16 @@ class ProtectApiClient(BaseApiClient):
         in the native UniFi format (uppercase, no separators) — the same
         format newer firmware already provides — so consumers can read a
         self-consistent mac regardless of firmware.
+
+        Concurrent calls are serialized: an overlapping prime could otherwise
+        apply an older snapshot over a newer one (and over live WS merges in
+        between). Each caller returns the then-current bootstrap.
         """
+        async with self._public_update_lock:
+            return await self._update_public_locked()
+
+    async def _update_public_locked(self) -> PublicBootstrap:
+        """Fetch and apply the public bootstrap; caller holds the prime lock."""
         # Keep a candidate bootstrap local until Phase 1 classification
         # succeeds; on a first refresh that fails, ``_public_bootstrap`` must
         # stay ``None`` so the ``subscribe_events`` prime guard still fires.
@@ -4903,11 +4916,8 @@ class ProtectApiClient(BaseApiClient):
         # Capture any public-WS frame that lands while the snapshot is being
         # fetched/applied so it can be replayed onto the fresh cache below,
         # instead of being merged into (or dropped by) the about-to-be-replaced
-        # objects. Ownership guards against a nested/overlapping resync
-        # ``update_public`` clobbering the buffer the outer call will drain.
-        owns_prime_buffer = self._prime_ws_buffer is None
-        if owns_prime_buffer:
-            self._prime_ws_buffer = []
+        # objects. The prime lock guarantees this prime is the only one.
+        self._prime_ws_buffer = []
         try:
             results = await asyncio.gather(
                 *[coro for coro, _, _ in endpoints], return_exceptions=True
@@ -4939,11 +4949,10 @@ class ProtectApiClient(BaseApiClient):
             # behavior, merely delayed) — a failed prime must not swallow them.
             # Clearing the buffer first means replayed (and any re-entrant)
             # frames process live rather than re-queueing.
-            if owns_prime_buffer:
-                replay = self._prime_ws_buffer or []
-                self._prime_ws_buffer = None
-                for handler, msg in replay:
-                    handler(msg)
+            replay = self._prime_ws_buffer or []
+            self._prime_ws_buffer = None
+            for handler, msg in replay:
+                handler(msg)
 
         await self._prime_rtsps_streams(pb, previous_streams)
         await self._backfill_public_nvr_mac(pb)

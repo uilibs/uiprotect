@@ -301,10 +301,12 @@ Like `subscribe_events`, it delivers merged public models from the primed
 cache, so `subscribe_devices` requires `update_public()` to have run first and
 raises `RuntimeError` otherwise. To avoid encoding that ordering yourself, use
 `subscribe_devices_and_prime()`, which connects the websocket and primes in the
-correct order in one call so the prime/subscribe ordering is moot. Either way,
-updates that arrive while `update_public()` is priming are buffered and
-replayed onto the fresh snapshot, so a connected subscriber never loses an
-update to the prime window.
+correct order in one call so the prime/subscribe ordering is moot. With the
+combined helper, updates that arrive while `update_public()` is priming are
+buffered and replayed onto the fresh snapshot, so the already-connected
+subscriber does not miss an update from the prime window; with the explicit
+two-step form the subscriber is registered after priming and starts from the
+refreshed cache.
 
 ```python
 import logging

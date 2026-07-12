@@ -61,10 +61,12 @@ an `api_key` and `update_public()` must have run at least once before calling
 `subscribe_events`. The example below primes then subscribes; to avoid
 encoding that ordering yourself, call `subscribe_events_and_prime()` (or
 `subscribe_devices_and_prime()` for device state), which connects the
-WebSocket and primes in the correct order in a single call. Either way,
-frames that arrive while `update_public()` is priming are buffered and
-replayed onto the fresh snapshot, so a connected subscriber never loses an
-update to the prime window:
+WebSocket and primes in the correct order in a single call. With the combined
+helper, frames that arrive while `update_public()` is priming are buffered
+and replayed onto the fresh snapshot, so the already-connected subscriber
+does not miss an update from the prime window; with the explicit two-step
+form the subscriber is registered after priming and simply starts from the
+refreshed cache:
 
 ```python
 import asyncio
