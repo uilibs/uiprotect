@@ -2058,8 +2058,16 @@ async def test_update_public_runs_concurrently(
         active -= 1
         return []
 
+    async def _slow_nvr() -> PublicNVR:
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        await asyncio.sleep(0.01)
+        active -= 1
+        return _make_public_nvr(protect_client)
+
+    protect_client.get_nvr_public = _slow_nvr  # type: ignore[method-assign]
     for name in (
-        "get_nvr_public",
         "get_cameras_public",
         "get_lights_public",
         "get_chimes_public",

@@ -19,7 +19,7 @@ from uiprotect.exceptions import (
     PublicOnlyModeError,
 )
 
-from .test_api_public import _mock_update_public_endpoints
+from .test_api_public import _make_public_nvr, _mock_update_public_endpoints
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -138,11 +138,58 @@ def test_private_bootstrap_property_raises() -> None:
 async def test_update_public_works_without_private_session() -> None:
     client = _public_only_client()
     _mock_update_public_endpoints(client)
-    with patch.object(client, "authenticate", new=AsyncMock()) as authenticate:
+    with (
+        patch.object(client, "authenticate", new=AsyncMock()) as authenticate,
+        patch.object(client, "get_console_mac", new=AsyncMock(return_value=None)),
+    ):
         result = await client.update_public()
     assert isinstance(result, PublicBootstrap)
     assert client.has_public_bootstrap is True
     authenticate.assert_not_called()
+
+
+@pytest.mark.asyncio()
+async def test_update_public_backfills_nvr_mac_from_console() -> None:
+    """Older firmware omits the NVR mac; it is stamped from the console."""
+    client = _public_only_client()
+    _mock_update_public_endpoints(client)
+    console = AsyncMock(return_value="E4:38:83:32:C9:B1")
+    with patch.object(client, "get_console_mac", new=console):
+        pb = await client.update_public()
+    assert pb.nvr is not None
+    # Native format (uppercase, no separators), NOT the normalize_mac lowercase.
+    assert pb.nvr.mac == "E4388332C9B1"
+    console.assert_awaited_once()
+
+
+@pytest.mark.asyncio()
+async def test_update_public_keeps_native_nvr_mac_without_console() -> None:
+    """Newer firmware already carries the mac; no console request is made."""
+    client = _public_only_client()
+    nvr = _make_public_nvr(client)
+    nvr.mac = "AABBCCDDEEFF"
+    console = AsyncMock(return_value="E4388332C9B1")
+    _mock_update_public_endpoints(
+        client, get_nvr_public=AsyncMock(return_value=nvr)
+    )
+    with patch.object(client, "get_console_mac", new=console):
+        pb = await client.update_public()
+    assert pb.nvr is not None
+    assert pb.nvr.mac == "AABBCCDDEEFF"
+    console.assert_not_awaited()
+
+
+@pytest.mark.asyncio()
+async def test_update_public_leaves_nvr_mac_none_when_unresolvable() -> None:
+    """An unreachable console leaves the mac unset rather than crashing."""
+    client = _public_only_client()
+    _mock_update_public_endpoints(client)
+    console = AsyncMock(return_value=None)
+    with patch.object(client, "get_console_mac", new=console):
+        pb = await client.update_public()
+    assert pb.nvr is not None
+    assert pb.nvr.mac is None
+    console.assert_awaited_once()
 
 
 @pytest.mark.asyncio()

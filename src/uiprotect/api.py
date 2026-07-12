@@ -4805,7 +4805,25 @@ class ProtectApiClient(BaseApiClient):
                 pb.apply_fetch_result(attr, result)  # type: ignore[arg-type]
 
         await self._prime_rtsps_streams(pb, previous_streams)
+        await self._backfill_public_nvr_mac(pb)
         return pb
+
+    async def _backfill_public_nvr_mac(self, pb: PublicBootstrap) -> None:
+        """
+        Stamp ``pb.nvr.mac`` from the console fallback when the payload omits it.
+
+        Protect newer than 7.1 carries the NVR mac natively (uppercase, no
+        separators); older firmware leaves it ``None``. Resolves via
+        :meth:`resolve_nvr_mac` and writes the value in that same native format
+        so the field reads consistently across firmware. No console request is
+        made when the mac is already present.
+        """
+        nvr = pb.nvr
+        if nvr is None or nvr.mac:
+            return
+        mac = await self.resolve_nvr_mac()
+        if mac:
+            nvr.mac = mac.upper()
 
     async def _prime_rtsps_streams(
         self,
