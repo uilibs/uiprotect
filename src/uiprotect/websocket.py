@@ -106,6 +106,14 @@ class Websocket:
                 auth_failed
                 and self._consecutive_auth_failures >= _AUTH_FAILURE_THRESHOLD
             ):
+                # AUTH_FAILED implies "not connected". On entry, emit the
+                # DISCONNECTED transition first so a consumer that only reacts
+                # to connect/disconnect edges observes the loss before
+                # AUTH_FAILED latches (a no-op dedupe when already
+                # disconnected). Skipping it once AUTH_FAILED is latched keeps
+                # the backoff loop from flapping DISCONNECTED/AUTH_FAILED.
+                if self._current_state is not WebsocketState.AUTH_FAILED:
+                    self._state_changed(WebsocketState.DISCONNECTED)
                 self._state_changed(WebsocketState.AUTH_FAILED)
                 backoff = self.auth_failed_backoff
             else:
