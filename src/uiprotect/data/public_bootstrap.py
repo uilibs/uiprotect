@@ -268,9 +268,7 @@ class PublicBootstrap:
                 return getattr(obj, "mac", None)
         return None
 
-    def all_devices(
-        self, *, include_nvr: bool = False
-    ) -> Iterator[ProtectModelWithId]:
+    def all_devices(self, *, include_nvr: bool = False) -> Iterator[ProtectModelWithId]:
         """
         Iterate every cached device across all model types.
 
