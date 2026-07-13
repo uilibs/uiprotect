@@ -18,9 +18,9 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3 # v8.3.0
         with:
           enable-cache: true
       - name: Install poetry
@@ -33,7 +33,7 @@ jobs:
         run: |
           poetry install --all-extras
       - name: Run pre-commit (prek)
-        uses: j178/prek-action@bdca6f102f98e2b4c7029491a53dfd366469e33d # v2.0.4
+        uses: j178/prek-action@e98a699c41eb69ab013a45817a0406469a748f8d # v2.0.5
 
   # Make sure the PR title follows the conventional commits convention:
   # https://www.conventionalcommits.org
@@ -69,9 +69,9 @@ jobs:
           - ubuntu-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3 # v8.3.0
         with:
           enable-cache: true
       - name: Install poetry
@@ -98,9 +98,9 @@ jobs:
     name: Run CodSpeed benchmarks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3 # v8.3.0
         with:
           enable-cache: true
       - name: Install poetry
@@ -129,7 +129,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.ref }}
@@ -138,7 +138,7 @@ jobs:
           BRANCH: ${{ github.head_ref || github.ref_name }}
         run: git switch -C "$BRANCH"
       - name: Test release
-        uses: python-semantic-release/python-semantic-release@v10.5.3
+        uses: python-semantic-release/python-semantic-release@v10.6.1
         with:
           no_operation_mode: true
 
@@ -159,7 +159,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           # Use the merge commit ref so fork-PR branches (which only exist in
@@ -183,7 +183,7 @@ jobs:
 
       # On main branch: actual PSR + upload to PyPI & GitHub
       - name: Release
-        uses: python-semantic-release/python-semantic-release@v10.5.3
+        uses: python-semantic-release/python-semantic-release@v10.6.1
         id: release
         with:
           github_token: ${{ secrets.BOT_ACCESS_TOKEN }}
@@ -193,7 +193,7 @@ jobs:
         if: steps.release.outputs.released == 'true'
 
       - name: Publish package distributions to GitHub Releases
-        uses: python-semantic-release/publish-action@v10.5.3
+        uses: python-semantic-release/publish-action@v10.6.1
         if: steps.release.outputs.released == 'true'
         with:
           github_token: ${{ secrets.BOT_ACCESS_TOKEN }}
