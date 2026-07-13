@@ -5,12 +5,13 @@ name: Spec conformance
 # The expensive validation runs at most ONCE per Protect release: the daily cron
 # only queries the firmware-latest API (seconds, no download) and short-circuits
 # while the validated version is current or a drift issue is already open. The
-# spec (~74 MB deb) is fetched ephemerally and never committed or uploaded.
+# spec (~400 KB, from the developer portal) is fetched ephemerally and never
+# committed or uploaded.
 
 on:
-  # schedule disabled: deb download (fw-download.ubnt.com) returns 403 from
-  # GitHub-hosted runners (datacenter IP block). Re-enable once a direct spec
-  # download or self-hosted runner is in place.
+  schedule:
+    # Daily at 06:17 UTC. Cheap until a release actually drifts.
+    - cron: "17 6 * * *"
   workflow_dispatch:
     inputs:
       version:
@@ -85,7 +86,7 @@ jobs:
           fi
 
       # Step 3: known drift — an issue for this version already exists. Exit BEFORE
-      # downloading the deb so steady-state and known-drift days never fetch.
+      # downloading the spec so steady-state and known-drift days never fetch.
       - name: Short-circuit if drift issue already open
         id: known
         if: steps.steady.outputs.skip != 'true'
@@ -101,7 +102,7 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # Step 4a: fetch the spec (~74 MB) and validate — only when drift is new.
+      # Step 4a: fetch the spec (~400 KB) and validate — only when drift is new.
       - name: Install dependencies
         if: steps.steady.outputs.skip != 'true' && steps.known.outputs.skip != 'true'
         run: poetry install --all-extras
