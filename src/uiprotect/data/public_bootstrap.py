@@ -5,23 +5,27 @@ This is an opt-in, separate cache for the Public Integration API. It is
 *not* populated by :meth:`ProtectApiClient.update` and does not
 touch the private :class:`~uiprotect.data.bootstrap.Bootstrap` in any way.
 
-Consumers (e.g. Home Assistant) pick one of two ordering contracts:
+Prime/subscribe ordering is a **library guarantee**, not a caller obligation:
+``update_public()`` buffers any public WS frame that arrives while it is
+priming and replays it onto the fresh snapshot before returning, so a
+subscriber that is already connected never loses an update to the prime
+window. Consumers may subscribe and prime in either order:
 
-* **Typed** (``subscribe_devices`` / ``subscribe_events``): call
-  ``await update_public()`` *first* to prime the cache, then subscribe. These
-  deliver merged public models, so they require the primed cache and raise
-  ``RuntimeError`` if it is missing.
+* **Typed** (``subscribe_devices`` / ``subscribe_events``): deliver merged
+  public models, so they require a primed cache and raise ``RuntimeError`` if
+  it is missing. Use ``subscribe_devices_and_prime`` /
+  ``subscribe_events_and_prime`` to subscribe and prime in one call — these
+  connect the websocket *before* priming so the buffer catches every frame,
+  making the prime-then-subscribe question moot.
 * **Raw** (``subscribe_devices_websocket`` / ``subscribe_events_websocket``):
-  subscribe *first*, then ``await update_public()``. The websocket is live
-  during priming so no frame is missed; pre-prime frames arrive via
-  ``changed_data`` with ``new_obj=None``.
+  subscribe in any order relative to ``update_public()``. Frames that land
+  while priming are held and replayed once the snapshot is applied, so they
+  reach subscribers with a merged ``new_obj`` instead of being dropped.
 
-WS messages that arrive while ``update_public()`` is still priming are
-delivered to raw subscribers (via ``changed_data``), but they may not yet be
-applied to the in-memory :class:`PublicBootstrap` cache (an ``update`` for
-an object not in the cache is dropped — the cache catches up on the next
-``update_public()`` / reconnect refresh). Messages that arrive after priming
-are merged into the fresh cache normally.
+WS messages that arrive *after* priming are merged into the fresh cache
+normally. An ``update`` for an object still not in the cache after a replay
+is dropped — the cache catches up on the next ``update_public()`` / reconnect
+refresh.
 
 WS messages carry partial diffs for ``update`` actions; the cache therefore
 *merges* updates into the existing in-memory object instead of reconstructing
