@@ -3098,6 +3098,44 @@ def test_public_bootstrap_get_and_unknown_model(
     assert pb.get(ModelType.UNKNOWN, SIREN_ID) is None
 
 
+def test_public_bootstrap_all_devices_empty() -> None:
+    """Empty bootstrap yields nothing, with or without the NVR flag."""
+    pb = PublicBootstrap()
+    assert list(pb.all_devices()) == []
+    assert list(pb.all_devices(include_nvr=True)) == []
+
+
+def test_public_bootstrap_all_devices(
+    protect_client: ProtectApiClient,
+) -> None:
+    """``all_devices`` enumerates every store, spanning both registries."""
+    siren = _build_siren(protect_client)
+    pb = protect_client.public_bootstrap
+    camera = next(iter(protect_client.bootstrap.cameras.values()))
+    pb.cameras[camera.id] = camera
+    # A dedicated-slot device (``viewers``) — no ``mac``, so it is excluded from
+    # ``_PUBLIC_STORES`` and only reachable through the second registry.
+    pb.process_devices_ws_message(
+        protect_client, {"type": "add", "item": _viewer_raw()}
+    )
+    viewer = pb.viewers[VIEWER_ID]
+
+    by_id = {id(d) for d in pb.all_devices()}
+    assert by_id == {id(camera), id(siren), id(viewer)}
+
+    # NVR excluded by default, yielded first when requested.
+    pb.nvr = _make_public_nvr(protect_client, arm_mode=_arm_mode_raw("disabled"))
+    assert all(d is not pb.nvr for d in pb.all_devices())
+    with_nvr = list(pb.all_devices(include_nvr=True))
+    assert with_nvr[0] is pb.nvr
+    assert {id(d) for d in with_nvr} == {
+        id(pb.nvr),
+        id(camera),
+        id(siren),
+        id(viewer),
+    }
+
+
 def test_apply_fetch_result_removes_stale_entries(
     protect_client: ProtectApiClient,
 ) -> None:
