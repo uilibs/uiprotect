@@ -179,6 +179,13 @@ is impossible:
   synchronous consumers reading `camera.rtsps_streams` never observe a spurious
   `None`. It is only ever cleared by a camera `remove` frame (which drops the
   whole camera) or the client's own `delete_camera_rtsps_streams`.
+- **Observable.** A background prime/refresh that actually changes a camera's
+  streams is announced: the client emits a synthetic devices-WS `update` for
+  that camera (`new_obj` is the refreshed camera) through the existing devices
+  subscription, so both `subscribe_devices_websocket` and typed
+  `subscribe_devices` consumers observe stream availability without polling.
+  A refresh that yields no change — an identity-guard backoff, a fetch failure,
+  or a re-fetch equal to the cached value — emits nothing.
 
 ## Public vs. private API
 

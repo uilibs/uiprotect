@@ -59,6 +59,7 @@ from uiprotect.data import (
 )
 from uiprotect.data.devices import LEDSettings
 from uiprotect.data.types import DeviceState, Version, VideoMode
+from uiprotect.data.websocket import WSAction
 from uiprotect.exceptions import (
     ArmedModeError,
     BadRequest,
@@ -3549,6 +3550,139 @@ async def test_cancel_rtsps_refresh_tasks_empty_noop():
     await client._cancel_rtsps_refresh_tasks()
 
     assert client._rtsps_refresh_tasks == {}
+
+
+@pytest.mark.asyncio
+async def test_refresh_camera_rtsps_notifies_subscribers_on_prime():
+    """Priming a streamless camera emits a devices-WS update carrying the camera."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    camera = _seed_rtsps_camera(client, "cam1")
+    fresh = RTSPSStreams(high="rtsps://example.com/fresh")
+    client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
+        return_value=fresh
+    )
+    messages = []
+    client.subscribe_devices_websocket(messages.append)
+
+    await client._refresh_camera_rtsps("cam1")
+
+    assert camera.rtsps_streams is fresh
+    assert len(messages) == 1
+    msg = messages[0]
+    assert msg.action is WSAction.UPDATE
+    assert msg.new_obj is camera
+    assert msg.changed_data["modelKey"] == "camera"
+    assert msg.changed_data["id"] == "cam1"
+    assert "rtsps_streams" in msg.changed_data
+
+
+@pytest.mark.asyncio
+async def test_refresh_camera_rtsps_notifies_subscribers_on_change():
+    """A refresh that changes the streams emits one devices-WS update."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    camera = _seed_rtsps_camera(
+        client, "cam1", RTSPSStreams(high="rtsps://example.com/stale")
+    )
+    fresh = RTSPSStreams(high="rtsps://example.com/fresh")
+    client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
+        return_value=fresh
+    )
+    messages = []
+    client.subscribe_devices_websocket(messages.append)
+
+    await client._refresh_camera_rtsps("cam1")
+
+    assert camera.rtsps_streams is fresh
+    assert len(messages) == 1
+    assert messages[0].new_obj is camera
+
+
+@pytest.mark.asyncio
+async def test_refresh_camera_rtsps_reaches_typed_device_subscribers():
+    """A background prime is observable through the typed ``subscribe_devices`` channel."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    camera = _seed_rtsps_camera(client, "cam1")
+    fresh = RTSPSStreams(high="rtsps://example.com/fresh")
+    client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
+        return_value=fresh
+    )
+    changes = []
+    client.subscribe_devices(changes.append)
+
+    await client._refresh_camera_rtsps("cam1")
+
+    assert len(changes) == 1
+    change = changes[0]
+    assert change.model is camera
+    assert change.model_type is ModelType.CAMERA
+    assert change.device_id == "cam1"
+    assert "rtsps_streams" in change.changed_fields
+
+
+@pytest.mark.asyncio
+async def test_refresh_camera_rtsps_no_notify_on_unchanged():
+    """A refresh whose fetched streams equal the cached ones emits nothing."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    _seed_rtsps_camera(client, "cam1", RTSPSStreams(high="rtsps://example.com/same"))
+    client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
+        return_value=RTSPSStreams(high="rtsps://example.com/same")
+    )
+    messages = []
+    client.subscribe_devices_websocket(messages.append)
+
+    await client._refresh_camera_rtsps("cam1")
+
+    assert messages == []
+
+
+@pytest.mark.asyncio
+async def test_refresh_camera_rtsps_no_notify_on_failure():
+    """A failed refresh writes nothing and emits no devices-WS update."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    _seed_rtsps_camera(client, "cam1", RTSPSStreams(high="rtsps://example.com/high"))
+    client.get_camera_rtsps_streams = AsyncMock(  # type: ignore[method-assign]
+        side_effect=RuntimeError("boom")
+    )
+    messages = []
+    client.subscribe_devices_websocket(messages.append)
+
+    await client._refresh_camera_rtsps("cam1")
+
+    assert messages == []
+
+
+@pytest.mark.asyncio
+async def test_refresh_camera_rtsps_no_notify_on_backoff():
+    """An identity-guard backoff (camera evicted mid-flight) emits nothing."""
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    _seed_rtsps_camera(client, "cam1", RTSPSStreams(high="rtsps://example.com/stale"))
+    fresh = RTSPSStreams(high="rtsps://example.com/fresh")
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def _fake_get(camera_id: str) -> RTSPSStreams:
+        started.set()
+        await release.wait()
+        return fresh
+
+    client.get_camera_rtsps_streams = _fake_get  # type: ignore[method-assign]
+    messages = []
+    client.subscribe_devices_websocket(messages.append)
+    client._schedule_rtsps_refresh("cam1")
+    task = client._rtsps_refresh_tasks["cam1"]
+    await started.wait()
+    client._public_bootstrap.cameras.pop("cam1", None)
+
+    release.set()
+    await task
+
+    assert messages == []
 
 
 def test_rtsps_streams_class():
