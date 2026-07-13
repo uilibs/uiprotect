@@ -115,6 +115,14 @@ def anonymize_dict(obj: dict[str, Any], name: str | None = None) -> dict[str, An
     if obj_type == ModelType.USER:
         return anonymize_user(obj)
 
+    if name == "rtspsStreams":
+        for key, value in obj.items():
+            if isinstance(value, str):
+                obj[key] = anonymize_rstp_url(value)
+            else:
+                obj[key] = anonymize_data(value, name=key)
+        return obj
+
     for key, value in obj.items():
         handled = False
         if obj_type is not None or "payload" in obj:
@@ -150,10 +158,13 @@ def anonymize_list(items: list[Any], name: str | None = None) -> list[Any]:
             "smartDetectEvents",
             "camera",
             "cameras",
+            "rtspsStreams",
         }:
             handled = True
             if name == "hosts":
                 items[index] = anonymize_ip(items[index])
+            elif name == "rtspsStreams":
+                items[index] = anonymize_rstp_url(value)
             elif name in {"smartDetectEvents", "camera", "cameras"}:
                 items[index] = anonymize_object_id(value)
 
