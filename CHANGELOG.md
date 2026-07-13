@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.12.1 (2026-07-13)
+
+### Bug fixes
+
+
+- Notify subscribers when background rtsps refresh writes streams ([`f71fb78`](https://github.com/uilibs/uiprotect/commit/f71fb78811748d45e34568b6683ad839597ced59))
+
+
 ## v15.12.0 (2026-07-13)
 
 ### Features
