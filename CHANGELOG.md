@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.12.0 (2026-07-13)
+
+### Features
+
+
+- Make update_public() independent of websocket subscription order ([`b3de73e`](https://github.com/uilibs/uiprotect/commit/b3de73ec665dc5f66791fa5c06f9da393422d12f))
+
+
 ## v15.11.0 (2026-07-12)
 
 ### Features
