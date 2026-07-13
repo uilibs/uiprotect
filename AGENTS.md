@@ -63,9 +63,32 @@ depending on it.
   If removing the comment wouldn't confuse a future reader, don't
   write it.
 
+  Three anti-patterns that keep showing up in generated code —
+  the downstream Home Assistant integration enforces the same
+  bar, so match it:
+
+  - **No section / divider banners.** Comments like
+    `# ---- Convenience setters ----` or `# === websocket ===`,
+    inside or outside a function, carry no information the code
+    doesn't, drift out of sync, and go stale. Group related
+    members with a blank line and let the names carry the
+    structure — don't draw a banner.
+  - **Never restate the next line(s).** A comment that
+    paraphrases what the following statement plainly does
+    (`# increment the counter` above `count += 1`) is noise.
+    Comment the non-obvious _why_, or write nothing.
+  - **Keep `try` clauses minimal.** Wrap only the statement(s)
+    that can raise the caught exception, not a large block, and
+    don't catch from calls that aren't expected to raise. Not a
+    comment rule, but the same "say only what matters" hygiene
+    and enforced downstream.
+
   **Don't remove existing comments** unless the code they
   describe is gone — the original author left them for a reason,
-  often a specific Protect firmware regression.
+  often a specific Protect firmware regression. The one
+  exception is the two anti-patterns above (divider banners and
+  lines that merely restate the following code): those carry no
+  author intent worth preserving and should be deleted on sight.
 
 - **Don't pad commits, docstrings, or comments with cross-
   references** to old codepaths or issue numbers unless there's

@@ -243,10 +243,6 @@ class PublicBootstrap:
         if self.max_event_cache_size < 0:
             raise ValueError("max_event_cache_size must be >= 0")
 
-    # ------------------------------------------------------------------
-    # Lookup helpers
-    # ------------------------------------------------------------------
-
     def _store_for(self, model_type: ModelType) -> dict[str, ProtectModelWithId] | None:
         store = _PUBLIC_STORES.get(model_type)
         if store is not None:
@@ -292,10 +288,6 @@ class PublicBootstrap:
         # truth at the moment it returns.
         for obj in objs:
             store[obj.id] = obj
-
-    # ------------------------------------------------------------------
-    # WS message handlers
-    # ------------------------------------------------------------------
 
     def supports_device(self, model_type: ModelType) -> bool:
         """Return whether ``model_type`` maps to a public device store."""
@@ -583,10 +575,6 @@ class PublicBootstrap:
             self._clear_camera_detection_event(event)
         return self._drain_detection_updates()
 
-    # ------------------------------------------------------------------
-    # Action application (shared by devices / NVR / events)
-    # ------------------------------------------------------------------
-
     def _apply_action(
         self,
         api: ProtectApiClient,
@@ -716,10 +704,6 @@ class PublicBootstrap:
                 err,
             )
             return None
-
-    # ------------------------------------------------------------------
-    # Slot factories
-    # ------------------------------------------------------------------
 
     def _nvr_slot(self) -> _Slot:
         """Return a slot that stores the NVR in :attr:`nvr`."""

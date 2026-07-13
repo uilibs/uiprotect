@@ -364,11 +364,6 @@ def parse_retry_after(response: ClientResponse) -> float | None:
         return None
 
 
-# =============================================================================
-# Helper Functions
-# =============================================================================
-
-
 def get_user_hash(host: str, username: str) -> str:
     session = hashlib.sha256()
     session.update(host.encode("utf8"))
@@ -4039,10 +4034,6 @@ class ProtectApiClient(BaseApiClient):
         )
         return PublicCamera.from_unifi_dict(**data, api=self)
 
-    # ------------------------------------------------------------------
-    # Public API: Sensors
-    # ------------------------------------------------------------------
-
     @public_get("/v1/sensors", items=PublicSensor)
     async def get_sensors_public(self) -> list[PublicSensor]:
         """Get all sensors using public API."""
@@ -4108,10 +4099,6 @@ class ProtectApiClient(BaseApiClient):
         sensor = PublicSensor.from_unifi_dict(**result, api=self)
         self._write_through_public_twin(sensor)
         return sensor
-
-    # ------------------------------------------------------------------
-    # Public API: Sirens
-    # ------------------------------------------------------------------
 
     @staticmethod
     def _build_named_led_patch_body(
@@ -4232,10 +4219,6 @@ class ProtectApiClient(BaseApiClient):
             json=body,
         )
 
-    # ------------------------------------------------------------------
-    # Public API: Relays
-    # ------------------------------------------------------------------
-
     @public_get("/v1/relays", items=Relay)
     async def get_relays_public(self) -> list[Relay]:
         """Get all relays using public API."""
@@ -4299,10 +4282,6 @@ class ProtectApiClient(BaseApiClient):
             json=body or None,
         )
 
-    # ------------------------------------------------------------------
-    # Public API: Fobs
-    # ------------------------------------------------------------------
-
     @public_get("/v1/fobs", items=Fob)
     async def get_fobs_public(self) -> list[Fob]:
         """Get all key fobs using public API."""
@@ -4317,10 +4296,6 @@ class ProtectApiClient(BaseApiClient):
     async def update_fob_public(self, fob_id: str, *, name: str | None = None) -> Fob:
         """Patch key-fob settings using public API."""
         raise NotImplementedError
-
-    # ------------------------------------------------------------------
-    # Public API: Speakers
-    # ------------------------------------------------------------------
 
     @public_get("/v1/speakers", items=Speaker)
     async def get_speakers_public(self) -> list[Speaker]:
@@ -4358,10 +4333,6 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
             json=body,
         )
-
-    # ------------------------------------------------------------------
-    # Public API: Link stations / Alarm hubs
-    # ------------------------------------------------------------------
 
     @public_get("/v1/link-stations", items=LinkStation)
     async def get_link_stations_public(self) -> list[LinkStation]:
@@ -4425,10 +4396,6 @@ class ProtectApiClient(BaseApiClient):
             json=body or None,
         )
 
-    # ------------------------------------------------------------------
-    # Public API: Bridges
-    # ------------------------------------------------------------------
-
     @public_get("/v1/bridges", items=PublicBridge)
     async def get_bridges_public(self) -> list[PublicBridge]:
         """Get all bridges using public API."""
@@ -4463,10 +4430,6 @@ class ProtectApiClient(BaseApiClient):
         if self._public_bootstrap is not None:
             self._public_bootstrap.bridges[bridge.id] = bridge
         return bridge
-
-    # ------------------------------------------------------------------
-    # Public API: Viewers
-    # ------------------------------------------------------------------
 
     @public_get("/v1/viewers", items=PublicViewer)
     async def get_viewers_public(self) -> list[PublicViewer]:
@@ -4510,10 +4473,6 @@ class ProtectApiClient(BaseApiClient):
         if self._public_bootstrap is not None:
             self._public_bootstrap.viewers[viewer.id] = viewer
         return viewer
-
-    # ------------------------------------------------------------------
-    # Public API: Liveviews
-    # ------------------------------------------------------------------
 
     @public_get("/v1/liveviews", items=PublicLiveview)
     async def get_liveviews_public(self) -> list[PublicLiveview]:
@@ -4602,10 +4561,6 @@ class ProtectApiClient(BaseApiClient):
             self._public_bootstrap.liveviews[liveview.id] = liveview
         return liveview
 
-    # ------------------------------------------------------------------
-    # Public API: Alarm manager webhook
-    # ------------------------------------------------------------------
-
     async def send_alarm_webhook_public(self, trigger_id: str) -> None:
         """Fire the alarm-manager webhook for the given trigger id."""
         if not trigger_id:
@@ -4615,10 +4570,6 @@ class ProtectApiClient(BaseApiClient):
             method="post",
             public_api=True,
         )
-
-    # ------------------------------------------------------------------
-    # Public API: Arm profiles (local alarm manager only)
-    # ------------------------------------------------------------------
 
     async def get_arm_profiles_public(self) -> list[ArmProfile]:
         """Get all arm profiles."""
@@ -4771,10 +4722,6 @@ class ProtectApiClient(BaseApiClient):
         ):
             self._public_bootstrap.arm_mode.status = NvrArmModeStatus.DISABLED
 
-    # ------------------------------------------------------------------
-    # Public API: Users
-    # ------------------------------------------------------------------
-
     @public_get("/v1/users", items=PublicUser)
     async def get_users_public(self) -> list[PublicUser]:
         """Get all Protect users using public API."""
@@ -4785,10 +4732,6 @@ class ProtectApiClient(BaseApiClient):
         """Get a specific Protect user using public API."""
         raise NotImplementedError
 
-    # ------------------------------------------------------------------
-    # Public API: ULP users (UniFi Identity)
-    # ------------------------------------------------------------------
-
     @public_get("/v1/ulp-users", items=PublicUlpUser)
     async def get_ulp_users_public(self) -> list[PublicUlpUser]:
         """Get all UniFi Identity users using public API."""
@@ -4798,10 +4741,6 @@ class ProtectApiClient(BaseApiClient):
     async def get_ulp_user_public(self, ulp_user_id: str) -> PublicUlpUser:
         """Get a specific UniFi Identity user using public API."""
         raise NotImplementedError
-
-    # ------------------------------------------------------------------
-    # Public API: Files (device assets)
-    # ------------------------------------------------------------------
 
     async def get_files_public(
         self, file_type: AssetFileType | str = AssetFileType.ANIMATIONS
@@ -4846,10 +4785,6 @@ class ProtectApiClient(BaseApiClient):
         if not raw:
             raise NvrError("Empty response from upload_file_public")
         return PublicFile.from_unifi_dict(**orjson.loads(raw), api=self)
-
-    # ------------------------------------------------------------------
-    # Public API: Bootstrap (opt-in)
-    # ------------------------------------------------------------------
 
     async def update_public(self) -> PublicBootstrap:
         """

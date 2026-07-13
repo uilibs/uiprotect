@@ -163,10 +163,6 @@ _DETECTION_STATE_FIELDS = (
     "is_glass_break_currently_detected",
 )
 
-# ---------------------------------------------------------------------------
-# Write payloads (TypedDict — shape the client accepts and forwards)
-# ---------------------------------------------------------------------------
-
 
 class PublicArmScheduleDict(TypedDict):
     """Arm-profile schedule entry (write shape). Fields are cron expressions."""
@@ -222,11 +218,6 @@ class PublicLiveviewSlotDict(TypedDict):
     cycleInterval: int
 
 
-# ---------------------------------------------------------------------------
-# Shared sub-models (read shape)
-# ---------------------------------------------------------------------------
-
-
 class PublicSignalState(ProtectBaseObject):
     # Nullable on the wire: a freshly-paired wireless device (e.g. a key fob)
     # has not yet reported its Bluetooth signal.
@@ -252,10 +243,6 @@ class PublicLedSettings(ProtectBaseObject):
     is_enabled: bool
 
 
-# ---------------------------------------------------------------------------
-# Camera (public) — leaf sub-models + device
-# ---------------------------------------------------------------------------
-#
 # Sub-object internals are not ``required`` in the spec, so every leaf field
 # carries a default; that keeps partial WS update diffs (which omit unchanged
 # nested keys) parseable without strict-validation failures.
@@ -483,10 +470,6 @@ class PublicCamera(PublicDeviceModel):
             qualities.append(ChannelQuality.PACKAGE)
         return qualities
 
-    # ------------------------------------------------------------------
-    # Derived detection state (public events WS)
-    # ------------------------------------------------------------------
-    #
     # The Public Integration API does not carry live detection booleans on the
     # camera payload; they are derived here from the public events websocket,
     # mirroring the private :class:`~uiprotect.data.devices.Camera` accessor
@@ -569,10 +552,6 @@ class PublicCamera(PublicDeviceModel):
         """Is glass breaking currently being detected."""
         return self._detection_state()["is_glass_break_currently_detected"]
 
-    # ------------------------------------------------------------------
-    # Derived config state (enabled detections / mode)
-    # ------------------------------------------------------------------
-    #
     # Config-derived parity accessors mirroring the private
     # :class:`~uiprotect.data.devices.Camera` names. Unlike the private model,
     # the public payload has no per-type feature-flag/global-settings
@@ -762,10 +741,6 @@ class PublicCamera(PublicDeviceModel):
             "Camera mutations must go through the dedicated public API helpers "
             "(update_camera_public)."
         )
-
-    # ------------------------------------------------------------------
-    # Convenience setters (public API)
-    # ------------------------------------------------------------------
 
     async def set_status_light(self, enabled: bool) -> PublicCamera:
         """Set the status LED via the public API."""
@@ -1002,11 +977,6 @@ class PublicCamera(PublicDeviceModel):
         return self
 
 
-# ---------------------------------------------------------------------------
-# Light (public) — leaf sub-models + device
-# ---------------------------------------------------------------------------
-
-
 class PublicLightModeSettings(ProtectBaseObject):
     mode: LightModeType | None = None
     enable_at: LightModeEnableType | None = None
@@ -1040,10 +1010,6 @@ class PublicLight(PublicDeviceModel):
             "Light mutations must go through the dedicated public API helpers "
             "(update_light_public)."
         )
-
-    # ------------------------------------------------------------------
-    # Convenience setters (public API)
-    # ------------------------------------------------------------------
 
     async def set_name(self, name: str) -> PublicLight:
         """Set the light name via the public API."""
@@ -1159,11 +1125,6 @@ class PublicLight(PublicDeviceModel):
             )
             self._apply_from_response(updated)
         return self
-
-
-# ---------------------------------------------------------------------------
-# Sensor (public) — leaf sub-models + device
-# ---------------------------------------------------------------------------
 
 
 class PublicBatteryStatus(ProtectBaseObject):
@@ -1345,10 +1306,6 @@ class PublicSensor(PublicDeviceModel):
             "Sensor mutations must go through the dedicated public API helpers "
             "(update_sensor_public)."
         )
-
-    # ------------------------------------------------------------------
-    # Convenience setters (public API)
-    # ------------------------------------------------------------------
 
     async def set_name(self, name: str) -> PublicSensor:
         """Set the sensor name via the public API."""
@@ -1555,11 +1512,6 @@ class PublicSensor(PublicDeviceModel):
         return await self.set_glass_break_settings(is_enabled=enabled)
 
 
-# ---------------------------------------------------------------------------
-# Chime (public) — leaf sub-model + device
-# ---------------------------------------------------------------------------
-
-
 class PublicRingSettings(ProtectBaseObject):
     camera_id: str | None = None
     repeat_times: int | None = None
@@ -1581,10 +1533,6 @@ class PublicChime(PublicDeviceModel):
             "Chime mutations must go through the dedicated public API helpers "
             "(update_chime_public)."
         )
-
-    # ------------------------------------------------------------------
-    # Convenience setters (public API)
-    # ------------------------------------------------------------------
 
     async def set_ring_settings(
         self,
@@ -1648,11 +1596,6 @@ class PublicChime(PublicDeviceModel):
                 entry["ringtoneId"] = rs.ringtone_id
             body.append(entry)
         return body
-
-
-# ---------------------------------------------------------------------------
-# Siren
-# ---------------------------------------------------------------------------
 
 
 class PublicSirenStatus(ProtectBaseObject):
@@ -1742,11 +1685,6 @@ class Siren(PublicDeviceModel):
         return await self._api.update_siren_public(self.id, led_is_enabled=enabled)
 
 
-# ---------------------------------------------------------------------------
-# Relay
-# ---------------------------------------------------------------------------
-
-
 class PublicRelayOutput(ProtectBaseObject):
     id: int
     name: str | None = None
@@ -1824,11 +1762,6 @@ class Relay(PublicDeviceModel):
         return await self._api.update_relay_public(self.id, led_is_enabled=enabled)
 
 
-# ---------------------------------------------------------------------------
-# Fob
-# ---------------------------------------------------------------------------
-
-
 class PublicFobFeatureFlags(ProtectBaseObject):
     # ``FobButton`` carries an ``unknown`` member, so button kinds added by
     # newer firmware coerce to ``FobButton.UNKNOWN`` instead of raising.
@@ -1847,11 +1780,6 @@ class Fob(PublicDeviceModel):
     feature_flags: PublicFobFeatureFlags
     # Required by the spec — a fob is always a wireless battery device.
     wireless_connection_state: PublicWirelessConnectionState
-
-
-# ---------------------------------------------------------------------------
-# Speaker
-# ---------------------------------------------------------------------------
 
 
 class PublicSpeakerFeatureFlags(ProtectBaseObject):
@@ -1901,11 +1829,6 @@ class Speaker(PublicDeviceModel):
     async def test_sound(self, volume: int | None = None) -> None:
         """Test the speaker sound at the given volume."""
         await self._api.test_speaker_sound_public(self.id, volume=volume)
-
-
-# ---------------------------------------------------------------------------
-# Link Station / Alarm Hub
-# ---------------------------------------------------------------------------
 
 
 class AlarmHubBattery(ProtectBaseObject):
@@ -2031,10 +1954,6 @@ class LinkStation(PublicDeviceModel):
             duration=duration,
         )
 
-    # ------------------------------------------------------------------
-    # Typed alarm-hub accessors
-    # ------------------------------------------------------------------
-    #
     # Re-derived from ``alarm_hub`` on every access so they stay live against
     # WS updates (which mutate the stored dict in place). The electrical
     # sub-sections (``connector``, ``*MeterStatus``, ``*TerminalStatus``,
@@ -2099,11 +2018,6 @@ class LinkStation(PublicDeviceModel):
         }
 
 
-# ---------------------------------------------------------------------------
-# Arm profile (NOT a device — has no ``modelKey``)
-# ---------------------------------------------------------------------------
-
-
 class PublicArmSchedule(ProtectBaseObject):
     start: str
     end: str
@@ -2147,11 +2061,6 @@ class NvrArmMode(ProtectBaseObject):
     breach_event_count: int = 0
     breach_trigger_event_id: str | None = None
     breach_event_id: str | None = None
-
-
-# ---------------------------------------------------------------------------
-# Public NVR
-# ---------------------------------------------------------------------------
 
 
 class PublicDoorbellCustomImage(ProtectBaseObject):
@@ -2212,11 +2121,6 @@ class PublicNVR(PublicIdentifiedModel):
     arm_mode: NvrArmMode | None = None
 
 
-# ---------------------------------------------------------------------------
-# Liveview
-# ---------------------------------------------------------------------------
-
-
 class PublicLiveviewSlot(ProtectBaseObject):
     """One slot in a public-API liveview (read shape)."""
 
@@ -2257,11 +2161,6 @@ class PublicLiveview(ProtectModelWithId):
         )
 
 
-# ---------------------------------------------------------------------------
-# Bridge
-# ---------------------------------------------------------------------------
-
-
 class PublicBridge(PublicDeviceModel):
     """
     Public API bridge device.
@@ -2286,11 +2185,6 @@ class PublicBridge(PublicDeviceModel):
 
     async def set_name(self, name: str) -> PublicBridge:
         return await self._api.update_bridge_public(self.id, name=name)
-
-
-# ---------------------------------------------------------------------------
-# Viewer
-# ---------------------------------------------------------------------------
 
 
 class PublicViewer(PublicDeviceModel):
@@ -2328,11 +2222,6 @@ class PublicViewer(PublicDeviceModel):
         return await self._api.update_viewer_public(self.id, liveview=liveview_id)
 
 
-# ---------------------------------------------------------------------------
-# User / ULP user (read-only)
-# ---------------------------------------------------------------------------
-
-
 class PublicUser(ProtectModelWithId):
     """Public API Protect user (read-only)."""
 
@@ -2355,11 +2244,6 @@ class PublicUlpUser(ProtectModelWithId):
     last_name: str
     full_name: str
     status: UlpUserStatus
-
-
-# ---------------------------------------------------------------------------
-# Files (device assets)
-# ---------------------------------------------------------------------------
 
 
 class PublicFile(ProtectBaseObject):

@@ -260,7 +260,6 @@ class EventType(ValuesEnumMixin, enum.StrEnum):
     CAMERA_CONNECTED = "cameraConnected"
     CAMERA_REBOOTED = "cameraRebooted"
     CAMERA_DISCONNECTED = "cameraDisconnected"
-    # ---
     INSTALLED_DISK = "installed"
     CORRUPTED_DB_RECOVERED = "corruptedDbRecovered"
     OFFLINE = "offline"
@@ -276,7 +275,6 @@ class EventType(ValuesEnumMixin, enum.StrEnum):
     DRIVE_SLOW = "driveSlow"
     GLOBAL_RECORDING_MODE_CHANGED = "globalRecordingModeChanged"
     NVR_SETTINGS_CHANGED = "nvrSettingsChanged"
-    # ---
     UNADOPTED_DEVICE_DISCOVERED = "unadoptedDeviceDiscovered"
     MULTIPLE_UNADOPTED_DEVICE_DISCOVERED = "multipleUnadoptedDeviceDiscovered"
     DEVICE_ADOPTED = "deviceAdopted"
@@ -289,14 +287,12 @@ class EventType(ValuesEnumMixin, enum.StrEnum):
     DEVICE_REBOOTED = "deviceRebooted"
     DEVICE_DISCONNECTED = "deviceDisconnected"
     NETWORK_DEVICE_OFFLINE = "networkDeviceOffline"
-    # ---
     USER_LEFT = "userLeft"
     USER_ARRIVED = "userArrived"
     VIDEO_EXPORTED = "videoExported"
     MIC_DISABLED = "microphoneDisabled"
     VIDEO_DELETED = "videoDeleted"
     SCHEDULE_CHANGED = "recordingScheduleChanged"
-    # ---
     MOTION_SENSOR = "sensorMotion"
     SENSOR_BUTTON_PRESSED = "sensorButtonPressed"
     SENSOR_OPENED = "sensorOpened"
@@ -325,11 +321,8 @@ class EventType(ValuesEnumMixin, enum.StrEnum):
     ALARM_HUB_BATTERY_CONNECTED = "alarmHubBatteryConnected"
     ALARM_HUB_BATTERY_LOW = "alarmHubBatteryLow"
     SMART_DETECT_LOITER = "smartDetectLoiterZone"
-    # ---
     MOTION_LIGHT = "lightMotion"
-    # ---
     DISRUPTED_CONDITIONS = "ringDisruptedConditions"
-    # ---
     RECORDING_OFF = "recordingOff"
 
     @staticmethod
