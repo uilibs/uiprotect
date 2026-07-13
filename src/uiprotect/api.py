@@ -860,7 +860,7 @@ class BaseApiClient:
         public_api: bool = False,
         **kwargs: Any,
     ) -> bytes | None:
-        """Make a API request"""
+        """Make a API request; transport failures surface as ``NvrError``."""
         path = self.private_api_path
         if api_path is not None:
             path = api_path
@@ -882,7 +882,12 @@ class BaseApiClient:
                 await self._raise_for_status(response, raise_exception)
                 return None
 
-            data: bytes | None = await response.read()
+            try:
+                data: bytes | None = await response.read()
+            except client_exceptions.ClientError as err:
+                raise NvrError(
+                    f"Error reading response from {self._host}: {err}",
+                ) from err
             response.release()
 
             return data

@@ -659,3 +659,33 @@ async def test_update_token_cookie_failure_releases_response(
         )
 
     response.release.assert_called_once()
+
+
+# =============================================================================
+# api_request_raw body-read failure Tests
+# =============================================================================
+
+
+@pytest.mark.parametrize(
+    "read_error",
+    [
+        aiohttp.ServerDisconnectedError(),
+        client_exceptions.ClientPayloadError("payload truncated"),
+    ],
+)
+@pytest.mark.asyncio()
+async def test_api_request_raw_body_read_error_wrapped(
+    do_request_client: ProtectApiClient,
+    read_error: client_exceptions.ClientError,
+) -> None:
+    """A mid-body disconnect/payload error surfaces as NvrError, not raw aiohttp."""
+    response = MagicMock()
+    response.status = 200
+    response.release = MagicMock()
+    response.read = AsyncMock(side_effect=read_error)
+    do_request_client.request = AsyncMock(return_value=response)
+
+    with pytest.raises(NvrError, match="Error reading response"):
+        await do_request_client.api_request_raw("/test")
+
+    response.release.assert_called_once()
