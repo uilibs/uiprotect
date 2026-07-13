@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.12.2 (2026-07-13)
+
+### Bug fixes
+
+
+- Emit disconnected before auth_failed ([`cb2b57e`](https://github.com/uilibs/uiprotect/commit/cb2b57e26fa79021f5fdbaa5b6acc1ad6207fab3))
+
+
 ## v15.12.1 (2026-07-13)
 
 ### Bug fixes
