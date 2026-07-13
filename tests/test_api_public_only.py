@@ -305,13 +305,49 @@ async def test_resolve_nvr_mac_skips_public_when_nvr_absent() -> None:
 
 
 @pytest.mark.asyncio()
+async def test_resolve_nvr_mac_fetches_public_nvr_when_unprimed() -> None:
+    """Unprimed client resolves via /v1/nvrs without update_public first."""
+    client = _public_only_client()
+    assert client._public_bootstrap is None
+    nvr = AsyncMock(return_value=Mock(mac="AA:BB:CC:DD:EE:FF"))
+    console = AsyncMock(return_value="778899AABBCC")
+    with (
+        patch.object(client, "get_nvr_public", new=nvr),
+        patch.object(client, "get_console_mac", new=console),
+    ):
+        assert await client.resolve_nvr_mac() == "aabbccddeeff"
+    console.assert_not_awaited()
+
+
+@pytest.mark.asyncio()
 async def test_resolve_nvr_mac_falls_back_to_console() -> None:
-    """With no bootstraps, the console mac is used and normalized."""
+    """Old firmware: mac-less public nvr falls through to the console mac."""
     client = _public_only_client()
     assert client._public_bootstrap is None
     assert client._bootstrap is None
-    with patch.object(
-        client, "get_console_mac", new=AsyncMock(return_value="AA:BB:CC:DD:EE:FF")
+    with (
+        patch.object(
+            client, "get_nvr_public", new=AsyncMock(return_value=Mock(mac=None))
+        ),
+        patch.object(
+            client, "get_console_mac", new=AsyncMock(return_value="AA:BB:CC:DD:EE:FF")
+        ),
+    ):
+        assert await client.resolve_nvr_mac() == "aabbccddeeff"
+
+
+@pytest.mark.asyncio()
+async def test_resolve_nvr_mac_falls_back_to_console_when_public_errors() -> None:
+    """A /v1/nvrs failure (endpoint absent) falls through to the console."""
+    client = _public_only_client()
+    assert client._public_bootstrap is None
+    with (
+        patch.object(
+            client, "get_nvr_public", new=AsyncMock(side_effect=NvrError("no endpoint"))
+        ),
+        patch.object(
+            client, "get_console_mac", new=AsyncMock(return_value="AA:BB:CC:DD:EE:FF")
+        ),
     ):
         assert await client.resolve_nvr_mac() == "aabbccddeeff"
 
@@ -320,7 +356,12 @@ async def test_resolve_nvr_mac_falls_back_to_console() -> None:
 async def test_resolve_nvr_mac_returns_none_when_no_source() -> None:
     """Resolver returns None when no source yields a mac."""
     client = _public_only_client()
-    with patch.object(client, "get_console_mac", new=AsyncMock(return_value=None)):
+    with (
+        patch.object(
+            client, "get_nvr_public", new=AsyncMock(return_value=Mock(mac=None))
+        ),
+        patch.object(client, "get_console_mac", new=AsyncMock(return_value=None)),
+    ):
         assert await client.resolve_nvr_mac() is None
 
 

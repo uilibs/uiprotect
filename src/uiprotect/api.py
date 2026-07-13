@@ -109,6 +109,7 @@ from .data.types import (
 from .exceptions import (
     ArmedModeError,
     BadRequest,
+    ClientError,
     GlobalAlarmManagerError,
     NotAuthorized,
     NvrError,
@@ -3765,14 +3766,22 @@ class ProtectApiClient(BaseApiClient):
 
     async def resolve_nvr_mac(self) -> str | None:
         """
-        Resolve the NVR mac, normalized, by source priority: public
-        bootstrap, then private bootstrap, then the ``/api/system`` console
+        Resolve the NVR mac, normalized, by source priority: the public NVR
+        (cached ``_public_bootstrap`` if primed, else a direct ``/v1/nvrs``
+        fetch), then private bootstrap, then the ``/api/system`` console
         fallback; ``None`` if none resolve.
         """
         if self._public_bootstrap is not None:
             nvr = self._public_bootstrap.nvr
             if nvr is not None and nvr.mac:
                 return normalize_mac(nvr.mac)
+        else:
+            try:
+                public_nvr = await self.get_nvr_public()
+            except ClientError:
+                public_nvr = None
+            if public_nvr is not None and public_nvr.mac:
+                return normalize_mac(public_nvr.mac)
 
         if self._bootstrap is not None and self._bootstrap.nvr.mac:
             return normalize_mac(self._bootstrap.nvr.mac)
