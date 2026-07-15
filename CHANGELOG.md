@@ -1,5 +1,19 @@
 # Changelog
 
+## v15.13.0 (2026-07-15)
+
+### Features
+
+
+- Add combined set_light setter to public light tree ([`eff3045`](https://github.com/uilibs/uiprotect/commit/eff304580d88d74664541238e278b032f822f3ec))
+
+
+### Documentation
+
+
+- Codify comment anti-patterns and sweep src/uiprotect ([`5c3e239`](https://github.com/uilibs/uiprotect/commit/5c3e2399e21cc470030a253f1a27f7b286328f98))
+
+
 ## v15.12.2 (2026-07-13)
 
 ### Bug fixes
