@@ -274,15 +274,19 @@ class PublicBootstrap:
 
         Walks both device registries (:data:`_PUBLIC_STORES` and
         :data:`_DEDICATED_SLOT_STORE_ATTRS`), so new public device families are
-        covered automatically as they join those registries. The NVR lives in a
-        dedicated single-object slot and is excluded unless ``include_nvr`` is
-        set, in which case it is yielded first.
+        covered automatically as they join those registries. Liveviews are
+        skipped — a :class:`PublicLiveview` is a saved-view configuration, not a
+        physical device, and carries no ``mac``. The NVR lives in a dedicated
+        single-object slot and is excluded unless ``include_nvr`` is set, in
+        which case it is yielded first.
         """
         if include_nvr and self.nvr is not None:
             yield self.nvr
         for store_attr, _cls in _PUBLIC_STORES.values():
             yield from getattr(self, store_attr).values()
-        for store_attr in _DEDICATED_SLOT_STORE_ATTRS.values():
+        for model_type, store_attr in _DEDICATED_SLOT_STORE_ATTRS.items():
+            if model_type is ModelType.LIVEVIEW:
+                continue
             yield from getattr(self, store_attr).values()
 
     def apply_fetch_result(self, attr: str, objs: list[ProtectModelWithId]) -> None:

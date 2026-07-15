@@ -3113,15 +3113,22 @@ def test_public_bootstrap_all_devices(
     pb = protect_client.public_bootstrap
     camera = next(iter(protect_client.bootstrap.cameras.values()))
     pb.cameras[camera.id] = camera
-    # A dedicated-slot device (``viewers``) — no ``mac``, so it is excluded from
-    # ``_PUBLIC_STORES`` and only reachable through the second registry.
+    # A dedicated-slot device (``viewers``) — collision-routed to its own store
+    # by ``ModelType``, so it is only reachable through the second registry.
     pb.process_devices_ws_message(
         protect_client, {"type": "add", "item": _viewer_raw()}
     )
     viewer = pb.viewers[VIEWER_ID]
+    # A liveview is a saved-view config, not a device (no ``mac``); it must be
+    # excluded even though it lives in ``_DEDICATED_SLOT_STORE_ATTRS``.
+    pb.process_devices_ws_message(
+        protect_client, {"type": "add", "item": _liveview_raw()}
+    )
+    liveview = pb.liveviews[LIVEVIEW_ID]
 
     by_id = {id(d) for d in pb.all_devices()}
     assert by_id == {id(camera), id(siren), id(viewer)}
+    assert all(d is not liveview for d in pb.all_devices())
 
     # NVR excluded by default, yielded first when requested.
     pb.nvr = _make_public_nvr(protect_client, arm_mode=_arm_mode_raw("disabled"))
