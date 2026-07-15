@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.14.2 (2026-07-15)
+
+### Bug fixes
+
+
+- Redact rtspsstreams urls in anonymize_data ([`fcd2a88`](https://github.com/uilibs/uiprotect/commit/fcd2a8874884af94d1785ebec7fc266baa5e9321))
+
+
 ## v15.14.1 (2026-07-15)
 
 ### Bug fixes
