@@ -307,6 +307,25 @@ class Light(ProtectMotionDeviceModel):
         )
         self.light_device_settings = device_settings
 
+    async def set_light_public(
+        self, enabled: bool, led_level: int | None = None
+    ) -> None:
+        """Force the light on/off, optionally setting LED brightness (1-6), via public API."""
+        if led_level is None:
+            await self._api.update_light_public(self.id, is_light_force_enabled=enabled)
+            self.light_on_settings.is_led_force_on = enabled
+            return
+        led_level = _coerce_public_int("led_level", led_level, _PUBLIC_LED_LEVEL_RANGE)
+        device_settings = self.light_device_settings.model_copy()
+        device_settings.led_level = LEDLevel(led_level)
+        await self._api.update_light_public(
+            self.id,
+            is_light_force_enabled=enabled,
+            light_device_settings=device_settings,
+        )
+        self.light_on_settings.is_led_force_on = enabled
+        self.light_device_settings = device_settings
+
     async def set_sensitivity_public(self, sensitivity: int) -> None:
         """Set PIR motion sensitivity via public API."""
         device_settings = self.light_device_settings.model_copy()

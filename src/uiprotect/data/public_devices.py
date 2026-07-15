@@ -1048,6 +1048,28 @@ class PublicLight(PublicDeviceModel):
             self._apply_from_response(updated)
         return self
 
+    async def set_light(
+        self, enabled: bool, led_level: int | None = None
+    ) -> PublicLight:
+        """Force the light on/off, optionally setting LED brightness (1-6), in one call."""
+        if led_level is None:
+            updated = await self._api.update_light_public(
+                self.id, is_light_force_enabled=enabled
+            )
+            self._apply_from_response(updated)
+            return self
+        led_level = _coerce_public_int("led_level", led_level, _PUBLIC_LED_LEVEL_RANGE)
+        async with self._update_sync.lock:
+            settings = self.light_device_settings.model_copy()
+            settings.led_level = led_level
+            updated = await self._api.update_light_public(
+                self.id,
+                is_light_force_enabled=enabled,
+                light_device_settings=settings,
+            )
+            self._apply_from_response(updated)
+        return self
+
     async def set_sensitivity(self, sensitivity: int) -> PublicLight:
         """Set PIR motion sensitivity (0-100) via the public API."""
         sensitivity = _coerce_public_int(

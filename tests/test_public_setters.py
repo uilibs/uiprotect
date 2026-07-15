@@ -566,6 +566,61 @@ async def test_public_light_led_level_out_of_range(bad: int) -> None:
     assert not api.update_light_public.called
 
 
+@pytest.mark.parametrize("enabled", [True, False])
+@pytest.mark.asyncio
+async def test_public_light_set_light_no_level(enabled: bool) -> None:
+    api = MagicMock()
+    light = _light(api)
+    api.update_light_public = AsyncMock(
+        return_value=light.model_copy(update={"is_light_force_enabled": enabled})
+    )
+
+    result = await light.set_light(enabled)
+
+    assert result is light
+    assert light.is_light_force_enabled is enabled
+    api.update_light_public.assert_awaited_once_with(
+        light.id, is_light_force_enabled=enabled
+    )
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+@pytest.mark.asyncio
+async def test_public_light_set_light_with_level(enabled: bool) -> None:
+    api = MagicMock()
+    light = _light(api)
+    api.update_light_public = AsyncMock(
+        return_value=light.model_copy(
+            update={
+                "is_light_force_enabled": enabled,
+                "light_device_settings": light.light_device_settings.model_copy(
+                    update={"led_level": 5}
+                ),
+            }
+        )
+    )
+
+    result = await light.set_light(enabled, 5)
+
+    assert result is light
+    assert light.is_light_force_enabled is enabled
+    assert light.light_device_settings.led_level == 5
+    kwargs = api.update_light_public.call_args.kwargs
+    assert kwargs["is_light_force_enabled"] is enabled
+    assert kwargs["light_device_settings"].led_level == 5
+
+
+@pytest.mark.parametrize("bad", [0, 7])
+@pytest.mark.asyncio
+async def test_public_light_set_light_out_of_range(bad: int) -> None:
+    api = MagicMock()
+    light = _light(api)
+    api.update_light_public = AsyncMock()
+    with pytest.raises(BadRequest):
+        await light.set_light(True, bad)
+    assert not api.update_light_public.called
+
+
 @pytest.mark.asyncio
 async def test_public_light_set_status_light() -> None:
     api = MagicMock()
