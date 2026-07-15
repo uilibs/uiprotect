@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import logging
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
@@ -267,6 +267,27 @@ class PublicBootstrap:
             if obj is not None:
                 return getattr(obj, "mac", None)
         return None
+
+    def all_devices(self, *, include_nvr: bool = False) -> Iterator[ProtectModelWithId]:
+        """
+        Iterate every cached device across all model types.
+
+        Walks both device registries (:data:`_PUBLIC_STORES` and
+        :data:`_DEDICATED_SLOT_STORE_ATTRS`), so new public device families are
+        covered automatically as they join those registries. Liveviews are
+        skipped — a :class:`PublicLiveview` is a saved-view configuration, not a
+        physical device, and carries no ``mac``. The NVR lives in a dedicated
+        single-object slot and is excluded unless ``include_nvr`` is set, in
+        which case it is yielded first.
+        """
+        if include_nvr and self.nvr is not None:
+            yield self.nvr
+        for store_attr, _cls in _PUBLIC_STORES.values():
+            yield from getattr(self, store_attr).values()
+        for model_type, store_attr in _DEDICATED_SLOT_STORE_ATTRS.items():
+            if model_type is ModelType.LIVEVIEW:
+                continue
+            yield from getattr(self, store_attr).values()
 
     def apply_fetch_result(self, attr: str, objs: list[ProtectModelWithId]) -> None:
         """
