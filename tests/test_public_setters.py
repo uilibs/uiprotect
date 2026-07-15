@@ -622,6 +622,28 @@ async def test_public_light_set_light_out_of_range(bad: int) -> None:
 
 
 @pytest.mark.asyncio
+async def test_public_light_set_light_coerces_float() -> None:
+    api = MagicMock()
+    light = _light(api)
+    api.update_light_public = AsyncMock(
+        return_value=light.model_copy(
+            update={
+                "is_light_force_enabled": True,
+                "light_device_settings": light.light_device_settings.model_copy(
+                    update={"led_level": 3}
+                ),
+            }
+        )
+    )
+
+    await light.set_light(True, 3.0)
+
+    sent = api.update_light_public.call_args.kwargs["light_device_settings"]
+    assert type(sent.led_level) is int
+    assert sent.led_level == 3
+
+
+@pytest.mark.asyncio
 async def test_public_light_set_status_light() -> None:
     api = MagicMock()
     light = _light(api)

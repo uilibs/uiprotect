@@ -308,7 +308,7 @@ class Light(ProtectMotionDeviceModel):
         self.light_device_settings = device_settings
 
     async def set_light_public(
-        self, enabled: bool, led_level: int | None = None
+        self, enabled: bool, led_level: float | None = None
     ) -> None:
         """Force the light on/off, optionally setting LED brightness (1-6), via public API."""
         if led_level is None:

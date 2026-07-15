@@ -1049,7 +1049,7 @@ class PublicLight(PublicDeviceModel):
         return self
 
     async def set_light(
-        self, enabled: bool, led_level: int | None = None
+        self, enabled: bool, led_level: float | None = None
     ) -> PublicLight:
         """Force the light on/off, optionally setting LED brightness (1-6), in one call."""
         if led_level is None:
