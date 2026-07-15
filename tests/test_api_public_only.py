@@ -353,6 +353,22 @@ async def test_resolve_nvr_mac_falls_back_to_console_when_public_errors() -> Non
 
 
 @pytest.mark.asyncio()
+async def test_resolve_nvr_mac_falls_back_to_console_when_public_times_out() -> None:
+    """A hung /v1/nvrs raising bare TimeoutError falls through to the console."""
+    client = _public_only_client()
+    assert client._public_bootstrap is None
+    with (
+        patch.object(
+            client, "get_nvr_public", new=AsyncMock(side_effect=TimeoutError)
+        ),
+        patch.object(
+            client, "get_console_mac", new=AsyncMock(return_value="AA:BB:CC:DD:EE:FF")
+        ),
+    ):
+        assert await client.resolve_nvr_mac() == "aabbccddeeff"
+
+
+@pytest.mark.asyncio()
 async def test_resolve_nvr_mac_returns_none_when_no_source() -> None:
     """Resolver returns None when no source yields a mac."""
     client = _public_only_client()

@@ -3778,7 +3778,10 @@ class ProtectApiClient(BaseApiClient):
         else:
             try:
                 public_nvr = await self.get_nvr_public()
-            except ClientError:
+            except (ClientError, TimeoutError):
+                # The public session carries no ClientTimeout, so a hung
+                # /v1/nvrs raises a bare TimeoutError that is never wrapped
+                # into ClientError; fall through to the private/console tiers.
                 public_nvr = None
             if public_nvr is not None and public_nvr.mac:
                 return normalize_mac(public_nvr.mac)
