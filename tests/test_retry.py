@@ -671,12 +671,13 @@ async def test_update_token_cookie_failure_releases_response(
     [
         aiohttp.ServerDisconnectedError(),
         client_exceptions.ClientPayloadError("payload truncated"),
+        TimeoutError(),
     ],
 )
 @pytest.mark.asyncio()
 async def test_api_request_raw_body_read_error_wrapped(
     do_request_client: ProtectApiClient,
-    read_error: client_exceptions.ClientError,
+    read_error: BaseException,
 ) -> None:
     """A mid-body disconnect/payload error surfaces as NvrError, not raw aiohttp."""
     response = MagicMock()
