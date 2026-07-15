@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.14.0 (2026-07-15)
+
+### Features
+
+
+- Add publicbootstrap.all_devices enumeration helper ([`59a1875`](https://github.com/uilibs/uiprotect/commit/59a1875bfd2f6efc973b5fc3138cb95b172ff505))
+
+
 ## v15.13.1 (2026-07-15)
 
 ### Bug fixes
