@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.13.1 (2026-07-15)
+
+### Bug fixes
+
+
+- Fetch /v1/nvrs in resolve_nvr_mac on an unprimed client ([`387b870`](https://github.com/uilibs/uiprotect/commit/387b870cb0193f22a4d19b9b3925085a00731906))
+
+
 ## v15.13.0 (2026-07-15)
 
 ### Features
