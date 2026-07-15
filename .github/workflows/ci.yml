@@ -162,11 +162,12 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          # Use the merge commit ref so fork-PR branches (which only exist in
-          # the contributor's fork) don't cause a 404.  PSR needs a branch
-          # name, so we recreate one locally in the next step.
-          ref: ${{ github.ref }}
-          # Fall back to GITHUB_TOKEN on dependabot PRs, where
+          ref: ${{ github.head_ref || github.ref_name }}
+          # On fork PRs the head branch lives on the contributor's
+          # repository, not the base repo, so explicitly target the head
+          # repo (falls back to the base repo on push events).
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          # Fall back to GITHUB_TOKEN on dependabot / fork PRs, where
           # secrets.BOT_ACCESS_TOKEN is not exposed and would otherwise
           # leave actions/checkout's `token` input empty.
           token: ${{ secrets.BOT_ACCESS_TOKEN || github.token }}
