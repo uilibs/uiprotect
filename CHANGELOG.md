@@ -1,5 +1,13 @@
 # Changelog
 
+## v15.14.1 (2026-07-15)
+
+### Bug fixes
+
+
+- Wrap body-read failures in nvrerror ([`9cbf8ef`](https://github.com/uilibs/uiprotect/commit/9cbf8ef41150e75b6ccd8362d66c3d77f3f9db9c))
+
+
 ## v15.14.0 (2026-07-15)
 
 ### Features
