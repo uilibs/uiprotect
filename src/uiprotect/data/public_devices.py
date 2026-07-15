@@ -2103,6 +2103,12 @@ class PublicDoorbellSettings(ProtectBaseObject):
     All fields have defaults because the ``doorbellSettings`` OpenAPI schema
     declares no ``required`` array — fields may be absent on older firmware or
     in partial WS update diffs.
+
+    Read-only: the Public Integration API exposes ``GET /v1/nvrs`` but no
+    ``PATCH`` counterpart (nor a dedicated doorbell-message endpoint), so there
+    is no public write path for these settings. Confirmed absent through
+    Protect ``7.1.87``; changing the default message still requires the private
+    API (:class:`~uiprotect.data.nvr.DoorbellSettings`).
     """
 
     default_message_text: str = ""
