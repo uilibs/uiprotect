@@ -145,11 +145,16 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch"
+          # -B resets the local branch if a prior run left it around; the
+          # force-push overwrites any orphan remote branch (no open PR) so a
+          # stale spec-validation/bump-* left by a failed run can't cause a
+          # non-fast-forward rejection. The content is deterministic — a single
+          # line in openapi/.validated-version — so overwriting is safe.
+          git checkout -B "$branch"
           printf '%s\n' "$LATEST" > openapi/.validated-version
           git add openapi/.validated-version
           git commit -m "chore(spec): bump validated version to $LATEST"
-          git push --set-upstream origin "$branch"
+          git push --force --set-upstream origin "$branch"
           gh pr create \
             --title "chore(spec): bump validated version to $LATEST" \
             --body "Automated: public-API client conforms to the Protect $LATEST Integration spec. The spec itself is not committed (Ubiquiti IP); reproduce locally with \`python scripts/fetch_openapi.py --version $LATEST && python scripts/validate_spec.py\`." \
