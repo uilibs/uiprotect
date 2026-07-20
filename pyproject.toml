@@ -48,7 +48,7 @@ dateparser = { version = ">=1.4.1", optional = true }
 orjson = ">=3.11.9"
 packaging = ">=26.2"
 pillow = { version = ">=12.3.0", optional = true }
-platformdirs = ">=4.10.0"
+platformdirs = ">=4.10.1"
 pydantic = ">=2.13.4"
 # Temporarily lowered from >=2.13.0 so the Home Assistant lib bump is not
 # blocked on home-assistant/core#172893 (PyJWT 2.12->2.13). uiprotect only
