@@ -10,7 +10,7 @@ dynamic = ["classifiers", "dependencies"]
 
 [project.optional-dependencies]
 cli = [
-    "typer>=0.26.8",
+    "typer>=0.27.0",
     "rich>=15.0.0",
     "dateparser>=1.4.1",
     "pillow>=12.3.0",
@@ -56,7 +56,7 @@ pydantic = ">=2.13.4"
 # here; re-raise once that PR lands.
 pyjwt = ">=2.12.1"
 yarl = ">=1.24.2"
-typer = { version = ">=0.26.8", optional = true }
+typer = { version = ">=0.27.0", optional = true }
 convertertools = ">=0.5.0"
 propcache = ">=0.5.2"
 pydantic-extra-types = ">=2.10.1"
