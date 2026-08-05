@@ -45,7 +45,7 @@ from uiprotect.data import (
 from uiprotect.data.bootstrap import MAX_EVENT_HISTORY_IN_STATE_MACHINE
 from uiprotect.data.devices import LCDMessage
 from uiprotect.data.nvr import EventMetadata
-from uiprotect.data.types import RecordingType, ResolutionStorageType
+from uiprotect.data.types import PermissionNode, RecordingType, ResolutionStorageType
 from uiprotect.data.user import CloudAccount
 from uiprotect.exceptions import BadRequest, NotAuthorized, StreamError
 from uiprotect.utils import set_debug, set_no_debug, utc_now
@@ -1610,25 +1610,34 @@ async def test_device_reboot(camera_obj: Camera):
             False,
         ),
         (
-            [
-                "granular:camera:access:test_id_1",
-                "granular:camera:playback:test_id_1",
-                "granular:camera:playback:download:test_id_1",
-                "granular:camera:livestream:audio:test_id_1",
-            ],
+            ["granular:camera:access:test_id_1"],
             False,
             True,
+            False,
+            False,
+            False,
+            False,
+        ),
+        (
+            ["granular:camera:playback:test_id_1"],
+            False,
+            False,
             False,
             False,
             True,
             False,
         ),
         (
-            [
-                "granular:camera:teleport:test_id_1",
-                "granular:light:settings:edit:test_id_1",
-                "granular:camera",
-            ],
+            ["granular:camera:playback:download:test_id_1"],
+            False,
+            False,
+            False,
+            False,
+            True,
+            False,
+        ),
+        (
+            ["granular:camera:teleport:test_id_1"],
             False,
             False,
             False,
@@ -1636,6 +1645,16 @@ async def test_device_reboot(camera_obj: Camera):
             False,
             False,
         ),
+        (
+            ["granular:light:settings:edit:test_id_1"],
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+        ),
+        (["granular:camera"], False, False, False, False, False, False),
     ],
 )
 @pytest.mark.asyncio()
@@ -1666,6 +1685,85 @@ async def test_permissions(
     assert camera_obj.can_delete(user_obj) is can_delete
     assert camera_obj.can_read_media(user_obj) is can_read_media
     assert camera_obj.can_delete_media(user_obj) is can_delete_media
+
+
+@pytest.mark.parametrize(
+    ("permission", "model", "nodes", "obj_ids"),
+    [
+        (
+            "granular:camera:access:test_id_1",
+            ModelType.CAMERA,
+            {PermissionNode.READ},
+            {"test_id_1"},
+        ),
+        (
+            "granular:camera:livestream:test_id_1",
+            ModelType.CAMERA,
+            {PermissionNode.READ_LIVE},
+            {"test_id_1"},
+        ),
+        (
+            "granular:camera:livestream:audio:test_id_1",
+            ModelType.CAMERA,
+            {PermissionNode.READ_LIVE},
+            {"test_id_1"},
+        ),
+        (
+            "granular:camera:playback:test_id_1",
+            ModelType.CAMERA,
+            {PermissionNode.READ_MEDIA},
+            {"test_id_1"},
+        ),
+        (
+            "granular:camera:playback:audio:test_id_1",
+            ModelType.CAMERA,
+            {PermissionNode.READ_MEDIA},
+            {"test_id_1"},
+        ),
+        (
+            "granular:camera:playback:download:test_id_1",
+            ModelType.CAMERA,
+            {PermissionNode.READ_MEDIA},
+            {"test_id_1"},
+        ),
+        (
+            "granular:camera:settings:edit:test_id_1",
+            ModelType.CAMERA,
+            {PermissionNode.WRITE},
+            {"test_id_1"},
+        ),
+        (
+            "granular:camera:settings:edit:*",
+            ModelType.CAMERA,
+            {PermissionNode.WRITE},
+            None,
+        ),
+        (
+            "granular:light:settings:edit:test_id_1",
+            ModelType.LIGHT,
+            {PermissionNode.WRITE},
+            {"test_id_1"},
+        ),
+        (
+            "granular:camera:teleport:test_id_1",
+            ModelType.CAMERA,
+            {PermissionNode.UNKNOWN},
+            {"test_id_1"},
+        ),
+        ("granular:camera", ModelType.UNKNOWN, {PermissionNode.UNKNOWN}, None),
+    ],
+)
+def test_granular_permission_parsing(
+    permission: str,
+    model: ModelType,
+    nodes: set[PermissionNode],
+    obj_ids: set[str] | None,
+):
+    parsed = Permission.from_unifi_dict(rawPermission=permission)
+
+    assert parsed.model is model
+    assert parsed.nodes == nodes
+    assert parsed.obj_ids == obj_ids
 
 
 @pytest.mark.parametrize(
