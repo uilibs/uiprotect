@@ -12,6 +12,19 @@ from pydantic.fields import PrivateAttr
 from .base import ProtectBaseObject, ProtectModel, ProtectModelWithId
 from .types import ModelType, PermissionNode
 
+# UniFi OS grants per-device permissions as `granular:<model>:<capability>:<obj id>`
+# alongside the classic `<model>:<nodes>:<obj ids>` strings (seen on Protect 7.1).
+_GRANULAR_PREFIX = "granular"
+_GRANULAR_NODES = {
+    "access": PermissionNode.READ,
+    "livestream": PermissionNode.READ_LIVE,
+    "livestream:audio": PermissionNode.READ_LIVE,
+    "playback": PermissionNode.READ_MEDIA,
+    "playback:audio": PermissionNode.READ_MEDIA,
+    "playback:download": PermissionNode.READ_MEDIA,
+    "settings:edit": PermissionNode.WRITE,
+}
+
 
 class Permission(ProtectBaseObject):
     raw_permission: str
@@ -25,6 +38,10 @@ class Permission(ProtectBaseObject):
         parts = permission.split(":")
         if len(parts) < 2:
             raise ValueError(f"Invalid permission: {permission}")
+
+        if parts[0] == _GRANULAR_PREFIX:
+            data.update(cls._granular_to_dict(parts))
+            return super().unifi_dict_to_dict(data)
 
         data["model"] = ModelType(parts[0])
         if parts[1] == "*":
@@ -54,6 +71,22 @@ class Permission(ProtectBaseObject):
 
         devices = getattr(self._api.bootstrap, self.model.devices_key)
         return [devices[oid] for oid in self.obj_ids]
+
+    @classmethod
+    def _granular_to_dict(cls, parts: list[str]) -> dict[str, Any]:
+        """Convert a `granular:` permission's parts to model, nodes and obj_ids."""
+        if len(parts) < 4:
+            return {"model": ModelType.UNKNOWN, "nodes": [PermissionNode.UNKNOWN]}
+
+        data: dict[str, Any] = {
+            "model": ModelType(parts[1]),
+            "nodes": [
+                _GRANULAR_NODES.get(":".join(parts[2:-1]), PermissionNode.UNKNOWN)
+            ],
+        }
+        if parts[-1] != "*":
+            data["obj_ids"] = [parts[-1]]
+        return data
 
 
 class Group(ProtectModelWithId):
