@@ -1,5 +1,22 @@
 # Changelog
 
+## v15.14.3 (2026-08-17)
+
+### Bug fixes
+
+
+- Give the private websocket a heartbeat ([`c3c7e5b`](https://github.com/uilibs/uiprotect/commit/c3c7e5b69536f26272da5087842cff394239d450))
+
+
+### Documentation
+
+
+- Note public-api doorbell settings are read-only (spec gap) ([`8a8ead2`](https://github.com/uilibs/uiprotect/commit/8a8ead2bbe6a862d3e6b747c431ab2388d58a47d))
+
+
+- Record public-api doorbell settings are read-only ([`8a8ead2`](https://github.com/uilibs/uiprotect/commit/8a8ead2bbe6a862d3e6b747c431ab2388d58a47d))
+
+
 ## v15.14.2 (2026-07-15)
 
 ### Bug fixes
