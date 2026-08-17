@@ -192,89 +192,11 @@ class Light(ProtectMotionDeviceModel):
                 self.camera_id = camera.id
             await self.save_device(data_before_changes, force_emit=True)
 
-    async def set_flood_light(self, enabled: bool) -> None:
-        """Sets the flood light (force on) for the light"""
-
-        def callback() -> None:
-            self.light_on_settings.is_led_force_on = enabled
-
-        await self.queue_update(callback)
-
     async def set_status_light(self, enabled: bool) -> None:
         """Sets the status indicator light for the light"""
 
         def callback() -> None:
             self.light_device_settings.is_indicator_enabled = enabled
-
-        await self.queue_update(callback)
-
-    async def set_led_level(self, led_level: int) -> None:
-        """Sets the LED level for the light"""
-
-        def callback() -> None:
-            self.light_device_settings.led_level = LEDLevel(led_level)
-
-        await self.queue_update(callback)
-
-    async def set_light(self, enabled: bool, led_level: int | None = None) -> None:
-        """Force turns on/off the light"""
-
-        def callback() -> None:
-            self.light_on_settings.is_led_force_on = enabled
-            if led_level is not None:
-                self.light_device_settings.led_level = LEDLevel(led_level)
-
-        await self.queue_update(callback)
-
-    async def set_sensitivity(self, sensitivity: int) -> None:
-        """Sets motion sensitivity"""
-
-        def callback() -> None:
-            self.light_device_settings.pir_sensitivity = PercentInt(sensitivity)
-
-        await self.queue_update(callback)
-
-    async def set_duration(self, duration: timedelta) -> None:
-        """Sets motion sensitivity"""
-        if duration.total_seconds() < 15 or duration.total_seconds() > 900:
-            raise BadRequest("Duration outside of 15s to 900s range")
-
-        def callback() -> None:
-            self.light_device_settings.pir_duration = duration
-
-        await self.queue_update(callback)
-
-    async def set_light_settings(
-        self,
-        mode: LightModeType,
-        enable_at: LightModeEnableType | None = None,
-        duration: timedelta | None = None,
-        sensitivity: int | None = None,
-    ) -> None:
-        """
-        Updates various Light settings.
-
-        Args:
-        ----
-            mode: Light trigger mode
-            enable_at: Then the light automatically turns on by itself
-            duration: How long the light should remain on after motion, must be timedelta between 15s and 900s
-            sensitivity: PIR Motion sensitivity
-
-        """
-        if duration is not None and (
-            duration.total_seconds() < 15 or duration.total_seconds() > 900
-        ):
-            raise BadRequest("Duration outside of 15s to 900s range")
-
-        def callback() -> None:
-            self.light_mode_settings.mode = mode
-            if enable_at is not None:
-                self.light_mode_settings.enable_at = enable_at
-            if duration is not None:
-                self.light_device_settings.pir_duration = duration
-            if sensitivity is not None:
-                self.light_device_settings.pir_sensitivity = PercentInt(sensitivity)
 
         await self.queue_update(callback)
 
@@ -1670,10 +1592,6 @@ class Camera(ProtectMotionDeviceModel):
         """Is person currently being detected"""
         return self._is_smart_detected(SmartDetectObjectType.PERSON)
 
-    async def set_person_detection(self, enabled: bool) -> None:
-        """Toggles person smart detection. Requires camera to have smart detection"""
-        return await self._set_object_detect(SmartDetectObjectType.PERSON, enabled)
-
     @property
     def is_person_tracking_enabled(self) -> bool:
         """Is person tracking enabled"""
@@ -1713,10 +1631,6 @@ class Camera(ProtectMotionDeviceModel):
         """Is vehicle currently being detected"""
         return self._is_smart_detected(SmartDetectObjectType.VEHICLE)
 
-    async def set_vehicle_detection(self, enabled: bool) -> None:
-        """Toggles vehicle smart detection. Requires camera to have smart detection"""
-        return await self._set_object_detect(SmartDetectObjectType.VEHICLE, enabled)
-
     # endregion
     # region Face
 
@@ -1743,13 +1657,6 @@ class Camera(ProtectMotionDeviceModel):
     def is_face_currently_detected(self) -> bool:
         """Is face currently being detected"""
         return self._is_smart_detected(SmartDetectObjectType.FACE)
-
-    async def set_face_detection(self, enabled: bool) -> None:
-        """Toggles face smart detection. Requires camera to have smart detection"""
-        return await self._set_object_detect(
-            SmartDetectObjectType.FACE,
-            enabled,
-        )
 
     # endregion
     # region License Plate
@@ -1783,13 +1690,6 @@ class Camera(ProtectMotionDeviceModel):
         """Is license plate currently being detected"""
         return self._is_smart_detected(SmartDetectObjectType.LICENSE_PLATE)
 
-    async def set_license_plate_detection(self, enabled: bool) -> None:
-        """Toggles license plate smart detection. Requires camera to have smart detection"""
-        return await self._set_object_detect(
-            SmartDetectObjectType.LICENSE_PLATE,
-            enabled,
-        )
-
     # endregion
     # region Package
 
@@ -1820,10 +1720,6 @@ class Camera(ProtectMotionDeviceModel):
         """Is package currently being detected"""
         return self._is_smart_detected(SmartDetectObjectType.PACKAGE)
 
-    async def set_package_detection(self, enabled: bool) -> None:
-        """Toggles package smart detection. Requires camera to have smart detection"""
-        return await self._set_object_detect(SmartDetectObjectType.PACKAGE, enabled)
-
     # endregion
     # region Animal
 
@@ -1853,10 +1749,6 @@ class Camera(ProtectMotionDeviceModel):
     def is_animal_currently_detected(self) -> bool:
         """Is animal currently being detected"""
         return self._is_smart_detected(SmartDetectObjectType.ANIMAL)
-
-    async def set_animal_detection(self, enabled: bool) -> None:
-        """Toggles animal smart detection. Requires camera to have smart detection"""
-        return await self._set_object_detect(SmartDetectObjectType.ANIMAL, enabled)
 
     # endregion
     # endregion
@@ -1934,10 +1826,6 @@ class Camera(ProtectMotionDeviceModel):
         """Is smoke alarm currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.SMOKE)
 
-    async def set_smoke_detection(self, enabled: bool) -> None:
-        """Toggles smoke smart detection. Requires camera to have smart detection"""
-        return await self._set_audio_detect(SmartDetectAudioType.SMOKE, enabled)
-
     # endregion
     # region CO Alarm
 
@@ -2002,10 +1890,6 @@ class Camera(ProtectMotionDeviceModel):
         """Is Siren currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.SIREN)
 
-    async def set_siren_detection(self, enabled: bool) -> None:
-        """Toggles siren smart detection. Requires camera to have smart detection"""
-        return await self._set_audio_detect(SmartDetectAudioType.SIREN, enabled)
-
     # endregion
     # region Baby Cry
 
@@ -2035,10 +1919,6 @@ class Camera(ProtectMotionDeviceModel):
     def is_baby_cry_currently_detected(self) -> bool:
         """Is Baby Cry currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.BABY_CRY)
-
-    async def set_baby_cry_detection(self, enabled: bool) -> None:
-        """Toggles baby_cry smart detection. Requires camera to have smart detection"""
-        return await self._set_audio_detect(SmartDetectAudioType.BABY_CRY, enabled)
 
     # endregion
     # region Speaking
@@ -2070,10 +1950,6 @@ class Camera(ProtectMotionDeviceModel):
         """Is Speaking currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.SPEAK)
 
-    async def set_speaking_detection(self, enabled: bool) -> None:
-        """Toggles speaking smart detection. Requires camera to have smart detection"""
-        return await self._set_audio_detect(SmartDetectAudioType.SPEAK, enabled)
-
     # endregion
     # region Bark
 
@@ -2103,10 +1979,6 @@ class Camera(ProtectMotionDeviceModel):
     def is_bark_currently_detected(self) -> bool:
         """Is Bark currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.BARK)
-
-    async def set_bark_detection(self, enabled: bool) -> None:
-        """Toggles bark smart detection. Requires camera to have smart detection"""
-        return await self._set_audio_detect(SmartDetectAudioType.BARK, enabled)
 
     # endregion
     # region Car Alarm
@@ -2173,10 +2045,6 @@ class Camera(ProtectMotionDeviceModel):
         """Is Car Horn currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.CAR_HORN)
 
-    async def set_car_horn_detection(self, enabled: bool) -> None:
-        """Toggles car_horn smart detection. Requires camera to have smart detection"""
-        return await self._set_audio_detect(SmartDetectAudioType.CAR_HORN, enabled)
-
     # endregion
     # region Glass Break
 
@@ -2206,10 +2074,6 @@ class Camera(ProtectMotionDeviceModel):
     def is_glass_break_currently_detected(self) -> bool:
         """Is Glass Break currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.GLASS_BREAK)
-
-    async def set_glass_break_detection(self, enabled: bool) -> None:
-        """Toggles glass_break smart detection. Requires camera to have smart detection"""
-        return await self._set_audio_detect(SmartDetectAudioType.GLASS_BREAK, enabled)
 
     # endregion
     # endregion
@@ -2532,7 +2396,7 @@ class Camera(ProtectMotionDeviceModel):
     async def set_hdr(self, enabled: bool) -> None:
         """Sets HDR (High Dynamic Range) on camera"""
         warnings.warn(
-            "set_hdr is deprecated and replaced with set_hdr_mode for versions of UniFi Protect v3.0+",
+            "set_hdr is deprecated and replaced with set_hdr_mode_public for versions of UniFi Protect v3.0+",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -2545,25 +2409,6 @@ class Camera(ProtectMotionDeviceModel):
 
         await self.queue_update(callback)
 
-    async def set_hdr_mode(self, mode: Literal["auto", "off", "always"]) -> None:
-        """Sets HDR mode similar to how Protect interface works."""
-        if not self.feature_flags.has_hdr:
-            raise BadRequest("Camera does not have HDR")
-
-        def callback() -> None:
-            if mode == "off":
-                self.hdr_mode = False
-                if self.isp_settings.hdr_mode is not None:
-                    self.isp_settings.hdr_mode = HDRMode.NORMAL
-            else:
-                self.hdr_mode = True
-                if self.isp_settings.hdr_mode is not None:
-                    self.isp_settings.hdr_mode = (
-                        HDRMode.NORMAL if mode == "auto" else HDRMode.ALWAYS_ON
-                    )
-
-        await self.queue_update(callback)
-
     async def set_color_night_vision(self, enabled: bool) -> None:
         """Sets Color Night Vision on camera"""
         if not self.has_color_night_vision:
@@ -2571,16 +2416,6 @@ class Camera(ProtectMotionDeviceModel):
 
         def callback() -> None:
             self.isp_settings.is_color_night_vision_enabled = enabled
-
-        await self.queue_update(callback)
-
-    async def set_video_mode(self, mode: VideoMode) -> None:
-        """Sets video mode on camera"""
-        if mode not in self.feature_flags.video_modes:
-            raise BadRequest(f"Camera does not have {mode}")
-
-        def callback() -> None:
-            self.video_mode = mode
 
         await self.queue_update(callback)
 
@@ -2601,16 +2436,6 @@ class Camera(ProtectMotionDeviceModel):
 
         def callback() -> None:
             self.isp_settings.wdr = WDRLevel(level)
-
-        await self.queue_update(callback)
-
-    async def set_mic_volume(self, level: int) -> None:
-        """Sets the mic sensitivity level on camera"""
-        if not self.feature_flags.has_mic:
-            raise BadRequest("Camera does not have mic")
-
-        def callback() -> None:
-            self.mic_volume = PercentInt(level)
 
         await self.queue_update(callback)
 
@@ -2678,36 +2503,6 @@ class Camera(ProtectMotionDeviceModel):
 
         await self.queue_update(callback)
 
-    async def set_osd_name(self, enabled: bool) -> None:
-        """Sets whether camera name is in the On Screen Display"""
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
-        def callback() -> None:
-            self.osd_settings.is_name_enabled = enabled
-
-        await self.queue_update(callback)
-
-    async def set_osd_date(self, enabled: bool) -> None:
-        """Sets whether current date is in the On Screen Display"""
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
-        def callback() -> None:
-            self.osd_settings.is_date_enabled = enabled
-
-        await self.queue_update(callback)
-
-    async def set_osd_logo(self, enabled: bool) -> None:
-        """Sets whether the UniFi logo is in the On Screen Display"""
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
-        def callback() -> None:
-            self.osd_settings.is_logo_enabled = enabled
-
-        await self.queue_update(callback)
-
     async def set_osd_bitrate(self, enabled: bool) -> None:
         """Sets whether camera bitrate is in the On Screen Display"""
         if self.use_global:
@@ -2745,29 +2540,6 @@ class Camera(ProtectMotionDeviceModel):
 
         def callback() -> None:
             self.smart_detect_settings.audio_types = types
-
-        await self.queue_update(callback)
-
-    async def _set_object_detect(
-        self,
-        obj_to_mod: SmartDetectObjectType,
-        enabled: bool,
-    ) -> None:
-        if obj_to_mod not in self.feature_flags.smart_detect_types:
-            raise BadRequest(f"Camera does not support the {obj_to_mod} detection type")
-
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
-        def callback() -> None:
-            objects = self.smart_detect_settings.object_types
-            if enabled:
-                if obj_to_mod not in objects:
-                    objects = [*objects, obj_to_mod]
-                    objects.sort()
-            elif obj_to_mod in objects:
-                objects.remove(obj_to_mod)
-            self.smart_detect_settings.object_types = objects
 
         await self.queue_update(callback)
 
@@ -3591,14 +3363,6 @@ class Sensor(ProtectAdoptableDeviceModel):
 
         await self.queue_update(callback)
 
-    async def set_motion_sensitivity(self, sensitivity: int) -> None:
-        """Sets the motion sensitivity for the sensor"""
-
-        def callback() -> None:
-            self.motion_settings.sensitivity = PercentInt(sensitivity)
-
-        await self.queue_update(callback)
-
     async def set_temperature_status(self, enabled: bool) -> None:
         """Sets the temperature detection type for the sensor"""
 
@@ -4086,33 +3850,6 @@ class Chime(ProtectAdoptableDeviceModel):
 
         await self.queue_update(callback)
 
-    async def set_volume_for_camera(self, camera: Camera, level: int) -> None:
-        """
-        Set the ring volume on chime for a specific camera.
-
-        .. deprecated::
-            Use :meth:`set_volume_for_camera_public` instead. This method uses
-            the private API which may not properly update the ring volume.
-        """
-        warnings.warn(
-            "set_volume_for_camera is deprecated, use set_volume_for_camera_public instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        def callback() -> None:
-            handled = False
-            for setting in self.ring_settings:
-                if setting.camera_id == camera.id:
-                    setting.volume = cast("PercentInt", level)
-                    handled = True
-                    break
-
-            if not handled:
-                raise BadRequest(f"Camera {camera.id} is not paired with chime")
-
-        await self.queue_update(callback)
-
     async def add_camera(self, camera: Camera) -> None:
         """Adds new paired camera to chime"""
         if not camera.feature_flags.is_doorbell:
@@ -4195,37 +3932,6 @@ class Chime(ProtectAdoptableDeviceModel):
             for setting in self.ring_settings:
                 if setting.repeat_times == old_value:
                     setting.repeat_times = cast("RepeatTimes", value)
-
-        await self.queue_update(callback)
-
-    async def set_repeat_times_for_camera(
-        self,
-        camera: Camera,
-        value: int,
-    ) -> None:
-        """
-        Set repeat times on chime for a specific camera.
-
-        .. deprecated::
-            Use :meth:`set_ring_settings_public` instead. This method uses
-            the private API.
-        """
-        warnings.warn(
-            "set_repeat_times_for_camera is deprecated, use set_ring_settings_public instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        def callback() -> None:
-            handled = False
-            for setting in self.ring_settings:
-                if setting.camera_id == camera.id:
-                    setting.repeat_times = cast("RepeatTimes", value)
-                    handled = True
-                    break
-
-            if not handled:
-                raise BadRequest(f"Camera {camera.id} is not paired with chime")
 
         await self.queue_update(callback)
 

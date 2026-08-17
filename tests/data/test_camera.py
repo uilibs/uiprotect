@@ -24,7 +24,6 @@ from uiprotect.data import (
     PTZPatrol,
     RecordingMode,
     SmartDetectAudioType,
-    VideoMode,
     channel_id_for_quality,
     quality_for_channel_id,
 )
@@ -274,56 +273,26 @@ async def test_camera_set_status_light(camera_obj: Camera | None, status: bool):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_hdr_no_hdr(camera_obj: Camera | None):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_hdr = False
-
-    with pytest.raises(BadRequest):
-        await camera_obj.set_hdr_mode("off")
-
-    assert not camera_obj.api.api_request.called
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize(
-    ("status", "state"),
+    ("state", "expected"),
     [
-        ("auto", (True, HDRMode.NORMAL)),
-        ("off", (False, HDRMode.NORMAL)),
-        ("always", (True, HDRMode.ALWAYS_ON)),
+        ((True, HDRMode.NORMAL), "auto"),
+        ((False, HDRMode.NORMAL), "off"),
+        ((False, HDRMode.ALWAYS_ON), "off"),
+        ((True, HDRMode.ALWAYS_ON), "always"),
     ],
 )
-@pytest.mark.asyncio()
-async def test_camera_set_hdr(
+def test_camera_hdr_mode_display(
     camera_obj: Camera | None,
-    status: str,
     state: tuple[bool, HDRMode],
+    expected: str,
 ):
     if camera_obj is None:
         pytest.skip("No camera_obj obj found")
 
-    camera_obj.api.api_request.reset_mock()
+    camera_obj.hdr_mode, camera_obj.isp_settings.hdr_mode = state
 
-    camera_obj.feature_flags.has_hdr = True
-    camera_obj.hdr_mode = not state[0]
-    camera_obj.isp_settings.hdr_mode = (
-        HDRMode.NORMAL if state[1] == HDRMode.ALWAYS_ON else HDRMode.ALWAYS_ON
-    )
-
-    await camera_obj.set_hdr_mode(status)
-
-    camera_obj.api.api_request.assert_called_with(
-        f"cameras/{camera_obj.id}",
-        method="patch",
-        json={"hdrMode": state[0], "ispSettings": {"hdrMode": state[1]}},
-    )
-
-    assert camera_obj.hdr_mode_display == status
+    assert camera_obj.hdr_mode_display == expected
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -386,43 +355,6 @@ async def test_camera_set_ssh(camera_obj: Camera | None, status: bool):
         f"cameras/{camera_obj.id}",
         method="patch",
         json={"isSshEnabled": status},
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_video_mode_no_highfps(camera_obj: Camera | None):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.video_modes = [VideoMode.DEFAULT]
-    camera_obj.video_mode = VideoMode.DEFAULT
-
-    with pytest.raises(BadRequest):
-        await camera_obj.set_video_mode(VideoMode.HIGH_FPS)
-
-    assert not camera_obj.api.api_request.called
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_video_mode(camera_obj: Camera | None):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.video_modes = [VideoMode.DEFAULT, VideoMode.HIGH_FPS]
-    camera_obj.video_mode = VideoMode.DEFAULT
-
-    await camera_obj.set_video_mode(VideoMode.HIGH_FPS)
-
-    camera_obj.api.api_request.assert_called_with(
-        f"cameras/{camera_obj.id}",
-        method="patch",
-        json={"videoMode": VideoMode.HIGH_FPS.value},
     )
 
 
@@ -508,48 +440,6 @@ async def test_camera_set_wdr_level_hdr(camera_obj: Camera | None):
         await camera_obj.set_wdr_level(1)
 
     assert not camera_obj.api.api_request.called
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_mic_volume_no_mic(camera_obj: Camera | None):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_mic = False
-
-    with pytest.raises(BadRequest):
-        await camera_obj.set_mic_volume(True)
-
-    assert not camera_obj.api.api_request.called
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize("level", [-1, 0, 100, 200])
-@pytest.mark.asyncio()
-async def test_camera_set_mic_volume(camera_obj: Camera | None, level: int):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_mic = True
-    camera_obj.mic_volume = 10
-
-    if level in {-1, 200}:
-        with pytest.raises(ValidationError):
-            await camera_obj.set_mic_volume(level)
-        assert not camera_obj.api.api_request.called
-    else:
-        await camera_obj.set_mic_volume(level)
-
-        camera_obj.api.api_request.assert_called_with(
-            f"cameras/{camera_obj.id}",
-            method="patch",
-            json={"micVolume": level},
-        )
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -793,66 +683,6 @@ async def test_camera_set_system_sounds(camera_obj: Camera | None, status: bool)
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("status", [True, False])
 @pytest.mark.asyncio()
-async def test_camera_set_osd_name(camera_obj: Camera | None, status: bool):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.osd_settings.is_name_enabled = not status
-
-    await camera_obj.set_osd_name(status)
-
-    camera_obj.api.api_request.assert_called_with(
-        f"cameras/{camera_obj.id}",
-        method="patch",
-        json={"osdSettings": {"isNameEnabled": status}},
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio()
-async def test_camera_set_osd_date(camera_obj: Camera | None, status: bool):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.osd_settings.is_date_enabled = not status
-
-    await camera_obj.set_osd_date(status)
-
-    camera_obj.api.api_request.assert_called_with(
-        f"cameras/{camera_obj.id}",
-        method="patch",
-        json={"osdSettings": {"isDateEnabled": status}},
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio()
-async def test_camera_set_osd_logo(camera_obj: Camera | None, status: bool):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.osd_settings.is_logo_enabled = not status
-
-    await camera_obj.set_osd_logo(status)
-
-    camera_obj.api.api_request.assert_called_with(
-        f"cameras/{camera_obj.id}",
-        method="patch",
-        json={"osdSettings": {"isLogoEnabled": status}},
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio()
 async def test_camera_set_osd_bitrate(camera_obj: Camera | None, status: bool):
     if camera_obj is None:
         pytest.skip("No camera_obj obj found")
@@ -903,43 +733,6 @@ async def test_camera_set_smart_detect_types(camera_obj: Camera | None):
         f"cameras/{camera_obj.id}",
         method="patch",
         json={"smartDetectSettings": {"objectTypes": ["person"]}},
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_face_detection_no_smart(camera_obj: Camera) -> None:
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_smart_detect = False
-
-    with pytest.raises(BadRequest):
-        await camera_obj.set_face_detection(True)
-
-    assert not camera_obj.api.api_request.called
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio()
-async def test_camera_set_face_detection(camera_obj: Camera, status: bool) -> None:
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_smart_detect = True
-    camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.FACE]
-    # Set initial state to opposite of what we're testing
-    camera_obj.smart_detect_settings.object_types = (
-        [SmartDetectObjectType.FACE] if not status else []
-    )
-    camera_obj.use_global = False
-
-    await camera_obj.set_face_detection(status)
-
-    expected_types = ["face"] if status else []
-    camera_obj.api.api_request.assert_called_with(
-        f"cameras/{camera_obj.id}",
-        method="patch",
-        json={"smartDetectSettings": {"objectTypes": expected_types}},
     )
 
 
