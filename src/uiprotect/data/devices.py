@@ -193,7 +193,18 @@ class Light(ProtectMotionDeviceModel):
             await self.save_device(data_before_changes, force_emit=True)
 
     async def set_flood_light(self, enabled: bool) -> None:
-        """Sets the flood light (force on) for the light"""
+        """
+        Sets the flood light (force on) for the light.
+
+        .. deprecated::
+            Use :meth:`set_flood_light_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_flood_light is deprecated, use set_flood_light_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         def callback() -> None:
             self.light_on_settings.is_led_force_on = enabled
@@ -209,7 +220,18 @@ class Light(ProtectMotionDeviceModel):
         await self.queue_update(callback)
 
     async def set_led_level(self, led_level: int) -> None:
-        """Sets the LED level for the light"""
+        """
+        Sets the LED level for the light.
+
+        .. deprecated::
+            Use :meth:`set_led_level_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_led_level is deprecated, use set_led_level_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         def callback() -> None:
             self.light_device_settings.led_level = LEDLevel(led_level)
@@ -217,7 +239,18 @@ class Light(ProtectMotionDeviceModel):
         await self.queue_update(callback)
 
     async def set_light(self, enabled: bool, led_level: int | None = None) -> None:
-        """Force turns on/off the light"""
+        """
+        Force turns on/off the light.
+
+        .. deprecated::
+            Use :meth:`set_light_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_light is deprecated, use set_light_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         def callback() -> None:
             self.light_on_settings.is_led_force_on = enabled
@@ -227,7 +260,18 @@ class Light(ProtectMotionDeviceModel):
         await self.queue_update(callback)
 
     async def set_sensitivity(self, sensitivity: int) -> None:
-        """Sets motion sensitivity"""
+        """
+        Sets motion sensitivity.
+
+        .. deprecated::
+            Use :meth:`set_sensitivity_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_sensitivity is deprecated, use set_sensitivity_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         def callback() -> None:
             self.light_device_settings.pir_sensitivity = PercentInt(sensitivity)
@@ -235,7 +279,18 @@ class Light(ProtectMotionDeviceModel):
         await self.queue_update(callback)
 
     async def set_duration(self, duration: timedelta) -> None:
-        """Sets motion sensitivity"""
+        """
+        Sets motion sensitivity.
+
+        .. deprecated::
+            Use :meth:`set_duration_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_duration is deprecated, use set_duration_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if duration.total_seconds() < 15 or duration.total_seconds() > 900:
             raise BadRequest("Duration outside of 15s to 900s range")
 
@@ -254,6 +309,10 @@ class Light(ProtectMotionDeviceModel):
         """
         Updates various Light settings.
 
+        .. deprecated::
+            Use :meth:`set_light_settings_public` instead. This method uses
+            the private API.
+
         Args:
         ----
             mode: Light trigger mode
@@ -262,6 +321,11 @@ class Light(ProtectMotionDeviceModel):
             sensitivity: PIR Motion sensitivity
 
         """
+        warnings.warn(
+            "set_light_settings is deprecated, use set_light_settings_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if duration is not None and (
             duration.total_seconds() < 15 or duration.total_seconds() > 900
         ):
@@ -1671,7 +1735,18 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_smart_detected(SmartDetectObjectType.PERSON)
 
     async def set_person_detection(self, enabled: bool) -> None:
-        """Toggles person smart detection. Requires camera to have smart detection"""
+        """
+        Toggles person smart detection. Requires camera to have smart detection.
+
+        .. deprecated::
+            Use :meth:`set_person_detection_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_person_detection is deprecated, use set_person_detection_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self._set_object_detect(SmartDetectObjectType.PERSON, enabled)
 
     @property
@@ -1714,7 +1789,18 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_smart_detected(SmartDetectObjectType.VEHICLE)
 
     async def set_vehicle_detection(self, enabled: bool) -> None:
-        """Toggles vehicle smart detection. Requires camera to have smart detection"""
+        """
+        Toggles vehicle smart detection. Requires camera to have smart detection.
+
+        .. deprecated::
+            Use :meth:`set_vehicle_detection_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_vehicle_detection is deprecated, use set_vehicle_detection_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self._set_object_detect(SmartDetectObjectType.VEHICLE, enabled)
 
     # endregion
@@ -1745,7 +1831,18 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_smart_detected(SmartDetectObjectType.FACE)
 
     async def set_face_detection(self, enabled: bool) -> None:
-        """Toggles face smart detection. Requires camera to have smart detection"""
+        """
+        Toggles face smart detection. Requires camera to have smart detection.
+
+        .. deprecated::
+            Use :meth:`set_face_detection_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_face_detection is deprecated, use set_face_detection_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self._set_object_detect(
             SmartDetectObjectType.FACE,
             enabled,
@@ -1784,7 +1881,18 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_smart_detected(SmartDetectObjectType.LICENSE_PLATE)
 
     async def set_license_plate_detection(self, enabled: bool) -> None:
-        """Toggles license plate smart detection. Requires camera to have smart detection"""
+        """
+        Toggles license plate smart detection. Requires camera to have smart detection.
+
+        .. deprecated::
+            Use :meth:`set_license_plate_detection_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_license_plate_detection is deprecated, use set_license_plate_detection_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self._set_object_detect(
             SmartDetectObjectType.LICENSE_PLATE,
             enabled,
@@ -1821,7 +1929,18 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_smart_detected(SmartDetectObjectType.PACKAGE)
 
     async def set_package_detection(self, enabled: bool) -> None:
-        """Toggles package smart detection. Requires camera to have smart detection"""
+        """
+        Toggles package smart detection. Requires camera to have smart detection.
+
+        .. deprecated::
+            Use :meth:`set_package_detection_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_package_detection is deprecated, use set_package_detection_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self._set_object_detect(SmartDetectObjectType.PACKAGE, enabled)
 
     # endregion
@@ -1855,7 +1974,18 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_smart_detected(SmartDetectObjectType.ANIMAL)
 
     async def set_animal_detection(self, enabled: bool) -> None:
-        """Toggles animal smart detection. Requires camera to have smart detection"""
+        """
+        Toggles animal smart detection. Requires camera to have smart detection.
+
+        .. deprecated::
+            Use :meth:`set_animal_detection_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_animal_detection is deprecated, use set_animal_detection_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self._set_object_detect(SmartDetectObjectType.ANIMAL, enabled)
 
     # endregion
@@ -1935,7 +2065,18 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_detected(SmartDetectObjectType.SMOKE)
 
     async def set_smoke_detection(self, enabled: bool) -> None:
-        """Toggles smoke smart detection. Requires camera to have smart detection"""
+        """
+        Toggles smoke smart detection. Requires camera to have smart detection.
+
+        .. deprecated::
+            Use :meth:`set_smoke_detection_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_smoke_detection is deprecated, use set_smoke_detection_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self._set_audio_detect(SmartDetectAudioType.SMOKE, enabled)
 
     # endregion
@@ -2003,7 +2144,18 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_detected(SmartDetectObjectType.SIREN)
 
     async def set_siren_detection(self, enabled: bool) -> None:
-        """Toggles siren smart detection. Requires camera to have smart detection"""
+        """
+        Toggles siren smart detection. Requires camera to have smart detection.
+
+        .. deprecated::
+            Use :meth:`set_siren_detection_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_siren_detection is deprecated, use set_siren_detection_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self._set_audio_detect(SmartDetectAudioType.SIREN, enabled)
 
     # endregion
@@ -2037,7 +2189,18 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_detected(SmartDetectObjectType.BABY_CRY)
 
     async def set_baby_cry_detection(self, enabled: bool) -> None:
-        """Toggles baby_cry smart detection. Requires camera to have smart detection"""
+        """
+        Toggles baby_cry smart detection. Requires camera to have smart detection.
+
+        .. deprecated::
+            Use :meth:`set_baby_cry_detection_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_baby_cry_detection is deprecated, use set_baby_cry_detection_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self._set_audio_detect(SmartDetectAudioType.BABY_CRY, enabled)
 
     # endregion
@@ -2071,7 +2234,18 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_detected(SmartDetectObjectType.SPEAK)
 
     async def set_speaking_detection(self, enabled: bool) -> None:
-        """Toggles speaking smart detection. Requires camera to have smart detection"""
+        """
+        Toggles speaking smart detection. Requires camera to have smart detection.
+
+        .. deprecated::
+            Use :meth:`set_speaking_detection_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_speaking_detection is deprecated, use set_speaking_detection_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self._set_audio_detect(SmartDetectAudioType.SPEAK, enabled)
 
     # endregion
@@ -2105,7 +2279,18 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_detected(SmartDetectObjectType.BARK)
 
     async def set_bark_detection(self, enabled: bool) -> None:
-        """Toggles bark smart detection. Requires camera to have smart detection"""
+        """
+        Toggles bark smart detection. Requires camera to have smart detection.
+
+        .. deprecated::
+            Use :meth:`set_bark_detection_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_bark_detection is deprecated, use set_bark_detection_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self._set_audio_detect(SmartDetectAudioType.BARK, enabled)
 
     # endregion
@@ -2174,7 +2359,18 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_detected(SmartDetectObjectType.CAR_HORN)
 
     async def set_car_horn_detection(self, enabled: bool) -> None:
-        """Toggles car_horn smart detection. Requires camera to have smart detection"""
+        """
+        Toggles car_horn smart detection. Requires camera to have smart detection.
+
+        .. deprecated::
+            Use :meth:`set_car_horn_detection_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_car_horn_detection is deprecated, use set_car_horn_detection_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self._set_audio_detect(SmartDetectAudioType.CAR_HORN, enabled)
 
     # endregion
@@ -2208,7 +2404,18 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_detected(SmartDetectObjectType.GLASS_BREAK)
 
     async def set_glass_break_detection(self, enabled: bool) -> None:
-        """Toggles glass_break smart detection. Requires camera to have smart detection"""
+        """
+        Toggles glass_break smart detection. Requires camera to have smart detection.
+
+        .. deprecated::
+            Use :meth:`set_glass_break_detection_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_glass_break_detection is deprecated, use set_glass_break_detection_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self._set_audio_detect(SmartDetectAudioType.GLASS_BREAK, enabled)
 
     # endregion
@@ -2546,7 +2753,18 @@ class Camera(ProtectMotionDeviceModel):
         await self.queue_update(callback)
 
     async def set_hdr_mode(self, mode: Literal["auto", "off", "always"]) -> None:
-        """Sets HDR mode similar to how Protect interface works."""
+        """
+        Sets HDR mode similar to how Protect interface works.
+
+        .. deprecated::
+            Use :meth:`set_hdr_mode_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_hdr_mode is deprecated, use set_hdr_mode_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if not self.feature_flags.has_hdr:
             raise BadRequest("Camera does not have HDR")
 
@@ -2575,7 +2793,18 @@ class Camera(ProtectMotionDeviceModel):
         await self.queue_update(callback)
 
     async def set_video_mode(self, mode: VideoMode) -> None:
-        """Sets video mode on camera"""
+        """
+        Sets video mode on camera.
+
+        .. deprecated::
+            Use :meth:`set_video_mode_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_video_mode is deprecated, use set_video_mode_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if mode not in self.feature_flags.video_modes:
             raise BadRequest(f"Camera does not have {mode}")
 
@@ -2605,7 +2834,18 @@ class Camera(ProtectMotionDeviceModel):
         await self.queue_update(callback)
 
     async def set_mic_volume(self, level: int) -> None:
-        """Sets the mic sensitivity level on camera"""
+        """
+        Sets the mic sensitivity level on camera.
+
+        .. deprecated::
+            Use :meth:`set_mic_volume_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_mic_volume is deprecated, use set_mic_volume_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if not self.feature_flags.has_mic:
             raise BadRequest("Camera does not have mic")
 
@@ -2679,7 +2919,18 @@ class Camera(ProtectMotionDeviceModel):
         await self.queue_update(callback)
 
     async def set_osd_name(self, enabled: bool) -> None:
-        """Sets whether camera name is in the On Screen Display"""
+        """
+        Sets whether camera name is in the On Screen Display.
+
+        .. deprecated::
+            Use :meth:`set_osd_name_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_osd_name is deprecated, use set_osd_name_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if self.use_global:
             raise BadRequest("Camera is using global recording settings.")
 
@@ -2689,7 +2940,18 @@ class Camera(ProtectMotionDeviceModel):
         await self.queue_update(callback)
 
     async def set_osd_date(self, enabled: bool) -> None:
-        """Sets whether current date is in the On Screen Display"""
+        """
+        Sets whether current date is in the On Screen Display.
+
+        .. deprecated::
+            Use :meth:`set_osd_date_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_osd_date is deprecated, use set_osd_date_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if self.use_global:
             raise BadRequest("Camera is using global recording settings.")
 
@@ -2699,7 +2961,18 @@ class Camera(ProtectMotionDeviceModel):
         await self.queue_update(callback)
 
     async def set_osd_logo(self, enabled: bool) -> None:
-        """Sets whether the UniFi logo is in the On Screen Display"""
+        """
+        Sets whether the UniFi logo is in the On Screen Display.
+
+        .. deprecated::
+            Use :meth:`set_osd_logo_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_osd_logo is deprecated, use set_osd_logo_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if self.use_global:
             raise BadRequest("Camera is using global recording settings.")
 
@@ -3592,7 +3865,18 @@ class Sensor(ProtectAdoptableDeviceModel):
         await self.queue_update(callback)
 
     async def set_motion_sensitivity(self, sensitivity: int) -> None:
-        """Sets the motion sensitivity for the sensor"""
+        """
+        Sets the motion sensitivity for the sensor.
+
+        .. deprecated::
+            Use :meth:`set_motion_sensitivity_public` instead. This method uses
+            the private API.
+        """
+        warnings.warn(
+            "set_motion_sensitivity is deprecated, use set_motion_sensitivity_public instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         def callback() -> None:
             self.motion_settings.sensitivity = PercentInt(sensitivity)
