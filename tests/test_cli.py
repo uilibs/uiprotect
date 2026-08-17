@@ -57,7 +57,6 @@ from uiprotect.cli.viewers_public import app as viewer_public_app
 from uiprotect.data import RingSetting
 from uiprotect.data.types import (
     DoorbellMessageType,
-    HDRMode,
     PublicHdrMode,
     SensorScheduleMode,
     VideoMode,
@@ -991,24 +990,25 @@ def test_camera_set_status_light_uses_public() -> None:
     camera.set_status_light.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    ("enabled", "current", "mode"),
-    [
-        (True, HDRMode.NORMAL, PublicHdrMode.AUTO),
-        (True, HDRMode.ALWAYS_ON, PublicHdrMode.ON),
-        (True, None, PublicHdrMode.AUTO),
-        (False, HDRMode.ALWAYS_ON, PublicHdrMode.OFF),
-    ],
-)
-def test_camera_set_hdr_maps_bool_to_mode(
-    enabled: bool, current: HDRMode | None, mode: PublicHdrMode
-) -> None:
-    """Camera set-hdr maps its boolean flag onto the public HDR mode."""
+@pytest.mark.parametrize("mode", list(PublicHdrMode))
+def test_camera_set_hdr_uses_public(mode: PublicHdrMode) -> None:
+    """Camera set-hdr passes the requested mode to the public setter."""
     ctx, camera = _make_camera_ctx()
-    camera.isp_settings.hdr_mode = current
-    cameras_cli.set_hdr(ctx, enabled)
+    cameras_cli.set_hdr(ctx, mode)
     camera.set_hdr_mode_public.assert_awaited_once_with(mode)
     camera.set_hdr.assert_not_called()
+
+
+def test_camera_set_hdr_rejects_unknown_mode() -> None:
+    """``set-hdr`` only accepts the public API's three mode values."""
+    result = runner.invoke(
+        cameras_app,
+        ["cam-1", "set-hdr", "always"],
+        obj=MagicMock(),
+    )
+    assert result.exit_code == 2
+    plain_output = _ANSI_ESCAPE_RE.sub("", result.output)
+    assert "Invalid value" in plain_output
 
 
 def test_camera_set_video_mode_uses_public() -> None:
@@ -1027,16 +1027,19 @@ def test_camera_set_mic_volume_uses_public() -> None:
     camera.set_mic_volume.assert_not_called()
 
 
-def test_camera_set_mic_volume_rejects_zero() -> None:
-    """``set-mic-volume 0`` must fail typer's ``min=1`` validator."""
+def test_camera_set_mic_volume_allows_zero() -> None:
+    """``set-mic-volume 0`` (mute) passes typer's ``min=0`` validator."""
+    ctx, camera = _make_camera_ctx()
+    cameras_cli.set_mic_volume(ctx, 0)
+    camera.set_mic_volume_public.assert_awaited_once_with(0)
+
     result = runner.invoke(
         cameras_app,
         ["cam-1", "set-mic-volume", "0"],
         obj=MagicMock(),
     )
-    assert result.exit_code == 2
     plain_output = _ANSI_ESCAPE_RE.sub("", result.output)
-    assert "Invalid value" in plain_output
+    assert "Invalid value" not in plain_output
 
 
 def test_camera_set_osd_name_uses_public() -> None:

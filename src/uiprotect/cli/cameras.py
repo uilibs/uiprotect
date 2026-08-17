@@ -401,17 +401,11 @@ def set_status_light(ctx: typer.Context, enabled: bool) -> None:
 
 
 @app.command()
-def set_hdr(ctx: typer.Context, enabled: bool) -> None:
-    """Sets HDR (High Dynamic Range) on camera"""
+def set_hdr(ctx: typer.Context, mode: d.PublicHdrMode) -> None:
+    """Sets HDR (High Dynamic Range) mode on camera"""
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
 
-    if not enabled:
-        mode = d.PublicHdrMode.OFF
-    elif obj.isp_settings.hdr_mode == d.HDRMode.ALWAYS_ON:
-        mode = d.PublicHdrMode.ON
-    else:
-        mode = d.PublicHdrMode.AUTO
     base.run(ctx, obj.set_hdr_mode_public(mode))
 
 
@@ -473,9 +467,9 @@ def set_wdr_level(
 @app.command()
 def set_mic_volume(
     ctx: typer.Context,
-    level: int = typer.Argument(..., min=1, max=100),
+    level: int = typer.Argument(..., min=0, max=100),
 ) -> None:
-    """Sets the mic sensitivity level on camera. The public API rejects 0."""
+    """Sets the mic sensitivity level on camera"""
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
 
