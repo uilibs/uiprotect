@@ -78,7 +78,7 @@ The API column marks which is which; note that `viewers` (private) and
 
 `Hybrid` groups still select the device from the private bootstrap, but most of
 their write commands issue their PATCH through the Public Integration API. They
-therefore need username/password auth for the lookup *and* an API key for those
+therefore need username/password auth for the lookup _and_ an API key for those
 writes.
 
 | Command                | API     | Description                                                      |
