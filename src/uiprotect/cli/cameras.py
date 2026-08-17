@@ -397,16 +397,22 @@ def set_status_light(ctx: typer.Context, enabled: bool) -> None:
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
 
-    base.run(ctx, obj.set_status_light(enabled))
+    base.run(ctx, obj.set_status_light_public(enabled))
 
 
 @app.command()
 def set_hdr(ctx: typer.Context, enabled: bool) -> None:
-    """Sets HDR (High Dynamic Range) on camera"""
+    """
+    Sets HDR (High Dynamic Range) on camera.
+
+    The public API models HDR as a tri-state mode, so `true` selects `auto`.
+    A camera previously set to "always on" is therefore moved to auto.
+    """
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
 
-    base.run(ctx, obj.set_hdr(enabled))
+    mode = d.PublicHdrMode.AUTO if enabled else d.PublicHdrMode.OFF
+    base.run(ctx, obj.set_hdr_mode_public(mode))
 
 
 @app.command()
@@ -437,7 +443,7 @@ def set_video_mode(ctx: typer.Context, mode: d.VideoMode) -> None:
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
 
-    base.run(ctx, obj.set_video_mode(mode))
+    base.run(ctx, obj.set_video_mode_public(mode))
 
 
 @app.command()
@@ -467,13 +473,13 @@ def set_wdr_level(
 @app.command()
 def set_mic_volume(
     ctx: typer.Context,
-    level: int = typer.Argument(..., min=0, max=100),
+    level: int = typer.Argument(..., min=1, max=100),
 ) -> None:
-    """Sets the mic sensitivity level on camera"""
+    """Sets the mic sensitivity level on camera. The public API rejects 0."""
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
 
-    base.run(ctx, obj.set_mic_volume(level))
+    base.run(ctx, obj.set_mic_volume_public(level))
 
 
 @app.command()
@@ -527,7 +533,7 @@ def set_osd_name(ctx: typer.Context, enabled: bool) -> None:
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
 
-    base.run(ctx, obj.set_osd_name(enabled))
+    base.run(ctx, obj.set_osd_name_public(enabled))
 
 
 @app.command()
@@ -536,7 +542,7 @@ def set_osd_date(ctx: typer.Context, enabled: bool) -> None:
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
 
-    base.run(ctx, obj.set_osd_date(enabled))
+    base.run(ctx, obj.set_osd_date_public(enabled))
 
 
 @app.command()
@@ -545,7 +551,7 @@ def set_osd_logo(ctx: typer.Context, enabled: bool) -> None:
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
 
-    base.run(ctx, obj.set_osd_logo(enabled))
+    base.run(ctx, obj.set_osd_logo_public(enabled))
 
 
 @app.command()
@@ -554,7 +560,7 @@ def set_osd_bitrate(ctx: typer.Context, enabled: bool) -> None:
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
 
-    base.run(ctx, obj.set_osd_bitrate(enabled))
+    base.run(ctx, obj.set_osd_nerd_mode_public(enabled))
 
 
 @app.command()
@@ -589,7 +595,13 @@ def set_lcd_text(
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
 
-    base.run(ctx, obj.set_lcd_text(text_type, text, reset_at))
+    if text_type is None:
+        # The public API requires an lcdMessage type, so it cannot express
+        # "reset to the global default message" — that stays on the private API.
+        base.run(ctx, obj.set_lcd_text(None))
+        return
+
+    base.run(ctx, obj.set_lcd_message_public(text_type, text, reset_at))
 
 
 @app.command()

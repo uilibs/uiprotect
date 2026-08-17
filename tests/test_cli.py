@@ -1,5 +1,6 @@
 import re
 import ssl
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -14,6 +15,9 @@ import typer
 from typer.testing import CliRunner
 
 from uiprotect.cli import _is_ssl_error, app
+from uiprotect.cli import cameras as cameras_cli
+from uiprotect.cli import lights as lights_cli
+from uiprotect.cli import sensors as sensors_cli
 from uiprotect.cli.arm import app as arm_app
 from uiprotect.cli.bridges import app as bridges_app
 from uiprotect.cli.cameras import app as cameras_app
@@ -51,7 +55,12 @@ from uiprotect.cli.viewers import app as viewer_app
 from uiprotect.cli.viewers import liveview
 from uiprotect.cli.viewers_public import app as viewer_public_app
 from uiprotect.data import RingSetting
-from uiprotect.data.types import SensorScheduleMode
+from uiprotect.data.types import (
+    DoorbellMessageType,
+    PublicHdrMode,
+    SensorScheduleMode,
+    VideoMode,
+)
 from uiprotect.exceptions import BadRequest
 
 runner = CliRunner()
@@ -941,3 +950,222 @@ def test_sensor_set_custom_sensitivity_public() -> None:
     ctx, sensor = _make_sensor_ctx()
     set_custom_sensitivity_public(ctx, True)
     sensor.set_custom_sensitivity_when_armed_public.assert_awaited_once_with(True)
+
+
+def _make_device_ctx(*, device_id: str):
+    """Build a typer context double wired to a mocked device + client."""
+    device = MagicMock()
+    device.id = device_id
+
+    protect = MagicMock()
+    protect.close_session = AsyncMock()
+    protect.close_public_api_session = AsyncMock()
+
+    ctx = MagicMock()
+    ctx.obj.device = device
+    ctx.obj.protect = protect
+    return ctx, device
+
+
+def _make_camera_ctx():
+    ctx, camera = _make_device_ctx(device_id="camera-1")
+    camera.set_status_light_public = AsyncMock()
+    camera.set_hdr_mode_public = AsyncMock()
+    camera.set_video_mode_public = AsyncMock()
+    camera.set_mic_volume_public = AsyncMock()
+    camera.set_osd_name_public = AsyncMock()
+    camera.set_osd_date_public = AsyncMock()
+    camera.set_osd_logo_public = AsyncMock()
+    camera.set_osd_nerd_mode_public = AsyncMock()
+    camera.set_lcd_message_public = AsyncMock()
+    camera.set_lcd_text = AsyncMock()
+    return ctx, camera
+
+
+def test_camera_set_status_light_uses_public() -> None:
+    """Camera set-status-light writes through the public setter."""
+    ctx, camera = _make_camera_ctx()
+    cameras_cli.set_status_light(ctx, True)
+    camera.set_status_light_public.assert_awaited_once_with(True)
+    camera.set_status_light.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("enabled", "mode"),
+    [(True, PublicHdrMode.AUTO), (False, PublicHdrMode.OFF)],
+)
+def test_camera_set_hdr_maps_bool_to_mode(enabled: bool, mode: PublicHdrMode) -> None:
+    """Camera set-hdr maps its boolean flag onto the public HDR mode."""
+    ctx, camera = _make_camera_ctx()
+    cameras_cli.set_hdr(ctx, enabled)
+    camera.set_hdr_mode_public.assert_awaited_once_with(mode)
+    camera.set_hdr.assert_not_called()
+
+
+def test_camera_set_video_mode_uses_public() -> None:
+    """Camera set-video-mode writes through the public setter."""
+    ctx, camera = _make_camera_ctx()
+    cameras_cli.set_video_mode(ctx, VideoMode.HIGH_FPS)
+    camera.set_video_mode_public.assert_awaited_once_with(VideoMode.HIGH_FPS)
+    camera.set_video_mode.assert_not_called()
+
+
+def test_camera_set_mic_volume_uses_public() -> None:
+    """Camera set-mic-volume writes through the public setter."""
+    ctx, camera = _make_camera_ctx()
+    cameras_cli.set_mic_volume(ctx, 55)
+    camera.set_mic_volume_public.assert_awaited_once_with(55)
+    camera.set_mic_volume.assert_not_called()
+
+
+def test_camera_set_osd_name_uses_public() -> None:
+    """Camera set-osd-name writes through the public setter."""
+    ctx, camera = _make_camera_ctx()
+    cameras_cli.set_osd_name(ctx, True)
+    camera.set_osd_name_public.assert_awaited_once_with(True)
+    camera.set_osd_name.assert_not_called()
+
+
+def test_camera_set_osd_date_uses_public() -> None:
+    """Camera set-osd-date writes through the public setter."""
+    ctx, camera = _make_camera_ctx()
+    cameras_cli.set_osd_date(ctx, False)
+    camera.set_osd_date_public.assert_awaited_once_with(False)
+    camera.set_osd_date.assert_not_called()
+
+
+def test_camera_set_osd_logo_uses_public() -> None:
+    """Camera set-osd-logo writes through the public setter."""
+    ctx, camera = _make_camera_ctx()
+    cameras_cli.set_osd_logo(ctx, True)
+    camera.set_osd_logo_public.assert_awaited_once_with(True)
+    camera.set_osd_logo.assert_not_called()
+
+
+def test_camera_set_osd_bitrate_uses_public_nerd_mode() -> None:
+    """Camera set-osd-bitrate writes through the public nerd-mode setter."""
+    ctx, camera = _make_camera_ctx()
+    cameras_cli.set_osd_bitrate(ctx, True)
+    camera.set_osd_nerd_mode_public.assert_awaited_once_with(True)
+    camera.set_osd_bitrate.assert_not_called()
+
+
+def test_camera_set_lcd_text_uses_public() -> None:
+    """Camera set-lcd-text writes through the public setter when given a type."""
+    ctx, camera = _make_camera_ctx()
+    reset_at = datetime(2026, 1, 1, 12, 0)
+    cameras_cli.set_lcd_text(
+        ctx, DoorbellMessageType.CUSTOM_MESSAGE, "hello", reset_at=reset_at
+    )
+    text_type, text, awaited_reset_at = camera.set_lcd_message_public.await_args.args
+    assert (text_type, text) == (DoorbellMessageType.CUSTOM_MESSAGE, "hello")
+    # The CLI localises the naive timestamp to the host timezone first.
+    assert awaited_reset_at.tzinfo is not None
+    assert awaited_reset_at.replace(tzinfo=None) == reset_at
+    camera.set_lcd_text.assert_not_called()
+
+
+def test_camera_set_lcd_text_reset_stays_private() -> None:
+    """Clearing the LCD message has no public twin, so it stays on the private API."""
+    ctx, camera = _make_camera_ctx()
+    cameras_cli.set_lcd_text(ctx, None, None, reset_at=None)
+    camera.set_lcd_text.assert_awaited_once_with(None)
+    camera.set_lcd_message_public.assert_not_called()
+
+
+def _make_light_ctx():
+    ctx, light = _make_device_ctx(device_id="light-1")
+    light.set_status_light_public = AsyncMock()
+    light.set_led_level_public = AsyncMock()
+    light.set_sensitivity_public = AsyncMock()
+    light.set_duration_public = AsyncMock()
+    light.set_flood_light_public = AsyncMock()
+    return ctx, light
+
+
+def test_light_set_status_light_uses_public() -> None:
+    """Light set-status-light writes through the public setter."""
+    ctx, light = _make_light_ctx()
+    lights_cli.set_status_light(ctx, True)
+    light.set_status_light_public.assert_awaited_once_with(True)
+    light.set_status_light.assert_not_called()
+
+
+def test_light_set_led_level_uses_public() -> None:
+    """Light set-led-level writes through the public setter."""
+    ctx, light = _make_light_ctx()
+    lights_cli.set_led_level(ctx, 4)
+    light.set_led_level_public.assert_awaited_once_with(4)
+    light.set_led_level.assert_not_called()
+
+
+def test_light_set_sensitivity_uses_public() -> None:
+    """Light set-sensitivity writes through the public setter."""
+    ctx, light = _make_light_ctx()
+    lights_cli.set_sensitivity(ctx, 80)
+    light.set_sensitivity_public.assert_awaited_once_with(80)
+    light.set_sensitivity.assert_not_called()
+
+
+def test_light_set_duration_uses_public() -> None:
+    """Light set-duration writes through the public setter."""
+    ctx, light = _make_light_ctx()
+    lights_cli.set_duration(ctx, 60)
+    light.set_duration_public.assert_awaited_once_with(timedelta(seconds=60))
+    light.set_duration.assert_not_called()
+
+
+def test_light_set_flood_light_uses_public() -> None:
+    """Light set-flood-light writes through the public setter."""
+    ctx, light = _make_light_ctx()
+    lights_cli.set_flood_light(ctx, False)
+    light.set_flood_light_public.assert_awaited_once_with(False)
+    light.set_flood_light.assert_not_called()
+
+
+def test_sensor_set_motion_uses_public() -> None:
+    """Sensor set-motion writes through the public setter."""
+    ctx, sensor = _make_sensor_ctx()
+    sensors_cli.set_motion(ctx, True)
+    sensor.set_motion_status_public.assert_awaited_once_with(True)
+    sensor.set_motion_status.assert_not_called()
+
+
+def test_sensor_set_temperature_uses_public() -> None:
+    """Sensor set-temperature writes through the public setter."""
+    ctx, sensor = _make_sensor_ctx()
+    sensors_cli.set_temperature(ctx, False)
+    sensor.set_temperature_status_public.assert_awaited_once_with(False)
+    sensor.set_temperature_status.assert_not_called()
+
+
+def test_sensor_set_humidity_uses_public() -> None:
+    """Sensor set-humidity writes through the public setter."""
+    ctx, sensor = _make_sensor_ctx()
+    sensors_cli.set_humidity(ctx, True)
+    sensor.set_humidity_status_public.assert_awaited_once_with(True)
+    sensor.set_humidity_status.assert_not_called()
+
+
+def test_sensor_set_light_uses_public() -> None:
+    """Sensor set-light writes through the public setter."""
+    ctx, sensor = _make_sensor_ctx()
+    sensors_cli.set_light(ctx, False)
+    sensor.set_light_status_public.assert_awaited_once_with(False)
+    sensor.set_light_status.assert_not_called()
+
+
+def test_sensor_set_motion_sensitivity_uses_public() -> None:
+    """Sensor set-motion-sensitivity writes through the public setter."""
+    ctx, sensor = _make_sensor_ctx()
+    sensors_cli.set_motion_sensitivity(ctx, 30)
+    sensor.set_motion_sensitivity_public.assert_awaited_once_with(30)
+    sensor.set_motion_sensitivity.assert_not_called()
+
+
+def test_sensor_set_status_light_stays_private() -> None:
+    """The sensor status LED has no public-API field, so it stays on the private setter."""
+    ctx, sensor = _make_sensor_ctx()
+    sensor.set_status_light = AsyncMock()
+    sensors_cli.set_status_light(ctx, True)
+    sensor.set_status_light.assert_awaited_once_with(True)

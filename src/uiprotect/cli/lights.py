@@ -79,7 +79,7 @@ def set_status_light(ctx: typer.Context, enabled: bool) -> None:
     base.require_device_id(ctx)
     obj: Light = ctx.obj.device
 
-    base.run(ctx, obj.set_status_light(enabled))
+    base.run(ctx, obj.set_status_light_public(enabled))
 
 
 @app.command()
@@ -91,7 +91,7 @@ def set_led_level(
     base.require_device_id(ctx)
     obj: Light = ctx.obj.device
 
-    base.run(ctx, obj.set_led_level(led_level))
+    base.run(ctx, obj.set_led_level_public(led_level))
 
 
 @app.command()
@@ -103,7 +103,7 @@ def set_sensitivity(
     base.require_device_id(ctx)
     obj: Light = ctx.obj.device
 
-    base.run(ctx, obj.set_sensitivity(sensitivity))
+    base.run(ctx, obj.set_sensitivity_public(sensitivity))
 
 
 @app.command()
@@ -115,7 +115,7 @@ def set_duration(
     base.require_device_id(ctx)
     obj: Light = ctx.obj.device
 
-    base.run(ctx, obj.set_duration(timedelta(seconds=duration)))
+    base.run(ctx, obj.set_duration_public(timedelta(seconds=duration)))
 
 
 @app.command()
@@ -124,4 +124,4 @@ def set_flood_light(ctx: typer.Context, enabled: bool) -> None:
     base.require_device_id(ctx)
     obj: Light = ctx.obj.device
 
-    base.run(ctx, obj.set_flood_light(enabled))
+    base.run(ctx, obj.set_flood_light_public(enabled))
