@@ -293,9 +293,15 @@ PUBLIC_RESYNC_MIN_INTERVAL = 10.0
 # cadence, so without keepalive the idle timer drops it every cycle. A ping
 # elicits a server pong — an upstream read that resets the proxy timer — and
 # also gives aiohttp liveness detection. 180s keeps ~3 touches per 10-min
-# window so a single lost frame does not trip the timeout. The private WS is
-# chatty and left unchanged.
+# window so a single lost frame does not trip the timeout.
 PUBLIC_WS_HEARTBEAT = 180.0
+
+# Same keepalive for the private WS. Traffic volume is not liveness: when the
+# path drops without a close frame — a switch/controller reboot mid-stream —
+# ``receive()`` blocks forever on the half-open socket, so the state stays
+# CONNECTED and the reconnect loop never runs. A ping is the only thing that
+# fails on a dead peer.
+PRIVATE_WS_HEARTBEAT = 180.0
 
 # Max concurrent RTSPS-stream fetches issued while priming cameras in
 # ``update_public``. Bounds the GET fan-out so a large install does not fire
@@ -584,6 +590,7 @@ class BaseApiClient:
                 verify=self._verify_ssl,
                 timeout=self._ws_timeout,
                 receive_timeout=self._ws_receive_timeout,
+                heartbeat=PRIVATE_WS_HEARTBEAT,
             )
         return self._private_websocket
 
