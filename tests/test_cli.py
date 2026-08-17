@@ -57,6 +57,7 @@ from uiprotect.cli.viewers_public import app as viewer_public_app
 from uiprotect.data import RingSetting
 from uiprotect.data.types import (
     DoorbellMessageType,
+    HDRMode,
     PublicHdrMode,
     SensorScheduleMode,
     VideoMode,
@@ -991,12 +992,20 @@ def test_camera_set_status_light_uses_public() -> None:
 
 
 @pytest.mark.parametrize(
-    ("enabled", "mode"),
-    [(True, PublicHdrMode.AUTO), (False, PublicHdrMode.OFF)],
+    ("enabled", "current", "mode"),
+    [
+        (True, HDRMode.NORMAL, PublicHdrMode.AUTO),
+        (True, HDRMode.ALWAYS_ON, PublicHdrMode.ON),
+        (True, None, PublicHdrMode.AUTO),
+        (False, HDRMode.ALWAYS_ON, PublicHdrMode.OFF),
+    ],
 )
-def test_camera_set_hdr_maps_bool_to_mode(enabled: bool, mode: PublicHdrMode) -> None:
+def test_camera_set_hdr_maps_bool_to_mode(
+    enabled: bool, current: HDRMode | None, mode: PublicHdrMode
+) -> None:
     """Camera set-hdr maps its boolean flag onto the public HDR mode."""
     ctx, camera = _make_camera_ctx()
+    camera.isp_settings.hdr_mode = current
     cameras_cli.set_hdr(ctx, enabled)
     camera.set_hdr_mode_public.assert_awaited_once_with(mode)
     camera.set_hdr.assert_not_called()
@@ -1016,6 +1025,18 @@ def test_camera_set_mic_volume_uses_public() -> None:
     cameras_cli.set_mic_volume(ctx, 55)
     camera.set_mic_volume_public.assert_awaited_once_with(55)
     camera.set_mic_volume.assert_not_called()
+
+
+def test_camera_set_mic_volume_rejects_zero() -> None:
+    """``set-mic-volume 0`` must fail typer's ``min=1`` validator."""
+    result = runner.invoke(
+        cameras_app,
+        ["cam-1", "set-mic-volume", "0"],
+        obj=MagicMock(),
+    )
+    assert result.exit_code == 2
+    plain_output = _ANSI_ESCAPE_RE.sub("", result.output)
+    assert "Invalid value" in plain_output
 
 
 def test_camera_set_osd_name_uses_public() -> None:

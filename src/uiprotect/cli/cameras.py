@@ -402,16 +402,16 @@ def set_status_light(ctx: typer.Context, enabled: bool) -> None:
 
 @app.command()
 def set_hdr(ctx: typer.Context, enabled: bool) -> None:
-    """
-    Sets HDR (High Dynamic Range) on camera.
-
-    The public API models HDR as a tri-state mode, so `true` selects `auto`.
-    A camera previously set to "always on" is therefore moved to auto.
-    """
+    """Sets HDR (High Dynamic Range) on camera"""
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
 
-    mode = d.PublicHdrMode.AUTO if enabled else d.PublicHdrMode.OFF
+    if not enabled:
+        mode = d.PublicHdrMode.OFF
+    elif obj.isp_settings.hdr_mode == d.HDRMode.ALWAYS_ON:
+        mode = d.PublicHdrMode.ON
+    else:
+        mode = d.PublicHdrMode.AUTO
     base.run(ctx, obj.set_hdr_mode_public(mode))
 
 
