@@ -117,7 +117,7 @@ async def test_get_camera_public_success(
         ({"led_welcome_led": False}, {"ledSettings": {"welcomeLed": False}}),
         ({"led_flood_led": True}, {"ledSettings": {"floodLed": True}}),
         ({"mic_volume": 80}, {"micVolume": 80}),
-        ({"mic_volume": 1}, {"micVolume": 1}),
+        ({"mic_volume": 0}, {"micVolume": 0}),
         (
             {
                 "osd_name_enabled": True,
@@ -191,13 +191,10 @@ async def test_update_camera_public_payloads(
 async def test_update_camera_public_mic_volume_out_of_range(
     protect_client: ProtectApiClient,
 ) -> None:
-    with pytest.raises(BadRequest, match="mic_volume must be between 1 and 100"):
+    with pytest.raises(BadRequest, match="mic_volume must be between 0 and 100"):
         await protect_client.update_camera_public(CAMERA_ID, mic_volume=101)
 
-    with pytest.raises(BadRequest, match="mic_volume must be between 1 and 100"):
-        await protect_client.update_camera_public(CAMERA_ID, mic_volume=0)
-
-    with pytest.raises(BadRequest, match="mic_volume must be between 1 and 100"):
+    with pytest.raises(BadRequest, match="mic_volume must be between 0 and 100"):
         await protect_client.update_camera_public(CAMERA_ID, mic_volume=-1)
 
 
@@ -525,6 +522,18 @@ async def test_camera_set_mic_volume_public(camera: Camera) -> None:
 
 
 @pytest.mark.asyncio()
+async def test_camera_set_mic_volume_public_mute(camera: Camera) -> None:
+    camera.feature_flags.has_mic = True
+    updated = _mic_updated_mock(0)
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
+
+    await camera.set_mic_volume_public(0)
+
+    camera._api.update_camera_public.assert_called_once_with(camera.id, mic_volume=0)
+    assert camera.mic_volume == 0
+
+
+@pytest.mark.asyncio()
 async def test_camera_set_mic_volume_public_no_mic(camera: Camera) -> None:
     camera.feature_flags.has_mic = False
 
@@ -545,7 +554,7 @@ async def test_camera_set_mic_volume_public_coerces_float(camera: Camera) -> Non
     assert isinstance(sent, int)
 
 
-@pytest.mark.parametrize("level", [-1, 0, 101, 150])
+@pytest.mark.parametrize("level", [-1, 101, 150])
 @pytest.mark.asyncio()
 async def test_camera_set_mic_volume_public_out_of_range(
     camera: Camera, level: int
@@ -553,7 +562,7 @@ async def test_camera_set_mic_volume_public_out_of_range(
     camera.feature_flags.has_mic = True
     camera._api.update_camera_public = AsyncMock()
 
-    with pytest.raises(BadRequest, match="mic_volume must be between 1 and 100"):
+    with pytest.raises(BadRequest, match="mic_volume must be between 0 and 100"):
         await camera.set_mic_volume_public(level)
 
     assert not camera._api.update_camera_public.called

@@ -160,7 +160,7 @@ def set_motion(ctx: typer.Context, enabled: bool) -> None:
     base.require_device_id(ctx)
     obj: Sensor = ctx.obj.device
 
-    base.run(ctx, obj.set_motion_status(enabled))
+    base.run(ctx, obj.set_motion_status_public(enabled))
 
 
 @app.command()
@@ -169,7 +169,7 @@ def set_temperature(ctx: typer.Context, enabled: bool) -> None:
     base.require_device_id(ctx)
     obj: Sensor = ctx.obj.device
 
-    base.run(ctx, obj.set_temperature_status(enabled))
+    base.run(ctx, obj.set_temperature_status_public(enabled))
 
 
 @app.command()
@@ -178,7 +178,7 @@ def set_humidity(ctx: typer.Context, enabled: bool) -> None:
     base.require_device_id(ctx)
     obj: Sensor = ctx.obj.device
 
-    base.run(ctx, obj.set_humidity_status(enabled))
+    base.run(ctx, obj.set_humidity_status_public(enabled))
 
 
 @app.command()
@@ -187,7 +187,7 @@ def set_light(ctx: typer.Context, enabled: bool) -> None:
     base.require_device_id(ctx)
     obj: Sensor = ctx.obj.device
 
-    base.run(ctx, obj.set_light_status(enabled))
+    base.run(ctx, obj.set_light_status_public(enabled))
 
 
 @app.command()
@@ -208,7 +208,7 @@ def set_motion_sensitivity(
     base.require_device_id(ctx)
     obj: Sensor = ctx.obj.device
 
-    base.run(ctx, obj.set_motion_sensitivity(sensitivity))
+    base.run(ctx, obj.set_motion_sensitivity_public(sensitivity))
 
 
 @app.command()

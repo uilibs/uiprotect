@@ -76,13 +76,18 @@ Commands are split between the reverse-engineered **private** API
 The API column marks which is which; note that `viewers` (private) and
 `viewers-public` (public) are distinct command groups.
 
+`Hybrid` groups still select the device from the private bootstrap, but most of
+their write commands issue their PATCH through the Public Integration API. They
+therefore need username/password auth for the lookup _and_ an API key for those
+writes.
+
 | Command                | API     | Description                                                      |
 | ---------------------- | ------- | ---------------------------------------------------------------- |
 | `aiports`              | Private | AiPort device CLI.                                               |
 | `arm`                  | Public  | Arm profile and alarm commands.                                  |
 | `backup`               | Private | [Backup CLI](#backup-cli).                                       |
 | `bridges`              | Public  | Bridge commands.                                                 |
-| `cameras`              | Private | Camera device CLI.                                               |
+| `cameras`              | Hybrid  | Camera device CLI.                                               |
 | `chimes`               | Private | Chime device CLI.                                                |
 | `create-api-key`       | Private | Create a new API key for the current user.                       |
 | `decode-ws-msg`        | —       | Decodes a base64 encoded UniFi Protect Websocket binary message. |
@@ -91,13 +96,13 @@ The API column marks which is which; note that `viewers` (private) and
 | `fobs`                 | Public  | Key fob commands.                                                |
 | `generate-sample-data` | Private | Generates sample data for UniFi Protect instance.                |
 | `get-meta-info`        | Public  | Get metadata about the current UniFi Protect instance.           |
-| `lights`               | Private | Lights device CLI.                                               |
+| `lights`               | Hybrid  | Lights device CLI.                                               |
 | `link-stations`        | Public  | Link station and alarm hub commands.                             |
 | `liveviews`            | Public  | Liveview commands.                                               |
 | `nvr`                  | Private | NVR device CLI.                                                  |
 | `profile-ws`           | Private | Profiles Websocket messages for UniFi Protect instance.          |
 | `relays`               | Public  | Relay commands.                                                  |
-| `sensors`              | Private | Sensors device CLI.                                              |
+| `sensors`              | Hybrid  | Sensors device CLI.                                              |
 | `shell`                | Private | Opens iPython shell with Protect client initialized.             |
 | `sirens`               | Public  | Siren commands.                                                  |
 | `speakers`             | Public  | Speaker commands.                                                |

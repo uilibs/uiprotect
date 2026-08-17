@@ -87,7 +87,7 @@ if TYPE_CHECKING:
 # ``highThreshold`` fields are spec-unbounded, so they are not range-checked.
 _PUBLIC_SENSITIVITY_RANGE: tuple[float, float] = (0, 100)
 _PUBLIC_LED_LEVEL_RANGE: tuple[float, float] = (1, 6)
-_PUBLIC_MIC_VOLUME_RANGE: tuple[float, float] = (1, 100)
+_PUBLIC_MIC_VOLUME_RANGE: tuple[float, float] = (0, 100)
 _PUBLIC_TEMPERATURE_LOW_RANGE: tuple[float, float] = (-39, 124)
 _PUBLIC_HUMIDITY_LOW_RANGE: tuple[float, float] = (1, 99)
 _PUBLIC_LIGHT_LUX_LOW_RANGE: tuple[float, float] = (1, 503192)
@@ -787,7 +787,7 @@ class PublicCamera(PublicDeviceModel):
         return self
 
     async def set_mic_volume(self, level: int) -> PublicCamera:
-        """Set microphone volume (1-100) via the public API."""
+        """Set microphone volume (0-100) via the public API."""
         if not self.feature_flags.has_mic:
             raise BadRequest("Camera does not have mic")
         level = _coerce_public_int("mic_volume", level, _PUBLIC_MIC_VOLUME_RANGE)

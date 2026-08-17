@@ -3935,8 +3935,8 @@ class ProtectApiClient(BaseApiClient):
         if led:
             body["ledSettings"] = led
         if mic_volume is not None:
-            if not 1 <= mic_volume <= 100:
-                raise BadRequest("mic_volume must be between 1 and 100")
+            if not 0 <= mic_volume <= 100:
+                raise BadRequest("mic_volume must be between 0 and 100")
             body["micVolume"] = mic_volume
         detect: dict[str, Any] = {}
         if smart_detect_object_types is not None:
