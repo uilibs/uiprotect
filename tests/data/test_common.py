@@ -1754,27 +1754,32 @@ async def test_multiple_updates(user_obj: User, camera_obj: Camera):
     api = user_obj.api
     camera_obj.id = "test_id_1"
     camera_obj.recording_settings.enable_motion_detection = False
+    camera_obj.recording_settings.mode = RecordingMode.NEVER
     camera_obj.smart_detect_settings.object_types = []
-    camera_obj.feature_flags.smart_detect_types = [
-        SmartDetectObjectType.PERSON,
-        SmartDetectObjectType.VEHICLE,
-        SmartDetectObjectType.FACE,
-    ]
+    camera_obj.feature_flags.has_smart_detect = True
     camera_obj.use_global = False
     api.bootstrap.cameras[camera_obj.id] = camera_obj
 
     await asyncio.gather(
         camera_obj.set_motion_detection(True),
-        camera_obj.set_person_detection(True),
-        camera_obj.set_vehicle_detection(True),
-        camera_obj.set_face_detection(True),
+        camera_obj.set_recording_mode(RecordingMode.ALWAYS),
+        camera_obj.set_smart_detect_types(
+            [
+                SmartDetectObjectType.FACE,
+                SmartDetectObjectType.PERSON,
+                SmartDetectObjectType.VEHICLE,
+            ]
+        ),
     )
 
     camera_obj.api.api_request.assert_called_with(  # type: ignore[attr-defined]
         f"cameras/{camera_obj.id}",
         method="patch",
         json={
-            "recordingSettings": {"enableMotionDetection": True},
+            "recordingSettings": {
+                "enableMotionDetection": True,
+                "mode": RecordingMode.ALWAYS.value,
+            },
             "smartDetectSettings": {"objectTypes": ["face", "person", "vehicle"]},
         },
     )
