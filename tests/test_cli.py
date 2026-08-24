@@ -996,7 +996,6 @@ def test_camera_set_hdr_uses_public(mode: PublicHdrMode) -> None:
     ctx, camera = _make_camera_ctx()
     cameras_cli.set_hdr(ctx, mode)
     camera.set_hdr_mode_public.assert_awaited_once_with(mode)
-    camera.set_hdr.assert_not_called()
 
 
 def test_camera_set_hdr_rejects_unknown_mode() -> None:

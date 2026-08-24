@@ -2393,22 +2393,6 @@ class Camera(ProtectMotionDeviceModel):
 
         await self.queue_update(callback)
 
-    async def set_hdr(self, enabled: bool) -> None:
-        """Sets HDR (High Dynamic Range) on camera"""
-        warnings.warn(
-            "set_hdr is deprecated and replaced with set_hdr_mode_public for versions of UniFi Protect v3.0+",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        if not self.feature_flags.has_hdr:
-            raise BadRequest("Camera does not have HDR")
-
-        def callback() -> None:
-            self.hdr_mode = enabled
-
-        await self.queue_update(callback)
-
     async def set_color_night_vision(self, enabled: bool) -> None:
         """Sets Color Night Vision on camera"""
         if not self.has_color_night_vision:
