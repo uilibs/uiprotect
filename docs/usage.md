@@ -147,6 +147,16 @@ and `subscribe_devices` (a camera update naming the flipped `is_*_detected`
 fields) see the drop immediately, and the derived camera flags read correct on
 the next synchronous access.
 
+A device added to (or removed from) the console while the devices WebSocket is
+down produces no wire frame either. The reconnect resync re-fetches the public
+bootstrap and announces that difference on the same channel: one `add` frame
+per device the refresh newly reports and one `remove` frame per device it no
+longer reports, delivered after the whole snapshot has merged so a subscriber
+reacting to a frame already sees a consistent bootstrap. `subscribe_devices`
+surfaces them as `DeviceChange.ADDED` / `DeviceChange.REMOVED`, exactly like
+live traffic, so consumers need no add/remove bookkeeping of their own. The
+initial `update_public()` prime stays silent — it is the baseline, not a diff.
+
 ## Camera RTSPS streams
 
 RTSPS stream URLs live on the camera as `PublicCamera.rtsps_streams`. The

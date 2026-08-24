@@ -143,6 +143,7 @@ if TYPE_CHECKING:
     )
 
     from .data.base import ProtectModelWithId
+    from .data.public_bootstrap import DeviceWSResult, FetchDiff
     from .devices import ProtectDeviceChange
     from .events import EventChange, ProtectEvent
 
@@ -1440,6 +1441,10 @@ class ProtectApiClient(BaseApiClient):
     _prime_ws_buffer: (
         list[tuple[Callable[[aiohttp.WSMessage], None], aiohttp.WSMessage]] | None
     ) = None
+    # Devices whose add/remove a real WS frame already announced while
+    # ``update_public`` was running, so the membership diff does not
+    # announce the same change a second time. ``None`` outside a prime.
+    _public_membership_seen: set[tuple[ModelType, str]] | None = None
 
     ignore_unadopted: bool
 
@@ -1889,16 +1894,7 @@ class ProtectApiClient(BaseApiClient):
                 _LOGGER.debug("Unknown model type in public API message: %s", model_key)
                 return
 
-            # Respect the ``subscribed_models`` filter that callers pass in.
-            # Empty set means "all" (matches private-WS behaviour).
-            # ``None`` => inherit the global filter; an explicit (possibly
-            # empty) per-WS set overrides it.
-            _devices_filter = (
-                self._subscribed_models
-                if self._devices_ws_subscribed_models is None
-                else self._devices_ws_subscribed_models
-            )
-            if _devices_filter and model_type not in _devices_filter:
+            if self._devices_ws_filtered_out(model_type):
                 return
 
             # Apply the change to the PublicBootstrap cache when it has been
@@ -1915,6 +1911,7 @@ class ProtectApiClient(BaseApiClient):
                 for result in self._public_bootstrap.process_devices_ws_messages(
                     self, data
                 ):
+                    self._note_membership_frame(action_type, result)
                     self.emit_devices_message(
                         WSSubscriptionMessage(
                             action=WSAction(action_type),
@@ -1937,6 +1934,34 @@ class ProtectApiClient(BaseApiClient):
             )
         except Exception:
             _LOGGER.exception("Error processing public API devices websocket message")
+
+    def _devices_ws_filtered_out(self, model_type: ModelType) -> bool:
+        """
+        Whether the devices-WS ``subscribed_models`` filter excludes a model.
+
+        Empty set means "all" (matches private-WS behaviour). ``None`` =>
+        inherit the global filter; an explicit (possibly empty) per-WS set
+        overrides it.
+        """
+        model_filter = (
+            self._subscribed_models
+            if self._devices_ws_subscribed_models is None
+            else self._devices_ws_subscribed_models
+        )
+        return bool(model_filter) and model_type not in model_filter
+
+    def _note_membership_frame(self, action_type: str, result: DeviceWSResult) -> None:
+        """Record a wire ``add``/``remove`` so the fetch diff does not repeat it."""
+        seen = self._public_membership_seen
+        if seen is None or result.model_type is None:
+            return
+        # An ``add`` whose model could not be built announces nothing a
+        # subscriber can act on, so it must not suppress the fetch diff's own
+        # announcement for the same device.
+        if action_type == "remove" or (
+            action_type == "add" and result.new_obj is not None
+        ):
+            seen.add((result.model_type, str(result.item.get("id", ""))))
 
     async def _get_event_paginate(  # noqa: PLR0912
         self,
@@ -4860,6 +4885,10 @@ class ProtectApiClient(BaseApiClient):
         # succeeds; on a first refresh that fails, ``_public_bootstrap`` must
         # stay ``None`` so the ``subscribe_events`` prime guard still fires.
         pb = self._public_bootstrap
+        # The first prime turns every fetched device into an "add"; only a
+        # refresh of an already-materialised snapshot has a meaningful diff to
+        # announce.
+        was_primed = pb is not None
         if pb is None:
             pb = PublicBootstrap()
 
@@ -4901,6 +4930,29 @@ class ProtectApiClient(BaseApiClient):
         # instead of being merged into (or dropped by) the about-to-be-replaced
         # objects. The prime lock guarantees this prime is the only one.
         self._prime_ws_buffer = []
+        # Live and replayed frames land on the same snapshot this fetch is
+        # merging into, so both must be able to preempt the diff below.
+        seen: set[tuple[ModelType, str]] = set()
+        self._public_membership_seen = seen
+        try:
+            await self._fetch_and_apply_public_snapshot(
+                pb, endpoints, previous_streams, seen, was_primed=was_primed
+            )
+        finally:
+            self._public_membership_seen = None
+        return pb
+
+    async def _fetch_and_apply_public_snapshot(
+        self,
+        pb: PublicBootstrap,
+        endpoints: list[tuple[Any, str, str]],
+        previous_streams: dict[str, RTSPSStreams],
+        seen: set[tuple[ModelType, str]],
+        *,
+        was_primed: bool,
+    ) -> None:
+        """Run the ``update_public`` fetch/apply/announce sequence for ``pb``."""
+        diffs: list[FetchDiff] = []
         try:
             results = await asyncio.gather(
                 *[coro for coro, _, _ in endpoints], return_exceptions=True
@@ -4924,7 +4976,7 @@ class ProtectApiClient(BaseApiClient):
             # Phase 2 — no unexpected error: apply the whole batch. No ``await``
             # between writes, so a concurrent public-WS frame cannot interleave
             # a torn state. Tolerated-missing endpoints keep their prior data.
-            self._apply_public_fetch_results(pb, endpoints, results)
+            diffs = self._apply_public_fetch_results(pb, endpoints, results)
         finally:
             # Stop buffering and drain on success and failure alike: replayed
             # frames land on the fresh snapshot when the prime succeeded, and
@@ -4939,15 +4991,17 @@ class ProtectApiClient(BaseApiClient):
 
         await self._prime_rtsps_streams(pb, previous_streams)
         await self._backfill_public_nvr_mac(pb)
-        return pb
+        if was_primed:
+            self._emit_public_fetch_diffs(pb, diffs, seen)
 
     def _apply_public_fetch_results(
         self,
         pb: PublicBootstrap,
         endpoints: list[tuple[Any, str, str]],
         results: list[Any],
-    ) -> None:
+    ) -> list[FetchDiff]:
         """Apply the classified ``update_public`` fetch results to ``pb``."""
+        diffs: list[FetchDiff] = []
         for (_, _label, attr), result in zip(endpoints, results, strict=True):
             if isinstance(result, BaseException):
                 continue
@@ -4956,7 +5010,65 @@ class ProtectApiClient(BaseApiClient):
             elif attr == "nvr":
                 pb.nvr = result
             else:
-                pb.apply_fetch_result(attr, result)
+                diffs.append(pb.apply_fetch_result(attr, result))
+        return diffs
+
+    def _emit_public_fetch_diffs(
+        self,
+        pb: PublicBootstrap,
+        diffs: list[FetchDiff],
+        seen: set[tuple[ModelType, str]],
+    ) -> None:
+        """
+        Announce the devices an ``update_public`` refresh added or removed.
+
+        A device that appears or disappears while the devices websocket is
+        down produces no wire frame, so the reconnect resync is the only place
+        subscribers can learn about it. Emitting here — after the whole batch
+        has merged and the RTSPS prime has run — means a subscriber reacting
+        to the frame already sees a consistent bootstrap.
+        """
+        for diff in diffs:
+            store = cast("dict[str, ProtectModelWithId]", getattr(pb, diff.attr))
+            for obj_id in diff.added_ids:
+                # Re-read: a WS frame arriving during the fetch may have
+                # removed the object again since the merge.
+                if (obj := store.get(obj_id)) is not None:
+                    self._emit_public_membership_frame(pb, WSAction.ADD, obj, seen)
+            for obj in diff.removed:
+                if obj.id not in store:
+                    self._emit_public_membership_frame(pb, WSAction.REMOVE, obj, seen)
+
+    def _emit_public_membership_frame(
+        self,
+        pb: PublicBootstrap,
+        action: WSAction,
+        obj: ProtectModelWithId,
+        seen: set[tuple[ModelType, str]],
+    ) -> None:
+        """Emit one synthetic devices-WS ``add``/``remove`` for ``obj``."""
+        model = obj.model
+        # Non-device stores (ulp-users) and objects the devices WS never
+        # routes have no membership frame to speak of.
+        if model is None or not pb.supports_device(model):
+            return
+        # A real frame already announced this change, or the subscriber asked
+        # not to hear about this model at all.
+        if (model, obj.id) in seen or self._devices_ws_filtered_out(model):
+            return
+        is_add = action is WSAction.ADD
+        self.emit_devices_message(
+            WSSubscriptionMessage(
+                action=action,
+                new_update_id=obj.id,
+                # Identity only, like the other library-synthesized frames: the
+                # merged object travels in ``new_obj``/``old_obj``, and this
+                # path only runs once the cache is materialised.
+                changed_data={"modelKey": model.value, "id": obj.id},
+                new_obj=obj if is_add else None,
+                old_obj=None if is_add else obj,
+            )
+        )
 
     async def _backfill_public_nvr_mac(self, pb: PublicBootstrap) -> None:
         """
