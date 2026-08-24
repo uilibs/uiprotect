@@ -1,5 +1,19 @@
 # Changelog
 
+## v16.1.0 (2026-08-24)
+
+### Bug fixes
+
+
+- Include customfilteronly in is_ir_led_slider_enabled ([`ec29041`](https://github.com/uilibs/uiprotect/commit/ec29041341b3ee2c7075c2db8231bbdf7f00634f))
+
+
+### Features
+
+
+- Emit add/remove devices-ws frames for the public resync ([`38719f9`](https://github.com/uilibs/uiprotect/commit/38719f9bdd9d4cdaf76839ae738ca26b8c93f244))
+
+
 ## v16.0.0 (2026-08-24)
 
 ### Features
