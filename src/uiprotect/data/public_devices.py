@@ -799,7 +799,7 @@ class PublicCamera(PublicDeviceModel):
         self,
         text_type: DoorbellMessageType,
         text: str | None = None,
-        reset_at: datetime | None | DEFAULT_TYPE = DEFAULT,
+        reset_at: datetime | DEFAULT_TYPE | None = DEFAULT,
     ) -> PublicCamera:
         """
         Set the doorbell LCD message via the public API.

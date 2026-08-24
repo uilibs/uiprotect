@@ -2561,7 +2561,7 @@ class Camera(ProtectMotionDeviceModel):
         self,
         text_type: DoorbellMessageType | None,
         text: str | None = None,
-        reset_at: None | datetime | DEFAULT_TYPE = None,
+        reset_at: datetime | DEFAULT_TYPE | None = None,
     ) -> None:
         """Sets doorbell LCD text. Requires camera to be doorbell"""
         if not self.feature_flags.has_lcd_screen:
@@ -2851,7 +2851,7 @@ class Camera(ProtectMotionDeviceModel):
         self,
         text_type: DoorbellMessageType,
         text: str | None = None,
-        reset_at: datetime | None | DEFAULT_TYPE = DEFAULT,
+        reset_at: datetime | DEFAULT_TYPE | None = DEFAULT,
     ) -> None:
         """
         Set doorbell LCD message via public API.
