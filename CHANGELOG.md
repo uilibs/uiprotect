@@ -1,5 +1,19 @@
 # Changelog
 
+## v16.0.0 (2026-08-24)
+
+### Features
+
+
+- Remove the private setters superseded by their public twins ([`8e73f8a`](https://github.com/uilibs/uiprotect/commit/8e73f8aee5bebf6d393bd488b1874e59d60dbae0))
+
+
+### Refactoring
+
+
+- Swap the write callsites that already have a public twin ([`5104dee`](https://github.com/uilibs/uiprotect/commit/5104dee8094ba5e5622b6f8b104182f6323724e6))
+
+
 ## v15.14.3 (2026-08-17)
 
 ### Bug fixes
