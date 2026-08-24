@@ -1187,6 +1187,42 @@ async def test_camera_set_icr_custom_lux(
     )
 
 
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [
+        (IRLEDMode.CUSTOM, True),
+        (IRLEDMode.CUSTOM_FILTER_ONLY, True),
+        (IRLEDMode.AUTO, False),
+        (IRLEDMode.AUTO_NO_LED, False),
+        (IRLEDMode.MANUAL, False),
+        (IRLEDMode.ON, False),
+        (IRLEDMode.OFF, False),
+    ],
+)
+def test_camera_is_ir_led_slider_enabled(
+    camera_obj: Camera | None,
+    mode: IRLEDMode,
+    expected: bool,
+):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.feature_flags.has_led_ir = True
+    camera_obj.isp_settings.ir_led_mode = mode
+
+    assert camera_obj.is_ir_led_slider_enabled is expected
+
+
+def test_camera_is_ir_led_slider_enabled_no_led_ir(camera_obj: Camera | None):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.feature_flags.has_led_ir = False
+    camera_obj.isp_settings.ir_led_mode = IRLEDMode.CUSTOM
+
+    assert camera_obj.is_ir_led_slider_enabled is False
+
+
 @pytest.mark.asyncio
 async def test_get_snapshot_read_live_granted(camera_obj: Camera | None):
     camera_obj._api = MagicMock(spec=ProtectApiClient)

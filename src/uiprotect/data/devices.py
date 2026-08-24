@@ -115,6 +115,10 @@ if TYPE_CHECKING:
 
 PRIVACY_ZONE_NAME = "pyufp_privacy_zone"
 LUX_MAPPING_VALUES = [30, 25, 20, 15, 12, 10, 7, 5, 3, 1, 0]
+# Protect switches the ICR on the lux threshold only in these modes; `auto`/
+# `autoFilterOnly` switch on sensitivity and discard icrCustomValue, and
+# `manual`/`on`/`off` force the IR cut filter, so the threshold is inert there.
+_ICR_LUX_IR_LED_MODES = frozenset({IRLEDMode.CUSTOM, IRLEDMode.CUSTOM_FILTER_ONLY})
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -2377,7 +2381,7 @@ class Camera(ProtectMotionDeviceModel):
         """Return if IR LED custom slider is enabled."""
         return (
             self.feature_flags.has_led_ir
-            and self.isp_settings.ir_led_mode == IRLEDMode.CUSTOM
+            and self.isp_settings.ir_led_mode in _ICR_LUX_IR_LED_MODES
         )
 
     async def set_status_light(self, enabled: bool) -> None:
