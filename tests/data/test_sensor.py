@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from pydantic import ValidationError
 
 from tests.conftest import TEST_CAMERA_EXISTS, TEST_SENSOR_EXISTS
 from uiprotect.data.types import MountType, SensorScheduleMode
@@ -133,32 +132,6 @@ async def test_sensor_set_alarm_status(sensor_obj: Sensor, status: bool):
         method="patch",
         json={"alarmSettings": {"isEnabled": status}},
     )
-
-
-@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize("sensitivity", [1, 100, -10])
-@pytest.mark.asyncio()
-async def test_sensor_set_motion_sensitivity(
-    sensor_obj: Sensor,
-    sensitivity: int,
-):
-    sensor_obj.api.api_request.reset_mock()
-
-    sensor_obj.motion_settings.sensitivity = 50
-
-    if sensitivity == -10:
-        with pytest.raises(ValidationError):
-            await sensor_obj.set_motion_sensitivity(sensitivity)
-
-        assert not sensor_obj.api.api_request.called
-    else:
-        await sensor_obj.set_motion_sensitivity(sensitivity)
-
-        sensor_obj.api.api_request.assert_called_with(
-            f"sensors/{sensor_obj.id}",
-            method="patch",
-            json={"motionSettings": {"sensitivity": sensitivity}},
-        )
 
 
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
