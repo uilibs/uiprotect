@@ -5333,9 +5333,9 @@ def test_apply_fetch_result_reports_added_and_removed(
     assert dropped.added_ids == []
     assert dropped.removed == [siren]
 
-    readded = pb.apply_fetch_result("sirens", [siren])
-    assert readded.added_ids == [SIREN_ID]
-    assert readded.removed == []
+    re_added = pb.apply_fetch_result("sirens", [siren])
+    assert re_added.added_ids == [SIREN_ID]
+    assert re_added.removed == []
 
 
 @pytest.mark.asyncio()

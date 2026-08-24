@@ -4931,7 +4931,7 @@ class ProtectApiClient(BaseApiClient):
         # objects. The prime lock guarantees this prime is the only one.
         self._prime_ws_buffer = []
         # Live and replayed frames land on the same snapshot this fetch is
-        # merging into, so both must be able to pre-empt the diff below.
+        # merging into, so both must be able to preempt the diff below.
         seen: set[tuple[ModelType, str]] = set()
         self._public_membership_seen = seen
         try:
