@@ -135,6 +135,16 @@ class DeviceWSResult:
     item: dict[str, Any]
 
 
+@dataclass(frozen=True, slots=True)
+class FetchDiff:
+    """Membership change a single :meth:`PublicBootstrap.apply_fetch_result` made."""
+
+    # Attribute name of the store the diff applies to.
+    attr: str
+    added_ids: list[str]
+    removed: list[ProtectModelWithId]
+
+
 @dataclass
 class PublicBootstrap:
     """
@@ -148,7 +158,9 @@ class PublicBootstrap:
     into the cache. If the websocket drops and reconnects, any messages
     emitted during the gap are lost. :class:`ProtectApiClient` automatically
     schedules an :meth:`~ProtectApiClient.update_public` refresh on
-    *reconnect* (the initial connect does not trigger a refresh).
+    *reconnect* (the initial connect does not trigger a refresh), and
+    announces the devices that refresh added or removed as synthetic
+    devices-WS ``add``/``remove`` frames.
     """
 
     # NVR metadata (populated by ``update_public``). Useful for HA's
@@ -289,7 +301,9 @@ class PublicBootstrap:
                 continue
             yield from getattr(self, store_attr).values()
 
-    def apply_fetch_result(self, attr: str, objs: list[ProtectModelWithId]) -> None:
+    def apply_fetch_result(
+        self, attr: str, objs: list[ProtectModelWithId]
+    ) -> FetchDiff:
         """
         Merge fetched objects into ``self.<attr>`` without wholesale replace.
 
@@ -298,17 +312,24 @@ class PublicBootstrap:
         HTTP fetch are not clobbered. IDs present in ``objs`` overwrite
         the cache entry; IDs absent from ``objs`` but present in the
         cache are removed.
+
+        The returned :class:`FetchDiff` reports which ids the merge added and
+        which objects it dropped, so the caller can announce them through the
+        devices websocket once the whole fetch has been applied.
         """
         store = cast("dict[str, ProtectModelWithId]", getattr(self, attr))
         fetched_ids = {obj.id for obj in objs}
         # Remove objects no longer reported by the API.
-        for stale in [k for k in store if k not in fetched_ids]:
-            store.pop(stale, None)
+        removed = [
+            store.pop(stale) for stale in [k for k in store if k not in fetched_ids]
+        ]
+        added_ids = [obj.id for obj in objs if obj.id not in store]
         # Upsert — newer fetched payload wins over in-place WS merges. This
         # is the intended semantic because `update_public` is the ground
         # truth at the moment it returns.
         for obj in objs:
             store[obj.id] = obj
+        return FetchDiff(attr, added_ids, removed)
 
     def supports_device(self, model_type: ModelType) -> bool:
         """Return whether ``model_type`` maps to a public device store."""

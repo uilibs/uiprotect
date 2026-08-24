@@ -5097,3 +5097,375 @@ def test_unset_sentinel_repr_and_singleton() -> None:
     """``_UNSET`` is typed as ``_UnsetType``; ``repr`` is stable for log/debug output."""
     assert isinstance(_UNSET, _UnsetType)
     assert repr(_UNSET) == "<UNSET>"
+
+
+def _other_siren_item(siren_id: str = "other-siren-id") -> dict[str, Any]:
+    """A second siren payload so a fetch can add or drop one device."""
+    return {**_siren_snapshot_item(), "id": siren_id, "mac": "BB"}
+
+
+@pytest.mark.asyncio()
+async def test_update_public_initial_prime_emits_no_membership_frames(
+    protect_client: ProtectApiClient,
+) -> None:
+    """The first prime is not a diff — every device would otherwise look added."""
+    client = protect_client
+    client._public_bootstrap = None
+    siren = Siren.from_unifi_dict(api=client, **_siren_snapshot_item())
+    _mock_update_public_endpoints(
+        client, get_sirens_public=AsyncMock(return_value=[siren])
+    )
+    captured: list[WSSubscriptionMessage] = []
+    client.subscribe_devices_websocket(captured.append)
+
+    await client.update_public()
+
+    assert captured == []
+
+
+@pytest.mark.asyncio()
+async def test_update_public_emits_add_frame_for_device_added_during_gap(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A device the refresh newly reports reaches subscribers as a devices-WS add."""
+    client = protect_client
+    client._public_bootstrap = None
+    first = Siren.from_unifi_dict(api=client, **_siren_snapshot_item())
+    _mock_update_public_endpoints(
+        client, get_sirens_public=AsyncMock(return_value=[first])
+    )
+    await client.update_public()
+
+    captured: list[WSSubscriptionMessage] = []
+    client.subscribe_devices_websocket(captured.append)
+    second = Siren.from_unifi_dict(api=client, **_other_siren_item())
+    client.get_sirens_public = AsyncMock(return_value=[first, second])  # type: ignore[method-assign]
+
+    pb = await client.update_public()
+
+    assert len(captured) == 1
+    msg = captured[0]
+    assert msg.action is WSAction.ADD
+    assert msg.new_update_id == "other-siren-id"
+    assert msg.new_obj is pb.sirens["other-siren-id"]
+    assert msg.old_obj is None
+    assert msg.changed_data == {"modelKey": "siren", "id": "other-siren-id"}
+
+
+@pytest.mark.asyncio()
+async def test_update_public_emits_remove_frame_for_device_dropped_during_gap(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A device the refresh no longer reports reaches subscribers as a remove."""
+    client = protect_client
+    client._public_bootstrap = None
+    first = Siren.from_unifi_dict(api=client, **_siren_snapshot_item())
+    second = Siren.from_unifi_dict(api=client, **_other_siren_item())
+    _mock_update_public_endpoints(
+        client, get_sirens_public=AsyncMock(return_value=[first, second])
+    )
+    await client.update_public()
+
+    captured: list[WSSubscriptionMessage] = []
+    client.subscribe_devices_websocket(captured.append)
+    client.get_sirens_public = AsyncMock(return_value=[first])  # type: ignore[method-assign]
+
+    pb = await client.update_public()
+
+    assert "other-siren-id" not in pb.sirens
+    assert len(captured) == 1
+    msg = captured[0]
+    assert msg.action is WSAction.REMOVE
+    assert msg.new_update_id == "other-siren-id"
+    assert msg.new_obj is None
+    assert msg.old_obj is second
+    assert msg.changed_data == {"modelKey": "siren", "id": "other-siren-id"}
+
+
+@pytest.mark.asyncio()
+async def test_update_public_emits_nothing_when_membership_is_unchanged(
+    protect_client: ProtectApiClient,
+) -> None:
+    """An in-place refresh of the same device set stays quiet."""
+    client = protect_client
+    client._public_bootstrap = None
+    siren = Siren.from_unifi_dict(api=client, **_siren_snapshot_item())
+    _mock_update_public_endpoints(
+        client, get_sirens_public=AsyncMock(return_value=[siren])
+    )
+    await client.update_public()
+
+    captured: list[WSSubscriptionMessage] = []
+    client.subscribe_devices_websocket(captured.append)
+
+    await client.update_public()
+
+    assert captured == []
+
+
+@pytest.mark.asyncio()
+async def test_update_public_does_not_emit_for_non_device_stores(
+    protect_client: ProtectApiClient,
+) -> None:
+    """ULP users are not devices; their membership changes emit no devices frame."""
+    client = protect_client
+    client._public_bootstrap = None
+    _mock_update_public_endpoints(client)
+    await client.update_public()
+
+    captured: list[WSSubscriptionMessage] = []
+    client.subscribe_devices_websocket(captured.append)
+    user = PublicUlpUser(
+        api=client,
+        id="ulp-1",
+        model=ModelType.ULP_USER,
+        first_name="A",
+        last_name="B",
+        full_name="A B",
+        status=UlpUserStatus.ACTIVE,
+    )
+    client.get_ulp_users_public = AsyncMock(return_value=[user])  # type: ignore[method-assign]
+
+    pb = await client.update_public()
+
+    assert "ulp-1" in pb.ulp_users
+    assert captured == []
+
+
+@pytest.mark.asyncio()
+async def test_update_public_add_frame_carries_primed_rtsps_streams(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A camera's add frame lands after the RTSPS prime, so its streams are set."""
+    client = protect_client
+    client._public_bootstrap = None
+    _mock_update_public_endpoints(client)
+    await client.update_public()
+
+    streams = RTSPSStreams(high="rtsps://example.com/fresh")
+    client.get_camera_rtsps_streams = AsyncMock(return_value=streams)  # type: ignore[method-assign]
+    camera = PublicCamera.from_unifi_dict(api=client, **dict(CAMERA_PAYLOAD))
+    client.get_cameras_public = AsyncMock(return_value=[camera])  # type: ignore[method-assign]
+    captured: list[WSSubscriptionMessage] = []
+    client.subscribe_devices_websocket(captured.append)
+
+    await client.update_public()
+
+    assert len(captured) == 1
+    assert captured[0].action is WSAction.ADD
+    assert captured[0].new_obj is camera
+    assert camera.rtsps_streams is streams
+
+
+@pytest.mark.asyncio()
+async def test_update_public_skips_add_frame_when_replayed_frame_removed_device(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A prime-window remove wins: no add is announced for an object already gone."""
+    client = protect_client
+    client._public_bootstrap = None
+    _mock_update_public_endpoints(client)
+    await client.update_public()
+
+    siren = Siren.from_unifi_dict(api=client, **_siren_snapshot_item())
+    remove_msg = _mock_text_ws_message(
+        {"type": "remove", "item": {"id": SIREN_ID, "modelKey": "siren"}}
+    )
+
+    async def cameras_side_effect() -> list[Any]:
+        client._process_devices_ws_message(remove_msg)
+        return []
+
+    client.get_sirens_public = AsyncMock(return_value=[siren])  # type: ignore[method-assign]
+    client.get_cameras_public = AsyncMock(side_effect=cameras_side_effect)  # type: ignore[method-assign]
+    captured: list[WSSubscriptionMessage] = []
+    client.subscribe_devices_websocket(captured.append)
+
+    pb = await client.update_public()
+
+    assert SIREN_ID not in pb.sirens
+    # Only the replayed remove reaches subscribers — no add for a gone device.
+    assert [msg.action for msg in captured] == [WSAction.REMOVE]
+
+
+@pytest.mark.asyncio()
+async def test_update_public_membership_frames_reach_typed_subscribers(
+    protect_client: ProtectApiClient,
+) -> None:
+    """The synthetic frames resolve to typed ADDED/REMOVED device changes."""
+    client = protect_client
+    client._public_bootstrap = None
+    siren = Siren.from_unifi_dict(api=client, **_siren_snapshot_item())
+    _mock_update_public_endpoints(client)
+    await client.update_public()
+
+    changes: list[ProtectDeviceChange] = []
+    client.subscribe_devices(changes.append)
+
+    client.get_sirens_public = AsyncMock(return_value=[siren])  # type: ignore[method-assign]
+    await client.update_public()
+    client.get_sirens_public = AsyncMock(return_value=[])  # type: ignore[method-assign]
+    await client.update_public()
+
+    assert [change.change for change in changes] == [
+        DeviceChange.ADDED,
+        DeviceChange.REMOVED,
+    ]
+    assert {change.model_type for change in changes} == {ModelType.SIREN}
+    assert {change.device_id for change in changes} == {SIREN_ID}
+    assert changes[0].model is siren
+    assert changes[1].device_mac == "AA"
+
+
+def test_apply_fetch_result_reports_added_and_removed(
+    protect_client: ProtectApiClient,
+) -> None:
+    """``apply_fetch_result`` returns the membership change it applied."""
+    siren = _build_siren(protect_client)
+    pb = protect_client.public_bootstrap
+
+    unchanged = pb.apply_fetch_result("sirens", [siren])
+    assert unchanged.attr == "sirens"
+    assert unchanged.added_ids == []
+    assert unchanged.removed == []
+
+    dropped = pb.apply_fetch_result("sirens", [])
+    assert dropped.added_ids == []
+    assert dropped.removed == [siren]
+
+    readded = pb.apply_fetch_result("sirens", [siren])
+    assert readded.added_ids == [SIREN_ID]
+    assert readded.removed == []
+
+
+@pytest.mark.asyncio()
+async def test_update_public_does_not_repeat_a_wire_announced_add(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A device announced by a live add during the fetch is not announced twice."""
+    client = protect_client
+    client._public_bootstrap = None
+    _mock_update_public_endpoints(client)
+    await client.update_public()
+
+    siren = Siren.from_unifi_dict(api=client, **_siren_snapshot_item())
+    add_msg = _mock_text_ws_message(
+        {"type": "add", "item": _siren_snapshot_item()},
+    )
+
+    async def cameras_side_effect() -> list[Any]:
+        client._process_devices_ws_message(add_msg)
+        return []
+
+    client.get_sirens_public = AsyncMock(return_value=[siren])  # type: ignore[method-assign]
+    client.get_cameras_public = AsyncMock(side_effect=cameras_side_effect)  # type: ignore[method-assign]
+    captured: list[WSSubscriptionMessage] = []
+    client.subscribe_devices_websocket(captured.append)
+
+    pb = await client.update_public()
+
+    assert SIREN_ID in pb.sirens
+    assert [msg.action for msg in captured] == [WSAction.ADD]
+
+
+@pytest.mark.asyncio()
+async def test_update_public_does_not_repeat_a_wire_announced_remove(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A device removed by a live frame during the fetch is not announced twice."""
+    client = protect_client
+    client._public_bootstrap = None
+    siren = Siren.from_unifi_dict(api=client, **_siren_snapshot_item())
+    _mock_update_public_endpoints(
+        client, get_sirens_public=AsyncMock(return_value=[siren])
+    )
+    await client.update_public()
+
+    remove_msg = _mock_text_ws_message(
+        {"type": "remove", "item": {"id": SIREN_ID, "modelKey": "siren"}}
+    )
+
+    async def cameras_side_effect() -> list[Any]:
+        client._process_devices_ws_message(remove_msg)
+        return []
+
+    client.get_sirens_public = AsyncMock(return_value=[])  # type: ignore[method-assign]
+    client.get_cameras_public = AsyncMock(side_effect=cameras_side_effect)  # type: ignore[method-assign]
+    captured: list[WSSubscriptionMessage] = []
+    client.subscribe_devices_websocket(captured.append)
+
+    pb = await client.update_public()
+
+    assert SIREN_ID not in pb.sirens
+    assert [msg.action for msg in captured] == [WSAction.REMOVE]
+
+
+@pytest.mark.asyncio()
+async def test_update_public_membership_frames_respect_model_filter(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A caller filtering sirens out is not handed synthetic siren frames."""
+    client = protect_client
+    client._public_bootstrap = None
+    _mock_update_public_endpoints(client)
+    await client.update_public()
+
+    client._devices_ws_subscribed_models = {ModelType.CAMERA}
+    siren = Siren.from_unifi_dict(api=client, **_siren_snapshot_item())
+    client.get_sirens_public = AsyncMock(return_value=[siren])  # type: ignore[method-assign]
+    captured: list[WSSubscriptionMessage] = []
+    client.subscribe_devices_websocket(captured.append)
+
+    pb = await client.update_public()
+
+    assert SIREN_ID in pb.sirens
+    assert captured == []
+
+
+@pytest.mark.asyncio()
+async def test_update_public_clears_membership_tracking_when_prime_fails(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A failed prime must not leave the membership tracker armed."""
+    client = protect_client
+    _mock_update_public_endpoints(
+        client, get_cameras_public=AsyncMock(side_effect=RuntimeError("boom"))
+    )
+
+    with pytest.raises(RuntimeError):
+        await client.update_public()
+
+    assert client._public_membership_seen is None
+
+
+@pytest.mark.asyncio()
+async def test_update_public_still_announces_after_an_unparsable_add_frame(
+    protect_client: ProtectApiClient,
+) -> None:
+    """An add frame the library could not parse must not swallow the diff's add."""
+    client = protect_client
+    client._public_bootstrap = None
+    _mock_update_public_endpoints(client)
+    await client.update_public()
+
+    siren = Siren.from_unifi_dict(api=client, **_siren_snapshot_item())
+    # Missing every required field — model construction fails, so the frame
+    # reaches subscribers with no usable object.
+    bad_add = _mock_text_ws_message(
+        {"type": "add", "item": {"id": SIREN_ID, "modelKey": "siren"}}
+    )
+
+    async def cameras_side_effect() -> list[Any]:
+        client._process_devices_ws_message(bad_add)
+        return []
+
+    client.get_sirens_public = AsyncMock(return_value=[siren])  # type: ignore[method-assign]
+    client.get_cameras_public = AsyncMock(side_effect=cameras_side_effect)  # type: ignore[method-assign]
+    captured: list[WSSubscriptionMessage] = []
+    client.subscribe_devices_websocket(captured.append)
+
+    pb = await client.update_public()
+
+    assert pb.sirens[SIREN_ID] is siren
+    # The unparsable frame carried no object; the diff still announces the add.
+    assert [msg.new_obj for msg in captured] == [None, siren]
