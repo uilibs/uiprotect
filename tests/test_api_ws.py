@@ -834,6 +834,43 @@ class _ClosingWebsocket:
         return aiohttp.WSMessage(aiohttp.WSMsgType.CLOSE, None, None)
 
 
+class _ErroringWebsocket:
+    """WS that connects, then delivers an ERROR frame so the loop bails out."""
+
+    is_closed = False
+
+    @property
+    def closed(self) -> bool:
+        return self.is_closed
+
+    async def close(self) -> None:
+        self.is_closed = True
+
+    async def receive(self, timeout: float | None) -> Any:
+        self.is_closed = True
+        return aiohttp.WSMessage(aiohttp.WSMsgType.ERROR, "boom", None)
+
+
+@pytest.mark.asyncio()
+async def test_ws_error_frame_logs_payload_without_traceback(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An ERROR frame ends the receive loop and logs its payload."""
+    session = AsyncMock()
+    session.ws_connect = AsyncMock(return_value=_ErroringWebsocket())
+    ws, states = _build_websocket(session)
+
+    with caplog.at_level(logging.ERROR, logger="uiprotect.websocket"):
+        await ws._websocket_inner_loop(URL("wss://test.example/ws"))
+
+    assert states == [WebsocketState.CONNECTED]
+    record = next(r for r in caplog.records if "Error from Websocket" in r.getMessage())
+    assert "boom" in record.getMessage()
+    # No exception is in flight here, so nothing may be attached as one:
+    # .exception() would render a bogus "NoneType: None" traceback.
+    assert record.exc_info is None
+
+
 @pytest.mark.asyncio()
 async def test_ws_auth_failed_after_connected_emits_disconnected_first():
     """CONNECTED -> AUTH_FAILED must surface a DISCONNECTED edge in between."""
