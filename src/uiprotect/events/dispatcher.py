@@ -196,7 +196,7 @@ class EventDispatcher:
             return
         exc = task.exception()
         if exc is not None:
-            _LOGGER.exception("TTL sweep loop terminated unexpectedly", exc_info=exc)
+            _LOGGER.error("TTL sweep loop terminated unexpectedly", exc_info=exc)
 
     def sweep_stale(self) -> int:
         """Force-end events open past :data:`EVENTS_ACTIVE_TTL`."""

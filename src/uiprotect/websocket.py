@@ -189,7 +189,7 @@ class Websocket:
                 msg = await self._ws_connection.receive(self.receive_timeout)
                 msg_type = msg.type
                 if msg_type is WSMsgType.ERROR:
-                    _LOGGER.exception("Error from Websocket: %s", msg.data)
+                    _LOGGER.error("Error from Websocket: %s", msg.data)
                     break
                 if msg_type in _CLOSE_MESSAGE_TYPES:
                     _LOGGER.debug("Websocket closed: %s", msg)
