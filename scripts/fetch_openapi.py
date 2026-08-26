@@ -88,7 +88,7 @@ def _fetch_from_deb(url: str) -> bytes:
 
 def list_versions() -> list[str]:
     """Return the spec versions published on the developer portal, newest first."""
-    request = urllib.request.Request(PORTAL_INDEX)  # noqa: S310
+    request = urllib.request.Request(PORTAL_INDEX)
     with urllib.request.urlopen(request, timeout=60) as resp:  # noqa: S310
         html = resp.read().decode(errors="replace")
     # The portal is a Next.js app; the version picker's data is embedded in

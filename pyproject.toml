@@ -168,6 +168,7 @@ ignore = [
     "PERF203", # too many to fix right now
     "PLR2004", # Magic value used in comparison
     "PLR0913", # Too many arguments to function call
+    "PLR0917", # Too many positional arguments (public signatures and typer CLI args)
     "PLW1641", # Object does not implement __hash__ method
     # Mirrored from esphome/aioesphomeapi (see issue #872) — pre-ignored ahead
     # of enabling the parent rule families in future tiers.

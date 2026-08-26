@@ -4500,7 +4500,7 @@ class ProtectApiClient(BaseApiClient):
         viewer_id: str,
         *,
         name: str | None = None,
-        liveview: str | None | _UnsetType = _UNSET,
+        liveview: str | _UnsetType | None = _UNSET,
     ) -> PublicViewer:
         """Patch viewer settings using public API. Pass ``liveview=None`` to clear."""
         body: dict[str, Any] = {}
