@@ -201,9 +201,10 @@ class CameraPublicApiLcdMessageRequest(TypedDict, total=False):
     """
     Type for lcdMessage in PATCH /v1/cameras/{id} request body (Public API).
 
-    Per the integration spec, ``type`` is always required.  ``text`` is required
-    for CUSTOM_MESSAGE and IMAGE; ``resetAt`` is optional for all variants (UNIX
-    timestamp in ms; omit to use the NVR default, pass ``None`` for "forever").
+    Per the integration spec, ``type`` is required for every message variant;
+    ``text`` is required for CUSTOM_MESSAGE and IMAGE; ``resetAt`` is optional
+    for all variants (UNIX timestamp in ms; omit to use the NVR default, pass
+    ``None`` for "forever").  An empty dict clears the message.
     """
 
     type: str

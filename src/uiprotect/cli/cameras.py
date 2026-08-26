@@ -590,9 +590,7 @@ def set_lcd_text(
     obj: d.Camera = ctx.obj.device
 
     if text_type is None:
-        # The public API requires an lcdMessage type, so it cannot express
-        # "reset to the global default message" — that stays on the private API.
-        base.run(ctx, obj.set_lcd_text(None))
+        base.run(ctx, obj.set_lcd_message_public(None))
         return
 
     base.run(ctx, obj.set_lcd_message_public(text_type, text, reset_at))

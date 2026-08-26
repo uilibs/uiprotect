@@ -1088,12 +1088,12 @@ def test_camera_set_lcd_text_uses_public() -> None:
     camera.set_lcd_text.assert_not_called()
 
 
-def test_camera_set_lcd_text_reset_stays_private() -> None:
-    """Clearing the LCD message has no public twin, so it stays on the private API."""
+def test_camera_set_lcd_text_clear_uses_public() -> None:
+    """Clearing the LCD message also writes through the public setter."""
     ctx, camera = _make_camera_ctx()
     cameras_cli.set_lcd_text(ctx, None, None, reset_at=None)
-    camera.set_lcd_text.assert_awaited_once_with(None)
-    camera.set_lcd_message_public.assert_not_called()
+    camera.set_lcd_message_public.assert_awaited_once_with(None)
+    camera.set_lcd_text.assert_not_called()
 
 
 def _make_light_ctx():

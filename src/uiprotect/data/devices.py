@@ -45,6 +45,7 @@ from .public_devices import (
     _PUBLIC_MIC_VOLUME_RANGE,
     _PUBLIC_SENSITIVITY_RANGE,
     _PUBLIC_TEMPERATURE_LOW_RANGE,
+    _build_public_lcd_message,
     _coerce_public_int,
     _validate_public_range,
 )
@@ -97,7 +98,6 @@ from .user import User
 
 if TYPE_CHECKING:
     from ..api import (
-        CameraPublicApiLcdMessageRequest,
         PublicApiChimeRingSettingRequest,
         RTSPSStreams,
     )
@@ -1098,11 +1098,6 @@ def _chime_type_from_total_seconds(total_seconds: float) -> ChimeType:
     if total_seconds > 0.3:
         return ChimeType.DIGITAL
     return ChimeType.NONE
-
-
-_LCD_TYPES_REQUIRING_TEXT: frozenset[DoorbellMessageType] = frozenset(
-    {DoorbellMessageType.CUSTOM_MESSAGE, DoorbellMessageType.IMAGE}
-)
 
 
 class Camera(ProtectMotionDeviceModel):
@@ -2849,32 +2844,23 @@ class Camera(ProtectMotionDeviceModel):
 
     async def set_lcd_message_public(
         self,
-        text_type: DoorbellMessageType,
+        text_type: DoorbellMessageType | None,
         text: str | None = None,
         reset_at: datetime | DEFAULT_TYPE | None = DEFAULT,
     ) -> None:
         """
         Set doorbell LCD message via public API.
 
-        ``text`` is required for CUSTOM_MESSAGE and IMAGE, and must be omitted
-        for DO_NOT_DISTURB and LEAVE_PACKAGE_AT_DOOR.  ``reset_at`` controls
-        when the message is cleared: omit for the NVR default, pass ``None``
-        for "forever", or pass a specific datetime.
+        Pass ``None`` for ``text_type`` to clear the message, with ``text`` and
+        ``reset_at`` omitted.  ``text`` is required for CUSTOM_MESSAGE and
+        IMAGE, and must be omitted for DO_NOT_DISTURB and
+        LEAVE_PACKAGE_AT_DOOR.  ``reset_at`` controls when the message is
+        cleared: omit for the NVR default, pass ``None`` for "forever", or pass
+        a specific datetime.
         """
         if not self.feature_flags.has_lcd_screen:
             raise BadRequest("Camera does not have an LCD screen")
-        if text_type in _LCD_TYPES_REQUIRING_TEXT:
-            if text is None:
-                raise BadRequest(f"{text_type} requires text")
-        elif text is not None:
-            raise BadRequest(f"{text_type} does not accept text")
-        message: CameraPublicApiLcdMessageRequest = {"type": text_type}
-        if text is not None:
-            message["text"] = text
-        if isinstance(reset_at, datetime):
-            message["resetAt"] = to_js_time(reset_at)
-        elif reset_at is None:
-            message["resetAt"] = None
+        message = _build_public_lcd_message(text_type, text, reset_at)
         updated = await self._api.update_camera_public(self.id, lcd_message=message)
         pub = updated.lcd_message
         # The public response carries a ``PublicLcdMessage``; rebuild the private
@@ -2889,6 +2875,12 @@ class Camera(ProtectMotionDeviceModel):
                 api=self._api,
             )
         )
+        if text_type is None:
+            # UniFi Protect bug: clearing the LCD message does _not_ emit a WS
+            # message, so fake one the way ``set_lcd_text`` does. A reset time
+            # in the past is how the console signals a wiped message.
+            reset = to_js_time(utc_now() - timedelta(seconds=10))
+            await self.emit_message({"lcdMessage": {"resetAt": reset}})
 
     async def set_osd_name_public(self, enabled: bool) -> None:
         """Toggle name overlay (OSD) via public API."""
