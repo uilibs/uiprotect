@@ -3742,6 +3742,172 @@ def test_rtsps_streams_get_stream_url_srtp():
     )
 
 
+def _override_client(host: str) -> ProtectApiClient:
+    return ProtectApiClient(
+        host,
+        443,
+        "user",
+        "pass",
+        override_connection_host=True,
+        store_sessions=False,
+        verify_ssl=False,
+    )
+
+
+@pytest.mark.parametrize(
+    ("host", "url", "expected"),
+    [
+        (
+            "10.0.0.5",
+            "rtsps://192.168.1.1:7441/abc?enableSrtp",
+            "rtsps://10.0.0.5:7441/abc?enableSrtp",
+        ),
+        (
+            "2001:db8::1",
+            "rtsps://192.168.1.1:7441/abc?enableSrtp",
+            "rtsps://[2001:db8::1]:7441/abc?enableSrtp",
+        ),
+        (
+            "unifi.local",
+            "rtsps://192.168.1.1/abc",
+            "rtsps://unifi.local/abc",
+        ),
+        (
+            "10.0.0.5",
+            "rtsps://[2001:db8::2]:7441/abc",
+            "rtsps://10.0.0.5:7441/abc",
+        ),
+    ],
+)
+def test_rtsps_streams_get_stream_url_override_host(
+    host: str, url: str, expected: str
+) -> None:
+    """override_connection_host replaces the host, keeping port, path and query."""
+    streams = RTSPSStreams(api=_override_client(host), high=url)
+
+    assert streams.get_stream_url("high") == expected
+
+
+def test_rtsps_streams_get_stream_url_override_host_srtp_stripped() -> None:
+    """The host rewrite composes with srtp=False."""
+    streams = RTSPSStreams(
+        api=_override_client("10.0.0.5"),
+        high="rtsps://192.168.1.1:7441/abc?enableSrtp",
+    )
+
+    assert streams.get_stream_url("high", srtp=False) == "rtsps://10.0.0.5:7441/abc"
+
+
+def test_rtsps_streams_get_stream_url_override_host_missing_quality() -> None:
+    """A missing quality stays None under the override."""
+    streams = RTSPSStreams(api=_override_client("10.0.0.5"), high=None)
+
+    assert streams.get_stream_url("high") is None
+    assert streams.get_stream_url("nonexistent") is None
+
+
+def test_rtsps_streams_get_stream_url_override_host_malformed_port() -> None:
+    """An unparsable port leaves the server URL untouched."""
+    streams = RTSPSStreams(
+        api=_override_client("10.0.0.5"), high="rtsps://192.168.1.1:noport/abc"
+    )
+
+    assert streams.get_stream_url("high") == "rtsps://192.168.1.1:noport/abc"
+
+
+def test_rtsps_streams_get_stream_url_without_override_is_verbatim() -> None:
+    """Without the override the server URL is returned as-is."""
+    client = ProtectApiClient(
+        "10.0.0.5", 443, "user", "pass", store_sessions=False, verify_ssl=False
+    )
+    streams = RTSPSStreams(api=client, high="rtsps://192.168.1.1:7441/abc")
+
+    assert streams.get_stream_url("high") == "rtsps://192.168.1.1:7441/abc"
+
+
+def test_rtsps_streams_get_stream_url_without_api_is_verbatim() -> None:
+    """Streams built without a client reference cannot rewrite the host."""
+    streams = RTSPSStreams(high="rtsps://192.168.1.1:7441/abc")
+
+    assert streams.get_stream_url("high") == "rtsps://192.168.1.1:7441/abc"
+
+
+@pytest.mark.asyncio
+async def test_get_camera_rtsps_streams_applies_override_host() -> None:
+    """Streams fetched from the public API honour override_connection_host."""
+    client = _override_client("10.0.0.5")
+    client._api_key = "test_key"
+
+    with patch.object(
+        client,
+        "api_request_raw",
+        new=AsyncMock(return_value=b'{"high": "rtsps://192.168.1.1:7441/abc"}'),
+    ):
+        result = await client.get_camera_rtsps_streams("camera123")
+
+    assert result is not None
+    assert result.get_stream_url("high") == "rtsps://10.0.0.5:7441/abc"
+
+
+@pytest.mark.asyncio
+async def test_public_only_client_applies_override_host() -> None:
+    """A public-only client can rewrite the RTSPS host without a private bootstrap."""
+    client = ProtectApiClient.public_only(
+        "10.0.0.5", 443, "test_key", override_connection_host=True, verify_ssl=False
+    )
+
+    with patch.object(
+        client,
+        "api_request_raw",
+        new=AsyncMock(return_value=b'{"high": "rtsps://192.168.1.1:7441/abc"}'),
+    ):
+        result = await client.get_camera_rtsps_streams("camera123")
+
+    assert client.is_public_only is True
+    assert result is not None
+    assert result.get_stream_url("high") == "rtsps://10.0.0.5:7441/abc"
+
+
+@pytest.mark.asyncio
+async def test_delete_camera_rtsps_streams_survivors_apply_override_host() -> None:
+    """Surviving qualities after a delete still honour override_connection_host."""
+    client = _override_client("10.0.0.5")
+    client._api_key = "test_key"
+    client._public_bootstrap = PublicBootstrap()
+    camera = _seed_rtsps_camera(
+        client,
+        "camera123",
+        RTSPSStreams(
+            api=client,
+            high="rtsps://192.168.1.1:7441/high",
+            low="rtsps://192.168.1.1:7441/low",
+        ),
+    )
+
+    with patch.object(client, "api_request_raw", new=AsyncMock(return_value=b"")):
+        assert await client.delete_camera_rtsps_streams("camera123", "high") is True
+
+    assert camera.rtsps_streams is not None
+    assert camera.rtsps_streams.get_stream_url("low") == "rtsps://10.0.0.5:7441/low"
+
+
+@pytest.mark.asyncio
+async def test_create_camera_rtsps_streams_applies_override_host() -> None:
+    """Streams created through the public API honour override_connection_host."""
+    client = _override_client("10.0.0.5")
+    client._api_key = "test_key"
+
+    with patch.object(
+        client,
+        "api_request_raw",
+        new=AsyncMock(return_value=b'{"high": "rtsps://192.168.1.1:7441/abc"}'),
+    ):
+        result = await client.create_camera_rtsps_streams("camera123", "high")
+
+    assert result is not None
+    assert result.get_stream_url("high") == "rtsps://10.0.0.5:7441/abc"
+
+
 def test_rtsps_streams_active_inactive():
     """Test RTSPSStreams active/inactive stream quality detection."""
     # Test with mixed active and inactive streams
