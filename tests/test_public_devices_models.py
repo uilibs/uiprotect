@@ -2,24 +2,33 @@
 
 from __future__ import annotations
 
-from typing import Any
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock
 
 import pytest
 
 from uiprotect.api import RTSPSStreams
 from uiprotect.data import (
+    AlarmHubInput,
+    AlarmHubInputContactType,
+    AlarmHubInputStatus,
     Fob,
     LinkStation,
+    NvrArmMode,
+    NvrArmModeStatus,
+    OnOffState,
     ProtectDeviceIdentity,
     PublicBridge,
     PublicCamera,
     PublicChime,
     PublicDeviceModel,
+    PublicLcdMessage,
     PublicLight,
     PublicNVR,
     PublicSensor,
     PublicSensorFeatureFlags,
+    PublicSirenStatus,
     PublicViewer,
     Relay,
     SensorFeatureCapability,
@@ -34,6 +43,9 @@ from uiprotect.data.types import (
     SmartDetectObjectType,
 )
 from uiprotect.exceptions import BadRequest
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 CAMERA_PAYLOAD: dict[str, Any] = {
     "id": "cam1",
@@ -772,3 +784,80 @@ def test_non_camera_connect_leaves_camera_rtsps_untouched() -> None:
 
     assert pb.cameras["cam1"].rtsps_streams is streams
     api._schedule_rtsps_refresh.assert_not_called()
+
+
+EPOCH_MS = 1_700_000_000_123
+EPOCH_DT = datetime(2023, 11, 14, 22, 13, 20, 123000, tzinfo=UTC)
+
+
+def _light_with(last_motion: int | None) -> PublicLight:
+    return PublicLight.from_unifi_dict(
+        api=Mock(), **{**LIGHT_PAYLOAD, "lastMotion": last_motion}
+    )
+
+
+def _sensor_with(wire_key: str, value: int | None) -> PublicSensor:
+    return PublicSensor.from_unifi_dict(
+        api=Mock(), **{**SENSOR_PAYLOAD, wire_key: value}
+    )
+
+
+@pytest.mark.parametrize(
+    ("build", "prop"),
+    [
+        (lambda v: PublicLcdMessage(reset_at=v), "reset_at_dt"),
+        (_light_with, "last_motion_dt"),
+        (
+            lambda v: _sensor_with("openStatusChangedAt", v),
+            "open_status_changed_at_dt",
+        ),
+        (lambda v: _sensor_with("motionDetectedAt", v), "motion_detected_at_dt"),
+        (lambda v: _sensor_with("alarmTriggeredAt", v), "alarm_triggered_at_dt"),
+        (lambda v: _sensor_with("leakDetectedAt", v), "leak_detected_at_dt"),
+        (
+            lambda v: _sensor_with("externalLeakDetectedAt", v),
+            "external_leak_detected_at_dt",
+        ),
+        (
+            lambda v: _sensor_with("tamperingDetectedAt", v),
+            "tampering_detected_at_dt",
+        ),
+        (
+            lambda v: PublicSirenStatus(is_active=True, activated_at=v, duration=5),
+            "activated_at_dt",
+        ),
+        (
+            lambda v: AlarmHubInput(
+                enable=OnOffState.ON,
+                type=AlarmHubInputContactType.NO,
+                status=AlarmHubInputStatus.NORMAL,
+                last_triggered_at=v,
+            ),
+            "last_triggered_at_dt",
+        ),
+        (
+            lambda v: NvrArmMode(status=NvrArmModeStatus.ARMED, armed_at=v),
+            "armed_at_dt",
+        ),
+        (
+            lambda v: NvrArmMode(status=NvrArmModeStatus.ARMING, will_be_armed_at=v),
+            "will_be_armed_at_dt",
+        ),
+        (
+            lambda v: NvrArmMode(status=NvrArmModeStatus.BREACH, breach_detected_at=v),
+            "breach_detected_at_dt",
+        ),
+    ],
+)
+def test_public_epoch_ms_datetime_accessors(
+    build: Callable[[int | None], Any], prop: str
+) -> None:
+    """Each ``*_dt`` accessor converts its epoch-ms field to UTC and passes ``None`` through."""
+    assert getattr(build(EPOCH_MS), prop) == EPOCH_DT
+    assert getattr(build(None), prop) is None
+
+
+def test_public_siren_turn_off_at_matches_activated_at_dt() -> None:
+    """``turn_off_at`` is ``activated_at_dt`` plus the run duration."""
+    status = PublicSirenStatus(is_active=True, activated_at=EPOCH_MS, duration=5)
+    assert status.turn_off_at == EPOCH_DT + timedelta(seconds=5)

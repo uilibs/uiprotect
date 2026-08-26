@@ -30,6 +30,7 @@ from ..utils import (
     convert_smart_types,
     convert_to_datetime,
     convert_video_modes,
+    from_js_time,
     to_js_time,
 )
 from .base import ProtectBaseObject, ProtectModelWithId
@@ -271,6 +272,11 @@ class PublicLcdMessage(ProtectBaseObject):
     type: DoorbellMessageType | None = None
     reset_at: int | None = None
     text: str | None = None
+
+    @property
+    def reset_at_dt(self) -> datetime | None:
+        """``reset_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.reset_at)
 
 
 class PublicCameraFeatureFlags(ProtectBaseObject):
@@ -1005,6 +1011,11 @@ class PublicLight(PublicDeviceModel):
     # Flat ``cameraId`` string of the paired camera, or ``null``.
     camera: str | None = None
 
+    @property
+    def last_motion_dt(self) -> datetime | None:
+        """``last_motion`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.last_motion)
+
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
             "Light mutations must go through the dedicated public API helpers "
@@ -1263,6 +1274,36 @@ class PublicSensor(PublicDeviceModel):
     has_custom_sensitivity_when_armed: bool = False
     # Capability map, present only on newer firmware (older consoles omit it).
     feature_flags: PublicSensorFeatureFlags | None = None
+
+    @property
+    def open_status_changed_at_dt(self) -> datetime | None:
+        """``open_status_changed_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.open_status_changed_at)
+
+    @property
+    def motion_detected_at_dt(self) -> datetime | None:
+        """``motion_detected_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.motion_detected_at)
+
+    @property
+    def alarm_triggered_at_dt(self) -> datetime | None:
+        """``alarm_triggered_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.alarm_triggered_at)
+
+    @property
+    def leak_detected_at_dt(self) -> datetime | None:
+        """``leak_detected_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.leak_detected_at)
+
+    @property
+    def external_leak_detected_at_dt(self) -> datetime | None:
+        """``external_leak_detected_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.external_leak_detected_at)
+
+    @property
+    def tampering_detected_at_dt(self) -> datetime | None:
+        """``tampering_detected_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.tampering_detected_at)
 
     @property
     def has_feature_flags(self) -> bool:
@@ -1627,6 +1668,11 @@ class PublicSirenStatus(ProtectBaseObject):
     duration: int | None = None
 
     @property
+    def activated_at_dt(self) -> datetime | None:
+        """``activated_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.activated_at)
+
+    @property
     def turn_off_at(self) -> datetime | None:
         """
         When the siren is expected to stop playing.
@@ -1640,9 +1686,7 @@ class PublicSirenStatus(ProtectBaseObject):
         """
         if not self.is_active or self.activated_at is None or self.duration is None:
             return None
-        return datetime.fromtimestamp(self.activated_at / 1000, tz=UTC) + timedelta(
-            seconds=self.duration
-        )
+        return from_js_time(self.activated_at) + timedelta(seconds=self.duration)
 
 
 class Siren(PublicDeviceModel):
@@ -1895,6 +1939,11 @@ class AlarmHubInput(ProtectBaseObject):
     last_triggered_at: int | None = None
     camera_id: str | None = None
 
+    @property
+    def last_triggered_at_dt(self) -> datetime | None:
+        """``last_triggered_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.last_triggered_at)
+
 
 class AlarmHubOutput(ProtectBaseObject):
     """A single alarm-hub output channel (``alarmHub.output[<id>]`` sub-schema)."""
@@ -2083,6 +2132,21 @@ class NvrArmMode(ProtectBaseObject):
     breach_event_count: int = 0
     breach_trigger_event_id: str | None = None
     breach_event_id: str | None = None
+
+    @property
+    def armed_at_dt(self) -> datetime | None:
+        """``armed_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.armed_at)
+
+    @property
+    def will_be_armed_at_dt(self) -> datetime | None:
+        """``will_be_armed_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.will_be_armed_at)
+
+    @property
+    def breach_detected_at_dt(self) -> datetime | None:
+        """``breach_detected_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.breach_detected_at)
 
 
 class PublicDoorbellCustomImage(ProtectBaseObject):
