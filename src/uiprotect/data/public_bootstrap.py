@@ -255,7 +255,14 @@ class PublicBootstrap:
         if self.max_event_cache_size < 0:
             raise ValueError("max_event_cache_size must be >= 0")
 
-    def _store_for(self, model_type: ModelType) -> dict[str, ProtectModelWithId] | None:
+    def store_for(self, model_type: ModelType) -> dict[str, ProtectModelWithId] | None:
+        """
+        Return the live cache store for a model type, or ``None`` if unsupported.
+
+        The returned dict is the cache itself, keyed by device id — not a copy.
+        Both device registries are covered, so the collision-routed
+        liveview/bridge/viewer slots resolve here too.
+        """
         store = _PUBLIC_STORES.get(model_type)
         if store is not None:
             attr: str | None = store[0]
@@ -267,7 +274,7 @@ class PublicBootstrap:
 
     def get(self, model_type: ModelType, obj_id: str) -> ProtectModelWithId | None:
         """Look up a cached device by model type and id."""
-        store = self._store_for(model_type)
+        store = self.store_for(model_type)
         if store is None:
             return None
         return store.get(obj_id)
@@ -397,7 +404,7 @@ class PublicBootstrap:
         # NVR is cached in a dedicated single-object slot; collision-routed
         # types (Liveview / Bridge / Viewer share their ``ModelType`` with the
         # private ``MODEL_TO_CLASS`` entries) get their own factory-equipped
-        # slot. Everything else routes through the generic ``_store_for`` dict.
+        # slot. Everything else routes through the generic ``store_for`` dict.
         # Snapshot the pre-apply camera state: ``update`` merges in place, so
         # the ``old`` returned by ``_apply_action`` is the same (now mutated)
         # instance as ``new`` and can't be compared against it afterwards.
@@ -412,7 +419,7 @@ class PublicBootstrap:
             self._evict_rtsps_on_remove(api, model_type, action_type, item)
             return DeviceWSResult(model_type, new, old, item)
 
-        store = self._store_for(model_type)
+        store = self.store_for(model_type)
         if store is None:
             _LOGGER.debug(
                 "Public WS message for unsupported model %s ignored", model_key
