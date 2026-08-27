@@ -454,8 +454,10 @@ def test_check_enum_coverage_component_responses_flagged() -> None:
     errors, warnings = check_enum_coverage(spec)
     assert warnings == []
     assert errors == [
-        "spec declares `components.responses`; the inbound enum classification "
-        "does not cover reusable responses"
+        (
+            "spec declares `components.responses`; the inbound enum "
+            "classification does not cover reusable responses"
+        )
     ]
 
 
