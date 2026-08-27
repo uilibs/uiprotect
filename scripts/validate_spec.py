@@ -589,53 +589,76 @@ def _iter_spec_enums(spec: dict[str, Any]) -> list[tuple[frozenset[str], str]]:
     )
 
 
-def _reachable_enum_value_sets(
-    roots: list[Any], schemas: dict[str, Any]
-) -> set[frozenset[str]]:
-    """Enum value-sets reachable from ``roots`` following ``$ref`` into ``schemas``."""
-    out: set[frozenset[str]] = set()
+def _reachable_enum_ids(
+    roots: list[tuple[Any, str]], schemas: dict[str, Any]
+) -> set[tuple[str, frozenset[str]]]:
+    """Enum occurrence identities reachable from ``roots``, following ``$ref``."""
+    out: set[tuple[str, frozenset[str]]] = set()
     seen_refs: set[str] = set()
 
-    def _walk(node: Any) -> None:
+    def _walk(node: Any, path: str, owner: str | None) -> None:
         if isinstance(node, dict):
             ref = node.get("$ref")
             if isinstance(ref, str):
                 name = ref.split("/")[-1]
                 if name not in seen_refs:
                     seen_refs.add(name)
-                    _walk(schemas.get(name, {}))
+                    _walk(schemas.get(name, {}), f"components.schemas.{name}", name)
                 return
             values = node.get("enum")
             if isinstance(values, list):
                 key = frozenset(str(v) for v in values) - {_ENUM_SENTINEL}
                 if key:
-                    out.add(key)
-            for child in node.values():
-                _walk(child)
+                    out.add((owner if owner is not None else path, key))
+            for key_name, child in node.items():
+                _walk(child, f"{path}.{key_name}", owner)
         elif isinstance(node, list):
-            for child in node:
-                _walk(child)
+            for index, child in enumerate(node):
+                _walk(child, f"{path}[{index}]", owner)
 
-    for root in roots:
-        _walk(root)
+    for root, root_path in roots:
+        _walk(root, root_path, None)
     return out
 
 
-def _inbound_enum_value_sets(spec: dict[str, Any]) -> set[frozenset[str]]:
-    """Enum value-sets reachable from any response body schema (a deserialized shape)."""
+def _reusable_response_error(spec: dict[str, Any]) -> str | None:
+    """Reject reusable responses — ``_inbound_enum_ids`` does not resolve them."""
+    unsupported = "the inbound enum classification does not cover reusable responses"
+    if spec.get("components", {}).get("responses"):
+        return f"spec declares `components.responses`; {unsupported}"
+    for path, operations in spec.get("paths", {}).items():
+        if not isinstance(operations, dict):
+            continue
+        for method, operation in operations.items():
+            if not isinstance(operation, dict):
+                continue
+            for code, response in operation.get("responses", {}).items():
+                if isinstance(response, dict) and "$ref" in response:
+                    return (
+                        f"response `paths.{path}.{method}.responses.{code}` is a "
+                        f"`$ref`; {unsupported}"
+                    )
+    return None
+
+
+def _inbound_enum_ids(spec: dict[str, Any]) -> set[tuple[str, frozenset[str]]]:
+    """Enum occurrence identities reachable from any response body schema."""
     schemas = spec.get("components", {}).get("schemas", {})
-    roots: list[Any] = [
-        media["schema"]
-        for operations in spec.get("paths", {}).values()
+    roots: list[tuple[Any, str]] = [
+        (
+            media["schema"],
+            f"paths.{path}.{method}.responses.{code}.content.{media_type}.schema",
+        )
+        for path, operations in spec.get("paths", {}).items()
         if isinstance(operations, dict)
-        for operation in operations.values()
+        for method, operation in operations.items()
         if isinstance(operation, dict)
-        for response in operation.get("responses", {}).values()
+        for code, response in operation.get("responses", {}).items()
         if isinstance(response, dict)
-        for media in response.get("content", {}).values()
+        for media_type, media in response.get("content", {}).items()
         if isinstance(media, dict) and "schema" in media
     ]
-    return _reachable_enum_value_sets(roots, schemas)
+    return _reachable_enum_ids(roots, schemas)
 
 
 def check_enum_coverage(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
@@ -647,9 +670,12 @@ def check_enum_coverage(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     annotated with it.
     """
     errors: list[str] = []
+    reusable = _reusable_response_error(spec)
+    if reusable is not None:
+        return [reusable], []
     lib_by_name = _library_enums_by_name()
     exact_sets = set(lib_by_name.values())
-    inbound = _inbound_enum_value_sets(spec)
+    inbound = _inbound_enum_ids(spec)
     for value_set, path in _iter_spec_enums(spec):
         if value_set in exact_sets:
             continue
@@ -666,7 +692,7 @@ def check_enum_coverage(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
             continue
         if (_enum_owner(path), value_set) in _ENUM_COVERAGE_WAIVERS:
             continue
-        if value_set not in inbound:
+        if (_enum_owner(path), value_set) not in inbound:
             continue  # outbound-only (request param / body) → waived by direction
         errors.append(
             f"inbound spec enum at `{path}` (values {sorted(value_set)}) is not "

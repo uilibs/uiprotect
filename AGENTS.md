@@ -346,14 +346,17 @@ which is the value-set collision an earlier any-subset check let slip. Coverage
 is decided on the value-set alone: an exact match proves some library enum
 carries those values, not that the owning model field is annotated with it.
 Enums are classified inbound (reachable from a response the library
-deserializes) vs. outbound-only (request param/body) by `$ref` reachability:
-outbound-only enums are waived by direction, while an inbound enum left untyped
-needs an explicit, documented entry in `_ENUM_COVERAGE_WAIVERS`, keyed by
-`(owning component schema, value-set)` so a waiver for a generic set like
-`{closed, open}` cannot silently cover an unrelated enum on another schema. The
-default is to model; waivers are the rare exception. Spec `required` vs. model
-`optional` is not
-checked — the library models every public-API field optional by design, so it
+deserializes) vs. outbound-only (request param/body) by `$ref` reachability,
+per enum *occurrence* — `(owning component schema, value-set)` — so an
+outbound-only enum whose values coincide with an inbound one is not dragged
+inbound with it. Reusable responses (`components.responses` or a `$ref`-ed
+response entry) are not resolved and fail the check loudly rather than silently
+misclassifying. Outbound-only enums are waived by direction, while an inbound
+enum left untyped needs an explicit, documented entry in
+`_ENUM_COVERAGE_WAIVERS`, keyed by `(owning component schema, value-set)` so a
+waiver for a generic set like `{closed, open}` cannot silently cover an
+unrelated enum on another schema. The default is to model; waivers are the rare
+exception. Spec `required` vs. model `optional` is not checked — the library models every public-API field optional by design, so it
 would be guaranteed noise. It exits non-zero on any error and prints a markdown
 summary. Reproduce locally with:
 

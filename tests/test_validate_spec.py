@@ -15,7 +15,7 @@ from validate_spec import (
     _ENUM_COVERAGE_WAIVERS,
     _EXAMPLE_CALLS,
     _MODELLED_AS_SUBSET,
-    _inbound_enum_value_sets,
+    _inbound_enum_ids,
     _iter_spec_enums,
     _leaf_model,
     _library_enums_by_name,
@@ -412,7 +412,7 @@ def test_check_enum_coverage_sentinel_only_ignored() -> None:
     assert check_enum_coverage(spec) == ([], [])
 
 
-def test_inbound_enum_value_sets_excludes_request_only() -> None:
+def test_inbound_enum_ids_exclude_request_only() -> None:
     """Response-reachable enums are inbound; request-only enums are not."""
     spec = {
         "components": {"schemas": {"resp": {"properties": {"s": {"enum": ["inb"]}}}}},
@@ -433,9 +433,42 @@ def test_inbound_enum_value_sets_excludes_request_only() -> None:
             }
         },
     }
-    inbound = _inbound_enum_value_sets(spec)
-    assert frozenset({"inb"}) in inbound
-    assert frozenset({"outb"}) not in inbound
+    inbound = _inbound_enum_ids(spec)
+    assert ("resp", frozenset({"inb"})) in inbound
+    assert not any(value_set == frozenset({"outb"}) for _owner, value_set in inbound)
+
+
+def test_check_enum_coverage_outbound_sharing_a_waived_value_set_not_flagged() -> None:
+    """An outbound enum whose values collide with a waived inbound one stays waived."""
+    owner, waived = next(iter(_ENUM_COVERAGE_WAIVERS))
+    spec = _response_spec(owner, {"enum": sorted(waived)})
+    spec["paths"]["/v1/things"]["get"]["parameters"] = [
+        {"schema": {"enum": sorted(waived)}}
+    ]
+    assert check_enum_coverage(spec) == ([], [])
+
+
+def test_check_enum_coverage_component_responses_flagged() -> None:
+    spec = _response_spec("thing", {"enum": ["unknown"]})
+    spec["components"]["responses"] = {"Thing": {"description": "reused"}}
+    errors, warnings = check_enum_coverage(spec)
+    assert warnings == []
+    assert errors == [
+        "spec declares `components.responses`; the inbound enum classification "
+        "does not cover reusable responses"
+    ]
+
+
+def test_check_enum_coverage_response_ref_flagged() -> None:
+    spec = _response_spec("thing", {"enum": ["unknown"]})
+    spec["paths"]["/v1/things"]["get"]["responses"]["200"] = {
+        "$ref": "#/components/responses/Thing"
+    }
+    errors, warnings = check_enum_coverage(spec)
+    assert warnings == []
+    assert len(errors) == 1
+    assert "paths./v1/things.get.responses.200" in errors[0]
+    assert "does not cover reusable responses" in errors[0]
 
 
 # --------------------------------------------------------------------------- #
