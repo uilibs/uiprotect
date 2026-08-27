@@ -115,7 +115,7 @@ def test_fetch_spec_stamps_placeholder_version(tmp_path: Path) -> None:
     with (
         patch(
             "fetch_openapi._query_firmware",
-            return_value=("deb-url", "v7.1.87"),
+            return_value=("deb-url", "7.1.87"),
         ),
         patch(
             "fetch_openapi._fetch_from_portal",
@@ -135,7 +135,7 @@ def test_fetch_spec_from_deb_preserves_real_version(tmp_path: Path) -> None:
     with (
         patch(
             "fetch_openapi._query_firmware",
-            return_value=("deb-url", "v7.1.87"),
+            return_value=("deb-url", "7.1.87"),
         ),
         patch(
             "fetch_openapi._fetch_from_deb",
@@ -148,3 +148,48 @@ def test_fetch_spec_from_deb_preserves_real_version(tmp_path: Path) -> None:
     deb.assert_called_once()
     portal.assert_not_called()
     assert json.loads(out.read_bytes())["info"]["version"] == "7.1.87"
+
+
+def _firmware_payload(version: str) -> bytes:
+    return json.dumps(
+        {
+            "_embedded": {
+                "firmware": [
+                    {"_links": {"data": {"href": "deb-url"}}, "version": version}
+                ]
+            }
+        }
+    ).encode()
+
+
+@pytest.mark.parametrize("wire", ["v7.2.105", "7.2.105"])
+def test_query_firmware_returns_bare_version(wire: str) -> None:
+    """`_query_firmware` normalises the firmware API's version to MAJOR.MINOR.PATCH."""
+    with patch(
+        "fetch_openapi.urllib.request.urlopen",
+        return_value=_urlopen_returning(_FakeResponse(_firmware_payload(wire))),
+    ):
+        assert fetch_openapi._query_firmware(None) == ("deb-url", "7.2.105")
+
+
+def test_query_firmware_rejects_malformed_version() -> None:
+    """A requested version that is not MAJOR.MINOR.PATCH is rejected before any call."""
+    with (
+        patch("fetch_openapi.urllib.request.urlopen") as urlopen,
+        pytest.raises(ValueError, match=r"MAJOR\.MINOR\.PATCH"),
+    ):
+        fetch_openapi._query_firmware("7.2")
+    urlopen.assert_not_called()
+
+
+def test_query_firmware_raises_when_no_firmware_matches() -> None:
+    """An empty firmware list surfaces as a RuntimeError naming the version."""
+    empty = json.dumps({"_embedded": {"firmware": []}}).encode()
+    with (
+        patch(
+            "fetch_openapi.urllib.request.urlopen",
+            return_value=_urlopen_returning(_FakeResponse(empty)),
+        ),
+        pytest.raises(RuntimeError, match="No firmware found"),
+    ):
+        fetch_openapi._query_firmware("7.2.105")

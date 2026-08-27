@@ -45,7 +45,7 @@ def fetch_spec(
     # The portal spec carries a placeholder ``info.version`` ("0.0.0"); the
     # real version only lives in the URL. Stamp it so consumers can trust it.
     if spec.get("info", {}).get("version") in (None, "0.0.0"):
-        spec.setdefault("info", {})["version"] = ver.removeprefix("v")
+        spec.setdefault("info", {})["version"] = ver
         spec_bytes = json.dumps(spec, indent=2).encode() + b"\n"
 
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -100,7 +100,12 @@ def list_versions() -> list[str]:
 
 
 def _query_firmware(version: str | None) -> tuple[str, str]:
-    """Return (deb_download_url, version_string) for the requested protect version."""
+    """
+    Return (deb_download_url, version) for the requested protect version.
+
+    The version is normalised to a bare ``MAJOR.MINOR.PATCH``; the firmware API
+    reports it ``v``-prefixed.
+    """
     params = [
         "filter=eq~~product~~unifi-protect",
         "filter=eq~~platform~~uos-deb11-arm64",
@@ -127,7 +132,7 @@ def _query_firmware(version: str | None) -> tuple[str, str]:
         raise RuntimeError(f"No firmware found for version={version!r}")
 
     fw = entries[0]
-    return fw["_links"]["data"]["href"], fw["version"]
+    return fw["_links"]["data"]["href"], fw["version"].removeprefix("v")
 
 
 def _extract_from_deb(deb_bytes: bytes) -> bytes:
