@@ -27,8 +27,11 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import enum
 import functools
+import importlib
 import inspect
+import pkgutil
 import re
 import sys
 from pathlib import Path
@@ -42,6 +45,7 @@ _SRC = Path(__file__).resolve().parents[1] / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
+from uiprotect import data as uiprotect_data  # noqa: E402
 from uiprotect._public_api import registry  # noqa: E402
 from uiprotect.api import ProtectApiClient  # noqa: E402
 from uiprotect.data import (  # noqa: E402
@@ -237,6 +241,122 @@ _ENUM_SCHEMAS: list[tuple[type[Any], str]] = [
     (DeviceState, "deviceState"),
 ]
 
+# The library's forward-compat sentinel value, ignored on both sides of the
+# enum-coverage comparison so a lib enum that models ``UNKNOWN`` still counts as
+# covering a spec enum regardless of whether either side lists a literal
+# ``unknown``.
+_ENUM_SENTINEL = "unknown"
+
+# Spec enums whose value-set is a strict *subset* of a single, explicitly named
+# library enum that the public models already type the field with. The library
+# enum is a forward-compatible superset — it also carries values from the
+# private API or newer firmware (e.g. ``VideoMode``'s ``homekit``) — so an exact
+# value-set match is impossible by design, yet the field IS faithfully typed.
+# Each entry is pinned to ONE named enum and verified ``spec ⊆ lib`` at runtime,
+# so a coincidental value-set collision can never satisfy it (that was the v1
+# any-subset false-negative). A spec value that grows beyond the named enum
+# changes the value-set, breaks the key match, and re-surfaces the enum as an
+# unmodelled warning.
+_MODELLED_AS_SUBSET: dict[frozenset[str], str] = {
+    frozenset(
+        {"default", "highFps", "sport", "slowShutter", "lprReflex", "lprNoneReflex"}
+    ): "VideoMode",
+    frozenset({"neutral", "low", "safe", "high"}): "SensorStatusType",
+    frozenset(
+        {"animal", "face", "licensePlate", "package", "person", "vehicle"}
+    ): "SmartDetectObjectType",
+    frozenset(
+        {
+            "alrmBabyCry",
+            "alrmBark",
+            "alrmBurglar",
+            "alrmCarHorn",
+            "alrmCmonx",
+            "alrmGlassBreak",
+            "alrmSiren",
+            "alrmSmoke",
+            "alrmSpeak",
+        }
+    ): "SmartDetectAudioType",
+}
+
+# Inbound spec enums (reachable from a response the library deserializes)
+# intentionally left untyped, kept opaque pending a dedicated modelling effort.
+# Outbound-only enums (request param / body) need no entry — they are waived by
+# direction. Each waiver is keyed by ``(owning component schema, value-set)`` —
+# the value-set alone would let a waiver for a generic set like ``{closed,
+# open}`` silently cover an unrelated future enum on another schema. Waivers are
+# the rare, documented exception: the default is to model.
+_ENUM_COVERAGE_WAIVERS: dict[tuple[str, frozenset[str]], str] = {
+    # ``fobButtonLabels`` — fob render-style label keys, a presentation grouping
+    # rather than a device-state value enum; the public fob schema is itself not
+    # yet modelled.
+    (
+        "fobButtonLabels",
+        frozenset({"positionHint", "securityActions"}),
+    ): "fob button-label style keys",
+    # ``alarmHubStatus`` electrical internals (input power, current-meter,
+    # terminal and e-fuse status). Kept as opaque ``additionalProperties`` — a
+    # private value space deferred to a separate modelling effort.
+    (
+        "alarmHubStatus",
+        frozenset({"high", "low"}),
+    ): "alarm-hub inputPower status (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset({"alert", "normal"}),
+    ): "alarm-hub criticalAlarm status (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset({"fault", "normal", "warning"}),
+    ): "alarm-hub efuse status (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset({"closed", "open"}),
+    ): "alarm-hub input idleSubState (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset(
+            {"cut", "disabled", "idle", "not-connected", "short", "tamper", "triggered"}
+        ),
+    ): "alarm-hub plusPinStatus (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset(
+            {
+                "cut",
+                "disabled",
+                "idle",
+                "not-connected",
+                "partially-connected",
+                "short",
+                "tamper",
+                "triggered",
+            }
+        ),
+    ): "alarm-hub terminalStatus (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset({"high-current", "none", "over-current"}),
+    ): "alarm-hub output efuseAlert (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset({"dry-contact", "powered-12v"}),
+    ): "alarm-hub output mode (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset({"active", "disabled", "off"}),
+    ): "alarm-hub output statusLabel (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset({"+", "-", "com", "nc", "no"}),
+    ): "alarm-hub output wiredPins (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset({"connected", "not-connected", "partially-connected"}),
+    ): "alarm-hub auxiliaryPower status (deferred)",
+}
+
 # Library-owned fields populated out-of-band, absent from the spec schema.
 # Fields the library owns that no spec revision lists (computed convenience).
 _LIBRARY_OWNED_FIELDS: dict[str, set[str]] = {
@@ -416,7 +536,173 @@ def check_enums(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
-_CHECKS = (check_endpoints, check_model_fields, check_enums)
+def _iter_data_modules(data_pkg: Any) -> list[Any]:
+    """Import and return every submodule of the ``uiprotect.data`` package."""
+    return [
+        importlib.import_module(info.name)
+        for info in pkgutil.walk_packages(data_pkg.__path__, f"{data_pkg.__name__}.")
+    ]
+
+
+@functools.cache
+def _library_enums_by_name() -> dict[str, frozenset[str]]:
+    """Value-set (minus the sentinel) of every ``enum.Enum`` under ``uiprotect.data``."""
+    out: dict[str, frozenset[str]] = {}
+    for module in (uiprotect_data, *_iter_data_modules(uiprotect_data)):
+        for obj in vars(module).values():
+            if isinstance(obj, type) and issubclass(obj, enum.Enum):
+                value_set = frozenset(str(m.value) for m in obj) - {_ENUM_SENTINEL}
+                if value_set:
+                    out[obj.__name__] = value_set
+    return out
+
+
+def _enum_owner(path: str) -> str:
+    """Component schema an enum occurrence belongs to (the raw path elsewhere)."""
+    parts = path.split(".")
+    if len(parts) > 2 and parts[0] == "components":
+        return parts[2]
+    return path
+
+
+def _iter_spec_enums(spec: dict[str, Any]) -> list[tuple[frozenset[str], str]]:
+    """Every enum value-set in the spec (named or inline), once per owning schema."""
+    found: dict[tuple[str, frozenset[str]], str] = {}
+
+    def _walk(node: Any, path: str) -> None:
+        if isinstance(node, dict):
+            values = node.get("enum")
+            if isinstance(values, list):
+                key = frozenset(str(v) for v in values) - {_ENUM_SENTINEL}
+                if key:
+                    found.setdefault((_enum_owner(path), key), path)
+            for key_name, child in node.items():
+                _walk(child, f"{path}.{key_name}")
+        elif isinstance(node, list):
+            for index, child in enumerate(node):
+                _walk(child, f"{path}[{index}]")
+
+    _walk(spec.get("components", {}).get("schemas", {}), "components.schemas")
+    _walk(spec.get("paths", {}), "paths")
+    return sorted(
+        ((key[1], path) for key, path in found.items()), key=lambda item: item[1]
+    )
+
+
+def _reachable_enum_ids(
+    roots: list[tuple[Any, str]], schemas: dict[str, Any]
+) -> set[tuple[str, frozenset[str]]]:
+    """Enum occurrence identities reachable from ``roots``, following ``$ref``."""
+    out: set[tuple[str, frozenset[str]]] = set()
+    seen_refs: set[str] = set()
+
+    def _walk(node: Any, path: str, owner: str | None) -> None:
+        if isinstance(node, dict):
+            ref = node.get("$ref")
+            if isinstance(ref, str):
+                name = ref.split("/")[-1]
+                if name not in seen_refs:
+                    seen_refs.add(name)
+                    _walk(schemas.get(name, {}), f"components.schemas.{name}", name)
+                return
+            values = node.get("enum")
+            if isinstance(values, list):
+                key = frozenset(str(v) for v in values) - {_ENUM_SENTINEL}
+                if key:
+                    out.add((owner if owner is not None else path, key))
+            for key_name, child in node.items():
+                _walk(child, f"{path}.{key_name}", owner)
+        elif isinstance(node, list):
+            for index, child in enumerate(node):
+                _walk(child, f"{path}[{index}]", owner)
+
+    for root, root_path in roots:
+        _walk(root, root_path, None)
+    return out
+
+
+def _reusable_response_error(spec: dict[str, Any]) -> str | None:
+    """Reject reusable responses — ``_inbound_enum_ids`` does not resolve them."""
+    unsupported = "the inbound enum classification does not cover reusable responses"
+    if spec.get("components", {}).get("responses"):
+        return f"spec declares `components.responses`; {unsupported}"
+    for path, operations in spec.get("paths", {}).items():
+        if not isinstance(operations, dict):
+            continue
+        for method, operation in operations.items():
+            if not isinstance(operation, dict):
+                continue
+            for code, response in operation.get("responses", {}).items():
+                if isinstance(response, dict) and "$ref" in response:
+                    return (
+                        f"response `paths.{path}.{method}.responses.{code}` is a "
+                        f"`$ref`; {unsupported}"
+                    )
+    return None
+
+
+def _inbound_enum_ids(spec: dict[str, Any]) -> set[tuple[str, frozenset[str]]]:
+    """Enum occurrence identities reachable from any response body schema."""
+    schemas = spec.get("components", {}).get("schemas", {})
+    roots: list[tuple[Any, str]] = [
+        (
+            media["schema"],
+            f"paths.{path}.{method}.responses.{code}.content.{media_type}.schema",
+        )
+        for path, operations in spec.get("paths", {}).items()
+        if isinstance(operations, dict)
+        for method, operation in operations.items()
+        if isinstance(operation, dict)
+        for code, response in operation.get("responses", {}).items()
+        if isinstance(response, dict)
+        for media_type, media in response.get("content", {}).items()
+        if isinstance(media, dict) and "schema" in media
+    ]
+    return _reachable_enum_ids(roots, schemas)
+
+
+def check_enum_coverage(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """
+    Every inbound spec enum must be modelled, mapped, or explicitly waived.
+
+    Coverage is decided on the value-set alone — an exact match proves some
+    library enum carries those values, not that the owning model field is
+    annotated with it.
+    """
+    errors: list[str] = []
+    reusable = _reusable_response_error(spec)
+    if reusable is not None:
+        return [reusable], []
+    lib_by_name = _library_enums_by_name()
+    exact_sets = set(lib_by_name.values())
+    inbound = _inbound_enum_ids(spec)
+    for value_set, path in _iter_spec_enums(spec):
+        if value_set in exact_sets:
+            continue
+        mapped = _MODELLED_AS_SUBSET.get(value_set)
+        if mapped is not None:
+            missing = value_set - lib_by_name.get(mapped, frozenset())
+            if not missing:
+                continue
+            errors.append(
+                f"spec enum at `{path}` is mapped to `{mapped}` in "
+                f"`_MODELLED_AS_SUBSET` but `{mapped}` no longer defines value(s) "
+                f"{sorted(missing)} (enum renamed or members removed)"
+            )
+            continue
+        if (_enum_owner(path), value_set) in _ENUM_COVERAGE_WAIVERS:
+            continue
+        if (_enum_owner(path), value_set) not in inbound:
+            continue  # outbound-only (request param / body) → waived by direction
+        errors.append(
+            f"inbound spec enum at `{path}` (values {sorted(value_set)}) is not "
+            f"modelled by any library enum, not mapped in `_MODELLED_AS_SUBSET`, "
+            f"and not waived in `_ENUM_COVERAGE_WAIVERS`"
+        )
+    return errors, []
+
+
+_CHECKS = (check_endpoints, check_model_fields, check_enums, check_enum_coverage)
 
 
 def run_checks(spec: dict[str, Any]) -> tuple[list[str], list[str]]:

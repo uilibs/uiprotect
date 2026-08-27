@@ -12,14 +12,20 @@ from typing import TYPE_CHECKING, Any
 import orjson
 import validate_spec  # local import via conftest sys.path insert
 from validate_spec import (
+    _ENUM_COVERAGE_WAIVERS,
     _EXAMPLE_CALLS,
+    _MODELLED_AS_SUBSET,
+    _inbound_enum_ids,
+    _iter_spec_enums,
     _leaf_model,
+    _library_enums_by_name,
     _normalize_path,
     _public_api_coroutines,
     _resolve_object_props,
     _spec_field_name,
     check_completeness,
     check_endpoints,
+    check_enum_coverage,
     check_enums,
     check_model_fields,
     covered_endpoints,
@@ -232,6 +238,239 @@ def test_check_enums_non_enum_schema_errors() -> None:
     spec = {"components": {"schemas": {"deviceState": {"type": "string"}}}}
     errors, _warnings = check_enums(spec)
     assert any("no longer declares `enum`" in e for e in errors)
+
+
+# --------------------------------------------------------------------------- #
+# check_enum_coverage (exact-match + inbound/outbound classification)
+# --------------------------------------------------------------------------- #
+
+
+def _response_spec(schema_name: str, schema: dict[str, Any]) -> dict[str, Any]:
+    """Wrap a component schema and reference it from a GET response (inbound)."""
+    return {
+        "components": {"schemas": {schema_name: schema}},
+        "paths": {
+            "/v1/things": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "$ref": f"#/components/schemas/{schema_name}"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    }
+
+
+def test_iter_spec_enums_collects_named_and_inline() -> None:
+    spec = {
+        "components": {
+            "schemas": {
+                "deviceState": {"enum": ["CONNECTED"]},
+                "someEvent": {
+                    "properties": {
+                        "metadata": {
+                            "properties": {"text": {"enum": ["zorp", "unknown"]}}
+                        }
+                    }
+                },
+            }
+        },
+        "paths": {
+            "/v1/widgets": {"get": {"parameters": [{"schema": {"enum": ["quux"]}}]}}
+        },
+    }
+    found = dict(_iter_spec_enums(spec))
+    assert frozenset({"zorp"}) in found  # ``unknown`` stripped
+    assert frozenset({"CONNECTED"}) in found
+    assert frozenset({"quux"}) in found  # reached through the list branch
+    assert found[frozenset({"zorp"})].endswith("metadata.properties.text")
+
+
+def test_iter_spec_enums_records_each_owning_schema() -> None:
+    """The same value-set under two schemas yields one occurrence per schema."""
+    spec = {
+        "components": {
+            "schemas": {
+                "alpha": {"properties": {"s": {"enum": ["zorp"]}}},
+                "beta": {"properties": {"s": {"enum": ["zorp"]}}},
+            }
+        }
+    }
+    owners = {
+        validate_spec._enum_owner(path)
+        for value_set, path in _iter_spec_enums(spec)
+        if value_set == frozenset({"zorp"})
+    }
+    assert owners == {"alpha", "beta"}
+
+
+def test_library_enums_by_name_excludes_sentinel() -> None:
+    by_name = _library_enums_by_name()
+    assert by_name["DeviceState"] == frozenset(
+        {"CONNECTED", "CONNECTING", "DISCONNECTED"}
+    )
+    assert all("unknown" not in value_set for value_set in by_name.values())
+
+
+def test_check_enum_coverage_exact_match_passes() -> None:
+    """A spec enum whose value-set exactly equals a library enum raises nothing."""
+    spec = _response_spec(
+        "deviceState", {"enum": ["CONNECTED", "CONNECTING", "DISCONNECTED"]}
+    )
+    assert check_enum_coverage(spec) == ([], [])
+
+
+def test_check_enum_coverage_subset_collision_flagged() -> None:
+    """A value-set that is a coincidental subset of a larger enum is NOT covered."""
+    # ``{high}`` is a subset of several library enums (ChannelQuality, LowMedHigh,
+    # …) yet equals none of them; exact-match must reject it rather than treat the
+    # collision as coverage. It carries no waiver, so the error is unambiguous.
+    spec = _response_spec("thing", {"enum": ["high"]})
+    errors, warnings = check_enum_coverage(spec)
+    assert warnings == []
+    assert len(errors) == 1
+    assert "['high']" in errors[0]
+
+
+def test_check_enum_coverage_modelled_as_subset_passes() -> None:
+    """A spec enum pinned in ``_MODELLED_AS_SUBSET`` to a superset enum passes."""
+    video = next(k for k, v in _MODELLED_AS_SUBSET.items() if v == "VideoMode")
+    spec = _response_spec("videoMode", {"enum": sorted(video)})
+    assert check_enum_coverage(spec) == ([], [])
+
+
+def test_check_enum_coverage_mapping_target_shrunk_flagged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A pinned lib enum that lost its members (or was renamed) re-surfaces."""
+    video = next(k for k, v in _MODELLED_AS_SUBSET.items() if v == "VideoMode")
+    monkeypatch.setattr(
+        validate_spec, "_library_enums_by_name", lambda: {"VideoMode": frozenset()}
+    )
+    spec = _response_spec("videoMode", {"enum": sorted(video)})
+    errors, warnings = check_enum_coverage(spec)
+    assert warnings == []
+    assert len(errors) == 1
+    assert "enum renamed or members removed" in errors[0]
+
+
+def test_check_enum_coverage_inbound_unmodelled_flagged() -> None:
+    spec = _response_spec(
+        "weirdEvent",
+        {
+            "properties": {
+                "metadata": {"properties": {"text": {"enum": ["frob", "baz"]}}}
+            }
+        },
+    )
+    errors, warnings = check_enum_coverage(spec)
+    assert warnings == []
+    assert len(errors) == 1
+    assert "frob" in errors[0]
+    assert "metadata.properties.text" in errors[0]
+
+
+def test_check_enum_coverage_outbound_only_not_flagged() -> None:
+    """An unmodelled enum reachable only from a request param is waived by direction."""
+    spec = {
+        "components": {"schemas": {}},
+        "paths": {
+            "/v1/things": {
+                "get": {"parameters": [{"schema": {"enum": ["onlyrequest"]}}]}
+            }
+        },
+    }
+    assert check_enum_coverage(spec) == ([], [])
+
+
+def test_check_enum_coverage_waiver_respected() -> None:
+    owner, waived = next(iter(_ENUM_COVERAGE_WAIVERS))
+    spec = _response_spec(owner, {"enum": sorted(waived)})
+    assert check_enum_coverage(spec) == ([], [])
+
+
+def test_check_enum_coverage_waiver_does_not_travel_to_another_schema() -> None:
+    """A waived value-set on a different owning schema is still flagged."""
+    _owner, waived = next(iter(_ENUM_COVERAGE_WAIVERS))
+    spec = _response_spec("someOtherSchema", {"enum": sorted(waived)})
+    errors, warnings = check_enum_coverage(spec)
+    assert warnings == []
+    assert len(errors) == 1
+    assert "someOtherSchema" in errors[0]
+
+
+def test_check_enum_coverage_sentinel_only_ignored() -> None:
+    spec = _response_spec("thing", {"enum": ["unknown"]})
+    assert check_enum_coverage(spec) == ([], [])
+
+
+def test_inbound_enum_ids_exclude_request_only() -> None:
+    """Response-reachable enums are inbound; request-only enums are not."""
+    spec = {
+        "components": {"schemas": {"resp": {"properties": {"s": {"enum": ["inb"]}}}}},
+        "paths": {
+            "/v1/things": {
+                "post": {
+                    "parameters": [{"schema": {"enum": ["outb"]}}],
+                    "responses": {
+                        "200": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/resp"}
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        },
+    }
+    inbound = _inbound_enum_ids(spec)
+    assert ("resp", frozenset({"inb"})) in inbound
+    assert not any(value_set == frozenset({"outb"}) for _owner, value_set in inbound)
+
+
+def test_check_enum_coverage_outbound_sharing_a_waived_value_set_not_flagged() -> None:
+    """An outbound enum whose values collide with a waived inbound one stays waived."""
+    owner, waived = next(iter(_ENUM_COVERAGE_WAIVERS))
+    spec = _response_spec(owner, {"enum": sorted(waived)})
+    spec["paths"]["/v1/things"]["get"]["parameters"] = [
+        {"schema": {"enum": sorted(waived)}}
+    ]
+    assert check_enum_coverage(spec) == ([], [])
+
+
+def test_check_enum_coverage_component_responses_flagged() -> None:
+    spec = _response_spec("thing", {"enum": ["unknown"]})
+    spec["components"]["responses"] = {"Thing": {"description": "reused"}}
+    errors, warnings = check_enum_coverage(spec)
+    assert warnings == []
+    assert errors == [
+        (
+            "spec declares `components.responses`; the inbound enum "
+            "classification does not cover reusable responses"
+        )
+    ]
+
+
+def test_check_enum_coverage_response_ref_flagged() -> None:
+    spec = _response_spec("thing", {"enum": ["unknown"]})
+    spec["paths"]["/v1/things"]["get"]["responses"]["200"] = {
+        "$ref": "#/components/responses/Thing"
+    }
+    errors, warnings = check_enum_coverage(spec)
+    assert warnings == []
+    assert len(errors) == 1
+    assert "paths./v1/things.get.responses.200" in errors[0]
+    assert "does not cover reusable responses" in errors[0]
 
 
 # --------------------------------------------------------------------------- #
