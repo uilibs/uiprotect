@@ -131,6 +131,14 @@ jobs:
           steps.validate.outputs.exit_code == '0'
         env:
           LATEST: ${{ steps.resolve.outputs.latest }}
+          # A PAT, not github.token: the repository's "Allow GitHub Actions to
+          # create and approve pull requests" setting overrides the job's
+          # pull-requests permission, so GITHUB_TOKEN's createPullRequest call
+          # is always rejected. A user token is exempt, and its PR triggers CI
+          # (a GITHUB_TOKEN one does not). Scoped to this step so the issue
+          # steps keep using github.token; the fallback keeps
+          # workflow_dispatch usable where the secret is absent.
+          GH_TOKEN: ${{ secrets.BOT_ACCESS_TOKEN || github.token }}
         run: |
           set -euo pipefail
           branch="spec-validation/bump-$LATEST"
