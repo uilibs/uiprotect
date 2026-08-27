@@ -45,6 +45,7 @@ _SRC = Path(__file__).resolve().parents[1] / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
+from uiprotect import data as uiprotect_data  # noqa: E402
 from uiprotect._public_api import registry  # noqa: E402
 from uiprotect.api import ProtectApiClient  # noqa: E402
 from uiprotect.data import (  # noqa: E402
@@ -282,43 +283,77 @@ _MODELLED_AS_SUBSET: dict[frozenset[str], str] = {
 # Inbound spec enums (reachable from a response the library deserializes)
 # intentionally left untyped, kept opaque pending a dedicated modelling effort.
 # Outbound-only enums (request param / body) need no entry — they are waived by
-# direction. Each waiver is keyed by value-set so any change re-surfaces it for
-# review. Waivers are the rare, documented exception: the default is to model.
-_ENUM_COVERAGE_WAIVERS: dict[frozenset[str], str] = {
+# direction. Each waiver is keyed by ``(owning component schema, value-set)`` —
+# the value-set alone would let a waiver for a generic set like ``{closed,
+# open}`` silently cover an unrelated future enum on another schema. Waivers are
+# the rare, documented exception: the default is to model.
+_ENUM_COVERAGE_WAIVERS: dict[tuple[str, frozenset[str]], str] = {
     # ``fobButtonLabels`` — fob render-style label keys, a presentation grouping
     # rather than a device-state value enum; the public fob schema is itself not
     # yet modelled.
-    frozenset({"positionHint", "securityActions"}): "fob button-label style keys",
+    (
+        "fobButtonLabels",
+        frozenset({"positionHint", "securityActions"}),
+    ): "fob button-label style keys",
     # ``alarmHubStatus`` electrical internals (input power, current-meter,
     # terminal and e-fuse status). Kept as opaque ``additionalProperties`` — a
     # private value space deferred to a separate modelling effort.
-    frozenset({"high", "low"}): "alarm-hub inputPower status (deferred)",
-    frozenset({"alert", "normal"}): "alarm-hub criticalAlarm status (deferred)",
-    frozenset({"fault", "normal", "warning"}): "alarm-hub efuse status (deferred)",
-    frozenset({"closed", "open"}): "alarm-hub input idleSubState (deferred)",
-    frozenset(
-        {"cut", "disabled", "idle", "not-connected", "short", "tamper", "triggered"}
+    (
+        "alarmHubStatus",
+        frozenset({"high", "low"}),
+    ): "alarm-hub inputPower status (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset({"alert", "normal"}),
+    ): "alarm-hub criticalAlarm status (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset({"fault", "normal", "warning"}),
+    ): "alarm-hub efuse status (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset({"closed", "open"}),
+    ): "alarm-hub input idleSubState (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset(
+            {"cut", "disabled", "idle", "not-connected", "short", "tamper", "triggered"}
+        ),
     ): "alarm-hub plusPinStatus (deferred)",
-    frozenset(
-        {
-            "cut",
-            "disabled",
-            "idle",
-            "not-connected",
-            "partially-connected",
-            "short",
-            "tamper",
-            "triggered",
-        }
+    (
+        "alarmHubStatus",
+        frozenset(
+            {
+                "cut",
+                "disabled",
+                "idle",
+                "not-connected",
+                "partially-connected",
+                "short",
+                "tamper",
+                "triggered",
+            }
+        ),
     ): "alarm-hub terminalStatus (deferred)",
-    frozenset(
-        {"high-current", "none", "over-current"}
+    (
+        "alarmHubStatus",
+        frozenset({"high-current", "none", "over-current"}),
     ): "alarm-hub output efuseAlert (deferred)",
-    frozenset({"dry-contact", "powered-12v"}): "alarm-hub output mode (deferred)",
-    frozenset({"active", "disabled", "off"}): "alarm-hub output statusLabel (deferred)",
-    frozenset({"+", "-", "com", "nc", "no"}): "alarm-hub output wiredPins (deferred)",
-    frozenset(
-        {"connected", "not-connected", "partially-connected"}
+    (
+        "alarmHubStatus",
+        frozenset({"dry-contact", "powered-12v"}),
+    ): "alarm-hub output mode (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset({"active", "disabled", "off"}),
+    ): "alarm-hub output statusLabel (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset({"+", "-", "com", "nc", "no"}),
+    ): "alarm-hub output wiredPins (deferred)",
+    (
+        "alarmHubStatus",
+        frozenset({"connected", "not-connected", "partially-connected"}),
     ): "alarm-hub auxiliaryPower status (deferred)",
 }
 
@@ -512,10 +547,8 @@ def _iter_data_modules(data_pkg: Any) -> list[Any]:
 @functools.cache
 def _library_enums_by_name() -> dict[str, frozenset[str]]:
     """Value-set (minus the sentinel) of every ``enum.Enum`` under ``uiprotect.data``."""
-    import uiprotect.data as data_pkg  # noqa: PLC0415  # avoid import-time cost
-
     out: dict[str, frozenset[str]] = {}
-    for module in (data_pkg, *_iter_data_modules(data_pkg)):
+    for module in (uiprotect_data, *_iter_data_modules(uiprotect_data)):
         for obj in vars(module).values():
             if isinstance(obj, type) and issubclass(obj, enum.Enum):
                 value_set = frozenset(str(m.value) for m in obj) - {_ENUM_SENTINEL}
@@ -524,9 +557,17 @@ def _library_enums_by_name() -> dict[str, frozenset[str]]:
     return out
 
 
+def _enum_owner(path: str) -> str:
+    """Component schema an enum occurrence belongs to (the raw path elsewhere)."""
+    parts = path.split(".")
+    if len(parts) > 2 and parts[0] == "components":
+        return parts[2]
+    return path
+
+
 def _iter_spec_enums(spec: dict[str, Any]) -> list[tuple[frozenset[str], str]]:
-    """Every distinct enum value-set in the spec (named or inline) with a JSON path."""
-    found: dict[frozenset[str], str] = {}
+    """Every enum value-set in the spec (named or inline), once per owning schema."""
+    found: dict[tuple[str, frozenset[str]], str] = {}
 
     def _walk(node: Any, path: str) -> None:
         if isinstance(node, dict):
@@ -534,7 +575,7 @@ def _iter_spec_enums(spec: dict[str, Any]) -> list[tuple[frozenset[str], str]]:
             if isinstance(values, list):
                 key = frozenset(str(v) for v in values) - {_ENUM_SENTINEL}
                 if key:
-                    found.setdefault(key, path)
+                    found.setdefault((_enum_owner(path), key), path)
             for key_name, child in node.items():
                 _walk(child, f"{path}.{key_name}")
         elif isinstance(node, list):
@@ -543,7 +584,9 @@ def _iter_spec_enums(spec: dict[str, Any]) -> list[tuple[frozenset[str], str]]:
 
     _walk(spec.get("components", {}).get("schemas", {}), "components.schemas")
     _walk(spec.get("paths", {}), "paths")
-    return sorted(found.items(), key=lambda item: item[1])
+    return sorted(
+        ((key[1], path) for key, path in found.items()), key=lambda item: item[1]
+    )
 
 
 def _reachable_enum_value_sets(
@@ -599,14 +642,11 @@ def check_enum_coverage(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     """
     Every inbound spec enum must be modelled, mapped, or explicitly waived.
 
-    A spec value-set counts as faithfully typed only when it *equals* a single
-    library enum (exact-match) or is pinned in ``_MODELLED_AS_SUBSET`` to a named
-    enum it is a subset of — never a coincidental subset of *any* library enum,
-    which is the value-set collision the v1 guard let slip. Outbound-only enums
-    (request param / body, never deserialized) are waived by direction; inbound
-    enums left untyped need an explicit ``_ENUM_COVERAGE_WAIVERS`` entry.
+    Coverage is decided on the value-set alone — an exact match proves some
+    library enum carries those values, not that the owning model field is
+    annotated with it.
     """
-    warnings: list[str] = []
+    errors: list[str] = []
     lib_by_name = _library_enums_by_name()
     exact_sets = set(lib_by_name.values())
     inbound = _inbound_enum_value_sets(spec)
@@ -618,22 +658,22 @@ def check_enum_coverage(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
             missing = value_set - lib_by_name.get(mapped, frozenset())
             if not missing:
                 continue
-            warnings.append(
+            errors.append(
                 f"spec enum at `{path}` is mapped to `{mapped}` in "
-                f"`_MODELLED_AS_SUBSET` but value(s) {sorted(missing)} are absent "
-                f"from it (the spec grew beyond the model)"
+                f"`_MODELLED_AS_SUBSET` but `{mapped}` no longer defines value(s) "
+                f"{sorted(missing)} (enum renamed or members removed)"
             )
             continue
-        if value_set in _ENUM_COVERAGE_WAIVERS:
+        if (_enum_owner(path), value_set) in _ENUM_COVERAGE_WAIVERS:
             continue
         if value_set not in inbound:
             continue  # outbound-only (request param / body) → waived by direction
-        warnings.append(
+        errors.append(
             f"inbound spec enum at `{path}` (values {sorted(value_set)}) is not "
             f"modelled by any library enum, not mapped in `_MODELLED_AS_SUBSET`, "
             f"and not waived in `_ENUM_COVERAGE_WAIVERS`"
         )
-    return [], warnings
+    return errors, []
 
 
 _CHECKS = (check_endpoints, check_model_fields, check_enums, check_enum_coverage)

@@ -294,6 +294,24 @@ def test_iter_spec_enums_collects_named_and_inline() -> None:
     assert found[frozenset({"zorp"})].endswith("metadata.properties.text")
 
 
+def test_iter_spec_enums_records_each_owning_schema() -> None:
+    """The same value-set under two schemas yields one occurrence per schema."""
+    spec = {
+        "components": {
+            "schemas": {
+                "alpha": {"properties": {"s": {"enum": ["zorp"]}}},
+                "beta": {"properties": {"s": {"enum": ["zorp"]}}},
+            }
+        }
+    }
+    owners = {
+        validate_spec._enum_owner(path)
+        for value_set, path in _iter_spec_enums(spec)
+        if value_set == frozenset({"zorp"})
+    }
+    assert owners == {"alpha", "beta"}
+
+
 def test_library_enums_by_name_excludes_sentinel() -> None:
     by_name = _library_enums_by_name()
     assert by_name["DeviceState"] == frozenset(
@@ -314,12 +332,12 @@ def test_check_enum_coverage_subset_collision_flagged() -> None:
     """A value-set that is a coincidental subset of a larger enum is NOT covered."""
     # ``{high}`` is a subset of several library enums (ChannelQuality, LowMedHigh,
     # …) yet equals none of them; exact-match must reject it rather than treat the
-    # collision as coverage. It carries no waiver, so the warning is unambiguous.
+    # collision as coverage. It carries no waiver, so the error is unambiguous.
     spec = _response_spec("thing", {"enum": ["high"]})
     errors, warnings = check_enum_coverage(spec)
-    assert errors == []
-    assert len(warnings) == 1
-    assert "['high']" in warnings[0]
+    assert warnings == []
+    assert len(errors) == 1
+    assert "['high']" in errors[0]
 
 
 def test_check_enum_coverage_modelled_as_subset_passes() -> None:
@@ -329,19 +347,19 @@ def test_check_enum_coverage_modelled_as_subset_passes() -> None:
     assert check_enum_coverage(spec) == ([], [])
 
 
-def test_check_enum_coverage_mapping_grown_beyond_warns(
+def test_check_enum_coverage_mapping_target_shrunk_flagged(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A mapped enum no longer a subset of its named lib enum re-surfaces."""
+    """A pinned lib enum that lost its members (or was renamed) re-surfaces."""
     video = next(k for k, v in _MODELLED_AS_SUBSET.items() if v == "VideoMode")
     monkeypatch.setattr(
         validate_spec, "_library_enums_by_name", lambda: {"VideoMode": frozenset()}
     )
     spec = _response_spec("videoMode", {"enum": sorted(video)})
     errors, warnings = check_enum_coverage(spec)
-    assert errors == []
-    assert len(warnings) == 1
-    assert "grew beyond the model" in warnings[0]
+    assert warnings == []
+    assert len(errors) == 1
+    assert "enum renamed or members removed" in errors[0]
 
 
 def test_check_enum_coverage_inbound_unmodelled_flagged() -> None:
@@ -354,10 +372,10 @@ def test_check_enum_coverage_inbound_unmodelled_flagged() -> None:
         },
     )
     errors, warnings = check_enum_coverage(spec)
-    assert errors == []
-    assert len(warnings) == 1
-    assert "frob" in warnings[0]
-    assert "metadata.properties.text" in warnings[0]
+    assert warnings == []
+    assert len(errors) == 1
+    assert "frob" in errors[0]
+    assert "metadata.properties.text" in errors[0]
 
 
 def test_check_enum_coverage_outbound_only_not_flagged() -> None:
@@ -374,9 +392,19 @@ def test_check_enum_coverage_outbound_only_not_flagged() -> None:
 
 
 def test_check_enum_coverage_waiver_respected() -> None:
-    waived = next(iter(_ENUM_COVERAGE_WAIVERS))
-    spec = _response_spec("thing", {"enum": sorted(waived)})
+    owner, waived = next(iter(_ENUM_COVERAGE_WAIVERS))
+    spec = _response_spec(owner, {"enum": sorted(waived)})
     assert check_enum_coverage(spec) == ([], [])
+
+
+def test_check_enum_coverage_waiver_does_not_travel_to_another_schema() -> None:
+    """A waived value-set on a different owning schema is still flagged."""
+    _owner, waived = next(iter(_ENUM_COVERAGE_WAIVERS))
+    spec = _response_spec("someOtherSchema", {"enum": sorted(waived)})
+    errors, warnings = check_enum_coverage(spec)
+    assert warnings == []
+    assert len(errors) == 1
+    assert "someOtherSchema" in errors[0]
 
 
 def test_check_enum_coverage_sentinel_only_ignored() -> None:

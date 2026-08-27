@@ -114,8 +114,8 @@ def test_spec_validation_has_no_errors() -> None:
 def test_every_inbound_spec_enum_is_modelled_or_waived() -> None:
     """Every inbound spec enum is exact-matched, pinned to a superset, or waived."""
     spec = orjson.loads(_SPEC_PATH.read_bytes())
-    _errors, warnings = check_enum_coverage(spec)
-    assert not warnings, "unmodelled, unwaived spec enums:\n" + "\n".join(warnings)
+    errors, _warnings = check_enum_coverage(spec)
+    assert not errors, "unmodelled, unwaived spec enums:\n" + "\n".join(errors)
 
 
 def test_every_public_coroutine_is_covered() -> None:
