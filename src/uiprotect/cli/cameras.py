@@ -3,8 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
+import orjson
 import typer
 from rich.progress import Progress
 
@@ -738,3 +739,89 @@ def disable_mic_permanently(
         await ctx.obj.protect.disable_camera_mic_permanently_public(obj.id)
 
     base.run(ctx, _disable())
+
+
+def _parse_pos_json(raw: str, option: str, expected: type) -> Any:
+    try:
+        data = orjson.loads(raw)
+    except orjson.JSONDecodeError as err:
+        typer.secho(f"{option} must be valid JSON: {err}", fg="red")
+        raise typer.Exit(1) from err
+    if not isinstance(data, expected):
+        typer.secho(f"{option} must be a JSON {expected.__name__}", fg="red")
+        raise typer.Exit(1)
+    return data
+
+
+@app.command("pos-transaction")
+def pos_transaction(
+    ctx: typer.Context,
+    transaction_type: d.PosTransactionType = typer.Option(
+        ...,
+        "--type",
+        help="Transaction type",
+    ),
+    external_id: str = typer.Option(
+        ...,
+        "--external-id",
+        help="Caller-supplied transaction ID, unique per camera",
+    ),
+    amount: float = typer.Option(..., "--amount", help="Transaction total amount"),
+    currency: str | None = typer.Option(
+        None,
+        "--currency",
+        help="Uppercase ISO 4217 currency code, e.g. USD",
+    ),
+    line_items: str | None = typer.Option(
+        None,
+        "--line-items",
+        help='JSON array, e.g. \'[{"title": "Coffee", "quantity": 2}]\'',
+    ),
+    location: str | None = typer.Option(
+        None,
+        "--location",
+        help='JSON object, e.g. \'{"id": "reg-1", "name": "Register 1"}\'',
+    ),
+    payment_types: list[str] = typer.Option(
+        [],
+        "--payment-type",
+        help="Payment method name; repeat for multiple",
+    ),
+    timestamp: int | None = typer.Option(
+        None,
+        "--timestamp",
+        help="Transaction time in epoch milliseconds (within the last 24 hours)",
+    ),
+) -> None:
+    """
+    Records a point-of-sale transaction as an event on this camera.
+
+    Requires API key authentication and public API access.
+    """
+    base.require_device_id(ctx)
+    obj: d.Camera = ctx.obj.device
+
+    parsed_items = (
+        None
+        if line_items is None
+        else _parse_pos_json(line_items, "--line-items", list)
+    )
+    parsed_location = (
+        None if location is None else _parse_pos_json(location, "--location", dict)
+    )
+
+    async def _ingest() -> None:
+        result = await ctx.obj.protect.create_pos_transaction_public(
+            obj.id,
+            transaction_type=transaction_type,
+            external_id=external_id,
+            amount=amount,
+            currency=currency,
+            line_items=parsed_items,
+            location=parsed_location,
+            payment_types=payment_types or None,
+            timestamp=timestamp,
+        )
+        base.print_unifi_obj(result, ctx.obj.output_format)
+
+    base.run(ctx, _ingest())

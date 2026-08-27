@@ -977,6 +977,14 @@ class SpeakerMode(UnknownValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
+class PosTransactionType(ValuesEnumMixin, enum.StrEnum):
+    """Kind of POS transaction ingested through ``POS`` transaction endpoint."""
+
+    SALE = "sale"
+    REFUND = "refund"
+
+
+@enum.unique
 class LiveviewCycleMode(UnknownValuesEnumMixin, enum.StrEnum):
     """Public-API liveview slot cycle mode (``slots[].cycleMode`` field)."""
 

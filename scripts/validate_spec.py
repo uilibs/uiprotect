@@ -55,6 +55,7 @@ from uiprotect.data import (  # noqa: E402
     PublicLight,
     PublicLiveview,
     PublicNVR,
+    PublicPosTransactionResult,
     PublicSensor,
     PublicViewer,
 )
@@ -129,6 +130,9 @@ _EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
     "create_talkback_session_public": lambda c: c.create_talkback_session_public(_S),
     "disable_camera_mic_permanently_public": (
         lambda c: c.disable_camera_mic_permanently_public(_S)
+    ),
+    "create_pos_transaction_public": lambda c: c.create_pos_transaction_public(
+        _S, transaction_type="sale", external_id=_S, amount=0
     ),
     "update_camera_public": lambda c: c.update_camera_public(_S, name=_S),
     "update_light_public": lambda c: c.update_light_public(_S, name=_S),
@@ -233,6 +237,7 @@ _MODEL_SCHEMAS: list[tuple[type[ProtectBaseObject], str]] = [
     (PublicViewer, "viewer"),
     (PublicBridge, "bridge"),
     (PublicLiveview, "liveview"),
+    (PublicPosTransactionResult, "posTransactionResponse"),
 ]
 
 # Spec enum schemas with a known library counterpart. Spec values absent from

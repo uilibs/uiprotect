@@ -15,6 +15,7 @@ import typer
 from typer.testing import CliRunner
 
 from uiprotect.cli import _is_ssl_error, app
+from uiprotect.cli import base as cli_base
 from uiprotect.cli import cameras as cameras_cli
 from uiprotect.cli import lights as lights_cli
 from uiprotect.cli import sensors as sensors_cli
@@ -54,9 +55,10 @@ from uiprotect.cli.users_public import app as users_public_app
 from uiprotect.cli.viewers import app as viewer_app
 from uiprotect.cli.viewers import liveview
 from uiprotect.cli.viewers_public import app as viewer_public_app
-from uiprotect.data import RingSetting
+from uiprotect.data import PublicPosTransactionResult, RingSetting
 from uiprotect.data.types import (
     DoorbellMessageType,
+    PosTransactionType,
     PublicHdrMode,
     SensorScheduleMode,
     VideoMode,
@@ -279,6 +281,14 @@ def test_cameras_disable_mic_listed_in_help() -> None:
     assert result.exit_code == 0
     plain_output = _ANSI_ESCAPE_RE.sub("", result.output)
     assert "disable-mic-permanently" in plain_output
+
+
+def test_cameras_pos_transaction_listed_in_help() -> None:
+    """``cameras --help`` advertises the ``pos-transaction`` subcommand."""
+    result = runner.invoke(cameras_app, ["--help"])
+    assert result.exit_code == 0
+    plain_output = _ANSI_ESCAPE_RE.sub("", result.output)
+    assert "pos-transaction" in plain_output
 
 
 def test_link_stations_trigger_output_rejects_negative_delay() -> None:
@@ -1192,3 +1202,88 @@ def test_sensor_set_status_light_stays_private() -> None:
     sensor.set_status_light = AsyncMock()
     sensors_cli.set_status_light(ctx, True)
     sensor.set_status_light.assert_awaited_once_with(True)
+
+
+def _make_pos_ctx():
+    ctx, camera = _make_device_ctx(device_id="camera-1")
+    ctx.obj.output_format = cli_base.OutputFormatEnum.JSON
+    ctx.obj.protect.create_pos_transaction_public = AsyncMock(
+        return_value=PublicPosTransactionResult(created=True, event_id="evt-1")
+    )
+    return ctx, camera
+
+
+def test_camera_pos_transaction_forwards_parsed_payload() -> None:
+    """``pos-transaction`` parses the JSON options and calls the public client."""
+    ctx, camera = _make_pos_ctx()
+    cameras_cli.pos_transaction(
+        ctx,
+        transaction_type=PosTransactionType.SALE,
+        external_id="tx-1",
+        amount=12.5,
+        currency="USD",
+        line_items='[{"title": "Coffee", "quantity": 2}]',
+        location='{"id": "reg-1"}',
+        payment_types=["card"],
+        timestamp=1735689600000,
+    )
+    ctx.obj.protect.create_pos_transaction_public.assert_awaited_once_with(
+        camera.id,
+        transaction_type=PosTransactionType.SALE,
+        external_id="tx-1",
+        amount=12.5,
+        currency="USD",
+        line_items=[{"title": "Coffee", "quantity": 2}],
+        location={"id": "reg-1"},
+        payment_types=["card"],
+        timestamp=1735689600000,
+    )
+
+
+def test_camera_pos_transaction_omits_empty_payment_types() -> None:
+    ctx, _camera = _make_pos_ctx()
+    cameras_cli.pos_transaction(
+        ctx,
+        transaction_type=PosTransactionType.REFUND,
+        external_id="tx-2",
+        amount=1,
+        currency=None,
+        line_items=None,
+        location=None,
+        payment_types=[],
+        timestamp=None,
+    )
+    kwargs = ctx.obj.protect.create_pos_transaction_public.await_args.kwargs
+    assert kwargs["payment_types"] is None
+    assert kwargs["line_items"] is None
+    assert kwargs["location"] is None
+
+
+@pytest.mark.parametrize(
+    ("line_items", "location", "message"),
+    [
+        ("not json", None, "--line-items must be valid JSON"),
+        ('{"title": "x"}', None, "--line-items must be a JSON list"),
+        (None, "not json", "--location must be valid JSON"),
+        (None, "[]", "--location must be a JSON dict"),
+    ],
+)
+def test_camera_pos_transaction_rejects_malformed_json(
+    line_items: str | None,
+    location: str | None,
+    message: str,
+) -> None:
+    ctx, _camera = _make_pos_ctx()
+    with pytest.raises(typer.Exit):
+        cameras_cli.pos_transaction(
+            ctx,
+            transaction_type=PosTransactionType.SALE,
+            external_id="tx-1",
+            amount=1,
+            currency=None,
+            line_items=line_items,
+            location=location,
+            payment_types=[],
+            timestamp=None,
+        )
+    ctx.obj.protect.create_pos_transaction_public.assert_not_awaited()

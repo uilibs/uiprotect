@@ -55,6 +55,7 @@ from .data import (
     NvrArmMode,
     NvrArmModeStatus,
     OsdOverlayLocation,
+    PosTransactionType,
     ProtectAdoptableDeviceModel,
     ProtectModel,
     PublicArmScheduleDict,
@@ -70,6 +71,9 @@ from .data import (
     PublicLiveview,
     PublicLiveviewSlotDict,
     PublicNVR,
+    PublicPosLineItemDict,
+    PublicPosLocationDict,
+    PublicPosTransactionResult,
     PublicSensor,
     PublicSensorAlarmSettings,
     PublicSensorGlassBreakSettingsWrite,
@@ -258,6 +262,13 @@ _UNSET: _UnsetType = _UnsetType()
 # tolerated. Extracted as a constant to make the match visible and easy to update.
 _GLOBAL_ALARM_MANAGER_REASON = "global alarm manager"
 _ARM_ALARM_ARMED_REASON = "arm alarm is armed"
+
+# ``posTransactionRequest`` bounds, mirrored from the public spec so a caller
+# error surfaces locally instead of as an opaque 400.
+_POS_STRING_MAX_LENGTH = 255
+_POS_MAX_LINE_ITEMS = 200
+_POS_MAX_PAYMENT_TYPES = 20
+_POS_CURRENCY_RE = re.compile(r"[A-Z]{3}")
 
 
 def _log_or_raise(
@@ -4082,6 +4093,78 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
         )
         return PublicCamera.from_unifi_dict(**data, api=self)
+
+    async def create_pos_transaction_public(
+        self,
+        camera_id: str,
+        *,
+        transaction_type: PosTransactionType | str,
+        external_id: str,
+        amount: float,
+        currency: str | None = None,
+        line_items: list[PublicPosLineItemDict] | None = None,
+        location: PublicPosLocationDict | None = None,
+        payment_types: list[str] | None = None,
+        timestamp: int | None = None,
+    ) -> PublicPosTransactionResult:
+        """
+        Record a point-of-sale transaction as an event on ``camera_id``.
+
+        ``external_id`` gives best-effort idempotency: a ``created`` of
+        ``False`` means the id was already ingested and ``event_id`` echoes
+        the existing event. The server holds that mapping in-process, so it
+        does not survive a Protect restart. A concurrent in-flight
+        transaction with the same ``external_id`` answers 409 (raised as
+        :class:`~uiprotect.exceptions.BadRequest`) and should be retried
+        shortly.
+
+        ``timestamp`` is epoch milliseconds and must fall within the last 24
+        hours; the server clamps a slightly-future value to now and rejects
+        anything further ahead.
+        """
+        if transaction_type not in PosTransactionType.values_set():
+            allowed = ", ".join(sorted(PosTransactionType.values()))
+            raise BadRequest(f"transaction_type must be one of: {allowed}")
+        if not 1 <= len(external_id) <= _POS_STRING_MAX_LENGTH:
+            raise BadRequest(
+                f"external_id must be between 1 and {_POS_STRING_MAX_LENGTH} characters"
+            )
+        if amount < 0:
+            raise BadRequest("amount must be >= 0")
+        if currency is not None and not _POS_CURRENCY_RE.fullmatch(currency):
+            raise BadRequest("currency must be an uppercase ISO 4217 code, e.g. USD")
+        if line_items is not None and len(line_items) > _POS_MAX_LINE_ITEMS:
+            raise BadRequest(f"line_items may hold at most {_POS_MAX_LINE_ITEMS} items")
+        if payment_types is not None and len(payment_types) > _POS_MAX_PAYMENT_TYPES:
+            raise BadRequest(
+                f"payment_types may hold at most {_POS_MAX_PAYMENT_TYPES} entries"
+            )
+        if timestamp is not None and timestamp < 1:
+            raise BadRequest("timestamp must be a positive epoch-millisecond value")
+
+        body: dict[str, Any] = {
+            "type": str(transaction_type),
+            "externalId": external_id,
+            "amount": amount,
+        }
+        if currency is not None:
+            body["currency"] = currency
+        if line_items is not None:
+            body["lineItems"] = [dict(item) for item in line_items]
+        if location is not None:
+            body["location"] = dict(location)
+        if payment_types is not None:
+            body["paymentTypes"] = payment_types
+        if timestamp is not None:
+            body["timestamp"] = timestamp
+
+        data = await self.api_request_obj(
+            url=f"/v1/pos/cameras/{camera_id}/transactions",
+            method="post",
+            json=body,
+            public_api=True,
+        )
+        return PublicPosTransactionResult.from_unifi_dict(**data, api=self)
 
     @public_get("/v1/sensors", items=PublicSensor)
     async def get_sensors_public(self) -> list[PublicSensor]:

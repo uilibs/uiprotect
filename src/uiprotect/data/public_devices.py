@@ -19,7 +19,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from functools import cache
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, TypedDict
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Required, Self, TypedDict
 
 from pydantic import Field
 from pydantic.fields import PrivateAttr
@@ -216,6 +216,20 @@ class PublicLiveviewSlotDict(TypedDict):
     cameras: list[str]
     cycleMode: LiveviewCycleMode
     cycleInterval: int
+
+
+class PublicPosLineItemDict(TypedDict):
+    """POS transaction line item (write shape)."""
+
+    title: str
+    quantity: int
+
+
+class PublicPosLocationDict(TypedDict, total=False):
+    """POS transaction location / register (write shape)."""
+
+    id: Required[str]
+    name: str
 
 
 class PublicSignalState(ProtectBaseObject):
@@ -2272,6 +2286,13 @@ class PublicUlpUser(ProtectModelWithId):
     last_name: str
     full_name: str
     status: UlpUserStatus
+
+
+class PublicPosTransactionResult(ProtectBaseObject):
+    """Outcome of a POS transaction ingestion (``posTransactionResponse``)."""
+
+    created: bool
+    event_id: str | None = None
 
 
 class PublicFile(ProtectBaseObject):
