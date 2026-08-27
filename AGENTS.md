@@ -347,7 +347,7 @@ is decided on the value-set alone: an exact match proves some library enum
 carries those values, not that the owning model field is annotated with it.
 Enums are classified inbound (reachable from a response the library
 deserializes) vs. outbound-only (request param/body) by `$ref` reachability,
-per enum *occurrence* — `(owning component schema, value-set)` — so an
+per enum _occurrence_ — `(owning component schema, value-set)` — so an
 outbound-only enum whose values coincide with an inbound one is not dragged
 inbound with it. Reusable responses (`components.responses` or a `$ref`-ed
 response entry) are not resolved and fail the check loudly rather than silently
