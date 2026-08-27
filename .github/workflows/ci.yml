@@ -137,10 +137,20 @@ jobs:
         env:
           BRANCH: ${{ github.head_ref || github.ref_name }}
         run: git switch -C "$BRANCH"
-      - name: Test release
-        uses: python-semantic-release/python-semantic-release@v10.6.1
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          no_operation_mode: true
+          enable-cache: true
+      # The python-semantic-release Docker action resolves its own dependencies
+      # at image-build time, so it picks up GitPython >= 3.1.60, which dropped
+      # `Actor.name_email_regex` and fails every PSR config load
+      # (python-semantic-release#1476). Run the same pinned CLI directly with
+      # GitPython held back until a PSR release carries the fix.
+      - name: Test release
+        run: >-
+          uvx --with 'gitpython<3.1.60'
+          --from 'python-semantic-release==10.6.1'
+          semantic-release -v --noop version
 
   # Real release, only on main. The release environment and write/OIDC
   # permissions are scoped to this job so they never apply to PR runs.
