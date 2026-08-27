@@ -26,6 +26,8 @@ from pydantic import Field
 from ..utils import convert_smart_types, convert_to_datetime
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import (
+    AlarmHubInputStatus,
+    AlarmHubTamperStatus,
     EventButtonType,
     EventType,
     ModelType,
@@ -36,6 +38,23 @@ from .types import (
     SensorStatusType,
     SmartDetectObjectType,
     SmokeTestSource,
+)
+
+# ``metadata.status`` is overloaded: a sensor threshold status on
+# ``sensorExtremeValues``, an alarm-hub zone status on the ``alarmHub*`` zone
+# events, and a physical tamper state on ``alarmHubDeviceTamper``. It is kept
+# as the raw wire string and narrowed by the typed ``PublicEvent`` accessors,
+# which know the event type the metadata came with.
+_ALARM_HUB_INPUT_EVENTS: frozenset[EventType] = frozenset(
+    {
+        EventType.ALARM_HUB_MOTION,
+        EventType.ALARM_HUB_ENTRY_OPENED,
+        EventType.ALARM_HUB_ENTRY_CLOSED,
+        EventType.ALARM_HUB_SMOKE,
+        EventType.ALARM_HUB_GLASS_BREAK,
+        EventType.ALARM_HUB_BUTTON_PRESS,
+        EventType.ALARM_HUB_TAMPER,
+    }
 )
 
 
@@ -57,12 +76,13 @@ class PublicEventMetadata(ProtectBaseObject):
     # ``{"text": <enum/str>}`` envelopes.
     sensor_type: SensorExtremeMetricType | None = None
     sensor_value: float | None = None
-    status: SensorStatusType | None = None
+    status: str | None = None
     sensor_mount_type: MountType | None = None
     alarm_type: SensorAlarmType | None = None
     button: EventButtonType | None = None
     input_state: RelayInputCircuitState | None = None
     input_channel: str | None = None
+    input_token: str | None = None
     pin: str | None = None
     device_id: str | None = None
     device_name: str | None = None
@@ -84,6 +104,7 @@ class PublicEventMetadata(ProtectBaseObject):
         "button",
         "inputState",
         "inputChannel",
+        "inputToken",
         "pin",
         "deviceId",
         "deviceName",
@@ -136,6 +157,30 @@ class PublicEvent(ProtectModelWithId):
     smart_detect_types: list[SmartDetectObjectType] = Field(default_factory=list)
     metadata: PublicEventMetadata | None = None
 
+    @property
+    def sensor_status(self) -> SensorStatusType | None:
+        """Threshold status of a ``sensorExtremeValues`` event, else ``None``."""
+        if self.type is not EventType.SENSOR_EXTREME_VALUE:
+            return None
+        raw = self._raw_status()
+        return None if raw is None else SensorStatusType(raw)
+
+    @property
+    def alarm_hub_input_status(self) -> AlarmHubInputStatus | None:
+        """Zone status of an alarm-hub input event, else ``None``."""
+        if self.type not in _ALARM_HUB_INPUT_EVENTS:
+            return None
+        raw = self._raw_status()
+        return None if raw is None else AlarmHubInputStatus(raw)
+
+    @property
+    def tamper_status(self) -> AlarmHubTamperStatus | None:
+        """Tamper state of an ``alarmHubDeviceTamper`` event, else ``None``."""
+        if self.type is not EventType.ALARM_HUB_DEVICE_TAMPER:
+            return None
+        raw = self._raw_status()
+        return None if raw is None else AlarmHubTamperStatus(raw)
+
     @classmethod
     @cache
     def _get_unifi_remaps(cls) -> dict[str, str]:
@@ -151,3 +196,6 @@ class PublicEvent(ProtectModelWithId):
             | {"smartDetectTypes": convert_smart_types}
             | super().unifi_dict_conversions()
         )
+
+    def _raw_status(self) -> str | None:
+        return None if self.metadata is None else self.metadata.status

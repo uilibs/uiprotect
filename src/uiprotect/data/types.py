@@ -320,6 +320,8 @@ class EventType(ValuesEnumMixin, enum.StrEnum):
     ALARM_HUB_TAMPER = "alarmHubTamper"
     ALARM_HUB_BATTERY_CONNECTED = "alarmHubBatteryConnected"
     ALARM_HUB_BATTERY_LOW = "alarmHubBatteryLow"
+    ALARM_HUB_DEVICE_TAMPER = "alarmHubDeviceTamper"
+    CAMERA_DIGITAL_INPUT_CHANGED = "cameraDigitalInputChanged"
     SMART_DETECT_LOITER = "smartDetectLoiterZone"
     MOTION_LIGHT = "lightMotion"
     DISRUPTED_CONDITIONS = "ringDisruptedConditions"
@@ -700,6 +702,7 @@ class SensorExtremeMetricType(UnknownValuesEnumMixin, enum.StrEnum):
     PM2P5 = "pm2p5"
     PM4P0 = "pm4p0"
     PM10P0 = "pm10p0"
+    NOX = "nox"
     CO2 = "co2"
     VOC = "voc"
     UNKNOWN = "unknown"
@@ -741,6 +744,7 @@ class EventButtonType(UnknownValuesEnumMixin, enum.StrEnum):
     RIGHT = "right"
     INPUT1 = "input1"
     INPUT2 = "input2"
+    MAIN = "main"
     UNKNOWN = "unknown"
 
 
@@ -784,6 +788,15 @@ class AlarmHubCoverStatus(UnknownValuesEnumMixin, enum.StrEnum):
 
     OPEN = "open"
     CLOSE = "close"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class AlarmHubTamperStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Physical tamper state of an alarm hub (``alarmHubDeviceTamper`` event)."""
+
+    TAMPERED = "tampered"
+    RESTORED = "restored"
     UNKNOWN = "unknown"
 
 
