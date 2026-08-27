@@ -3098,6 +3098,21 @@ def test_public_bootstrap_get_and_unknown_model(
     assert pb.get(ModelType.UNKNOWN, SIREN_ID) is None
 
 
+def test_public_bootstrap_store_for(
+    protect_client: ProtectApiClient,
+) -> None:
+    """``store_for`` returns the live store for both registries, else ``None``."""
+    siren = _build_siren(protect_client)
+    pb = protect_client.public_bootstrap
+    assert pb.store_for(ModelType.SIREN) is pb.sirens
+    assert pb.store_for(ModelType.SIREN) == {SIREN_ID: siren}
+    # Dedicated-slot type — only reachable through the second registry.
+    assert pb.store_for(ModelType.VIEWPORT) is pb.viewers
+    assert pb.store_for(ModelType.LIVEVIEW) is pb.liveviews
+    assert pb.store_for(ModelType.UNKNOWN) is None
+    assert pb.store_for(ModelType.NVR) is None
+
+
 def test_public_bootstrap_all_devices_empty() -> None:
     """Empty bootstrap yields nothing, with or without the NVR flag."""
     pb = PublicBootstrap()
