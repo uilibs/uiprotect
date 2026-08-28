@@ -11,7 +11,11 @@ between Ubiquiti's spec and the hand-maintained client surface:
   hand-written exception method, never a hand-maintained table (warning),
 * model fields the spec dropped or retyped (error) and fields the spec added
   that the model lacks (warning),
-* spec enum values absent from the matching library enum (warning).
+* spec enum values absent from the matching library enum (warning),
+* inbound spec enums and ``const`` discriminators with no library counterpart
+  (error),
+* spec ``event`` union types absent from ``PUBLIC_EVENT_TYPES``, or modelled
+  types the spec no longer declares (error).
 
 The library deliberately models every public-API field optional (older firmware
 and partial/reference responses omit them), so spec ``required`` vs. model
@@ -49,14 +53,25 @@ from uiprotect import data as uiprotect_data  # noqa: E402
 from uiprotect._public_api import registry  # noqa: E402
 from uiprotect.api import ProtectApiClient  # noqa: E402
 from uiprotect.data import (  # noqa: E402
+    PUBLIC_EVENT_TYPES,
+    ArmProfile,
+    Fob,
+    LinkStation,
     PublicBridge,
     PublicCamera,
     PublicChime,
+    PublicEvent,
     PublicLight,
     PublicLiveview,
     PublicNVR,
+    PublicPosTransactionResponse,
     PublicSensor,
+    PublicUlpUser,
+    PublicUser,
     PublicViewer,
+    Relay,
+    Siren,
+    Speaker,
 )
 from uiprotect.data.base import ProtectBaseObject  # noqa: E402
 from uiprotect.data.types import DeviceState  # noqa: E402
@@ -233,6 +248,18 @@ _MODEL_SCHEMAS: list[tuple[type[ProtectBaseObject], str]] = [
     (PublicViewer, "viewer"),
     (PublicBridge, "bridge"),
     (PublicLiveview, "liveview"),
+    (Siren, "siren"),
+    (Relay, "relay"),
+    (Speaker, "speaker"),
+    (Fob, "fob"),
+    (LinkStation, "linkStation"),
+    (PublicUser, "user"),
+    (PublicUlpUser, "ulpUser"),
+    (ArmProfile, "armProfile"),
+    # ``event`` is a ``oneOf`` union; its variants are merged into one property
+    # map, matching the single all-optional ``PublicEvent`` model.
+    (PublicEvent, "event"),
+    (PublicPosTransactionResponse, "posTransactionResponse"),
 ]
 
 # Spec enum schemas with a known library counterpart. Spec values absent from
@@ -288,13 +315,6 @@ _MODELLED_AS_SUBSET: dict[frozenset[str], str] = {
 # open}`` silently cover an unrelated future enum on another schema. Waivers are
 # the rare, documented exception: the default is to model.
 _ENUM_COVERAGE_WAIVERS: dict[tuple[str, frozenset[str]], str] = {
-    # ``fobButtonLabels`` — fob render-style label keys, a presentation grouping
-    # rather than a device-state value enum; the public fob schema is itself not
-    # yet modelled.
-    (
-        "fobButtonLabels",
-        frozenset({"positionHint", "securityActions"}),
-    ): "fob button-label style keys",
     # ``alarmHubStatus`` electrical internals (input power, current-meter,
     # terminal and e-fuse status). Kept as opaque ``additionalProperties`` — a
     # private value space deferred to a separate modelling effort.
@@ -379,32 +399,58 @@ _EXTRA_MODEL_FIELDS: dict[str, set[str]] = {
 _HTTP_METHODS = ("get", "post", "put", "patch", "delete")
 
 
-def _resolve_object_props(  # noqa: PLR0911  # one return per JSON-schema node kind
+def _merge_variants(
+    variants: list[dict[str, Any]], schemas: dict[str, Any]
+) -> dict[str, dict[str, Any]] | None:
+    """Union the object variants of an ``allOf`` / ``oneOf`` into one property map."""
+    merged: dict[str, dict[str, Any]] = {}
+    is_object = False
+    for sub in variants:
+        resolved = _resolve_object_props(sub, schemas)
+        if resolved is None:
+            continue
+        is_object = True
+        for key, schema in resolved.items():
+            previous = merged.get(key)
+            if previous is not None and previous != schema:
+                # A property several variants disagree on (the per-event-type
+                # ``metadata`` blocks) is itself a union; re-wrap it so a
+                # recursive resolve merges those the same way.
+                merged[key] = {"oneOf": [previous, schema]}
+            else:
+                merged[key] = schema
+    return merged if is_object else None
+
+
+def _resolve_object_props(
     node: dict[str, Any], schemas: dict[str, Any]
 ) -> dict[str, dict[str, Any]] | None:
     """Return ``{property: schema}`` for an object node, ``None`` for scalar leaves."""
     if "$ref" in node:
         return _resolve_object_props(schemas[node["$ref"].split("/")[-1]], schemas)
     if "allOf" in node:
-        merged: dict[str, dict[str, Any]] = {}
-        is_object = False
-        for sub in node["allOf"]:
-            resolved = _resolve_object_props(sub, schemas)
-            if resolved is not None:
-                merged.update(resolved)
-                is_object = True
-        return merged if is_object else None
+        return _merge_variants(node["allOf"], schemas)
     if "oneOf" in node:
-        for sub in node["oneOf"]:
-            resolved = _resolve_object_props(sub, schemas)
-            if resolved is not None:
-                return resolved
-        return None
+        return _merge_variants(node["oneOf"], schemas)
     if node.get("type") == "array":
         return _resolve_object_props(node.get("items", {}), schemas)
     if "properties" in node:
         return dict(node["properties"])
     return None
+
+
+def _resolve_const(node: dict[str, Any], schemas: dict[str, Any]) -> str | None:
+    """Follow ``$ref`` / ``allOf`` to the string ``const`` a scalar node declares."""
+    if "$ref" in node:
+        return _resolve_const(schemas.get(node["$ref"].split("/")[-1], {}), schemas)
+    if "allOf" in node:
+        for sub in node["allOf"]:
+            const = _resolve_const(sub, schemas)
+            if const is not None:
+                return const
+        return None
+    value = node.get("const")
+    return value if isinstance(value, str) else None
 
 
 def _leaf_model(annotation: Any) -> type[ProtectBaseObject] | None:
@@ -565,17 +611,49 @@ def _enum_owner(path: str) -> str:
     return path
 
 
-def _iter_spec_enums(spec: dict[str, Any]) -> list[tuple[frozenset[str], str]]:
-    """Every enum value-set in the spec (named or inline), once per owning schema."""
+def _enum_value_set(node: dict[str, Any]) -> frozenset[str]:
+    """Value-set of a node's ``enum`` array, sentinel stripped."""
+    values = node.get("enum")
+    if not isinstance(values, list):
+        return frozenset()
+    return frozenset(str(value) for value in values) - {_ENUM_SENTINEL}
+
+
+def _const_value_set(node: dict[str, Any]) -> frozenset[str]:
+    """
+    One-value set for a node's string ``const``, sentinel stripped.
+
+    Non-string consts are skipped: they enumerate allowed *numbers*
+    (``sirenDuration``, ``activationDelay``), which the library models as plain
+    ints rather than as an enum.
+    """
+    value = node.get("const")
+    if not isinstance(value, str):
+        return frozenset()
+    return frozenset({value}) - {_ENUM_SENTINEL}
+
+
+def _node_value_sets(node: dict[str, Any]) -> tuple[frozenset[str], ...]:
+    """Every non-empty value-set a single schema node declares."""
+    return tuple(
+        value_set
+        for value_set in (_enum_value_set(node), _const_value_set(node))
+        if value_set
+    )
+
+
+def _iter_spec_value_sets(
+    spec: dict[str, Any],
+    extract: Callable[[dict[str, Any]], frozenset[str]],
+) -> list[tuple[frozenset[str], str]]:
+    """Every value-set ``extract`` finds in the spec, once per owning schema."""
     found: dict[tuple[str, frozenset[str]], str] = {}
 
     def _walk(node: Any, path: str) -> None:
         if isinstance(node, dict):
-            values = node.get("enum")
-            if isinstance(values, list):
-                key = frozenset(str(v) for v in values) - {_ENUM_SENTINEL}
-                if key:
-                    found.setdefault((_enum_owner(path), key), path)
+            key = extract(node)
+            if key:
+                found.setdefault((_enum_owner(path), key), path)
             for key_name, child in node.items():
                 _walk(child, f"{path}.{key_name}")
         elif isinstance(node, list):
@@ -587,6 +665,16 @@ def _iter_spec_enums(spec: dict[str, Any]) -> list[tuple[frozenset[str], str]]:
     return sorted(
         ((key[1], path) for key, path in found.items()), key=lambda item: item[1]
     )
+
+
+def _iter_spec_enums(spec: dict[str, Any]) -> list[tuple[frozenset[str], str]]:
+    """Every enum value-set in the spec (named or inline), once per owning schema."""
+    return _iter_spec_value_sets(spec, _enum_value_set)
+
+
+def _iter_spec_consts(spec: dict[str, Any]) -> list[tuple[frozenset[str], str]]:
+    """Every string ``const`` in the spec, once per owning schema."""
+    return _iter_spec_value_sets(spec, _const_value_set)
 
 
 def _reachable_enum_ids(
@@ -605,11 +693,8 @@ def _reachable_enum_ids(
                     seen_refs.add(name)
                     _walk(schemas.get(name, {}), f"components.schemas.{name}", name)
                 return
-            values = node.get("enum")
-            if isinstance(values, list):
-                key = frozenset(str(v) for v in values) - {_ENUM_SENTINEL}
-                if key:
-                    out.add((owner if owner is not None else path, key))
+            for key in _node_value_sets(node):
+                out.add((owner if owner is not None else path, key))
             for key_name, child in node.items():
                 _walk(child, f"{path}.{key_name}", owner)
         elif isinstance(node, list):
@@ -663,11 +748,16 @@ def _inbound_enum_ids(spec: dict[str, Any]) -> set[tuple[str, frozenset[str]]]:
 
 def check_enum_coverage(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     """
-    Every inbound spec enum must be modelled, mapped, or explicitly waived.
+    Every inbound spec enum and ``const`` must be modelled or explicitly waived.
 
     Coverage is decided on the value-set alone — an exact match proves some
     library enum carries those values, not that the owning model field is
-    annotated with it.
+    annotated with it. A ``const`` declares a single value, so no library enum
+    can ever *equal* its value-set; it is covered when some library enum defines
+    the value. That is weaker than the exact match an ``enum`` array must make,
+    deliberately: a const is a discriminator (``modelKey``, an event ``type``),
+    and demanding more would flag every one of them. ``check_event_types`` pins
+    the axis that matters against its own enum.
     """
     errors: list[str] = []
     reusable = _reusable_response_error(spec)
@@ -675,7 +765,14 @@ def check_enum_coverage(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
         return [reusable], []
     lib_by_name = _library_enums_by_name()
     exact_sets = set(lib_by_name.values())
+    lib_values = frozenset[str]().union(*lib_by_name.values())
     inbound = _inbound_enum_ids(spec)
+
+    def _reportable(value_set: frozenset[str], path: str) -> bool:
+        """Inbound occurrence carrying no waiver; outbound-only is waived by direction."""
+        identity = (_enum_owner(path), value_set)
+        return identity not in _ENUM_COVERAGE_WAIVERS and identity in inbound
+
     for value_set, path in _iter_spec_enums(spec):
         if value_set in exact_sets:
             continue
@@ -690,19 +787,68 @@ def check_enum_coverage(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
                 f"{sorted(missing)} (enum renamed or members removed)"
             )
             continue
-        if (_enum_owner(path), value_set) in _ENUM_COVERAGE_WAIVERS:
-            continue
-        if (_enum_owner(path), value_set) not in inbound:
-            continue  # outbound-only (request param / body) → waived by direction
-        errors.append(
-            f"inbound spec enum at `{path}` (values {sorted(value_set)}) is not "
-            f"modelled by any library enum, not mapped in `_MODELLED_AS_SUBSET`, "
-            f"and not waived in `_ENUM_COVERAGE_WAIVERS`"
-        )
+        if _reportable(value_set, path):
+            errors.append(
+                f"inbound spec enum at `{path}` (values {sorted(value_set)}) is not "
+                f"modelled by any library enum, not mapped in `_MODELLED_AS_SUBSET`, "
+                f"and not waived in `_ENUM_COVERAGE_WAIVERS`"
+            )
+    errors.extend(
+        f"inbound spec const at `{path}` (value {sorted(value_set)[0]!r}) is not "
+        f"defined by any library enum and not waived in `_ENUM_COVERAGE_WAIVERS`"
+        for value_set, path in _iter_spec_consts(spec)
+        if not value_set <= lib_values and _reportable(value_set, path)
+    )
     return errors, []
 
 
-_CHECKS = (check_endpoints, check_model_fields, check_enums, check_enum_coverage)
+def check_event_types(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """
+    ``PUBLIC_EVENT_TYPES`` must equal the ``type`` consts of the ``event`` union.
+
+    ``EventType`` has no ``unknown`` member, so an event type the spec declares
+    and the library does not raises on parse and the event is dropped; both
+    directions are therefore errors.
+    """
+    errors: list[str] = []
+    schemas = spec.get("components", {}).get("schemas", {})
+    schema = schemas.get("event")
+    if schema is None:
+        return ["event: tracked schema absent from spec (server removed it)"], []
+    variants = schema.get("oneOf")
+    if not variants:
+        return ["event: spec schema no longer declares a `oneOf` union"], []
+    spec_types: set[str] = set()
+    for index, variant in enumerate(variants):
+        props = _resolve_object_props(variant, schemas) or {}
+        const = _resolve_const(props.get("type", {}), schemas)
+        if const is not None:
+            spec_types.add(const)
+        else:
+            errors.append(
+                f"event: `oneOf[{index}]` "
+                f"({variant.get('$ref', '<inline>')}) declares no `type` const"
+            )
+    modelled = {event_type.value for event_type in PUBLIC_EVENT_TYPES}
+    errors.extend(
+        f"event: spec event type `{value}` is absent from `PUBLIC_EVENT_TYPES`"
+        for value in sorted(spec_types - modelled)
+    )
+    errors.extend(
+        f"event: `PUBLIC_EVENT_TYPES` models `{value}`, absent from the spec "
+        f"`event` union (server removed it)"
+        for value in sorted(modelled - spec_types)
+    )
+    return errors, []
+
+
+_CHECKS = (
+    check_endpoints,
+    check_model_fields,
+    check_enums,
+    check_enum_coverage,
+    check_event_types,
+)
 
 
 def run_checks(spec: dict[str, Any]) -> tuple[list[str], list[str]]:

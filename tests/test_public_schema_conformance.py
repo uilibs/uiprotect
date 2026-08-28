@@ -26,21 +26,15 @@ import pytest
 from validate_spec import (  # local import via conftest sys.path insert
     _EXTRA_MODEL_FIELDS,
     _LIBRARY_OWNED_FIELDS,
+    _MODEL_SCHEMAS,
     SPEC_PATH,
     _leaf_model,
     _resolve_object_props,
+    _spec_field_name,
     check_completeness,
     check_enum_coverage,
     run_checks,
 )
-
-from uiprotect.data import (
-    PublicCamera,
-    PublicChime,
-    PublicLight,
-    PublicSensor,
-)
-from uiprotect.utils import to_snake_case
 
 if TYPE_CHECKING:
     from uiprotect.data.base import ProtectBaseObject
@@ -58,11 +52,10 @@ def _assert_matches(
     props = _resolve_object_props(node, schemas)
     assert props is not None, f"{path}: spec schema is not object-shaped"
 
-    # ``modelKey`` is remapped to the ``model`` field on ProtectModel.
-    spec_fields = {to_snake_case(key) for key in props}
-    model_fields = {"model_key" if f == "model" else f for f in cls.model_fields}
+    remaps = cls._get_unifi_remaps()
+    spec_fields = {_spec_field_name(key, remaps) for key in props}
     phantom = (
-        model_fields
+        set(cls.model_fields)
         - spec_fields
         - _LIBRARY_OWNED_FIELDS.get(path, set())
         - _EXTRA_MODEL_FIELDS.get(path, set())
@@ -74,7 +67,7 @@ def _assert_matches(
     for key, prop_schema in props.items():
         if _resolve_object_props(prop_schema, schemas) is None:
             continue  # scalar / enum leaf — nothing nested to compare
-        field = cls.model_fields.get(to_snake_case(key))
+        field = cls.model_fields.get(_spec_field_name(key, remaps))
         if field is None:
             continue
         leaf = _leaf_model(field.annotation)
@@ -85,12 +78,8 @@ def _assert_matches(
 @pytest.mark.skipif(not _SPEC_PATH.exists(), reason="openapi/integration.json absent")
 @pytest.mark.parametrize(
     ("cls", "schema_name"),
-    [
-        (PublicCamera, "camera"),
-        (PublicLight, "light"),
-        (PublicSensor, "sensor"),
-        (PublicChime, "chime"),
-    ],
+    _MODEL_SCHEMAS,
+    ids=[schema_name for _cls, schema_name in _MODEL_SCHEMAS],
 )
 def test_public_model_matches_spec(
     cls: type[ProtectBaseObject], schema_name: str

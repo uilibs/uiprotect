@@ -16,17 +16,20 @@ from validate_spec import (
     _EXAMPLE_CALLS,
     _MODELLED_AS_SUBSET,
     _inbound_enum_ids,
+    _iter_spec_consts,
     _iter_spec_enums,
     _leaf_model,
     _library_enums_by_name,
     _normalize_path,
     _public_api_coroutines,
+    _resolve_const,
     _resolve_object_props,
     _spec_field_name,
     check_completeness,
     check_endpoints,
     check_enum_coverage,
     check_enums,
+    check_event_types,
     check_model_fields,
     covered_endpoints,
     format_summary,
@@ -36,7 +39,7 @@ from validate_spec import (
 
 from uiprotect._public_api import registry
 from uiprotect.api import ProtectApiClient
-from uiprotect.data import PublicChime
+from uiprotect.data import PUBLIC_EVENT_TYPES, PublicChime
 
 if TYPE_CHECKING:
     import pytest
@@ -48,6 +51,19 @@ def _model_props(cls: Any, name: str) -> dict[str, dict[str, Any]]:
     owned = validate_spec._LIBRARY_OWNED_FIELDS.get(name, set())
     return {
         inv.get(f, f): {"type": "string"} for f in cls.model_fields if f not in owned
+    }
+
+
+def _event_union(props: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Build the ``event`` ``oneOf``: one variant per modelled public event type."""
+    return {
+        "oneOf": [
+            {
+                "type": "object",
+                "properties": {**props, "type": {"type": "string", "const": value}},
+            }
+            for value in sorted(event_type.value for event_type in PUBLIC_EVENT_TYPES)
+        ]
     }
 
 
@@ -65,6 +81,9 @@ def _chime_spec(
                 props.pop(drop, None)
             if extra is not None:
                 props[extra] = {"type": "string"}
+        if name == "event":
+            schemas[name] = _event_union(props)
+            continue
         schemas[name] = {"type": "object", "properties": props}
     for enum_cls, name in validate_spec._ENUM_SCHEMAS:
         schemas[name] = {"enum": [m.value for m in enum_cls]}
@@ -474,6 +493,168 @@ def test_check_enum_coverage_response_ref_flagged() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# const coverage
+# --------------------------------------------------------------------------- #
+
+
+def test_iter_spec_consts_collects_string_consts_only() -> None:
+    """String consts are collected per owning schema; numeric consts are skipped."""
+    spec = {
+        "components": {
+            "schemas": {
+                "eventModelKey": {"type": "string", "const": "event"},
+                "sirenDuration": {"anyOf": [{"type": "number", "const": 5000}]},
+            }
+        }
+    }
+    found = dict(_iter_spec_consts(spec))
+    assert frozenset({"event"}) in found
+    assert not any("5000" in value_set for value_set in found)
+
+
+def test_check_enum_coverage_const_defined_by_library_enum_passes() -> None:
+    """A const whose value some library enum defines needs no exact match."""
+    spec = _response_spec("cameraModelKey", {"type": "string", "const": "camera"})
+    assert check_enum_coverage(spec) == ([], [])
+
+
+def test_check_enum_coverage_unmodelled_inbound_const_flagged() -> None:
+    spec = _response_spec(
+        "teleporterModelKey", {"type": "string", "const": "teleporter"}
+    )
+    errors, warnings = check_enum_coverage(spec)
+    assert warnings == []
+    assert len(errors) == 1
+    assert "'teleporter'" in errors[0]
+    assert "teleporterModelKey" in errors[0]
+
+
+def test_check_enum_coverage_outbound_only_const_not_flagged() -> None:
+    """An unmodelled const reachable only from a request param is waived by direction."""
+    spec = {
+        "components": {"schemas": {}},
+        "paths": {
+            "/v1/things": {
+                "get": {"parameters": [{"schema": {"const": "onlyrequest"}}]}
+            }
+        },
+    }
+    assert check_enum_coverage(spec) == ([], [])
+
+
+def test_check_enum_coverage_const_waiver_respected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(
+        _ENUM_COVERAGE_WAIVERS, ("teleporter", frozenset({"teleporter"})), "deferred"
+    )
+    spec = _response_spec("teleporter", {"type": "string", "const": "teleporter"})
+    assert check_enum_coverage(spec) == ([], [])
+
+
+# --------------------------------------------------------------------------- #
+# check_event_types
+# --------------------------------------------------------------------------- #
+
+
+def _event_spec(**overrides: Any) -> dict[str, Any]:
+    """Green ``event`` union spec, optionally overriding the ``event`` schema."""
+    schema = overrides.pop("event", _event_union({}))
+    return {"components": {"schemas": {"event": schema, **overrides}}}
+
+
+def test_check_event_types_green() -> None:
+    assert check_event_types(_event_spec()) == ([], [])
+
+
+def test_check_event_types_spec_type_not_modelled() -> None:
+    spec = _event_spec()
+    spec["components"]["schemas"]["event"]["oneOf"].append(
+        {
+            "type": "object",
+            "properties": {"type": {"type": "string", "const": "teleport"}},
+        }
+    )
+    errors, warnings = check_event_types(spec)
+    assert warnings == []
+    assert errors == [
+        "event: spec event type `teleport` is absent from `PUBLIC_EVENT_TYPES`"
+    ]
+
+
+def test_check_event_types_modelled_type_absent_from_spec() -> None:
+    spec = _event_spec()
+    dropped = spec["components"]["schemas"]["event"]["oneOf"].pop()
+    missing = dropped["properties"]["type"]["const"]
+    errors, _warnings = check_event_types(spec)
+    assert len(errors) == 1
+    assert f"`PUBLIC_EVENT_TYPES` models `{missing}`" in errors[0]
+
+
+def test_resolve_const_follows_ref_and_all_of() -> None:
+    schemas: dict[str, Any] = {"ringType": {"type": "string", "const": "ring"}}
+    assert _resolve_const({"$ref": "#/c/ringType"}, schemas) == "ring"
+    assert _resolve_const(
+        {"allOf": [{"type": "string"}, {"const": "ring"}]}, schemas
+    ) == ("ring")
+    assert _resolve_const({"allOf": [{"type": "string"}]}, schemas) is None
+    assert _resolve_const({"const": 5000}, schemas) is None
+    assert _resolve_const({"$ref": "#/c/absent"}, schemas) is None
+
+
+def test_check_event_types_resolves_referenced_type_const() -> None:
+    """A variant whose ``type`` discriminator is behind a ``$ref`` still resolves."""
+    value = sorted(event_type.value for event_type in PUBLIC_EVENT_TYPES)[0]
+    spec = {
+        "components": {
+            "schemas": {
+                "event": {
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "properties": {
+                                "type": {"$ref": "#/components/schemas/ringType"}
+                            },
+                        }
+                    ]
+                },
+                "ringType": {"type": "string", "const": value},
+            }
+        }
+    }
+    errors, _warnings = check_event_types(spec)
+    assert not any("declares no `type` const" in e for e in errors)
+
+
+def test_check_event_types_missing_schema() -> None:
+    errors, _warnings = check_event_types({"components": {"schemas": {}}})
+    assert errors == ["event: tracked schema absent from spec (server removed it)"]
+
+
+def test_check_event_types_not_a_union() -> None:
+    errors, _warnings = check_event_types(_event_spec(event={"type": "object"}))
+    assert errors == ["event: spec schema no longer declares a `oneOf` union"]
+
+
+def test_check_event_types_variant_without_const() -> None:
+    spec = _event_spec(event={"oneOf": [{"type": "object", "properties": {}}]})
+    errors, _warnings = check_event_types(spec)
+    assert any("declares no `type` const" in e for e in errors)
+
+
+def test_check_model_fields_event_union_merges_variants() -> None:
+    """A field only some variants carry still covers the model; dropping it errors."""
+    errors, warnings = check_model_fields(_chime_spec())
+    assert (errors, warnings) == ([], [])
+
+    dropped = _chime_spec()
+    for variant in dropped["components"]["schemas"]["event"]["oneOf"]:
+        variant["properties"].pop("metadata")
+    errors, _warnings = check_model_fields(dropped)
+    assert any("event: model field `metadata`" in e for e in errors)
+
+
+# --------------------------------------------------------------------------- #
 # run_checks / format_summary / resolution helpers / main
 # --------------------------------------------------------------------------- #
 
@@ -527,6 +708,35 @@ def test_resolve_object_props_branches() -> None:
         {"type": "array", "items": {"$ref": "#/c/thing"}}, schemas
     ) == {"a": {"type": "string"}}
     assert _resolve_object_props({"type": "string"}, schemas) is None
+
+
+def test_resolve_object_props_merges_union_variants() -> None:
+    """``oneOf`` variants union their properties instead of picking the first."""
+    schemas: dict[str, Any] = {
+        "alpha": {"type": "object", "properties": {"a": {"type": "string"}}},
+        "beta": {"type": "object", "properties": {"b": {"type": "string"}}},
+    }
+    merged = _resolve_object_props(
+        {"oneOf": [{"$ref": "#/c/alpha"}, {"$ref": "#/c/beta"}]}, schemas
+    )
+    assert merged is not None
+    assert set(merged) == {"a", "b"}
+
+
+def test_resolve_object_props_merges_conflicting_property_recursively() -> None:
+    """A property the variants disagree on resolves to the union of both shapes."""
+    schemas: dict[str, Any] = {}
+    node = {
+        "oneOf": [
+            {"properties": {"metadata": {"properties": {"a": {"type": "string"}}}}},
+            {"properties": {"metadata": {"properties": {"b": {"type": "string"}}}}},
+        ]
+    }
+    merged = _resolve_object_props(node, schemas)
+    assert merged is not None
+    nested = _resolve_object_props(merged["metadata"], schemas)
+    assert nested is not None
+    assert set(nested) == {"a", "b"}
 
 
 def test_leaf_model_unwraps_optional_and_list() -> None:
