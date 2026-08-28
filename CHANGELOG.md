@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.4.0 (2026-08-28)
+
+### Features
+
+
+- Cover pos transactions and widen the spec conformance checks ([`f4b99e4`](https://github.com/uilibs/uiprotect/commit/f4b99e438b797f042c74cd17603d43dc100f9ebb))
+
+
 ## v16.3.0 (2026-08-28)
 
 ### Features
