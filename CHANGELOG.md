@@ -1,5 +1,25 @@
 # Changelog
 
+## v16.2.0 (2026-08-28)
+
+### Features
+
+
+- Complete the public event enums, types and metadata ([`820f314`](https://github.com/uilibs/uiprotect/commit/820f314d1b52fb8e4f2e6e4eefd6b51fc73d766b))
+
+
+- Expose publicbootstrap.store_for for a model type ([`42e1162`](https://github.com/uilibs/uiprotect/commit/42e1162798d5af8b35c4f43dd8bb7a4c5e0fe399))
+
+
+### Bug fixes
+
+
+- Open the marker-bump pr with a user token ([`f2e65d4`](https://github.com/uilibs/uiprotect/commit/f2e65d40f304f95fd3aa7aecfd10c38e1d02c91a))
+
+
+- Normalise resolved protect version to a bare major.minor.patch ([`f2e65d4`](https://github.com/uilibs/uiprotect/commit/f2e65d40f304f95fd3aa7aecfd10c38e1d02c91a))
+
+
 ## v16.1.0 (2026-08-24)
 
 ### Bug fixes
