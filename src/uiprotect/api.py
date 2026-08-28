@@ -2879,7 +2879,8 @@ class ProtectApiClient(BaseApiClient):
         The console emits no frame when the run expires, so the deadline
         derived from ``sirenStatus`` is the only signal there is. Any timer
         already armed for the siren is dropped first: the newest status wins.
-        An idle siren (no ``turn_off_at``) simply disarms.
+        An idle siren (no ``turn_off_at``) simply disarms, and so does a call
+        from outside a running event loop.
         """
         pb = self._public_bootstrap
         siren = pb.sirens.get(siren_id) if pb is not None else None
@@ -2889,11 +2890,19 @@ class ProtectApiClient(BaseApiClient):
         turn_off_at = siren.siren_status.turn_off_at
         if turn_off_at is None:
             return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # ``process_devices_ws_message`` is synchronous and may be driven
+            # from outside the loop; a caller with no loop cannot be served a
+            # timer anyway.
+            _LOGGER.debug("No running event loop, siren %s expiry not armed", siren_id)
+            return
         delay = (turn_off_at - datetime.now(UTC)).total_seconds()
         # A deadline already in the past still goes through the task rather
         # than announcing inline, so the synthetic frame lands *after* the
         # frame that revealed the expired run instead of ahead of it.
-        self._siren_off_tasks[siren_id] = asyncio.create_task(
+        self._siren_off_tasks[siren_id] = loop.create_task(
             self._announce_siren_off_at(siren_id, turn_off_at, max(delay, 0.0))
         )
 
