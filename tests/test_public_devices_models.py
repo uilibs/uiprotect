@@ -852,7 +852,7 @@ def _sensor_with(wire_key: str, value: int | None) -> PublicSensor:
 def test_public_epoch_ms_datetime_accessors(
     build: Callable[[int | None], Any], prop: str
 ) -> None:
-    """Each ``*_dt`` accessor converts its epoch-ms field to UTC and passes ``None`` through."""
+    """Convert epoch-ms fields to UTC datetimes and preserve ``None``."""
     assert getattr(build(EPOCH_MS), prop) == EPOCH_DT
     assert getattr(build(None), prop) is None
 
