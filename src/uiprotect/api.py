@@ -204,7 +204,8 @@ class CameraPublicApiLcdMessageRequest(TypedDict, total=False):
     Per the integration spec, ``type`` is required for every message variant;
     ``text`` is required for CUSTOM_MESSAGE and IMAGE; ``resetAt`` is optional
     for all variants (UNIX timestamp in ms; omit to use the NVR default, pass
-    ``None`` for "forever").  An empty dict clears the message.
+    ``None`` for "forever").  A ``resetAt`` already in the past clears the
+    message.
     """
 
     type: str

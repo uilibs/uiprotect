@@ -130,16 +130,18 @@ _LCD_TYPES_REQUIRING_TEXT: frozenset[DoorbellMessageType] = frozenset(
 def _build_public_lcd_message(
     text_type: DoorbellMessageType | None,
     text: str | None,
-    reset_at: datetime | None | DEFAULT_TYPE,
+    reset_at: datetime | DEFAULT_TYPE | None,
 ) -> CameraPublicApiLcdMessageRequest:
     """Build the ``lcdMessage`` PATCH body; ``text_type`` of ``None`` clears it."""
     if text_type is None:
         if text is not None or reset_at is not DEFAULT:
             raise BadRequest("Clearing the LCD message does not accept text/reset_at")
-        # A cleared message is an empty object in both directions: the console
-        # reports ``{}`` for a doorbell with no message, and accepts ``{}`` to
-        # clear one.
-        return {}
+        # The public API validates the request against a ``oneOf`` whose variants
+        # all require ``type``, so an empty object is rejected before any handler
+        # runs. A message whose ``resetAt`` has already passed is removed instead
+        # of being pushed to the camera; ``0`` avoids any client/console clock
+        # skew, and the type is never delivered so any text-free one will do.
+        return {"type": DoorbellMessageType.DO_NOT_DISTURB, "resetAt": 0}
     if text_type in _LCD_TYPES_REQUIRING_TEXT:
         if text is None:
             raise BadRequest(f"{text_type} requires text")

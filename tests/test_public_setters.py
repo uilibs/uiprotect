@@ -317,7 +317,7 @@ async def test_public_camera_lcd_message_forever() -> None:
 
 @pytest.mark.asyncio
 async def test_public_camera_lcd_message_clear() -> None:
-    """A ``None`` text type clears the message with an empty lcdMessage body."""
+    """A ``None`` text type clears the message with an already-passed resetAt."""
     api = MagicMock()
     cam = _camera(api)
     api.update_camera_public = AsyncMock(return_value=cam)
@@ -325,7 +325,10 @@ async def test_public_camera_lcd_message_clear() -> None:
     result = await cam.set_lcd_message(None)
 
     assert result is cam
-    api.update_camera_public.assert_awaited_once_with(cam.id, lcd_message={})
+    api.update_camera_public.assert_awaited_once_with(
+        cam.id,
+        lcd_message={"type": DoorbellMessageType.DO_NOT_DISTURB, "resetAt": 0},
+    )
 
 
 @pytest.mark.asyncio

@@ -173,8 +173,8 @@ async def test_get_camera_public_success(
             {"lcdMessage": {"type": "CUSTOM_MESSAGE", "text": "Hello"}},
         ),
         (
-            {"lcd_message": {}},
-            {"lcdMessage": {}},
+            {"lcd_message": {"type": "DO_NOT_DISTURB", "resetAt": 0}},
+            {"lcdMessage": {"type": "DO_NOT_DISTURB", "resetAt": 0}},
         ),
     ],
 )
@@ -753,7 +753,10 @@ async def test_camera_set_lcd_message_public_clear(camera: Camera) -> None:
     finally:
         unsub()
 
-    camera._api.update_camera_public.assert_called_once_with(camera.id, lcd_message={})
+    camera._api.update_camera_public.assert_called_once_with(
+        camera.id,
+        lcd_message={"type": DoorbellMessageType.DO_NOT_DISTURB, "resetAt": 0},
+    )
     assert camera.lcd_message is None
     # Clearing emits no WS message of its own, so one is faked.
     assert len(messages) == 1
