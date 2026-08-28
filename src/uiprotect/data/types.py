@@ -740,9 +740,9 @@ class EventButtonType(UnknownValuesEnumMixin, enum.StrEnum):
     PANIC = "panic"
     LEFT = "left"
     RIGHT = "right"
-    MAIN = "main"
     INPUT1 = "input1"
     INPUT2 = "input2"
+    MAIN = "main"
     UNKNOWN = "unknown"
 
 
@@ -948,9 +948,9 @@ class FobButton(UnknownValuesEnumMixin, enum.StrEnum):
     PANIC = "panic"
     LEFT = "left"
     RIGHT = "right"
-    MAIN = "main"
     INPUT1 = "input1"
     INPUT2 = "input2"
+    MAIN = "main"
     UNKNOWN = "unknown"
 
 
