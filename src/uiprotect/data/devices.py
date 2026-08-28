@@ -2863,10 +2863,15 @@ class Camera(ProtectMotionDeviceModel):
         message = _build_public_lcd_message(text_type, text, reset_at)
         updated = await self._api.update_camera_public(self.id, lcd_message=message)
         if text_type is None:
+            # The response is not read back: the console only runs its sweep for
+            # a provisioned, connected camera, so an offline one echoes the
+            # request straight back and would rebuild the message just cleared.
+            # The faked frame below only reaches an instance the bootstrap owns,
+            # so set the local state here as ``set_lcd_text`` does.
+            self.lcd_message = None
             # UniFi Protect bug: clearing the LCD message does _not_ emit a WS
             # message, so fake one the way ``set_lcd_text`` does. A reset time
-            # in the past is how the console signals a wiped message. The frame
-            # sets the local state, so the response is not read back here.
+            # in the past is how the console signals a wiped message.
             reset = to_js_time(utc_now() - timedelta(seconds=10))
             await self.emit_message({"lcdMessage": {"resetAt": reset}})
             return

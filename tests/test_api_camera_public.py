@@ -782,6 +782,25 @@ async def test_camera_set_lcd_message_public_clear_validation(
 
 
 @pytest.mark.asyncio()
+async def test_camera_set_lcd_message_public_clear_detached(camera: Camera) -> None:
+    """Clearing updates the local state even off the bootstrap's own instance."""
+    camera.feature_flags.has_lcd_screen = True
+    camera.lcd_message = LCDMessage.from_unifi_dict(
+        type="CUSTOM_MESSAGE", text="Hello", resetAt=None, api=camera._api
+    )
+    # The faked frame is routed through the bootstrap, so it never reaches an
+    # instance the bootstrap no longer holds.
+    camera._api.bootstrap.cameras.pop(camera.id, None)
+    updated = Mock()
+    updated.lcd_message = PublicLcdMessage()
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
+
+    await camera.set_lcd_message_public(None)
+
+    assert camera.lcd_message is None
+
+
+@pytest.mark.asyncio()
 async def test_camera_set_lcd_message_public_no_lcd(camera: Camera) -> None:
     camera.feature_flags.has_lcd_screen = False
 
