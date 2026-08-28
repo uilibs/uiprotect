@@ -1531,7 +1531,9 @@ async def test_update_public_populates_cache(
         get_cameras_public=AsyncMock(return_value=[Mock(id="c1")]),
         get_lights_public=AsyncMock(return_value=[Mock(id="l1")]),
         get_sensors_public=AsyncMock(return_value=[Mock(id="s1")]),
-        get_sirens_public=AsyncMock(return_value=[Mock(id="si1")]),
+        get_sirens_public=AsyncMock(
+            return_value=[Mock(id="si1", siren_status=Mock(turn_off_at=None))]
+        ),
         get_relays_public=AsyncMock(return_value=[Mock(id="r1")]),
         get_fobs_public=AsyncMock(return_value=[Mock(id="fb1")]),
         get_speakers_public=AsyncMock(return_value=[Mock(id="sp1")]),

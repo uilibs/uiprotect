@@ -863,3 +863,83 @@ def test_public_siren_turn_off_at_matches_activated_at_dt() -> None:
     # seconds), so a 5000 ms run ends five seconds after activation.
     status = PublicSirenStatus(is_active=True, activated_at=EPOCH_MS, duration=5000)
     assert status.turn_off_at == EPOCH_DT + timedelta(seconds=5)
+
+
+SIREN_PAYLOAD: dict[str, Any] = {
+    "id": "siren1",
+    "modelKey": "siren",
+    "state": "CONNECTED",
+    "name": "Hallway Siren",
+    "mac": "AABBCCDDEE03",
+    "volume": 80,
+    "ledSettings": {"isEnabled": True},
+    "sirenStatus": {"isActive": False, "activatedAt": None, "duration": None},
+    "connectionType": "lora",
+}
+
+
+def test_siren_add_arms_expiry_announcement() -> None:
+    """A siren add frame arms the timer that announces its run ending."""
+    pb = PublicBootstrap()
+    api = Mock()
+
+    pb.process_devices_ws_message(api, {"type": "add", "item": dict(SIREN_PAYLOAD)})
+
+    api._schedule_siren_off.assert_called_once_with("siren1")
+    api._cancel_siren_off.assert_not_called()
+
+
+def test_siren_update_rearms_expiry_announcement() -> None:
+    """Every siren update re-derives the deadline from the merged status."""
+    pb = PublicBootstrap()
+    api = Mock()
+    pb.process_devices_ws_message(api, {"type": "add", "item": dict(SIREN_PAYLOAD)})
+    api.reset_mock()
+
+    pb.process_devices_ws_message(
+        api,
+        {
+            "type": "update",
+            "item": {
+                "id": "siren1",
+                "modelKey": "siren",
+                "sirenStatus": {
+                    "isActive": True,
+                    "activatedAt": 1_700_000_000_000,
+                    "duration": 5000,
+                },
+            },
+        },
+    )
+
+    api._schedule_siren_off.assert_called_once_with("siren1")
+
+
+def test_siren_remove_drops_expiry_announcement() -> None:
+    """A removed siren takes its pending expiry timer with it."""
+    pb = PublicBootstrap()
+    api = Mock()
+    pb.process_devices_ws_message(api, {"type": "add", "item": dict(SIREN_PAYLOAD)})
+    api.reset_mock()
+
+    pb.process_devices_ws_message(
+        api, {"type": "remove", "item": {"id": "siren1", "modelKey": "siren"}}
+    )
+
+    assert "siren1" not in pb.sirens
+    api._cancel_siren_off.assert_called_once_with("siren1")
+    api._schedule_siren_off.assert_not_called()
+
+
+def test_non_siren_frame_leaves_expiry_announcement_alone() -> None:
+    """Frames for other device types never touch the siren timers."""
+    pb = PublicBootstrap()
+    api = Mock()
+
+    pb.process_devices_ws_message(api, {"type": "add", "item": dict(LIGHT_PAYLOAD)})
+    pb.process_devices_ws_message(
+        api, {"type": "remove", "item": {"id": "light1", "modelKey": "light"}}
+    )
+
+    api._schedule_siren_off.assert_not_called()
+    api._cancel_siren_off.assert_not_called()

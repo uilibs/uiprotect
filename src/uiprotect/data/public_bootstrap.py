@@ -429,6 +429,7 @@ class PublicBootstrap:
         new, old = self._apply_action(
             api, action_type, item, model_type, _dict_slot(store)
         )
+        self._track_siren_expiry(api, model_type, action_type, item)
         return DeviceWSResult(model_type, new, old, item)
 
     def _camera_state_before_apply(
@@ -478,6 +479,27 @@ class PublicBootstrap:
         """
         if model_type is ModelType.CAMERA and action_type == "remove":
             api._cancel_rtsps_refresh(item["id"])
+
+    def _track_siren_expiry(
+        self,
+        api: ProtectApiClient,
+        model_type: ModelType,
+        action_type: str,
+        item: dict[str, Any],
+    ) -> None:
+        """
+        Keep a siren's timed-run expiry announcement in step with its status.
+
+        The console never reports the end of a timed run, so every siren frame
+        re-derives the deadline from the merged status; a removed siren drops
+        its timer with the device.
+        """
+        if model_type is not ModelType.SIREN:
+            return
+        if action_type == "remove":
+            api._cancel_siren_off(item["id"])
+        else:
+            api._schedule_siren_off(item["id"])
 
     def _custom_slot_for(self, model_type: ModelType) -> _Slot | None:
         """Return the dedicated public-API slot for collision-routed types."""
