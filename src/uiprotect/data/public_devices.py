@@ -1683,10 +1683,15 @@ class PublicSirenStatus(ProtectBaseObject):
         populated). Derived from the websocket payload so no extra API call is
         needed — HA can compare against ``datetime.now(UTC)`` instead of
         maintaining its own timer.
+
+        ``duration`` is in milliseconds here even though
+        :meth:`ProtectApiClient.play_siren_public` takes seconds: the spec
+        types the status field as ``sirenDuration`` (5000/10000/20000/30000 ms)
+        and the play request body as ``sirenDurationSeconds`` (5/10/20/30 s).
         """
         if not self.is_active or self.activated_at is None or self.duration is None:
             return None
-        return from_js_time(self.activated_at) + timedelta(seconds=self.duration)
+        return from_js_time(self.activated_at) + timedelta(milliseconds=self.duration)
 
 
 class Siren(PublicDeviceModel):

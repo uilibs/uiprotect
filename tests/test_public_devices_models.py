@@ -823,7 +823,7 @@ def _sensor_with(wire_key: str, value: int | None) -> PublicSensor:
             "tampering_detected_at_dt",
         ),
         (
-            lambda v: PublicSirenStatus(is_active=True, activated_at=v, duration=5),
+            lambda v: PublicSirenStatus(is_active=True, activated_at=v, duration=5000),
             "activated_at_dt",
         ),
         (
@@ -859,5 +859,7 @@ def test_public_epoch_ms_datetime_accessors(
 
 def test_public_siren_turn_off_at_matches_activated_at_dt() -> None:
     """``turn_off_at`` is ``activated_at_dt`` plus the run duration."""
-    status = PublicSirenStatus(is_active=True, activated_at=EPOCH_MS, duration=5)
+    # ``duration`` is milliseconds on the status object (the play request takes
+    # seconds), so a 5000 ms run ends five seconds after activation.
+    status = PublicSirenStatus(is_active=True, activated_at=EPOCH_MS, duration=5000)
     assert status.turn_off_at == EPOCH_DT + timedelta(seconds=5)
