@@ -310,6 +310,7 @@ class EventType(ValuesEnumMixin, enum.StrEnum):
     SENSOR_CO_FAULT = "sensorCoFault"
     SENSOR_SMOKE_END_OF_LIFE = "sensorSmokeEndOfLife"
     RELAY_INPUT_CHANGED = "relayInputChanged"
+    CAMERA_DIGITAL_INPUT_CHANGED = "cameraDigitalInputChanged"
     ALARM_HUB_MOTION = "alarmHubMotion"
     ALARM_HUB_ENTRY_OPENED = "alarmHubEntryOpened"
     ALARM_HUB_ENTRY_CLOSED = "alarmHubEntryClosed"
@@ -318,6 +319,7 @@ class EventType(ValuesEnumMixin, enum.StrEnum):
     ALARM_HUB_SMOKE = "alarmHubSmoke"
     ALARM_HUB_GLASS_BREAK = "alarmHubGlassBreak"
     ALARM_HUB_TAMPER = "alarmHubTamper"
+    ALARM_HUB_DEVICE_TAMPER = "alarmHubDeviceTamper"
     ALARM_HUB_BATTERY_CONNECTED = "alarmHubBatteryConnected"
     ALARM_HUB_BATTERY_LOW = "alarmHubBatteryLow"
     SMART_DETECT_LOITER = "smartDetectLoiterZone"
@@ -700,6 +702,7 @@ class SensorExtremeMetricType(UnknownValuesEnumMixin, enum.StrEnum):
     PM2P5 = "pm2p5"
     PM4P0 = "pm4p0"
     PM10P0 = "pm10p0"
+    NOX = "nox"
     CO2 = "co2"
     VOC = "voc"
     UNKNOWN = "unknown"
@@ -741,6 +744,7 @@ class EventButtonType(UnknownValuesEnumMixin, enum.StrEnum):
     RIGHT = "right"
     INPUT1 = "input1"
     INPUT2 = "input2"
+    MAIN = "main"
     UNKNOWN = "unknown"
 
 
@@ -811,6 +815,15 @@ class AlarmHubInputContactType(UnknownValuesEnumMixin, enum.StrEnum):
 
     NO = "no"
     NC = "nc"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class AlarmHubTamperStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm-hub tamper state (``alarmHubDeviceTamper`` ``metadata.status.text``)."""
+
+    TAMPERED = "tampered"
+    RESTORED = "restored"
     UNKNOWN = "unknown"
 
 
@@ -939,6 +952,7 @@ class FobButton(UnknownValuesEnumMixin, enum.StrEnum):
     RIGHT = "right"
     INPUT1 = "input1"
     INPUT2 = "input2"
+    MAIN = "main"
     UNKNOWN = "unknown"
 
 

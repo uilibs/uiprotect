@@ -62,6 +62,7 @@ class PublicEventMetadata(ProtectBaseObject):
     alarm_type: SensorAlarmType | None = None
     button: EventButtonType | None = None
     input_state: RelayInputCircuitState | None = None
+    input_token: str | None = None
     input_channel: str | None = None
     pin: str | None = None
     device_id: str | None = None
@@ -83,6 +84,7 @@ class PublicEventMetadata(ProtectBaseObject):
         "alarmType",
         "button",
         "inputState",
+        "inputToken",
         "inputChannel",
         "pin",
         "deviceId",

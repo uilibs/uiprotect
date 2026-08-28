@@ -13,7 +13,9 @@ from uiprotect.data.public_event import (
     PublicNfcMetadata,
 )
 from uiprotect.data.types import (
+    AlarmHubTamperStatus,
     EventButtonType,
+    EventType,
     ModelType,
     MountType,
     RelayInputCircuitState,
@@ -50,6 +52,7 @@ _ALL_EVENT_TYPES = [
     "smartDetectLine",
     "smartDetectLoiterZone",
     "relayInputChanged",
+    "cameraDigitalInputChanged",
     "alarmHubMotion",
     "alarmHubEntryOpened",
     "alarmHubEntryClosed",
@@ -57,6 +60,7 @@ _ALL_EVENT_TYPES = [
     "alarmHubGlassBreak",
     "alarmHubButtonPress",
     "alarmHubTamper",
+    "alarmHubDeviceTamper",
     "alarmHubRelaySwitched",
     "alarmHubBatteryLow",
     "alarmHubBatteryConnected",
@@ -149,6 +153,36 @@ def test_relay_input_state_enum_resolves() -> None:
     assert event.metadata.input_channel == "0"
 
 
+def test_camera_digital_input_token_round_trips() -> None:
+    """``cameraDigitalInputChanged`` carries ``inputToken`` in a text envelope."""
+    event = PublicEvent.from_unifi_dict(
+        **_minimal(
+            "cameraDigitalInputChanged",
+            metadata={
+                "inputState": {"text": "circuitClosed"},
+                "inputToken": {"text": "AlarmIn_0"},
+                "inputChannel": {"text": "0"},
+            },
+        )
+    )
+    assert event.type is EventType.CAMERA_DIGITAL_INPUT_CHANGED
+    assert event.metadata is not None
+    assert event.metadata.input_token == "AlarmIn_0"  # noqa: S105 — ONVIF token
+    assert event.metadata.input_state is RelayInputCircuitState.CIRCUIT_CLOSED
+    assert event.unifi_dict()["metadata"] == {
+        "inputState": {"text": "circuitClosed"},
+        "inputToken": {"text": "AlarmIn_0"},
+        "inputChannel": {"text": "0"},
+    }
+
+
+def test_alarm_hub_device_tamper_parses() -> None:
+    event = PublicEvent.from_unifi_dict(
+        **_minimal("alarmHubDeviceTamper", metadata={"status": {"text": "tampered"}})
+    )
+    assert event.type is EventType.ALARM_HUB_DEVICE_TAMPER
+
+
 def test_smoke_test_source_enum_resolves_flat() -> None:
     """``sensorSmokeTest`` ``metadata.source`` is a flat string, not enveloped."""
     event = PublicEvent.from_unifi_dict(
@@ -204,6 +238,48 @@ def test_button_enum_resolves() -> None:
     )
     assert event.metadata is not None
     assert event.metadata.button is EventButtonType.PANIC
+
+
+@pytest.mark.parametrize("type_str", ["sensorButtonPressed", "alarmHubButtonPress"])
+def test_main_button_enum_resolves(type_str: str) -> None:
+    event = PublicEvent.from_unifi_dict(
+        **_minimal(type_str, metadata={"button": {"text": "main"}})
+    )
+    assert event.metadata is not None
+    assert event.metadata.button is EventButtonType.MAIN
+
+
+def test_nox_sensor_extreme_metric_enum_resolves() -> None:
+    event = PublicEvent.from_unifi_dict(
+        **_minimal(
+            "sensorExtremeValues",
+            metadata={
+                "sensorType": {"text": "nox"},
+                "sensorValue": {"text": 1.5},
+                "status": {"text": "high"},
+            },
+        )
+    )
+    assert event.metadata is not None
+    assert event.metadata.sensor_type is SensorExtremeMetricType.NOX
+
+
+@pytest.mark.parametrize("status", ["tampered", "restored"])
+def test_alarm_hub_tamper_status_modelled(status: str) -> None:
+    """``AlarmHubTamperStatus`` models the tamper states, unwired from the model."""
+    assert AlarmHubTamperStatus(status) is not AlarmHubTamperStatus.UNKNOWN
+    metadata = PublicEventMetadata.from_unifi_dict(
+        status={"text": status},
+        deviceId={"text": "aabbccddeeff00112233aabb"},
+        deviceName={"text": "Alarm Hub"},
+    )
+    # The ``status`` wire key is shared with ``sensorExtremeValues``, so the field
+    # stays typed as ``SensorStatusType``; retyping it is a breaking change.
+    assert metadata.status is SensorStatusType.UNKNOWN
+
+
+def test_alarm_hub_tamper_status_unknown_value() -> None:
+    assert AlarmHubTamperStatus("unobtanium") is AlarmHubTamperStatus.UNKNOWN
 
 
 def test_mount_type_enum_resolves() -> None:
