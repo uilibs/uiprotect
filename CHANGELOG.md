@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.5.0 (2026-08-28)
+
+### Features
+
+
+- Announce siren timed-run expiry over the devices websocket ([`55cec39`](https://github.com/uilibs/uiprotect/commit/55cec394bfe3a925e9b9ee1093b0600f2200a547))
+
+
 ## v16.4.0 (2026-08-28)
 
 ### Features
