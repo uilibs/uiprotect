@@ -19,7 +19,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from functools import cache
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, TypedDict
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NotRequired, Self, TypedDict
 
 from pydantic import Field
 from pydantic.fields import PrivateAttr
@@ -51,6 +51,7 @@ from .types import (
     EventType,
     FobAwayState,
     FobButton,
+    FobButtonLabels,
     LightModeEnableType,
     LightModeType,
     LiveviewCycleMode,
@@ -217,6 +218,20 @@ class PublicLiveviewSlotDict(TypedDict):
     cameras: list[str]
     cycleMode: LiveviewCycleMode
     cycleInterval: int
+
+
+class PublicPosLineItemDict(TypedDict):
+    """One purchased line item of a POS transaction (write shape)."""
+
+    title: str
+    quantity: int
+
+
+class PublicPosLocationDict(TypedDict):
+    """Location or register a POS transaction was rung up at (write shape)."""
+
+    id: str
+    name: NotRequired[str]
 
 
 class PublicSignalState(ProtectBaseObject):
@@ -1848,6 +1863,7 @@ class Fob(PublicDeviceModel):
     # ``FobAwayState`` carries an ``unknown`` member, so values added by newer
     # firmware coerce to the ``UNKNOWN`` member rather than raising.
     away_state: FobAwayState
+    button_labels: FobButtonLabels
     feature_flags: PublicFobFeatureFlags
     # Required by the spec — a fob is always a wireless battery device.
     wireless_connection_state: PublicWirelessConnectionState
@@ -2340,7 +2356,19 @@ class PublicUlpUser(ProtectModelWithId):
     first_name: str
     last_name: str
     full_name: str
+    # Spec-required and non-nullable — an empty string when UniFi Identity
+    # holds no address — but ``sample_ulp_users.json``, captured from a real
+    # console, carries no ``email`` key at all, so older firmware omits it and
+    # the field stays optional.
+    email: str | None = None
     status: UlpUserStatus
+
+
+class PublicPosTransactionResponse(ProtectBaseObject):
+    """Result of ingesting a POS transaction for a camera."""
+
+    created: bool
+    event_id: str | None = None
 
 
 class PublicFile(ProtectBaseObject):

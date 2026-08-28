@@ -176,7 +176,7 @@ def public_patch(
 
 
 def public_post(
-    path: str,
+    path: str, *, item: type[Any] | None = None
 ) -> Callable[[_Method[_P, _R]], _Method[_P, _R]]:
-    """Declare a fire-and-forget POST endpoint (path-only, no return value)."""
-    return _endpoint("post", path, item=None, items=None, has_body=False)
+    """Declare a POST endpoint: path-only and fire-and-forget, or ``item=`` with a body."""
+    return _endpoint("post", path, item=item, items=None, has_body=item is not None)

@@ -356,7 +356,19 @@ enum left untyped needs an explicit, documented entry in
 `_ENUM_COVERAGE_WAIVERS`, keyed by `(owning component schema, value-set)` so a
 waiver for a generic set like `{closed, open}` cannot silently cover an
 unrelated enum on another schema. The default is to model; waivers are the rare
-exception. Spec `required` vs. model `optional` is not checked — the library models every public-API field optional by design, so it
+exception. Single-value `const` discriminators (`modelKey`, an event `type`) are
+walked too, under a membership rule rather than the exact match an `enum` array
+must make: no library enum can ever _equal_ a one-value set, so a const counts as
+covered when some library enum defines the value, and non-string consts —
+`sirenDuration`, `activationDelay` and friends, which enumerate allowed _numbers_
+— are skipped. `check_event_types` pins the axis that membership alone leaves
+loose: `PUBLIC_EVENT_TYPES` must equal the `type` consts of the spec's `event`
+`oneOf`, both directions an error, because `EventType` has no `unknown` member
+and an unmodelled public event type is dropped on parse. `oneOf`/`allOf` nodes
+resolve to the _union_ of their object variants (a property the variants disagree
+on becomes a nested union, so per-event `metadata` blocks merge too), which is
+what lets the single all-optional `PublicEvent` model be field-checked against
+the 38-variant `event` union. Spec `required` vs. model `optional` is not checked — the library models every public-API field optional by design, so it
 would be guaranteed noise. It exits non-zero on any error and prints a markdown
 summary. Reproduce locally with:
 

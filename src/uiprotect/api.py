@@ -70,6 +70,9 @@ from .data import (
     PublicLiveview,
     PublicLiveviewSlotDict,
     PublicNVR,
+    PublicPosLineItemDict,
+    PublicPosLocationDict,
+    PublicPosTransactionResponse,
     PublicSensor,
     PublicSensorAlarmSettings,
     PublicSensorGlassBreakSettingsWrite,
@@ -100,6 +103,7 @@ from .data.devices import AiPort, Chime
 from .data.types import (
     AssetFileType,
     IteratorCallback,
+    PosTransactionType,
     ProgressCallback,
     PTZPatrol,
     PTZPreset,
@@ -3992,6 +3996,41 @@ class ProtectApiClient(BaseApiClient):
         camera = PublicCamera.from_unifi_dict(**result, api=self)
         self._write_through_public_twin(camera)
         return camera
+
+    @public_post(
+        "/v1/pos/cameras/{camera_id}/transactions",
+        item=PublicPosTransactionResponse,
+    )
+    async def create_pos_transaction_public(
+        self,
+        camera_id: str,
+        *,
+        type: PosTransactionType,  # noqa: A002  # wire key is ``type``
+        external_id: str,
+        amount: float,
+        currency: str | None = None,
+        line_items: list[PublicPosLineItemDict] | None = None,
+        location: PublicPosLocationDict | None = None,
+        payment_types: list[str] | None = None,
+        timestamp: int | None = None,
+    ) -> PublicPosTransactionResponse:
+        """
+        Ingest a point-of-sale transaction as a camera event using public API.
+
+        ``external_id`` (1-255 chars) is unique per camera and drives
+        best-effort idempotency: a repeat returns ``created=False`` with
+        ``event_id`` echoing the already-ingested event, while a concurrent
+        repeat raises ``BadRequest`` on the server's 409 and should be retried
+        shortly. Idempotency is in-memory and per-process, so it does not
+        survive a Protect restart.
+
+        ``amount`` is >= 0, ``currency`` an uppercase ISO 4217 code,
+        ``line_items`` holds at most 200 entries (each ``quantity`` >= 1),
+        ``payment_types`` at most 20, and ``timestamp`` is epoch milliseconds
+        within the last 24 hours and no more than 5 minutes ahead of server time
+        (a value inside that skew is clamped to now).
+        """
+        raise NotImplementedError
 
     @public_get("/v1/chimes", items=PublicChime)
     async def get_chimes_public(self) -> list[PublicChime]:
