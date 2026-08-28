@@ -1169,7 +1169,7 @@ def test_fob_model_from_unifi_dict_unreported() -> None:
         name="Front Fob",
         mac="AA:BB:CC:DD:EE:FF",
         awayState="ONLINE",
-        featureFlags={"buttons": ["arm", "disarm", "panic"]},
+        featureFlags={"buttons": ["arm", "disarm", "panic", "main"]},
         wirelessConnectionState={
             "signalState": {"signalQuality": None, "signalStrength": None},
             "batteryStatus": {"percentage": None, "isLow": False},
@@ -1184,6 +1184,7 @@ def test_fob_model_from_unifi_dict_unreported() -> None:
         FobButton.ARM,
         FobButton.DISARM,
         FobButton.PANIC,
+        FobButton.MAIN,
     ]
     assert fob.wireless_connection_state.signal_state.signal_quality is None
     assert fob.wireless_connection_state.signal_state.signal_strength is None

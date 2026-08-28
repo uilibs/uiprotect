@@ -700,6 +700,7 @@ class SensorExtremeMetricType(UnknownValuesEnumMixin, enum.StrEnum):
     PM2P5 = "pm2p5"
     PM4P0 = "pm4p0"
     PM10P0 = "pm10p0"
+    NOX = "nox"
     CO2 = "co2"
     VOC = "voc"
     UNKNOWN = "unknown"
@@ -739,6 +740,7 @@ class EventButtonType(UnknownValuesEnumMixin, enum.StrEnum):
     PANIC = "panic"
     LEFT = "left"
     RIGHT = "right"
+    MAIN = "main"
     INPUT1 = "input1"
     INPUT2 = "input2"
     UNKNOWN = "unknown"
@@ -811,6 +813,15 @@ class AlarmHubInputContactType(UnknownValuesEnumMixin, enum.StrEnum):
 
     NO = "no"
     NC = "nc"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class AlarmHubTamperStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm-hub tamper state (``alarmHubDeviceTamper`` ``metadata.status.text``)."""
+
+    TAMPERED = "tampered"
+    RESTORED = "restored"
     UNKNOWN = "unknown"
 
 
@@ -937,6 +948,7 @@ class FobButton(UnknownValuesEnumMixin, enum.StrEnum):
     PANIC = "panic"
     LEFT = "left"
     RIGHT = "right"
+    MAIN = "main"
     INPUT1 = "input1"
     INPUT2 = "input2"
     UNKNOWN = "unknown"

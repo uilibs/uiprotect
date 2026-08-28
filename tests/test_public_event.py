@@ -13,6 +13,7 @@ from uiprotect.data.public_event import (
     PublicNfcMetadata,
 )
 from uiprotect.data.types import (
+    AlarmHubTamperStatus,
     EventButtonType,
     ModelType,
     MountType,
@@ -204,6 +205,48 @@ def test_button_enum_resolves() -> None:
     )
     assert event.metadata is not None
     assert event.metadata.button is EventButtonType.PANIC
+
+
+@pytest.mark.parametrize("type_str", ["sensorButtonPressed", "alarmHubButtonPress"])
+def test_main_button_enum_resolves(type_str: str) -> None:
+    event = PublicEvent.from_unifi_dict(
+        **_minimal(type_str, metadata={"button": {"text": "main"}})
+    )
+    assert event.metadata is not None
+    assert event.metadata.button is EventButtonType.MAIN
+
+
+def test_nox_sensor_extreme_metric_enum_resolves() -> None:
+    event = PublicEvent.from_unifi_dict(
+        **_minimal(
+            "sensorExtremeValues",
+            metadata={
+                "sensorType": {"text": "nox"},
+                "sensorValue": {"text": 1.5},
+                "status": {"text": "high"},
+            },
+        )
+    )
+    assert event.metadata is not None
+    assert event.metadata.sensor_type is SensorExtremeMetricType.NOX
+
+
+@pytest.mark.parametrize("status", ["tampered", "restored"])
+def test_alarm_hub_tamper_status_modelled(status: str) -> None:
+    """``AlarmHubTamperStatus`` models the tamper states, unwired from the model."""
+    assert AlarmHubTamperStatus(status) is not AlarmHubTamperStatus.UNKNOWN
+    metadata = PublicEventMetadata.from_unifi_dict(
+        status={"text": status},
+        deviceId={"text": "aabbccddeeff00112233aabb"},
+        deviceName={"text": "Alarm Hub"},
+    )
+    # The ``status`` wire key is shared with ``sensorExtremeValues``, so the field
+    # stays typed as ``SensorStatusType``; retyping it is a breaking change.
+    assert metadata.status is SensorStatusType.UNKNOWN
+
+
+def test_alarm_hub_tamper_status_unknown_value() -> None:
+    assert AlarmHubTamperStatus("unobtanium") is AlarmHubTamperStatus.UNKNOWN
 
 
 def test_mount_type_enum_resolves() -> None:
