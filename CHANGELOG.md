@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.3.0 (2026-08-28)
+
+### Features
+
+
+- Add datetime accessors for public epoch-ms timestamps ([`d8d85b3`](https://github.com/uilibs/uiprotect/commit/d8d85b39d0481d630c07b3fda49a42989bc3a369))
+
+
 ## v16.2.0 (2026-08-28)
 
 ### Features
