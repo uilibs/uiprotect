@@ -2862,6 +2862,14 @@ class Camera(ProtectMotionDeviceModel):
             raise BadRequest("Camera does not have an LCD screen")
         message = _build_public_lcd_message(text_type, text, reset_at)
         updated = await self._api.update_camera_public(self.id, lcd_message=message)
+        if text_type is None:
+            # UniFi Protect bug: clearing the LCD message does _not_ emit a WS
+            # message, so fake one the way ``set_lcd_text`` does. A reset time
+            # in the past is how the console signals a wiped message. The frame
+            # sets the local state, so the response is not read back here.
+            reset = to_js_time(utc_now() - timedelta(seconds=10))
+            await self.emit_message({"lcdMessage": {"resetAt": reset}})
+            return
         pub = updated.lcd_message
         # The public response carries a ``PublicLcdMessage``; rebuild the private
         # ``LCDMessage`` from it (``None`` when the message was cleared).
@@ -2875,12 +2883,6 @@ class Camera(ProtectMotionDeviceModel):
                 api=self._api,
             )
         )
-        if text_type is None:
-            # UniFi Protect bug: clearing the LCD message does _not_ emit a WS
-            # message, so fake one the way ``set_lcd_text`` does. A reset time
-            # in the past is how the console signals a wiped message.
-            reset = to_js_time(utc_now() - timedelta(seconds=10))
-            await self.emit_message({"lcdMessage": {"resetAt": reset}})
 
     async def set_osd_name_public(self, enabled: bool) -> None:
         """Toggle name overlay (OSD) via public API."""
