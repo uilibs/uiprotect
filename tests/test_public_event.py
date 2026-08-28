@@ -15,6 +15,7 @@ from uiprotect.data.public_event import (
 from uiprotect.data.types import (
     AlarmHubTamperStatus,
     EventButtonType,
+    EventType,
     ModelType,
     MountType,
     RelayInputCircuitState,
@@ -51,6 +52,7 @@ _ALL_EVENT_TYPES = [
     "smartDetectLine",
     "smartDetectLoiterZone",
     "relayInputChanged",
+    "cameraDigitalInputChanged",
     "alarmHubMotion",
     "alarmHubEntryOpened",
     "alarmHubEntryClosed",
@@ -58,6 +60,7 @@ _ALL_EVENT_TYPES = [
     "alarmHubGlassBreak",
     "alarmHubButtonPress",
     "alarmHubTamper",
+    "alarmHubDeviceTamper",
     "alarmHubRelaySwitched",
     "alarmHubBatteryLow",
     "alarmHubBatteryConnected",
@@ -148,6 +151,36 @@ def test_relay_input_state_enum_resolves() -> None:
     assert event.metadata is not None
     assert event.metadata.input_state is RelayInputCircuitState.CIRCUIT_OPEN
     assert event.metadata.input_channel == "0"
+
+
+def test_camera_digital_input_token_round_trips() -> None:
+    """``cameraDigitalInputChanged`` carries ``inputToken`` in a text envelope."""
+    event = PublicEvent.from_unifi_dict(
+        **_minimal(
+            "cameraDigitalInputChanged",
+            metadata={
+                "inputState": {"text": "circuitClosed"},
+                "inputToken": {"text": "AlarmIn_0"},
+                "inputChannel": {"text": "0"},
+            },
+        )
+    )
+    assert event.type is EventType.CAMERA_DIGITAL_INPUT_CHANGED
+    assert event.metadata is not None
+    assert event.metadata.input_token == "AlarmIn_0"  # noqa: S105 — ONVIF token
+    assert event.metadata.input_state is RelayInputCircuitState.CIRCUIT_CLOSED
+    assert event.unifi_dict()["metadata"] == {
+        "inputState": {"text": "circuitClosed"},
+        "inputToken": {"text": "AlarmIn_0"},
+        "inputChannel": {"text": "0"},
+    }
+
+
+def test_alarm_hub_device_tamper_parses() -> None:
+    event = PublicEvent.from_unifi_dict(
+        **_minimal("alarmHubDeviceTamper", metadata={"status": {"text": "tampered"}})
+    )
+    assert event.type is EventType.ALARM_HUB_DEVICE_TAMPER
 
 
 def test_smoke_test_source_enum_resolves_flat() -> None:
