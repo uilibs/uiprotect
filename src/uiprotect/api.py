@@ -1395,7 +1395,9 @@ class ProtectApiClient(BaseApiClient):
         api_key: API key for UFP
         verify_ssl: Verify HTTPS certificate (default: `True`)
         session: Optional aiohttp session to use (default: generate one)
-        override_connection_host: Use `host` as your `connection_host` for the private RTSP(S) URLs and the public RTSPS URLs instead of using the one provided by UniFi Protect.
+        override_connection_host: Use `host` as your `connection_host` for the
+            private RTSP(S) URLs and the public RTSPS URLs instead of using the
+            one provided by UniFi Protect.
         minimum_score: minimum score for events (default: `0`)
         subscribed_models: Model types you want to filter events for WS. You will need to manually check the bootstrap for updates for events that not subscibred.
         ignore_stats: Ignore storage, system, etc. stats/metrics from NVR and cameras (default: false)

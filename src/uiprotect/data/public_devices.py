@@ -357,7 +357,8 @@ class RTSPSStreams(ProtectBaseObject):
         """Bind to ``api`` so URLs can honour ``override_connection_host``."""
         # Runtime-identical to ProtectBaseObject.__init__, but mypy synthesises a
         # dataclass_transform __init__ per model subclass from declared fields only;
-        # without this redeclaration every ``RTSPSStreams(api=...)`` is a call-arg error.
+        # without this redeclaration every ``RTSPSStreams(api=...)`` is a
+        # call-arg error.
         super().__init__(api=api, **data)
 
     def get_stream_url(self, quality: str, srtp: bool = True) -> str | None:
