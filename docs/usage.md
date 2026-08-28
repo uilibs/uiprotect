@@ -261,6 +261,29 @@ public bootstrap is loaded they keep the cached public twin fresh through the
 same `update_*_public` endpoints, so the Home Assistant integration and the CLI
 continue to work as before.
 
+## POS transaction overlay (public API)
+
+`create_pos_transaction_public()` records a point-of-sale transaction as a
+camera event so the receipt can be overlaid on recorded footage:
+
+```python
+result = await protect.create_pos_transaction_public(
+    camera_id,
+    type=PosTransactionType.SALE,
+    external_id="order-4711",
+    amount=12.50,
+    currency="USD",
+    line_items=[{"title": "Coffee", "quantity": 2}],
+)
+```
+
+`external_id` is unique per camera and drives best-effort idempotency: a repeat
+comes back with `created=False` and `event_id` echoing the event already
+ingested, while a concurrent repeat raises `BadRequest` on the server's 409 and
+should be retried shortly. That de-duplication is in-memory and per-process, so
+it does not survive a Protect restart. Overlay capture is best-effort too — a
+200 confirms the event was recorded, not that footage exists for the window.
+
 ## Shared identity interface
 
 The public device models expose the same derived identity attributes as the
