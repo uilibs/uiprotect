@@ -989,7 +989,8 @@ async def test_update_arm_profile_empty(
 
 
 def test_siren_model_from_unifi_dict() -> None:
-    # activatedAt is Unix-ms; duration is in seconds (matching SirenDuration values).
+    # activatedAt and duration are both Unix-ms on the status object; only the
+    # play request takes seconds.
     # Use a timestamp safely in the future so is_active stays True throughout the test.
     activated_at_ms = int((time.time() + 60) * 1000)
     siren = Siren.from_unifi_dict(
@@ -1000,7 +1001,11 @@ def test_siren_model_from_unifi_dict() -> None:
         mac="AA:BB:CC:DD:EE:FF",
         volume=80,
         ledSettings={"isEnabled": True},
-        sirenStatus={"isActive": True, "activatedAt": activated_at_ms, "duration": 5},
+        sirenStatus={
+            "isActive": True,
+            "activatedAt": activated_at_ms,
+            "duration": 5000,
+        },
         connectionType="lora",
         wirelessConnectionState={
             "signalState": {"signalQuality": 85, "signalStrength": -45},
@@ -1024,7 +1029,7 @@ def test_siren_model_from_unifi_dict() -> None:
         mac="AA:BB:CC:DD:EE:FF",
         volume=80,
         ledSettings={"isEnabled": True},
-        sirenStatus={"isActive": True, "activatedAt": expired_at_ms, "duration": 5},
+        sirenStatus={"isActive": True, "activatedAt": expired_at_ms, "duration": 5000},
         connectionType="lora",
         wirelessConnectionState={
             "signalState": {"signalQuality": 85, "signalStrength": -45},
@@ -1046,7 +1051,7 @@ def test_siren_model_from_unifi_dict() -> None:
         mac="AA:BB:CC:DD:EE:FF",
         volume=80,
         ledSettings={"isEnabled": True},
-        sirenStatus={"isActive": False, "activatedAt": future_at_ms, "duration": 5},
+        sirenStatus={"isActive": False, "activatedAt": future_at_ms, "duration": 5000},
         connectionType="lora",
         wirelessConnectionState={
             "signalState": {"signalQuality": 85, "signalStrength": -45},
@@ -1070,7 +1075,7 @@ def test_siren_state_and_connection_type_round_trip() -> None:
         "sirenStatus": {
             "isActive": True,
             "activatedAt": activated_at_ms,
-            "duration": 5,
+            "duration": 5000,
         },
         "connectionType": "lora",
         "wirelessConnectionState": {
@@ -1098,7 +1103,11 @@ def test_siren_state_and_connection_type_coerce_unknown() -> None:
         mac="AA:BB:CC:DD:EE:FF",
         volume=80,
         ledSettings={"isEnabled": True},
-        sirenStatus={"isActive": True, "activatedAt": activated_at_ms, "duration": 5},
+        sirenStatus={
+            "isActive": True,
+            "activatedAt": activated_at_ms,
+            "duration": 5000,
+        },
         connectionType="future-radio",
         wirelessConnectionState={
             "signalState": {"signalQuality": 85, "signalStrength": -45},
@@ -1444,15 +1453,19 @@ def test_public_bootstrap_applies_add_and_update(
     assert new.name == "Siren"  # type: ignore[attr-defined]
 
     # Partial update of a nested model (``sirenStatus.isActive``).
-    # activatedAt is Unix-ms; duration is in seconds — use a timestamp safely
-    # in the future so turn_off_at lies in the future for the whole test.
+    # activatedAt and duration are both Unix-ms — use a timestamp safely in the
+    # future so turn_off_at lies in the future for the whole test.
     future_ms = int((time.time() + 60) * 1000)
     status_payload: dict[str, Any] = {
         "type": "update",
         "item": {
             "id": SIREN_ID,
             "modelKey": "siren",
-            "sirenStatus": {"isActive": True, "activatedAt": future_ms, "duration": 5},
+            "sirenStatus": {
+                "isActive": True,
+                "activatedAt": future_ms,
+                "duration": 5000,
+            },
         },
     }
     mt, new, old = pb.process_devices_ws_message(protect_client, status_payload)
