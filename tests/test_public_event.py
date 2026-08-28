@@ -27,9 +27,55 @@ from uiprotect.data.types import (
     SmokeTestSource,
 )
 
-# Derived from the library's modelled public event set, which
-# ``scripts/validate_spec.py`` pins against the spec's ``event`` ``oneOf``.
-_ALL_EVENT_TYPES = sorted(event_type.value for event_type in PUBLIC_EVENT_TYPES)
+# The wire values of the spec's ``event`` ``oneOf``, in spec order. Committed as
+# a literal on purpose: ``scripts/validate_spec.py::check_event_types`` compares
+# ``PUBLIC_EVENT_TYPES`` against a fetched spec, but the spec is gitignored and
+# only the nightly cron fetches it, so this list is the only pin CI ever sees.
+_ALL_EVENT_TYPES = [
+    "ring",
+    "sensorExtremeValues",
+    "sensorWaterLeak",
+    "sensorTamper",
+    "sensorBatteryLow",
+    "sensorAlarm",
+    "sensorVape",
+    "sensorOpened",
+    "sensorClosed",
+    "sensorSmokeTest",
+    "sensorSmokeBatteryLow",
+    "sensorSmokeNeedsCleaning",
+    "sensorSmokeFault",
+    "sensorCoFault",
+    "sensorSmokeEndOfLife",
+    "sensorMotion",
+    "sensorButtonPressed",
+    "lightMotion",
+    "motion",
+    "smartAudioDetect",
+    "smartDetectZone",
+    "smartDetectLine",
+    "smartDetectLoiterZone",
+    "relayInputChanged",
+    "cameraDigitalInputChanged",
+    "alarmHubMotion",
+    "alarmHubEntryOpened",
+    "alarmHubEntryClosed",
+    "alarmHubSmoke",
+    "alarmHubGlassBreak",
+    "alarmHubButtonPress",
+    "alarmHubTamper",
+    "alarmHubDeviceTamper",
+    "alarmHubRelaySwitched",
+    "alarmHubBatteryLow",
+    "alarmHubBatteryConnected",
+    "nfcCardScanned",
+    "fingerprintIdentified",
+]
+
+
+def test_public_event_types_matches_wire_pin() -> None:
+    assert {t.value for t in PUBLIC_EVENT_TYPES} == set(_ALL_EVENT_TYPES)
+    assert len(_ALL_EVENT_TYPES) == len(set(_ALL_EVENT_TYPES)) == 38
 
 
 def _minimal(type_str: str, **extra: object) -> dict[str, object]:

@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import aiohttp
 import orjson
 import pytest
+from pydantic import ValidationError
 
 from uiprotect import api as api_module
 from uiprotect.api import _UNSET, RTSPSStreams, _UnsetType
@@ -1170,6 +1171,7 @@ def test_fob_model_from_unifi_dict_unreported() -> None:
         name="Front Fob",
         mac="AA:BB:CC:DD:EE:FF",
         awayState="ONLINE",
+        buttonLabels="securityActions",
         featureFlags={"buttons": ["arm", "disarm", "panic", "main"]},
         wirelessConnectionState={
             "signalState": {"signalQuality": None, "signalStrength": None},
@@ -1201,6 +1203,7 @@ def test_fob_model_from_unifi_dict_unreported() -> None:
         name="Bare Fob",
         mac="AA:BB:CC:DD:EE:FF",
         awayState="FORGOTTEN",
+        buttonLabels="securityActions",
         featureFlags={"buttons": ["teleport"]},
         wirelessConnectionState={
             "signalState": {"signalQuality": None, "signalStrength": None},
@@ -1220,6 +1223,7 @@ def test_fob_model_from_unifi_dict_unreported() -> None:
         name=None,
         mac="AA:BB:CC:DD:EE:FF",
         awayState="ONLINE",
+        buttonLabels="securityActions",
         featureFlags={"buttons": ["arm"]},
         wirelessConnectionState={
             "signalState": {"signalQuality": None, "signalStrength": None},
@@ -1256,10 +1260,8 @@ def test_fob_button_labels_parses_and_round_trips() -> None:
     unknown = Fob.from_unifi_dict(**{**payload, "buttonLabels": "hieroglyphs"})
     assert unknown.button_labels is FobButtonLabels.UNKNOWN
 
-    absent = Fob.from_unifi_dict(
-        **{k: v for k, v in payload.items() if k != "buttonLabels"}
-    )
-    assert absent.button_labels is None
+    with pytest.raises(ValidationError):
+        Fob.from_unifi_dict(**{k: v for k, v in payload.items() if k != "buttonLabels"})
 
 
 def test_public_bootstrap_applies_fob_add_and_update(
@@ -1275,6 +1277,7 @@ def test_public_bootstrap_applies_fob_add_and_update(
             "name": "Fob",
             "mac": "AA",
             "awayState": "ONLINE",
+            "buttonLabels": "securityActions",
             "featureFlags": {"buttons": ["arm", "disarm"]},
             "wirelessConnectionState": {
                 "signalState": {"signalQuality": None, "signalStrength": None},

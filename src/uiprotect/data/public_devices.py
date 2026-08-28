@@ -1814,7 +1814,7 @@ class Fob(PublicDeviceModel):
     # ``FobAwayState`` carries an ``unknown`` member, so values added by newer
     # firmware coerce to the ``UNKNOWN`` member rather than raising.
     away_state: FobAwayState
-    button_labels: FobButtonLabels | None = None
+    button_labels: FobButtonLabels
     feature_flags: PublicFobFeatureFlags
     # Required by the spec — a fob is always a wireless battery device.
     wireless_connection_state: PublicWirelessConnectionState
@@ -2287,7 +2287,10 @@ class PublicUlpUser(ProtectModelWithId):
     first_name: str
     last_name: str
     full_name: str
-    # Empty string when UniFi Identity holds no address for the user.
+    # Spec-required and non-nullable — an empty string when UniFi Identity
+    # holds no address — but ``sample_ulp_users.json``, captured from a real
+    # console, carries no ``email`` key at all, so older firmware omits it and
+    # the field stays optional.
     email: str | None = None
     status: UlpUserStatus
 

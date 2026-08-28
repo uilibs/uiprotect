@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 import orjson
 import validate_spec  # local import via conftest sys.path insert
 from validate_spec import (
+    _CHECKS,
     _ENUM_COVERAGE_WAIVERS,
     _EXAMPLE_CALLS,
     _MODELLED_AS_SUBSET,
@@ -25,6 +26,7 @@ from validate_spec import (
     _resolve_const,
     _resolve_object_props,
     _spec_field_name,
+    _union_variants,
     check_completeness,
     check_endpoints,
     check_enum_coverage,
@@ -508,8 +510,15 @@ def test_iter_spec_consts_collects_string_consts_only() -> None:
         }
     }
     found = dict(_iter_spec_consts(spec))
-    assert frozenset({"event"}) in found
-    assert not any("5000" in value_set for value_set in found)
+    assert list(found) == [frozenset({"event"})]
+    assert all(isinstance(value, str) for value_set in found for value in value_set)
+
+
+def test_iter_spec_consts_keeps_the_unknown_const() -> None:
+    """``unknown`` in a spec const is a real wire value, not the library sentinel."""
+    spec = {"components": {"schemas": {"k": {"type": "string", "const": "unknown"}}}}
+    assert list(dict(_iter_spec_consts(spec))) == [frozenset({"unknown"})]
+    assert check_enum_coverage(_response_spec("k", {"const": "unknown"})) == ([], [])
 
 
 def test_check_enum_coverage_const_defined_by_library_enum_passes() -> None:
@@ -602,6 +611,37 @@ def test_resolve_const_follows_ref_and_all_of() -> None:
     assert _resolve_const({"$ref": "#/c/absent"}, schemas) is None
 
 
+def test_resolve_const_one_of_resolves_only_on_agreement() -> None:
+    """A union of consts resolves when the variants agree, ``None`` when they differ."""
+    schemas: dict[str, Any] = {"ringType": {"type": "string", "const": "ring"}}
+    agreeing = {
+        "oneOf": [
+            {"const": "ring", "description": "left"},
+            {"$ref": "#/c/ringType"},
+        ]
+    }
+    assert _resolve_const(agreeing, schemas) == "ring"
+    assert (
+        _resolve_const({"oneOf": [{"const": "ring"}, {"const": "motion"}]}, schemas)
+        is None
+    )
+    assert (
+        _resolve_const({"oneOf": [{"const": "ring"}, {"type": "string"}]}, schemas)
+        is None
+    )
+
+
+def test_union_variants_flattens_and_rejects_non_unions() -> None:
+    schemas: dict[str, Any] = {
+        "inner": {"oneOf": [{"const": "a"}, {"const": "b"}]},
+    }
+    assert _union_variants(
+        {"oneOf": [{"$ref": "#/c/inner"}, {"const": "c"}]}, schemas
+    ) == [{"const": "a"}, {"const": "b"}, {"const": "c"}]
+    assert _union_variants({"type": "object"}, schemas) is None
+    assert _union_variants({"$ref": "#/c/absent"}, schemas) is None
+
+
 def test_check_event_types_resolves_referenced_type_const() -> None:
     """A variant whose ``type`` discriminator is behind a ``$ref`` still resolves."""
     value = min(event_type.value for event_type in PUBLIC_EVENT_TYPES)
@@ -626,6 +666,19 @@ def test_check_event_types_resolves_referenced_type_const() -> None:
     assert not any("declares no `type` const" in e for e in errors)
 
 
+def test_check_event_types_flattens_a_nested_union() -> None:
+    """Grouping a family of event variants behind their own ``oneOf`` is not drift."""
+    spec = _event_spec()
+    variants = spec["components"]["schemas"]["event"]["oneOf"]
+    grouped, rest = variants[:5], variants[5:]
+    spec["components"]["schemas"]["sensorEvent"] = {"oneOf": grouped}
+    spec["components"]["schemas"]["event"]["oneOf"] = [
+        {"$ref": "#/components/schemas/sensorEvent"},
+        *rest,
+    ]
+    assert check_event_types(spec) == ([], [])
+
+
 def test_check_event_types_missing_schema() -> None:
     errors, _warnings = check_event_types({"components": {"schemas": {}}})
     assert errors == ["event: tracked schema absent from spec (server removed it)"]
@@ -643,20 +696,35 @@ def test_check_event_types_variant_without_const() -> None:
 
 
 def test_check_model_fields_event_union_merges_variants() -> None:
-    """A field only some variants carry still covers the model; dropping it errors."""
-    errors, warnings = check_model_fields(_chime_spec())
-    assert (errors, warnings) == ([], [])
-
-    dropped = _chime_spec()
-    for variant in dropped["components"]["schemas"]["event"]["oneOf"]:
+    """A field only ONE variant carries still covers the model; dropping it errors."""
+    spec = _chime_spec()
+    variants = spec["components"]["schemas"]["event"]["oneOf"]
+    for variant in variants[:-1]:
         variant["properties"].pop("metadata")
-    errors, _warnings = check_model_fields(dropped)
+    assert sum("metadata" in v["properties"] for v in variants) == 1
+    assert check_model_fields(spec) == ([], [])
+
+    variants[-1]["properties"].pop("metadata")
+    errors, _warnings = check_model_fields(spec)
     assert any("event: model field `metadata`" in e for e in errors)
 
 
 # --------------------------------------------------------------------------- #
 # run_checks / format_summary / resolution helpers / main
 # --------------------------------------------------------------------------- #
+
+
+def test_every_check_is_wired_into_run_checks() -> None:
+    """Every check function is reachable from ``run_checks``; nothing is orphaned."""
+    wired = {
+        check_endpoints,
+        check_model_fields,
+        check_enums,
+        check_enum_coverage,
+        check_event_types,
+    }
+    assert set(_CHECKS) == wired
+    assert len(_CHECKS) == len(wired)
 
 
 def test_run_checks_aggregates() -> None:

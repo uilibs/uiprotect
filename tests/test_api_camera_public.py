@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -28,6 +29,7 @@ from uiprotect.data.types import (
     VideoMode,
 )
 from uiprotect.exceptions import BadRequest
+from uiprotect.utils import to_js_time
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -998,31 +1000,81 @@ async def test_create_pos_transaction_public_full_body(
     protect_client: ProtectApiClient,
 ) -> None:
     protect_client.api_request_obj = AsyncMock(
-        return_value={"created": False, "eventId": "evt-1"}
+        return_value={"created": True, "eventId": "evt-1"}
     )
+
+    # The server rejects a timestamp older than 24 hours, so pin one that is
+    # always inside the window.
+    timestamp = to_js_time(dt.datetime.now(tz=dt.UTC))
 
     result = await protect_client.create_pos_transaction_public(
         CAMERA_ID,
         type=PosTransactionType.REFUND,
         external_id="txn-2",
-        amount=0,
+        amount=12.5,
         currency="USD",
         line_items=[{"title": "Coffee", "quantity": 2}],
         location={"id": "reg-1", "name": "Register 1"},
         payment_types=["card"],
-        timestamp=1735689600000,
+        timestamp=timestamp,
     )
 
-    assert result.created is False
+    assert result.created is True
     assert result.event_id == "evt-1"
     _args, kwargs = protect_client.api_request_obj.call_args
     assert kwargs["json"] == {
         "type": "refund",
         "externalId": "txn-2",
-        "amount": 0,
+        "amount": 12.5,
         "currency": "USD",
         "lineItems": [{"title": "Coffee", "quantity": 2}],
         "location": {"id": "reg-1", "name": "Register 1"},
         "paymentTypes": ["card"],
-        "timestamp": 1735689600000,
+        "timestamp": timestamp,
     }
+
+
+@pytest.mark.asyncio()
+async def test_create_pos_transaction_public_duplicate_not_created(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A repeated ``external_id`` echoes the already-ingested event id."""
+    protect_client.api_request_obj = AsyncMock(
+        return_value={"created": False, "eventId": "evt-1"}
+    )
+
+    result = await protect_client.create_pos_transaction_public(
+        CAMERA_ID,
+        type=PosTransactionType.SALE,
+        external_id="txn-1",
+        amount=12.5,
+    )
+
+    assert result.created is False
+    assert result.event_id == "evt-1"
+
+
+@pytest.mark.asyncio()
+async def test_create_pos_transaction_public_conflict_raises(
+    protect_client: ProtectApiClient,
+) -> None:
+    """The server's documented 409 on a concurrent repeat surfaces as ``BadRequest``."""
+    response = Mock()
+    response.status = HTTPStatus.CONFLICT.value
+    response.url = "https://test.com/v1/pos/cameras/x/transactions"
+    with (
+        patch("uiprotect.api.get_response_reason", return_value="Conflict"),
+        pytest.raises(BadRequest),
+    ):
+        await protect_client._raise_for_status(response, raise_exception=True)
+
+    protect_client.api_request_obj = AsyncMock(
+        side_effect=BadRequest("Request failed: 409 - Conflict")
+    )
+    with pytest.raises(BadRequest, match="409"):
+        await protect_client.create_pos_transaction_public(
+            CAMERA_ID,
+            type=PosTransactionType.SALE,
+            external_id="txn-1",
+            amount=12.5,
+        )

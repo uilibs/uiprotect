@@ -4024,11 +4024,11 @@ class ProtectApiClient(BaseApiClient):
         shortly. Idempotency is in-memory and per-process, so it does not
         survive a Protect restart.
 
-        ``currency`` is an uppercase ISO 4217 code, ``line_items`` holds at most
-        200 entries (each ``quantity`` >= 1), ``payment_types`` at most 20, and
-        ``timestamp`` is epoch milliseconds within the last 24 hours and no more
-        than 5 minutes ahead of server time (a value inside that skew is clamped
-        to now).
+        ``amount`` is >= 0, ``currency`` an uppercase ISO 4217 code,
+        ``line_items`` holds at most 200 entries (each ``quantity`` >= 1),
+        ``payment_types`` at most 20, and ``timestamp`` is epoch milliseconds
+        within the last 24 hours and no more than 5 minutes ahead of server time
+        (a value inside that skew is clamped to now).
         """
         raise NotImplementedError
 

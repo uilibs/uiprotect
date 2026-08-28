@@ -267,6 +267,8 @@ continue to work as before.
 camera event so the receipt can be overlaid on recorded footage:
 
 ```python
+from uiprotect.data import PosTransactionType
+
 result = await protect.create_pos_transaction_public(
     camera_id,
     type=PosTransactionType.SALE,
