@@ -794,7 +794,7 @@ def check_enum_coverage(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
                 f"and not waived in `_ENUM_COVERAGE_WAIVERS`"
             )
     errors.extend(
-        f"inbound spec const at `{path}` (value {sorted(value_set)[0]!r}) is not "
+        f"inbound spec const at `{path}` (value {min(value_set)!r}) is not "
         f"defined by any library enum and not waived in `_ENUM_COVERAGE_WAIVERS`"
         for value_set, path in _iter_spec_consts(spec)
         if not value_set <= lib_values and _reportable(value_set, path)

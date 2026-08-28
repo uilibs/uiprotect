@@ -604,7 +604,7 @@ def test_resolve_const_follows_ref_and_all_of() -> None:
 
 def test_check_event_types_resolves_referenced_type_const() -> None:
     """A variant whose ``type`` discriminator is behind a ``$ref`` still resolves."""
-    value = sorted(event_type.value for event_type in PUBLIC_EVENT_TYPES)[0]
+    value = min(event_type.value for event_type in PUBLIC_EVENT_TYPES)
     spec = {
         "components": {
             "schemas": {
