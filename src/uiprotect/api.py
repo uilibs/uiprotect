@@ -11,7 +11,7 @@ import re
 import sys
 import time
 import warnings
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from functools import partial
 from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
@@ -469,6 +469,10 @@ class BaseApiClient:
         # Per-instance (never a class-level mutable default — one process can
         # drive several consoles). Cancelled in :meth:`close_session`.
         self._rtsps_refresh_tasks: dict[str, asyncio.Task[None]] = {}
+        # Per-siren timers announcing the end of a timed run, keyed by siren id.
+        # Per-instance for the same reason as above; cancelled in
+        # :meth:`close_session` and on a devices-websocket disconnect.
+        self._siren_off_tasks: dict[str, asyncio.Task[None]] = {}
         # Proactive per-API-key pacer for the public path. Per-instance so
         # several consoles in one process never share a budget.
         self._public_rate_limiter = PublicApiRateLimiter()
@@ -647,6 +651,7 @@ class BaseApiClient:
         await self._cancel_update_task()
         await self._cancel_public_resync_task()
         await self._cancel_rtsps_refresh_tasks()
+        await self._cancel_siren_off_tasks()
         if self._session is not None:
             await self._session.close()
             self._session = None
@@ -688,6 +693,20 @@ class BaseApiClient:
         for task in tasks:
             task.cancel()
         for task in tasks:
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+    def _cancel_all_siren_offs(self) -> list[asyncio.Task[None]]:
+        """Cancel every pending siren expiry announcement, returning the tasks."""
+        tasks = list(self._siren_off_tasks.values())
+        self._siren_off_tasks.clear()
+        for task in tasks:
+            task.cancel()
+        return tasks
+
+    async def _cancel_siren_off_tasks(self) -> None:
+        """Cancel and await every pending siren expiry announcement."""
+        for task in self._cancel_all_siren_offs():
             with contextlib.suppress(asyncio.CancelledError):
                 await task
 
@@ -2676,6 +2695,11 @@ class ProtectApiClient(BaseApiClient):
         # debounced via :attr:`PUBLIC_RESYNC_MIN_INTERVAL` so a reconnect
         # storm collapses into a single refresh.
         if state is WebsocketState.CONNECTED:
+            # Re-arm the siren timers from the cached status immediately: the
+            # resync that would refresh it is debounced and may not run at all,
+            # while the deadlines already in hand stay valid across the gap.
+            if self._public_bootstrap is not None:
+                self._reschedule_siren_offs(self._public_bootstrap)
             if not self._devices_ws_has_been_connected:
                 self._devices_ws_has_been_connected = True
             elif self._public_bootstrap is not None:
@@ -2701,31 +2725,12 @@ class ProtectApiClient(BaseApiClient):
                             "Skipping public bootstrap resync (debounced, last was %.1fs ago)",
                             now - self._last_public_resync,
                         )
-                # Force-end events that stayed open across the gap. The resync
-                # above refreshes identity/devices; events arrive only via WS
-                # so the sweep is what guarantees no stuck-active sensor. Gate
-                # on a live subscriber so a reconnect after the last
-                # unsubscribe does not mutate the shared event store.
-                if (
-                    self._event_dispatcher is not None
-                    and self._event_dispatcher.subscriber_count > 0
-                ):
-                    # Guard the flush so a raising sweep cannot skip the
-                    # CONNECTED state delivery to devices-WS subscribers.
-                    try:
-                        count = self._event_dispatcher.flush_stale_on_reconnect()
-                        if count > 0:
-                            _LOGGER.warning(
-                                "Websocket reconnected after gap; some events may"
-                                " have been missed (force-ended %d stale active"
-                                " events).",
-                                count,
-                            )
-                    except Exception:
-                        _LOGGER.exception(
-                            "Exception while flushing stale events on devices"
-                            " websocket reconnect"
-                        )
+                self._flush_stale_events_on_reconnect()
+        else:
+            # The cached siren status stops being live once the frames do, so
+            # the armed expiry timers stop being trustworthy. Drop them; the
+            # reconnect resync re-arms from the refreshed snapshot.
+            self._cancel_all_siren_offs()
 
         for sub in self._devices_ws_state_subscriptions:
             try:
@@ -2733,6 +2738,37 @@ class ProtectApiClient(BaseApiClient):
             except Exception:
                 _LOGGER.exception(
                     "Exception while running devices websocket state handler"
+                )
+
+    def _flush_stale_events_on_reconnect(self) -> None:
+        """
+        Force-end events that stayed open across a devices-websocket gap.
+
+        The reconnect resync refreshes identity/devices; events arrive only via
+        WS, so this sweep is what guarantees no stuck-active sensor. Gated on a
+        live subscriber so a reconnect after the last unsubscribe does not
+        mutate the shared event store.
+        """
+        if (
+            self._event_dispatcher is None
+            or self._event_dispatcher.subscriber_count == 0
+        ):
+            return
+        # Guard the flush so a raising sweep cannot skip the CONNECTED state
+        # delivery to devices-WS subscribers.
+        try:
+            count = self._event_dispatcher.flush_stale_on_reconnect()
+        except Exception:
+            _LOGGER.exception(
+                "Exception while flushing stale events on devices websocket reconnect"
+            )
+        else:
+            if count > 0:
+                _LOGGER.warning(
+                    "Websocket reconnected after gap; some events may"
+                    " have been missed (force-ended %d stale active"
+                    " events).",
+                    count,
                 )
 
     async def _resync_public_bootstrap(self) -> None:
@@ -2839,6 +2875,100 @@ class ProtectApiClient(BaseApiClient):
         task = self._rtsps_refresh_tasks.pop(camera_id, None)
         if task is not None and not task.done():
             task.cancel()
+
+    def _schedule_siren_off(self, siren_id: str) -> None:
+        """
+        Arm (or re-arm) the announcement of a timed siren run ending.
+
+        The console emits no frame when the run expires, so the deadline
+        derived from ``sirenStatus`` is the only signal there is. Any timer
+        already armed for the siren is dropped first: the newest status wins.
+        An idle siren (no ``turn_off_at``) simply disarms, and so does a call
+        from outside a running event loop.
+        """
+        pb = self._public_bootstrap
+        siren = pb.sirens.get(siren_id) if pb is not None else None
+        self._cancel_siren_off(siren_id)
+        if siren is None:
+            return
+        turn_off_at = siren.siren_status.turn_off_at
+        if turn_off_at is None:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # ``process_devices_ws_message`` is synchronous and may be driven
+            # from outside the loop; a caller with no loop cannot be served a
+            # timer anyway.
+            _LOGGER.debug("No running event loop, siren %s expiry not armed", siren_id)
+            return
+        delay = (turn_off_at - datetime.now(UTC)).total_seconds()
+        # A deadline already in the past still goes through the task rather
+        # than announcing inline, so the synthetic frame lands *after* the
+        # frame that revealed the expired run instead of ahead of it.
+        self._siren_off_tasks[siren_id] = loop.create_task(
+            self._announce_siren_off_at(siren_id, turn_off_at, max(delay, 0.0))
+        )
+
+    async def _announce_siren_off_at(
+        self, siren_id: str, turn_off_at: datetime, delay: float
+    ) -> None:
+        """Wait out a siren's remaining run time, then announce it stopped."""
+        try:
+            await asyncio.sleep(delay)
+            pb = self._public_bootstrap
+            siren = pb.sirens.get(siren_id) if pb is not None else None
+            # Announce only while the cached status still describes the run this
+            # task was armed for. A snapshot merged mid-sleep may carry a later
+            # run, and clearing its flag would report a playing siren as stopped
+            # with nothing left to re-arm.
+            if siren is not None and siren.siren_status.turn_off_at == turn_off_at:
+                self._announce_siren_off(siren)
+        finally:
+            # A re-arm cancels this task and stores its replacement under the
+            # same key before this cleanup runs, so only clear the slot while
+            # it still points at this task.
+            if self._siren_off_tasks.get(siren_id) is asyncio.current_task():
+                del self._siren_off_tasks[siren_id]
+
+    def _announce_siren_off(self, siren: Siren) -> None:
+        """Fold the expiry into the cached status and emit it like a server frame."""
+        # The timing fields are left as the server set them (a manual stop
+        # leaves them populated too); clearing the flag is what makes
+        # ``turn_off_at`` — and so this announcement — idempotent.
+        siren.siren_status.is_active = False
+        if self._devices_ws_filtered_out(ModelType.SIREN):
+            return
+        self.emit_devices_message(self._build_siren_off_update(siren))
+
+    @staticmethod
+    def _build_siren_off_update(siren: Siren) -> WSSubscriptionMessage:
+        """Build a synthetic devices-WS ``update`` announcing a siren stopped."""
+        return WSSubscriptionMessage(
+            action=WSAction.UPDATE,
+            new_update_id=siren.id,
+            changed_data={
+                "modelKey": ModelType.SIREN.value,
+                "id": siren.id,
+                "sirenStatus": siren.siren_status.unifi_dict(),
+            },
+            new_obj=siren,
+            old_obj=None,
+        )
+
+    def _cancel_siren_off(self, siren_id: str) -> None:
+        """Cancel a pending siren expiry announcement, if any."""
+        task = self._siren_off_tasks.pop(siren_id, None)
+        if task is not None and not task.done():
+            task.cancel()
+
+    def _reschedule_siren_offs(self, pb: PublicBootstrap) -> None:
+        """Re-arm every siren expiry announcement against a freshly applied snapshot."""
+        for siren_id in list(self._siren_off_tasks):
+            if siren_id not in pb.sirens:
+                self._cancel_siren_off(siren_id)
+        for siren_id in pb.sirens:
+            self._schedule_siren_off(siren_id)
 
     async def _refresh_all_cached_rtsps(self) -> None:
         """Re-fetch every camera that already has RTSPS streams in place, coalesced."""
@@ -5016,6 +5146,10 @@ class ProtectApiClient(BaseApiClient):
             # between writes, so a concurrent public-WS frame cannot interleave
             # a torn state. Tolerated-missing endpoints keep their prior data.
             diffs = self._apply_public_fetch_results(pb, endpoints, results)
+            # Re-derive the siren deadlines in the same await-free window the
+            # merge ran in: a timer armed for a superseded run must not outlive
+            # the status it was derived from.
+            self._reschedule_siren_offs(pb)
         finally:
             # Stop buffering and drain on success and failure alike: replayed
             # frames land on the fresh snapshot when the prime succeeded, and

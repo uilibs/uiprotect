@@ -1452,6 +1452,8 @@ def test_public_bootstrap_applies_add_and_update(
     protect_client: ProtectApiClient,
 ) -> None:
     pb = PublicBootstrap()
+    # Wired to the client so the siren-expiry scheduling hook actually runs.
+    protect_client._public_bootstrap = pb
     add_payload = {
         "type": "add",
         "item": {
@@ -1567,7 +1569,9 @@ async def test_update_public_populates_cache(
         get_cameras_public=AsyncMock(return_value=[Mock(id="c1")]),
         get_lights_public=AsyncMock(return_value=[Mock(id="l1")]),
         get_sensors_public=AsyncMock(return_value=[Mock(id="s1")]),
-        get_sirens_public=AsyncMock(return_value=[Mock(id="si1")]),
+        get_sirens_public=AsyncMock(
+            return_value=[Mock(id="si1", siren_status=Mock(turn_off_at=None))]
+        ),
         get_relays_public=AsyncMock(return_value=[Mock(id="r1")]),
         get_fobs_public=AsyncMock(return_value=[Mock(id="fb1")]),
         get_speakers_public=AsyncMock(return_value=[Mock(id="sp1")]),
@@ -1752,6 +1756,51 @@ async def test_update_public_replays_ws_frames_from_prime_window(
     assert captured[0].action == WSAction.UPDATE
     assert captured[0].new_obj is not None
     assert captured[0].new_obj.volume == 10
+
+
+@pytest.mark.asyncio()
+async def test_update_public_rearms_siren_expiry_on_the_snapshot_deadline(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A snapshot superseding a live timed run re-arms against its own deadline."""
+    client = protect_client
+    client._public_bootstrap = PublicBootstrap()
+    running = _siren_snapshot_item()
+    running["sirenStatus"] = {
+        "isActive": True,
+        "activatedAt": int((time.time() + 55) * 1000),
+        "duration": 5000,
+    }
+    client._public_bootstrap.sirens[SIREN_ID] = Siren.from_unifi_dict(
+        api=client, **running
+    )
+    client._schedule_siren_off(SIREN_ID)
+    superseded = client._siren_off_tasks[SIREN_ID]
+
+    # The snapshot reports a run that has already ended.
+    ended = _siren_snapshot_item()
+    ended["sirenStatus"] = {
+        "isActive": True,
+        "activatedAt": int((time.time() - 30) * 1000),
+        "duration": 5000,
+    }
+    _mock_update_public_endpoints(
+        client,
+        get_sirens_public=AsyncMock(
+            return_value=[Siren.from_unifi_dict(api=client, **ended)]
+        ),
+    )
+    captured: list[WSSubscriptionMessage] = []
+    client._devices_ws_subscriptions.append(captured.append)
+
+    pb = await client.update_public()
+
+    armed = client._siren_off_tasks[SIREN_ID]
+    assert armed is not superseded
+    await armed
+
+    assert pb.sirens[SIREN_ID].siren_status.is_active is False
+    assert [msg.new_update_id for msg in captured] == [SIREN_ID]
 
 
 @pytest.mark.asyncio()

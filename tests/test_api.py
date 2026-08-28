@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+import time
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
 from typing import TYPE_CHECKING, Any
@@ -55,11 +57,13 @@ from uiprotect.data import (
     PTZPreset,
     PublicBootstrap,
     PublicCamera,
+    PublicSirenStatus,
+    Siren,
     create_from_unifi_dict,
 )
 from uiprotect.data.devices import LEDSettings
 from uiprotect.data.types import DeviceState, Version, VideoMode
-from uiprotect.data.websocket import WSAction
+from uiprotect.data.websocket import WSAction, WSSubscriptionMessage
 from uiprotect.exceptions import (
     ArmedModeError,
     BadRequest,
@@ -69,6 +73,7 @@ from uiprotect.exceptions import (
 )
 from uiprotect.stream import TalkbackSession
 from uiprotect.utils import decode_token_cookie, to_js_time
+from uiprotect.websocket import WebsocketState
 
 from .common import assert_equal_dump
 
@@ -4907,3 +4912,282 @@ async def test_create_talkback_session_public(protect_client: ProtectApiClient):
         method="post",
         public_api=True,
     )
+
+
+def _siren_client() -> ProtectApiClient:
+    client = _rtsps_client()
+    client._public_bootstrap = PublicBootstrap()
+    return client
+
+
+def _seed_siren(
+    client: ProtectApiClient,
+    siren_id: str = "siren1",
+    *,
+    seconds_left: float | None = 0.0,
+) -> Siren:
+    """Cache a siren whose timed run ends ``seconds_left`` from now."""
+    if seconds_left is None:
+        status = PublicSirenStatus(is_active=False)
+    else:
+        activated_at = datetime.now(UTC) + timedelta(seconds=seconds_left - 5)
+        status = PublicSirenStatus(
+            is_active=True, activated_at=to_js_time(activated_at), duration=5000
+        )
+    siren = Siren.model_construct(id=siren_id, siren_status=status)
+    client._public_bootstrap.sirens[siren_id] = siren
+    return siren
+
+
+def _capture_devices_messages(client: ProtectApiClient) -> list[WSSubscriptionMessage]:
+    messages: list[WSSubscriptionMessage] = []
+    client._devices_ws_subscriptions.append(messages.append)
+    return messages
+
+
+@pytest.mark.asyncio
+async def test_siren_expiry_emits_synthetic_devices_update():
+    """An expiring timed run announces itself as a devices-WS update."""
+    client = _siren_client()
+    siren = _seed_siren(client, seconds_left=0.01)
+    messages = _capture_devices_messages(client)
+
+    client._schedule_siren_off("siren1")
+    await client._siren_off_tasks["siren1"]
+
+    assert siren.is_active is False
+    assert siren.siren_status.is_active is False
+    assert len(messages) == 1
+    msg = messages[0]
+    assert msg.action is WSAction.UPDATE
+    assert msg.new_update_id == "siren1"
+    assert msg.new_obj is siren
+    assert msg.changed_data == {
+        "modelKey": "siren",
+        "id": "siren1",
+        "sirenStatus": siren.siren_status.unifi_dict(),
+    }
+    assert msg.changed_data["sirenStatus"]["isActive"] is False
+    assert "siren1" not in client._siren_off_tasks
+
+
+@pytest.mark.asyncio
+async def test_siren_expiry_announces_run_that_already_ended():
+    """A deadline already in the past still produces exactly one announcement."""
+    client = _siren_client()
+    siren = _seed_siren(client, seconds_left=-30)
+    messages = _capture_devices_messages(client)
+
+    client._schedule_siren_off("siren1")
+    await client._siren_off_tasks["siren1"]
+
+    assert len(messages) == 1
+    assert siren.is_active is False
+
+    # The cleared flag makes ``turn_off_at`` ``None``, so re-deriving from the
+    # same cached status neither re-arms nor re-announces.
+    client._schedule_siren_off("siren1")
+    assert client._siren_off_tasks == {}
+    assert len(messages) == 1
+
+
+@pytest.mark.asyncio
+async def test_siren_schedule_disarms_idle_siren():
+    """An idle siren drops any armed timer without announcing."""
+    client = _siren_client()
+    _seed_siren(client, seconds_left=60)
+    messages = _capture_devices_messages(client)
+    client._schedule_siren_off("siren1")
+    armed = client._siren_off_tasks["siren1"]
+
+    client._public_bootstrap.sirens["siren1"].siren_status.is_active = False
+    client._schedule_siren_off("siren1")
+
+    assert armed.cancelled() or armed.cancelling()
+    assert client._siren_off_tasks == {}
+    assert messages == []
+
+
+@pytest.mark.asyncio
+async def test_siren_schedule_for_uncached_siren_disarms():
+    """A siren gone from the cache leaves no timer behind."""
+    client = _siren_client()
+    _seed_siren(client, seconds_left=60)
+    client._schedule_siren_off("siren1")
+    armed = client._siren_off_tasks["siren1"]
+
+    del client._public_bootstrap.sirens["siren1"]
+    client._schedule_siren_off("siren1")
+
+    assert armed.cancelled() or armed.cancelling()
+    assert client._siren_off_tasks == {}
+
+
+@pytest.mark.asyncio
+async def test_siren_schedule_without_public_bootstrap_is_noop():
+    """Without the public cache there is no status to derive a deadline from."""
+    client = _rtsps_client()
+    client._schedule_siren_off("siren1")
+    assert client._siren_off_tasks == {}
+
+
+@pytest.mark.asyncio
+async def test_siren_schedule_rearms_on_a_newer_run():
+    """A restarted run replaces the timer armed for the previous one."""
+    client = _siren_client()
+    _seed_siren(client, seconds_left=60)
+    client._schedule_siren_off("siren1")
+    first = client._siren_off_tasks["siren1"]
+
+    client._schedule_siren_off("siren1")
+    second = client._siren_off_tasks["siren1"]
+
+    assert second is not first
+    assert first.cancelled() or first.cancelling()
+
+
+@pytest.mark.asyncio
+async def test_siren_expiry_skips_a_siren_removed_mid_run():
+    """A siren removed while its timer is pending announces nothing."""
+    client = _siren_client()
+    _seed_siren(client, seconds_left=0.01)
+    messages = _capture_devices_messages(client)
+
+    client._schedule_siren_off("siren1")
+    del client._public_bootstrap.sirens["siren1"]
+    await client._siren_off_tasks["siren1"]
+
+    assert messages == []
+    assert client._siren_off_tasks == {}
+
+
+@pytest.mark.asyncio
+async def test_siren_expiry_honours_the_devices_ws_model_filter():
+    """A filtered-out model updates the cache without emitting a frame."""
+    client = _siren_client()
+    siren = _seed_siren(client, seconds_left=0.01)
+    client._devices_ws_subscribed_models = {ModelType.CAMERA}
+    messages = _capture_devices_messages(client)
+
+    client._schedule_siren_off("siren1")
+    await client._siren_off_tasks["siren1"]
+
+    assert messages == []
+    assert siren.is_active is False
+
+
+@pytest.mark.asyncio
+async def test_close_session_cancels_pending_siren_expiry():
+    """Shutdown drains the siren timers like every other background task."""
+    client = _siren_client()
+    _seed_siren(client, seconds_left=60)
+    client._schedule_siren_off("siren1")
+    task = client._siren_off_tasks["siren1"]
+
+    await client.close_session()
+
+    assert task.cancelled()
+    assert client._siren_off_tasks == {}
+
+
+@pytest.mark.asyncio
+async def test_devices_ws_disconnect_cancels_pending_siren_expiry():
+    """A dropped devices websocket disarms timers derived from now-stale status."""
+    client = _siren_client()
+    _seed_siren(client, seconds_left=60)
+    client._devices_ws_has_been_connected = True
+    client._schedule_siren_off("siren1")
+    task = client._siren_off_tasks["siren1"]
+
+    client._on_devices_websocket_state_change(WebsocketState.DISCONNECTED)
+
+    assert task.cancelled() or task.cancelling()
+    assert client._siren_off_tasks == {}
+
+
+@pytest.mark.asyncio
+async def test_reschedule_siren_offs_rearms_snapshot_and_drops_departed():
+    """A refreshed snapshot re-arms its own sirens and forgets the ones it lost."""
+    client = _siren_client()
+    _seed_siren(client, "gone", seconds_left=60)
+    client._schedule_siren_off("gone")
+    departed = client._siren_off_tasks["gone"]
+    del client._public_bootstrap.sirens["gone"]
+    _seed_siren(client, "siren1", seconds_left=60)
+
+    client._reschedule_siren_offs(client._public_bootstrap)
+
+    assert departed.cancelled() or departed.cancelling()
+    assert set(client._siren_off_tasks) == {"siren1"}
+    await client._cancel_siren_off_tasks()
+
+
+@pytest.mark.asyncio
+async def test_siren_rearm_keeps_tracking_the_live_timer():
+    """A re-armed timer stays tracked once the cancelled one finishes cleaning up."""
+    client = _siren_client()
+    _seed_siren(client, seconds_left=60)
+    client._schedule_siren_off("siren1")
+    cancelled = client._siren_off_tasks["siren1"]
+    # Let the timer reach its sleep, so cancelling it runs the cleanup that
+    # would otherwise evict the replacement armed below.
+    await asyncio.sleep(0)
+
+    client._schedule_siren_off("siren1")
+    live = client._siren_off_tasks["siren1"]
+    with contextlib.suppress(asyncio.CancelledError):
+        await cancelled
+
+    assert client._siren_off_tasks == {"siren1": live}
+    await client.close_session()
+    assert live.cancelled()
+
+
+@pytest.mark.asyncio
+async def test_siren_rearm_announces_the_run_only_once():
+    """Frames arriving mid-run re-arm the timer without duplicating the announcement."""
+    client = _siren_client()
+    _seed_siren(client, seconds_left=0.02)
+    messages = _capture_devices_messages(client)
+
+    for _ in range(3):
+        client._schedule_siren_off("siren1")
+        await asyncio.sleep(0)
+    await asyncio.sleep(0.05)
+
+    assert len(messages) == 1
+    assert client._siren_off_tasks == {}
+
+
+@pytest.mark.asyncio
+async def test_devices_ws_reconnect_rearms_siren_expiry():
+    """A reconnect re-arms from the cached status without waiting on the resync."""
+    client = _siren_client()
+    _seed_siren(client, seconds_left=60)
+    client._schedule_siren_off("siren1")
+    client._devices_ws_has_been_connected = True
+    client._on_devices_websocket_state_change(WebsocketState.DISCONNECTED)
+    assert client._siren_off_tasks == {}
+
+    # Debounced: the reconnect resync that would otherwise re-arm is skipped.
+    client._last_public_resync = time.monotonic()
+    client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+
+    assert set(client._siren_off_tasks) == {"siren1"}
+    await client._cancel_siren_off_tasks()
+
+
+@pytest.mark.asyncio
+async def test_siren_expiry_skips_a_run_superseded_mid_sleep():
+    """A timer armed for a finished run stays silent once a later run replaces it."""
+    client = _siren_client()
+    siren = _seed_siren(client, seconds_left=0.01)
+    messages = _capture_devices_messages(client)
+
+    client._schedule_siren_off("siren1")
+    task = client._siren_off_tasks["siren1"]
+    siren.siren_status.activated_at = to_js_time(datetime.now(UTC) + timedelta(hours=1))
+    await task
+
+    assert messages == []
+    assert siren.siren_status.is_active is True

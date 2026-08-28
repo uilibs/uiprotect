@@ -203,6 +203,30 @@ is impossible:
   A refresh that yields no change — an identity-guard backoff, a fetch failure,
   or a re-fetch equal to the cached value — emits nothing.
 
+## Siren timed runs
+
+`siren.play(duration)` starts a timed run and the console reports it on
+`sirenStatus` (`isActive`, `activatedAt`, and `duration` in **milliseconds** —
+the play request takes seconds). It reports nothing when the run ends, so
+`Siren.is_active` compares the clock against `siren_status.turn_off_at`.
+
+The client also **announces** the end of the run: it arms a timer at
+`turn_off_at`, and when the run expires it clears the cached
+`sirenStatus.isActive` and emits a synthetic devices-WS `update` for the siren
+(`new_obj` is the siren) through the existing devices subscription. Both
+`subscribe_devices_websocket` and typed `subscribe_devices` consumers observe
+the siren stopping without scheduling a timer of their own.
+
+The timer follows the device: every siren frame re-derives the deadline from
+the merged status (so a restarted or manually stopped run re-arms or disarms
+it), a `remove` frame drops it, a devices-websocket disconnect drops it and the
+reconnect re-arms it from the cached status (the resync refreshes that status
+when it runs), and `close_session()` drains any that are still pending.
+
+The expiry is **inferred, not observed**: `activatedAt` is server time and the
+deadline is compared against the local clock, so clock skew between the console
+and the client shifts the announcement by the same amount.
+
 ## Public vs. private API
 
 `uiprotect` can talk to UniFi Protect two ways, and is actively migrating
