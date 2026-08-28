@@ -38,6 +38,53 @@ from .types import (
     SmokeTestSource,
 )
 
+# Every ``type`` the public ``event`` union can carry. ``EventType`` is a
+# superset — it also carries private-API-only events — so this is the subset a
+# public-API consumer can actually see. ``scripts/validate_spec.py`` pins it
+# against the spec's ``event`` ``oneOf`` discriminator.
+PUBLIC_EVENT_TYPES: frozenset[EventType] = frozenset(
+    {
+        EventType.RING,
+        EventType.SENSOR_EXTREME_VALUE,
+        EventType.SENSOR_WATER_LEAK,
+        EventType.SENSOR_TAMPER,
+        EventType.SENSOR_BATTERY_LOW,
+        EventType.SENSOR_ALARM,
+        EventType.SENSOR_VAPE,
+        EventType.SENSOR_OPENED,
+        EventType.SENSOR_CLOSED,
+        EventType.SENSOR_SMOKE_TEST,
+        EventType.SENSOR_SMOKE_BATTERY_LOW,
+        EventType.SENSOR_SMOKE_NEEDS_CLEANING,
+        EventType.SENSOR_SMOKE_FAULT,
+        EventType.SENSOR_CO_FAULT,
+        EventType.SENSOR_SMOKE_END_OF_LIFE,
+        EventType.MOTION_SENSOR,
+        EventType.SENSOR_BUTTON_PRESSED,
+        EventType.MOTION_LIGHT,
+        EventType.MOTION,
+        EventType.SMART_AUDIO_DETECT,
+        EventType.SMART_DETECT,
+        EventType.SMART_DETECT_LINE,
+        EventType.SMART_DETECT_LOITER,
+        EventType.RELAY_INPUT_CHANGED,
+        EventType.CAMERA_DIGITAL_INPUT_CHANGED,
+        EventType.ALARM_HUB_MOTION,
+        EventType.ALARM_HUB_ENTRY_OPENED,
+        EventType.ALARM_HUB_ENTRY_CLOSED,
+        EventType.ALARM_HUB_SMOKE,
+        EventType.ALARM_HUB_GLASS_BREAK,
+        EventType.ALARM_HUB_BUTTON_PRESS,
+        EventType.ALARM_HUB_TAMPER,
+        EventType.ALARM_HUB_DEVICE_TAMPER,
+        EventType.ALARM_HUB_RELAY_SWITCHED,
+        EventType.ALARM_HUB_BATTERY_LOW,
+        EventType.ALARM_HUB_BATTERY_CONNECTED,
+        EventType.NFC_CARD_SCANNED,
+        EventType.FINGERPRINT_IDENTIFIED,
+    }
+)
+
 
 class PublicNfcMetadata(ProtectBaseObject):
     """``nfc`` block of an ``nfcCardScanned`` event (public spec)."""

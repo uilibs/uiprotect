@@ -189,6 +189,32 @@ def test_public_ulp_user_status_round_trip_from_fixture() -> None:
     assert deactivated.unifi_dict()["status"] == "DEACTIVATED"
 
 
+def test_public_ulp_user_email_parses_and_round_trips() -> None:
+    """``email`` is modelled; the server's empty-string "none set" survives."""
+    payload = {
+        "id": ULP_USER_ID,
+        "modelKey": "ulpUser",
+        "firstName": "John",
+        "lastName": "Doe",
+        "fullName": "John Doe",
+        "email": "john.doe@example.com",
+        "status": "ACTIVE",
+    }
+
+    user = PublicUlpUser.from_unifi_dict(**payload)
+
+    assert user.email == "john.doe@example.com"
+    assert user.unifi_dict()["email"] == "john.doe@example.com"
+
+    assert PublicUlpUser.from_unifi_dict(**{**payload, "email": ""}).email == ""
+    assert (
+        PublicUlpUser.from_unifi_dict(
+            **{k: v for k, v in payload.items() if k != "email"}
+        ).email
+        is None
+    )
+
+
 def test_public_ulp_user_status_accepts_unknown_value() -> None:
     payload = {
         "id": ULP_USER_ID,

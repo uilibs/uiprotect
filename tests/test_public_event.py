@@ -7,6 +7,7 @@ from datetime import datetime
 import pytest
 
 from uiprotect.data.public_event import (
+    PUBLIC_EVENT_TYPES,
     PublicEvent,
     PublicEventMetadata,
     PublicFingerprintMetadata,
@@ -26,47 +27,9 @@ from uiprotect.data.types import (
     SmokeTestSource,
 )
 
-# Every ``type`` string in the public ``event`` ``oneOf`` discriminator.
-_ALL_EVENT_TYPES = [
-    "ring",
-    "sensorExtremeValues",
-    "sensorWaterLeak",
-    "sensorTamper",
-    "sensorBatteryLow",
-    "sensorAlarm",
-    "sensorVape",
-    "sensorOpened",
-    "sensorClosed",
-    "sensorSmokeTest",
-    "sensorSmokeBatteryLow",
-    "sensorSmokeNeedsCleaning",
-    "sensorSmokeFault",
-    "sensorCoFault",
-    "sensorSmokeEndOfLife",
-    "sensorMotion",
-    "sensorButtonPressed",
-    "lightMotion",
-    "motion",
-    "smartAudioDetect",
-    "smartDetectZone",
-    "smartDetectLine",
-    "smartDetectLoiterZone",
-    "relayInputChanged",
-    "cameraDigitalInputChanged",
-    "alarmHubMotion",
-    "alarmHubEntryOpened",
-    "alarmHubEntryClosed",
-    "alarmHubSmoke",
-    "alarmHubGlassBreak",
-    "alarmHubButtonPress",
-    "alarmHubTamper",
-    "alarmHubDeviceTamper",
-    "alarmHubRelaySwitched",
-    "alarmHubBatteryLow",
-    "alarmHubBatteryConnected",
-    "nfcCardScanned",
-    "fingerprintIdentified",
-]
+# Derived from the library's modelled public event set, which
+# ``scripts/validate_spec.py`` pins against the spec's ``event`` ``oneOf``.
+_ALL_EVENT_TYPES = sorted(event_type.value for event_type in PUBLIC_EVENT_TYPES)
 
 
 def _minimal(type_str: str, **extra: object) -> dict[str, object]:

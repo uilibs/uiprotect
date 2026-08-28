@@ -152,6 +152,7 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
     FOB = "fob"
     SPEAKER = "speaker"
     LINK_STATION = "linkstation"
+    AI_PROCESSOR = "aiprocessor"
     UNKNOWN = "unknown"
 
     bootstrap_model_types: tuple[ModelType, ...]
@@ -957,6 +958,15 @@ class FobButton(UnknownValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
+class FobButtonLabels(UnknownValuesEnumMixin, enum.StrEnum):
+    """Label style used when rendering a fob in button lists (``buttonLabels``)."""
+
+    SECURITY_ACTIONS = "securityActions"
+    POSITION_HINT = "positionHint"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
 class SpeakerStatus(UnknownValuesEnumMixin, enum.StrEnum):
     """Public-API speaker runtime status (``speakerState.status`` field)."""
 
@@ -1029,6 +1039,14 @@ class AssetFileType(UnknownValuesEnumMixin, enum.StrEnum):
 
     ANIMATIONS = "animations"
     UNKNOWN = "unknown"
+
+
+@enum.unique
+class PosTransactionType(enum.StrEnum):
+    """Kind of point-of-sale transaction ingested for a camera."""
+
+    SALE = "sale"
+    REFUND = "refund"
 
 
 @enum.unique
