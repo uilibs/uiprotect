@@ -142,6 +142,7 @@ class TalkbackStream:
 
     __slots__ = (
         "_error",
+        "_raise_error",
         "_lock",
         "_stop_event",
         "_thread",
@@ -178,6 +179,7 @@ class TalkbackStream:
         self._thread: threading.Thread | None = None
         self._lock = asyncio.Lock()
         self._error: BaseException | None = None
+        self._raise_error = False
 
     async def __aenter__(self) -> Self:
         """Start streaming when entering async context."""
@@ -301,12 +303,19 @@ class TalkbackStream:
         if self._stop_event.is_set():
             return
         self._error = None
+        self._raise_error = raise_if_running
         self._thread = threading.Thread(
-            target=self._stream_audio_sync,
+            target=self._run_stream,
             name="TalkbackStream",
             daemon=True,
         )
         self._thread.start()
+
+    def _run_stream(self) -> None:
+        """Run the stream and report errors when no caller will collect them."""
+        self._stream_audio_sync()
+        if self._error is not None and not self._raise_error:
+            _LOGGER.error("Talkback streaming failed: %s", self._error)
 
     async def _wait_for_thread(self) -> None:
         """Wait for the thread to complete without blocking the event loop."""

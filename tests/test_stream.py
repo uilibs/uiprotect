@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, Mock, patch
@@ -502,6 +503,22 @@ async def test_run_until_complete_unsupported_codec(mock_camera: Mock, audio_fil
     stream = TalkbackStream(mock_camera, audio_file, session)
     with pytest.raises(StreamError, match="Unsupported codec"):
         await stream.run_until_complete()
+
+
+@pytest.mark.asyncio
+async def test_start_logs_stream_error(caplog, mock_camera: Mock, audio_file: str):
+    session = TalkbackSession(
+        url="rtp://192.168.1.100:7004",
+        codec="unsupported_codec",
+        sampling_rate=24000,
+    )
+    stream = TalkbackStream(mock_camera, audio_file, session)
+    with caplog.at_level(logging.ERROR, logger="uiprotect.stream"):
+        await stream.start()
+        while stream.is_running:
+            await asyncio.sleep(0)
+
+    assert "Talkback streaming failed: Unsupported codec: unsupported_codec" in caplog.text
 
 
 @pytest.mark.asyncio
