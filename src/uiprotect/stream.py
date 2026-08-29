@@ -142,7 +142,6 @@ class TalkbackStream:
 
     __slots__ = (
         "_error",
-        "_error_logged",
         "_error_will_raise",
         "_lock",
         "_stop_event",
@@ -181,7 +180,6 @@ class TalkbackStream:
         self._lock = asyncio.Lock()
         self._error: BaseException | None = None
         self._error_will_raise = False
-        self._error_logged = False
 
     async def __aenter__(self) -> Self:
         """Start streaming when entering async context."""
@@ -300,8 +298,9 @@ class TalkbackStream:
             self._stream_audio_sync()
         except Exception as err:
             # A thread target cannot raise anywhere useful, and an error that
-            # is not stored is one that no caller and no log ever sees.
-            self._error = err
+            # is not stored is one that no caller and no log ever sees. Keep
+            # it a StreamError: that is the type callers guard the stream with.
+            self._error = StreamError(f"Audio streaming failed: {err}")
         if self._error is None:
             return
         # Whether anyone will collect the error is only settled on the event
@@ -313,32 +312,27 @@ class TalkbackStream:
             self._log_uncollected_error()
 
     def _log_uncollected_error(self) -> None:
-        """Log the stored error unless a caller raises it or it was logged."""
-        if self._error_logged or self._error_will_raise:
+        """Log and consume the stored error unless a caller will raise it."""
+        if self._error_will_raise:
             return
         if (error := self._error) is not None:
-            self._error_logged = True
+            self._error = None
             _LOGGER.error("Talkback stream to %s failed: %s", self.camera.id, error)
 
     def _start_thread_if_needed(self, *, raise_if_running: bool) -> None:
         """Start streaming thread if not already running. Must hold lock."""
-        if self._thread is not None:
+        if self._thread is not None and self._thread.is_alive():
             if raise_if_running:
-                if self._thread.is_alive():
-                    raise StreamError("Stream already started")
-            else:
-                # run_until_complete() adopts the existing run instead of
-                # starting a new one: restarting would replay the audio and
-                # discard the error the finished run stored. It raises that
-                # error, so the worker must not log it as well.
-                self._error_will_raise = True
-                return
+                raise StreamError("Stream already started")
+            # run_until_complete() adopts the running stream and raises what
+            # it stores, so the worker must not log that error as well.
+            self._error_will_raise = True
+            return
         # Don't clear a pending stop signal — stop() sets the event before
         # acquiring the lock, so a concurrent start() must not clobber it.
         if self._stop_event.is_set():
             return
         self._error = None
-        self._error_logged = False
         self._error_will_raise = not raise_if_running
         self._thread = threading.Thread(
             target=self._run_stream,
@@ -367,13 +361,9 @@ class TalkbackStream:
         # concurrently (e.g. HA play_audio + stop from media player).
         self._stop_event.set()
         async with self._lock:
-            # The finished thread object is kept: start() restarts from it, and
-            # run_until_complete() adopts it instead of replaying the audio.
-            await self._wait_for_thread()
-            self._log_uncollected_error()
-            if self._error_logged:
-                # Already reported; a later collector must not raise it too.
-                self._error = None
+            if self._thread is not None:
+                await self._wait_for_thread()
+                self._thread = None
             self._stop_event.clear()
 
     async def run_until_complete(self) -> None:
