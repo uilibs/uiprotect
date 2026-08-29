@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.6.0 (2026-08-29)
+
+### Features
+
+
+- Allow clearing the doorbell lcd message over the public api ([`4009fe1`](https://github.com/uilibs/uiprotect/commit/4009fe10b167d68f1dc3a1e63a3779e91b1bb706))
+
+
 ## v16.5.0 (2026-08-28)
 
 ### Features
