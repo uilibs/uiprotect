@@ -590,6 +590,13 @@ def set_lcd_text(
     obj: d.Camera = ctx.obj.device
 
     if text_type is None:
+        # The public setter rejects a reset time on a clear; say so here rather
+        # than dropping the option on the floor.
+        if reset_at is not None:
+            typer.secho(
+                "--reset-time does not apply when clearing the message", fg="red"
+            )
+            raise typer.Exit(1)
         base.run(ctx, obj.set_lcd_message_public(None))
         return
 

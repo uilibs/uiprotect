@@ -1096,6 +1096,18 @@ def test_camera_set_lcd_text_clear_uses_public() -> None:
     camera.set_lcd_text.assert_not_called()
 
 
+def test_camera_set_lcd_text_clear_rejects_reset_time() -> None:
+    """--reset-time is not silently dropped when clearing the message."""
+    ctx, camera = _make_camera_ctx()
+
+    with pytest.raises(typer.Exit) as exc:
+        cameras_cli.set_lcd_text(ctx, None, None, reset_at=datetime(2026, 1, 1, 12, 0))
+
+    assert exc.value.exit_code == 1
+    camera.set_lcd_message_public.assert_not_called()
+    camera.set_lcd_text.assert_not_called()
+
+
 def _make_light_ctx():
     ctx, light = _make_device_ctx(device_id="light-1")
     light.set_status_light_public = AsyncMock()
