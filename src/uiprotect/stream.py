@@ -142,8 +142,8 @@ class TalkbackStream:
 
     __slots__ = (
         "_error",
-        "_raise_error",
         "_lock",
+        "_raise_error",
         "_stop_event",
         "_thread",
         "camera",
