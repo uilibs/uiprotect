@@ -517,6 +517,7 @@ async def test_start_logs_stream_error(caplog, mock_camera: Mock, audio_file: st
         await stream.start()
         while stream.is_running:
             await asyncio.sleep(0)
+        await asyncio.sleep(0)
 
     assert (
         "Talkback streaming failed: Unsupported codec: unsupported_codec" in caplog.text
