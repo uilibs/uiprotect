@@ -20,6 +20,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from functools import cache
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, NotRequired, Self, TypedDict
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import Field
 from pydantic.fields import PrivateAttr
@@ -30,6 +31,7 @@ from ..utils import (
     convert_smart_types,
     convert_to_datetime,
     convert_video_modes,
+    format_host_for_url,
     from_js_time,
     to_js_time,
 )
@@ -80,7 +82,11 @@ from .types import (
 )
 
 if TYPE_CHECKING:
-    from ..api import CameraPublicApiLcdMessageRequest, PublicApiChimeRingSettingRequest
+    from ..api import (
+        CameraPublicApiLcdMessageRequest,
+        ProtectApiClient,
+        PublicApiChimeRingSettingRequest,
+    )
     from .public_event import PublicEvent
 
 # Public Integration API numeric bounds, taken from the OpenAPI spec. The
@@ -360,6 +366,17 @@ class PublicSmartDetectSettings(ProtectBaseObject):
         } | super().unifi_dict_conversions()
 
 
+def _replace_url_host(url: str, host: str) -> str:
+    """Replace the host component of ``url``, keeping port, path and query."""
+    parts = urlsplit(url)
+    try:
+        port = parts.port
+    except ValueError:
+        return url
+    netloc = f"{host}:{port}" if port is not None else host
+    return urlunsplit(parts._replace(netloc=netloc))
+
+
 class RTSPSStreams(ProtectBaseObject):
     """RTSPS stream URLs for a camera."""
 
@@ -369,15 +386,30 @@ class RTSPSStreams(ProtectBaseObject):
     # Besides standard qualities (high/medium/low), there are special cases like "package" for doorbells
     # and unclear implementation for 180° cameras with dual sensors. Dynamic handling via __pydantic_extra__ is safer.
 
+    def __init__(self, api: ProtectApiClient | None = None, **data: Any) -> None:
+        """Bind to ``api`` so URLs can honour ``override_connection_host``."""
+        # Runtime-identical to ProtectBaseObject.__init__, but mypy synthesises a
+        # dataclass_transform __init__ per model subclass from declared fields only;
+        # without this redeclaration every ``RTSPSStreams(api=...)`` is a
+        # call-arg error.
+        super().__init__(api=api, **data)
+
     def get_stream_url(self, quality: str, srtp: bool = True) -> str | None:
         """Get stream URL for a quality level; ``srtp=False`` strips ``?enableSrtp``."""
         url = getattr(self, quality, None)
-        if srtp or not isinstance(url, str):
+        if not isinstance(url, str):
             return url
-        # Strip only the exact ?enableSrtp suffix the server appends (mirrors the
-        # private rtsps_url construction); go2rtc rejects the SRTP variant. A
-        # generic query strip would be wrong if Protect ever adds other params.
-        return url.removesuffix("?enableSrtp")
+        if not srtp:
+            # Strip only the exact ?enableSrtp suffix the server appends (mirrors the
+            # private rtsps_url construction); go2rtc rejects the SRTP variant. A
+            # generic query strip would be wrong if Protect ever adds other params.
+            url = url.removesuffix("?enableSrtp")
+        api = self._api
+        if api is None or not api.override_connection_host:
+            return url
+        # A multi-homed console does not answer with the address the request
+        # arrived on, so the server URL can name an unreachable interface.
+        return _replace_url_host(url, format_host_for_url(api.connection_host))
 
     def get_available_stream_qualities(self) -> list[str]:
         """

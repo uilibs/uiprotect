@@ -1397,7 +1397,9 @@ class ProtectApiClient(BaseApiClient):
         api_key: API key for UFP
         verify_ssl: Verify HTTPS certificate (default: `True`)
         session: Optional aiohttp session to use (default: generate one)
-        override_connection_host: Use `host` as your `connection_host` for RTSP stream instead of using the one provided by UniFi Protect.
+        override_connection_host: Use `host` as your `connection_host` for the
+            private RTSP(S) URLs and the public RTSPS URLs instead of using the
+            one provided by UniFi Protect.
         minimum_score: minimum score for events (default: `0`)
         subscribed_models: Model types you want to filter events for WS. You will need to manually check the bootstrap for updates for events that not subscibred.
         ignore_stats: Ignore storage, system, etc. stats/metrics from NVR and cameras (default: false)
@@ -1438,6 +1440,7 @@ class ProtectApiClient(BaseApiClient):
     _public_resync_pending: bool = False
     _last_update_dt: datetime | None = None
     _connection_host: IPv4Address | IPv6Address | str | None = None
+    _override_connection_host: bool = False
     # Lazy dispatcher; ``subscribe_events`` materialises it.
     _event_dispatcher: EventDispatcher | None = None
     # Internal events-WS adapter unsubscribe; populated while the typed
@@ -1533,6 +1536,7 @@ class ProtectApiClient(BaseApiClient):
         self.ignore_unadopted = ignore_unadopted
         self._update_lock = asyncio.Lock()
 
+        self._override_connection_host = override_connection_host
         if override_connection_host:
             self._connection_host = self._host
 
@@ -1554,6 +1558,7 @@ class ProtectApiClient(BaseApiClient):
         events_ws_subscribed_models: set[ModelType] | None = None,
         devices_ws_subscribed_models: set[ModelType] | None = None,
         ignore_unadopted: bool = True,
+        override_connection_host: bool = False,
         max_retries: int = RETRY_DEFAULT_ATTEMPTS,
     ) -> Self:
         """
@@ -1565,7 +1570,8 @@ class ProtectApiClient(BaseApiClient):
         :meth:`subscribe_events`, :meth:`subscribe_devices`, the public
         ``get_*_public`` / ``update_*_public`` methods, and
         :meth:`get_meta_info` instead. A revoked or invalid key surfaces as
-        :class:`NotAuthorized`.
+        :class:`NotAuthorized`. ``override_connection_host`` rewrites the host
+        of the public RTSPS URLs to ``host``; it needs no private bootstrap.
         """
         return cls(
             host,
@@ -1579,6 +1585,7 @@ class ProtectApiClient(BaseApiClient):
             events_ws_subscribed_models=events_ws_subscribed_models,
             devices_ws_subscribed_models=devices_ws_subscribed_models,
             ignore_unadopted=ignore_unadopted,
+            override_connection_host=override_connection_host,
             max_retries=max_retries,
         )
 
@@ -1652,6 +1659,11 @@ class ProtectApiClient(BaseApiClient):
     def has_public_bootstrap(self) -> bool:
         """Whether :meth:`update_public` has been called at least once."""
         return self._public_bootstrap is not None
+
+    @property
+    def override_connection_host(self) -> bool:
+        """Whether `host` overrides the console-reported connection host."""
+        return self._override_connection_host
 
     @property
     def connection_host(self) -> IPv4Address | IPv6Address | str:
@@ -3320,7 +3332,7 @@ class ProtectApiClient(BaseApiClient):
 
         try:
             response_json = orjson.loads(response)
-            streams = RTSPSStreams(**response_json)
+            streams = RTSPSStreams(api=self, **response_json)
         except (orjson.JSONDecodeError, TypeError) as ex:
             _LOGGER.error(
                 "Could not decode JSON response for create RTSPS streams (camera %s): %s",
@@ -3358,7 +3370,7 @@ class ProtectApiClient(BaseApiClient):
 
         try:
             response_json = orjson.loads(response)
-            return RTSPSStreams(**response_json)
+            return RTSPSStreams(api=self, **response_json)
         except (orjson.JSONDecodeError, TypeError) as ex:
             _LOGGER.error(
                 "Could not decode JSON response for get RTSPS streams (camera %s): %s",
@@ -3409,7 +3421,9 @@ class ProtectApiClient(BaseApiClient):
                     for quality, url in extra.items()
                     if quality not in quality_strs
                 }
-                camera.rtsps_streams = RTSPSStreams(**survivors) if survivors else None
+                camera.rtsps_streams = (
+                    RTSPSStreams(api=self, **survivors) if survivors else None
+                )
         return success
 
     async def get_package_camera_snapshot(
