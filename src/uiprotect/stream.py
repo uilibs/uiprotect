@@ -364,6 +364,11 @@ class TalkbackStream:
             if self._thread is not None:
                 await self._wait_for_thread()
                 self._thread = None
+                # Report here rather than trusting the worker's
+                # call_soon_threadsafe() to land first: the ordering between a
+                # queued callback and the executor future that join() resolves
+                # is not guaranteed, so stop() must leave nothing unreported.
+                self._log_uncollected_error()
             self._stop_event.clear()
 
     async def run_until_complete(self) -> None:
