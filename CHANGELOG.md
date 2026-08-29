@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.6.1 (2026-08-29)
+
+### Bug fixes
+
+
+- Honour override_connection_host for public rtsps urls ([`bdd7495`](https://github.com/uilibs/uiprotect/commit/bdd7495b12466750907ae69c4852bd21853065c5))
+
+
 ## v16.6.0 (2026-08-29)
 
 ### Features
