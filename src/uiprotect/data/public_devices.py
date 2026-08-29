@@ -312,8 +312,11 @@ class PublicCameraLedSettings(ProtectBaseObject):
 
 
 class PublicLcdMessage(ProtectBaseObject):
-    # Spec marks ``type``/``text`` required, but the PATCH endpoint accepts
-    # (and a cleared message returns) ``{}`` — so every field is optional.
+    # Response shape, not request shape: the spec models these as separate
+    # schemas. Responses use ``lcdMessageUnion``, where every field is
+    # optional, so all three are optional here. Requests use ``lcdMessage``, a
+    # ``oneOf`` whose four variants all require ``type`` — an empty object is
+    # rejected there, and a camera with no message omits the key entirely.
     type: DoorbellMessageType | None = None
     reset_at: int | None = None
     text: str | None = None
