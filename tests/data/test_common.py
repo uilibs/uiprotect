@@ -48,6 +48,7 @@ from uiprotect.data.nvr import EventMetadata
 from uiprotect.data.types import RecordingType, ResolutionStorageType
 from uiprotect.data.user import CloudAccount
 from uiprotect.exceptions import BadRequest, NotAuthorized, StreamError
+from uiprotect.stream import TalkbackSession
 from uiprotect.utils import set_debug, set_no_debug, utc_now
 
 from ..common import assert_equal_dump
@@ -1389,6 +1390,48 @@ async def test_play_audio_error(mock_talkback, camera_obj: Camera):
 
     assert mock_talkback.called
     assert mock_instance.run_until_complete.called
+
+
+@pytest.fixture
+def _unsupported_codec_session(camera_obj: Camera) -> None:
+    """Wire the camera up to a talkback session the stream cannot encode."""
+    camera_obj.feature_flags.has_speaker = True
+    camera_obj._api._api_key = "test-api-key"
+    camera_obj._api.create_talkback_session_public = AsyncMock(
+        return_value=TalkbackSession(
+            url="rtp://192.168.1.100:7004",
+            codec="unsupported_codec",
+            sampling_rate=24000,
+        )
+    )
+
+
+@pytest.mark.asyncio()
+@pytest.mark.usefixtures("_disable_camera_validation", "_unsupported_codec_session")
+async def test_play_audio_non_blocking_logs_stream_error(
+    camera_obj: Camera, caplog: pytest.LogCaptureFixture
+):
+    """Non-blocking playback surfaces the stream failure in the log."""
+    with caplog.at_level(logging.ERROR, logger="uiprotect.stream"):
+        await camera_obj.play_audio("test", blocking=False)
+        await asyncio.wait_for(camera_obj.stop_audio(), timeout=5.0)
+
+    assert "Unsupported codec: unsupported_codec" in caplog.text
+
+
+@pytest.mark.asyncio()
+@pytest.mark.usefixtures("_disable_camera_validation", "_unsupported_codec_session")
+async def test_play_audio_blocking_raises_without_logging(
+    camera_obj: Camera, caplog: pytest.LogCaptureFixture
+):
+    """Blocking playback raises the stream failure and does not also log it."""
+    with (
+        caplog.at_level(logging.ERROR, logger="uiprotect.stream"),
+        pytest.raises(StreamError, match="Unsupported codec"),
+    ):
+        await camera_obj.play_audio("test")
+
+    assert [r for r in caplog.records if r.name == "uiprotect.stream"] == []
 
 
 @pytest.mark.asyncio()

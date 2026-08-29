@@ -142,6 +142,8 @@ class TalkbackStream:
 
     __slots__ = (
         "_error",
+        "_error_logged",
+        "_error_will_raise",
         "_lock",
         "_stop_event",
         "_thread",
@@ -178,6 +180,8 @@ class TalkbackStream:
         self._thread: threading.Thread | None = None
         self._lock = asyncio.Lock()
         self._error: BaseException | None = None
+        self._error_will_raise = False
+        self._error_logged = False
 
     async def __aenter__(self) -> Self:
         """Start streaming when entering async context."""
@@ -290,19 +294,55 @@ class TalkbackStream:
                     for packet in output_stream.encode(None):
                         output_container.mux(packet)
 
+    def _run_stream(self, loop: asyncio.AbstractEventLoop) -> None:
+        """Thread target: stream, then report an error nobody will collect."""
+        try:
+            self._stream_audio_sync()
+        except Exception as err:
+            # A thread target cannot raise anywhere useful, and an error that
+            # is not stored is one that no caller and no log ever sees.
+            self._error = err
+        if self._error is None:
+            return
+        # Whether anyone will collect the error is only settled on the event
+        # loop: a caller that started the stream with start() may still reach
+        # run_until_complete() while this thread is exiting.
+        try:
+            loop.call_soon_threadsafe(self._log_uncollected_error)
+        except RuntimeError:
+            self._log_uncollected_error()
+
+    def _log_uncollected_error(self) -> None:
+        """Log the stored error unless a caller raises it or it was logged."""
+        if self._error_logged or self._error_will_raise:
+            return
+        if (error := self._error) is not None:
+            self._error_logged = True
+            _LOGGER.error("Talkback stream to %s failed: %s", self.camera.id, error)
+
     def _start_thread_if_needed(self, *, raise_if_running: bool) -> None:
         """Start streaming thread if not already running. Must hold lock."""
-        if self._thread is not None and self._thread.is_alive():
+        if self._thread is not None:
             if raise_if_running:
-                raise StreamError("Stream already started")
-            return
+                if self._thread.is_alive():
+                    raise StreamError("Stream already started")
+            else:
+                # run_until_complete() adopts the existing run instead of
+                # starting a new one: restarting would replay the audio and
+                # discard the error the finished run stored. It raises that
+                # error, so the worker must not log it as well.
+                self._error_will_raise = True
+                return
         # Don't clear a pending stop signal — stop() sets the event before
         # acquiring the lock, so a concurrent start() must not clobber it.
         if self._stop_event.is_set():
             return
         self._error = None
+        self._error_logged = False
+        self._error_will_raise = not raise_if_running
         self._thread = threading.Thread(
-            target=self._stream_audio_sync,
+            target=self._run_stream,
+            args=(asyncio.get_running_loop(),),
             name="TalkbackStream",
             daemon=True,
         )
@@ -327,16 +367,26 @@ class TalkbackStream:
         # concurrently (e.g. HA play_audio + stop from media player).
         self._stop_event.set()
         async with self._lock:
-            if self._thread is not None:
-                await self._wait_for_thread()
-                self._thread = None
+            # The finished thread object is kept: start() restarts from it, and
+            # run_until_complete() adopts it instead of replaying the audio.
+            await self._wait_for_thread()
+            self._log_uncollected_error()
+            if self._error_logged:
+                # Already reported; a later collector must not raise it too.
+                self._error = None
             self._stop_event.clear()
 
     async def run_until_complete(self) -> None:
         """Run the stream until it completes naturally."""
         async with self._lock:
             self._start_thread_if_needed(raise_if_running=False)
-            await self._wait_for_thread()
+            try:
+                await self._wait_for_thread()
+            except asyncio.CancelledError:
+                # The caller gave up, so nobody raises what the stream stored.
+                self._error_will_raise = False
+                self._log_uncollected_error()
+                raise
 
             if self._error is not None:
                 error = self._error

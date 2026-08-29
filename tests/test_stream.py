@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, Mock, patch
@@ -247,6 +248,15 @@ def _blocking_mock(stop_event: threading.Event) -> Callable[[], None]:
         stop_event.wait()
 
     return mock_stream_audio_sync
+
+
+def _stream_errors(caplog: pytest.LogCaptureFixture) -> list[str]:
+    """Return the messages the stream module logged."""
+    return [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == "uiprotect.stream"
+    ]
 
 
 @pytest.mark.asyncio
@@ -729,3 +739,299 @@ async def test_restart_after_stop(mock_camera: Mock, audio_file: str) -> None:
         assert stream.is_running
         await asyncio.wait_for(stream.stop(), timeout=5.0)
         assert not stream.is_running
+
+
+@pytest.mark.asyncio
+async def test_start_logs_unsupported_codec(
+    mock_camera: Mock, audio_file: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Non-blocking start logs the unsupported-codec failure."""
+    session = TalkbackSession(
+        url="rtp://192.168.1.100:7004",
+        codec="unsupported_codec",
+        sampling_rate=24000,
+    )
+    stream = TalkbackStream(mock_camera, audio_file, session)
+
+    with caplog.at_level(logging.ERROR, logger="uiprotect.stream"):
+        await stream.start()
+        await asyncio.wait_for(stream.stop(), timeout=5.0)
+
+    assert "Unsupported codec: unsupported_codec" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_start_logs_no_audio_stream(
+    mock_camera: Mock,
+    audio_file: str,
+    talkback_session: TalkbackSession,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Non-blocking start logs an input without an audio stream."""
+    mock_input = MagicMock()
+    mock_input.streams.audio = []
+    mock_input.__enter__ = MagicMock(return_value=mock_input)
+    mock_input.__exit__ = MagicMock(return_value=False)
+
+    with (
+        patch("uiprotect.stream.av.open", return_value=mock_input),
+        caplog.at_level(logging.ERROR, logger="uiprotect.stream"),
+    ):
+        stream = TalkbackStream(mock_camera, audio_file, talkback_session)
+        await stream.start()
+        await asyncio.wait_for(stream.stop(), timeout=5.0)
+
+    assert "No audio stream found in input" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_start_logs_av_error(
+    mock_camera: Mock,
+    audio_file: str,
+    talkback_session: TalkbackSession,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Non-blocking start logs an av.FFmpegError raised while streaming."""
+    with (
+        patch("uiprotect.stream.av.open", side_effect=av.FFmpegError(0, "Test error")),
+        caplog.at_level(logging.ERROR, logger="uiprotect.stream"),
+    ):
+        stream = TalkbackStream(mock_camera, audio_file, talkback_session)
+        await stream.start()
+        await asyncio.wait_for(stream.stop(), timeout=5.0)
+
+    assert "Audio streaming failed" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_run_until_complete_does_not_log(
+    mock_camera: Mock, audio_file: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A failure the caller collects by raising is not also logged."""
+    session = TalkbackSession(
+        url="rtp://192.168.1.100:7004",
+        codec="unsupported_codec",
+        sampling_rate=24000,
+    )
+    stream = TalkbackStream(mock_camera, audio_file, session)
+
+    with (
+        caplog.at_level(logging.ERROR, logger="uiprotect.stream"),
+        pytest.raises(StreamError, match="Unsupported codec"),
+    ):
+        await stream.run_until_complete()
+
+    assert _stream_errors(caplog) == []
+
+
+@pytest.mark.asyncio
+async def test_start_then_run_until_complete_does_not_log(
+    mock_camera: Mock, audio_file: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A stream started with start() and then awaited raises without logging."""
+    session = TalkbackSession(
+        url="rtp://192.168.1.100:7004",
+        codec="unsupported_codec",
+        sampling_rate=24000,
+    )
+
+    with caplog.at_level(logging.ERROR, logger="uiprotect.stream"):
+        stream = TalkbackStream(mock_camera, audio_file, session)
+        await stream.start()
+        with pytest.raises(StreamError, match="Unsupported codec"):
+            await asyncio.wait_for(stream.run_until_complete(), timeout=5.0)
+        await asyncio.sleep(0)
+
+    assert _stream_errors(caplog) == []
+
+
+@pytest.mark.asyncio
+async def test_cancelled_run_until_complete_logs(
+    mock_camera: Mock, audio_file: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A collector that is cancelled leaves the error to be logged."""
+    gate = threading.Event()
+
+    def fail_after_gate(self: TalkbackStream) -> None:
+        gate.wait()
+        self._error = StreamError("boom")
+
+    with (
+        patch.object(TalkbackStream, "_stream_audio_sync", fail_after_gate),
+        caplog.at_level(logging.ERROR, logger="uiprotect.stream"),
+    ):
+        stream = TalkbackStream(mock_camera, audio_file)
+        run_task = asyncio.create_task(stream.run_until_complete())
+        while not stream.is_running:
+            await asyncio.sleep(0)
+
+        run_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await run_task
+
+        gate.set()
+        await asyncio.wait_for(stream.stop(), timeout=5.0)
+        await asyncio.sleep(0)
+
+    assert "boom" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_error_logged_when_loop_is_gone(
+    mock_camera: Mock, audio_file: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """An error is still logged when the loop that started the stream is closed."""
+    dead_loop = asyncio.new_event_loop()
+    dead_loop.close()
+
+    def fail(self: TalkbackStream) -> None:
+        self._error = StreamError("boom")
+
+    with (
+        patch.object(TalkbackStream, "_stream_audio_sync", fail),
+        caplog.at_level(logging.ERROR, logger="uiprotect.stream"),
+    ):
+        stream = TalkbackStream(mock_camera, audio_file)
+        await asyncio.to_thread(stream._run_stream, dead_loop)
+
+    assert "boom" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_start_success_does_not_log(
+    mock_camera: Mock,
+    audio_file: str,
+    talkback_session: TalkbackSession,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A stream that completes without error logs nothing."""
+    mock_input, mock_output, mock_resampler = _create_mock_av_containers(
+        with_frames=True
+    )
+
+    with (
+        patch("uiprotect.stream.av.open", side_effect=[mock_input, mock_output]),
+        patch("uiprotect.stream.av.AudioResampler", return_value=mock_resampler),
+        caplog.at_level(logging.ERROR, logger="uiprotect.stream"),
+    ):
+        stream = TalkbackStream(mock_camera, audio_file, talkback_session)
+        await stream.start()
+        await asyncio.wait_for(stream.stop(), timeout=5.0)
+
+    assert _stream_errors(caplog) == []
+
+
+@pytest.mark.asyncio
+async def test_run_until_complete_does_not_replay_finished_stream(
+    mock_camera: Mock, audio_file: str
+) -> None:
+    """A collector arriving after the run finished raises instead of replaying."""
+    runs = 0
+
+    def fail_once(self: TalkbackStream) -> None:
+        nonlocal runs
+        runs += 1
+        self._error = StreamError("boom")
+
+    with patch.object(TalkbackStream, "_stream_audio_sync", fail_once):
+        stream = TalkbackStream(mock_camera, audio_file)
+        await stream.start()
+        while stream.is_running:
+            await asyncio.sleep(0)
+
+        with pytest.raises(StreamError, match="boom"):
+            await asyncio.wait_for(stream.run_until_complete(), timeout=5.0)
+
+    assert runs == 1
+
+
+@pytest.mark.asyncio
+async def test_run_until_complete_after_success_does_not_replay(
+    mock_camera: Mock, audio_file: str
+) -> None:
+    """A finished successful run is not started again by run_until_complete."""
+    runs = 0
+
+    def count_run(self: TalkbackStream) -> None:
+        nonlocal runs
+        runs += 1
+
+    with patch.object(TalkbackStream, "_stream_audio_sync", count_run):
+        stream = TalkbackStream(mock_camera, audio_file)
+        await stream.start()
+        while stream.is_running:
+            await asyncio.sleep(0)
+
+        await asyncio.wait_for(stream.run_until_complete(), timeout=5.0)
+
+    assert runs == 1
+
+
+@pytest.mark.asyncio
+async def test_run_until_complete_after_stop_does_not_replay(
+    mock_camera: Mock, audio_file: str
+) -> None:
+    """A stopped stream is not started again by a later run_until_complete."""
+    runs = 0
+
+    def count_run(self: TalkbackStream) -> None:
+        nonlocal runs
+        runs += 1
+        self._stop_event.wait()
+
+    with patch.object(TalkbackStream, "_stream_audio_sync", count_run):
+        stream = TalkbackStream(mock_camera, audio_file)
+        await stream.start()
+        await asyncio.wait_for(stream.stop(), timeout=5.0)
+
+        await asyncio.wait_for(stream.run_until_complete(), timeout=5.0)
+
+    assert runs == 1
+
+
+@pytest.mark.asyncio
+async def test_unexpected_exception_is_stored(
+    mock_camera: Mock, audio_file: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """An exception the streaming code does not convert is still reported."""
+
+    def raise_value_error(self: TalkbackStream) -> None:
+        raise ValueError("boom")
+
+    with (
+        patch.object(TalkbackStream, "_stream_audio_sync", raise_value_error),
+        caplog.at_level(logging.ERROR, logger="uiprotect.stream"),
+    ):
+        stream = TalkbackStream(mock_camera, audio_file)
+        await stream.start()
+        await asyncio.wait_for(stream.stop(), timeout=5.0)
+
+        assert "boom" in caplog.text
+
+        collected = TalkbackStream(mock_camera, audio_file)
+        with pytest.raises(ValueError, match="boom"):
+            await asyncio.wait_for(collected.run_until_complete(), timeout=5.0)
+
+
+@pytest.mark.asyncio
+async def test_stop_consumes_a_logged_error(
+    mock_camera: Mock, audio_file: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """An error already logged is not raised again by a later collector."""
+
+    def fail(self: TalkbackStream) -> None:
+        self._error = StreamError("boom")
+
+    with (
+        patch.object(TalkbackStream, "_stream_audio_sync", fail),
+        caplog.at_level(logging.ERROR, logger="uiprotect.stream"),
+    ):
+        stream = TalkbackStream(mock_camera, audio_file)
+        await stream.start()
+        await asyncio.wait_for(stream.stop(), timeout=5.0)
+
+        await asyncio.wait_for(stream.run_until_complete(), timeout=5.0)
+
+    assert _stream_errors(caplog) == [
+        f"Talkback stream to {mock_camera.id} failed: boom"
+    ]
