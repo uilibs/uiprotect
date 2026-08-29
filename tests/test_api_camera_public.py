@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from uiprotect.api import ProtectApiClient
+    from uiprotect.data.websocket import WSSubscriptionMessage
 
 CAMERA_ID = "6878d82800215803e45928e1"
 
@@ -170,6 +171,10 @@ async def test_get_camera_public_success(
         (
             {"lcd_message": {"type": "CUSTOM_MESSAGE", "text": "Hello"}},
             {"lcdMessage": {"type": "CUSTOM_MESSAGE", "text": "Hello"}},
+        ),
+        (
+            {"lcd_message": {"type": "DO_NOT_DISTURB", "resetAt": 0}},
+            {"lcdMessage": {"type": "DO_NOT_DISTURB", "resetAt": 0}},
         ),
     ],
 )
@@ -727,6 +732,72 @@ async def test_camera_set_lcd_message_public_reset_at_none(camera: Camera) -> No
 
     call_kwargs = camera._api.update_camera_public.call_args
     assert call_kwargs.kwargs["lcd_message"]["resetAt"] is None
+
+
+@pytest.mark.asyncio()
+async def test_camera_set_lcd_message_public_clear(camera: Camera) -> None:
+    """A ``None`` text type clears the message and the local state."""
+    camera.feature_flags.has_lcd_screen = True
+    camera.lcd_message = LCDMessage.from_unifi_dict(
+        type="CUSTOM_MESSAGE", text="Hello", resetAt=None, api=camera._api
+    )
+    updated = Mock()
+    updated.lcd_message = PublicLcdMessage()
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
+
+    messages: list[WSSubscriptionMessage] = []
+    unsub = camera._api.subscribe_websocket(messages.append)
+
+    try:
+        await camera.set_lcd_message_public(None)
+    finally:
+        unsub()
+
+    camera._api.update_camera_public.assert_called_once_with(
+        camera.id,
+        lcd_message={"type": DoorbellMessageType.DO_NOT_DISTURB, "resetAt": 0},
+    )
+    assert camera.lcd_message is None
+    # Clearing emits no WS message of its own, so one is faked.
+    assert len(messages) == 1
+    assert messages[0].new_obj.lcd_message is None
+
+
+@pytest.mark.parametrize(
+    ("kwargs"),
+    [
+        {"text": "oops"},
+        {"reset_at": None},
+        {"reset_at": dt.datetime(2026, 1, 1, tzinfo=dt.UTC)},
+    ],
+)
+@pytest.mark.asyncio()
+async def test_camera_set_lcd_message_public_clear_validation(
+    camera: Camera, kwargs: dict[str, Any]
+) -> None:
+    camera.feature_flags.has_lcd_screen = True
+
+    with pytest.raises(BadRequest, match="Clearing the LCD message"):
+        await camera.set_lcd_message_public(None, **kwargs)
+
+
+@pytest.mark.asyncio()
+async def test_camera_set_lcd_message_public_clear_detached(camera: Camera) -> None:
+    """Clearing updates the local state even off the bootstrap's own instance."""
+    camera.feature_flags.has_lcd_screen = True
+    camera.lcd_message = LCDMessage.from_unifi_dict(
+        type="CUSTOM_MESSAGE", text="Hello", resetAt=None, api=camera._api
+    )
+    # The faked frame is routed through the bootstrap, so it never reaches an
+    # instance the bootstrap no longer holds.
+    camera._api.bootstrap.cameras.pop(camera.id, None)
+    updated = Mock()
+    updated.lcd_message = PublicLcdMessage()
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
+
+    await camera.set_lcd_message_public(None)
+
+    assert camera.lcd_message is None
 
 
 @pytest.mark.asyncio()

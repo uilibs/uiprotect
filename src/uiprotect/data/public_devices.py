@@ -127,6 +127,36 @@ _LCD_TYPES_REQUIRING_TEXT: frozenset[DoorbellMessageType] = frozenset(
 )
 
 
+def _build_public_lcd_message(
+    text_type: DoorbellMessageType | None,
+    text: str | None,
+    reset_at: datetime | DEFAULT_TYPE | None,
+) -> CameraPublicApiLcdMessageRequest:
+    """Build the ``lcdMessage`` PATCH body; ``text_type`` of ``None`` clears it."""
+    if text_type is None:
+        if text is not None or reset_at is not DEFAULT:
+            raise BadRequest("Clearing the LCD message does not accept text/reset_at")
+        # The public API validates the request against a ``oneOf`` whose variants
+        # all require ``type``, so an empty object is rejected before any handler
+        # runs. A message whose ``resetAt`` has already passed is removed instead
+        # of being pushed to the camera; ``0`` avoids any client/console clock
+        # skew, and the type is never delivered so any text-free one will do.
+        return {"type": DoorbellMessageType.DO_NOT_DISTURB, "resetAt": 0}
+    if text_type in _LCD_TYPES_REQUIRING_TEXT:
+        if text is None:
+            raise BadRequest(f"{text_type} requires text")
+    elif text is not None:
+        raise BadRequest(f"{text_type} does not accept text")
+    message: CameraPublicApiLcdMessageRequest = {"type": text_type}
+    if text is not None:
+        message["text"] = text
+    if isinstance(reset_at, datetime):
+        message["resetAt"] = to_js_time(reset_at)
+    elif reset_at is None:
+        message["resetAt"] = None
+    return message
+
+
 # Smart-detect object events. Protect 7.x emits overlapping ``smartDetectZone``
 # and ``smartDetectLine`` frames for the same detection, so both drive the smart
 # flags — mirroring the private ``Camera`` model (see ``CAMERA_EVENT_ATTR_MAP``
@@ -282,8 +312,11 @@ class PublicCameraLedSettings(ProtectBaseObject):
 
 
 class PublicLcdMessage(ProtectBaseObject):
-    # Spec marks ``type``/``text`` required, but the PATCH endpoint accepts
-    # (and a cleared message returns) ``{}`` — so every field is optional.
+    # Response shape, not request shape: the spec models these as separate
+    # schemas. Responses use ``lcdMessageUnion``, where every field is
+    # optional, so all three are optional here. Requests use ``lcdMessage``, a
+    # ``oneOf`` whose four variants all require ``type`` — an empty object is
+    # rejected there, and a camera with no message omits the key entirely.
     type: DoorbellMessageType | None = None
     reset_at: int | None = None
     text: str | None = None
@@ -818,29 +851,20 @@ class PublicCamera(PublicDeviceModel):
 
     async def set_lcd_message(
         self,
-        text_type: DoorbellMessageType,
+        text_type: DoorbellMessageType | None,
         text: str | None = None,
         reset_at: datetime | DEFAULT_TYPE | None = DEFAULT,
     ) -> PublicCamera:
         """
         Set the doorbell LCD message via the public API.
 
-        ``text`` is required for CUSTOM_MESSAGE and IMAGE and must be omitted
-        otherwise. ``reset_at`` controls when the message clears: omit for the
-        NVR default, pass ``None`` for "forever", or a specific datetime.
+        Pass ``None`` for ``text_type`` to clear the message, with ``text`` and
+        ``reset_at`` omitted. ``text`` is required for CUSTOM_MESSAGE and IMAGE
+        and must be omitted otherwise. ``reset_at`` controls when the message
+        clears: omit for the NVR default, pass ``None`` for "forever", or a
+        specific datetime.
         """
-        if text_type in _LCD_TYPES_REQUIRING_TEXT:
-            if text is None:
-                raise BadRequest(f"{text_type} requires text")
-        elif text is not None:
-            raise BadRequest(f"{text_type} does not accept text")
-        message: CameraPublicApiLcdMessageRequest = {"type": text_type}
-        if text is not None:
-            message["text"] = text
-        if isinstance(reset_at, datetime):
-            message["resetAt"] = to_js_time(reset_at)
-        elif reset_at is None:
-            message["resetAt"] = None
+        message = _build_public_lcd_message(text_type, text, reset_at)
         updated = await self._api.update_camera_public(self.id, lcd_message=message)
         self._apply_from_response(updated)
         return self
