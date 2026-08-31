@@ -113,7 +113,7 @@ jobs:
       - name: Install Dependencies
         run: poetry install --only=main,dev
       - name: Run CodSpeed benchmarks
-        uses: CodSpeedHQ/action@v4
+        uses: CodSpeedHQ/action@v5
         with:
           run: poetry run pytest tests/benchmarks --no-cov -o addopts="" --codspeed
           mode: simulation
@@ -138,7 +138,7 @@ jobs:
           BRANCH: ${{ github.head_ref || github.ref_name }}
         run: git switch -C "$BRANCH"
       - name: Test release
-        uses: python-semantic-release/python-semantic-release@v10.6.1
+        uses: python-semantic-release/python-semantic-release@v10.6.2
         with:
           no_operation_mode: true
 
@@ -183,7 +183,7 @@ jobs:
 
       # On main branch: actual PSR + upload to PyPI & GitHub
       - name: Release
-        uses: python-semantic-release/python-semantic-release@v10.6.1
+        uses: python-semantic-release/python-semantic-release@v10.6.2
         id: release
         with:
           github_token: ${{ secrets.BOT_ACCESS_TOKEN }}
