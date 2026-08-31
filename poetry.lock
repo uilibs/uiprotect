@@ -3023,15 +3023,15 @@ tests = ["pytest", "pytest-cov"]
 
 [[package]]
 name = "typer"
-version = "0.27.1"
+version = "0.27.2"
 description = "Typer, build great CLIs. Easy to code. Based on Python type hints."
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
 markers = "extra == \"cli\""
 files = [
-    {file = "typer-0.27.1-py3-none-any.whl", hash = "sha256:53150287edd11baeb4e4722c8e394fcdf8181c0ae89485cba8d25c778d5edd56"},
-    {file = "typer-0.27.1.tar.gz", hash = "sha256:a79bef8469a79c45498e7b814ecf8d603cc7644e9acbd9e19cac0334240b18df"},
+    {file = "typer-0.27.2-py3-none-any.whl", hash = "sha256:b3a5fc4342d5fc8fda8fc3010b1cf117e9249aab7fae800c2eff62fd3842d97d"},
+    {file = "typer-0.27.2.tar.gz", hash = "sha256:269b7eb9d3c202ca84b4bc9618cb04ebb43d3d4d1e567e4c768607232c05f945"},
 ]
 
 [package.dependencies]
@@ -3360,4 +3360,4 @@ cli = ["dateparser", "pillow", "rich", "typer"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "d4ef814cf1a63a9d01f3d416928f0493d432320ae41d3ae84ade9756c4092638"
+content-hash = "d2d89e37848bf824c8d2f5077ea48bc52687308fb320a36808996687ec5a2644"
