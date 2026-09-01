@@ -363,6 +363,76 @@ def test_public_camera_detection_on_properties(
 
 
 @pytest.mark.parametrize(
+    ("smart_detect_types", "smart_detect_audio_types", "prop", "expected"),
+    [
+        (["person"], [], "can_detect_person", True),
+        ([], [], "can_detect_person", False),
+        (["vehicle"], [], "can_detect_vehicle", True),
+        (["person"], [], "can_detect_vehicle", False),
+        (["face"], [], "can_detect_face", True),
+        (["licensePlate"], [], "can_detect_license_plate", True),
+        (["package"], [], "can_detect_package", True),
+        ([], [], "can_detect_package", False),
+        (["animal"], [], "can_detect_animal", True),
+        ([], ["alrmSmoke"], "can_detect_smoke", True),
+        ([], [], "can_detect_smoke", False),
+        ([], ["alrmCmonx"], "can_detect_co", True),
+        ([], ["alrmSiren"], "can_detect_siren", True),
+        ([], ["alrmBabyCry"], "can_detect_baby_cry", True),
+        ([], ["alrmSpeak"], "can_detect_speaking", True),
+        ([], ["alrmBark"], "can_detect_bark", True),
+        ([], ["alrmBurglar"], "can_detect_car_alarm", True),
+        ([], ["alrmCarHorn"], "can_detect_car_horn", True),
+        ([], ["alrmGlassBreak"], "can_detect_glass_break", True),
+        ([], ["alrmSmoke"], "can_detect_siren", False),
+    ],
+)
+def test_public_camera_can_detect_properties(
+    smart_detect_types: list[str],
+    smart_detect_audio_types: list[str],
+    prop: str,
+    expected: bool,
+) -> None:
+    """``can_detect_*`` are membership tests over the feature flags."""
+    obj = PublicCamera.from_unifi_dict(
+        api=Mock(),
+        **{
+            **CAMERA_PAYLOAD,
+            "featureFlags": {
+                **CAMERA_PAYLOAD["featureFlags"],
+                "smartDetectTypes": smart_detect_types,
+                "smartDetectAudioTypes": smart_detect_audio_types,
+            },
+        },
+    )
+    assert getattr(obj, prop) is expected
+
+
+def test_public_camera_can_detect_is_capability_not_setting() -> None:
+    """Capability reads ``feature_flags``; the enabled state reads the settings."""
+    obj = PublicCamera.from_unifi_dict(
+        api=Mock(),
+        **{
+            **CAMERA_PAYLOAD,
+            "featureFlags": {
+                **CAMERA_PAYLOAD["featureFlags"],
+                "smartDetectTypes": ["person", "vehicle"],
+                "smartDetectAudioTypes": ["alrmSmoke", "alrmSiren"],
+            },
+            "smartDetectSettings": {"objectTypes": [], "audioTypes": []},
+        },
+    )
+    assert obj.can_detect_person is True
+    assert obj.can_detect_vehicle is True
+    assert obj.can_detect_smoke is True
+    assert obj.can_detect_siren is True
+    assert obj.is_person_detection_on is False
+    assert obj.is_vehicle_detection_on is False
+    assert obj.is_smoke_detection_on is False
+    assert obj.is_siren_detection_on is False
+
+
+@pytest.mark.parametrize(
     ("video_mode", "expected"),
     [("default", False), ("highFps", True)],
 )

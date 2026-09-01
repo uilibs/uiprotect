@@ -638,6 +638,100 @@ class PublicCamera(PublicDeviceModel):
         """Is glass breaking currently being detected."""
         return self._detection_state()["is_glass_break_currently_detected"]
 
+    # Capability accessors mirroring the private
+    # :class:`~uiprotect.data.devices.Camera` names, reading ``feature_flags``
+    # (what the camera supports) rather than the ``smart_detect_settings`` that
+    # back the ``is_*_detection_on`` block below. The audio properties must
+    # match on ``SmartDetectAudioType``: both enums are ``StrEnum`` sharing the
+    # ``alrm*`` values, so a ``SmartDetectObjectType`` constant would compare
+    # equal at runtime and type-check.
+
+    @property
+    def can_detect_person(self) -> bool:
+        """Does the camera support person smart detection."""
+        return SmartDetectObjectType.PERSON in self.feature_flags.smart_detect_types
+
+    @property
+    def can_detect_vehicle(self) -> bool:
+        """Does the camera support vehicle smart detection."""
+        return SmartDetectObjectType.VEHICLE in self.feature_flags.smart_detect_types
+
+    @property
+    def can_detect_face(self) -> bool:
+        """Does the camera support face smart detection."""
+        return SmartDetectObjectType.FACE in self.feature_flags.smart_detect_types
+
+    @property
+    def can_detect_license_plate(self) -> bool:
+        """Does the camera support license plate smart detection."""
+        return (
+            SmartDetectObjectType.LICENSE_PLATE in self.feature_flags.smart_detect_types
+        )
+
+    @property
+    def can_detect_package(self) -> bool:
+        """Does the camera support package smart detection."""
+        return SmartDetectObjectType.PACKAGE in self.feature_flags.smart_detect_types
+
+    @property
+    def can_detect_animal(self) -> bool:
+        """Does the camera support animal smart detection."""
+        return SmartDetectObjectType.ANIMAL in self.feature_flags.smart_detect_types
+
+    @property
+    def can_detect_smoke(self) -> bool:
+        """Does the camera support smoke alarm audio detection."""
+        return SmartDetectAudioType.SMOKE in self.feature_flags.smart_detect_audio_types
+
+    @property
+    def can_detect_co(self) -> bool:
+        """Does the camera support CO alarm audio detection."""
+        return SmartDetectAudioType.CMONX in self.feature_flags.smart_detect_audio_types
+
+    @property
+    def can_detect_siren(self) -> bool:
+        """Does the camera support siren audio detection."""
+        return SmartDetectAudioType.SIREN in self.feature_flags.smart_detect_audio_types
+
+    @property
+    def can_detect_baby_cry(self) -> bool:
+        """Does the camera support baby cry audio detection."""
+        return (
+            SmartDetectAudioType.BABY_CRY in self.feature_flags.smart_detect_audio_types
+        )
+
+    @property
+    def can_detect_speaking(self) -> bool:
+        """Does the camera support speaking audio detection."""
+        return SmartDetectAudioType.SPEAK in self.feature_flags.smart_detect_audio_types
+
+    @property
+    def can_detect_bark(self) -> bool:
+        """Does the camera support bark audio detection."""
+        return SmartDetectAudioType.BARK in self.feature_flags.smart_detect_audio_types
+
+    @property
+    def can_detect_car_alarm(self) -> bool:
+        """Does the camera support car alarm audio detection."""
+        return (
+            SmartDetectAudioType.BURGLAR in self.feature_flags.smart_detect_audio_types
+        )
+
+    @property
+    def can_detect_car_horn(self) -> bool:
+        """Does the camera support car horn audio detection."""
+        return (
+            SmartDetectAudioType.CAR_HORN in self.feature_flags.smart_detect_audio_types
+        )
+
+    @property
+    def can_detect_glass_break(self) -> bool:
+        """Does the camera support glass break audio detection."""
+        return (
+            SmartDetectAudioType.GLASS_BREAK
+            in self.feature_flags.smart_detect_audio_types
+        )
+
     # Config-derived parity accessors mirroring the private
     # :class:`~uiprotect.data.devices.Camera` names. Unlike the private model,
     # the public payload has no per-type feature-flag/global-settings
