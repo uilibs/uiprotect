@@ -295,6 +295,40 @@ def test_public_camera_hardware_stream_qualities(
     assert obj.hardware_stream_qualities() == expected
 
 
+@pytest.mark.parametrize(
+    ("smart_detect_types", "smart_detect_audio_types", "smart_type", "expected"),
+    [
+        (["person"], [], SmartDetectObjectType.PERSON, True),
+        (["person"], [], SmartDetectObjectType.VEHICLE, False),
+        ([], ["alrmCmonx"], SmartDetectObjectType.CMONX, True),
+        ([], ["alrmSmoke"], SmartDetectObjectType.CMONX, False),
+        ([], ["alrmBurglar"], SmartDetectObjectType.BURGLAR, True),
+        ([], ["alrmSmoke"], SmartDetectObjectType.BURGLAR, False),
+        ([], ["alrmSmoke"], SmartDetectObjectType.PERSON, False),
+        (["alrmSmoke"], [], SmartDetectObjectType.SMOKE, False),
+    ],
+)
+def test_public_camera_can_detect(
+    smart_detect_types: list[str],
+    smart_detect_audio_types: list[str],
+    smart_type: SmartDetectObjectType,
+    expected: bool,
+) -> None:
+    """Object types match the object list, audio types the audio list via ``audio_type``."""
+    obj = PublicCamera.from_unifi_dict(
+        api=Mock(),
+        **{
+            **CAMERA_PAYLOAD,
+            "featureFlags": {
+                **CAMERA_PAYLOAD["featureFlags"],
+                "smartDetectTypes": smart_detect_types,
+                "smartDetectAudioTypes": smart_detect_audio_types,
+            },
+        },
+    )
+    assert obj.can_detect(smart_type) is expected
+
+
 def test_public_camera_unknown_smart_detect_type_dropped(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
