@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.7.0 (2026-09-02)
+
+### Features
+
+
+- Add publiccamera.can_detect(smart_type) ([`5daf56c`](https://github.com/uilibs/uiprotect/commit/5daf56ca28b1e32c79af632c2c4cfa85bdccd5dc))
+
+
 ## v16.6.1 (2026-08-29)
 
 ### Bug fixes
