@@ -1723,3 +1723,35 @@ async def test_camera_ptz_public_api(
         method="post",
         public_api=True,
     )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    ("smart_detect_types", "smart_detect_audio_types", "smart_type", "expected"),
+    [
+        ([SmartDetectObjectType.PERSON], [], SmartDetectObjectType.PERSON, True),
+        ([SmartDetectObjectType.PERSON], [], SmartDetectObjectType.VEHICLE, False),
+        ([], [SmartDetectAudioType.CMONX], SmartDetectObjectType.CMONX, True),
+        ([], [SmartDetectAudioType.SMOKE], SmartDetectObjectType.CMONX, False),
+        ([], [SmartDetectAudioType.BURGLAR], SmartDetectObjectType.BURGLAR, True),
+        ([], [SmartDetectAudioType.SMOKE], SmartDetectObjectType.BURGLAR, False),
+        ([], [SmartDetectAudioType.SMOKE], SmartDetectObjectType.PERSON, False),
+        ([SmartDetectObjectType.SMOKE], [], SmartDetectObjectType.SMOKE, False),
+        ([], None, SmartDetectObjectType.SMOKE, False),
+    ],
+)
+@pytest.mark.asyncio()
+async def test_camera_can_detect(
+    camera_obj: Camera | None,
+    smart_detect_types: list[SmartDetectObjectType],
+    smart_detect_audio_types: list[SmartDetectAudioType] | None,
+    smart_type: SmartDetectObjectType,
+    expected: bool,
+):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.feature_flags.smart_detect_types = smart_detect_types
+    camera_obj.feature_flags.smart_detect_audio_types = smart_detect_audio_types
+
+    assert camera_obj.can_detect(smart_type) is expected

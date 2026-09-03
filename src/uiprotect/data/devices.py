@@ -1534,6 +1534,12 @@ class Camera(ProtectMotionDeviceModel):
 
         await self.queue_update(callback)
 
+    def can_detect(self, smart_type: SmartDetectObjectType) -> bool:
+        """Whether the camera advertises ``smart_type`` (audio types via ``audio_type``)."""
+        if smart_type.audio_type is not None:
+            return self._can_detect_audio(smart_type)
+        return smart_type in self.feature_flags.smart_detect_types
+
     # region Object Smart Detections
 
     def _is_smart_enabled(self, smart_type: SmartDetectObjectType) -> bool:
