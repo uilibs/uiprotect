@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.8.0 (2026-09-03)
+
+### Features
+
+
+- Add camera.can_detect(smart_type) ([`16c10e3`](https://github.com/uilibs/uiprotect/commit/16c10e36ecd59b9e31d139f756390954d5aa52d4))
+
+
 ## v16.7.0 (2026-09-02)
 
 ### Features
