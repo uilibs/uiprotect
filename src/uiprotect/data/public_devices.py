@@ -343,6 +343,11 @@ class PublicCameraFeatureFlags(ProtectBaseObject):
     has_led_status: bool = False
     has_speaker: bool = False
 
+    @property
+    def has_highfps(self) -> bool:
+        """Does the camera support high-FPS video mode."""
+        return VideoMode.HIGH_FPS in self.video_modes
+
     @classmethod
     @cache
     def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
