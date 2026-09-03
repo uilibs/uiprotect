@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.9.0 (2026-09-03)
+
+### Features
+
+
+- Add publiccamerafeatureflags.has_highfps ([`0546eee`](https://github.com/uilibs/uiprotect/commit/0546eee67b855e8d85d43b9197fd9bc277a67b68))
+
+
 ## v16.8.0 (2026-09-03)
 
 ### Features
