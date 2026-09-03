@@ -242,6 +242,26 @@ async def test_update_chime_public_no_parameters(
 # =============================================================================
 
 
+@pytest.mark.skipif(not TEST_CHIME_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_chime_set_name_public(chime_obj: Chime | None) -> None:
+    """Chime rename writes through the public API and updates local state."""
+    if chime_obj is None:
+        pytest.skip("No chime_obj found")
+
+    updated_chime = Mock()
+    updated_chime.name = "Hallway"
+    chime_obj.api.update_chime_public = AsyncMock(return_value=updated_chime)
+
+    await chime_obj.set_name_public("Hallway")
+
+    chime_obj.api.update_chime_public.assert_called_once_with(
+        chime_obj.id,
+        name="Hallway",
+    )
+    assert chime_obj.name == "Hallway"
+
+
 @pytest.mark.skipif(
     not TEST_CHIME_EXISTS or not TEST_CAMERA_EXISTS,
     reason="Missing testdata",

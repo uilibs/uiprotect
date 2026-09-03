@@ -10,7 +10,17 @@ import typer
 from pydantic import ValidationError
 
 from ..api import ProtectApiClient
-from ..data import NVR, ProtectAdoptableDeviceModel, ProtectBaseObject
+from ..data import (
+    NVR,
+    AiPort,
+    Camera,
+    Chime,
+    Light,
+    ProtectAdoptableDeviceModel,
+    ProtectBaseObject,
+    Sensor,
+    Viewer,
+)
 from ..exceptions import BadRequest, NvrError, StreamError
 from ..utils import run_async
 
@@ -176,6 +186,16 @@ def set_name(ctx: typer.Context, name: str | None = typer.Argument(None)) -> Non
     """Sets name for the device"""
     require_device_id(ctx)
     obj: NVR | ProtectAdoptableDeviceModel = ctx.obj.device
+    # AiPort subclasses Camera but has no public-API endpoint of its own, and
+    # the public API cannot express clearing a name, so both keep the private
+    # path.
+    if (
+        name is not None
+        and isinstance(obj, (Camera, Chime, Light, Sensor, Viewer))
+        and not isinstance(obj, AiPort)
+    ):
+        run(ctx, obj.set_name_public(name))
+        return
     run(ctx, obj.set_name(name))
 
 

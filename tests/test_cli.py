@@ -15,6 +15,7 @@ import typer
 from typer.testing import CliRunner
 
 from uiprotect.cli import _is_ssl_error, app
+from uiprotect.cli import base as base_cli
 from uiprotect.cli import cameras as cameras_cli
 from uiprotect.cli import lights as lights_cli
 from uiprotect.cli import sensors as sensors_cli
@@ -54,11 +55,22 @@ from uiprotect.cli.users_public import app as users_public_app
 from uiprotect.cli.viewers import app as viewer_app
 from uiprotect.cli.viewers import liveview
 from uiprotect.cli.viewers_public import app as viewer_public_app
-from uiprotect.data import RingSetting
+from uiprotect.data import (
+    NVR,
+    AiPort,
+    Camera,
+    Chime,
+    Light,
+    RingSetting,
+    Sensor,
+    Viewer,
+)
 from uiprotect.data.types import (
     DoorbellMessageType,
     PublicHdrMode,
     SensorScheduleMode,
+    SmartDetectAudioType,
+    SmartDetectObjectType,
     VideoMode,
 )
 from uiprotect.exceptions import BadRequest
@@ -1204,3 +1216,186 @@ def test_sensor_set_status_light_stays_private() -> None:
     sensor.set_status_light = AsyncMock()
     sensors_cli.set_status_light(ctx, True)
     sensor.set_status_light.assert_awaited_once_with(True)
+
+
+def test_sensor_set_alarm_uses_public() -> None:
+    """Sensor set-alarm writes through the public setter."""
+    ctx, sensor = _make_sensor_ctx()
+    sensors_cli.set_alarm(ctx, True)
+    sensor.set_alarm_public.assert_awaited_once_with(True)
+    sensor.set_alarm_status.assert_not_called()
+
+
+def test_sensor_set_temperature_range_uses_public() -> None:
+    """Sensor set-temperature-range writes both thresholds via the public setter."""
+    ctx, sensor = _make_sensor_ctx()
+    sensors_cli.set_temperature_range(ctx, 5.0, 30.0)
+    sensor.set_temperature_settings_public.assert_awaited_once_with(
+        low_threshold=5.0, high_threshold=30.0
+    )
+    sensor.set_temperature_safe_range.assert_not_called()
+
+
+def test_sensor_set_humidity_range_uses_public() -> None:
+    """Sensor set-humidity-range writes both thresholds via the public setter."""
+    ctx, sensor = _make_sensor_ctx()
+    sensors_cli.set_humidity_range(ctx, 10.0, 80.0)
+    sensor.set_humidity_settings_public.assert_awaited_once_with(
+        low_threshold=10.0, high_threshold=80.0
+    )
+    sensor.set_humidity_safe_range.assert_not_called()
+
+
+def test_sensor_set_light_range_uses_public() -> None:
+    """Sensor set-light-range writes both thresholds via the public setter."""
+    ctx, sensor = _make_sensor_ctx()
+    sensors_cli.set_light_range(ctx, 2.0, 900.0)
+    sensor.set_light_settings_public.assert_awaited_once_with(
+        low_threshold=2.0, high_threshold=900.0
+    )
+    sensor.set_light_safe_range.assert_not_called()
+
+
+def _make_smart_detect_camera_ctx():
+    """Build a camera context double with smart-detect capabilities wired up."""
+    ctx, camera = _make_device_ctx(device_id="camera-1")
+    camera.feature_flags.has_smart_detect = True
+    camera.feature_flags.smart_detect_types = [
+        SmartDetectObjectType.PERSON,
+        SmartDetectObjectType.VEHICLE,
+    ]
+    camera.feature_flags.smart_detect_audio_types = [
+        SmartDetectAudioType.SMOKE,
+        SmartDetectAudioType.CMONX,
+    ]
+    camera.smart_detect_settings.object_types = [SmartDetectObjectType.PERSON]
+    camera.smart_detect_settings.audio_types = [SmartDetectAudioType.SMOKE]
+    ctx.obj.protect.update_camera_public = AsyncMock()
+    return ctx, camera
+
+
+def test_camera_smart_detects_uses_public() -> None:
+    """Camera smart-detects patches the object types via the public API."""
+    ctx, camera = _make_smart_detect_camera_ctx()
+    cameras_cli.smart_detects(
+        ctx, [SmartDetectObjectType.VEHICLE], add=False, remove=False
+    )
+    ctx.obj.protect.update_camera_public.assert_awaited_once_with(
+        "camera-1", smart_detect_object_types=[SmartDetectObjectType.VEHICLE]
+    )
+    camera.save_device.assert_not_called()
+
+
+def test_camera_smart_detects_add_uses_public() -> None:
+    """``--add`` unions with the current types before the public write."""
+    ctx, _camera = _make_smart_detect_camera_ctx()
+    cameras_cli.smart_detects(
+        ctx, [SmartDetectObjectType.VEHICLE], add=True, remove=False
+    )
+    ctx.obj.protect.update_camera_public.assert_awaited_once()
+    _args, kwargs = ctx.obj.protect.update_camera_public.call_args
+    assert set(kwargs["smart_detect_object_types"]) == {
+        SmartDetectObjectType.PERSON,
+        SmartDetectObjectType.VEHICLE,
+    }
+
+
+def test_camera_smart_detects_unsupported_type_does_not_write() -> None:
+    """An unsupported detection type exits non-zero without a write."""
+    ctx, _camera = _make_smart_detect_camera_ctx()
+    with pytest.raises(typer.Exit) as exc:
+        cameras_cli.smart_detects(
+            ctx, [SmartDetectObjectType.ANIMAL], add=False, remove=False
+        )
+    assert exc.value.exit_code == 1
+    ctx.obj.protect.update_camera_public.assert_not_awaited()
+
+
+def test_camera_smart_audio_detects_uses_public() -> None:
+    """Camera smart-audio-detects patches the audio types via the public API."""
+    ctx, camera = _make_smart_detect_camera_ctx()
+    cameras_cli.smart_audio_detects(
+        ctx, [SmartDetectAudioType.CMONX], add=False, remove=False
+    )
+    ctx.obj.protect.update_camera_public.assert_awaited_once_with(
+        "camera-1", smart_detect_audio_types=[SmartDetectAudioType.CMONX]
+    )
+    camera.save_device.assert_not_called()
+
+
+def test_camera_smart_audio_detects_remove_uses_public() -> None:
+    """``--remove`` subtracts from the current types before the public write."""
+    ctx, _camera = _make_smart_detect_camera_ctx()
+    cameras_cli.smart_audio_detects(
+        ctx, [SmartDetectAudioType.SMOKE], add=False, remove=True
+    )
+    ctx.obj.protect.update_camera_public.assert_awaited_once_with(
+        "camera-1", smart_detect_audio_types=[]
+    )
+
+
+def _make_named_device_ctx(model_class):
+    """Build a context double whose device is a spec'd instance of ``model_class``."""
+    device = MagicMock(spec=model_class)
+    device.id = "device-1"
+    device.set_name = AsyncMock()
+    if hasattr(model_class, "set_name_public"):
+        device.set_name_public = AsyncMock()
+
+    protect = MagicMock()
+    protect.close_session = AsyncMock()
+    protect.close_public_api_session = AsyncMock()
+
+    ctx = MagicMock()
+    ctx.obj.device = device
+    ctx.obj.protect = protect
+    return ctx, device
+
+
+@pytest.mark.parametrize("model_class", [Camera, Chime, Light, Sensor, Viewer])
+def test_set_name_uses_public(model_class) -> None:
+    """set-name writes through the public setter for every model that has one."""
+    ctx, device = _make_named_device_ctx(model_class)
+    base_cli.set_name(ctx, "Kitchen")
+    device.set_name_public.assert_awaited_once_with("Kitchen")
+    device.set_name.assert_not_called()
+
+
+def test_set_name_aiport_stays_private() -> None:
+    """AiPort has no public-API endpoint of its own, so it keeps the private setter."""
+    ctx, device = _make_named_device_ctx(AiPort)
+    base_cli.set_name(ctx, "Kitchen")
+    device.set_name.assert_awaited_once_with("Kitchen")
+    device.set_name_public.assert_not_called()
+
+
+def test_set_name_nvr_stays_private() -> None:
+    """The NVR has no public name setter, so it keeps the private setter."""
+    ctx, device = _make_named_device_ctx(NVR)
+    base_cli.set_name(ctx, "Console")
+    device.set_name.assert_awaited_once_with("Console")
+
+
+def test_set_name_clear_stays_private() -> None:
+    """Clearing a name is not expressible on the public API, so it stays private."""
+    ctx, device = _make_named_device_ctx(Camera)
+    base_cli.set_name(ctx, None)
+    device.set_name.assert_awaited_once_with(None)
+    device.set_name_public.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("command", "setter"),
+    [
+        (sensors_cli.set_temperature_range, "set_temperature_settings_public"),
+        (sensors_cli.set_humidity_range, "set_humidity_settings_public"),
+        (sensors_cli.set_light_range, "set_light_settings_public"),
+    ],
+)
+def test_sensor_set_range_rejects_inverted_bounds(command, setter) -> None:
+    """An inverted safe range exits non-zero without a write."""
+    ctx, sensor = _make_sensor_ctx()
+    with pytest.raises(typer.Exit) as exc:
+        command(ctx, 30.0, 5.0)
+    assert exc.value.exit_code == 1
+    getattr(sensor, setter).assert_not_awaited()

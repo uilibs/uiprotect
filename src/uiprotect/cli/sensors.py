@@ -196,7 +196,7 @@ def set_alarm(ctx: typer.Context, enabled: bool) -> None:
     base.require_device_id(ctx)
     obj: Sensor = ctx.obj.device
 
-    base.run(ctx, obj.set_alarm_status(enabled))
+    base.run(ctx, obj.set_alarm_public(enabled))
 
 
 @app.command()
@@ -221,7 +221,11 @@ def set_temperature_range(
     base.require_device_id(ctx)
     obj: Sensor = ctx.obj.device
 
-    base.run(ctx, obj.set_temperature_safe_range(low, high))
+    _require_ordered_range(low, high)
+    base.run(
+        ctx,
+        obj.set_temperature_settings_public(low_threshold=low, high_threshold=high),
+    )
 
 
 @app.command()
@@ -234,7 +238,11 @@ def set_humidity_range(
     base.require_device_id(ctx)
     obj: Sensor = ctx.obj.device
 
-    base.run(ctx, obj.set_humidity_safe_range(low, high))
+    _require_ordered_range(low, high)
+    base.run(
+        ctx,
+        obj.set_humidity_settings_public(low_threshold=low, high_threshold=high),
+    )
 
 
 @app.command()
@@ -247,7 +255,11 @@ def set_light_range(
     base.require_device_id(ctx)
     obj: Sensor = ctx.obj.device
 
-    base.run(ctx, obj.set_light_safe_range(low, high))
+    _require_ordered_range(low, high)
+    base.run(
+        ctx,
+        obj.set_light_settings_public(low_threshold=low, high_threshold=high),
+    )
 
 
 @app.command()
@@ -488,3 +500,10 @@ def set_custom_sensitivity_public(ctx: typer.Context, enabled: bool) -> None:
     obj: Sensor = ctx.obj.device
 
     base.run(ctx, obj.set_custom_sensitivity_when_armed_public(enabled))
+
+
+def _require_ordered_range(low: float, high: float) -> None:
+    """Preserve the ordering check the private safe-range setters enforced."""
+    if high <= low:
+        typer.secho("High value must be above low value", fg="red")
+        raise typer.Exit(1)

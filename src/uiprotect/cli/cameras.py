@@ -300,9 +300,11 @@ def smart_detects(
     elif remove:
         values = list(set(obj.smart_detect_settings.object_types) - set(values))
 
-    data_before_changes = obj.dict_with_excludes()
-    obj.smart_detect_settings.object_types = values
-    base.run(ctx, obj.save_device(data_before_changes))
+    protect: ProtectApiClient = ctx.obj.protect
+    base.run(
+        ctx,
+        protect.update_camera_public(obj.id, smart_detect_object_types=values),
+    )
 
 
 @app.command()
@@ -359,9 +361,11 @@ def smart_audio_detects(
     elif remove:
         values = list(set(obj.smart_detect_settings.audio_types) - set(values))
 
-    data_before_changes = obj.dict_with_excludes()
-    obj.smart_detect_settings.audio_types = values
-    base.run(ctx, obj.save_device(data_before_changes))
+    protect: ProtectApiClient = ctx.obj.protect
+    base.run(
+        ctx,
+        protect.update_camera_public(obj.id, smart_detect_audio_types=values),
+    )
 
 
 @app.command()
