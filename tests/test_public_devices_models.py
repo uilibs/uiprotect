@@ -397,6 +397,27 @@ def test_public_camera_detection_on_properties(
 
 
 @pytest.mark.parametrize(
+    ("video_modes", "expected"),
+    [(["default"], False), (["default", "highFps"], True)],
+)
+def test_public_camera_feature_flags_has_highfps(
+    video_modes: list[str], expected: bool
+) -> None:
+    """``has_highfps`` tracks ``highFps`` membership in ``video_modes``."""
+    obj = PublicCamera.from_unifi_dict(
+        api=Mock(),
+        **{
+            **CAMERA_PAYLOAD,
+            "featureFlags": {
+                **CAMERA_PAYLOAD["featureFlags"],
+                "videoModes": video_modes,
+            },
+        },
+    )
+    assert obj.feature_flags.has_highfps is expected
+
+
+@pytest.mark.parametrize(
     ("video_mode", "expected"),
     [("default", False), ("highFps", True)],
 )
