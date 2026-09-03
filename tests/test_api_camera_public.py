@@ -363,6 +363,20 @@ def _osd_updated_mock(camera_obj: Camera) -> Mock:  # type: ignore[type-arg]
     return m
 
 
+@pytest.mark.asyncio()
+async def test_camera_set_name_public(camera: Camera) -> None:
+    updated = Mock()
+    updated.name = "Front Door"
+    camera._api.update_camera_public = AsyncMock(return_value=updated)
+
+    await camera.set_name_public("Front Door")
+
+    camera._api.update_camera_public.assert_called_once_with(
+        camera.id, name="Front Door"
+    )
+    assert camera.name == "Front Door"
+
+
 # --- LED ---
 
 
