@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.10.0 (2026-09-03)
+
+### Features
+
+
+- Route remaining write callsites through the public api ([`dc913ad`](https://github.com/uilibs/uiprotect/commit/dc913ada462f712fb273d34d75be962d6dde6e02))
+
+
 ## v16.9.0 (2026-09-03)
 
 ### Features
