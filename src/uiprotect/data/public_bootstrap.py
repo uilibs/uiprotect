@@ -242,11 +242,12 @@ class PublicBootstrap:
     @property
     def arm_mode(self) -> NvrArmMode | None:
         """
-        Current arm-manager state. Shortcut for ``nvr.arm_mode``.
+        Current state of the local arm manager. Shortcut for ``nvr.arm_mode``.
 
-        Returns ``None`` when the NVR cache hasn't been primed yet, when the
-        firmware does not expose the alarm manager, or when the alarm
-        manager is set to global.
+        Returns ``None`` when the NVR cache hasn't been primed yet or when the
+        firmware does not expose the alarm manager.  A console using the
+        global alarm manager still populates the field — the local manager is
+        disabled there, so the status reads ``disabled``.
         """
         return self.nvr.arm_mode if self.nvr is not None else None
 
