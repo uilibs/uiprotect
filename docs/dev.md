@@ -117,11 +117,13 @@ There are three forms:
 ```python
 from ._public_api import public_get, public_patch, public_post
 
+
 # List GET — one model per array entry (items=, plural)
 @public_get("/v1/cameras", items=PublicCamera)
 async def get_cameras_public(self) -> list[PublicCamera]:
     """Get all cameras using public API."""
     raise NotImplementedError
+
 
 # Object GET — a single model (item=, singular); placeholders bind from same-named params
 @public_get("/v1/cameras/{camera_id}", item=PublicCamera)
@@ -129,11 +131,13 @@ async def get_camera_public(self, camera_id: str) -> PublicCamera:
     """Get a specific camera using public API."""
     raise NotImplementedError
 
+
 # Flat PATCH — body is the non-None keyword params, snake_case → camelCase
 @public_patch("/v1/fobs/{fob_id}", item=Fob)
 async def update_fob_public(self, fob_id: str, *, name: str | None = None) -> Fob:
     """Patch key-fob settings using public API."""
     raise NotImplementedError
+
 
 # Fire-and-forget POST — path-only, no body, no return value
 @public_post("/v1/sirens/{siren_id}/stop")
