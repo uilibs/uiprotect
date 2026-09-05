@@ -61,7 +61,7 @@ from uiprotect.data.types import (
 )
 from uiprotect.data.websocket import WSAction
 from uiprotect.devices import DeviceChange, ProtectDeviceChange
-from uiprotect.exceptions import BadRequest, NotAuthorized
+from uiprotect.exceptions import BadRequest, GlobalAlarmManagerError, NotAuthorized
 from uiprotect.utils import convert_to_datetime
 from uiprotect.websocket import WebsocketState
 
@@ -1687,6 +1687,96 @@ async def test_update_public_tolerates_arm_profiles_failure(
     assert pb.nvr is not None
     assert pb.arm_mode is None
     protect_client._fetch_arm_profiles.assert_awaited_once()
+    assert pb.is_global_alarm_manager is False
+
+
+@pytest.mark.asyncio()
+async def test_update_public_flags_global_alarm_manager(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A Global-mode console's arm-profiles failure is surfaced, not swallowed."""
+    _mock_update_public_endpoints(
+        protect_client,
+        _fetch_arm_profiles=AsyncMock(
+            side_effect=GlobalAlarmManagerError("global alarm manager")
+        ),
+    )
+
+    pb = await protect_client.update_public()
+
+    assert pb.arm_profiles == {}
+    assert pb.is_global_alarm_manager is True
+
+
+@pytest.mark.asyncio()
+async def test_update_public_clears_global_alarm_manager_flag(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A console switched back to Local clears the flag on the next resync."""
+    _mock_update_public_endpoints(
+        protect_client,
+        _fetch_arm_profiles=AsyncMock(
+            side_effect=GlobalAlarmManagerError("global alarm manager")
+        ),
+    )
+    pb = await protect_client.update_public()
+    assert pb.is_global_alarm_manager is True
+
+    _mock_update_public_endpoints(
+        protect_client,
+        _fetch_arm_profiles=AsyncMock(return_value=[]),
+    )
+    pb = await protect_client.update_public()
+
+    assert pb.is_global_alarm_manager is False
+
+
+@pytest.mark.asyncio()
+async def test_update_public_keeps_global_flag_when_classification_raises(
+    protect_client: ProtectApiClient,
+) -> None:
+    """An unexpected endpoint error leaves the previous flag untouched."""
+    _mock_update_public_endpoints(
+        protect_client,
+        _fetch_arm_profiles=AsyncMock(
+            side_effect=GlobalAlarmManagerError("global alarm manager")
+        ),
+    )
+    pb = await protect_client.update_public()
+    assert pb.is_global_alarm_manager is True
+
+    _mock_update_public_endpoints(
+        protect_client,
+        _fetch_arm_profiles=AsyncMock(return_value=[]),
+        get_viewers_public=AsyncMock(side_effect=ValueError("boom")),
+    )
+    with pytest.raises(ValueError, match="boom"):
+        await protect_client.update_public()
+
+    assert pb.is_global_alarm_manager is True
+
+
+@pytest.mark.asyncio()
+async def test_update_public_keeps_global_flag_on_transient_failure(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A non-global arm-profiles failure must not flap the flag back off."""
+    _mock_update_public_endpoints(
+        protect_client,
+        _fetch_arm_profiles=AsyncMock(
+            side_effect=GlobalAlarmManagerError("global alarm manager")
+        ),
+    )
+    pb = await protect_client.update_public()
+    assert pb.is_global_alarm_manager is True
+
+    _mock_update_public_endpoints(
+        protect_client,
+        _fetch_arm_profiles=AsyncMock(side_effect=BadRequest("429")),
+    )
+    pb = await protect_client.update_public()
+
+    assert pb.is_global_alarm_manager is True
 
 
 def _siren_snapshot_item() -> dict[str, Any]:

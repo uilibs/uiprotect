@@ -5147,11 +5147,26 @@ class ProtectApiClient(BaseApiClient):
             # Tolerated endpoint-unavailable errors (BadRequest/NvrError) are
             # logged; any other exception re-raises here, leaving the previous
             # consistent bootstrap intact instead of half-applied.
+            # ``None`` means "no verdict": only a definitive arm-profiles
+            # outcome moves the flag, so an unrelated transient failure of that
+            # endpoint cannot flap a global console back to ``False``.
+            global_alarm_manager: bool | None = None
             for (_, label, _attr), result in zip(endpoints, results, strict=True):
                 if isinstance(result, BaseException):
+                    if label == "arm-profiles" and isinstance(
+                        result, GlobalAlarmManagerError
+                    ):
+                        global_alarm_manager = True
                     _log_or_raise(
                         label, result, tolerate_not_authorized=label == "ulp-users"
                     )
+                elif label == "arm-profiles":
+                    global_alarm_manager = False
+
+            # Written only once the loop above cleared every result: a re-raise
+            # part-way through must leave the previous snapshot's flag intact.
+            if global_alarm_manager is not None:
+                pb._global_alarm_manager = global_alarm_manager
 
             # Classification passed: publish the candidate.
             # ``_apply_arm_profiles`` reads ``self._public_bootstrap``, so this
