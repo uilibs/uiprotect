@@ -214,6 +214,11 @@ class PublicBootstrap:
     # Arm manager state.
     arm_profiles: dict[str, ArmProfile] = field(default_factory=dict)
 
+    # Whether the last ``update_public`` arm-profiles fetch failed because the
+    # console runs a global alarm manager. Kept private so only the fetch path
+    # writes it; consumers read :attr:`is_global_alarm_manager`.
+    _global_alarm_manager: bool = field(default=False, init=False, repr=False)
+
     # Per-instance one-shot warning dedupe for merge/add failures.
     # This must not be module-global because callers can have multiple
     # Protect servers in one process.
@@ -249,6 +254,22 @@ class PublicBootstrap:
         manager is set to global.
         """
         return self.nvr.arm_mode if self.nvr is not None else None
+
+    @property
+    def is_global_alarm_manager(self) -> bool:
+        """
+        Whether the console's alarm manager is global rather than local.
+
+        A global alarm manager cannot report arm profiles through the public
+        API at all, so this tells an unusable :attr:`arm_profiles` (and a
+        ``None`` :attr:`arm_mode`) apart from one meaning "no profiles are
+        configured". ``False`` until the first ``update_public`` completes;
+        afterwards it tracks the last arm-profiles fetch that returned a
+        verdict, a transient failure of that endpoint leaving it unchanged.
+        ``arm_profiles`` is not refreshed while this is ``True``, so it may
+        still hold profiles read before the console switched to global.
+        """
+        return self._global_alarm_manager
 
     def __post_init__(self) -> None:
         """Validate cache bounds used by event eviction logic."""
