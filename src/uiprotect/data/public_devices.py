@@ -2286,9 +2286,12 @@ class PublicNVR(PublicIdentifiedModel):
     expose the ``doorbellSettings`` key, and is absent from WS partial-update
     diffs (which only require ``id`` + ``modelKey``).
 
-    ``arm_mode`` is ``None`` when the firmware does not yet expose the alarm
-    manager (older releases) and also ``None`` when the alarm manager is set
-    to global (server returns ``armMode: null``).  WS device-update diffs that
+    ``arm_mode`` reports the state of the **local** alarm manager, and is
+    ``None`` only when the firmware does not yet expose it (older releases).
+    A console whose alarm manager is set to global still returns a populated
+    ``armMode`` — the local manager is genuinely disabled there, so the
+    status reads ``disabled``; the global manager's own arm state is not
+    exposed by ``GET /v1/nvrs``.  WS device-update diffs that
     include ``armMode`` are handled automatically by
     :meth:`~uiprotect.data.base.ProtectBaseObject.update_from_dict` without
     any manual extraction.
