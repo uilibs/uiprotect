@@ -928,7 +928,7 @@ async def test_set_current_arm_profile_updates_cache(
     protect_client._public_bootstrap = PublicBootstrap()
     pb = protect_client.public_bootstrap
     await protect_client.set_current_arm_profile_public(PROFILE_ID)
-    # arm_mode is None (global alarm manager) — no crash, no state change.
+    # arm_mode is None (no NVR cached) — no crash, no state change.
     assert pb.arm_mode is None
 
 
