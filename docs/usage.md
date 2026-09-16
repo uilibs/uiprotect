@@ -132,6 +132,7 @@ def on_state(state: WebsocketState) -> None:
     if state is WebsocketState.AUTH_FAILED:
         protect.set_api_key(fetch_new_api_key())
 
+
 unsub = protect.subscribe_events_websocket_state(on_state)
 ```
 
@@ -326,6 +327,7 @@ between the unrelated private (`NVR`, `Camera`, …) and public (`PublicNVR`,
 
 ```python
 from uiprotect.data import ProtectDeviceIdentity
+
 
 def label(device: ProtectDeviceIdentity) -> str:
     # Accepts an NVR or a PublicNVR (a Camera or a PublicCamera, …) unchanged.

@@ -245,11 +245,13 @@ _LOGGER = logging.getLogger(__name__)
 
 protect = ProtectApiClient(..., api_key="...")
 
+
 def on_event(event: ProtectEvent, change: EventChange) -> None:
     if change is EventChange.STARTED:
         _LOGGER.info("%s on %s: %s", event.type, event.device_id, event.identity)
     elif change is EventChange.ENDED:
         _LOGGER.info("%s ended after %s", event.type, event.end - event.start)
+
 
 # Order-independent: subscribes and primes in the correct order.
 unsubscribe = await protect.subscribe_events_and_prime(on_event)
@@ -317,9 +319,11 @@ _LOGGER = logging.getLogger(__name__)
 
 protect = ProtectApiClient(..., api_key="...")
 
+
 def on_device(change: ProtectDeviceChange) -> None:
     if change.change is DeviceChange.UPDATED and "state" in change.changed_fields:
         _LOGGER.info("%s -> %s", change.device_id, change.model.state)
+
 
 # Order-independent: subscribes and primes in the correct order.
 unsubscribe = await protect.subscribe_devices_and_prime(on_device)
