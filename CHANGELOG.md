@@ -1,5 +1,16 @@
 # Changelog
 
+## v16.12.0 (2026-09-19)
+
+### Features
+
+
+- Add publicsensor.is_leak_detection_enabled ([`1decaae`](https://github.com/uilibs/uiprotect/commit/1decaae3589950ff8292c2b9cbe11e284aa94a8d))
+
+
+- Add is_audio and slug to smartdetectobjecttype ([`59f873e`](https://github.com/uilibs/uiprotect/commit/59f873ef3abdf8bcb96fd726817dad003f2787e4))
+
+
 ## v16.11.0 (2026-09-19)
 
 ### Features
