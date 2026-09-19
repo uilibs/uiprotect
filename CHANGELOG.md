@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.13.0 (2026-09-19)
+
+### Features
+
+
+- Add publiccamera.has_mic and share the mic-volume gate ([`514642b`](https://github.com/uilibs/uiprotect/commit/514642ba21845e5c03eb32ddb38256e878f7fcf6))
+
+
 ## v16.12.0 (2026-09-19)
 
 ### Features
