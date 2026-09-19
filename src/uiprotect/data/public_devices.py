@@ -1076,6 +1076,11 @@ class PublicLightDeviceSettings(ProtectBaseObject):
     pir_sensitivity: int | None = None
     led_level: int | None = None
 
+    @property
+    def pir_duration_seconds(self) -> int | None:
+        """``pir_duration`` rounded to whole seconds."""
+        return None if self.pir_duration is None else round(self.pir_duration / 1000)
+
 
 class PublicLight(PublicDeviceModel):
     """Public API light device (``GET /v1/lights``)."""
