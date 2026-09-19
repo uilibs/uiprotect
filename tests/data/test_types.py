@@ -15,6 +15,7 @@ from uiprotect.data.types import (
     PermissionNode,
     SensorStatusType,
     SensorType,
+    SmartDetectObjectType,
     StorageType,
     VideoMode,
     get_field_type,
@@ -103,3 +104,37 @@ def test_get_field_type(annotation, origin, type_):
 def test_get_field_type_error():
     with pytest.raises(ValueError, match="Type annotation cannot be None"):
         get_field_type(None)
+
+
+@pytest.mark.parametrize(
+    ("value", "is_audio", "slug"),
+    [
+        (SmartDetectObjectType.PERSON, False, "person"),
+        (SmartDetectObjectType.ANIMAL, False, "animal"),
+        (SmartDetectObjectType.VEHICLE, False, "vehicle"),
+        (SmartDetectObjectType.LICENSE_PLATE, False, "license_plate"),
+        (SmartDetectObjectType.PACKAGE, False, "package"),
+        (SmartDetectObjectType.SMOKE, True, "smoke"),
+        (SmartDetectObjectType.CMONX, True, "cmonx"),
+        (SmartDetectObjectType.SIREN, True, "siren"),
+        (SmartDetectObjectType.BABY_CRY, True, "baby_cry"),
+        (SmartDetectObjectType.SPEAK, True, "speak"),
+        (SmartDetectObjectType.BARK, True, "bark"),
+        (SmartDetectObjectType.BURGLAR, True, "burglar"),
+        (SmartDetectObjectType.CAR_HORN, True, "car_horn"),
+        (SmartDetectObjectType.GLASS_BREAK, True, "glass_break"),
+        (SmartDetectObjectType.FACE, False, "face"),
+        (SmartDetectObjectType.CAR, False, "car"),
+        (SmartDetectObjectType.PET, False, "pet"),
+    ],
+)
+def test_smart_detect_object_type_is_audio_and_slug(
+    value: SmartDetectObjectType, is_audio: bool, slug: str
+) -> None:
+    assert value.is_audio is is_audio
+    assert value.slug == slug
+
+
+def test_smart_detect_object_type_slugs_cover_all_members_uniquely() -> None:
+    slugs = [member.slug for member in SmartDetectObjectType]
+    assert len(slugs) == len(set(slugs)) == 17
