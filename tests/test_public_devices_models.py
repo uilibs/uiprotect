@@ -630,6 +630,36 @@ def test_public_sensor_enabled_properties_respect_mount_type(
     assert sensor.is_contact_sensor_enabled is contact_en
 
 
+@pytest.mark.parametrize(
+    ("mount_type", "water_leak", "internal", "external", "expected"),
+    [
+        ("leak", False, False, False, True),
+        ("none", True, True, False, True),
+        ("none", True, False, True, True),
+        ("none", True, False, False, False),
+        ("none", False, True, True, False),
+        ("door", False, False, False, False),
+    ],
+)
+def test_public_sensor_is_leak_detection_enabled(
+    mount_type: str,
+    water_leak: bool,
+    internal: bool,
+    external: bool,
+    expected: bool,
+) -> None:
+    """Leak detection is on for leak mounts or water_leak sensors with a channel on."""
+    data = dict(SENSOR_PAYLOAD)
+    data["mountType"] = mount_type
+    data["featureFlags"] = {"waterLeak": {"channelCount": 2}} if water_leak else {}
+    data["leakSettings"] = {
+        "isInternalEnabled": internal,
+        "isExternalEnabled": external,
+    }
+    sensor = PublicSensor.from_unifi_dict(api=Mock(), **data)
+    assert sensor.is_leak_detection_enabled is expected
+
+
 def test_public_sensor_old_shape_has_no_capabilities() -> None:
     """Older firmware omits the new fields; they default and the capability helpers degrade safely."""
     sensor = PublicSensor.from_unifi_dict(api=Mock(), **dict(SENSOR_PAYLOAD))
