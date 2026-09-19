@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -178,6 +178,32 @@ async def test_public_camera_set_mic_volume_no_mic() -> None:
     cam.feature_flags.has_mic = False
     with pytest.raises(BadRequest, match="does not have mic"):
         await cam.set_mic_volume(55)
+
+
+@pytest.mark.parametrize("has_mic", [True, False])
+def test_public_camera_has_mic(has_mic: bool) -> None:
+    """``PublicCamera.has_mic`` mirrors the public feature flag."""
+    cam = _camera(MagicMock())
+    cam.feature_flags.has_mic = has_mic
+    assert cam.has_mic is has_mic
+
+
+@pytest.mark.asyncio
+async def test_public_camera_set_mic_volume_gates_on_has_mic() -> None:
+    """``set_mic_volume`` reads ``has_mic`` rather than the raw flag."""
+    api = MagicMock()
+    cam = _camera(api)
+    cam.feature_flags.has_mic = False
+    api.update_camera_public = AsyncMock(
+        return_value=cam.model_copy(update={"mic_volume": 55})
+    )
+
+    with patch.object(
+        type(cam), "has_mic", new_callable=PropertyMock, return_value=True
+    ):
+        await cam.set_mic_volume(55)
+
+    api.update_camera_public.assert_awaited_once_with(cam.id, mic_volume=55)
 
 
 @pytest.mark.asyncio

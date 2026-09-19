@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock, PropertyMock, patch
 
 import pytest
 
@@ -562,6 +562,38 @@ async def test_camera_set_mic_volume_public_no_mic(camera: Camera) -> None:
 
     with pytest.raises(BadRequest, match="does not have mic"):
         await camera.set_mic_volume_public(50)
+
+
+@pytest.mark.parametrize(("flag", "hotplug"), [(True, False), (False, True)])
+def test_camera_has_mic_public_excludes_hotplug(
+    camera: Camera, flag: bool, hotplug: bool
+) -> None:
+    """``has_mic_public`` tracks the flag only; ``has_mic`` also counts hot-plug."""
+    camera.feature_flags.has_mic = flag
+
+    with patch.object(
+        type(camera), "has_removable_speaker", new_callable=PropertyMock
+    ) as removable:
+        removable.return_value = hotplug
+
+        assert camera.has_mic_public is flag
+        assert camera.has_mic is True
+
+
+@pytest.mark.asyncio()
+async def test_camera_set_mic_volume_public_gates_on_has_mic_public(
+    camera: Camera,
+) -> None:
+    """``set_mic_volume_public`` reads ``has_mic_public``, not the raw flag."""
+    camera.feature_flags.has_mic = False
+    camera._api.update_camera_public = AsyncMock(return_value=_mic_updated_mock(50))
+
+    with patch.object(
+        type(camera), "has_mic_public", new_callable=PropertyMock, return_value=True
+    ):
+        await camera.set_mic_volume_public(50)
+
+    camera._api.update_camera_public.assert_called_once_with(camera.id, mic_volume=50)
 
 
 @pytest.mark.asyncio()
