@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import enum
 import logging
+import re
 import types
 from collections.abc import Callable, Coroutine, Sequence
 from functools import cache, lru_cache
@@ -15,6 +16,9 @@ from pydantic_extra_types.color import Color  # noqa: F401
 from .._compat import cached_property
 
 _LOGGER = logging.getLogger(__name__)
+
+_CAMEL_BOUNDARY_RE = re.compile(r"(?<!^)(?=[A-Z])")
+_AUDIO_ALARM_PREFIX = "alrm"
 
 KT = TypeVar("KT")
 VT = TypeVar("VT")
@@ -392,6 +396,18 @@ class SmartDetectObjectType(ValuesEnumMixin, enum.StrEnum):
     @cached_property
     def audio_type(self) -> SmartDetectAudioType | None:
         return OBJECT_TO_AUDIO_MAP.get(self)
+
+    @cached_property
+    def is_audio(self) -> bool:
+        """Return True if this is an audio detection type."""
+        return self.audio_type is not None
+
+    @cached_property
+    def slug(self) -> str:
+        """Return the value in snake_case with any ``alrm`` prefix stripped."""
+        return _CAMEL_BOUNDARY_RE.sub(
+            "_", self.value.removeprefix(_AUDIO_ALARM_PREFIX)
+        ).lower()
 
 
 @enum.unique
