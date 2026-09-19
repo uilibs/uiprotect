@@ -453,3 +453,18 @@ async def test_light_set_light_settings_public(
             assert kwargs["light_device_settings"].pir_sensitivity == sensitivity
     else:
         assert kwargs["light_device_settings"] is None
+
+
+@pytest.mark.parametrize(
+    ("pir_duration", "expected"),
+    [(None, None), (60000, 60), (15000, 15), (30499, 30), (30500, 30), (30501, 31)],
+)
+def test_public_light_pir_duration_seconds(
+    pir_duration: int | None, expected: int | None
+) -> None:
+    settings = PublicLightDeviceSettings.from_unifi_dict(
+        isIndicatorEnabled=True, pirDuration=pir_duration
+    )
+
+    assert settings.pir_duration == pir_duration
+    assert settings.pir_duration_seconds == expected
