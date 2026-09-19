@@ -1,5 +1,22 @@
 # Changelog
 
+## v16.11.0 (2026-09-19)
+
+### Features
+
+
+- Add publiclightdevicesettings.pir_duration_seconds ([`aff138e`](https://github.com/uilibs/uiprotect/commit/aff138e6f4911c5ee55c7730f47a301000e081f7))
+
+
+- Add publiccamera.is_detection_on(smart_type) ([`41675c1`](https://github.com/uilibs/uiprotect/commit/41675c1b484e9dd09783fd984128ce4f825f4fbc))
+
+
+### Documentation
+
+
+- Correct arm_mode global-mode docstrings ([`4def36b`](https://github.com/uilibs/uiprotect/commit/4def36bd505cd0b48bd57e96f725929bcec1733c))
+
+
 ## v16.10.0 (2026-09-03)
 
 ### Features
