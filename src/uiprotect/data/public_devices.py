@@ -1443,6 +1443,19 @@ class PublicSensor(PublicDeviceModel):
         return self.mount_type is MountType.LEAK
 
     @property
+    def is_leak_detection_enabled(self) -> bool:
+        """Whether leak detection is active, via a leak mount or an enabled channel."""
+        # Sensors without the capability report inert default leak settings, so
+        # the settings alone are not a valid gate.
+        return self.is_leak_sensor_enabled or (
+            self.supports(SensorFeatureCapability.WATER_LEAK)
+            and (
+                self.leak_settings.is_internal_enabled
+                or self.leak_settings.is_external_enabled
+            )
+        )
+
+    @property
     def is_contact_sensor_enabled(self) -> bool:
         return self.mount_type in {MountType.DOOR, MountType.WINDOW, MountType.GARAGE}
 
