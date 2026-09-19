@@ -397,6 +397,79 @@ def test_public_camera_detection_on_properties(
 
 
 @pytest.mark.parametrize(
+    ("object_types", "audio_types", "smart_type", "expected"),
+    [
+        (["person"], [], SmartDetectObjectType.PERSON, True),
+        (["person"], [], SmartDetectObjectType.VEHICLE, False),
+        (["car"], [], SmartDetectObjectType.CAR, True),
+        ([], ["alrmSmoke"], SmartDetectObjectType.SMOKE, True),
+        ([], ["alrmSmoke"], SmartDetectObjectType.CMONX, False),
+        ([], ["alrmSmoke"], SmartDetectObjectType.PERSON, False),
+        (["alrmSmoke"], [], SmartDetectObjectType.SMOKE, False),
+    ],
+)
+def test_public_camera_is_detection_on(
+    object_types: list[str],
+    audio_types: list[str],
+    smart_type: SmartDetectObjectType,
+    expected: bool,
+) -> None:
+    """Object types match ``object_types``, audio types ``audio_types`` via ``audio_type``."""
+    obj = PublicCamera.from_unifi_dict(
+        api=Mock(),
+        **{
+            **CAMERA_PAYLOAD,
+            "smartDetectSettings": {
+                "objectTypes": object_types,
+                "audioTypes": audio_types,
+            },
+        },
+    )
+    assert obj.is_detection_on(smart_type) is expected
+
+
+@pytest.mark.parametrize(
+    ("smart_type", "prop"),
+    [
+        (SmartDetectObjectType.PERSON, "is_person_detection_on"),
+        (SmartDetectObjectType.VEHICLE, "is_vehicle_detection_on"),
+        (SmartDetectObjectType.FACE, "is_face_detection_on"),
+        (SmartDetectObjectType.LICENSE_PLATE, "is_license_plate_detection_on"),
+        (SmartDetectObjectType.PACKAGE, "is_package_detection_on"),
+        (SmartDetectObjectType.ANIMAL, "is_animal_detection_on"),
+        (SmartDetectObjectType.SMOKE, "is_smoke_detection_on"),
+        (SmartDetectObjectType.CMONX, "is_co_detection_on"),
+        (SmartDetectObjectType.SIREN, "is_siren_detection_on"),
+        (SmartDetectObjectType.BABY_CRY, "is_baby_cry_detection_on"),
+        (SmartDetectObjectType.SPEAK, "is_speaking_detection_on"),
+        (SmartDetectObjectType.BARK, "is_bark_detection_on"),
+        (SmartDetectObjectType.BURGLAR, "is_car_alarm_detection_on"),
+        (SmartDetectObjectType.CAR_HORN, "is_car_horn_detection_on"),
+        (SmartDetectObjectType.GLASS_BREAK, "is_glass_break_detection_on"),
+    ],
+)
+@pytest.mark.parametrize("enabled", [True, False])
+def test_public_camera_is_detection_on_matches_properties(
+    smart_type: SmartDetectObjectType, prop: str, enabled: bool
+) -> None:
+    """``is_detection_on`` agrees with every ``is_*_detection_on`` property."""
+    audio_type = smart_type.audio_type
+    object_types = [] if audio_type is not None or not enabled else [smart_type.value]
+    audio_types = [audio_type.value] if audio_type is not None and enabled else []
+    obj = PublicCamera.from_unifi_dict(
+        api=Mock(),
+        **{
+            **CAMERA_PAYLOAD,
+            "smartDetectSettings": {
+                "objectTypes": object_types,
+                "audioTypes": audio_types,
+            },
+        },
+    )
+    assert obj.is_detection_on(smart_type) is getattr(obj, prop) is enabled
+
+
+@pytest.mark.parametrize(
     ("video_modes", "expected"),
     [(["default"], False), (["default", "highFps"], True)],
 )

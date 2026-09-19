@@ -567,6 +567,12 @@ class PublicCamera(PublicDeviceModel):
             return audio_type in self.feature_flags.smart_detect_audio_types
         return smart_type in self.feature_flags.smart_detect_types
 
+    def is_detection_on(self, smart_type: SmartDetectObjectType) -> bool:
+        """Whether ``smart_type`` detection is enabled (audio types via ``audio_type``)."""
+        if (audio_type := smart_type.audio_type) is not None:
+            return audio_type in self.smart_detect_settings.audio_types
+        return smart_type in self.smart_detect_settings.object_types
+
     # The Public Integration API does not carry live detection booleans on the
     # camera payload; they are derived here from the public events websocket,
     # mirroring the private :class:`~uiprotect.data.devices.Camera` accessor
