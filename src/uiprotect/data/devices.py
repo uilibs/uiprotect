@@ -2156,7 +2156,13 @@ class Camera(ProtectMotionDeviceModel):
 
     @property
     def has_mic(self) -> bool:
+        """Does the camera have a microphone, counting a hot-plugged audio module."""
         return self.feature_flags.has_mic or self.has_removable_speaker
+
+    @property
+    def has_mic_public(self) -> bool:
+        """Does the camera have the microphone the public API can control."""
+        return self.feature_flags.has_mic
 
     @property
     def has_color_night_vision(self) -> bool:
@@ -2847,7 +2853,7 @@ class Camera(ProtectMotionDeviceModel):
 
     async def set_mic_volume_public(self, level: float) -> None:
         """Set microphone volume via public API."""
-        if not self.feature_flags.has_mic:
+        if not self.has_mic_public:
             raise BadRequest("Camera does not have mic")
         level = _coerce_public_int("mic_volume", level, _PUBLIC_MIC_VOLUME_RANGE)
         updated = await self._api.update_camera_public(self.id, mic_volume=level)

@@ -554,6 +554,16 @@ class PublicCamera(PublicDeviceModel):
     # captured by the events-WS diff stays a distinct object from the rebuild.
     _detection_state_cache: dict[str, bool] | None = PrivateAttr(default=None)
 
+    @property
+    def has_mic(self) -> bool:
+        """
+        Does the camera have the microphone the public API can control.
+
+        The private :attr:`~uiprotect.data.devices.Camera.has_mic` also counts a
+        hot-plugged audio module, which the public camera payload does not carry.
+        """
+        return self.feature_flags.has_mic
+
     def hardware_stream_qualities(self) -> list[ChannelQuality]:
         """Stream qualities the camera hardware supports (not the server's ``available`` list)."""
         qualities = [ChannelQuality.HIGH, ChannelQuality.MEDIUM, ChannelQuality.LOW]
@@ -891,7 +901,7 @@ class PublicCamera(PublicDeviceModel):
 
     async def set_mic_volume(self, level: int) -> PublicCamera:
         """Set microphone volume (0-100) via the public API."""
-        if not self.feature_flags.has_mic:
+        if not self.has_mic:
             raise BadRequest("Camera does not have mic")
         level = _coerce_public_int("mic_volume", level, _PUBLIC_MIC_VOLUME_RANGE)
         updated = await self._api.update_camera_public(self.id, mic_volume=level)
