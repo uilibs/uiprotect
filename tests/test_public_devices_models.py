@@ -180,6 +180,22 @@ CHIME_PAYLOAD: dict[str, Any] = {
     ],
 }
 
+FOB_PAYLOAD: dict[str, Any] = {
+    "id": "fob1",
+    "modelKey": "fob",
+    "state": "CONNECTED",
+    "name": "Front Fob",
+    "mac": "AABBCCDDEE04",
+    "awayState": "ONLINE",
+    "buttonLabels": "securityActions",
+    "featureFlags": {"buttons": ["arm", "disarm"]},
+    "wirelessConnectionState": {
+        "signalState": {"signalQuality": None, "signalStrength": None},
+        "batteryStatus": {"percentage": None, "isLow": False},
+        "bridge": None,
+    },
+}
+
 
 @pytest.mark.parametrize(
     ("cls", "payload", "field_count"),
@@ -727,6 +743,62 @@ def test_public_display_name_fallback(
         api=Mock(), id="nvr1", modelKey="nvr", name=name, type=device_type
     )
     assert nvr.display_name == expected
+
+
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        ("CONNECTED", True),
+        ("CONNECTING", False),
+        ("DISCONNECTED", False),
+        # Unknown to this library, coerced to ``DeviceState.UNKNOWN``.
+        ("REBOOTING", False),
+    ],
+)
+def test_public_is_reachable_tracks_state(state: str, expected: bool) -> None:
+    """``is_reachable`` is ``state is CONNECTED`` for a regular public device."""
+    camera = PublicCamera.from_unifi_dict(
+        api=Mock(), **{**CAMERA_PAYLOAD, "state": state}
+    )
+    assert camera.is_reachable is expected
+
+
+@pytest.mark.parametrize("state", ["CONNECTED", "DISCONNECTED", "CONNECTING"])
+@pytest.mark.parametrize("away_state", ["ONLINE", "DEVICE_LOST"])
+def test_fob_is_reachable_ignores_state(state: str, away_state: str) -> None:
+    """A fob stays reachable whatever ``state`` / ``away_state`` report."""
+    fob = Fob.from_unifi_dict(
+        api=Mock(), **{**FOB_PAYLOAD, "state": state, "awayState": away_state}
+    )
+    assert fob.is_reachable is True
+
+
+@pytest.mark.parametrize(
+    ("cls", "payload"),
+    [
+        (PublicCamera, CAMERA_PAYLOAD),
+        (PublicLight, LIGHT_PAYLOAD),
+        (PublicSensor, SENSOR_PAYLOAD),
+        (PublicChime, CHIME_PAYLOAD),
+    ],
+)
+def test_public_model_name_from_console(cls: type, payload: dict[str, Any]) -> None:
+    """``model_name`` is the console-reported ``type``, else ``None``."""
+    obj = cls.from_unifi_dict(api=Mock(), **{**payload, "type": "Example-Model"})
+    assert obj.model_name == "Example-Model"
+
+    bare = cls.from_unifi_dict(api=Mock(), **dict(payload))
+    assert bare.model_name is None
+
+
+def test_fob_model_name_falls_back_to_class_name() -> None:
+    """A fob names itself when the console does not report a ``type``."""
+    fob = Fob.from_unifi_dict(api=Mock(), **dict(FOB_PAYLOAD))
+    assert fob.device_type is None
+    assert fob.model_name == "Key Fob"
+
+    reported = Fob.from_unifi_dict(api=Mock(), **{**FOB_PAYLOAD, "type": "UFP-Fob"})
+    assert reported.model_name == "UFP-Fob"
 
 
 @pytest.mark.asyncio
