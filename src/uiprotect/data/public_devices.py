@@ -492,6 +492,21 @@ class PublicDeviceModel(PublicIdentifiedModel):
     # the read-modify-write setters below — no separate lock is introduced.
     _WRITE_THROUGH_SKIP: ClassVar[frozenset[str]] = frozenset({"id"})
 
+    # Human model name for families current firmware does not self-describe
+    # (wire ``type`` absent, so ``device_type`` is ``None``). Subclasses fill
+    # it in as the names are confirmed; ``None`` means "no fallback known".
+    _MODEL_NAME: ClassVar[str | None] = None
+
+    @property
+    def is_reachable(self) -> bool:
+        """Whether the device is considered reachable right now."""
+        return self.state is DeviceState.CONNECTED
+
+    @property
+    def model_name(self) -> str | None:
+        """Human model name, from the console when it reports one."""
+        return self.device_type or self._MODEL_NAME
+
     def _apply_from_response(self, response: Self) -> None:
         """
         Merge a fresh PATCH-response model into this cached instance in place.
@@ -1958,6 +1973,7 @@ class PublicFobFeatureFlags(ProtectBaseObject):
 class Fob(PublicDeviceModel):
     """Public API key fob device."""
 
+    _MODEL_NAME: ClassVar[str] = "Key Fob"
     model: ModelType | None = ModelType.FOB
     # Nullable on the wire and in WS partial-updates.
     name: str | None = None
@@ -1968,6 +1984,14 @@ class Fob(PublicDeviceModel):
     feature_flags: PublicFobFeatureFlags
     # Required by the spec — a fob is always a wireless battery device.
     wireless_connection_state: PublicWirelessConnectionState
+
+    @property
+    def is_reachable(self) -> bool:
+        # A fob reports reachability through ``away_state``; its ``state`` is
+        # not a live link state for a battery device that only wakes to send,
+        # and the spec documents no relation between the two. Gating on
+        # ``state`` would hide ``away_state`` exactly when it has news.
+        return True
 
 
 class PublicSpeakerFeatureFlags(ProtectBaseObject):
