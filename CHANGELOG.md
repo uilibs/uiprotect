@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.14.0 (2026-09-21)
+
+### Features
+
+
+- Add is_reachable and model_name to public device models ([`92584c8`](https://github.com/uilibs/uiprotect/commit/92584c81f6050ef6cd937ad5adc41f4ca87c4647))
+
+
 ## v16.13.0 (2026-09-19)
 
 ### Features
