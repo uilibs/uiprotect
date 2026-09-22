@@ -340,7 +340,8 @@ The protocol covers `id`, `mac`, `display_name`, `type`, and `model`; `mac` and
 `PublicDeviceModel` adds two more derived attributes for generic entity code:
 `is_reachable`, which is `state is DeviceState.CONNECTED` for most devices, and
 `model_name`, the console-reported `device_type` with a per-class fallback for
-families current firmware does not self-describe. A `Fob` is the case for both:
-it reports reachability through `away_state` rather than `state`, so its
-`is_reachable` is always `True`, and it names itself `"Key Fob"` because the
-console sends no `type` for it.
+families current firmware does not self-describe: a `Fob` names itself
+`"Key Fob"`, a `Siren` `"Siren"` and a `Relay` `"Relay"`, because the console
+sends no `type` for any of them. A `Fob` is also the exception for
+`is_reachable` — it reports reachability through `away_state` rather than
+`state`, so its `is_reachable` is always `True`.

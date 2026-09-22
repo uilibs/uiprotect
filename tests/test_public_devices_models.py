@@ -180,6 +180,37 @@ CHIME_PAYLOAD: dict[str, Any] = {
     ],
 }
 
+RELAY_PAYLOAD: dict[str, Any] = {
+    "id": "relay1",
+    "modelKey": "relay",
+    "state": "CONNECTED",
+    "name": "Garage Relay",
+    "mac": "AABBCCDDEE05",
+    "ledSettings": {"isEnabled": True},
+    "outputs": [
+        {
+            "id": 0,
+            "name": "Garage Door",
+            "type": "garageDoor",
+            "delay": 0,
+            "pulseDuration": 500,
+            "state": "off",
+            "rebootState": "off",
+        }
+    ],
+    "inputs": [
+        {
+            "id": 0,
+            "name": "Trigger A",
+            "state": "off",
+            "actionTrigger": "switchedOn",
+            "actionType": "toggleOutput",
+            "actionOutputId": 0,
+        }
+    ],
+}
+
+
 FOB_PAYLOAD: dict[str, Any] = {
     "id": "fob1",
     "modelKey": "fob",
@@ -799,6 +830,30 @@ def test_fob_model_name_falls_back_to_class_name() -> None:
 
     reported = Fob.from_unifi_dict(api=Mock(), **{**FOB_PAYLOAD, "type": "UFP-Fob"})
     assert reported.model_name == "UFP-Fob"
+
+
+def test_siren_model_name_falls_back_to_class_name() -> None:
+    """A siren names itself when the console does not report a ``type``."""
+    siren = Siren.from_unifi_dict(api=Mock(), **dict(SIREN_PAYLOAD))
+    assert siren.device_type is None
+    assert siren.model_name == "Siren"
+
+    reported = Siren.from_unifi_dict(
+        api=Mock(), **{**SIREN_PAYLOAD, "type": "UP-Siren"}
+    )
+    assert reported.model_name == "UP-Siren"
+
+
+def test_relay_model_name_falls_back_to_class_name() -> None:
+    """A relay names itself when the console does not report a ``type``."""
+    relay = Relay.from_unifi_dict(api=Mock(), **dict(RELAY_PAYLOAD))
+    assert relay.device_type is None
+    assert relay.model_name == "Relay"
+
+    reported = Relay.from_unifi_dict(
+        api=Mock(), **{**RELAY_PAYLOAD, "type": "UP-Relay"}
+    )
+    assert reported.model_name == "UP-Relay"
 
 
 @pytest.mark.asyncio

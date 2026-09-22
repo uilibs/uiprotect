@@ -1828,6 +1828,7 @@ class PublicSirenStatus(ProtectBaseObject):
 class Siren(PublicDeviceModel):
     """Public API siren device."""
 
+    _MODEL_NAME: ClassVar[str] = "Siren"
     model: ModelType | None = ModelType.SIREN
     name: str
     volume: int
@@ -1914,6 +1915,7 @@ class Relay(PublicDeviceModel):
     :meth:`get_output` for the ``None``-returning variant.
     """
 
+    _MODEL_NAME: ClassVar[str] = "Relay"
     model: ModelType | None = ModelType.RELAY
     name: str
     led_settings: PublicLedSettings
