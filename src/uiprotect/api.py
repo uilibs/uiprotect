@@ -2266,6 +2266,12 @@ class ProtectApiClient(BaseApiClient):
         """
         Subscribe to devices websocket events.
 
+        Besides the frames the console sends, subscribers receive the
+        synthetic ``add`` / ``remove`` frames :meth:`update_public` emits for
+        devices whose membership changed while the websocket was down, so a
+        reconnect resync does not need the caller to re-offer its cached
+        devices. See :meth:`update_public` for the exact guarantee.
+
         Returns a callback that will unsubscribe.
         """
         _LOGGER.debug("Adding devices subscription: %s", ws_callback)
@@ -2471,6 +2477,12 @@ class ProtectApiClient(BaseApiClient):
         websocket live *during* priming should use the raw
         ``subscribe_devices_websocket`` instead, which has no such ordering
         requirement.
+
+        A device that joined or left the console while the websocket was down
+        is announced too: every successful ``update_public()`` past the first
+        prime (including the reconnect resync) delivers one ``ADDED`` per
+        device new to the cache and one ``REMOVED`` per device that left it.
+        See :meth:`update_public` for the exact guarantee.
 
         The callback must not raise: an exception is caught and logged but
         otherwise swallowed. ``device_mac`` resolves with eventual consistency
@@ -5056,6 +5068,21 @@ class ProtectApiClient(BaseApiClient):
         in the native UniFi format (uppercase, no separators) — the same
         format newer firmware already provides — so consumers can read a
         self-consistent mac regardless of firmware.
+
+        Membership changes are announced on the devices websocket: once the
+        whole batch has merged, every successful call emits one synthetic
+        ``add`` frame per device that is new to the cache and one ``remove``
+        per device that left it. Both :meth:`subscribe_devices_websocket` and
+        typed :meth:`subscribe_devices` subscribers receive them, so a device that
+        appeared or disappeared while the websocket was down — which produces
+        no wire frame — still reaches consumers, and a reconnect resync does
+        not require re-offering the cached devices. The first prime announces
+        nothing (every device would look added), a change a live WS frame
+        already announced during the prime is not repeated, and models
+        excluded by the devices-WS ``subscribed_models`` filter are skipped.
+        A call that raises announces nothing, and a store whose endpoint was
+        tolerated as missing keeps its previous data, so it has no difference
+        to announce.
 
         Concurrent calls are serialized: an overlapping prime could otherwise
         apply an older snapshot over a newer one (and over live WS merges in
