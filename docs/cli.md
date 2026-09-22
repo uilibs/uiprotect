@@ -98,10 +98,11 @@ Commands are split between the reverse-engineered **private** API
 The API column marks which is which; note that `viewers` (private) and
 `viewers-public` (public) are distinct command groups.
 
-`Hybrid` groups still select the device from the private bootstrap, but most of
-their write commands issue their PATCH through the Public Integration API. They
-therefore need username/password auth for the lookup _and_ an API key for those
-writes.
+`Hybrid` groups issue most of their writes through the Public Integration API.
+With username/password they select the device from the private bootstrap and
+expose their full command set; with [an API key alone](#public-only-mode) they
+select it from the public bootstrap and expose only the commands that have a
+public equivalent. `Private` groups are unavailable in public-only mode.
 
 | Command                | API     | Description                                                      |
 | ---------------------- | ------- | ---------------------------------------------------------------- |
@@ -226,8 +227,10 @@ Adoptable devices (Cameras, Chimes, Lights, Sensors, Viewers) all have some comm
 
 `adopt`, `bridge`, `is-bluetooth`, `is-wifi`, `is-wired`, `protect-url`,
 `reboot`, `set-ssh`, `unadopt` and `update` have no Public Integration API
-equivalent and are rejected in [public-only mode](#public-only-mode);
-`list-ids` and `set-name` work in both modes.
+equivalent and are rejected in [public-only mode](#public-only-mode).
+`list-ids` and `set-name NAME` work in both modes; clearing a name
+(`set-name` with no argument) is private-only, because the public API cannot
+express it.
 
 #### Liveviews CLI
 

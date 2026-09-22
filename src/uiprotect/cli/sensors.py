@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 import typer
 
-from ..api import ProtectApiClient
 from ..cli import base
 from ..data import MountType, Sensor, SensorScheduleMode
 from ..data.public_devices import PublicSensor
@@ -66,8 +65,7 @@ def camera(ctx: typer.Context, camera_id: str | None = typer.Argument(None)) -> 
     if camera_id is None:
         base.print_unifi_obj(obj.camera, ctx.obj.output_format)
     else:
-        protect: ProtectApiClient = ctx.obj.protect
-        if (camera_obj := protect.bootstrap.cameras.get(camera_id)) is None:
+        if (camera_obj := base.device_map(ctx, "cameras").get(camera_id)) is None:
             typer.secho("Invalid camera ID")
             raise typer.Exit(1)
         base.run(ctx, obj.set_paired_camera(camera_obj))

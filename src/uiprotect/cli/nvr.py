@@ -32,10 +32,9 @@ def main(ctx: typer.Context) -> None:
 
     Return NVR object without any arguments passed.
     """
-    base.require_private_api(ctx)
     context = NVRContext(
         protect=ctx.obj.protect,
-        device=ctx.obj.protect.bootstrap.nvr,
+        device=base.private_bootstrap(ctx).nvr,
         output_format=ctx.obj.output_format,
     )
     ctx.obj = context

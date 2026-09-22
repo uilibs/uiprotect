@@ -14,12 +14,13 @@ pytest.importorskip("uiprotect.cli")
 import typer
 from typer.testing import CliRunner
 
-from uiprotect.cli import _is_ssl_error, app
+from uiprotect.cli import app
 from uiprotect.cli import base as base_cli
 from uiprotect.cli import cameras as cameras_cli
 from uiprotect.cli import lights as lights_cli
 from uiprotect.cli import sensors as sensors_cli
 from uiprotect.cli.arm import app as arm_app
+from uiprotect.cli.base import _is_ssl_error
 from uiprotect.cli.bridges import app as bridges_app
 from uiprotect.cli.cameras import app as cameras_app
 from uiprotect.cli.chimes import app as chime_app
@@ -281,7 +282,7 @@ def test_api_key_alone_skips_the_private_bootstrap() -> None:
     with (
         patch("uiprotect.cli.ProtectApiClient") as client_cls,
         patch(
-            "uiprotect.cli._connect_and_bootstrap", new_callable=AsyncMock
+            "uiprotect.cli.base._connect_and_bootstrap", new_callable=AsyncMock
         ) as connect,
     ):
         client_cls.public_only.return_value = _public_only_client()
@@ -318,15 +319,12 @@ def test_credentials_still_take_the_private_path_with_an_api_key() -> None:
     with (
         patch("uiprotect.cli.ProtectApiClient") as client_cls,
         patch(
-            "uiprotect.cli._connect_and_bootstrap", new_callable=AsyncMock
+            "uiprotect.cli.base._connect_and_bootstrap", new_callable=AsyncMock
         ) as connect,
     ):
-        client_cls.return_value = MagicMock(
-            is_public_only=False,
-            get_sirens_public=AsyncMock(return_value=[]),
-            close_session=AsyncMock(),
-            close_public_api_session=AsyncMock(),
-        )
+        client = _hybrid_client()
+        client.get_sirens_public = AsyncMock(return_value=[])
+        client_cls.return_value = client
         result = runner.invoke(
             app,
             [*_BASE_AUTH_ARGS, "--api-key", "k", "sirens", "list"],
@@ -338,6 +336,24 @@ def test_credentials_still_take_the_private_path_with_an_api_key() -> None:
     assert kwargs["username"] == "u"
     assert kwargs["password"] == "p"  # noqa: S105
     assert kwargs["api_key"] == "k"
+    # A public-API group needs no private session, so none is opened.
+    connect.assert_not_awaited()
+
+
+def test_private_group_fetches_the_bootstrap_on_first_use() -> None:
+    """A private group still logs in, just lazily rather than in the callback."""
+    with (
+        patch("uiprotect.cli.ProtectApiClient") as client_cls,
+        patch(
+            "uiprotect.cli.base._connect_and_bootstrap", new_callable=AsyncMock
+        ) as connect,
+    ):
+        client = _hybrid_client()
+        client.bootstrap.nvr.unifi_dict.return_value = {"id": "nvr-1"}
+        client_cls.return_value = client
+        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "nvr"])
+
+    assert result.exit_code == 0
     connect.assert_awaited_once()
 
 
@@ -345,7 +361,7 @@ def test_missing_credentials_still_prompt() -> None:
     """With neither a key nor credentials, the CLI prompts for both."""
     with (
         patch("uiprotect.cli.ProtectApiClient") as client_cls,
-        patch("uiprotect.cli._connect_and_bootstrap", new_callable=AsyncMock),
+        patch("uiprotect.cli.base._connect_and_bootstrap", new_callable=AsyncMock),
     ):
         client_cls.return_value = MagicMock(
             is_public_only=False,
@@ -525,24 +541,34 @@ _BASE_AUTH_ARGS = [
 ]
 
 
+def _hybrid_client() -> MagicMock:
+    """A client double that has not yet fetched its private bootstrap."""
+    return MagicMock(
+        is_public_only=False,
+        _bootstrap=None,
+        _verify_ssl=True,
+        _host="192.0.2.10",
+        _port=443,
+        close_session=AsyncMock(),
+        close_public_api_session=AsyncMock(),
+    )
+
+
 def test_ssl_failure_does_not_prompt_or_retry() -> None:
     """SSL failure must exit 1 without offering to disable verification."""
     with (
         patch("uiprotect.cli.ProtectApiClient") as client_cls,
         patch(
-            "uiprotect.cli._connect_and_bootstrap", new_callable=AsyncMock
+            "uiprotect.cli.base._connect_and_bootstrap", new_callable=AsyncMock
         ) as connect,
         patch(
-            "uiprotect.cli._get_cert_fingerprint",
+            "uiprotect.cli.base._get_cert_fingerprint",
             return_value="AA:BB:CC",
         ),
     ):
-        client_cls.return_value = MagicMock(
-            close_session=AsyncMock(),
-            close_public_api_session=AsyncMock(),
-        )
+        client_cls.return_value = _hybrid_client()
         connect.side_effect = ssl.SSLCertVerificationError("certificate verify failed")
-        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "get-meta-info"])
+        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "nvr"])
 
     assert result.exit_code == 1
     output = result.stdout + (result.stderr or "")
@@ -558,19 +584,16 @@ def test_ssl_failure_prints_fingerprint_and_instructions() -> None:
     with (
         patch("uiprotect.cli.ProtectApiClient") as client_cls,
         patch(
-            "uiprotect.cli._connect_and_bootstrap", new_callable=AsyncMock
+            "uiprotect.cli.base._connect_and_bootstrap", new_callable=AsyncMock
         ) as connect,
         patch(
-            "uiprotect.cli._get_cert_fingerprint",
+            "uiprotect.cli.base._get_cert_fingerprint",
             return_value="DE:AD:BE:EF",
         ),
     ):
-        client_cls.return_value = MagicMock(
-            close_session=AsyncMock(),
-            close_public_api_session=AsyncMock(),
-        )
+        client_cls.return_value = _hybrid_client()
         connect.side_effect = ssl.SSLCertVerificationError("certificate verify failed")
-        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "get-meta-info"])
+        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "nvr"])
 
     assert result.exit_code == 1
     output = result.stdout + (result.stderr or "")
@@ -583,19 +606,16 @@ def test_ssl_failure_when_fingerprint_unavailable() -> None:
     with (
         patch("uiprotect.cli.ProtectApiClient") as client_cls,
         patch(
-            "uiprotect.cli._connect_and_bootstrap", new_callable=AsyncMock
+            "uiprotect.cli.base._connect_and_bootstrap", new_callable=AsyncMock
         ) as connect,
         patch(
-            "uiprotect.cli._get_cert_fingerprint",
+            "uiprotect.cli.base._get_cert_fingerprint",
             return_value=None,
         ),
     ):
-        client_cls.return_value = MagicMock(
-            close_session=AsyncMock(),
-            close_public_api_session=AsyncMock(),
-        )
+        client_cls.return_value = _hybrid_client()
         connect.side_effect = ssl.SSLCertVerificationError("certificate verify failed")
-        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "get-meta-info"])
+        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "nvr"])
 
     assert result.exit_code == 1
     output = result.stdout + (result.stderr or "")
@@ -608,15 +628,12 @@ def test_non_ssl_failure_still_exits_with_message() -> None:
     with (
         patch("uiprotect.cli.ProtectApiClient") as client_cls,
         patch(
-            "uiprotect.cli._connect_and_bootstrap", new_callable=AsyncMock
+            "uiprotect.cli.base._connect_and_bootstrap", new_callable=AsyncMock
         ) as connect,
     ):
-        client_cls.return_value = MagicMock(
-            close_session=AsyncMock(),
-            close_public_api_session=AsyncMock(),
-        )
+        client_cls.return_value = _hybrid_client()
         connect.side_effect = RuntimeError("boom")
-        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "get-meta-info"])
+        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "nvr"])
 
     assert result.exit_code == 1
     output = result.stdout + (result.stderr or "")

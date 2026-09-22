@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import hashlib
+import ssl
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, TypeVar, cast
 
+import aiohttp
 import orjson
 import typer
 from pydantic import ValidationError
@@ -13,6 +16,7 @@ from ..api import ProtectApiClient
 from ..data import (
     NVR,
     AiPort,
+    Bootstrap,
     Camera,
     Chime,
     Light,
@@ -30,8 +34,8 @@ T = TypeVar("T")
 OPTION_FORCE = typer.Option(False, "-f", "--force", help="Skip confirmation prompt")
 
 PRIVATE_ONLY_ERROR = (
-    "Not available in public-only mode: this has no Public Integration API "
-    "equivalent. Pass --username/--password to use the private API."
+    "Not available in public-only mode: this command needs the private API. "
+    "Pass --username/--password to use it."
 )
 
 
@@ -102,6 +106,95 @@ def require_private_api(ctx: typer.Context) -> None:
         raise typer.Exit(1)
 
 
+def _is_ssl_error(exc: BaseException) -> bool:
+    """Check if an exception is an SSL certificate verification error."""
+    if isinstance(exc, aiohttp.ClientConnectorCertificateError):
+        return True
+    if isinstance(exc, aiohttp.ClientConnectorSSLError):
+        return True
+    if isinstance(exc, ssl.SSLCertVerificationError):
+        return True
+    # Check nested exceptions
+    if exc.__cause__ is not None:
+        return _is_ssl_error(exc.__cause__)
+    return False
+
+
+def _get_cert_fingerprint(host: str, port: int) -> str | None:
+    """Return the SHA-256 fingerprint of the server's leaf certificate, or None."""
+    try:
+        pem = ssl.get_server_certificate((host, port), timeout=5)
+    except (OSError, ssl.SSLError):
+        return None
+    if not pem:
+        return None
+    der = ssl.PEM_cert_to_DER_cert(pem)
+    digest = hashlib.sha256(der).hexdigest().upper()
+    return ":".join(digest[i : i + 2] for i in range(0, len(digest), 2))
+
+
+async def _connect_and_bootstrap(protect: ProtectApiClient) -> None:
+    """Connect to the Protect API and fetch bootstrap data."""
+    protect._bootstrap = await protect.get_bootstrap()
+    await protect.close_session()
+    await protect.close_public_api_session()
+
+
+def private_bootstrap(ctx: typer.Context) -> Bootstrap:
+    """The private bootstrap, logging in and fetching it on first use."""
+    require_private_api(ctx)
+    protect: ProtectApiClient = ctx.obj.protect
+    # ``_bootstrap`` is what ``_connect_and_bootstrap`` fills in; the public
+    # ``bootstrap`` property raises instead of reporting that it is unset.
+    if protect._bootstrap is not None:
+        return protect.bootstrap
+
+    address, port = protect._host, protect._port
+    try:
+        run_async(_connect_and_bootstrap(protect))
+    except Exception as exc:
+        # Always close the session on error to avoid "Unclosed client session" warning
+        run_async(_close_protect(protect))
+
+        if protect._verify_ssl and _is_ssl_error(exc):
+            typer.secho(
+                f"SSL certificate verification failed for {address}:{port}.",
+                fg="red",
+                err=True,
+            )
+            fingerprint = _get_cert_fingerprint(address, port)
+            if fingerprint:
+                typer.secho(
+                    f"  Server certificate SHA-256: {fingerprint}",
+                    err=True,
+                )
+            typer.secho(
+                "Refusing to retry with verification disabled — sending "
+                "credentials over an unauthenticated TLS channel would "
+                "expose them to any on-path attacker.",
+                fg="red",
+                err=True,
+            )
+            typer.secho(
+                "If you have verified the fingerprint above out-of-band "
+                "(e.g. via the UniFi Protect console), rerun the command "
+                "with --no-verify-ssl to skip verification for this "
+                "invocation.",
+                err=True,
+            )
+            raise typer.Exit(code=1) from exc
+        typer.secho(f"Connection failed: {exc}", fg="red")
+        raise typer.Exit(code=1) from exc
+
+    return protect.bootstrap
+
+
+async def _close_protect(protect: ProtectApiClient) -> None:
+    """Close the Protect API client sessions."""
+    await protect.close_session()
+    await protect.close_public_api_session()
+
+
 def public_call(
     obj: ProtectBaseObject,
     method: str,
@@ -123,7 +216,7 @@ def device_map(ctx: typer.Context, attr: str) -> dict[str, Any]:
     """Devices of one kind, from the public bootstrap in public-only mode."""
     protect: ProtectApiClient = ctx.obj.protect
     if not protect.is_public_only:
-        return cast("dict[str, Any]", getattr(protect.bootstrap, attr))
+        return cast("dict[str, Any]", getattr(private_bootstrap(ctx), attr))
     if not protect.has_public_bootstrap:
         run(ctx, protect.update_public())
     return cast("dict[str, Any]", getattr(protect.public_bootstrap, attr))

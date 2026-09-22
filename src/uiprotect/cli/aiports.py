@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 import typer
 
-from ..api import ProtectApiClient
 from ..cli import base
 from ..data import AiPort
 
@@ -31,18 +30,19 @@ def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
 
     Returns full list of AiPorts without any arguments passed.
     """
+    # AiPorts have no Public Integration API endpoint of their own.
     base.require_private_api(ctx)
-    protect: ProtectApiClient = ctx.obj.protect
+    devices = base.device_map(ctx, "aiports")
     context = AiPortContext(
         protect=ctx.obj.protect,
         device=None,
-        devices=protect.bootstrap.aiports,
+        devices=devices,
         output_format=ctx.obj.output_format,
     )
     ctx.obj = context
 
     if device_id is not None and device_id not in ALL_COMMANDS:
-        if (device := protect.bootstrap.aiports.get(device_id)) is None:
+        if (device := devices.get(device_id)) is None:
             typer.secho("Invalid aiport ID", fg="red")
             raise typer.Exit(1)
         ctx.obj.device = device

@@ -33,7 +33,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 from sqlalchemy.orm import Mapped, declarative_base, relationship
 
 from .. import data as d
-from ..api import ProtectApiClient
 from ..cli import base
 from ..utils import (
     format_duration,
@@ -442,12 +441,10 @@ def main(
     """
     _setup_logger(verbose)
 
-    base.require_private_api(ctx)
-    protect: ProtectApiClient = ctx.obj.protect
     local_tz = get_local_timezone()
 
     if start is None:
-        start_dt = protect.bootstrap.recording_start
+        start_dt = base.private_bootstrap(ctx).recording_start
     else:
         start_dt = relative_datetime(ctx, start, ctx.command.params[0])
         start_dt = start_dt.replace(tzinfo=local_tz)

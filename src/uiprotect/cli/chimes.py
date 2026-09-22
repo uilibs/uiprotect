@@ -87,12 +87,13 @@ def cameras(
         return
 
     protect: ProtectApiClient = ctx.obj.protect
+    cameras_by_id = base.device_map(ctx, "cameras")
 
     if len(camera_ids) == 1 and camera_ids[0] == "[]":
         camera_ids = []
 
     for camera_id in camera_ids:
-        if (camera := protect.bootstrap.cameras.get(camera_id)) is None:
+        if (camera := cameras_by_id.get(camera_id)) is None:
             typer.secho(f"Invalid camera ID: {camera_id}", fg="red")
             raise typer.Exit(1)
 
@@ -127,7 +128,7 @@ def set_volume(
         ring_settings = [s.to_api_dict(volume=value) for s in obj.ring_settings]
         base.run(ctx, protect.update_chime_public(obj.id, ring_settings=ring_settings))
     else:
-        camera = protect.bootstrap.cameras.get(camera_id)
+        camera = base.device_map(ctx, "cameras").get(camera_id)
         if camera is None:
             typer.secho(f"Invalid camera ID: {camera_id}", fg="red")
             raise typer.Exit(1)
@@ -173,7 +174,7 @@ def set_repeat_times(
         ring_settings = [s.to_api_dict(repeat_times=value) for s in obj.ring_settings]
         base.run(ctx, protect.update_chime_public(obj.id, ring_settings=ring_settings))
     else:
-        camera = protect.bootstrap.cameras.get(camera_id)
+        camera = base.device_map(ctx, "cameras").get(camera_id)
         if camera is None:
             typer.secho(f"Invalid camera ID: {camera_id}", fg="red")
             raise typer.Exit(1)

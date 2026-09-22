@@ -2,14 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import hashlib
 import logging
-import ssl
 import sys
 from pathlib import Path
 from typing import cast
 
-import aiohttp
 import orjson
 import typer
 from rich.progress import track
@@ -170,40 +167,6 @@ if backup_app is not None:
     app.add_typer(backup_app, name="backup")
 
 
-def _is_ssl_error(exc: BaseException) -> bool:
-    """Check if an exception is an SSL certificate verification error."""
-    if isinstance(exc, aiohttp.ClientConnectorCertificateError):
-        return True
-    if isinstance(exc, aiohttp.ClientConnectorSSLError):
-        return True
-    if isinstance(exc, ssl.SSLCertVerificationError):
-        return True
-    # Check nested exceptions
-    if exc.__cause__ is not None:
-        return _is_ssl_error(exc.__cause__)
-    return False
-
-
-def _get_cert_fingerprint(host: str, port: int) -> str | None:
-    """Return the SHA-256 fingerprint of the server's leaf certificate, or None."""
-    try:
-        pem = ssl.get_server_certificate((host, port), timeout=5)
-    except (OSError, ssl.SSLError):
-        return None
-    if not pem:
-        return None
-    der = ssl.PEM_cert_to_DER_cert(pem)
-    digest = hashlib.sha256(der).hexdigest().upper()
-    return ":".join(digest[i : i + 2] for i in range(0, len(digest), 2))
-
-
-async def _connect_and_bootstrap(protect: ProtectApiClient) -> None:
-    """Connect to the Protect API and fetch bootstrap data."""
-    protect._bootstrap = await protect.get_bootstrap()
-    await protect.close_session()
-    await protect.close_public_api_session()
-
-
 @app.callback()
 def main(
     ctx: typer.Context,
@@ -257,48 +220,9 @@ def main(
         typer.secho(str(err), fg="red", err=True)
         raise typer.Exit(code=1) from err
 
-    async def close_protect() -> None:
-        """Close the Protect API client sessions."""
-        await protect.close_session()
-        await protect.close_public_api_session()
-
-    if not is_public_only:
-        try:
-            run_async(_connect_and_bootstrap(protect))
-        except Exception as exc:
-            # Always close the session on error to avoid "Unclosed client session" warning
-            run_async(close_protect())
-
-            if verify_ssl and _is_ssl_error(exc):
-                typer.secho(
-                    f"SSL certificate verification failed for {address}:{port}.",
-                    fg="red",
-                    err=True,
-                )
-                fingerprint = _get_cert_fingerprint(address, port)
-                if fingerprint:
-                    typer.secho(
-                        f"  Server certificate SHA-256: {fingerprint}",
-                        err=True,
-                    )
-                typer.secho(
-                    "Refusing to retry with verification disabled — sending "
-                    "credentials over an unauthenticated TLS channel would "
-                    "expose them to any on-path attacker.",
-                    fg="red",
-                    err=True,
-                )
-                typer.secho(
-                    "If you have verified the fingerprint above out-of-band "
-                    "(e.g. via the UniFi Protect console), rerun the command "
-                    "with --no-verify-ssl to skip verification for this "
-                    "invocation.",
-                    err=True,
-                )
-                raise typer.Exit(code=1) from exc
-            typer.secho(f"Connection failed: {exc}", fg="red")
-            raise typer.Exit(code=1) from exc
-
+    # The private bootstrap is fetched on first use (see
+    # ``base.private_bootstrap``), so a command that only talks to the Public
+    # Integration API never logs in.
     ctx.obj = CliContext(protect=protect, output_format=output_format)
 
 

@@ -55,7 +55,7 @@ def main(
 
     Returns list of events from the last 24 hours without any arguments passed.
     """
-    base.require_private_api(ctx)
+    base.private_bootstrap(ctx)
     protect: ProtectApiClient = ctx.obj.protect
     context = EventContext(
         protect=ctx.obj.protect,
