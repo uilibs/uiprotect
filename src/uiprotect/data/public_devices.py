@@ -1387,6 +1387,7 @@ class PublicSensor(PublicDeviceModel):
     leak_settings: PublicSensorLeakSettings
     tampering_detected_at: int | None = None
     wireless_connection_state: PublicWirelessConnectionState
+    feature_flags: PublicSensorFeatureFlags
     # Firmware-new fields (Protect 7.1.76+): older consoles (e.g. 7.1.69) omit
     # them, so default them rather than require — the wire shape shifts across
     # releases and ``from_unifi_dict`` must not raise on the older shape.
@@ -1396,8 +1397,6 @@ class PublicSensor(PublicDeviceModel):
     )
     arm_profile_ids: list[str] | None = None
     has_custom_sensitivity_when_armed: bool = False
-    # Capability map, present only on newer firmware (older consoles omit it).
-    feature_flags: PublicSensorFeatureFlags | None = None
 
     @property
     def open_status_changed_at_dt(self) -> datetime | None:
@@ -1429,15 +1428,8 @@ class PublicSensor(PublicDeviceModel):
         """``tampering_detected_at`` as a timezone-aware UTC ``datetime``."""
         return convert_to_datetime(self.tampering_detected_at)
 
-    @property
-    def has_feature_flags(self) -> bool:
-        """Whether a capability map was reported; ``False`` means unavailable, not empty."""
-        return self.feature_flags is not None
-
     def supports(self, capability: SensorFeatureCapability) -> bool:
-        """Whether the sensor advertises ``capability`` (``False`` without a feature map)."""
-        if self.feature_flags is None:
-            return False
+        """Whether the sensor advertises ``capability``."""
         return getattr(self.feature_flags, capability.value, None) is not None
 
     @property

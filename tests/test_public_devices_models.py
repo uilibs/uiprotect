@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock
 
 import pytest
+from pydantic import ValidationError
 
 from uiprotect.api import RTSPSStreams
 from uiprotect.data import (
@@ -161,6 +162,14 @@ SENSOR_PAYLOAD: dict[str, Any] = {
     },
     "armProfileIds": ["profile1"],
     "hasCustomSensitivityWhenArmed": True,
+    "featureFlags": {
+        "temperature": {"channelCount": 1},
+        "humidity": {"channelCount": 1},
+        "light": {"channelCount": 1},
+        "motion": {"channelCount": 1},
+        "open": {"channelCount": 1},
+        "tamper": {"channelCount": 1},
+    },
 }
 
 CHIME_PAYLOAD: dict[str, Any] = {
@@ -579,7 +588,6 @@ def test_public_sensor_feature_flags_capabilities() -> None:
         "motion": {},
     }
     sensor = PublicSensor.from_unifi_dict(api=Mock(), **data)
-    assert sensor.has_feature_flags is True
     assert sensor.feature_flags.water_leak.channel_count == 2
     assert sensor.feature_flags.motion.channel_count == 0
     assert sensor.supports(SensorFeatureCapability.TEMPERATURE) is True
@@ -676,14 +684,19 @@ def test_public_sensor_is_leak_detection_enabled(
     assert sensor.is_leak_detection_enabled is expected
 
 
-def test_public_sensor_old_shape_has_no_capabilities() -> None:
-    """Older firmware omits the new fields; they default and the capability helpers degrade safely."""
+def test_public_sensor_identity_fields_default_when_absent() -> None:
+    """``type`` / ``guid`` are optional on the wire and default to ``None``."""
     sensor = PublicSensor.from_unifi_dict(api=Mock(), **dict(SENSOR_PAYLOAD))
     assert sensor.device_type is None
     assert sensor.device_guid is None
-    assert sensor.feature_flags is None
-    assert sensor.has_feature_flags is False
-    assert sensor.supports(SensorFeatureCapability.TEMPERATURE) is False
+
+
+def test_public_sensor_requires_feature_flags() -> None:
+    """``featureFlags`` is required: a payload without it does not parse."""
+    data = dict(SENSOR_PAYLOAD)
+    del data["featureFlags"]
+    with pytest.raises(ValidationError):
+        PublicSensor.from_unifi_dict(api=Mock(), **data)
 
 
 def test_public_nvr_device_identity_round_trips() -> None:
