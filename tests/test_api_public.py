@@ -5297,6 +5297,38 @@ async def test_update_public_emits_remove_frame_for_device_dropped_during_gap(
 
 
 @pytest.mark.asyncio()
+async def test_update_public_resync_announces_both_sides_to_raw_subscribers(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A raw devices-WS subscriber gets one add and one remove per resync."""
+    client = protect_client
+    client._public_bootstrap = None
+    first = Siren.from_unifi_dict(api=client, **_siren_snapshot_item())
+    second = Siren.from_unifi_dict(api=client, **_other_siren_item())
+    _mock_update_public_endpoints(
+        client, get_sirens_public=AsyncMock(return_value=[first])
+    )
+    await client.update_public()
+
+    captured: list[tuple[WSSubscriptionMessage, set[str]]] = []
+
+    def on_message(msg: WSSubscriptionMessage) -> None:
+        captured.append((msg, set(client.public_bootstrap.sirens)))
+
+    client.subscribe_devices_websocket(on_message)
+    client.get_sirens_public = AsyncMock(return_value=[second])  # type: ignore[method-assign]
+
+    await client.update_public()
+
+    assert {(msg.action, msg.new_update_id) for msg, _ in captured} == {
+        (WSAction.ADD, "other-siren-id"),
+        (WSAction.REMOVE, SIREN_ID),
+    }
+    # Whichever frame the subscriber is on, the whole batch has already merged.
+    assert [ids for _, ids in captured] == [{"other-siren-id"}, {"other-siren-id"}]
+
+
+@pytest.mark.asyncio()
 async def test_update_public_emits_nothing_when_membership_is_unchanged(
     protect_client: ProtectApiClient,
 ) -> None:
