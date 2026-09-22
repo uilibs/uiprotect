@@ -16,7 +16,7 @@ from uiprotect.api import MetaInfo, ProtectApiClient
 from ..data import WSPacket
 from ..exceptions import BadRequest
 from ..test_util import SampleDataGenerator
-from ..utils import get_local_timezone, run_async
+from ..utils import get_local_timezone
 from ..utils import profile_ws as profile_ws_job
 from . import base
 from .aiports import app as aiports_app
@@ -353,7 +353,7 @@ def profile_ws(
 
     _setup_logger()
 
-    run_async(callback())
+    base.run(ctx, callback())
 
 
 @app.command()
@@ -389,15 +389,8 @@ def create_api_key(
     base.require_private_api(ctx)
     protect = cast("ProtectApiClient", ctx.obj.protect)
 
-    async def callback() -> str:
-        api_key = await protect.create_api_key(name)
-        await protect.close_session()
-        await protect.close_public_api_session()
-        return api_key
-
     _setup_logger()
-    result = run_async(callback())
-    typer.echo(result)
+    typer.echo(base.run(ctx, protect.create_api_key(name)))
 
 
 @app.command()
@@ -405,13 +398,6 @@ def get_meta_info(ctx: typer.Context) -> None:
     """Get metadata about the current UniFi Protect instance."""
     protect = cast("ProtectApiClient", ctx.obj.protect)
 
-    async def callback() -> MetaInfo:
-        meta = await protect.get_meta_info()
-        await protect.close_session()
-        await protect.close_public_api_session()
-        return meta
-
     _setup_logger()
-
-    result = run_async(callback())
-    typer.echo(result.model_dump_json())
+    meta: MetaInfo = base.run(ctx, protect.get_meta_info())
+    typer.echo(meta.model_dump_json())

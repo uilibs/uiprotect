@@ -1786,6 +1786,54 @@ def test_run_reports_an_ssl_failure_from_a_public_request(capsys) -> None:
     assert "DE:AD" in output
 
 
+def test_get_meta_info_reports_a_failure_without_a_traceback() -> None:
+    """A failed meta-info request exits 1 with the error, not a stack trace."""
+    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
+        client = _public_only_client()
+        client.get_meta_info = AsyncMock(side_effect=NvrError("boom"))
+        client_cls.public_only.return_value = client
+        result = runner.invoke(
+            app,
+            ["--api-key", "k", "--address", "192.0.2.10", "get-meta-info"],
+        )
+
+    assert result.exit_code == 1
+    output = _ANSI_ESCAPE_RE.sub("", result.stdout + (result.stderr or ""))
+    assert "boom" in output
+
+
+def test_get_meta_info_prints_the_metadata() -> None:
+    """The happy path still prints the meta info as JSON."""
+    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
+        client = _public_only_client()
+        meta = MagicMock()
+        meta.model_dump_json.return_value = '{"applicationVersion": "6.0.0"}'
+        client.get_meta_info = AsyncMock(return_value=meta)
+        client_cls.public_only.return_value = client
+        result = runner.invoke(
+            app,
+            ["--api-key", "k", "--address", "192.0.2.10", "get-meta-info"],
+        )
+
+    assert result.exit_code == 0
+    assert "6.0.0" in result.stdout
+
+
+def test_create_api_key_prints_the_new_key() -> None:
+    """``create-api-key`` echoes the key the console minted."""
+    with (
+        patch("uiprotect.cli.ProtectApiClient") as client_cls,
+        patch("uiprotect.cli.base._connect_and_bootstrap", new_callable=AsyncMock),
+    ):
+        client = _hybrid_client()
+        client.create_api_key = AsyncMock(return_value="new-key")
+        client_cls.return_value = client
+        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "create-api-key", "n"])
+
+    assert result.exit_code == 0
+    assert "new-key" in result.stdout
+
+
 def test_public_only_rejects_shell() -> None:
     """The shell hands over a client whose private bootstrap cannot be loaded."""
     with (
