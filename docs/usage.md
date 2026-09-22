@@ -149,9 +149,9 @@ fields) see the drop immediately, and the derived camera flags read correct on
 the next synchronous access.
 
 A device added to (or removed from) the console while the devices WebSocket is
-down produces no wire frame either. Every `update_public()` — the reconnect
-resync included — re-fetches the public bootstrap and announces that difference
-on the same channel: one `add` frame
+down produces no wire frame either. Every successful `update_public()` — the
+reconnect resync included — re-fetches the public bootstrap and announces that
+difference on the same channel: one `add` frame
 per device the refresh newly reports and one `remove` frame per device it no
 longer reports, delivered after the whole snapshot has merged so a subscriber
 reacting to a frame already sees a consistent bootstrap. `subscribe_devices`
