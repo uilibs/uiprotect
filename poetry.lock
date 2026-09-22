@@ -394,14 +394,14 @@ extras = ["regex"]
 
 [[package]]
 name = "blockbuster"
-version = "1.5.26"
+version = "1.5.28"
 description = "Utility to detect blocking calls in the async event loop"
 optional = false
 python-versions = ">=3.8"
 groups = ["dev"]
 files = [
-    {file = "blockbuster-1.5.26-py3-none-any.whl", hash = "sha256:f8e53fb2dd4b6c6ec2f04907ddbd063ca7cd1ef587d24448ef4e50e81e3a79bb"},
-    {file = "blockbuster-1.5.26.tar.gz", hash = "sha256:cc3ce8c70fa852a97ee3411155f31e4ad2665cd1c6c7d2f8bb1851dab61dc629"},
+    {file = "blockbuster-1.5.28-py3-none-any.whl", hash = "sha256:efd26ab08979d6ce904defa3db2b6b218a5672ad535d386a6bac781242db4e07"},
+    {file = "blockbuster-1.5.28.tar.gz", hash = "sha256:5af2ed9de6c874339a76cc831d1d11db79800a974573580e52ad827a70803482"},
 ]
 
 [package.dependencies]
@@ -3441,4 +3441,4 @@ cli = ["dateparser", "pillow", "rich", "typer"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "64a5a5ea0da48bb8962654e67b6dd622e8790237d53498dab8817f507d824499"
+content-hash = "439d2cae00f4f6d2183f6a64aa1cd387205090b7c1e3014456eec5a32cc34959"
