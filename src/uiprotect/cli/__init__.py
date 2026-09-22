@@ -57,42 +57,23 @@ try:
 except ImportError:
     embed = termcolor = get_config = None  # type: ignore[assignment]
 
-# Sub-apps that only use the public API (API key) and do not need username/password
-_PUBLIC_ONLY_COMMAND_NAMES: tuple[str, ...] = (
-    "sirens",
-    "relays",
-    "fobs",
-    "speakers",
-    "link-stations",
-    "liveviews",
-    "bridges",
-    "viewers-public",
-    "users-public",
-    "ulp-users-public",
-    "files-public",
-    "arm",
+_PUBLIC_ONLY_HELP = (
+    "Omit both (and pass --api-key) to run against the Public Integration "
+    "API only; commands with no public equivalent are then unavailable."
 )
-_PUBLIC_ONLY_COMMANDS: frozenset[str] = frozenset(_PUBLIC_ONLY_COMMAND_NAMES)
-_PUBLIC_ONLY_COMMANDS_HELP: str = ", ".join(_PUBLIC_ONLY_COMMAND_NAMES)
 
 OPTION_USERNAME = typer.Option(
     None,
     "--username",
     "-U",
-    help=(
-        "UniFi Protect username (not required for public API commands: "
-        f"{_PUBLIC_ONLY_COMMANDS_HELP})"
-    ),
+    help=f"UniFi Protect username. {_PUBLIC_ONLY_HELP}",
     envvar="UFP_USERNAME",
 )
 OPTION_PASSWORD = typer.Option(
     None,
     "--password",
     "-P",
-    help=(
-        "UniFi Protect password (not required for public API commands: "
-        f"{_PUBLIC_ONLY_COMMANDS_HELP})"
-    ),
+    help=f"UniFi Protect password. {_PUBLIC_ONLY_HELP}",
     hide_input=True,
     envvar="UFP_PASSWORD",
 )
@@ -238,7 +219,10 @@ def main(
     # preload the timezone before any async code runs
     get_local_timezone()
 
-    is_public_only = ctx.invoked_subcommand in _PUBLIC_ONLY_COMMANDS
+    # The credentials decide the mode, not the subcommand: an API key on its
+    # own runs the whole CLI against the Public Integration API, with no
+    # private login and no private bootstrap.
+    is_public_only = bool(api_key) and not username and not password
 
     if not is_public_only:
         # Private API commands require username and password.
@@ -249,14 +233,24 @@ def main(
             password = typer.prompt("Password", hide_input=True)
 
     try:
-        protect = ProtectApiClient(
-            address,
-            port,
-            username=None if is_public_only else (username or ""),
-            password=None if is_public_only else (password or ""),
-            api_key=api_key,
-            verify_ssl=verify_ssl,
-            ignore_unadopted=not include_unadopted,
+        protect = (
+            ProtectApiClient.public_only(
+                address,
+                port,
+                api_key=cast("str", api_key),
+                verify_ssl=verify_ssl,
+                ignore_unadopted=not include_unadopted,
+            )
+            if is_public_only
+            else ProtectApiClient(
+                address,
+                port,
+                username=username or "",
+                password=password or "",
+                api_key=api_key,
+                verify_ssl=verify_ssl,
+                ignore_unadopted=not include_unadopted,
+            )
         )
     except BadRequest as err:
         typer.secho(str(err), fg="red", err=True)

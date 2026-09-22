@@ -35,6 +35,27 @@ uiprotect nvr
 uiprotect -U YOUR_USERNAME_HERE -P YOUR_PASSWORD_HERE -a YOUR_IP_ADDRESS -p 443 --no-verify-ssl nvr
 ```
 
+### Public-only mode
+
+The credentials you supply decide which API the CLI talks to. An API key on
+its own — with no username and no password — runs every command against
+Ubiquiti's [Public Integration API](usage.md#public-vs-private-api): there is
+no private login, no private bootstrap, and no password prompt. Devices are
+looked up from the public bootstrap instead.
+
+```bash
+export UFP_API_KEY=YOUR_API_KEY_HERE
+export UFP_ADDRESS=YOUR_IP_ADDRESS
+
+uiprotect cameras list-ids
+```
+
+Commands that have no public equivalent (`reboot`, `adopt`, `set-ssh`, the
+`nvr` / `events` / `backup` / `aiports` groups, …) are not available in this
+mode; they exit with an error telling you to supply username/password instead
+of prompting for them. Pass `--username`/`--password` (with or without an API
+key) to get the full hybrid surface back.
+
 ## Timezones
 
 A number of commands allow you to enter a datetime as an argument or output files with the datetime in the filename. As a result, it is very important for `uiprotect` to know your consoles local timezone. If you on a physical machine (not docker/VM), chances are this is already set up correctly for you (`/etc/localtime`), but otherwise you may need to set the `TZ` environment variable. `TZ` can also be used to override your system timezone as well if for whatever reason you need to. It should be the [Olson timezone name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for the timezone that your UniFi Protect Instance is in.
@@ -58,6 +79,7 @@ UniFi Protect CLI
 | ---- | ------------------------------ | ------------------ | -------------- | -------------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `-U` | `--username`                   | :white_check_mark: | `UFP_USERNAME` | text           |         | UniFi Protect username                                                                                                    |
 | `-P` | `--password`                   | :white_check_mark: | `UFP_PASSWORD` | text           |         | UniFi Protect password                                                                                                    |
+| `-k` | `--api-key`                    |                    | `UFP_API_KEY`  | text           |         | UniFi Protect API key. On its own (no username/password) it runs the CLI in [public-only mode](#public-only-mode).        |
 | `-a` | `--address`                    | :white_check_mark: | `UFP_ADDRESS`  | text           |         | UniFi Protect IP address or hostname                                                                                      |
 | `-p` | `--port`                       |                    | `UFP_PORT`     | integer        | `443`   | UniFi Protect port                                                                                                        |
 |      | `--verify-ssl/--no-verify-ssl` |                    |                | boolean        | `True`  | Verify SSL certificate. Use `--no-verify-ssl` for self-signed certificates. Will prompt to disable if verification fails. |

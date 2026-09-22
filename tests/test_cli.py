@@ -244,31 +244,106 @@ def test_files_public_help() -> None:
     assert "upload" in result.stdout
 
 
-def test_public_only_command_constructs_without_credentials() -> None:
-    """A public-API subcommand builds the client with only an API key."""
+def _public_only_client() -> MagicMock:
+    return MagicMock(
+        is_public_only=True,
+        get_sirens_public=AsyncMock(return_value=[]),
+        close_session=AsyncMock(),
+        close_public_api_session=AsyncMock(),
+    )
+
+
+def test_api_key_alone_builds_a_public_only_client() -> None:
+    """An API key with no username/password runs the CLI in public-only mode."""
     with patch("uiprotect.cli.ProtectApiClient") as client_cls:
-        client_cls.return_value = MagicMock(
-            get_sirens_public=AsyncMock(return_value=[]),
-            close_session=AsyncMock(),
-            close_public_api_session=AsyncMock(),
-        )
+        client_cls.public_only.return_value = _public_only_client()
         result = runner.invoke(
             app,
             ["--api-key", "k", "--address", "192.0.2.10", "sirens", "list"],
         )
 
     assert result.exit_code == 0
-    assert client_cls.call_count == 1
-    kwargs = client_cls.call_args.kwargs
+    assert client_cls.call_count == 0
+    assert client_cls.public_only.call_count == 1
+    args, kwargs = client_cls.public_only.call_args
+    assert args == ("192.0.2.10", 443)
     assert kwargs["api_key"] == "k"
-    assert kwargs["username"] is None
-    assert kwargs["password"] is None
+
+
+def test_api_key_alone_skips_the_private_bootstrap() -> None:
+    """Public-only mode never logs in or fetches the private bootstrap."""
+    with (
+        patch("uiprotect.cli.ProtectApiClient") as client_cls,
+        patch(
+            "uiprotect.cli._connect_and_bootstrap", new_callable=AsyncMock
+        ) as connect,
+    ):
+        client_cls.public_only.return_value = _public_only_client()
+        result = runner.invoke(
+            app,
+            ["--api-key", "k", "--address", "192.0.2.10", "sirens", "list"],
+        )
+
+    assert result.exit_code == 0
+    connect.assert_not_awaited()
+
+
+def test_credentials_still_take_the_private_path_with_an_api_key() -> None:
+    """Username/password alongside a key keeps the hybrid (private) client."""
+    with (
+        patch("uiprotect.cli.ProtectApiClient") as client_cls,
+        patch(
+            "uiprotect.cli._connect_and_bootstrap", new_callable=AsyncMock
+        ) as connect,
+    ):
+        client_cls.return_value = MagicMock(
+            is_public_only=False,
+            get_sirens_public=AsyncMock(return_value=[]),
+            close_session=AsyncMock(),
+            close_public_api_session=AsyncMock(),
+        )
+        result = runner.invoke(
+            app,
+            [*_BASE_AUTH_ARGS, "--api-key", "k", "sirens", "list"],
+        )
+
+    assert result.exit_code == 0
+    assert client_cls.public_only.call_count == 0
+    kwargs = client_cls.call_args.kwargs
+    assert kwargs["username"] == "u"
+    assert kwargs["password"] == "p"
+    assert kwargs["api_key"] == "k"
+    connect.assert_awaited_once()
+
+
+def test_missing_credentials_still_prompt() -> None:
+    """With neither a key nor credentials, the CLI prompts for both."""
+    with (
+        patch("uiprotect.cli.ProtectApiClient") as client_cls,
+        patch("uiprotect.cli._connect_and_bootstrap", new_callable=AsyncMock),
+    ):
+        client_cls.return_value = MagicMock(
+            is_public_only=False,
+            get_meta_info=AsyncMock(),
+            close_session=AsyncMock(),
+            close_public_api_session=AsyncMock(),
+        )
+        result = runner.invoke(
+            app,
+            ["--address", "192.0.2.10", "get-meta-info"],
+            input="u\np\n",
+        )
+
+    assert result.exit_code == 0
+    kwargs = client_cls.call_args.kwargs
+    assert kwargs["username"] == "u"
+    assert kwargs["password"] == "p"
 
 
 def test_client_construction_bad_request_exits_with_error() -> None:
     """A ``BadRequest`` from client construction prints in red and exits 1."""
     with patch("uiprotect.cli.ProtectApiClient") as client_cls:
-        client_cls.side_effect = BadRequest("api key cannot be empty")
+        client_cls.public_only.side_effect = BadRequest("api key cannot be empty")
         result = runner.invoke(
             app,
             ["--api-key", "k", "--address", "192.0.2.10", "sirens", "list"],
