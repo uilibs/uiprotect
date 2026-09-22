@@ -183,10 +183,12 @@ def main(
     # preload the timezone before any async code runs
     get_local_timezone()
 
-    # The credentials decide the mode, not the subcommand: an API key on its
-    # own runs the whole CLI against the Public Integration API, with no
-    # private login and no private bootstrap.
-    is_public_only = bool(api_key) and not username and not password
+    # The credentials decide the mode, not the subcommand: an API key without
+    # a full private login runs the whole CLI against the Public Integration
+    # API, with no login and no private bootstrap. Half a private credential
+    # counts as none — prompting for the other half would hang a
+    # non-interactive run of a command that never needed it.
+    is_public_only = bool(api_key) and not (username and password)
 
     if not is_public_only:
         # Private API commands require username and password.
@@ -249,11 +251,12 @@ def shell(ctx: typer.Context) -> None:
 
     Requires the `shell` extra to also be installed.
     """
-    # The shell hands the client to the operator expecting a loaded bootstrap.
-    base.private_bootstrap(ctx)
     if embed is None or colored is None:
         typer.echo("ipython and termcolor required for shell subcommand")
         sys.exit(1)
+
+    # The shell hands the client to the operator expecting a loaded bootstrap.
+    base.private_bootstrap(ctx)
 
     # locals passed to shell
     protect = cast(

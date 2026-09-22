@@ -314,6 +314,29 @@ def test_api_key_alone_runs_a_private_first_group_publicly() -> None:
     client.get_bootstrap.assert_not_called()
 
 
+def test_half_a_credential_with_a_key_stays_public_only() -> None:
+    """A username with no password must not trigger a hidden password prompt."""
+    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
+        client_cls.public_only.return_value = _public_only_client()
+        result = runner.invoke(
+            app,
+            [
+                "--username",
+                "u",
+                "--api-key",
+                "k",
+                "--address",
+                "192.0.2.10",
+                "sirens",
+                "list",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert client_cls.public_only.call_count == 1
+    assert "Password" not in result.stdout
+
+
 def test_credentials_still_take_the_private_path_with_an_api_key() -> None:
     """Username/password alongside a key keeps the hybrid (private) client."""
     with (
@@ -1718,7 +1741,7 @@ def test_public_only_rejects_private_groups(args) -> None:
 
 @pytest.mark.parametrize(
     "args",
-    [["shell"], ["generate-sample-data"], ["profile-ws"], ["create-api-key", "n"]],
+    [["generate-sample-data"], ["profile-ws"], ["create-api-key", "n"]],
 )
 def test_public_only_rejects_private_top_level_commands(args) -> None:
     """Top-level commands that need a private session are rejected."""
@@ -1727,6 +1750,25 @@ def test_public_only_rejects_private_top_level_commands(args) -> None:
         result = runner.invoke(
             app,
             ["--api-key", "k", "--address", "192.0.2.10", *args],
+        )
+
+    assert result.exit_code == 1
+    output = _ANSI_ESCAPE_RE.sub("", result.stdout + (result.stderr or ""))
+    assert "public-only mode" in output
+
+
+def test_public_only_rejects_shell() -> None:
+    """The shell hands over a client whose private bootstrap cannot be loaded."""
+    with (
+        patch("uiprotect.cli.ProtectApiClient") as client_cls,
+        patch("uiprotect.cli.embed", MagicMock()),
+        # ``colored`` is only bound when the shell extra is installed.
+        patch("uiprotect.cli.colored", MagicMock(), create=True),
+    ):
+        client_cls.public_only.return_value = _public_only_client()
+        result = runner.invoke(
+            app,
+            ["--api-key", "k", "--address", "192.0.2.10", "shell"],
         )
 
     assert result.exit_code == 1

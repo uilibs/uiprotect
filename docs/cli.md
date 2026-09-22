@@ -37,8 +37,8 @@ uiprotect -U YOUR_USERNAME_HERE -P YOUR_PASSWORD_HERE -a YOUR_IP_ADDRESS -p 443 
 
 ### Public-only mode
 
-The credentials you supply decide which API the CLI talks to. An API key on
-its own — with no username and no password — runs every command against
+The credentials you supply decide which API the CLI talks to. An API key
+without a full username/password pair runs every command against
 Ubiquiti's [Public Integration API](usage.md#public-vs-private-api): there is
 no private login, no private bootstrap, and no password prompt. Devices are
 looked up from the public bootstrap instead.
