@@ -11,10 +11,17 @@ from rich.progress import Progress
 from .. import data as d
 from ..api import ProtectApiClient
 from ..cli import base
+from ..data import DEFAULT, DEFAULT_TYPE
 
 app = typer.Typer(rich_markup_mode="rich")
 
 ARG_DEVICE_ID = typer.Argument(None, help="ID of camera to select for subcommands")
+
+# ``--reset-time`` has to carry three states -- omitted (use the NVR default),
+# "forever", and a timestamp -- so the option is a string parsed by hand. The
+# formats are the ones typer's ``datetime`` option type accepted before.
+_RESET_TIME_NEVER = "never"
+_RESET_TIME_FORMATS = ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S")
 
 
 @dataclass
@@ -572,11 +579,17 @@ def set_lcd_text(
         None,
         help="Only for CUSTOM_MESSAGE text type",
     ),
-    reset_at: datetime | None = typer.Option(
+    reset_at: str | None = typer.Option(
         None,
         "-r",
         "--reset-time",
-        help="Does not apply to default message",
+        help=(
+            "When the message clears: a timestamp "
+            f"[{'|'.join(_RESET_TIME_FORMATS)}], or "
+            f'"{_RESET_TIME_NEVER}" to keep it until it is replaced. '
+            "Omit to use the NVR's default message timeout. "
+            "Does not apply to default message"
+        ),
     ),
 ) -> None:
     """
@@ -586,10 +599,6 @@ def set_lcd_text(
     it will default to UTC. You can override your timezone with the
     TZ environment variable.
     """
-    if reset_at is not None:
-        local_tz = datetime.now(UTC).astimezone().tzinfo
-        reset_at = reset_at.replace(tzinfo=local_tz)
-
     base.require_device_id(ctx)
     obj: d.Camera = ctx.obj.device
 
@@ -604,7 +613,9 @@ def set_lcd_text(
         base.run(ctx, obj.set_lcd_message_public(None))
         return
 
-    base.run(ctx, obj.set_lcd_message_public(text_type, text, reset_at))
+    base.run(
+        ctx, obj.set_lcd_message_public(text_type, text, _parse_reset_time(reset_at))
+    )
 
 
 @app.command()
@@ -747,3 +758,22 @@ def disable_mic_permanently(
         await ctx.obj.protect.disable_camera_mic_permanently_public(obj.id)
 
     base.run(ctx, _disable())
+
+
+def _parse_reset_time(reset_at: str | None) -> datetime | DEFAULT_TYPE | None:
+    """Resolve ``--reset-time`` to the NVR default, "forever", or a timestamp."""
+    if reset_at is None:
+        return DEFAULT
+    if reset_at.casefold() == _RESET_TIME_NEVER:
+        return None
+    local_tz = datetime.now(UTC).astimezone().tzinfo
+    for fmt in _RESET_TIME_FORMATS:
+        try:
+            return datetime.strptime(reset_at, fmt).replace(tzinfo=local_tz)
+        except ValueError:
+            continue
+    formats = ", ".join(repr(fmt) for fmt in _RESET_TIME_FORMATS)
+    raise typer.BadParameter(
+        f"{reset_at!r} is not {_RESET_TIME_NEVER!r} and does not match "
+        f"the formats {formats}"
+    )

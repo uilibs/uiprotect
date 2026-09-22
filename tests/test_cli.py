@@ -66,6 +66,7 @@ from uiprotect.data import (
     Viewer,
 )
 from uiprotect.data.types import (
+    DEFAULT,
     DoorbellMessageType,
     PublicHdrMode,
     SensorScheduleMode,
@@ -1085,19 +1086,78 @@ def test_camera_set_osd_bitrate_uses_public_nerd_mode() -> None:
     camera.set_osd_bitrate.assert_not_called()
 
 
+def _invoke_set_lcd_text(*args: str) -> MagicMock:
+    """Drive ``cameras cam-1 set-lcd-text`` through typer, returning the camera."""
+    obj = MagicMock()
+    camera = obj.protect.bootstrap.cameras.get.return_value
+    with patch.object(base_cli, "run"):
+        result = runner.invoke(cameras_app, ["cam-1", "set-lcd-text", *args], obj=obj)
+    assert result.exit_code == 0, result.output
+    return camera
+
+
 def test_camera_set_lcd_text_uses_public() -> None:
     """Camera set-lcd-text writes through the public setter when given a type."""
     ctx, camera = _make_camera_ctx()
-    reset_at = datetime(2026, 1, 1, 12, 0)
     cameras_cli.set_lcd_text(
-        ctx, DoorbellMessageType.CUSTOM_MESSAGE, "hello", reset_at=reset_at
+        ctx, DoorbellMessageType.CUSTOM_MESSAGE, "hello", reset_at="2026-01-01T12:00:00"
     )
     text_type, text, awaited_reset_at = camera.set_lcd_message_public.await_args.args
     assert (text_type, text) == (DoorbellMessageType.CUSTOM_MESSAGE, "hello")
     # The CLI localises the naive timestamp to the host timezone first.
     assert awaited_reset_at.tzinfo is not None
-    assert awaited_reset_at.replace(tzinfo=None) == reset_at
+    assert awaited_reset_at.replace(tzinfo=None) == datetime(2026, 1, 1, 12, 0)
     camera.set_lcd_text.assert_not_called()
+
+
+def test_camera_set_lcd_text_omitted_reset_time_uses_nvr_default() -> None:
+    """A bare set-lcd-text asks the console for its default reset timeout."""
+    camera = _invoke_set_lcd_text("DO_NOT_DISTURB")
+    assert camera.set_lcd_message_public.call_args.args == (
+        DoorbellMessageType.DO_NOT_DISTURB,
+        None,
+        DEFAULT,
+    )
+
+
+def test_camera_set_lcd_text_reset_time_never_is_forever() -> None:
+    """``--reset-time never`` keeps the message until something replaces it."""
+    camera = _invoke_set_lcd_text("DO_NOT_DISTURB", "--reset-time", "never")
+    assert camera.set_lcd_message_public.call_args.args == (
+        DoorbellMessageType.DO_NOT_DISTURB,
+        None,
+        None,
+    )
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("2026-01-01", datetime(2026, 1, 1)),
+        ("2026-01-01T12:00:00", datetime(2026, 1, 1, 12, 0)),
+        ("2026-01-01 12:00:00", datetime(2026, 1, 1, 12, 0)),
+    ],
+)
+def test_camera_set_lcd_text_reset_time_timestamp(
+    value: str, expected: datetime
+) -> None:
+    """A timestamp is parsed and localised to the host timezone."""
+    camera = _invoke_set_lcd_text("DO_NOT_DISTURB", "--reset-time", value)
+    reset_at = camera.set_lcd_message_public.call_args.args[2]
+    assert reset_at.tzinfo is not None
+    assert reset_at.replace(tzinfo=None) == expected
+
+
+def test_camera_set_lcd_text_rejects_unparsable_reset_time() -> None:
+    """A ``--reset-time`` that is neither ``never`` nor a timestamp is rejected."""
+    result = runner.invoke(
+        cameras_app,
+        ["cam-1", "set-lcd-text", "DO_NOT_DISTURB", "--reset-time", "tomorrow"],
+        obj=MagicMock(),
+    )
+    assert result.exit_code == 2
+    plain_output = _ANSI_ESCAPE_RE.sub("", result.output)
+    assert "Invalid value" in plain_output
 
 
 def test_camera_set_lcd_text_clear_uses_public() -> None:
@@ -1113,7 +1173,7 @@ def test_camera_set_lcd_text_clear_rejects_reset_time() -> None:
     ctx, camera = _make_camera_ctx()
 
     with pytest.raises(typer.Exit) as exc:
-        cameras_cli.set_lcd_text(ctx, None, None, reset_at=datetime(2026, 1, 1, 12, 0))
+        cameras_cli.set_lcd_text(ctx, None, None, reset_at="2026-01-01T12:00:00")
 
     assert exc.value.exit_code == 1
     camera.set_lcd_message_public.assert_not_called()
