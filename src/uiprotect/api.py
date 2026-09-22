@@ -3939,60 +3939,11 @@ class ProtectApiClient(BaseApiClient):
         """Get NVR metadata via the Public Integration API."""
         raise NotImplementedError
 
-    async def get_console_mac(self) -> str | None:
-        """
-        Resolve the console/NVR mac via the UniFi-OS ``/api/system`` endpoint.
-
-        The public Protect Integration API only exposes the NVR ``mac`` on
-        Protect newer than 7.1; older firmware omits it (:attr:`PublicNVR.mac`
-        is then ``None``). This helper fills that gap so a :meth:`public_only`
-        client on older firmware can still derive the console's stable,
-        mac-based identity.
-
-        This is a **transitional workaround** for the hybrid/parallel phase in
-        which the private and public paths coexist: identity must stay
-        mac-based to match what the private path already produces, so a feature
-        toggling between the two paths doesn't churn entity ids. The end-state
-        identity is the public API's own primary key (``nvr.id``); this helper
-        is expected to be retired once the private path is dropped and
-        consumers migrate to ``id``.
-
-        ``/api/system`` is an **off-contract UniFi-OS endpoint** (not the
-        public Protect API): unauthenticated, and it returns the mac of the
-        device at the configured Protect host. Returns the mac string (e.g.
-        ``"AABBCCDDEEFF"``, matching the private ``NVR.mac`` format) or
-        ``None`` when the endpoint is unreachable or carries no mac.
-        """
-        # Off-contract UniFi-OS endpoint, the fallback when the bootstraps
-        # carry no NVR mac (older firmware). Unauthenticated; targets the
-        # configured Protect host. Transitional — retire once consumers
-        # migrate to nvr.id.
-        try:
-            data = await self.api_request(
-                url="/system",
-                api_path="/api",
-                require_auth=False,
-                raise_exception=False,
-            )
-        except (NvrError, TimeoutError) as err:
-            # A connection refusal surfaces as ClientError, which _do_request
-            # wraps into NvrError. A timeout (non-routable host / hanging
-            # connection) is not a ClientError and is never wrapped, so catch
-            # TimeoutError too to honour the "None when unreachable" contract.
-            _LOGGER.debug("Failed to resolve console mac from /api/system: %s", err)
-            return None
-
-        if not isinstance(data, dict):
-            return None
-        mac = data.get("mac")
-        return mac if isinstance(mac, str) and mac else None
-
     async def resolve_nvr_mac(self) -> str | None:
         """
         Resolve the NVR mac, normalized, by source priority: the public NVR
         (cached ``_public_bootstrap`` if primed, else a direct ``/v1/nvrs``
-        fetch), then private bootstrap, then the ``/api/system`` console
-        fallback; ``None`` if none resolve.
+        fetch), then private bootstrap; ``None`` if neither resolves.
         """
         if self._public_bootstrap is not None:
             nvr = self._public_bootstrap.nvr
@@ -4004,7 +3955,7 @@ class ProtectApiClient(BaseApiClient):
             except (ClientError, TimeoutError):
                 # The public session carries no ClientTimeout, so a hung
                 # /v1/nvrs raises a bare TimeoutError that is never wrapped
-                # into ClientError; fall through to the private/console tiers.
+                # into ClientError; fall through to the private tier.
                 public_nvr = None
             if public_nvr is not None and public_nvr.mac:
                 return normalize_mac(public_nvr.mac)
@@ -4012,8 +3963,7 @@ class ProtectApiClient(BaseApiClient):
         if self._bootstrap is not None and self._bootstrap.nvr.mac:
             return normalize_mac(self._bootstrap.nvr.mac)
 
-        mac = await self.get_console_mac()
-        return normalize_mac(mac) if mac else None
+        return None
 
     # Public API Methods
 
@@ -5086,13 +5036,6 @@ class ProtectApiClient(BaseApiClient):
         prime-then-subscribe ordering moot for the typed callbacks, use
         :meth:`subscribe_devices_and_prime` / :meth:`subscribe_events_and_prime`.
 
-        After priming, ``public_bootstrap.nvr.mac`` carries the NVR mac
-        whenever it is resolvable. On firmware that omits ``mac`` from the
-        public payload it is backfilled from the console fallback and stored
-        in the native UniFi format (uppercase, no separators) — the same
-        format newer firmware already provides — so consumers can read a
-        self-consistent mac regardless of firmware.
-
         Membership changes are announced on the devices websocket: once the
         whole batch has merged, every successful call emits one synthetic
         ``add`` frame per device that is new to the cache and one ``remove``
@@ -5230,7 +5173,6 @@ class ProtectApiClient(BaseApiClient):
                 handler(msg)
 
         await self._prime_rtsps_streams(pb, previous_streams)
-        await self._backfill_public_nvr_mac(pb)
         if was_primed:
             self._emit_public_fetch_diffs(pb, diffs, seen)
 
@@ -5309,29 +5251,6 @@ class ProtectApiClient(BaseApiClient):
                 old_obj=None if is_add else obj,
             )
         )
-
-    async def _backfill_public_nvr_mac(self, pb: PublicBootstrap) -> None:
-        """
-        Stamp the NVR mac onto ``pb`` when firmware omits it from the payload.
-
-        Protect newer than 7.1 already carries ``mac`` on ``GET /v1/nvrs`` in
-        native UniFi format (uppercase, no separators), so this is a no-op
-        there. On older firmware the field is ``None``; resolve it via the
-        console fallback and write it in that same native format so the value
-        does not drift across firmware versions.
-        """
-        if pb.nvr is None or pb.nvr.mac:
-            return
-        resolved = await self.resolve_nvr_mac()
-        if not resolved:
-            return
-        # ``pb.nvr`` may have been replaced by a websocket write-through while
-        # awaiting, so re-read it and skip if it now carries a mac.
-        if (nvr := pb.nvr) is not None and not nvr.mac:
-            # resolve_nvr_mac() returns the normalized (lowercase, separator-
-            # stripped) form; the public field natively holds uppercase-no-
-            # separator on newer firmware, so upper() matches that exactly.
-            nvr.mac = resolved.upper()
 
     async def _prime_rtsps_streams(
         self,
