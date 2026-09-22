@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.14.1 (2026-09-22)
+
+### Bug fixes
+
+
+- Let set-lcd-text fall back to the nvr default reset time ([`3250f0c`](https://github.com/uilibs/uiprotect/commit/3250f0c9318d9c1f876b3083fffe64c1454c18ec))
+
+
 ## v16.14.0 (2026-09-21)
 
 ### Features
