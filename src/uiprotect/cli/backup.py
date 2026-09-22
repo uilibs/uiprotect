@@ -442,9 +442,11 @@ def main(
     _setup_logger(verbose)
 
     local_tz = get_local_timezone()
+    # Every backup subcommand resolves cameras through the private bootstrap.
+    bootstrap = base.private_bootstrap(ctx)
 
     if start is None:
-        start_dt = base.private_bootstrap(ctx).recording_start
+        start_dt = bootstrap.recording_start
     else:
         start_dt = relative_datetime(ctx, start, ctx.command.params[0])
         start_dt = start_dt.replace(tzinfo=local_tz)

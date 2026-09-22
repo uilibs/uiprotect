@@ -222,12 +222,13 @@ def test_existing_event_path_rejects_absolute_template(tmp_path: Path) -> None:
     assert event.get_existing_event_path(ctx) is None
 
 
-def test_public_only_mode_rejected() -> None:
+@pytest.mark.parametrize("args", [["events"], ["--start", "2 days ago", "events"]])
+def test_public_only_mode_rejected(args: list[str]) -> None:
     """The backup CLI reads the private bootstrap, so public-only mode is rejected."""
     obj = MagicMock()
     obj.protect.is_public_only = True
 
-    result = CliRunner().invoke(backup_app, ["events"], obj=obj)
+    result = CliRunner().invoke(backup_app, args, obj=obj)
 
     assert result.exit_code == 1
     assert "public-only mode" in (result.stdout + (result.stderr or ""))

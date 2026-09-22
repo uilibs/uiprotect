@@ -249,7 +249,8 @@ def shell(ctx: typer.Context) -> None:
 
     Requires the `shell` extra to also be installed.
     """
-    base.require_private_api(ctx)
+    # The shell hands the client to the operator expecting a loaded bootstrap.
+    base.private_bootstrap(ctx)
     if embed is None or colored is None:
         typer.echo("ipython and termcolor required for shell subcommand")
         sys.exit(1)
