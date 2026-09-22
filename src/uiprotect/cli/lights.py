@@ -8,6 +8,7 @@ import typer
 from ..api import ProtectApiClient
 from ..cli import base
 from ..data import Light
+from ..data.public_devices import PublicLight
 
 app = typer.Typer(rich_markup_mode="rich")
 
@@ -16,8 +17,8 @@ ARG_DEVICE_ID = typer.Argument(None, help="ID of light to select for subcommands
 
 @dataclass
 class LightContext(base.CliContext):
-    devices: dict[str, Light]
-    device: Light | None = None
+    devices: dict[str, Light | PublicLight]
+    device: Light | PublicLight | None = None
 
 
 ALL_COMMANDS, DEVICE_COMMANDS = base.init_common_commands(app)
@@ -30,17 +31,17 @@ def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
 
     Returns full list of Viewers without any arguments passed.
     """
-    protect: ProtectApiClient = ctx.obj.protect
+    devices = base.device_map(ctx, "lights")
     context = LightContext(
         protect=ctx.obj.protect,
         device=None,
-        devices=protect.bootstrap.lights,
+        devices=devices,
         output_format=ctx.obj.output_format,
     )
     ctx.obj = context
 
     if device_id is not None and device_id not in ALL_COMMANDS:
-        if (device := protect.bootstrap.lights.get(device_id)) is None:
+        if (device := devices.get(device_id)) is None:
             typer.secho("Invalid light ID", fg="red")
             raise typer.Exit(1)
         ctx.obj.device = device
@@ -76,10 +77,10 @@ def camera(ctx: typer.Context, camera_id: str | None = typer.Argument(None)) -> 
 @app.command()
 def set_status_light(ctx: typer.Context, enabled: bool) -> None:
     """Sets status light for light device."""
-    base.require_device_id(ctx)
-    obj: Light = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: Light | PublicLight = ctx.obj.device
 
-    base.run(ctx, obj.set_status_light_public(enabled))
+    base.run(ctx, base.public_call(obj, "set_status_light", enabled))
 
 
 @app.command()
@@ -88,10 +89,10 @@ def set_led_level(
     led_level: int = typer.Argument(..., min=1, max=6),
 ) -> None:
     """Sets brightness of LED on light."""
-    base.require_device_id(ctx)
-    obj: Light = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: Light | PublicLight = ctx.obj.device
 
-    base.run(ctx, obj.set_led_level_public(led_level))
+    base.run(ctx, base.public_call(obj, "set_led_level", led_level))
 
 
 @app.command()
@@ -100,10 +101,10 @@ def set_sensitivity(
     sensitivity: int = typer.Argument(..., min=0, max=100),
 ) -> None:
     """Sets motion sensitivity for the light."""
-    base.require_device_id(ctx)
-    obj: Light = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: Light | PublicLight = ctx.obj.device
 
-    base.run(ctx, obj.set_sensitivity_public(sensitivity))
+    base.run(ctx, base.public_call(obj, "set_sensitivity", sensitivity))
 
 
 @app.command()
@@ -112,16 +113,16 @@ def set_duration(
     duration: int = typer.Argument(..., min=15, max=900),
 ) -> None:
     """Sets timeout duration (in seconds) for light."""
-    base.require_device_id(ctx)
-    obj: Light = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: Light | PublicLight = ctx.obj.device
 
-    base.run(ctx, obj.set_duration_public(timedelta(seconds=duration)))
+    base.run(ctx, base.public_call(obj, "set_duration", timedelta(seconds=duration)))
 
 
 @app.command()
 def set_flood_light(ctx: typer.Context, enabled: bool) -> None:
     """Sets flood light (force on) for light device."""
-    base.require_device_id(ctx)
-    obj: Light = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: Light | PublicLight = ctx.obj.device
 
-    base.run(ctx, obj.set_flood_light_public(enabled))
+    base.run(ctx, base.public_call(obj, "set_flood_light", enabled))

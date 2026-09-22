@@ -442,6 +442,7 @@ def main(
     """
     _setup_logger(verbose)
 
+    base.require_private_api(ctx)
     protect: ProtectApiClient = ctx.obj.protect
     local_tz = get_local_timezone()
 

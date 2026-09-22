@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 import orjson
 import typer
@@ -21,12 +21,18 @@ from ..data import (
     Sensor,
     Viewer,
 )
+from ..data.public_devices import PublicDeviceModel
 from ..exceptions import BadRequest, NvrError, StreamError
 from ..utils import run_async
 
 T = TypeVar("T")
 
 OPTION_FORCE = typer.Option(False, "-f", "--force", help="Skip confirmation prompt")
+
+PRIVATE_ONLY_ERROR = (
+    "Not available in public-only mode: this has no Public Integration API "
+    "equivalent. Pass --username/--password to use the private API."
+)
 
 
 class OutputFormatEnum(StrEnum):
@@ -89,10 +95,47 @@ def print_unifi_dict(objs: Mapping[str, ProtectBaseObject]) -> None:
     json_output(data)
 
 
-def require_device_id(ctx: typer.Context) -> None:
-    """Requires device ID in context"""
+def require_private_api(ctx: typer.Context) -> None:
+    """Rejects the command when the client runs in public-only mode."""
+    if ctx.obj.protect.is_public_only:
+        typer.secho(PRIVATE_ONLY_ERROR, fg="red", err=True)
+        raise typer.Exit(1)
+
+
+def public_call(
+    obj: ProtectBaseObject,
+    method: str,
+    *args: Any,
+    **kwargs: Any,
+) -> Awaitable[Any]:
+    """
+    Calls a Public Integration API setter on a private or public device model.
+
+    The public device models name these ``set_x``; their private counterparts
+    carry the same call as ``set_x_public``.
+    """
+    if isinstance(obj, PublicDeviceModel):
+        return cast("Awaitable[Any]", getattr(obj, method)(*args, **kwargs))
+    return cast("Awaitable[Any]", getattr(obj, f"{method}_public")(*args, **kwargs))
+
+
+def device_map(ctx: typer.Context, attr: str) -> dict[str, Any]:
+    """Devices of one kind, from the public bootstrap in public-only mode."""
+    protect: ProtectApiClient = ctx.obj.protect
+    if not protect.is_public_only:
+        return cast("dict[str, Any]", getattr(protect.bootstrap, attr))
+    if not protect.has_public_bootstrap:
+        run(ctx, protect.update_public())
+    return cast("dict[str, Any]", getattr(protect.public_bootstrap, attr))
+
+
+def require_device_id(ctx: typer.Context, *, public_ok: bool = False) -> None:
+    """Requires device ID in context; a private-API device unless ``public_ok``."""
     if ctx.obj.device is None:
         typer.secho("Requires a valid device ID to be selected")
+        raise typer.Exit(1)
+    if not public_ok and isinstance(ctx.obj.device, PublicDeviceModel):
+        typer.secho(PRIVATE_ONLY_ERROR, fg="red", err=True)
         raise typer.Exit(1)
 
 
@@ -103,27 +146,36 @@ def require_no_device_id(ctx: typer.Context) -> None:
         raise typer.Exit(1)
 
 
+def _list_name(obj: ProtectAdoptableDeviceModel | PublicDeviceModel) -> str:
+    """Display name annotated with the device state, for ``list-ids``."""
+    name = obj.display_name
+    if isinstance(obj, PublicDeviceModel):
+        # The public payload carries a single state field; adoption and
+        # firmware-update state are private-API only.
+        return name if obj.is_reachable else f"{name} [Disconnected]"
+
+    if obj.is_adopted_by_other:
+        name = f"{name} [Managed by Another Console]"
+    elif obj.is_adopting:
+        name = f"{name} [Adopting]"
+    elif obj.can_adopt:
+        name = f"{name} [Unadopted]"
+    elif obj.is_rebooting:
+        name = f"{name} [Restarting]"
+    elif obj.is_updating:
+        name = f"{name} [Updating]"
+    elif not obj.is_connected:
+        name = f"{name} [Disconnected]"
+    return name
+
+
 def list_ids(ctx: typer.Context) -> None:
     """Requires no device ID. Prints list of "id name" for each device."""
     require_no_device_id(ctx)
-    objs: dict[str, ProtectAdoptableDeviceModel] = ctx.obj.devices
-    to_print: list[tuple[str, str | None]] = []
-    for obj in objs.values():
-        name = obj.display_name
-        if obj.is_adopted_by_other:
-            name = f"{name} [Managed by Another Console]"
-        elif obj.is_adopting:
-            name = f"{name} [Adopting]"
-        elif obj.can_adopt:
-            name = f"{name} [Unadopted]"
-        elif obj.is_rebooting:
-            name = f"{name} [Restarting]"
-        elif obj.is_updating:
-            name = f"{name} [Updating]"
-        elif not obj.is_connected:
-            name = f"{name} [Disconnected]"
-
-        to_print.append((obj.id, name))
+    objs: dict[str, ProtectAdoptableDeviceModel | PublicDeviceModel] = ctx.obj.devices
+    to_print: list[tuple[str, str | None]] = [
+        (obj.id, _list_name(obj)) for obj in objs.values()
+    ]
 
     if ctx.obj.output_format == OutputFormatEnum.JSON:
         json_output(to_print)
@@ -184,11 +236,16 @@ def set_ssh(ctx: typer.Context, enabled: bool) -> None:
 
 def set_name(ctx: typer.Context, name: str | None = typer.Argument(None)) -> None:
     """Sets name for the device"""
-    require_device_id(ctx)
-    obj: NVR | ProtectAdoptableDeviceModel = ctx.obj.device
-    # AiPort subclasses Camera but has no public-API endpoint of its own, and
-    # the public API cannot express clearing a name, so both keep the private
-    # path.
+    # The public API cannot express clearing a name, so that keeps the private
+    # path and is unavailable in public-only mode.
+    require_device_id(ctx, public_ok=name is not None)
+    device: NVR | ProtectAdoptableDeviceModel | PublicDeviceModel = ctx.obj.device
+    if isinstance(device, PublicDeviceModel):
+        run(ctx, public_call(device, "set_name", cast("str", name)))
+        return
+
+    obj: NVR | ProtectAdoptableDeviceModel = device
+    # AiPort subclasses Camera but has no public-API endpoint of its own.
     if (
         name is not None
         and isinstance(obj, (Camera, Chime, Light, Sensor, Viewer))

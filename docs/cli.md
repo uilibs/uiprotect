@@ -110,7 +110,7 @@ writes.
 | `backup`               | Private | [Backup CLI](#backup-cli).                                       |
 | `bridges`              | Public  | Bridge commands.                                                 |
 | `cameras`              | Hybrid  | Camera device CLI.                                               |
-| `chimes`               | Private | Chime device CLI.                                                |
+| `chimes`               | Hybrid  | Chime device CLI.                                                |
 | `create-api-key`       | Private | Create a new API key for the current user.                       |
 | `decode-ws-msg`        | —       | Decodes a base64 encoded UniFi Protect Websocket binary message. |
 | `events`               | Private | Events CLI.                                                      |
@@ -130,7 +130,7 @@ writes.
 | `speakers`             | Public  | Speaker commands.                                                |
 | `ulp-users-public`     | Public  | UniFi Identity (ULP) user commands.                              |
 | `users-public`         | Public  | Protect user commands.                                           |
-| `viewers`              | Private | Viewers device CLI.                                              |
+| `viewers`              | Hybrid  | Viewers device CLI.                                              |
 | `viewers-public`       | Public  | Viewer commands.                                                 |
 
 #### Multiple Item CLI Commands
@@ -223,6 +223,11 @@ Adoptable devices (Cameras, Chimes, Lights, Sensors, Viewers) all have some comm
 | `reboot`       | Reboots the device.                               |
 | `unadopt`      | Unadopt/Unmanage adopted device.                  |
 | `update`       | Updates the device.                               |
+
+`adopt`, `bridge`, `is-bluetooth`, `is-wifi`, `is-wired`, `protect-url`,
+`reboot`, `set-ssh`, `unadopt` and `update` have no Public Integration API
+equivalent and are rejected in [public-only mode](#public-only-mode);
+`list-ids` and `set-name` work in both modes.
 
 #### Liveviews CLI
 

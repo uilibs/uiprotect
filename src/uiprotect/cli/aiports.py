@@ -31,6 +31,7 @@ def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
 
     Returns full list of AiPorts without any arguments passed.
     """
+    base.require_private_api(ctx)
     protect: ProtectApiClient = ctx.obj.protect
     context = AiPortContext(
         protect=ctx.obj.protect,

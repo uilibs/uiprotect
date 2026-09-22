@@ -870,6 +870,12 @@ class PublicCamera(PublicDeviceModel):
             "(update_camera_public)."
         )
 
+    async def set_name(self, name: str) -> PublicCamera:
+        """Set the camera name via the public API."""
+        updated = await self._api.update_camera_public(self.id, name=name)
+        self._apply_from_response(updated)
+        return self
+
     async def set_status_light(self, enabled: bool) -> PublicCamera:
         """Set the status LED via the public API."""
         if not self.feature_flags.has_led_status:
@@ -1727,6 +1733,12 @@ class PublicChime(PublicDeviceModel):
             "Chime mutations must go through the dedicated public API helpers "
             "(update_chime_public)."
         )
+
+    async def set_name(self, name: str) -> PublicChime:
+        """Set the chime name via the public API."""
+        updated = await self._api.update_chime_public(self.id, name=name)
+        self._apply_from_response(updated)
+        return self
 
     async def set_ring_settings(
         self,

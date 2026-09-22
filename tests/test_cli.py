@@ -61,6 +61,11 @@ from uiprotect.data import (
     Camera,
     Chime,
     Light,
+    PublicCamera,
+    PublicChime,
+    PublicLight,
+    PublicSensor,
+    PublicViewer,
     RingSetting,
     Sensor,
     Viewer,
@@ -69,6 +74,7 @@ from uiprotect.data.types import (
     DEFAULT,
     DoorbellMessageType,
     PublicHdrMode,
+    RecordingMode,
     SensorScheduleMode,
     SmartDetectAudioType,
     SmartDetectObjectType,
@@ -288,6 +294,25 @@ def test_api_key_alone_skips_the_private_bootstrap() -> None:
     connect.assert_not_awaited()
 
 
+def test_api_key_alone_runs_a_private_first_group_publicly() -> None:
+    """A hybrid group no longer prompts for a password when only a key is given."""
+    client = _public_only_client()
+    client.update_public = AsyncMock()
+    client.has_public_bootstrap = False
+    client.public_bootstrap.cameras = {}
+    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
+        client_cls.public_only.return_value = client
+        result = runner.invoke(
+            app,
+            ["--api-key", "k", "--address", "192.0.2.10", "cameras", "list-ids"],
+        )
+
+    assert result.exit_code == 0
+    assert "Username" not in result.stdout
+    client.update_public.assert_awaited_once()
+    client.get_bootstrap.assert_not_called()
+
+
 def test_credentials_still_take_the_private_path_with_an_api_key() -> None:
     """Username/password alongside a key keeps the hybrid (private) client."""
     with (
@@ -311,7 +336,7 @@ def test_credentials_still_take_the_private_path_with_an_api_key() -> None:
     assert client_cls.public_only.call_count == 0
     kwargs = client_cls.call_args.kwargs
     assert kwargs["username"] == "u"
-    assert kwargs["password"] == "p"
+    assert kwargs["password"] == "p"  # noqa: S105
     assert kwargs["api_key"] == "k"
     connect.assert_awaited_once()
 
@@ -337,7 +362,7 @@ def test_missing_credentials_still_prompt() -> None:
     assert result.exit_code == 0
     kwargs = client_cls.call_args.kwargs
     assert kwargs["username"] == "u"
-    assert kwargs["password"] == "p"
+    assert kwargs["password"] == "p"  # noqa: S105
 
 
 def test_client_construction_bad_request_exits_with_error() -> None:
@@ -620,7 +645,7 @@ def _make_chime_ctx(
     chime.set_ring_settings_public = AsyncMock()
     chime.set_repeat_times_for_camera_public = AsyncMock()
 
-    protect = MagicMock()
+    protect = MagicMock(is_public_only=False)
     protect.update_chime_public = AsyncMock()
     protect.close_session = AsyncMock()
     protect.close_public_api_session = AsyncMock()
@@ -841,7 +866,7 @@ def _make_viewer_ctx(liveview_ids: list[str] | None = None):
     viewer.id = "viewer-1"
     viewer.set_liveview = AsyncMock()
 
-    protect = MagicMock()
+    protect = MagicMock(is_public_only=False)
     protect.update_viewer_public = AsyncMock()
     protect.close_session = AsyncMock()
     protect.close_public_api_session = AsyncMock()
@@ -902,7 +927,7 @@ def _make_sensor_ctx():
     sensor.set_arm_profile_ids_public = AsyncMock()
     sensor.set_custom_sensitivity_when_armed_public = AsyncMock()
 
-    protect = MagicMock()
+    protect = MagicMock(is_public_only=False)
     protect.close_session = AsyncMock()
     protect.close_public_api_session = AsyncMock()
 
@@ -1045,7 +1070,7 @@ def _make_device_ctx(*, device_id: str):
     device = MagicMock()
     device.id = device_id
 
-    protect = MagicMock()
+    protect = MagicMock(is_public_only=False)
     protect.close_session = AsyncMock()
     protect.close_public_api_session = AsyncMock()
 
@@ -1164,6 +1189,7 @@ def test_camera_set_osd_bitrate_uses_public_nerd_mode() -> None:
 def _invoke_set_lcd_text(*args: str) -> MagicMock:
     """Drive ``cameras cam-1 set-lcd-text`` through typer, returning the camera."""
     obj = MagicMock()
+    obj.protect.is_public_only = False
     camera = obj.protect.bootstrap.cameras.get.return_value
     with patch.object(base_cli, "run"):
         result = runner.invoke(cameras_app, ["cam-1", "set-lcd-text", *args], obj=obj)
@@ -1477,7 +1503,7 @@ def _make_named_device_ctx(model_class):
     if hasattr(model_class, "set_name_public"):
         device.set_name_public = AsyncMock()
 
-    protect = MagicMock()
+    protect = MagicMock(is_public_only=False)
     protect.close_session = AsyncMock()
     protect.close_public_api_session = AsyncMock()
 
@@ -1534,3 +1560,173 @@ def test_sensor_set_range_rejects_inverted_bounds(command, setter) -> None:
         command(ctx, 30.0, 5.0)
     assert exc.value.exit_code == 1
     getattr(sensor, setter).assert_not_awaited()
+
+
+def _make_public_device_ctx(model_class, **attrs):
+    """Build a context double whose device is a public-API model."""
+    device = MagicMock(spec=model_class)
+    device.id = "device-1"
+    for name, value in attrs.items():
+        setattr(device, name, value)
+
+    protect = MagicMock(is_public_only=True)
+    protect.close_session = AsyncMock()
+    protect.close_public_api_session = AsyncMock()
+
+    ctx = MagicMock()
+    ctx.obj.device = device
+    ctx.obj.protect = protect
+    return ctx, device
+
+
+def test_public_only_camera_setter_targets_the_public_model() -> None:
+    """A camera write lands on the public model's own setter name."""
+    ctx, camera = _make_public_device_ctx(PublicCamera, set_status_light=AsyncMock())
+    cameras_cli.set_status_light(ctx, True)
+    camera.set_status_light.assert_awaited_once_with(True)
+
+
+def test_public_only_light_setter_targets_the_public_model() -> None:
+    """A light write lands on the public model's own setter name."""
+    ctx, light = _make_public_device_ctx(PublicLight, set_led_level=AsyncMock())
+    lights_cli.set_led_level(ctx, 4)
+    light.set_led_level.assert_awaited_once_with(4)
+
+
+def test_public_only_sensor_setter_targets_the_public_model() -> None:
+    """A sensor write lands on the public model's own setter name."""
+    ctx, sensor = _make_public_device_ctx(PublicSensor, set_alarm=AsyncMock())
+    sensors_cli.set_alarm(ctx, True)
+    sensor.set_alarm.assert_awaited_once_with(True)
+
+
+@pytest.mark.parametrize(
+    "model_class", [PublicCamera, PublicChime, PublicLight, PublicSensor, PublicViewer]
+)
+def test_public_only_set_name(model_class) -> None:
+    """set-name works for every public device model."""
+    ctx, device = _make_public_device_ctx(model_class, set_name=AsyncMock())
+    base_cli.set_name(ctx, "Kitchen")
+    device.set_name.assert_awaited_once_with("Kitchen")
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        lambda ctx: base_cli.set_name(ctx, None),
+        lambda ctx: base_cli.set_ssh(ctx, True),
+        lambda ctx: base_cli.reboot(ctx, force=True),
+        lambda ctx: base_cli.adopt(ctx, None),
+        base_cli.is_wired,
+        lambda ctx: cameras_cli.set_recording_mode(ctx, RecordingMode.ALWAYS),
+        lambda ctx: cameras_cli.set_camera_zoom(ctx, 10),
+    ],
+)
+def test_public_only_rejects_commands_without_a_public_equivalent(command) -> None:
+    """Gap commands exit 1 instead of failing on a missing private attribute."""
+    ctx, _device = _make_public_device_ctx(PublicCamera)
+    with pytest.raises(typer.Exit) as exc:
+        command(ctx)
+    assert exc.value.exit_code == 1
+
+
+def test_list_ids_flags_an_unreachable_public_device() -> None:
+    """``list-ids`` annotates public devices from their single state field."""
+    online = MagicMock(spec=PublicCamera, id="cam-1")
+    online.display_name = "Front"
+    online.is_reachable = True
+    offline = MagicMock(spec=PublicCamera, id="cam-2")
+    offline.display_name = "Back"
+    offline.is_reachable = False
+
+    ctx = MagicMock()
+    ctx.obj.device = None
+    ctx.obj.devices = {"cam-1": online, "cam-2": offline}
+    ctx.obj.output_format = base_cli.OutputFormatEnum.JSON
+
+    with patch.object(base_cli, "json_output") as out:
+        base_cli.list_ids(ctx)
+
+    assert out.call_args.args[0] == [
+        ("cam-1", "Front"),
+        ("cam-2", "Back [Disconnected]"),
+    ]
+
+
+def test_device_map_primes_the_public_bootstrap_once() -> None:
+    """The public bootstrap is fetched lazily, and only when it is missing."""
+    protect = MagicMock(is_public_only=True, has_public_bootstrap=False)
+    protect.update_public = AsyncMock()
+    protect.close_session = AsyncMock()
+    protect.close_public_api_session = AsyncMock()
+    protect.public_bootstrap.cameras = {"cam-1": MagicMock()}
+    ctx = MagicMock()
+    ctx.obj.protect = protect
+
+    assert base_cli.device_map(ctx, "cameras") == {
+        "cam-1": protect.public_bootstrap.cameras["cam-1"]
+    }
+    protect.update_public.assert_awaited_once()
+
+    protect.has_public_bootstrap = True
+    base_cli.device_map(ctx, "cameras")
+    protect.update_public.assert_awaited_once()
+
+
+def test_device_map_uses_the_private_bootstrap_in_hybrid_mode() -> None:
+    """A hybrid client keeps resolving devices from the private bootstrap."""
+    protect = MagicMock(is_public_only=False)
+    protect.bootstrap.cameras = {"cam-1": MagicMock()}
+    ctx = MagicMock()
+    ctx.obj.protect = protect
+
+    assert base_cli.device_map(ctx, "cameras") is protect.bootstrap.cameras
+    protect.update_public.assert_not_called()
+
+
+@pytest.mark.parametrize("args", [["nvr"], ["events"], ["aiports"]])
+def test_public_only_rejects_private_groups(args) -> None:
+    """Groups with no public equivalent exit 1 rather than prompting for a password."""
+    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
+        client_cls.public_only.return_value = _public_only_client()
+        result = runner.invoke(
+            app,
+            ["--api-key", "k", "--address", "192.0.2.10", *args],
+        )
+
+    assert result.exit_code == 1
+    output = _ANSI_ESCAPE_RE.sub("", result.stdout + (result.stderr or ""))
+    assert "public-only mode" in output
+
+
+@pytest.mark.parametrize(
+    "args",
+    [["shell"], ["generate-sample-data"], ["profile-ws"], ["create-api-key", "n"]],
+)
+def test_public_only_rejects_private_top_level_commands(args) -> None:
+    """Top-level commands that need a private session are rejected."""
+    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
+        client_cls.public_only.return_value = _public_only_client()
+        result = runner.invoke(
+            app,
+            ["--api-key", "k", "--address", "192.0.2.10", *args],
+        )
+
+    assert result.exit_code == 1
+    output = _ANSI_ESCAPE_RE.sub("", result.stdout + (result.stderr or ""))
+    assert "public-only mode" in output
+
+
+def test_public_only_viewer_liveview_reads_from_the_public_bootstrap() -> None:
+    """The current liveview is resolved by id against the public bootstrap."""
+    ctx, viewer = _make_public_device_ctx(PublicViewer)
+    viewer.liveview_id = "lv-1"
+    current = MagicMock()
+    current.unifi_dict.return_value = {"id": "lv-1"}
+    ctx.obj.protect.has_public_bootstrap = True
+    ctx.obj.protect.public_bootstrap.liveviews = {"lv-1": current}
+
+    with patch.object(base_cli, "json_output") as out:
+        liveview(ctx, None)
+
+    out.assert_called_once_with({"id": "lv-1"})

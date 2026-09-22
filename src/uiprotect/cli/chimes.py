@@ -7,6 +7,7 @@ import typer
 from ..api import ProtectApiClient
 from ..cli import base
 from ..data import Chime
+from ..data.public_devices import PublicChime
 
 app = typer.Typer(rich_markup_mode="rich")
 
@@ -17,8 +18,8 @@ ARG_VOLUME = typer.Argument(..., help="Volume", min=1, max=100)
 
 @dataclass
 class ChimeContext(base.CliContext):
-    devices: dict[str, Chime]
-    device: Chime | None = None
+    devices: dict[str, Chime | PublicChime]
+    device: Chime | PublicChime | None = None
 
 
 ALL_COMMANDS, DEVICE_COMMANDS = base.init_common_commands(app)
@@ -31,17 +32,17 @@ def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
 
     Returns full list of Chimes without any arguments passed.
     """
-    protect: ProtectApiClient = ctx.obj.protect
+    devices = base.device_map(ctx, "chimes")
     context = ChimeContext(
         protect=ctx.obj.protect,
         device=None,
-        devices=protect.bootstrap.chimes,
+        devices=devices,
         output_format=ctx.obj.output_format,
     )
     ctx.obj = context
 
     if device_id is not None and device_id not in ALL_COMMANDS:
-        if (device := protect.bootstrap.chimes.get(device_id)) is None:
+        if (device := devices.get(device_id)) is None:
             typer.secho("Invalid chime ID", fg="red")
             raise typer.Exit(1)
         ctx.obj.device = device

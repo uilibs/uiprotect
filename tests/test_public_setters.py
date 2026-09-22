@@ -157,6 +157,21 @@ async def test_apply_from_response_merges_and_skips_rtsps() -> None:
 
 
 @pytest.mark.asyncio
+async def test_public_camera_set_name() -> None:
+    api = MagicMock()
+    cam = _camera(api)
+    api.update_camera_public = AsyncMock(
+        return_value=cam.model_copy(update={"name": "Front Door"})
+    )
+
+    result = await cam.set_name("Front Door")
+
+    assert result is cam
+    assert cam.name == "Front Door"
+    api.update_camera_public.assert_awaited_once_with(cam.id, name="Front Door")
+
+
+@pytest.mark.asyncio
 async def test_public_camera_set_mic_volume_writes_through() -> None:
     api = MagicMock()
     cam = _camera(api)
@@ -1037,6 +1052,21 @@ async def test_public_sensor_set_motion_sensitivity() -> None:
 # ---------------------------------------------------------------------------
 # Chime
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_public_chime_set_name() -> None:
+    api = MagicMock()
+    chime = _chime(api)
+    api.update_chime_public = AsyncMock(
+        return_value=chime.model_copy(update={"name": "Hallway"})
+    )
+
+    result = await chime.set_name("Hallway")
+
+    assert result is chime
+    assert chime.name == "Hallway"
+    api.update_chime_public.assert_awaited_once_with(chime.id, name="Hallway")
 
 
 @pytest.mark.asyncio

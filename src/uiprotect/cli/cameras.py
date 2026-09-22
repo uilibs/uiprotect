@@ -12,6 +12,7 @@ from .. import data as d
 from ..api import ProtectApiClient
 from ..cli import base
 from ..data import DEFAULT, DEFAULT_TYPE
+from ..data.public_devices import PublicCamera
 
 app = typer.Typer(rich_markup_mode="rich")
 
@@ -26,8 +27,8 @@ _RESET_TIME_FORMATS = ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S")
 
 @dataclass
 class CameraContext(base.CliContext):
-    devices: dict[str, d.Camera]
-    device: d.Camera | None = None
+    devices: dict[str, d.Camera | PublicCamera]
+    device: d.Camera | PublicCamera | None = None
 
 
 ALL_COMMANDS, DEVICE_COMMANDS = base.init_common_commands(app)
@@ -40,17 +41,17 @@ def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
 
     Returns full list of Cameras without any arguments passed.
     """
-    protect: ProtectApiClient = ctx.obj.protect
+    devices = base.device_map(ctx, "cameras")
     context = CameraContext(
         protect=ctx.obj.protect,
         device=None,
-        devices=protect.bootstrap.cameras,
+        devices=devices,
         output_format=ctx.obj.output_format,
     )
     ctx.obj = context
 
     if device_id is not None and device_id not in ALL_COMMANDS:
-        if (device := protect.bootstrap.cameras.get(device_id)) is None:
+        if (device := devices.get(device_id)) is None:
             typer.secho("Invalid camera ID", fg="red")
             raise typer.Exit(1)
         ctx.obj.device = device
@@ -405,19 +406,19 @@ def set_ir_led_mode(ctx: typer.Context, mode: d.IRLEDMode) -> None:
 @app.command()
 def set_status_light(ctx: typer.Context, enabled: bool) -> None:
     """Sets status indicicator light on camera"""
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: d.Camera | PublicCamera = ctx.obj.device
 
-    base.run(ctx, obj.set_status_light_public(enabled))
+    base.run(ctx, base.public_call(obj, "set_status_light", enabled))
 
 
 @app.command()
 def set_hdr(ctx: typer.Context, mode: d.PublicHdrMode) -> None:
     """Sets HDR (High Dynamic Range) mode on camera"""
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: d.Camera | PublicCamera = ctx.obj.device
 
-    base.run(ctx, obj.set_hdr_mode_public(mode))
+    base.run(ctx, base.public_call(obj, "set_hdr_mode", mode))
 
 
 @app.command()
@@ -445,10 +446,10 @@ def set_person_track(ctx: typer.Context, enabled: bool) -> None:
 @app.command()
 def set_video_mode(ctx: typer.Context, mode: d.VideoMode) -> None:
     """Sets video mode on camera"""
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: d.Camera | PublicCamera = ctx.obj.device
 
-    base.run(ctx, obj.set_video_mode_public(mode))
+    base.run(ctx, base.public_call(obj, "set_video_mode", mode))
 
 
 @app.command()
@@ -481,10 +482,10 @@ def set_mic_volume(
     level: int = typer.Argument(..., min=0, max=100),
 ) -> None:
     """Sets the mic sensitivity level on camera"""
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: d.Camera | PublicCamera = ctx.obj.device
 
-    base.run(ctx, obj.set_mic_volume_public(level))
+    base.run(ctx, base.public_call(obj, "set_mic_volume", level))
 
 
 @app.command()
@@ -535,37 +536,37 @@ def set_system_sounds(ctx: typer.Context, enabled: bool) -> None:
 @app.command()
 def set_osd_name(ctx: typer.Context, enabled: bool) -> None:
     """Sets whether camera name is in the On Screen Display"""
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: d.Camera | PublicCamera = ctx.obj.device
 
-    base.run(ctx, obj.set_osd_name_public(enabled))
+    base.run(ctx, base.public_call(obj, "set_osd_name", enabled))
 
 
 @app.command()
 def set_osd_date(ctx: typer.Context, enabled: bool) -> None:
     """Sets whether current date is in the On Screen Display"""
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: d.Camera | PublicCamera = ctx.obj.device
 
-    base.run(ctx, obj.set_osd_date_public(enabled))
+    base.run(ctx, base.public_call(obj, "set_osd_date", enabled))
 
 
 @app.command()
 def set_osd_logo(ctx: typer.Context, enabled: bool) -> None:
     """Sets whether the UniFi logo is in the On Screen Display"""
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: d.Camera | PublicCamera = ctx.obj.device
 
-    base.run(ctx, obj.set_osd_logo_public(enabled))
+    base.run(ctx, base.public_call(obj, "set_osd_logo", enabled))
 
 
 @app.command()
 def set_osd_bitrate(ctx: typer.Context, enabled: bool) -> None:
     """Sets whether camera bitrate is in the On Screen Display"""
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: d.Camera | PublicCamera = ctx.obj.device
 
-    base.run(ctx, obj.set_osd_nerd_mode_public(enabled))
+    base.run(ctx, base.public_call(obj, "set_osd_nerd_mode", enabled))
 
 
 @app.command()
@@ -599,8 +600,8 @@ def set_lcd_text(
     it will default to UTC. You can override your timezone with the
     TZ environment variable.
     """
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: d.Camera | PublicCamera = ctx.obj.device
 
     if text_type is None:
         # The public setter rejects a reset time on a clear; say so here rather
@@ -610,11 +611,14 @@ def set_lcd_text(
                 "--reset-time does not apply when clearing the message", fg="red"
             )
             raise typer.Exit(1)
-        base.run(ctx, obj.set_lcd_message_public(None))
+        base.run(ctx, base.public_call(obj, "set_lcd_message", None))
         return
 
     base.run(
-        ctx, obj.set_lcd_message_public(text_type, text, _parse_reset_time(reset_at))
+        ctx,
+        base.public_call(
+            obj, "set_lcd_message", text_type, text, _parse_reset_time(reset_at)
+        ),
     )
 
 
@@ -744,8 +748,8 @@ def disable_mic_permanently(
     ),
 ) -> None:
     """Permanently disable the camera microphone (irreversible)."""
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: d.Camera | PublicCamera = ctx.obj.device
 
     if not yes and not typer.confirm(
         f"Permanently disable the microphone on {obj.id}? "

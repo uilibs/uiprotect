@@ -21,6 +21,7 @@ from ..exceptions import BadRequest
 from ..test_util import SampleDataGenerator
 from ..utils import get_local_timezone, run_async
 from ..utils import profile_ws as profile_ws_job
+from . import base
 from .aiports import app as aiports_app
 from .arm import app as arm_app
 from .base import CliContext, OutputFormatEnum
@@ -324,6 +325,7 @@ def shell(ctx: typer.Context) -> None:
 
     Requires the `shell` extra to also be installed.
     """
+    base.require_private_api(ctx)
     if embed is None or colored is None:
         typer.echo("ipython and termcolor required for shell subcommand")
         sys.exit(1)
@@ -360,6 +362,7 @@ def generate_sample_data(
     do_zip: bool = OPTION_ZIP,
 ) -> None:
     """Generates sample data for UniFi Protect instance."""
+    base.require_private_api(ctx)
     protect = cast("ProtectApiClient", ctx.obj.protect)
 
     if output_folder is None:
@@ -395,6 +398,7 @@ def profile_ws(
     output_path: Path | None = OPTION_OUTPUT,
 ) -> None:
     """Profiles Websocket messages for UniFi Protect instance."""
+    base.require_private_api(ctx)
     protect = cast("ProtectApiClient", ctx.obj.protect)
 
     async def callback() -> None:
@@ -444,6 +448,9 @@ def create_api_key(
     name: str = typer.Argument(..., help="Name for the API key"),
 ) -> None:
     """Create a new API key for the current user."""
+    # Provisioning a key is a private-API operation: it needs a logged-in
+    # session, which a public-only client does not have.
+    base.require_private_api(ctx)
     protect = cast("ProtectApiClient", ctx.obj.protect)
 
     async def callback() -> str:
