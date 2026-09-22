@@ -63,7 +63,10 @@ def run(ctx: typer.Context, func: Awaitable[T]) -> T:
     try:
         return run_async(callback())
     except (BadRequest, ValidationError, StreamError, NvrError) as err:
-        typer.secho(str(err), fg="red")
+        # A public-API request fails the same way a private login does when the
+        # console serves a certificate we do not trust.
+        if not _report_ssl_error(ctx.obj.protect, err):
+            typer.secho(str(err), fg="red")
         raise typer.Exit(1) from err
 
 
@@ -149,44 +152,51 @@ def private_bootstrap(ctx: typer.Context) -> Bootstrap:
     if protect._bootstrap is not None:
         return protect.bootstrap
 
-    address, port = protect._host, protect._port
     try:
         run_async(_connect_and_bootstrap(protect))
     except Exception as exc:
         # Always close the session on error to avoid "Unclosed client session" warning
         run_async(_close_protect(protect))
 
-        if protect._verify_ssl and _is_ssl_error(exc):
-            typer.secho(
-                f"SSL certificate verification failed for {address}:{port}.",
-                fg="red",
-                err=True,
-            )
-            fingerprint = _get_cert_fingerprint(address, port)
-            if fingerprint:
-                typer.secho(
-                    f"  Server certificate SHA-256: {fingerprint}",
-                    err=True,
-                )
-            typer.secho(
-                "Refusing to retry with verification disabled — sending "
-                "credentials over an unauthenticated TLS channel would "
-                "expose them to any on-path attacker.",
-                fg="red",
-                err=True,
-            )
-            typer.secho(
-                "If you have verified the fingerprint above out-of-band "
-                "(e.g. via the UniFi Protect console), rerun the command "
-                "with --no-verify-ssl to skip verification for this "
-                "invocation.",
-                err=True,
-            )
-            raise typer.Exit(code=1) from exc
-        typer.secho(f"Connection failed: {exc}", fg="red")
+        if not _report_ssl_error(protect, exc):
+            typer.secho(f"Connection failed: {exc}", fg="red")
         raise typer.Exit(code=1) from exc
 
     return protect.bootstrap
+
+
+def _report_ssl_error(protect: ProtectApiClient, exc: BaseException) -> bool:
+    """Print the certificate guidance for a verification failure, if that is what it is."""
+    if not protect._verify_ssl or not _is_ssl_error(exc):
+        return False
+
+    address, port = protect._host, protect._port
+    typer.secho(
+        f"SSL certificate verification failed for {address}:{port}.",
+        fg="red",
+        err=True,
+    )
+    fingerprint = _get_cert_fingerprint(address, port)
+    if fingerprint:
+        typer.secho(
+            f"  Server certificate SHA-256: {fingerprint}",
+            err=True,
+        )
+    typer.secho(
+        "Refusing to retry with verification disabled — sending "
+        "credentials over an unauthenticated TLS channel would "
+        "expose them to any on-path attacker.",
+        fg="red",
+        err=True,
+    )
+    typer.secho(
+        "If you have verified the fingerprint above out-of-band "
+        "(e.g. via the UniFi Protect console), rerun the command "
+        "with --no-verify-ssl to skip verification for this "
+        "invocation.",
+        err=True,
+    )
+    return True
 
 
 async def _close_protect(protect: ProtectApiClient) -> None:

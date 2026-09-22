@@ -50,11 +50,15 @@ export UFP_ADDRESS=YOUR_IP_ADDRESS
 uiprotect cameras list-ids
 ```
 
-Commands that have no public equivalent (`reboot`, `adopt`, `set-ssh`, the
-`nvr` / `events` / `backup` / `aiports` groups, …) are not available in this
-mode; they exit with an error telling you to supply username/password instead
-of prompting for them. Pass `--username`/`--password` (with or without an API
-key) to get the full hybrid surface back.
+Commands that have no public equivalent are not available in this mode; they
+exit with an error telling you to supply username/password instead of
+prompting for them. That covers whole groups (`nvr`, `events`, `backup`,
+`aiports`), the device-management commands (`reboot`, `adopt`, `unadopt`,
+`set-ssh`, `update`), and the settings a hybrid group can still only reach
+over the private API — camera zoom/WDR/IR/recording mode/privacy/volumes,
+sensor mount type, chime volume and repeat count, and every paired-camera
+assignment. Pass `--username`/`--password` (with or without an API key) to get
+the full hybrid surface back.
 
 ## Timezones
 

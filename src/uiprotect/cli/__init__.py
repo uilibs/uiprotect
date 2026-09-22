@@ -190,6 +190,14 @@ def main(
     # non-interactive run of a command that never needed it.
     is_public_only = bool(api_key) and not (username and password)
 
+    if is_public_only and (username or password):
+        typer.secho(
+            "Both --username and --password are needed for the private API; "
+            "running in public-only mode with the API key.",
+            fg="yellow",
+            err=True,
+        )
+
     if not is_public_only:
         # Private API commands require username and password.
         # Prompt interactively if not supplied via option/env.

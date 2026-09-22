@@ -81,7 +81,7 @@ from uiprotect.data.types import (
     SmartDetectObjectType,
     VideoMode,
 )
-from uiprotect.exceptions import BadRequest
+from uiprotect.exceptions import BadRequest, NvrError
 
 runner = CliRunner()
 
@@ -334,7 +334,9 @@ def test_half_a_credential_with_a_key_stays_public_only() -> None:
 
     assert result.exit_code == 0
     assert client_cls.public_only.call_count == 1
-    assert "Password" not in result.stdout
+    output = _ANSI_ESCAPE_RE.sub("", result.stdout + (result.stderr or ""))
+    assert "Password" not in output
+    assert "running in public-only mode" in output
 
 
 def test_credentials_still_take_the_private_path_with_an_api_key() -> None:
@@ -1755,6 +1757,33 @@ def test_public_only_rejects_private_top_level_commands(args) -> None:
     assert result.exit_code == 1
     output = _ANSI_ESCAPE_RE.sub("", result.stdout + (result.stderr or ""))
     assert "public-only mode" in output
+
+
+def test_run_reports_an_ssl_failure_from_a_public_request(capsys) -> None:
+    """A public-API request that fails verification gets the same guidance."""
+    protect = MagicMock(_verify_ssl=True, _host="192.0.2.10", _port=443)
+    protect.close_session = AsyncMock()
+    protect.close_public_api_session = AsyncMock()
+    ctx = MagicMock()
+    ctx.obj.protect = protect
+
+    err = NvrError("Error requesting data")
+    err.__cause__ = ssl.SSLCertVerificationError("certificate verify failed")
+
+    async def _fail() -> None:
+        raise err
+
+    with (
+        patch("uiprotect.cli.base._get_cert_fingerprint", return_value="DE:AD"),
+        pytest.raises(typer.Exit) as exc,
+    ):
+        base_cli.run(ctx, _fail())
+
+    assert exc.value.exit_code == 1
+    captured = capsys.readouterr()
+    output = _ANSI_ESCAPE_RE.sub("", captured.out + captured.err)
+    assert "SSL certificate verification failed" in output
+    assert "DE:AD" in output
 
 
 def test_public_only_rejects_shell() -> None:
