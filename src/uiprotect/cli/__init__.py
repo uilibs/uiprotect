@@ -14,7 +14,6 @@ from rich.progress import track
 from uiprotect.api import MetaInfo, ProtectApiClient
 
 from ..data import WSPacket
-from ..exceptions import BadRequest
 from ..test_util import SampleDataGenerator
 from ..utils import get_local_timezone
 from ..utils import profile_ws as profile_ws_job
@@ -39,7 +38,6 @@ from .speakers import app as speaker_app
 from .ulp_users_public import app as ulp_users_public_app
 from .users_public import app as users_public_app
 from .viewers import app as viewer_app
-from .viewers_public import app as viewer_public_app
 
 try:
     from .backup import app as backup_app
@@ -56,9 +54,11 @@ except ImportError:
     embed = termcolor = get_config = None  # type: ignore[assignment]
 
 _PUBLIC_ONLY_HELP = (
-    "Omit both (and pass --api-key) to run against the Public Integration "
-    "API only; commands with no public equivalent are then unavailable."
+    "Prompted for when a command needs the private API. Omit both (and pass "
+    "--api-key) to run against the Public Integration API only; commands with "
+    "no public equivalent are then unavailable."
 )
+_PENDING_CREDENTIAL = "<pending>"
 
 OPTION_USERNAME = typer.Option(
     None,
@@ -150,7 +150,6 @@ app.add_typer(chime_app, name="chimes")
 app.add_typer(light_app, name="lights")
 app.add_typer(sensor_app, name="sensors")
 app.add_typer(viewer_app, name="viewers")
-app.add_typer(viewer_public_app, name="viewers-public")
 app.add_typer(aiports_app, name="aiports")
 app.add_typer(siren_app, name="sirens")
 app.add_typer(relay_app, name="relays")
@@ -183,52 +182,34 @@ def main(
     # preload the timezone before any async code runs
     get_local_timezone()
 
-    # The credentials decide the mode, not the subcommand: an API key without
-    # a full private login runs the whole CLI against the Public Integration
-    # API, with no login and no private bootstrap. Half a private credential
-    # counts as none — prompting for the other half would hang a
-    # non-interactive run of a command that never needed it.
-    is_public_only = bool(api_key) and not (username and password)
+    # The credentials decide the mode, not the subcommand: an API key with no
+    # private credential at all runs the whole CLI against the Public
+    # Integration API, with no login and no private bootstrap.
+    is_public_only = bool(api_key) and not username and not password
 
-    if is_public_only and (username or password):
-        typer.secho(
-            "Both --username and --password are needed for the private API; "
-            "running in public-only mode with the API key.",
-            fg="yellow",
-            err=True,
+    if is_public_only:
+        protect = ProtectApiClient.public_only(
+            address,
+            port,
+            api_key=cast("str", api_key),
+            verify_ssl=verify_ssl,
+            ignore_unadopted=not include_unadopted,
         )
-
-    if not is_public_only:
-        # Private API commands require username and password.
-        # Prompt interactively if not supplied via option/env.
-        if not username:
-            username = typer.prompt("Username")
-        if not password:
-            password = typer.prompt("Password", hide_input=True)
-
-    try:
-        protect = (
-            ProtectApiClient.public_only(
-                address,
-                port,
-                api_key=cast("str", api_key),
-                verify_ssl=verify_ssl,
-                ignore_unadopted=not include_unadopted,
-            )
-            if is_public_only
-            else ProtectApiClient(
-                address,
-                port,
-                username=username or "",
-                password=password or "",
-                api_key=api_key,
-                verify_ssl=verify_ssl,
-                ignore_unadopted=not include_unadopted,
-            )
+    else:
+        # The client refuses to be built without a full login, but a
+        # missing half is only prompted for once a command actually needs
+        # the private API (``base.require_private_api``).
+        protect = ProtectApiClient(
+            address,
+            port,
+            username=username or _PENDING_CREDENTIAL,
+            password=password or _PENDING_CREDENTIAL,
+            api_key=api_key,
+            verify_ssl=verify_ssl,
+            ignore_unadopted=not include_unadopted,
         )
-    except BadRequest as err:
-        typer.secho(str(err), fg="red", err=True)
-        raise typer.Exit(code=1) from err
+        protect._username = username or None
+        protect._password = password or None
 
     # The private bootstrap is fetched on first use (see
     # ``base.private_bootstrap``), so a command that only talks to the Public

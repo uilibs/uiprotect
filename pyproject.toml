@@ -73,6 +73,7 @@ types-dateparser = "^1.4.3.20260907"
 mypy = "^2.3.1"
 pre-commit = "^4.6.0"
 blockbuster = ">=1.5.28,<2.0.0"
+sqlalchemy = ">=2.0.0"
 
 [tool.poetry.group.docs]
 optional = true

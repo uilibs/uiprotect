@@ -551,7 +551,9 @@ async def _update_event(ctx: BackupContext, event: d.Event) -> None:
     to_delete: list[EventSmartType] = []
     async with db:
         result = await db.execute(select(Event).where(Event.id == event.id))
-        db_event = result.scalars().first()
+        # The legacy ``Column`` attributes type as ``Column[T]`` rather than
+        # their Python value, so the row is handled untyped.
+        db_event: Any = result.scalars().first()
         do_insert = False
         if db_event is None:
             db_event = Event(id=event.id)
@@ -575,7 +577,7 @@ async def _update_event(ctx: BackupContext, event: d.Event) -> None:
                 if event_type.smart_type not in types:
                     to_delete.append(event_type)
                 else:
-                    types.remove(event_type.smart_type)
+                    types.remove(cast("str", event_type.smart_type))
 
             for smart_type_str in types:
                 db.add(EventSmartType(event_id=event.id, smart_type=smart_type_str))

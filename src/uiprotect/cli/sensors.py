@@ -74,8 +74,8 @@ def camera(ctx: typer.Context, camera_id: str | None = typer.Argument(None)) -> 
 @app.command()
 def is_tampering_detected(ctx: typer.Context) -> None:
     """Returns if tampering is detected for sensor"""
-    base.require_device_id(ctx)
-    obj: Sensor = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: Sensor | PublicSensor = ctx.obj.device
     base.json_output(obj.is_tampering_detected)
 
 
@@ -90,48 +90,48 @@ def is_alarm_detected(ctx: typer.Context) -> None:
 @app.command()
 def is_contact_enabled(ctx: typer.Context) -> None:
     """Returns if contact sensor is enabled for sensor"""
-    base.require_device_id(ctx)
-    obj: Sensor = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: Sensor | PublicSensor = ctx.obj.device
     base.json_output(obj.is_contact_sensor_enabled)
 
 
 @app.command()
 def is_motion_enabled(ctx: typer.Context) -> None:
     """Returns if motion sensor is enabled for sensor"""
-    base.require_device_id(ctx)
-    obj: Sensor = ctx.obj.device
-    base.json_output(obj.is_contact_sensor_enabled)
+    base.require_device_id(ctx, public_ok=True)
+    obj: Sensor | PublicSensor = ctx.obj.device
+    base.json_output(obj.is_motion_sensor_enabled)
 
 
 @app.command()
 def is_alarm_enabled(ctx: typer.Context) -> None:
     """Returns if alarm sensor is enabled for sensor"""
-    base.require_device_id(ctx)
-    obj: Sensor = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: Sensor | PublicSensor = ctx.obj.device
     base.json_output(obj.is_alarm_sensor_enabled)
 
 
 @app.command()
 def is_light_enabled(ctx: typer.Context) -> None:
     """Returns if light sensor is enabled for sensor"""
-    base.require_device_id(ctx)
-    obj: Sensor = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: Sensor | PublicSensor = ctx.obj.device
     base.json_output(obj.is_light_sensor_enabled)
 
 
 @app.command()
 def is_temperature_enabled(ctx: typer.Context) -> None:
     """Returns if temperature sensor is enabled for sensor"""
-    base.require_device_id(ctx)
-    obj: Sensor = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: Sensor | PublicSensor = ctx.obj.device
     base.json_output(obj.is_temperature_sensor_enabled)
 
 
 @app.command()
 def is_humidity_enabled(ctx: typer.Context) -> None:
     """Returns if humidity sensor is enabled for sensor"""
-    base.require_device_id(ctx)
-    obj: Sensor = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: Sensor | PublicSensor = ctx.obj.device
     base.json_output(obj.is_humidity_sensor_enabled)
 
 
@@ -295,15 +295,6 @@ def remove_light_range(ctx: typer.Context) -> None:
 
 
 @app.command()
-def set_name_public(ctx: typer.Context, name: str) -> None:
-    """Sets sensor name via the public API."""
-    base.require_device_id(ctx, public_ok=True)
-    obj: Sensor | PublicSensor = ctx.obj.device
-
-    base.run(ctx, base.public_call(obj, "set_name", name))
-
-
-@app.command()
 def set_temperature_settings_public(
     ctx: typer.Context,
     is_enabled: bool | None = typer.Option(None),
@@ -422,63 +413,6 @@ def set_glass_break_settings_public(
             sensitivity_when_armed=sensitivity_when_armed,
         ),
     )
-
-
-@app.command()
-def set_alarm_public(ctx: typer.Context, enabled: bool) -> None:
-    """Sets alarm detection setting via the public API."""
-    base.require_device_id(ctx, public_ok=True)
-    obj: Sensor | PublicSensor = ctx.obj.device
-
-    base.run(ctx, base.public_call(obj, "set_alarm", enabled))
-
-
-@app.command()
-def set_motion_public(ctx: typer.Context, enabled: bool) -> None:
-    """Toggles motion detection via the public API."""
-    base.require_device_id(ctx, public_ok=True)
-    obj: Sensor | PublicSensor = ctx.obj.device
-
-    base.run(ctx, base.public_call(obj, "set_motion_status", enabled))
-
-
-@app.command()
-def set_motion_sensitivity_public(
-    ctx: typer.Context,
-    sensitivity: int = typer.Argument(..., min=0, max=100),
-) -> None:
-    """Sets motion detection sensitivity via the public API."""
-    base.require_device_id(ctx, public_ok=True)
-    obj: Sensor | PublicSensor = ctx.obj.device
-
-    base.run(ctx, base.public_call(obj, "set_motion_sensitivity", sensitivity))
-
-
-@app.command()
-def set_temperature_public(ctx: typer.Context, enabled: bool) -> None:
-    """Toggles temperature alerts via the public API."""
-    base.require_device_id(ctx, public_ok=True)
-    obj: Sensor | PublicSensor = ctx.obj.device
-
-    base.run(ctx, base.public_call(obj, "set_temperature_status", enabled))
-
-
-@app.command()
-def set_humidity_public(ctx: typer.Context, enabled: bool) -> None:
-    """Toggles humidity alerts via the public API."""
-    base.require_device_id(ctx, public_ok=True)
-    obj: Sensor | PublicSensor = ctx.obj.device
-
-    base.run(ctx, base.public_call(obj, "set_humidity_status", enabled))
-
-
-@app.command()
-def set_light_public(ctx: typer.Context, enabled: bool) -> None:
-    """Toggles light (lux) alerts via the public API."""
-    base.require_device_id(ctx, public_ok=True)
-    obj: Sensor | PublicSensor = ctx.obj.device
-
-    base.run(ctx, base.public_call(obj, "set_light_status", enabled))
 
 
 @app.command()

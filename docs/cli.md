@@ -37,11 +37,13 @@ uiprotect -U YOUR_USERNAME_HERE -P YOUR_PASSWORD_HERE -a YOUR_IP_ADDRESS -p 443 
 
 ### Public-only mode
 
-The credentials you supply decide which API the CLI talks to. An API key
-without a full username/password pair runs every command against
-Ubiquiti's [Public Integration API](usage.md#public-vs-private-api): there is
-no private login, no private bootstrap, and no password prompt. Devices are
-looked up from the public bootstrap instead.
+The credentials you supply decide which API the CLI talks to. An API key with
+no username or password runs every command against Ubiquiti's
+[Public Integration API](usage.md#public-vs-private-api): there is no private
+login, no private bootstrap, and no password prompt. Device groups fetch only
+the devices they need from the public API; a failed fetch (wrong host,
+untrusted certificate, bad key) exits with the error instead of printing an
+empty list.
 
 ```bash
 export UFP_API_KEY=YOUR_API_KEY_HERE
@@ -50,15 +52,37 @@ export UFP_ADDRESS=YOUR_IP_ADDRESS
 uiprotect cameras list-ids
 ```
 
-Commands that have no public equivalent are not available in this mode; they
-exit with an error telling you to supply username/password instead of
-prompting for them. That covers whole groups (`nvr`, `events`, `backup`,
-`aiports`), the device-management commands (`reboot`, `adopt`, `unadopt`,
-`set-ssh`, `update`), and the settings a hybrid group can still only reach
-over the private API — camera zoom/WDR/IR/recording mode/privacy/volumes,
-sensor mount type, chime volume and repeat count, and every paired-camera
-assignment. Pass `--username`/`--password` (with or without an API key) to get
-the full hybrid surface back.
+Commands that have no public equivalent exit with an error telling you to
+supply `--username`/`--password`. In this mode that covers:
+
+- whole groups: `nvr`, `events`, `backup`, `aiports`;
+- top-level commands: `create-api-key`, `generate-sample-data`, `profile-ws`,
+  `shell`;
+- on every device group: `adopt`, `bridge`, `is-bluetooth`, `is-wifi`,
+  `is-wired`, `reboot`, `set-ssh`, `unadopt`, `update`, and `set-name` with no
+  argument (clearing a name);
+- `cameras`: `chime-type`, `play-audio`, `privacy-mode`, `save-snapshot`,
+  `save-video`, `set-camera-zoom`, `set-color-night-vision`, `set-ir-led-mode`,
+  `set-motion-detection`, `set-person-track`, `set-recording-mode`,
+  `set-ring-volume`, `set-speaker-volume`, `set-system-sounds`, `set-volume`,
+  `set-wdr-level`, `smart-audio-detects`, `smart-detects`, `stream-urls`,
+  `timelapse-url`;
+- `chimes`: `play`, `play-buzzer`, and `set-volume` / `set-repeat-times`
+  without `--camera`;
+- `lights`: `camera`;
+- `sensors`: `camera`, `is-alarm-detected`, `remove-humidity-range`,
+  `remove-light-range`, `remove-temperature-range`, `set-mount-type`,
+  `set-status-light`.
+
+Everything else — `list-ids`, showing a device, `set-name NAME`, and the
+remaining group commands (including `chimes cameras` and the camera RTSPS
+stream commands) — works with the API key alone.
+
+With no API key, or with a username or password but not both, the CLI runs in
+hybrid mode and asks for the missing credential only when a command needs the
+private API. It prompts only on an interactive terminal; a non-interactive run
+exits with an error instead. Public-API commands never prompt: without an API
+key they fail with an "API key is required" error.
 
 ## Timezones
 
@@ -81,8 +105,8 @@ UniFi Protect CLI
 
 |      | Option                         | Required?          | Env            | Type           | Default | Description                                                                                                               |
 | ---- | ------------------------------ | ------------------ | -------------- | -------------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `-U` | `--username`                   | :white_check_mark: | `UFP_USERNAME` | text           |         | UniFi Protect username                                                                                                    |
-| `-P` | `--password`                   | :white_check_mark: | `UFP_PASSWORD` | text           |         | UniFi Protect password                                                                                                    |
+| `-U` | `--username`                   |                    | `UFP_USERNAME` | text           |         | UniFi Protect username. Prompted for when a command needs the private API.                                                |
+| `-P` | `--password`                   |                    | `UFP_PASSWORD` | text           |         | UniFi Protect password. Prompted for when a command needs the private API.                                                |
 | `-k` | `--api-key`                    |                    | `UFP_API_KEY`  | text           |         | UniFi Protect API key. On its own (no username/password) it runs the CLI in [public-only mode](#public-only-mode).        |
 | `-a` | `--address`                    | :white_check_mark: | `UFP_ADDRESS`  | text           |         | UniFi Protect IP address or hostname                                                                                      |
 | `-p` | `--port`                       |                    | `UFP_PORT`     | integer        | `443`   | UniFi Protect port                                                                                                        |
@@ -99,8 +123,7 @@ For any subcommand you can use `uiprotect COMMAND --help`
 Commands are split between the reverse-engineered **private** API
 (username/password auth) and Ubiquiti's documented **Public Integration API**
 (API-key auth — see [Public vs. private API](usage.md#public-vs-private-api)).
-The API column marks which is which; note that `viewers` (private) and
-`viewers-public` (public) are distinct command groups.
+The API column marks which is which.
 
 `Hybrid` groups issue most of their writes through the Public Integration API.
 With username/password they select the device from the private bootstrap and
@@ -136,7 +159,6 @@ public equivalent. `Private` groups are unavailable in public-only mode.
 | `ulp-users-public`     | Public  | UniFi Identity (ULP) user commands.                              |
 | `users-public`         | Public  | Protect user commands.                                           |
 | `viewers`              | Hybrid  | Viewers device CLI.                                              |
-| `viewers-public`       | Public  | Viewer commands.                                                 |
 
 #### Multiple Item CLI Commands
 
@@ -224,17 +246,15 @@ Adoptable devices (Cameras, Chimes, Lights, Sensors, Viewers) all have some comm
 | `is-bluetooth` | Returns if the device has Bluetooth or not.       |
 | `is-wifi`      | Returns if the device has WiFi or not.            |
 | `is-wired`     | Returns if the device is wired or not.            |
-| `protect-url`  | Gets UniFi Protect management URL.                |
 | `reboot`       | Reboots the device.                               |
 | `unadopt`      | Unadopt/Unmanage adopted device.                  |
 | `update`       | Updates the device.                               |
 
-`adopt`, `bridge`, `is-bluetooth`, `is-wifi`, `is-wired`, `protect-url`,
-`reboot`, `set-ssh`, `unadopt` and `update` have no Public Integration API
-equivalent and are rejected in [public-only mode](#public-only-mode).
-`list-ids` and `set-name NAME` work in both modes; clearing a name
-(`set-name` with no argument) is private-only, because the public API cannot
-express it.
+`adopt`, `bridge`, `is-bluetooth`, `is-wifi`, `is-wired`, `reboot`,
+`set-ssh`, `unadopt` and `update` have no Public Integration API equivalent
+and are rejected in [public-only mode](#public-only-mode). `list-ids` and
+`set-name NAME` work in both modes; clearing a name (`set-name` with no
+argument) is private-only, because the public API cannot express it.
 
 #### Liveviews CLI
 
@@ -293,14 +313,13 @@ full flag list.
 | `speakers`         | `list`, `show`, `set-name`, `set-volume`, `set-mic-volume`, `set-mic-enabled` |
 | `users-public`     | `list`, `show`                                                                |
 | `ulp-users-public` | `list`, `show`                                                                |
-| `viewers-public`   | `list`, `show`, `set-name`, `set-liveview`                                    |
 
 ```bash
 # list public-API sirens (API key auth)
 uiprotect sirens list
 
-# rename a viewer over the public API
-uiprotect viewers-public set-name VIEWER_ID "Living Room"
+# rename a viewer with only an API key
+uiprotect viewers VIEWER_ID set-name "Living Room"
 ```
 
 The top-level `uiprotect get-meta-info` command is also Public-API driven.

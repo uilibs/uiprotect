@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import ssl
+import sys
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -37,6 +38,11 @@ PRIVATE_ONLY_ERROR = (
     "Not available in public-only mode: this command needs the private API. "
     "Pass --username/--password to use it."
 )
+MISSING_CREDENTIALS_ERROR = (
+    "This command needs the private API: pass --username and --password "
+    "(or set UFP_USERNAME and UFP_PASSWORD)."
+)
+_PUBLIC_DEVICES_KEY = "uiprotect.public_devices"
 
 
 class OutputFormatEnum(StrEnum):
@@ -103,10 +109,25 @@ def print_unifi_dict(objs: Mapping[str, ProtectBaseObject]) -> None:
 
 
 def require_private_api(ctx: typer.Context) -> None:
-    """Rejects the command when the client runs in public-only mode."""
-    if ctx.obj.protect.is_public_only:
+    """Rejects the command in public-only mode; prompts for missing credentials."""
+    protect: ProtectApiClient = ctx.obj.protect
+    if protect.is_public_only:
         typer.secho(PRIVATE_ONLY_ERROR, fg="red", err=True)
         raise typer.Exit(1)
+    if protect._username and protect._password:
+        return
+    # A prompt without a terminal would hang a scripted run.
+    if not _is_interactive():
+        typer.secho(MISSING_CREDENTIALS_ERROR, fg="red", err=True)
+        raise typer.Exit(1)
+    if not protect._username:
+        protect._username = typer.prompt("Username")
+    if not protect._password:
+        protect._password = typer.prompt("Password", hide_input=True)
+
+
+def _is_interactive() -> bool:
+    return sys.stdin.isatty()
 
 
 def _is_ssl_error(exc: BaseException) -> bool:
@@ -223,13 +244,20 @@ def public_call(
 
 
 def device_map(ctx: typer.Context, attr: str) -> dict[str, Any]:
-    """Devices of one kind, from the public bootstrap in public-only mode."""
+    """
+    Devices of one kind, keyed by id.
+
+    In public-only mode only that kind is fetched, and a failed request exits
+    with its error rather than reading as an empty list.
+    """
     protect: ProtectApiClient = ctx.obj.protect
     if not protect.is_public_only:
         return cast("dict[str, Any]", getattr(private_bootstrap(ctx), attr))
-    if not protect.has_public_bootstrap:
-        run(ctx, protect.update_public())
-    return cast("dict[str, Any]", getattr(protect.public_bootstrap, attr))
+    cache: dict[str, dict[str, Any]] = ctx.meta.setdefault(_PUBLIC_DEVICES_KEY, {})
+    if attr not in cache:
+        items = run(ctx, getattr(protect, f"get_{attr}_public")())
+        cache[attr] = {item.id: item for item in items}
+    return cache[attr]
 
 
 def require_device_id(ctx: typer.Context, *, public_ok: bool = False) -> None:

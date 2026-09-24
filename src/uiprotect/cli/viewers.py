@@ -60,7 +60,9 @@ def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
 @app.command()
 def liveview(
     ctx: typer.Context,
-    liveview_id: str | None = typer.Argument(None),
+    liveview_id: str | None = typer.Argument(
+        None, help="Liveview ID to assign, or 'null' to clear"
+    ),
 ) -> None:
     """Returns or sets the current liveview."""
     base.require_device_id(ctx, public_ok=True)
@@ -73,9 +75,13 @@ def liveview(
         else:
             current = obj.liveview
         base.print_unifi_obj(current, ctx.obj.output_format)
-    else:
-        protect: ProtectApiClient = ctx.obj.protect
-        if liveview_id not in liveviews:
-            typer.secho("Invalid liveview ID")
-            raise typer.Exit(1)
-        base.run(ctx, protect.update_viewer_public(obj.id, liveview=liveview_id))
+        return
+
+    protect: ProtectApiClient = ctx.obj.protect
+    if liveview_id.lower() == "null":
+        base.run(ctx, protect.update_viewer_public(obj.id, liveview=None))
+        return
+    if liveview_id not in liveviews:
+        typer.secho("Invalid liveview ID")
+        raise typer.Exit(1)
+    base.run(ctx, protect.update_viewer_public(obj.id, liveview=liveview_id))

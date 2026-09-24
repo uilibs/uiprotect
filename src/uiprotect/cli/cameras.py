@@ -636,12 +636,13 @@ def create_rtsps_streams(
     Available qualities are typically: high, medium, low, ultra.
     Requires API key authentication and public API access.
     """
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: d.Camera | PublicCamera = ctx.obj.device
+    protect: ProtectApiClient = ctx.obj.protect
 
     async def create_streams() -> None:
         try:
-            result = await obj.create_rtsps_streams(qualities)
+            result = await protect.create_camera_rtsps_streams(obj.id, qualities)
             if result is None:
                 typer.secho("Failed to create RTSPS streams", fg="red")
                 raise typer.Exit(1)
@@ -670,12 +671,13 @@ def get_rtsps_streams(ctx: typer.Context) -> None:
 
     Requires API key authentication and public API access.
     """
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: d.Camera | PublicCamera = ctx.obj.device
+    protect: ProtectApiClient = ctx.obj.protect
 
     async def get_streams() -> None:
         try:
-            result = await obj.get_rtsps_streams()
+            result = await protect.get_camera_rtsps_streams(obj.id)
             if result is None:
                 typer.secho("No RTSPS streams found or failed to retrieve", fg="yellow")
                 return
@@ -714,12 +716,13 @@ def delete_rtsps_streams(
 
     Requires API key authentication and public API access.
     """
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: d.Camera | PublicCamera = ctx.obj.device
+    protect: ProtectApiClient = ctx.obj.protect
 
     async def delete_streams() -> None:
         try:
-            result = await obj.delete_rtsps_streams(qualities)
+            result = await protect.delete_camera_rtsps_streams(obj.id, qualities)
             if result:
                 typer.secho(
                     f"Successfully deleted RTSPS streams: {', '.join(qualities)}",
