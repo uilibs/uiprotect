@@ -136,6 +136,26 @@ def on_state(state: WebsocketState) -> None:
 unsub = protect.subscribe_events_websocket_state(on_state)
 ```
 
+### Reading the current websocket state
+
+The state channels only report transitions. To read the current state, use
+`protect.websocket_state`, `protect.events_websocket_state`, and
+`protect.devices_websocket_state`. Each returns the last `WebsocketState`
+delivered on its channel; a websocket that was never started or has been
+closed reads `DISCONNECTED`. The value is updated before the state callbacks
+run, so a callback that reads the property sees the new state.
+`protect.is_public_live` is shorthand for
+`devices_websocket_state is WebsocketState.CONNECTED`. Combined with
+`PublicDeviceModel.is_reachable`, this gives an entity's availability without
+tracking state in the consumer:
+
+```python
+available = protect.is_public_live and device.is_reachable
+```
+
+Entities that depend on events can additionally check
+`protect.events_websocket_state is WebsocketState.CONNECTED`.
+
 Events arrive **only** on the events WebSocket, so if it drops and reconnects
 while the devices WebSocket stays up, an `end` frame missed during the gap
 would otherwise leave the event active — a camera's derived

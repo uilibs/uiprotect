@@ -2539,6 +2539,67 @@ def test_ws_reconnect_skips_resync_without_cache(
     assert protect_client._public_resync_task is None
 
 
+@pytest.mark.asyncio()
+@pytest.mark.parametrize(
+    ("get_websocket", "prop", "subscribe"),
+    [
+        ("_get_websocket", "websocket_state", "subscribe_websocket_state"),
+        (
+            "_get_events_websocket",
+            "events_websocket_state",
+            "subscribe_events_websocket_state",
+        ),
+        (
+            "_get_devices_websocket",
+            "devices_websocket_state",
+            "subscribe_devices_websocket_state",
+        ),
+    ],
+)
+async def test_websocket_state_properties(
+    protect_client: ProtectApiClient,
+    get_websocket: str,
+    prop: str,
+    subscribe: str,
+) -> None:
+    """Each websocket state property matches what its subscribers are told."""
+    assert getattr(protect_client, prop) is WebsocketState.DISCONNECTED
+    websocket = getattr(protect_client, get_websocket)()
+    assert getattr(protect_client, prop) is WebsocketState.DISCONNECTED
+
+    seen: list[tuple[WebsocketState, WebsocketState]] = []
+    getattr(protect_client, subscribe)(
+        lambda state: seen.append((state, getattr(protect_client, prop)))
+    )
+    states = [
+        WebsocketState.CONNECTED,
+        WebsocketState.DISCONNECTED,
+        WebsocketState.AUTH_FAILED,
+        WebsocketState.CONNECTED,
+    ]
+    for state in states:
+        websocket._state_changed(state)
+        assert getattr(protect_client, prop) is state
+    assert seen == [(state, state) for state in states]
+
+    await protect_client.async_disconnect_ws()
+    assert getattr(protect_client, prop) is WebsocketState.DISCONNECTED
+
+
+def test_is_public_live_follows_devices_websocket(
+    protect_client: ProtectApiClient,
+) -> None:
+    """is_public_live is True only while the devices websocket is CONNECTED."""
+    assert protect_client.is_public_live is False
+    devices_websocket = protect_client._get_devices_websocket()
+    protect_client._get_events_websocket()._state_changed(WebsocketState.CONNECTED)
+    assert protect_client.is_public_live is False
+    devices_websocket._state_changed(WebsocketState.CONNECTED)
+    assert protect_client.is_public_live is True
+    devices_websocket._state_changed(WebsocketState.AUTH_FAILED)
+    assert protect_client.is_public_live is False
+
+
 # ---------------------------------------------------------------------------
 # HA-realistic roundtrip: partial WS diffs applied to full cached objects
 # ---------------------------------------------------------------------------

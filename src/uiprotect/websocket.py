@@ -94,6 +94,11 @@ class Websocket:
         """Return if the websocket connection is open."""
         return self._ws_connection is not None and not self._ws_connection.closed
 
+    @property
+    def state(self) -> WebsocketState:
+        """Return the last state reported to the state callback."""
+        return self._current_state
+
     async def _websocket_loop(self) -> None:
         """Running loop for websocket."""
         await self.wait_closed()

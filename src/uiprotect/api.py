@@ -385,6 +385,10 @@ def get_user_hash(host: str, username: str) -> str:
     return session.hexdigest()
 
 
+def _websocket_state(websocket: Websocket | None) -> WebsocketState:
+    return WebsocketState.DISCONNECTED if websocket is None else websocket.state
+
+
 class BaseApiClient:
     _host: str
     _port: int
@@ -547,6 +551,26 @@ class BaseApiClient:
     def is_public_only(self) -> bool:
         """Whether this client was built with only an API key (no private login)."""
         return self._public_only
+
+    @property
+    def websocket_state(self) -> WebsocketState:
+        """Current state of the private websocket."""
+        return _websocket_state(self._private_websocket)
+
+    @property
+    def events_websocket_state(self) -> WebsocketState:
+        """Current state of the public events websocket."""
+        return _websocket_state(self._events_websocket)
+
+    @property
+    def devices_websocket_state(self) -> WebsocketState:
+        """Current state of the public devices websocket."""
+        return _websocket_state(self._devices_websocket)
+
+    @property
+    def is_public_live(self) -> bool:
+        """Whether the public devices websocket is connected."""
+        return self.devices_websocket_state is WebsocketState.CONNECTED
 
     @property
     def config_file(self) -> Path:
