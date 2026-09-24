@@ -1,5 +1,19 @@
 # Changelog
 
+## v16.15.0 (2026-09-24)
+
+### Features
+
+
+- Pick the api mode from the credentials ([`61c35ef`](https://github.com/uilibs/uiprotect/commit/61c35ef088fdda7c902828ee56fecc7e2dc34a38))
+
+
+### Documentation
+
+
+- Document the resync add/remove frames on the devices websocket ([`d99e456`](https://github.com/uilibs/uiprotect/commit/d99e45649fde4dacb57ce09d998e70886d765342))
+
+
 ## v16.14.1 (2026-09-22)
 
 ### Bug fixes
