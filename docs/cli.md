@@ -81,9 +81,10 @@ stream commands) — works with the API key alone.
 With no API key, or with a username or password but not both, the CLI runs in
 hybrid mode and asks for the missing credential only when a command needs the
 private API. It prompts only on an interactive terminal; a non-interactive run
-exits with an error instead, and when an API key was given it points out that
-dropping the username/password runs the command on the key alone. Public-API commands never prompt: without an API
-key they fail with an "API key is required" error.
+exits with an error instead. For a device group (`cameras`, `chimes`, `lights`,
+`sensors`, `viewers`) given an API key, it also points out that dropping the
+username/password runs the group on the key alone. Public-API commands never
+prompt: without an API key they fail with an "API key is required" error.
 
 ## Timezones
 
@@ -129,8 +130,8 @@ The API column marks which is which.
 `Hybrid` groups issue most of their writes through the Public Integration API.
 With username/password they select the device from the private bootstrap and
 expose their full command set; with [an API key alone](#public-only-mode) they
-select it from the public bootstrap and expose only the commands that have a
-public equivalent. `Private` groups are unavailable in public-only mode.
+fetch only the device kinds a command needs from the Public Integration API and
+expose only the commands that have a public equivalent. `Private` groups are unavailable in public-only mode.
 
 | Command                | API     | Description                                                      |
 | ---------------------- | ------- | ---------------------------------------------------------------- |
@@ -251,11 +252,8 @@ Adoptable devices (Cameras, Chimes, Lights, Sensors, Viewers) all have some comm
 | `unadopt`      | Unadopt/Unmanage adopted device.                  |
 | `update`       | Updates the device.                               |
 
-`adopt`, `bridge`, `is-bluetooth`, `is-wifi`, `is-wired`, `reboot`,
-`set-ssh`, `unadopt` and `update` have no Public Integration API equivalent
-and are rejected in [public-only mode](#public-only-mode). `list-ids` and
-`set-name NAME` work in both modes; clearing a name (`set-name` with no
-argument) is private-only, because the public API cannot express it.
+Most of these are unavailable in public-only mode; see the list under
+[Public-only mode](#public-only-mode).
 
 #### Liveviews CLI
 

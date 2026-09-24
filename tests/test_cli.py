@@ -1,8 +1,9 @@
+import copy
+import os
 import re
 import ssl
 from datetime import datetime, timedelta
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import aiohttp
 import pytest
@@ -13,8 +14,9 @@ import pytest
 pytest.importorskip("uiprotect.cli")
 
 import typer
-from typer.testing import CliRunner
+from typer.testing import CliRunner, Result
 
+from tests.test_public_devices_models import CAMERA_PAYLOAD
 from uiprotect.api import ProtectApiClient
 from uiprotect.cli import app
 from uiprotect.cli import base as base_cli
@@ -67,6 +69,7 @@ from uiprotect.data import (
     Sensor,
     Viewer,
 )
+from uiprotect.data.public_devices import PublicDeviceModel
 from uiprotect.data.types import (
     DEFAULT,
     DoorbellMessageType,
@@ -80,6 +83,14 @@ from uiprotect.data.types import (
 from uiprotect.exceptions import NvrError
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _clear_ufp_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep exported ``UFP_*`` credentials from changing the CLI's mode."""
+    for name in [name for name in os.environ if name.startswith("UFP_")]:
+        monkeypatch.delenv(name)
+
 
 _ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -250,10 +261,7 @@ def test_api_key_alone_builds_a_public_only_client() -> None:
     """An API key with no username/password runs the CLI in public-only mode."""
     with patch("uiprotect.cli.ProtectApiClient") as client_cls:
         client_cls.public_only.return_value = _public_only_client()
-        result = runner.invoke(
-            app,
-            ["--api-key", "k", "--address", "192.0.2.10", "sirens", "list"],
-        )
+        result = runner.invoke(app, [*_KEY_ONLY_ARGS, "sirens", "list"])
 
     assert result.exit_code == 0
     assert client_cls.call_count == 0
@@ -263,34 +271,11 @@ def test_api_key_alone_builds_a_public_only_client() -> None:
     assert kwargs["api_key"] == "k"
 
 
-def test_api_key_alone_skips_the_private_bootstrap() -> None:
-    """Public-only mode never logs in or fetches the private bootstrap."""
-    with (
-        patch("uiprotect.cli.ProtectApiClient") as client_cls,
-        patch(
-            "uiprotect.cli.base._connect_and_bootstrap", new_callable=AsyncMock
-        ) as connect,
-    ):
-        client_cls.public_only.return_value = _public_only_client()
-        result = runner.invoke(
-            app,
-            ["--api-key", "k", "--address", "192.0.2.10", "sirens", "list"],
-        )
-
-    assert result.exit_code == 0
-    connect.assert_not_awaited()
-
-
 def test_api_key_alone_runs_a_private_first_group_publicly() -> None:
     """A hybrid group no longer prompts for a password when only a key is given."""
     client = _public_only_client()
     client.get_cameras_public = AsyncMock(return_value=[])
-    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
-        client_cls.public_only.return_value = client
-        result = runner.invoke(
-            app,
-            ["--api-key", "k", "--address", "192.0.2.10", "cameras", "list-ids"],
-        )
+    result = _invoke_key_only(client, "cameras", "list-ids")
 
     assert result.exit_code == 0
     assert "Username" not in result.stdout
@@ -486,6 +471,22 @@ _BASE_AUTH_ARGS = [
     "--address",
     "192.0.2.10",
 ]
+_KEY_ONLY_ARGS = ["--api-key", "k", "--address", "192.0.2.10"]
+
+
+def _invoke_key_only(client: MagicMock, *args: str) -> Result:
+    """Run the CLI with only an API key, against ``client``."""
+    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
+        client_cls.public_only.return_value = client
+        return runner.invoke(app, [*_KEY_ONLY_ARGS, *args])
+
+
+def _invoke_hybrid(bootstrap: MagicMock, *args: str) -> Result:
+    """Run the CLI with a username/password, serving ``bootstrap`` on login."""
+    with patch.object(
+        ProtectApiClient, "get_bootstrap", AsyncMock(return_value=bootstrap)
+    ):
+        return runner.invoke(app, [*_BASE_AUTH_ARGS, *args])
 
 
 def _hybrid_client() -> MagicMock:
@@ -870,35 +871,19 @@ def test_viewer_liveview_set_rejects_unknown_id() -> None:
     protect.update_viewer_public.assert_not_awaited()
 
 
-def _make_sensor_ctx():
-    """Build a typer context double wired to a mocked sensor + client."""
-    sensor = MagicMock()
-    sensor.id = "sensor-1"
-    sensor.set_name_public = AsyncMock()
-    sensor.set_temperature_settings_public = AsyncMock()
-    sensor.set_humidity_settings_public = AsyncMock()
-    sensor.set_light_settings_public = AsyncMock()
-    sensor.set_motion_settings_public = AsyncMock()
-    sensor.set_glass_break_settings_public = AsyncMock()
-    sensor.set_alarm_public = AsyncMock()
-    sensor.set_motion_status_public = AsyncMock()
-    sensor.set_motion_sensitivity_public = AsyncMock()
-    sensor.set_temperature_status_public = AsyncMock()
-    sensor.set_humidity_status_public = AsyncMock()
-    sensor.set_light_status_public = AsyncMock()
-    sensor.set_glass_break_status_public = AsyncMock()
-    sensor.set_schedule_mode_public = AsyncMock()
-    sensor.set_arm_profile_ids_public = AsyncMock()
-    sensor.set_custom_sensitivity_when_armed_public = AsyncMock()
-
-    protect = MagicMock(is_public_only=False)
-    protect.close_session = AsyncMock()
-    protect.close_public_api_session = AsyncMock()
-
+def _device_ctx(model_class, **attrs):
+    """A command context whose selected device is a mock specced to ``model_class``."""
+    device = MagicMock(spec=model_class, id="device-1", **attrs)
+    protect = MagicMock(
+        is_public_only=issubclass(model_class, PublicDeviceModel),
+        close_session=AsyncMock(),
+        close_public_api_session=AsyncMock(),
+    )
     ctx = MagicMock()
-    ctx.obj.device = sensor
+    ctx.obj.device = device
     ctx.obj.protect = protect
-    return ctx, sensor
+    ctx.obj.output_format = base_cli.OutputFormatEnum.JSON
+    return ctx, device, protect
 
 
 def test_sensor_help() -> None:
@@ -921,126 +906,176 @@ def test_sensor_help() -> None:
         assert twin not in commands
 
 
-def test_sensor_set_temperature_settings_public() -> None:
-    ctx, sensor = _make_sensor_ctx()
-    set_temperature_settings_public(
-        ctx, is_enabled=True, low_threshold=5.0, high_threshold=30.0, margin=1.0
+_RANGE = call(low_threshold=5.0, high_threshold=30.0)
+_THRESHOLDS = {"is_enabled": True, "low_threshold": 1, "high_threshold": 2}
+_SENSITIVITIES = {"is_enabled": True, "sensitivity": 50, "sensitivity_when_armed": 60}
+_CAMERA = (Camera, PublicCamera)
+_LIGHT = (Light, PublicLight)
+_SENSOR = (Sensor, PublicSensor)
+_SETTER_CASES = [
+    (*_CAMERA, cameras_cli.set_status_light, call(True), "set_status_light", None),
+    (*_CAMERA, cameras_cli.set_hdr, call(PublicHdrMode.AUTO), "set_hdr_mode", None),
+    (
+        *_CAMERA,
+        cameras_cli.set_video_mode,
+        call(VideoMode.HIGH_FPS),
+        "set_video_mode",
+        None,
+    ),
+    (*_CAMERA, cameras_cli.set_mic_volume, call(55), "set_mic_volume", None),
+    (*_CAMERA, cameras_cli.set_osd_name, call(True), "set_osd_name", None),
+    (*_CAMERA, cameras_cli.set_osd_date, call(False), "set_osd_date", None),
+    (*_CAMERA, cameras_cli.set_osd_logo, call(True), "set_osd_logo", None),
+    (*_CAMERA, cameras_cli.set_osd_bitrate, call(True), "set_osd_nerd_mode", None),
+    (
+        *_CAMERA,
+        cameras_cli.set_lcd_text,
+        call(DoorbellMessageType.CUSTOM_MESSAGE, "Hi", "never"),
+        "set_lcd_message",
+        call(DoorbellMessageType.CUSTOM_MESSAGE, "Hi", None),
+    ),
+    (
+        *_CAMERA,
+        cameras_cli.set_lcd_text,
+        call(None, None, None),
+        "set_lcd_message",
+        call(None),
+    ),
+    (*_LIGHT, lights_cli.set_status_light, call(True), "set_status_light", None),
+    (*_LIGHT, lights_cli.set_led_level, call(4), "set_led_level", None),
+    (*_LIGHT, lights_cli.set_sensitivity, call(80), "set_sensitivity", None),
+    (
+        *_LIGHT,
+        lights_cli.set_duration,
+        call(60),
+        "set_duration",
+        call(timedelta(seconds=60)),
+    ),
+    (*_LIGHT, lights_cli.set_flood_light, call(False), "set_flood_light", None),
+    (*_SENSOR, sensors_cli.set_motion, call(True), "set_motion_status", None),
+    (
+        *_SENSOR,
+        sensors_cli.set_temperature,
+        call(False),
+        "set_temperature_status",
+        None,
+    ),
+    (*_SENSOR, sensors_cli.set_humidity, call(True), "set_humidity_status", None),
+    (*_SENSOR, sensors_cli.set_light, call(False), "set_light_status", None),
+    (*_SENSOR, sensors_cli.set_alarm, call(True), "set_alarm", None),
+    (
+        *_SENSOR,
+        sensors_cli.set_motion_sensitivity,
+        call(30),
+        "set_motion_sensitivity",
+        None,
+    ),
+    (
+        *_SENSOR,
+        sensors_cli.set_temperature_range,
+        call(5.0, 30.0),
+        "set_temperature_settings",
+        _RANGE,
+    ),
+    (
+        *_SENSOR,
+        sensors_cli.set_humidity_range,
+        call(5.0, 30.0),
+        "set_humidity_settings",
+        _RANGE,
+    ),
+    (
+        *_SENSOR,
+        sensors_cli.set_light_range,
+        call(5.0, 30.0),
+        "set_light_settings",
+        _RANGE,
+    ),
+    (
+        *_SENSOR,
+        set_temperature_settings_public,
+        call(is_enabled=True, low_threshold=5.0, high_threshold=30.0, margin=1.0),
+        "set_temperature_settings",
+        None,
+    ),
+    (
+        *_SENSOR,
+        set_humidity_settings_public,
+        call(**_THRESHOLDS, margin=2),
+        "set_humidity_settings",
+        None,
+    ),
+    (
+        *_SENSOR,
+        set_light_settings_public,
+        call(**_THRESHOLDS, margin=5),
+        "set_light_settings",
+        None,
+    ),
+    (
+        *_SENSOR,
+        set_motion_settings_public,
+        call(**_SENSITIVITIES),
+        "set_motion_settings",
+        None,
+    ),
+    (
+        *_SENSOR,
+        set_glass_break_settings_public,
+        call(**_SENSITIVITIES),
+        "set_glass_break_settings",
+        None,
+    ),
+    (*_SENSOR, set_glass_break_public, call(True), "set_glass_break_status", None),
+    (
+        *_SENSOR,
+        set_schedule_mode_public,
+        call(SensorScheduleMode.WHEN_ARMED),
+        "set_schedule_mode",
+        None,
+    ),
+    (
+        *_SENSOR,
+        set_arm_profiles_public,
+        call(["p1", "p2"]),
+        "set_arm_profile_ids",
+        None,
+    ),
+    (
+        *_SENSOR,
+        set_custom_sensitivity_public,
+        call(True),
+        "set_custom_sensitivity_when_armed",
+        None,
+    ),
+    *[
+        (private, public, base_cli.set_name, call("Kitchen"), "set_name", None)
+        for private, public in [
+            _CAMERA,
+            (Chime, PublicChime),
+            _LIGHT,
+            _SENSOR,
+            (Viewer, PublicViewer),
+        ]
+    ],
+]
+
+
+@pytest.mark.parametrize("key_only", [False, True], ids=["hybrid", "key-only"])
+@pytest.mark.parametrize(
+    ("private_class", "public_class", "command", "cli_args", "setter", "expected"),
+    _SETTER_CASES,
+)
+def test_setter_commands_write_through_the_public_api(
+    key_only, private_class, public_class, command, cli_args, setter, expected
+) -> None:
+    """Each setter command lands on the model's Public Integration API setter."""
+    ctx, device, _protect = _device_ctx(public_class if key_only else private_class)
+    command(ctx, *cli_args.args, **cli_args.kwargs)
+    method = getattr(device, setter if key_only else f"{setter}_public")
+    method.assert_awaited_once_with(
+        *(expected or cli_args).args, **(expected or cli_args).kwargs
     )
-    sensor.set_temperature_settings_public.assert_awaited_once_with(
-        is_enabled=True, low_threshold=5.0, high_threshold=30.0, margin=1.0
-    )
-
-
-def test_sensor_set_humidity_settings_public() -> None:
-    ctx, sensor = _make_sensor_ctx()
-    set_humidity_settings_public(
-        ctx, is_enabled=True, low_threshold=10, high_threshold=80, margin=2
-    )
-    sensor.set_humidity_settings_public.assert_awaited_once_with(
-        is_enabled=True, low_threshold=10, high_threshold=80, margin=2
-    )
-
-
-def test_sensor_set_light_settings_public() -> None:
-    ctx, sensor = _make_sensor_ctx()
-    set_light_settings_public(
-        ctx, is_enabled=False, low_threshold=1, high_threshold=900, margin=5
-    )
-    sensor.set_light_settings_public.assert_awaited_once_with(
-        is_enabled=False, low_threshold=1, high_threshold=900, margin=5
-    )
-
-
-def test_sensor_set_motion_settings_public() -> None:
-    ctx, sensor = _make_sensor_ctx()
-    set_motion_settings_public(
-        ctx, is_enabled=True, sensitivity=70, sensitivity_when_armed=90
-    )
-    sensor.set_motion_settings_public.assert_awaited_once_with(
-        is_enabled=True, sensitivity=70, sensitivity_when_armed=90
-    )
-
-
-def test_sensor_set_glass_break_settings_public() -> None:
-    ctx, sensor = _make_sensor_ctx()
-    set_glass_break_settings_public(
-        ctx, is_enabled=True, sensitivity=55, sensitivity_when_armed=65
-    )
-    sensor.set_glass_break_settings_public.assert_awaited_once_with(
-        is_enabled=True, sensitivity=55, sensitivity_when_armed=65
-    )
-
-
-def test_sensor_set_glass_break_public() -> None:
-    ctx, sensor = _make_sensor_ctx()
-    set_glass_break_public(ctx, True)
-    sensor.set_glass_break_status_public.assert_awaited_once_with(True)
-
-
-def test_sensor_set_schedule_mode_public() -> None:
-    ctx, sensor = _make_sensor_ctx()
-    set_schedule_mode_public(ctx, SensorScheduleMode.WHEN_ARMED)
-    sensor.set_schedule_mode_public.assert_awaited_once_with(
-        SensorScheduleMode.WHEN_ARMED
-    )
-
-
-def test_sensor_set_arm_profiles_public() -> None:
-    ctx, sensor = _make_sensor_ctx()
-    set_arm_profiles_public(ctx, ["p1", "p2"])
-    sensor.set_arm_profile_ids_public.assert_awaited_once_with(["p1", "p2"])
-
-
-def test_sensor_set_custom_sensitivity_public() -> None:
-    ctx, sensor = _make_sensor_ctx()
-    set_custom_sensitivity_public(ctx, True)
-    sensor.set_custom_sensitivity_when_armed_public.assert_awaited_once_with(True)
-
-
-def _make_device_ctx(*, device_id: str):
-    """Build a typer context double wired to a mocked device + client."""
-    device = MagicMock()
-    device.id = device_id
-
-    protect = MagicMock(is_public_only=False)
-    protect.close_session = AsyncMock()
-    protect.close_public_api_session = AsyncMock()
-
-    ctx = MagicMock()
-    ctx.obj.device = device
-    ctx.obj.protect = protect
-    return ctx, device
-
-
-def _make_camera_ctx():
-    ctx, camera = _make_device_ctx(device_id="camera-1")
-    camera.set_status_light_public = AsyncMock()
-    camera.set_hdr_mode_public = AsyncMock()
-    camera.set_video_mode_public = AsyncMock()
-    camera.set_mic_volume_public = AsyncMock()
-    camera.set_osd_name_public = AsyncMock()
-    camera.set_osd_date_public = AsyncMock()
-    camera.set_osd_logo_public = AsyncMock()
-    camera.set_osd_nerd_mode_public = AsyncMock()
-    camera.set_lcd_message_public = AsyncMock()
-    camera.set_lcd_text = AsyncMock()
-    return ctx, camera
-
-
-def test_camera_set_status_light_uses_public() -> None:
-    """Camera set-status-light writes through the public setter."""
-    ctx, camera = _make_camera_ctx()
-    cameras_cli.set_status_light(ctx, True)
-    camera.set_status_light_public.assert_awaited_once_with(True)
-    camera.set_status_light.assert_not_called()
-
-
-@pytest.mark.parametrize("mode", list(PublicHdrMode))
-def test_camera_set_hdr_uses_public(mode: PublicHdrMode) -> None:
-    """Camera set-hdr passes the requested mode to the public setter."""
-    ctx, camera = _make_camera_ctx()
-    cameras_cli.set_hdr(ctx, mode)
-    camera.set_hdr_mode_public.assert_awaited_once_with(mode)
 
 
 def test_camera_set_hdr_rejects_unknown_mode() -> None:
@@ -1055,25 +1090,9 @@ def test_camera_set_hdr_rejects_unknown_mode() -> None:
     assert "Invalid value" in plain_output
 
 
-def test_camera_set_video_mode_uses_public() -> None:
-    """Camera set-video-mode writes through the public setter."""
-    ctx, camera = _make_camera_ctx()
-    cameras_cli.set_video_mode(ctx, VideoMode.HIGH_FPS)
-    camera.set_video_mode_public.assert_awaited_once_with(VideoMode.HIGH_FPS)
-    camera.set_video_mode.assert_not_called()
-
-
-def test_camera_set_mic_volume_uses_public() -> None:
-    """Camera set-mic-volume writes through the public setter."""
-    ctx, camera = _make_camera_ctx()
-    cameras_cli.set_mic_volume(ctx, 55)
-    camera.set_mic_volume_public.assert_awaited_once_with(55)
-    camera.set_mic_volume.assert_not_called()
-
-
 def test_camera_set_mic_volume_allows_zero() -> None:
     """``set-mic-volume 0`` (mute) passes typer's ``min=0`` validator."""
-    ctx, camera = _make_camera_ctx()
+    ctx, camera, _protect = _device_ctx(Camera)
     cameras_cli.set_mic_volume(ctx, 0)
     camera.set_mic_volume_public.assert_awaited_once_with(0)
 
@@ -1086,38 +1105,6 @@ def test_camera_set_mic_volume_allows_zero() -> None:
     assert "Invalid value" not in plain_output
 
 
-def test_camera_set_osd_name_uses_public() -> None:
-    """Camera set-osd-name writes through the public setter."""
-    ctx, camera = _make_camera_ctx()
-    cameras_cli.set_osd_name(ctx, True)
-    camera.set_osd_name_public.assert_awaited_once_with(True)
-    camera.set_osd_name.assert_not_called()
-
-
-def test_camera_set_osd_date_uses_public() -> None:
-    """Camera set-osd-date writes through the public setter."""
-    ctx, camera = _make_camera_ctx()
-    cameras_cli.set_osd_date(ctx, False)
-    camera.set_osd_date_public.assert_awaited_once_with(False)
-    camera.set_osd_date.assert_not_called()
-
-
-def test_camera_set_osd_logo_uses_public() -> None:
-    """Camera set-osd-logo writes through the public setter."""
-    ctx, camera = _make_camera_ctx()
-    cameras_cli.set_osd_logo(ctx, True)
-    camera.set_osd_logo_public.assert_awaited_once_with(True)
-    camera.set_osd_logo.assert_not_called()
-
-
-def test_camera_set_osd_bitrate_uses_public_nerd_mode() -> None:
-    """Camera set-osd-bitrate writes through the public nerd-mode setter."""
-    ctx, camera = _make_camera_ctx()
-    cameras_cli.set_osd_bitrate(ctx, True)
-    camera.set_osd_nerd_mode_public.assert_awaited_once_with(True)
-    camera.set_osd_bitrate.assert_not_called()
-
-
 def _invoke_set_lcd_text(*args: str) -> MagicMock:
     """Drive ``cameras cam-1 set-lcd-text`` through typer, returning the camera."""
     obj = MagicMock()
@@ -1127,20 +1114,6 @@ def _invoke_set_lcd_text(*args: str) -> MagicMock:
         result = runner.invoke(cameras_app, ["cam-1", "set-lcd-text", *args], obj=obj)
     assert result.exit_code == 0, result.output
     return camera
-
-
-def test_camera_set_lcd_text_uses_public() -> None:
-    """Camera set-lcd-text writes through the public setter when given a type."""
-    ctx, camera = _make_camera_ctx()
-    cameras_cli.set_lcd_text(
-        ctx, DoorbellMessageType.CUSTOM_MESSAGE, "hello", reset_at="2026-01-01T12:00:00"
-    )
-    text_type, text, awaited_reset_at = camera.set_lcd_message_public.await_args.args
-    assert (text_type, text) == (DoorbellMessageType.CUSTOM_MESSAGE, "hello")
-    # The CLI localises the naive timestamp to the host timezone first.
-    assert awaited_reset_at.tzinfo is not None
-    assert awaited_reset_at.replace(tzinfo=None) == datetime(2026, 1, 1, 12, 0)
-    camera.set_lcd_text.assert_not_called()
 
 
 def test_camera_set_lcd_text_omitted_reset_time_uses_nvr_default() -> None:
@@ -1193,17 +1166,9 @@ def test_camera_set_lcd_text_rejects_unparsable_reset_time() -> None:
     assert "Invalid value" in plain_output
 
 
-def test_camera_set_lcd_text_clear_uses_public() -> None:
-    """Clearing the LCD message also writes through the public setter."""
-    ctx, camera = _make_camera_ctx()
-    cameras_cli.set_lcd_text(ctx, None, None, reset_at=None)
-    camera.set_lcd_message_public.assert_awaited_once_with(None)
-    camera.set_lcd_text.assert_not_called()
-
-
 def test_camera_set_lcd_text_clear_rejects_reset_time() -> None:
     """--reset-time is not silently dropped when clearing the message."""
-    ctx, camera = _make_camera_ctx()
+    ctx, camera, _protect = _device_ctx(Camera)
 
     with pytest.raises(typer.Exit) as exc:
         cameras_cli.set_lcd_text(ctx, None, None, reset_at="2026-01-01T12:00:00")
@@ -1213,157 +1178,34 @@ def test_camera_set_lcd_text_clear_rejects_reset_time() -> None:
     camera.set_lcd_text.assert_not_called()
 
 
-def _make_light_ctx():
-    ctx, light = _make_device_ctx(device_id="light-1")
-    light.set_status_light_public = AsyncMock()
-    light.set_led_level_public = AsyncMock()
-    light.set_sensitivity_public = AsyncMock()
-    light.set_duration_public = AsyncMock()
-    light.set_flood_light_public = AsyncMock()
-    return ctx, light
-
-
-def test_light_set_status_light_uses_public() -> None:
-    """Light set-status-light writes through the public setter."""
-    ctx, light = _make_light_ctx()
-    lights_cli.set_status_light(ctx, True)
-    light.set_status_light_public.assert_awaited_once_with(True)
-    light.set_status_light.assert_not_called()
-
-
-def test_light_set_led_level_uses_public() -> None:
-    """Light set-led-level writes through the public setter."""
-    ctx, light = _make_light_ctx()
-    lights_cli.set_led_level(ctx, 4)
-    light.set_led_level_public.assert_awaited_once_with(4)
-    light.set_led_level.assert_not_called()
-
-
-def test_light_set_sensitivity_uses_public() -> None:
-    """Light set-sensitivity writes through the public setter."""
-    ctx, light = _make_light_ctx()
-    lights_cli.set_sensitivity(ctx, 80)
-    light.set_sensitivity_public.assert_awaited_once_with(80)
-    light.set_sensitivity.assert_not_called()
-
-
-def test_light_set_duration_uses_public() -> None:
-    """Light set-duration writes through the public setter."""
-    ctx, light = _make_light_ctx()
-    lights_cli.set_duration(ctx, 60)
-    light.set_duration_public.assert_awaited_once_with(timedelta(seconds=60))
-    light.set_duration.assert_not_called()
-
-
-def test_light_set_flood_light_uses_public() -> None:
-    """Light set-flood-light writes through the public setter."""
-    ctx, light = _make_light_ctx()
-    lights_cli.set_flood_light(ctx, False)
-    light.set_flood_light_public.assert_awaited_once_with(False)
-    light.set_flood_light.assert_not_called()
-
-
-def test_sensor_set_motion_uses_public() -> None:
-    """Sensor set-motion writes through the public setter."""
-    ctx, sensor = _make_sensor_ctx()
-    sensors_cli.set_motion(ctx, True)
-    sensor.set_motion_status_public.assert_awaited_once_with(True)
-    sensor.set_motion_status.assert_not_called()
-
-
-def test_sensor_set_temperature_uses_public() -> None:
-    """Sensor set-temperature writes through the public setter."""
-    ctx, sensor = _make_sensor_ctx()
-    sensors_cli.set_temperature(ctx, False)
-    sensor.set_temperature_status_public.assert_awaited_once_with(False)
-    sensor.set_temperature_status.assert_not_called()
-
-
-def test_sensor_set_humidity_uses_public() -> None:
-    """Sensor set-humidity writes through the public setter."""
-    ctx, sensor = _make_sensor_ctx()
-    sensors_cli.set_humidity(ctx, True)
-    sensor.set_humidity_status_public.assert_awaited_once_with(True)
-    sensor.set_humidity_status.assert_not_called()
-
-
-def test_sensor_set_light_uses_public() -> None:
-    """Sensor set-light writes through the public setter."""
-    ctx, sensor = _make_sensor_ctx()
-    sensors_cli.set_light(ctx, False)
-    sensor.set_light_status_public.assert_awaited_once_with(False)
-    sensor.set_light_status.assert_not_called()
-
-
-def test_sensor_set_motion_sensitivity_uses_public() -> None:
-    """Sensor set-motion-sensitivity writes through the public setter."""
-    ctx, sensor = _make_sensor_ctx()
-    sensors_cli.set_motion_sensitivity(ctx, 30)
-    sensor.set_motion_sensitivity_public.assert_awaited_once_with(30)
-    sensor.set_motion_sensitivity.assert_not_called()
-
-
 def test_sensor_set_status_light_stays_private() -> None:
     """The sensor status LED has no public-API field, so it stays on the private setter."""
-    ctx, sensor = _make_sensor_ctx()
-    sensor.set_status_light = AsyncMock()
+    ctx, sensor, _protect = _device_ctx(Sensor)
     sensors_cli.set_status_light(ctx, True)
     sensor.set_status_light.assert_awaited_once_with(True)
 
 
-def test_sensor_set_alarm_uses_public() -> None:
-    """Sensor set-alarm writes through the public setter."""
-    ctx, sensor = _make_sensor_ctx()
-    sensors_cli.set_alarm(ctx, True)
-    sensor.set_alarm_public.assert_awaited_once_with(True)
-    sensor.set_alarm_status.assert_not_called()
-
-
-def test_sensor_set_temperature_range_uses_public() -> None:
-    """Sensor set-temperature-range writes both thresholds via the public setter."""
-    ctx, sensor = _make_sensor_ctx()
-    sensors_cli.set_temperature_range(ctx, 5.0, 30.0)
-    sensor.set_temperature_settings_public.assert_awaited_once_with(
-        low_threshold=5.0, high_threshold=30.0
-    )
-    sensor.set_temperature_safe_range.assert_not_called()
-
-
-def test_sensor_set_humidity_range_uses_public() -> None:
-    """Sensor set-humidity-range writes both thresholds via the public setter."""
-    ctx, sensor = _make_sensor_ctx()
-    sensors_cli.set_humidity_range(ctx, 10.0, 80.0)
-    sensor.set_humidity_settings_public.assert_awaited_once_with(
-        low_threshold=10.0, high_threshold=80.0
-    )
-    sensor.set_humidity_safe_range.assert_not_called()
-
-
-def test_sensor_set_light_range_uses_public() -> None:
-    """Sensor set-light-range writes both thresholds via the public setter."""
-    ctx, sensor = _make_sensor_ctx()
-    sensors_cli.set_light_range(ctx, 2.0, 900.0)
-    sensor.set_light_settings_public.assert_awaited_once_with(
-        low_threshold=2.0, high_threshold=900.0
-    )
-    sensor.set_light_safe_range.assert_not_called()
-
-
 def _make_smart_detect_camera_ctx():
     """Build a camera context double with smart-detect capabilities wired up."""
-    ctx, camera = _make_device_ctx(device_id="camera-1")
-    camera.feature_flags.has_smart_detect = True
-    camera.feature_flags.smart_detect_types = [
-        SmartDetectObjectType.PERSON,
-        SmartDetectObjectType.VEHICLE,
-    ]
-    camera.feature_flags.smart_detect_audio_types = [
-        SmartDetectAudioType.SMOKE,
-        SmartDetectAudioType.CMONX,
-    ]
-    camera.smart_detect_settings.object_types = [SmartDetectObjectType.PERSON]
-    camera.smart_detect_settings.audio_types = [SmartDetectAudioType.SMOKE]
-    ctx.obj.protect.update_camera_public = AsyncMock()
+    feature_flags = MagicMock(
+        has_smart_detect=True,
+        smart_detect_types=[
+            SmartDetectObjectType.PERSON,
+            SmartDetectObjectType.VEHICLE,
+        ],
+        smart_detect_audio_types=[
+            SmartDetectAudioType.SMOKE,
+            SmartDetectAudioType.CMONX,
+        ],
+    )
+    settings = MagicMock(
+        object_types=[SmartDetectObjectType.PERSON],
+        audio_types=[SmartDetectAudioType.SMOKE],
+    )
+    ctx, camera, protect = _device_ctx(
+        Camera, feature_flags=feature_flags, smart_detect_settings=settings
+    )
+    protect.update_camera_public = AsyncMock()
     return ctx, camera
 
 
@@ -1374,7 +1216,7 @@ def test_camera_smart_detects_uses_public() -> None:
         ctx, [SmartDetectObjectType.VEHICLE], add=False, remove=False
     )
     ctx.obj.protect.update_camera_public.assert_awaited_once_with(
-        "camera-1", smart_detect_object_types=[SmartDetectObjectType.VEHICLE]
+        "device-1", smart_detect_object_types=[SmartDetectObjectType.VEHICLE]
     )
     camera.save_device.assert_not_called()
 
@@ -1411,7 +1253,7 @@ def test_camera_smart_audio_detects_uses_public() -> None:
         ctx, [SmartDetectAudioType.CMONX], add=False, remove=False
     )
     ctx.obj.protect.update_camera_public.assert_awaited_once_with(
-        "camera-1", smart_detect_audio_types=[SmartDetectAudioType.CMONX]
+        "device-1", smart_detect_audio_types=[SmartDetectAudioType.CMONX]
     )
     camera.save_device.assert_not_called()
 
@@ -1423,40 +1265,13 @@ def test_camera_smart_audio_detects_remove_uses_public() -> None:
         ctx, [SmartDetectAudioType.SMOKE], add=False, remove=True
     )
     ctx.obj.protect.update_camera_public.assert_awaited_once_with(
-        "camera-1", smart_detect_audio_types=[]
+        "device-1", smart_detect_audio_types=[]
     )
-
-
-def _make_named_device_ctx(model_class):
-    """Build a context double whose device is a spec'd instance of ``model_class``."""
-    device = MagicMock(spec=model_class)
-    device.id = "device-1"
-    device.set_name = AsyncMock()
-    if hasattr(model_class, "set_name_public"):
-        device.set_name_public = AsyncMock()
-
-    protect = MagicMock(is_public_only=False)
-    protect.close_session = AsyncMock()
-    protect.close_public_api_session = AsyncMock()
-
-    ctx = MagicMock()
-    ctx.obj.device = device
-    ctx.obj.protect = protect
-    return ctx, device
-
-
-@pytest.mark.parametrize("model_class", [Camera, Chime, Light, Sensor, Viewer])
-def test_set_name_uses_public(model_class) -> None:
-    """set-name writes through the public setter for every model that has one."""
-    ctx, device = _make_named_device_ctx(model_class)
-    base_cli.set_name(ctx, "Kitchen")
-    device.set_name_public.assert_awaited_once_with("Kitchen")
-    device.set_name.assert_not_called()
 
 
 def test_set_name_aiport_stays_private() -> None:
     """AiPort has no public-API endpoint of its own, so it keeps the private setter."""
-    ctx, device = _make_named_device_ctx(AiPort)
+    ctx, device, _protect = _device_ctx(AiPort)
     base_cli.set_name(ctx, "Kitchen")
     device.set_name.assert_awaited_once_with("Kitchen")
     device.set_name_public.assert_not_called()
@@ -1464,14 +1279,14 @@ def test_set_name_aiport_stays_private() -> None:
 
 def test_set_name_nvr_stays_private() -> None:
     """The NVR has no public name setter, so it keeps the private setter."""
-    ctx, device = _make_named_device_ctx(NVR)
+    ctx, device, _protect = _device_ctx(NVR)
     base_cli.set_name(ctx, "Console")
     device.set_name.assert_awaited_once_with("Console")
 
 
 def test_set_name_clear_stays_private() -> None:
     """Clearing a name is not expressible on the public API, so it stays private."""
-    ctx, device = _make_named_device_ctx(Camera)
+    ctx, device, _protect = _device_ctx(Camera)
     base_cli.set_name(ctx, None)
     device.set_name.assert_awaited_once_with(None)
     device.set_name_public.assert_not_called()
@@ -1487,60 +1302,11 @@ def test_set_name_clear_stays_private() -> None:
 )
 def test_sensor_set_range_rejects_inverted_bounds(command, setter) -> None:
     """An inverted safe range exits non-zero without a write."""
-    ctx, sensor = _make_sensor_ctx()
+    ctx, sensor, _protect = _device_ctx(Sensor)
     with pytest.raises(typer.Exit) as exc:
         command(ctx, 30.0, 5.0)
     assert exc.value.exit_code == 1
     getattr(sensor, setter).assert_not_awaited()
-
-
-def _make_public_device_ctx(model_class, **attrs):
-    """Build a context double whose device is a public-API model."""
-    device = MagicMock(spec=model_class)
-    device.id = "device-1"
-    for name, value in attrs.items():
-        setattr(device, name, value)
-
-    protect = MagicMock(is_public_only=True)
-    protect.close_session = AsyncMock()
-    protect.close_public_api_session = AsyncMock()
-
-    ctx = MagicMock()
-    ctx.meta = {}
-    ctx.obj.device = device
-    ctx.obj.protect = protect
-    return ctx, device
-
-
-def test_public_only_camera_setter_targets_the_public_model() -> None:
-    """A camera write lands on the public model's own setter name."""
-    ctx, camera = _make_public_device_ctx(PublicCamera, set_status_light=AsyncMock())
-    cameras_cli.set_status_light(ctx, True)
-    camera.set_status_light.assert_awaited_once_with(True)
-
-
-def test_public_only_light_setter_targets_the_public_model() -> None:
-    """A light write lands on the public model's own setter name."""
-    ctx, light = _make_public_device_ctx(PublicLight, set_led_level=AsyncMock())
-    lights_cli.set_led_level(ctx, 4)
-    light.set_led_level.assert_awaited_once_with(4)
-
-
-def test_public_only_sensor_setter_targets_the_public_model() -> None:
-    """A sensor write lands on the public model's own setter name."""
-    ctx, sensor = _make_public_device_ctx(PublicSensor, set_alarm=AsyncMock())
-    sensors_cli.set_alarm(ctx, True)
-    sensor.set_alarm.assert_awaited_once_with(True)
-
-
-@pytest.mark.parametrize(
-    "model_class", [PublicCamera, PublicChime, PublicLight, PublicSensor, PublicViewer]
-)
-def test_public_only_set_name(model_class) -> None:
-    """set-name works for every public device model."""
-    ctx, device = _make_public_device_ctx(model_class, set_name=AsyncMock())
-    base_cli.set_name(ctx, "Kitchen")
-    device.set_name.assert_awaited_once_with("Kitchen")
 
 
 @pytest.mark.parametrize(
@@ -1557,7 +1323,7 @@ def test_public_only_set_name(model_class) -> None:
 )
 def test_public_only_rejects_commands_without_a_public_equivalent(command) -> None:
     """Gap commands exit 1 instead of failing on a missing private attribute."""
-    ctx, _device = _make_public_device_ctx(PublicCamera)
+    ctx, _device, _protect = _device_ctx(PublicCamera)
     with pytest.raises(typer.Exit) as exc:
         command(ctx)
     assert exc.value.exit_code == 1
@@ -1586,48 +1352,24 @@ def test_list_ids_flags_an_unreachable_public_device() -> None:
     ]
 
 
-def test_device_map_uses_the_private_bootstrap_in_hybrid_mode() -> None:
-    """A hybrid client keeps resolving devices from the private bootstrap."""
-    protect = MagicMock(is_public_only=False)
-    protect.bootstrap.cameras = {"cam-1": MagicMock()}
-    ctx = MagicMock()
-    ctx.obj.protect = protect
+_PRIVATE_COMMANDS = [
+    ["nvr"],
+    ["events"],
+    ["aiports"],
+    ["generate-sample-data"],
+    ["profile-ws"],
+    ["create-api-key", "n"],
+]
 
-    assert base_cli.device_map(ctx, "cameras") is protect.bootstrap.cameras
-    protect.update_public.assert_not_called()
 
-
-@pytest.mark.parametrize("args", [["nvr"], ["events"], ["aiports"]])
-def test_public_only_rejects_private_groups(args) -> None:
-    """Groups with no public equivalent exit 1 rather than prompting for a password."""
-    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
-        client_cls.public_only.return_value = _public_only_client()
-        result = runner.invoke(
-            app,
-            ["--api-key", "k", "--address", "192.0.2.10", *args],
-        )
+@pytest.mark.parametrize("args", _PRIVATE_COMMANDS)
+def test_public_only_rejects_private_commands(args) -> None:
+    """Commands with no public equivalent exit 1 on stderr rather than prompting."""
+    result = _invoke_key_only(_public_only_client(), *args)
 
     assert result.exit_code == 1
-    output = _ANSI_ESCAPE_RE.sub("", result.stdout + (result.stderr or ""))
-    assert "public-only mode" in output
-
-
-@pytest.mark.parametrize(
-    "args",
-    [["generate-sample-data"], ["profile-ws"], ["create-api-key", "n"]],
-)
-def test_public_only_rejects_private_top_level_commands(args) -> None:
-    """Top-level commands that need a private session are rejected."""
-    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
-        client_cls.public_only.return_value = _public_only_client()
-        result = runner.invoke(
-            app,
-            ["--api-key", "k", "--address", "192.0.2.10", *args],
-        )
-
-    assert result.exit_code == 1
-    output = _ANSI_ESCAPE_RE.sub("", result.stdout + (result.stderr or ""))
-    assert "public-only mode" in output
+    assert base_cli.PRIVATE_ONLY_ERROR in _ANSI_ESCAPE_RE.sub("", result.stderr)
+    assert base_cli.PRIVATE_ONLY_ERROR not in result.stdout
 
 
 def test_run_reports_an_ssl_failure_from_a_public_request(capsys) -> None:
@@ -1659,14 +1401,9 @@ def test_run_reports_an_ssl_failure_from_a_public_request(capsys) -> None:
 
 def test_get_meta_info_reports_a_failure_without_a_traceback() -> None:
     """A failed meta-info request exits 1 with the error, not a stack trace."""
-    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
-        client = _public_only_client()
-        client.get_meta_info = AsyncMock(side_effect=NvrError("boom"))
-        client_cls.public_only.return_value = client
-        result = runner.invoke(
-            app,
-            ["--api-key", "k", "--address", "192.0.2.10", "get-meta-info"],
-        )
+    client = _public_only_client()
+    client.get_meta_info = AsyncMock(side_effect=NvrError("boom"))
+    result = _invoke_key_only(client, "get-meta-info")
 
     assert result.exit_code == 1
     output = _ANSI_ESCAPE_RE.sub("", result.stdout + (result.stderr or ""))
@@ -1675,16 +1412,11 @@ def test_get_meta_info_reports_a_failure_without_a_traceback() -> None:
 
 def test_get_meta_info_prints_the_metadata() -> None:
     """The happy path still prints the meta info as JSON."""
-    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
-        client = _public_only_client()
-        meta = MagicMock()
-        meta.model_dump_json.return_value = '{"applicationVersion": "6.0.0"}'
-        client.get_meta_info = AsyncMock(return_value=meta)
-        client_cls.public_only.return_value = client
-        result = runner.invoke(
-            app,
-            ["--api-key", "k", "--address", "192.0.2.10", "get-meta-info"],
-        )
+    client = _public_only_client()
+    meta = MagicMock()
+    meta.model_dump_json.return_value = '{"applicationVersion": "6.0.0"}'
+    client.get_meta_info = AsyncMock(return_value=meta)
+    result = _invoke_key_only(client, "get-meta-info")
 
     assert result.exit_code == 0
     assert "6.0.0" in result.stdout
@@ -1716,26 +1448,12 @@ def test_public_only_rejects_shell() -> None:
         client_cls.public_only.return_value = _public_only_client()
         result = runner.invoke(
             app,
-            ["--api-key", "k", "--address", "192.0.2.10", "shell"],
+            [*_KEY_ONLY_ARGS, "shell"],
         )
 
     assert result.exit_code == 1
     output = _ANSI_ESCAPE_RE.sub("", result.stdout + (result.stderr or ""))
     assert "public-only mode" in output
-
-
-def test_public_only_viewer_liveview_reads_from_the_public_api() -> None:
-    """The current liveview is resolved by id against the public liveviews."""
-    ctx, viewer = _make_public_device_ctx(PublicViewer)
-    viewer.liveview_id = "lv-1"
-    current = MagicMock(id="lv-1")
-    current.unifi_dict.return_value = {"id": "lv-1"}
-    ctx.obj.protect.get_liveviews_public = AsyncMock(return_value=[current])
-
-    with patch.object(base_cli, "json_output") as out:
-        liveview(ctx, None)
-
-    out.assert_called_once_with({"id": "lv-1"})
 
 
 _DEVICE_GROUPS = [
@@ -1745,7 +1463,6 @@ _DEVICE_GROUPS = [
     ("sensors", Sensor, PublicSensor),
     ("viewers", Viewer, PublicViewer),
 ]
-_KEY_ONLY_ARGS = ["--api-key", "k", "--address", "192.0.2.10"]
 
 
 def _private_device(model_class) -> MagicMock:
@@ -1797,9 +1514,7 @@ def test_key_only_group_lists_devices_from_the_public_api(
     device.is_reachable = True
     client = _public_only_client()
     setattr(client, f"get_{group}_public", AsyncMock(return_value=[device]))
-    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
-        client_cls.public_only.return_value = client
-        result = runner.invoke(app, [*_KEY_ONLY_ARGS, group, "list-ids"])
+    result = _invoke_key_only(client, group, "list-ids")
 
     assert result.exit_code == 0, result.output
     assert "dev-1\tDev" in result.stdout
@@ -1816,9 +1531,7 @@ def test_key_only_group_exits_on_a_failed_device_fetch(group) -> None:
         f"get_{group}_public",
         AsyncMock(side_effect=NvrError("Error requesting data from 192.0.2.10")),
     )
-    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
-        client_cls.public_only.return_value = client
-        result = runner.invoke(app, [*_KEY_ONLY_ARGS, group, "list-ids"])
+    result = _invoke_key_only(client, group, "list-ids")
 
     assert result.exit_code == 1
     assert "Error requesting data from 192.0.2.10" in result.output
@@ -1846,59 +1559,8 @@ def test_key_only_device_fetch_reports_an_untrusted_certificate() -> None:
     assert "DE:AD" in output
 
 
-def test_device_map_fetches_each_kind_once() -> None:
-    """Public-only lookups fetch only the requested kind, and only once."""
-    camera = MagicMock(id="cam-1")
-    protect = MagicMock(is_public_only=True)
-    protect.get_cameras_public = AsyncMock(return_value=[camera])
-    protect.close_session = AsyncMock()
-    protect.close_public_api_session = AsyncMock()
-    ctx = MagicMock()
-    ctx.meta = {}
-    ctx.obj.protect = protect
-
-    assert base_cli.device_map(ctx, "cameras") == {"cam-1": camera}
-    assert base_cli.device_map(ctx, "cameras") == {"cam-1": camera}
-
-    protect.get_cameras_public.assert_awaited_once()
-    protect.get_lights_public.assert_not_called()
-    protect.update_public.assert_not_called()
-
-
 def _public_camera_payload() -> dict:
-    return {
-        "id": "cam-1",
-        "modelKey": "camera",
-        "state": "CONNECTED",
-        "name": "Front",
-        "mac": "AABBCCDDEEFF",
-        "isMicEnabled": True,
-        "osdSettings": {
-            "isNameEnabled": True,
-            "isDateEnabled": True,
-            "isLogoEnabled": False,
-            "isDebugEnabled": False,
-            "overlayLocation": "topLeft",
-        },
-        "ledSettings": {"isEnabled": True, "welcomeLed": None, "floodLed": None},
-        "lcdMessage": {},
-        "micVolume": 100,
-        "activePatrolSlot": None,
-        "videoMode": "default",
-        "hdrType": "auto",
-        "featureFlags": {
-            "supportFullHdSnapshot": False,
-            "hasHdr": True,
-            "hasMic": True,
-            "hasLedStatus": True,
-            "hasSpeaker": False,
-            "videoModes": ["default"],
-            "smartDetectTypes": ["person"],
-            "smartDetectAudioTypes": [],
-        },
-        "smartDetectSettings": {"objectTypes": ["person"], "audioTypes": []},
-        "hasPackageCamera": False,
-    }
+    return {**copy.deepcopy(CAMERA_PAYLOAD), "id": "cam-1", "name": "Front"}
 
 
 def test_key_only_end_to_end_with_real_public_models() -> None:
@@ -1952,21 +1614,6 @@ def test_no_credentials_public_command_needs_an_api_key() -> None:
     assert "Username" not in result.output
 
 
-def test_missing_credentials_exit_without_a_terminal() -> None:
-    """A private command with no login exits 1 rather than hanging on a prompt."""
-    with (
-        patch.object(base_cli, "_is_interactive", return_value=False),
-        patch.object(ProtectApiClient, "get_bootstrap") as get_bootstrap,
-    ):
-        result = runner.invoke(app, ["--address", "192.0.2.10", "nvr"])
-
-    assert result.exit_code == 1
-    output = _ANSI_ESCAPE_RE.sub("", result.stdout + (result.stderr or ""))
-    assert base_cli.MISSING_CREDENTIALS_ERROR in output
-    assert "Username" not in output
-    get_bootstrap.assert_not_called()
-
-
 def test_missing_credentials_prompt_on_a_terminal() -> None:
     """With no login, a private command prompts for both halves on a terminal."""
     bootstrap = _private_bootstrap_with("cameras", _private_device(Camera))
@@ -1993,8 +1640,17 @@ def test_missing_credentials_prompt_on_a_terminal() -> None:
     assert not client.is_public_only
 
 
-def test_username_and_key_prompt_only_for_the_password() -> None:
-    """An exported username plus a key stays hybrid and asks only for the password."""
+@pytest.mark.parametrize(
+    ("env", "typed", "prompted", "not_prompted"),
+    [
+        ({"UFP_USERNAME": "u"}, "p\n", "Password", "Username"),
+        ({"UFP_PASSWORD": "p"}, "u\n", "Username", "Password"),
+    ],
+)
+def test_half_a_credential_and_key_prompt_only_for_the_other_half(
+    env, typed, prompted, not_prompted
+) -> None:
+    """Half a login plus a key stays hybrid and asks only for the missing half."""
     bootstrap = _private_bootstrap_with("cameras", _private_device(Camera))
     with (
         patch.object(base_cli, "_is_interactive", return_value=True),
@@ -2008,14 +1664,15 @@ def test_username_and_key_prompt_only_for_the_password() -> None:
         result = runner.invoke(
             app,
             [*_KEY_ONLY_ARGS, "cameras", "list-ids"],
-            input="p\n",
-            env={"UFP_USERNAME": "u"},
+            input=typed,
+            env=env,
         )
 
     assert result.exit_code == 0, result.output
-    assert "Username" not in result.output
-    assert "Password" in result.output
+    assert prompted in result.output
+    assert not_prompted not in result.output
     client = get_bootstrap.call_args.args[0]
+    assert not client.is_public_only
     assert client._username == "u"
     assert client._password == "p"  # noqa: S105
     assert client._api_key == "k"
@@ -2038,57 +1695,76 @@ def test_half_a_credential_does_not_prompt_for_a_public_command() -> None:
     request_list.assert_awaited_once()
 
 
-def test_missing_credentials_exit_under_a_non_tty_stdin() -> None:
+@pytest.mark.parametrize("args", [["nvr"], ["profile-ws"]])
+def test_missing_credentials_exit_under_a_non_tty_stdin(args) -> None:
     """CliRunner's stdin is not a terminal, so no prompt is attempted."""
     with patch.object(ProtectApiClient, "get_bootstrap") as get_bootstrap:
-        result = runner.invoke(app, ["--address", "192.0.2.10", "nvr"])
+        result = runner.invoke(app, ["--address", "192.0.2.10", *args])
 
     assert result.exit_code == 1
-    output = _ANSI_ESCAPE_RE.sub("", result.stdout + (result.stderr or ""))
-    assert base_cli.MISSING_CREDENTIALS_ERROR in output
-    assert base_cli.DROP_CREDENTIAL_HINT not in output
+    stderr = _ANSI_ESCAPE_RE.sub("", result.stderr)
+    assert base_cli.MISSING_CREDENTIALS_ERROR in stderr
+    assert base_cli.MISSING_CREDENTIALS_ERROR not in result.stdout
+    assert base_cli.DROP_CREDENTIAL_HINT not in result.output
     get_bootstrap.assert_not_called()
 
 
 @pytest.mark.parametrize("half", [["--username", "u"], ["--password", "p"]])
 def test_half_a_credential_with_a_key_points_at_key_only_mode(half) -> None:
-    """Without a terminal, a half login plus a key says how to run key-only."""
+    """Without a terminal, a device group with half a login and a key hints key-only."""
     with patch.object(ProtectApiClient, "get_bootstrap") as get_bootstrap:
         result = runner.invoke(app, [*half, *_KEY_ONLY_ARGS, "cameras", "list-ids"])
 
     assert result.exit_code == 1
-    output = _ANSI_ESCAPE_RE.sub("", result.stdout + (result.stderr or ""))
-    assert base_cli.MISSING_CREDENTIALS_ERROR in output
-    assert base_cli.DROP_CREDENTIAL_HINT in output
+    stderr = _ANSI_ESCAPE_RE.sub("", result.stderr)
+    assert base_cli.MISSING_CREDENTIALS_ERROR in stderr
+    assert base_cli.DROP_CREDENTIAL_HINT in stderr
+    assert base_cli.DROP_CREDENTIAL_HINT not in result.stdout
     get_bootstrap.assert_not_called()
 
 
-def test_password_and_key_prompt_only_for_the_username() -> None:
-    """An exported password plus a key stays hybrid and asks only for the username."""
-    bootstrap = _private_bootstrap_with("cameras", _private_device(Camera))
+@pytest.mark.parametrize("args", _PRIVATE_COMMANDS)
+def test_half_a_credential_with_a_key_gives_no_hint_for_private_commands(
+    args,
+) -> None:
+    """The key-only hint is withheld where following it would only be rejected."""
+    with patch.object(ProtectApiClient, "get_bootstrap") as get_bootstrap:
+        result = runner.invoke(app, ["--username", "u", *_KEY_ONLY_ARGS, *args])
+
+    assert result.exit_code == 1
+    assert base_cli.MISSING_CREDENTIALS_ERROR in _ANSI_ESCAPE_RE.sub("", result.stderr)
+    assert base_cli.DROP_CREDENTIAL_HINT not in result.output
+    get_bootstrap.assert_not_called()
+
+
+def test_profile_ws_reports_a_failure_through_run() -> None:
+    """A failed websocket profile exits 1 with the error and closes both sessions."""
+    client = _hybrid_client()
+    client.update = AsyncMock(side_effect=NvrError("boom"))
+    with patch("uiprotect.cli.ProtectApiClient", return_value=client):
+        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "profile-ws"])
+
+    assert result.exit_code == 1
+    assert "boom" in result.stdout
+    client.close_session.assert_awaited()
+    client.close_public_api_session.assert_awaited()
+
+
+def test_profile_ws_profiles_the_websocket() -> None:
+    """``profile-ws`` subscribes, profiles for the wait time and disconnects."""
+    client = _hybrid_client()
+    client.update = AsyncMock()
+    client.async_disconnect_ws = AsyncMock()
     with (
-        patch.object(base_cli, "_is_interactive", return_value=True),
-        patch.object(
-            ProtectApiClient,
-            "get_bootstrap",
-            autospec=True,
-            return_value=bootstrap,
-        ) as get_bootstrap,
+        patch("uiprotect.cli.ProtectApiClient", return_value=client),
+        patch("uiprotect.cli.profile_ws_job", new_callable=AsyncMock) as job,
     ):
-        result = runner.invoke(
-            app,
-            [*_KEY_ONLY_ARGS, "cameras", "list-ids"],
-            input="u\n",
-            env={"UFP_PASSWORD": "p"},
-        )
+        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "profile-ws", "-w", "5"])
 
     assert result.exit_code == 0, result.output
-    assert "Username" in result.output
-    assert "Password" not in result.output
-    client = get_bootstrap.call_args.args[0]
-    assert not client.is_public_only
-    assert client._username == "u"
-    assert client._password == "p"  # noqa: S105
+    assert job.await_args.args == (client, 5)
+    client.subscribe_websocket.return_value.assert_called_once_with()
+    client.async_disconnect_ws.assert_awaited_once()
 
 
 def test_generate_sample_data_reports_a_connection_failure(tmp_path) -> None:
@@ -2137,7 +1813,7 @@ def test_camera_dict_keeps_primed_rtsps_streams() -> None:
     """Streams the library did prime still print."""
     camera = PublicCamera.from_unifi_dict(**_public_camera_payload())
     camera.rtsps_streams = RTSPSStreams(high="rtsps://192.0.2.10/high")
-    assert cameras_cli._camera_dict(camera)["rtspsStreams"] is not None
+    assert base_cli.camera_dict(camera)["rtspsStreams"] is not None
 
 
 def _group_read_device(model_class) -> MagicMock:
@@ -2156,17 +1832,12 @@ def test_group_selects_a_device_by_id(mode, group, private_class, public_class):
     if mode == "hybrid":
         device = _group_read_device(private_class)
         bootstrap = _private_bootstrap_with(group, device)
-        with patch.object(
-            ProtectApiClient, "get_bootstrap", AsyncMock(return_value=bootstrap)
-        ):
-            result = runner.invoke(app, [*_BASE_AUTH_ARGS, group, "dev-1"])
+        result = _invoke_hybrid(bootstrap, group, "dev-1")
     else:
         device = _group_read_device(public_class)
         client = _public_only_client()
         setattr(client, f"get_{group}_public", AsyncMock(return_value=[device]))
-        with patch("uiprotect.cli.ProtectApiClient") as client_cls:
-            client_cls.public_only.return_value = client
-            result = runner.invoke(app, [*_KEY_ONLY_ARGS, group, "dev-1"])
+        result = _invoke_key_only(client, group, "dev-1")
 
     assert result.exit_code == 0, result.output
     assert '"id": "dev-1"' in result.stdout
@@ -2183,16 +1854,11 @@ def test_group_rejects_an_unknown_device_id(mode, group) -> None:
     if mode == "hybrid":
         bootstrap = MagicMock()
         setattr(bootstrap, group, {})
-        with patch.object(
-            ProtectApiClient, "get_bootstrap", AsyncMock(return_value=bootstrap)
-        ):
-            result = runner.invoke(app, [*_BASE_AUTH_ARGS, group, "missing"])
+        result = _invoke_hybrid(bootstrap, group, "missing")
     else:
         client = _public_only_client()
         setattr(client, f"get_{group}_public", AsyncMock(return_value=[]))
-        with patch("uiprotect.cli.ProtectApiClient") as client_cls:
-            client_cls.public_only.return_value = client
-            result = runner.invoke(app, [*_KEY_ONLY_ARGS, group, "missing"])
+        result = _invoke_key_only(client, group, "missing")
 
     assert result.exit_code == 1
     assert "Invalid" in result.output
@@ -2202,49 +1868,24 @@ def test_aiports_select_a_device_by_id() -> None:
     """``aiports <id>`` shows the selected AI port."""
     device = _group_read_device(AiPort)
     bootstrap = _private_bootstrap_with("aiports", device)
-    with patch.object(
-        ProtectApiClient, "get_bootstrap", AsyncMock(return_value=bootstrap)
-    ):
-        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "aiports", "dev-1"])
+    result = _invoke_hybrid(bootstrap, "aiports", "dev-1")
 
     assert result.exit_code == 0, result.output
     assert '"id": "dev-1"' in result.stdout
 
 
-def test_device_map_caches_each_kind_separately() -> None:
-    """A second kind in the same command is fetched, not served from the first."""
-    camera = MagicMock(id="cam-1")
-    light = MagicMock(id="light-1")
-    protect = MagicMock(is_public_only=True)
-    protect.get_cameras_public = AsyncMock(return_value=[camera])
-    protect.get_lights_public = AsyncMock(return_value=[light])
-    protect.close_session = AsyncMock()
-    protect.close_public_api_session = AsyncMock()
-    ctx = MagicMock()
-    ctx.meta = {}
-    ctx.obj.protect = protect
-
-    assert base_cli.device_map(ctx, "cameras") == {"cam-1": camera}
-    assert base_cli.device_map(ctx, "lights") == {"light-1": light}
-    assert base_cli.device_map(ctx, "cameras") == {"cam-1": camera}
-    protect.get_cameras_public.assert_awaited_once()
-    protect.get_lights_public.assert_awaited_once()
-
-
 def test_key_only_chime_cameras_without_ids_via_the_cli() -> None:
     """``chimes <id> cameras`` with no IDs lists the paired cameras key-only."""
     chime = MagicMock(spec=PublicChime, id="chime-1", camera_ids=["cam-1"])
-    camera = MagicMock(spec=PublicCamera, id="cam-1")
-    camera.unifi_dict.return_value = {"id": "cam-1"}
+    camera = PublicCamera.from_unifi_dict(**_public_camera_payload())
     client = _public_only_client()
     client.get_chimes_public = AsyncMock(return_value=[chime])
     client.get_cameras_public = AsyncMock(return_value=[camera])
-    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
-        client_cls.public_only.return_value = client
-        result = runner.invoke(app, [*_KEY_ONLY_ARGS, "chimes", "chime-1", "cameras"])
+    result = _invoke_key_only(client, "chimes", "chime-1", "cameras")
 
     assert result.exit_code == 0, result.output
     assert '"id": "cam-1"' in result.stdout
+    assert "rtspsStreams" not in result.stdout
     client.get_chimes_public.assert_awaited_once()
     client.get_cameras_public.assert_awaited_once()
 
@@ -2258,10 +1899,7 @@ def test_hybrid_chime_cameras_lists_paired_cameras() -> None:
     camera.unifi_dict.return_value = {"id": "cam-1"}
     bootstrap = _private_bootstrap_with("chimes", chime)
     bootstrap.cameras = {"cam-1": camera}
-    with patch.object(
-        ProtectApiClient, "get_bootstrap", AsyncMock(return_value=bootstrap)
-    ):
-        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "chimes", "dev-1", "cameras"])
+    result = _invoke_hybrid(bootstrap, "chimes", "dev-1", "cameras")
 
     assert result.exit_code == 0, result.output
     assert '"id": "cam-1"' in result.stdout
@@ -2275,11 +1913,7 @@ def test_key_only_viewer_liveview_fetches_viewers_and_liveviews() -> None:
     client = _public_only_client()
     client.get_viewers_public = AsyncMock(return_value=[viewer])
     client.get_liveviews_public = AsyncMock(return_value=[current])
-    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
-        client_cls.public_only.return_value = client
-        result = runner.invoke(
-            app, [*_KEY_ONLY_ARGS, "viewers", "viewer-1", "liveview"]
-        )
+    result = _invoke_key_only(client, "viewers", "viewer-1", "liveview")
 
     assert result.exit_code == 0, result.output
     assert '"id": "lv-1"' in result.stdout
@@ -2292,10 +1926,7 @@ def test_hybrid_viewer_liveview_reads_the_private_liveview() -> None:
     viewer = _private_device(Viewer)
     viewer.liveview.unifi_dict.return_value = {"id": "lv-1"}
     bootstrap = _private_bootstrap_with("viewers", viewer)
-    with patch.object(
-        ProtectApiClient, "get_bootstrap", AsyncMock(return_value=bootstrap)
-    ):
-        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "viewers", "dev-1", "liveview"])
+    result = _invoke_hybrid(bootstrap, "viewers", "dev-1", "liveview")
 
     assert result.exit_code == 0, result.output
     assert '"id": "lv-1"' in result.stdout
@@ -2311,187 +1942,13 @@ def test_hybrid_paired_camera_lookup(group) -> None:
     camera.id = "cam-1"
     bootstrap = _private_bootstrap_with(group, device)
     bootstrap.cameras = {"cam-1": camera}
-    with patch.object(
-        ProtectApiClient, "get_bootstrap", AsyncMock(return_value=bootstrap)
-    ):
-        paired = runner.invoke(
-            app, [*_BASE_AUTH_ARGS, group, "dev-1", "camera", "cam-1"]
-        )
-        invalid = runner.invoke(
-            app, [*_BASE_AUTH_ARGS, group, "dev-1", "camera", "missing"]
-        )
+    paired = _invoke_hybrid(bootstrap, group, "dev-1", "camera", "cam-1")
+    invalid = _invoke_hybrid(bootstrap, group, "dev-1", "camera", "missing")
 
     assert paired.exit_code == 0, paired.output
     device.set_paired_camera.assert_awaited_once_with(camera)
     assert invalid.exit_code == 1
     assert "Invalid camera ID" in invalid.output
-
-
-def _public_ctx(model_class, **attrs):
-    ctx, device = _make_public_device_ctx(model_class, **attrs)
-    ctx.obj.output_format = base_cli.OutputFormatEnum.JSON
-    return ctx, device, ctx.obj.protect
-
-
-@pytest.mark.parametrize(
-    ("model_class", "command", "setter", "args", "kwargs"),
-    [
-        (PublicCamera, cameras_cli.set_status_light, "set_status_light", (True,), {}),
-        (
-            PublicCamera,
-            cameras_cli.set_hdr,
-            "set_hdr_mode",
-            (PublicHdrMode.AUTO,),
-            {},
-        ),
-        (
-            PublicCamera,
-            cameras_cli.set_video_mode,
-            "set_video_mode",
-            (VideoMode.DEFAULT,),
-            {},
-        ),
-        (PublicCamera, cameras_cli.set_mic_volume, "set_mic_volume", (40,), {}),
-        (PublicCamera, cameras_cli.set_osd_name, "set_osd_name", (True,), {}),
-        (PublicCamera, cameras_cli.set_osd_date, "set_osd_date", (True,), {}),
-        (PublicCamera, cameras_cli.set_osd_logo, "set_osd_logo", (True,), {}),
-        (PublicCamera, cameras_cli.set_osd_bitrate, "set_osd_nerd_mode", (True,), {}),
-        (PublicLight, lights_cli.set_status_light, "set_status_light", (True,), {}),
-        (PublicLight, lights_cli.set_led_level, "set_led_level", (3,), {}),
-        (PublicLight, lights_cli.set_sensitivity, "set_sensitivity", (50,), {}),
-        (PublicLight, lights_cli.set_flood_light, "set_flood_light", (True,), {}),
-        (PublicSensor, sensors_cli.set_motion, "set_motion_status", (True,), {}),
-        (
-            PublicSensor,
-            sensors_cli.set_temperature,
-            "set_temperature_status",
-            (True,),
-            {},
-        ),
-        (PublicSensor, sensors_cli.set_humidity, "set_humidity_status", (True,), {}),
-        (PublicSensor, sensors_cli.set_light, "set_light_status", (True,), {}),
-        (PublicSensor, sensors_cli.set_alarm, "set_alarm", (True,), {}),
-        (
-            PublicSensor,
-            sensors_cli.set_motion_sensitivity,
-            "set_motion_sensitivity",
-            (30,),
-            {},
-        ),
-        (
-            PublicSensor,
-            set_glass_break_public,
-            "set_glass_break_status",
-            (True,),
-            {},
-        ),
-        (
-            PublicSensor,
-            set_schedule_mode_public,
-            "set_schedule_mode",
-            (SensorScheduleMode.ALWAYS,),
-            {},
-        ),
-        (
-            PublicSensor,
-            set_arm_profiles_public,
-            "set_arm_profile_ids",
-            (["p1"],),
-            {},
-        ),
-        (
-            PublicSensor,
-            set_custom_sensitivity_public,
-            "set_custom_sensitivity_when_armed",
-            (True,),
-            {},
-        ),
-    ],
-)
-def test_key_only_setter_commands(model_class, command, setter, args, kwargs) -> None:
-    """Every public-capable setter command writes through the public model."""
-    ctx, device, _protect = _public_ctx(model_class, **{setter: AsyncMock()})
-    command(ctx, *args, **kwargs)
-    getattr(device, setter).assert_awaited_once_with(*args, **kwargs)
-
-
-def test_key_only_light_set_duration() -> None:
-    """set-duration converts seconds before calling the public setter."""
-    ctx, light, _protect = _public_ctx(PublicLight, set_duration=AsyncMock())
-    lights_cli.set_duration(ctx, 60)
-    light.set_duration.assert_awaited_once_with(timedelta(seconds=60))
-
-
-def test_key_only_camera_set_lcd_text() -> None:
-    """set-lcd-text sets and clears the message through the public model."""
-    ctx, camera, _protect = _public_ctx(PublicCamera, set_lcd_message=AsyncMock())
-    cameras_cli.set_lcd_text(ctx, DoorbellMessageType.CUSTOM_MESSAGE, "Hi", "never")
-    camera.set_lcd_message.assert_awaited_once_with(
-        DoorbellMessageType.CUSTOM_MESSAGE, "Hi", None
-    )
-
-    camera.set_lcd_message.reset_mock()
-    cameras_cli.set_lcd_text(ctx, None, None, None)
-    camera.set_lcd_message.assert_awaited_once_with(None)
-
-
-@pytest.mark.parametrize(
-    ("command", "setter"),
-    [
-        (sensors_cli.set_temperature_range, "set_temperature_settings"),
-        (sensors_cli.set_humidity_range, "set_humidity_settings"),
-        (sensors_cli.set_light_range, "set_light_settings"),
-    ],
-)
-def test_key_only_sensor_ranges(command, setter) -> None:
-    """The safe-range commands write thresholds through the public model."""
-    ctx, sensor, _protect = _public_ctx(PublicSensor, **{setter: AsyncMock()})
-    command(ctx, 5.0, 30.0)
-    getattr(sensor, setter).assert_awaited_once_with(
-        low_threshold=5.0, high_threshold=30.0
-    )
-
-
-@pytest.mark.parametrize(
-    ("command", "setter", "kwargs"),
-    [
-        (
-            set_temperature_settings_public,
-            "set_temperature_settings",
-            {
-                "is_enabled": True,
-                "low_threshold": 1.0,
-                "high_threshold": 2.0,
-                "margin": 0.5,
-            },
-        ),
-        (
-            set_humidity_settings_public,
-            "set_humidity_settings",
-            {"is_enabled": True, "low_threshold": 1, "high_threshold": 2, "margin": 1},
-        ),
-        (
-            set_light_settings_public,
-            "set_light_settings",
-            {"is_enabled": True, "low_threshold": 1, "high_threshold": 2, "margin": 1},
-        ),
-        (
-            set_motion_settings_public,
-            "set_motion_settings",
-            {"is_enabled": True, "sensitivity": 50, "sensitivity_when_armed": 60},
-        ),
-        (
-            set_glass_break_settings_public,
-            "set_glass_break_settings",
-            {"is_enabled": True, "sensitivity": 50, "sensitivity_when_armed": 60},
-        ),
-    ],
-)
-def test_key_only_sensor_settings(command, setter, kwargs) -> None:
-    """The sensor settings commands write through the public model."""
-    ctx, sensor, _protect = _public_ctx(PublicSensor, **{setter: AsyncMock()})
-    command(ctx, **kwargs)
-    getattr(sensor, setter).assert_awaited_once_with(**kwargs)
 
 
 @pytest.mark.parametrize(
@@ -2508,7 +1965,7 @@ def test_key_only_sensor_settings(command, setter, kwargs) -> None:
 )
 def test_key_only_sensor_reads(command, attr) -> None:
     """The sensor state reads answer from the public payload."""
-    ctx, _sensor, _protect = _public_ctx(PublicSensor, **{attr: True})
+    ctx, _sensor, _protect = _device_ctx(PublicSensor, **{attr: True})
     with patch.object(base_cli, "json_output") as out:
         command(ctx)
     out.assert_called_once_with(True)
@@ -2526,7 +1983,7 @@ def test_key_only_sensor_reads(command, attr) -> None:
 )
 def test_key_only_sensor_gap_commands_exit(command) -> None:
     """Sensor commands without a public equivalent exit 1."""
-    ctx, _sensor, _protect = _public_ctx(PublicSensor)
+    ctx, _sensor, _protect = _device_ctx(PublicSensor)
     with pytest.raises(typer.Exit) as exc:
         command(ctx)
     assert exc.value.exit_code == 1
@@ -2550,7 +2007,7 @@ def test_key_only_sensor_gap_commands_exit(command) -> None:
 )
 def test_key_only_rtsps_stream_commands(command, method, result) -> None:
     """The RTSPS stream commands call the public endpoints by camera id."""
-    ctx, _camera, protect = _public_ctx(PublicCamera)
+    ctx, _camera, protect = _device_ctx(PublicCamera)
     setattr(protect, method, AsyncMock(return_value=result))
     with patch.object(base_cli, "json_output"):
         command(ctx)
@@ -2559,7 +2016,7 @@ def test_key_only_rtsps_stream_commands(command, method, result) -> None:
 
 def test_key_only_rtsps_streams_print_urls() -> None:
     """get-rtsps-streams prints the stream URLs the public endpoint returned."""
-    ctx, _camera, protect = _public_ctx(PublicCamera)
+    ctx, _camera, protect = _device_ctx(PublicCamera)
     streams = MagicMock()
     streams.get_available_stream_qualities.return_value = ["high"]
     streams.get_stream_url.return_value = "rtsps://192.0.2.10/high"
@@ -2571,7 +2028,7 @@ def test_key_only_rtsps_streams_print_urls() -> None:
 
 def test_key_only_disable_mic_permanently() -> None:
     """disable-mic-permanently works on a public camera."""
-    ctx, _camera, protect = _public_ctx(PublicCamera)
+    ctx, _camera, protect = _device_ctx(PublicCamera)
     protect.disable_camera_mic_permanently_public = AsyncMock()
     cameras_cli.disable_mic_permanently(ctx, yes=True)
     protect.disable_camera_mic_permanently_public.assert_awaited_once_with("device-1")
@@ -2581,7 +2038,7 @@ def test_key_only_chime_cameras_lists_paired_cameras() -> None:
     """Listing a public chime's cameras resolves them from the public cameras."""
     paired = MagicMock(id="cam-1")
     paired.unifi_dict.return_value = {"id": "cam-1"}
-    ctx, _chime, protect = _public_ctx(PublicChime, camera_ids=["cam-1", "gone"])
+    ctx, _chime, protect = _device_ctx(PublicChime, camera_ids=["cam-1", "gone"])
     protect.get_cameras_public = AsyncMock(return_value=[paired, MagicMock(id="cam-2")])
     with patch.object(base_cli, "json_output") as out:
         chimes_cli.cameras(ctx, camera_ids=[], add=False, remove=False)
@@ -2590,7 +2047,7 @@ def test_key_only_chime_cameras_lists_paired_cameras() -> None:
 
 def test_key_only_chime_cameras_sets_pairing() -> None:
     """Pairing a public chime patches its camera ids over the public API."""
-    ctx, _chime, protect = _public_ctx(PublicChime, camera_ids=["cam-1"])
+    ctx, _chime, protect = _device_ctx(PublicChime, camera_ids=["cam-1"])
     protect.get_cameras_public = AsyncMock(
         return_value=[MagicMock(spec=PublicCamera, id="cam-2")]
     )
@@ -2610,7 +2067,7 @@ def test_key_only_chime_cameras_sets_pairing() -> None:
 )
 def test_key_only_chime_per_camera_settings(command, setter, value) -> None:
     """Per-camera chime settings use the public model's own setters."""
-    ctx, chime, protect = _public_ctx(PublicChime, **{setter: AsyncMock()})
+    ctx, chime, protect = _device_ctx(PublicChime, **{setter: AsyncMock()})
     protect.get_cameras_public = AsyncMock(return_value=[MagicMock(id="cam-1")])
     command(ctx, value=value, camera_id="cam-1")
     getattr(chime, setter).assert_awaited_once_with("cam-1", value)
@@ -2619,7 +2076,7 @@ def test_key_only_chime_per_camera_settings(command, setter, value) -> None:
 @pytest.mark.parametrize("command", [set_volume, set_repeat_times])
 def test_key_only_chime_whole_device_settings_exit(command) -> None:
     """Without --camera the chime settings need the private model and exit 1."""
-    ctx, _chime, protect = _public_ctx(PublicChime)
+    ctx, _chime, protect = _device_ctx(PublicChime)
     protect.update_chime_public = AsyncMock()
     with pytest.raises(typer.Exit) as exc:
         command(ctx, value=3, camera_id=None)
@@ -2630,7 +2087,7 @@ def test_key_only_chime_whole_device_settings_exit(command) -> None:
 @pytest.mark.parametrize("command", [chimes_cli.play, chimes_cli.play_buzzer])
 def test_key_only_chime_gap_commands_exit(command) -> None:
     """Chime playback has no public equivalent and exits 1."""
-    ctx, _chime, _protect = _public_ctx(PublicChime)
+    ctx, _chime, _protect = _device_ctx(PublicChime)
     with pytest.raises(typer.Exit) as exc:
         command(ctx)
     assert exc.value.exit_code == 1
@@ -2638,7 +2095,7 @@ def test_key_only_chime_gap_commands_exit(command) -> None:
 
 def test_key_only_viewer_liveview_set_and_clear() -> None:
     """A public viewer's liveview is set by id, or cleared with ``null``."""
-    ctx, _viewer, protect = _public_ctx(PublicViewer)
+    ctx, _viewer, protect = _device_ctx(PublicViewer)
     protect.get_liveviews_public = AsyncMock(return_value=[MagicMock(id="lv-1")])
     protect.update_viewer_public = AsyncMock()
 
@@ -2655,40 +2112,3 @@ def test_hybrid_viewer_liveview_clear() -> None:
     ctx, _viewer, protect = _make_viewer_ctx(liveview_ids=[])
     liveview(ctx, "NULL")
     protect.update_viewer_public.assert_awaited_once_with("viewer-1", liveview=None)
-
-
-def _public_call_names(module_path: str) -> set[str]:
-    source = Path(module_path).read_text()
-    return set(re.findall(r'public_call\(\s*\w+,\s*"(\w+)"', source))
-
-
-@pytest.mark.parametrize(
-    ("module_path", "pairs"),
-    [
-        ("src/uiprotect/cli/cameras.py", [(Camera, PublicCamera)]),
-        ("src/uiprotect/cli/lights.py", [(Light, PublicLight)]),
-        ("src/uiprotect/cli/sensors.py", [(Sensor, PublicSensor)]),
-        (
-            "src/uiprotect/cli/base.py",
-            [
-                (Camera, PublicCamera),
-                (Chime, PublicChime),
-                (Light, PublicLight),
-                (Sensor, PublicSensor),
-                (Viewer, PublicViewer),
-            ],
-        ),
-    ],
-)
-def test_public_call_names_exist_on_both_models(module_path, pairs) -> None:
-    """Every ``public_call`` name resolves on the public and the private model."""
-    root = Path(__file__).resolve().parent.parent
-    names = _public_call_names(str(root / module_path))
-    assert names
-    for private_class, public_class in pairs:
-        for name in names:
-            assert callable(getattr(public_class, name, None)), (public_class, name)
-            assert callable(getattr(private_class, f"{name}_public", None)), (
-                private_class,
-                name,
-            )

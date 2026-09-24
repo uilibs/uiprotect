@@ -26,7 +26,7 @@ from ..data import (
     Sensor,
     Viewer,
 )
-from ..data.public_devices import PublicDeviceModel
+from ..data.public_devices import PublicCamera, PublicDeviceModel
 from ..exceptions import BadRequest, NvrError, StreamError
 from ..utils import run_async
 
@@ -46,7 +46,6 @@ DROP_CREDENTIAL_HINT = (
     "Or drop --username/--password (and UFP_USERNAME/UFP_PASSWORD) to run "
     "commands on the API key alone."
 )
-_PUBLIC_DEVICES_KEY = "uiprotect.public_devices"
 
 
 class OutputFormatEnum(StrEnum):
@@ -67,8 +66,7 @@ def run(ctx: typer.Context, func: Awaitable[T]) -> T:
         try:
             return await func
         finally:
-            await ctx.obj.protect.close_session()
-            await ctx.obj.protect.close_public_api_session()
+            await _close_protect(ctx.obj.protect)
 
     try:
         return run_async(callback())
@@ -106,13 +104,25 @@ def print_unifi_list(
         json_output([])
 
 
+def camera_dict(obj: Camera | PublicCamera) -> dict[str, Any]:
+    """A camera's ``unifi_dict``, without RTSPS streams that were never fetched."""
+    # A public-only lookup never primes the RTSPS streams, so an unset field
+    # would print as ``null``; ``get-rtsps-streams`` fetches them.
+    data = obj.unifi_dict()
+    if isinstance(obj, PublicCamera) and obj.rtsps_streams is None:
+        del data["rtspsStreams"]
+    return data
+
+
 def print_unifi_dict(objs: Mapping[str, ProtectBaseObject]) -> None:
     """Helper method to print a dictionary of protect objects"""
     data = {k: v.unifi_dict() for k, v in objs.items()}
     json_output(data)
 
 
-def require_private_api(ctx: typer.Context) -> None:
+def require_private_api(
+    ctx: typer.Context, *, drop_credential_hint: bool = False
+) -> None:
     """Rejects the command in public-only mode; prompts for missing credentials."""
     protect: ProtectApiClient = ctx.obj.protect
     if protect.is_public_only:
@@ -123,7 +133,9 @@ def require_private_api(ctx: typer.Context) -> None:
     # A prompt without a terminal would hang a scripted run.
     if not _is_interactive():
         typer.secho(MISSING_CREDENTIALS_ERROR, fg="red", err=True)
-        if protect._api_key:
+        # Only device groups work on the key alone; for every other private
+        # command the hint would lead to "Not available in public-only mode".
+        if drop_credential_hint and protect._api_key:
             typer.secho(DROP_CREDENTIAL_HINT, err=True)
         raise typer.Exit(1)
     if not protect._username:
@@ -166,13 +178,14 @@ def _get_cert_fingerprint(host: str, port: int) -> str | None:
 async def _connect_and_bootstrap(protect: ProtectApiClient) -> None:
     """Connect to the Protect API and fetch bootstrap data."""
     protect._bootstrap = await protect.get_bootstrap()
-    await protect.close_session()
-    await protect.close_public_api_session()
+    await _close_protect(protect)
 
 
-def private_bootstrap(ctx: typer.Context) -> Bootstrap:
+def private_bootstrap(
+    ctx: typer.Context, *, drop_credential_hint: bool = False
+) -> Bootstrap:
     """The private bootstrap, logging in and fetching it on first use."""
-    require_private_api(ctx)
+    require_private_api(ctx, drop_credential_hint=drop_credential_hint)
     protect: ProtectApiClient = ctx.obj.protect
     # ``_bootstrap`` is what ``_connect_and_bootstrap`` fills in; the public
     # ``bootstrap`` property raises instead of reporting that it is unset.
@@ -258,12 +271,10 @@ def device_map(ctx: typer.Context, attr: str) -> dict[str, Any]:
     """
     protect: ProtectApiClient = ctx.obj.protect
     if not protect.is_public_only:
-        return cast("dict[str, Any]", getattr(private_bootstrap(ctx), attr))
-    cache: dict[str, dict[str, Any]] = ctx.meta.setdefault(_PUBLIC_DEVICES_KEY, {})
-    if attr not in cache:
-        items = run(ctx, getattr(protect, f"get_{attr}_public")())
-        cache[attr] = {item.id: item for item in items}
-    return cache[attr]
+        bootstrap = private_bootstrap(ctx, drop_credential_hint=True)
+        return cast("dict[str, Any]", getattr(bootstrap, attr))
+    items = run(ctx, getattr(protect, f"get_{attr}_public")())
+    return {item.id: item for item in items}
 
 
 def require_device_id(ctx: typer.Context, *, public_ok: bool = False) -> None:

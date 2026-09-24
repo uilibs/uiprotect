@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 import typer
 from rich.progress import Progress
@@ -62,10 +62,10 @@ def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
             return
 
         if ctx.obj.device is not None:
-            base.json_output(_camera_dict(ctx.obj.device))
+            base.json_output(base.camera_dict(ctx.obj.device))
             return
 
-        base.json_output({k: _camera_dict(v) for k, v in ctx.obj.devices.items()})
+        base.json_output({k: base.camera_dict(v) for k, v in ctx.obj.devices.items()})
 
 
 @app.command()
@@ -784,12 +784,3 @@ def _parse_reset_time(reset_at: str | None) -> datetime | DEFAULT_TYPE | None:
         f"{reset_at!r} is not {_RESET_TIME_NEVER!r} and does not match "
         f"the formats {formats}"
     )
-
-
-def _camera_dict(obj: d.Camera | PublicCamera) -> dict[str, Any]:
-    # A public-only lookup never primes the RTSPS streams, so an unset field
-    # would print as ``null``; ``get-rtsps-streams`` fetches them.
-    data = obj.unifi_dict()
-    if isinstance(obj, PublicCamera) and obj.rtsps_streams is None:
-        del data["rtspsStreams"]
-    return data

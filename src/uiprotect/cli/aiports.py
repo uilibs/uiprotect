@@ -31,8 +31,7 @@ def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
     Returns full list of AiPorts without any arguments passed.
     """
     # AiPorts have no Public Integration API endpoint of their own.
-    base.require_private_api(ctx)
-    devices = base.device_map(ctx, "aiports")
+    devices = base.private_bootstrap(ctx).aiports
     context = AiPortContext(
         protect=ctx.obj.protect,
         device=None,
