@@ -279,7 +279,9 @@ def generate_sample_data(
     do_zip: bool = OPTION_ZIP,
 ) -> None:
     """Generates sample data for UniFi Protect instance."""
-    base.require_private_api(ctx)
+    # Logging in up front reports an unreachable console or an untrusted
+    # certificate the same way every other private command does.
+    base.private_bootstrap(ctx)
     protect = cast("ProtectApiClient", ctx.obj.protect)
 
     if output_folder is None:

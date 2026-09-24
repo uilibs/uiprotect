@@ -63,6 +63,7 @@ from uiprotect.data import (
     PublicSensor,
     PublicViewer,
     RingSetting,
+    RTSPSStreams,
     Sensor,
     Viewer,
 )
@@ -905,9 +906,19 @@ def test_sensor_help() -> None:
     result = runner.invoke(sensor_app, ["--help"])
     assert result.exit_code == 0
     plain_output = _ANSI_ESCAPE_RE.sub("", result.output)
-    assert "set-name-public" not in plain_output
     assert "set-glass-break-settings-public" in plain_output
     assert "set-schedule-mode-public" in plain_output
+    commands = typer.main.get_command(sensor_app).commands
+    for twin in (
+        "set-name-public",
+        "set-alarm-public",
+        "set-motion-public",
+        "set-motion-sensitivity-public",
+        "set-temperature-public",
+        "set-humidity-public",
+        "set-light-public",
+    ):
+        assert twin not in commands
 
 
 def test_sensor_set_temperature_settings_public() -> None:
@@ -1971,13 +1982,14 @@ def test_missing_credentials_prompt_on_a_terminal() -> None:
         result = runner.invoke(
             app,
             ["--address", "192.0.2.10", "cameras", "list-ids"],
-            input="u\np\n",
+            input="u\nsecret-pw\n",
         )
 
     assert result.exit_code == 0, result.output
+    assert "secret-pw" not in result.output
     client = get_bootstrap.call_args.args[0]
     assert client._username == "u"
-    assert client._password == "p"  # noqa: S105
+    assert client._password == "secret-pw"  # noqa: S105
     assert not client.is_public_only
 
 
@@ -2024,6 +2036,295 @@ def test_half_a_credential_does_not_prompt_for_a_public_command() -> None:
     assert result.exit_code == 0, result.output
     assert "Password" not in result.output
     request_list.assert_awaited_once()
+
+
+def test_missing_credentials_exit_under_a_non_tty_stdin() -> None:
+    """CliRunner's stdin is not a terminal, so no prompt is attempted."""
+    with patch.object(ProtectApiClient, "get_bootstrap") as get_bootstrap:
+        result = runner.invoke(app, ["--address", "192.0.2.10", "nvr"])
+
+    assert result.exit_code == 1
+    output = _ANSI_ESCAPE_RE.sub("", result.stdout + (result.stderr or ""))
+    assert base_cli.MISSING_CREDENTIALS_ERROR in output
+    assert base_cli.DROP_CREDENTIAL_HINT not in output
+    get_bootstrap.assert_not_called()
+
+
+@pytest.mark.parametrize("half", [["--username", "u"], ["--password", "p"]])
+def test_half_a_credential_with_a_key_points_at_key_only_mode(half) -> None:
+    """Without a terminal, a half login plus a key says how to run key-only."""
+    with patch.object(ProtectApiClient, "get_bootstrap") as get_bootstrap:
+        result = runner.invoke(app, [*half, *_KEY_ONLY_ARGS, "cameras", "list-ids"])
+
+    assert result.exit_code == 1
+    output = _ANSI_ESCAPE_RE.sub("", result.stdout + (result.stderr or ""))
+    assert base_cli.MISSING_CREDENTIALS_ERROR in output
+    assert base_cli.DROP_CREDENTIAL_HINT in output
+    get_bootstrap.assert_not_called()
+
+
+def test_password_and_key_prompt_only_for_the_username() -> None:
+    """An exported password plus a key stays hybrid and asks only for the username."""
+    bootstrap = _private_bootstrap_with("cameras", _private_device(Camera))
+    with (
+        patch.object(base_cli, "_is_interactive", return_value=True),
+        patch.object(
+            ProtectApiClient,
+            "get_bootstrap",
+            autospec=True,
+            return_value=bootstrap,
+        ) as get_bootstrap,
+    ):
+        result = runner.invoke(
+            app,
+            [*_KEY_ONLY_ARGS, "cameras", "list-ids"],
+            input="u\n",
+            env={"UFP_PASSWORD": "p"},
+        )
+
+    assert result.exit_code == 0, result.output
+    assert "Username" in result.output
+    assert "Password" not in result.output
+    client = get_bootstrap.call_args.args[0]
+    assert not client.is_public_only
+    assert client._username == "u"
+    assert client._password == "p"  # noqa: S105
+
+
+def test_generate_sample_data_reports_a_connection_failure(tmp_path) -> None:
+    """A failed login exits 1 with the error before the generator runs."""
+    with (
+        patch("uiprotect.cli.ProtectApiClient") as client_cls,
+        patch(
+            "uiprotect.cli.base._connect_and_bootstrap",
+            new_callable=AsyncMock,
+            side_effect=NvrError("unreachable"),
+        ),
+        patch("uiprotect.cli.SampleDataGenerator") as generator,
+    ):
+        client = _hybrid_client()
+        client_cls.return_value = client
+        result = runner.invoke(
+            app, [*_BASE_AUTH_ARGS, "generate-sample-data", "-o", str(tmp_path)]
+        )
+
+    assert result.exit_code == 1
+    assert "Connection failed: unreachable" in result.output
+    generator.assert_not_called()
+    client.close_session.assert_awaited()
+    client.close_public_api_session.assert_awaited()
+
+
+def test_key_only_camera_show_omits_unprimed_rtsps_streams() -> None:
+    """A key-only camera prints without an ``rtspsStreams: null`` placeholder."""
+    with patch.object(
+        ProtectApiClient,
+        "api_request_list",
+        AsyncMock(return_value=[_public_camera_payload()]),
+    ):
+        shown = runner.invoke(app, [*_KEY_ONLY_ARGS, "cameras", "cam-1"])
+        listed = runner.invoke(app, [*_KEY_ONLY_ARGS, "cameras"])
+
+    assert shown.exit_code == 0, shown.output
+    assert '"id": "cam-1"' in shown.stdout
+    assert "rtspsStreams" not in shown.stdout
+    assert listed.exit_code == 0, listed.output
+    assert '"cam-1"' in listed.stdout
+    assert "rtspsStreams" not in listed.stdout
+
+
+def test_camera_dict_keeps_primed_rtsps_streams() -> None:
+    """Streams the library did prime still print."""
+    camera = PublicCamera.from_unifi_dict(**_public_camera_payload())
+    camera.rtsps_streams = RTSPSStreams(high="rtsps://192.0.2.10/high")
+    assert cameras_cli._camera_dict(camera)["rtspsStreams"] is not None
+
+
+def _group_read_device(model_class) -> MagicMock:
+    device = _private_device(model_class)
+    device.unifi_dict.return_value = {"id": "dev-1"}
+    if model_class is PublicCamera:
+        device.rtsps_streams = None
+        device.unifi_dict.return_value = {"id": "dev-1", "rtspsStreams": None}
+    return device
+
+
+@pytest.mark.parametrize("mode", ["hybrid", "key-only"])
+@pytest.mark.parametrize(("group", "private_class", "public_class"), _DEVICE_GROUPS)
+def test_group_selects_a_device_by_id(mode, group, private_class, public_class):
+    """``<group> <id>`` shows the selected device in both modes."""
+    if mode == "hybrid":
+        device = _group_read_device(private_class)
+        bootstrap = _private_bootstrap_with(group, device)
+        with patch.object(
+            ProtectApiClient, "get_bootstrap", AsyncMock(return_value=bootstrap)
+        ):
+            result = runner.invoke(app, [*_BASE_AUTH_ARGS, group, "dev-1"])
+    else:
+        device = _group_read_device(public_class)
+        client = _public_only_client()
+        setattr(client, f"get_{group}_public", AsyncMock(return_value=[device]))
+        with patch("uiprotect.cli.ProtectApiClient") as client_cls:
+            client_cls.public_only.return_value = client
+            result = runner.invoke(app, [*_KEY_ONLY_ARGS, group, "dev-1"])
+
+    assert result.exit_code == 0, result.output
+    assert '"id": "dev-1"' in result.stdout
+
+
+@pytest.mark.parametrize("mode", ["hybrid", "key-only"])
+@pytest.mark.parametrize(
+    "group", [group for group, _p, _q in _DEVICE_GROUPS] + ["aiports"]
+)
+def test_group_rejects_an_unknown_device_id(mode, group) -> None:
+    """An unknown ID exits 1 in both modes."""
+    if mode == "key-only" and group == "aiports":
+        pytest.skip("aiports is private-only")
+    if mode == "hybrid":
+        bootstrap = MagicMock()
+        setattr(bootstrap, group, {})
+        with patch.object(
+            ProtectApiClient, "get_bootstrap", AsyncMock(return_value=bootstrap)
+        ):
+            result = runner.invoke(app, [*_BASE_AUTH_ARGS, group, "missing"])
+    else:
+        client = _public_only_client()
+        setattr(client, f"get_{group}_public", AsyncMock(return_value=[]))
+        with patch("uiprotect.cli.ProtectApiClient") as client_cls:
+            client_cls.public_only.return_value = client
+            result = runner.invoke(app, [*_KEY_ONLY_ARGS, group, "missing"])
+
+    assert result.exit_code == 1
+    assert "Invalid" in result.output
+
+
+def test_aiports_select_a_device_by_id() -> None:
+    """``aiports <id>`` shows the selected AI port."""
+    device = _group_read_device(AiPort)
+    bootstrap = _private_bootstrap_with("aiports", device)
+    with patch.object(
+        ProtectApiClient, "get_bootstrap", AsyncMock(return_value=bootstrap)
+    ):
+        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "aiports", "dev-1"])
+
+    assert result.exit_code == 0, result.output
+    assert '"id": "dev-1"' in result.stdout
+
+
+def test_device_map_caches_each_kind_separately() -> None:
+    """A second kind in the same command is fetched, not served from the first."""
+    camera = MagicMock(id="cam-1")
+    light = MagicMock(id="light-1")
+    protect = MagicMock(is_public_only=True)
+    protect.get_cameras_public = AsyncMock(return_value=[camera])
+    protect.get_lights_public = AsyncMock(return_value=[light])
+    protect.close_session = AsyncMock()
+    protect.close_public_api_session = AsyncMock()
+    ctx = MagicMock()
+    ctx.meta = {}
+    ctx.obj.protect = protect
+
+    assert base_cli.device_map(ctx, "cameras") == {"cam-1": camera}
+    assert base_cli.device_map(ctx, "lights") == {"light-1": light}
+    assert base_cli.device_map(ctx, "cameras") == {"cam-1": camera}
+    protect.get_cameras_public.assert_awaited_once()
+    protect.get_lights_public.assert_awaited_once()
+
+
+def test_key_only_chime_cameras_without_ids_via_the_cli() -> None:
+    """``chimes <id> cameras`` with no IDs lists the paired cameras key-only."""
+    chime = MagicMock(spec=PublicChime, id="chime-1", camera_ids=["cam-1"])
+    camera = MagicMock(spec=PublicCamera, id="cam-1")
+    camera.unifi_dict.return_value = {"id": "cam-1"}
+    client = _public_only_client()
+    client.get_chimes_public = AsyncMock(return_value=[chime])
+    client.get_cameras_public = AsyncMock(return_value=[camera])
+    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
+        client_cls.public_only.return_value = client
+        result = runner.invoke(app, [*_KEY_ONLY_ARGS, "chimes", "chime-1", "cameras"])
+
+    assert result.exit_code == 0, result.output
+    assert '"id": "cam-1"' in result.stdout
+    client.get_chimes_public.assert_awaited_once()
+    client.get_cameras_public.assert_awaited_once()
+
+
+def test_hybrid_chime_cameras_lists_paired_cameras() -> None:
+    """``chimes <id> cameras`` with no IDs lists the paired cameras over a login."""
+    chime = _private_device(Chime)
+    chime.camera_ids = ["cam-1"]
+    camera = _private_device(Camera)
+    camera.id = "cam-1"
+    camera.unifi_dict.return_value = {"id": "cam-1"}
+    bootstrap = _private_bootstrap_with("chimes", chime)
+    bootstrap.cameras = {"cam-1": camera}
+    with patch.object(
+        ProtectApiClient, "get_bootstrap", AsyncMock(return_value=bootstrap)
+    ):
+        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "chimes", "dev-1", "cameras"])
+
+    assert result.exit_code == 0, result.output
+    assert '"id": "cam-1"' in result.stdout
+
+
+def test_key_only_viewer_liveview_fetches_viewers_and_liveviews() -> None:
+    """``viewers <id> liveview`` resolves the liveview from a second kind."""
+    viewer = MagicMock(spec=PublicViewer, id="viewer-1", liveview_id="lv-1")
+    current = MagicMock(id="lv-1")
+    current.unifi_dict.return_value = {"id": "lv-1"}
+    client = _public_only_client()
+    client.get_viewers_public = AsyncMock(return_value=[viewer])
+    client.get_liveviews_public = AsyncMock(return_value=[current])
+    with patch("uiprotect.cli.ProtectApiClient") as client_cls:
+        client_cls.public_only.return_value = client
+        result = runner.invoke(
+            app, [*_KEY_ONLY_ARGS, "viewers", "viewer-1", "liveview"]
+        )
+
+    assert result.exit_code == 0, result.output
+    assert '"id": "lv-1"' in result.stdout
+    client.get_viewers_public.assert_awaited_once()
+    client.get_liveviews_public.assert_awaited_once()
+
+
+def test_hybrid_viewer_liveview_reads_the_private_liveview() -> None:
+    """Over a login the current liveview comes from the private viewer model."""
+    viewer = _private_device(Viewer)
+    viewer.liveview.unifi_dict.return_value = {"id": "lv-1"}
+    bootstrap = _private_bootstrap_with("viewers", viewer)
+    with patch.object(
+        ProtectApiClient, "get_bootstrap", AsyncMock(return_value=bootstrap)
+    ):
+        result = runner.invoke(app, [*_BASE_AUTH_ARGS, "viewers", "dev-1", "liveview"])
+
+    assert result.exit_code == 0, result.output
+    assert '"id": "lv-1"' in result.stdout
+
+
+@pytest.mark.parametrize("group", ["lights", "sensors"])
+def test_hybrid_paired_camera_lookup(group) -> None:
+    """``<group> <id> camera <cam>`` resolves the camera through the bootstrap."""
+    model_class = Light if group == "lights" else Sensor
+    device = _private_device(model_class)
+    device.set_paired_camera = AsyncMock()
+    camera = _private_device(Camera)
+    camera.id = "cam-1"
+    bootstrap = _private_bootstrap_with(group, device)
+    bootstrap.cameras = {"cam-1": camera}
+    with patch.object(
+        ProtectApiClient, "get_bootstrap", AsyncMock(return_value=bootstrap)
+    ):
+        paired = runner.invoke(
+            app, [*_BASE_AUTH_ARGS, group, "dev-1", "camera", "cam-1"]
+        )
+        invalid = runner.invoke(
+            app, [*_BASE_AUTH_ARGS, group, "dev-1", "camera", "missing"]
+        )
+
+    assert paired.exit_code == 0, paired.output
+    device.set_paired_camera.assert_awaited_once_with(camera)
+    assert invalid.exit_code == 1
+    assert "Invalid camera ID" in invalid.output
 
 
 def _public_ctx(model_class, **attrs):

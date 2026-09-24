@@ -42,6 +42,10 @@ MISSING_CREDENTIALS_ERROR = (
     "This command needs the private API: pass --username and --password "
     "(or set UFP_USERNAME and UFP_PASSWORD)."
 )
+DROP_CREDENTIAL_HINT = (
+    "Or drop --username/--password (and UFP_USERNAME/UFP_PASSWORD) to run "
+    "commands on the API key alone."
+)
 _PUBLIC_DEVICES_KEY = "uiprotect.public_devices"
 
 
@@ -119,6 +123,8 @@ def require_private_api(ctx: typer.Context) -> None:
     # A prompt without a terminal would hang a scripted run.
     if not _is_interactive():
         typer.secho(MISSING_CREDENTIALS_ERROR, fg="red", err=True)
+        if protect._api_key:
+            typer.secho(DROP_CREDENTIAL_HINT, err=True)
         raise typer.Exit(1)
     if not protect._username:
         protect._username = typer.prompt("Username")

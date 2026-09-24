@@ -84,7 +84,8 @@ def cameras(
         raise typer.Exit(1)
 
     cameras_by_id = base.device_map(ctx, "cameras")
-    if len(camera_ids) == 0:
+    # Typer passes ``None`` for an omitted variadic argument.
+    if not camera_ids:
         base.print_unifi_list(
             [cameras_by_id[i] for i in obj.camera_ids if i in cameras_by_id]
         )

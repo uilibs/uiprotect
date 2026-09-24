@@ -81,7 +81,8 @@ stream commands) — works with the API key alone.
 With no API key, or with a username or password but not both, the CLI runs in
 hybrid mode and asks for the missing credential only when a command needs the
 private API. It prompts only on an interactive terminal; a non-interactive run
-exits with an error instead. Public-API commands never prompt: without an API
+exits with an error instead, and when an API key was given it points out that
+dropping the username/password runs the command on the key alone. Public-API commands never prompt: without an API
 key they fail with an "API key is required" error.
 
 ## Timezones
