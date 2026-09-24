@@ -1037,7 +1037,7 @@ def test_camera_set_hdr_rejects_unknown_mode() -> None:
     result = runner.invoke(
         cameras_app,
         ["cam-1", "set-hdr", "always"],
-        obj=MagicMock(),
+        obj=MagicMock(**{"protect.is_public_only": False}),
     )
     assert result.exit_code == 2
     plain_output = _ANSI_ESCAPE_RE.sub("", result.output)
@@ -1069,7 +1069,7 @@ def test_camera_set_mic_volume_allows_zero() -> None:
     result = runner.invoke(
         cameras_app,
         ["cam-1", "set-mic-volume", "0"],
-        obj=MagicMock(),
+        obj=MagicMock(**{"protect.is_public_only": False}),
     )
     plain_output = _ANSI_ESCAPE_RE.sub("", result.output)
     assert "Invalid value" not in plain_output
@@ -1175,7 +1175,7 @@ def test_camera_set_lcd_text_rejects_unparsable_reset_time() -> None:
     result = runner.invoke(
         cameras_app,
         ["cam-1", "set-lcd-text", "DO_NOT_DISTURB", "--reset-time", "tomorrow"],
-        obj=MagicMock(),
+        obj=MagicMock(**{"protect.is_public_only": False}),
     )
     assert result.exit_code == 2
     plain_output = _ANSI_ESCAPE_RE.sub("", result.output)
