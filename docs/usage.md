@@ -238,7 +238,7 @@ from the second to the first:
   under `/integration/v1/…`. It authenticates with an **API key** (create one
   with `uiprotect create-api-key NAME`), is stable across firmware releases,
   and is the forward-looking path. The typed `subscribe_events` stream and the
-  public-API CLI groups (`viewers-public`, `users-public`, `liveviews`, …) are
+  public-API CLI groups (`users-public`, `liveviews`, `sirens`, …) are
   driven by this API. Requests on this path are **auto-paced** to stay under
   the server's per-API-key rate budget — the client seeds its rate from the
   `RateLimit-Policy` header on the first response (with safety margin for the

@@ -33,7 +33,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 from sqlalchemy.orm import Mapped, declarative_base, relationship
 
 from .. import data as d
-from ..api import ProtectApiClient
 from ..cli import base
 from ..utils import (
     format_duration,
@@ -442,11 +441,12 @@ def main(
     """
     _setup_logger(verbose)
 
-    protect: ProtectApiClient = ctx.obj.protect
     local_tz = get_local_timezone()
+    # Every backup subcommand resolves cameras through the private bootstrap.
+    bootstrap = base.private_bootstrap(ctx)
 
     if start is None:
-        start_dt = protect.bootstrap.recording_start
+        start_dt = bootstrap.recording_start
     else:
         start_dt = relative_datetime(ctx, start, ctx.command.params[0])
         start_dt = start_dt.replace(tzinfo=local_tz)
@@ -551,7 +551,9 @@ async def _update_event(ctx: BackupContext, event: d.Event) -> None:
     to_delete: list[EventSmartType] = []
     async with db:
         result = await db.execute(select(Event).where(Event.id == event.id))
-        db_event = result.scalars().first()
+        # The legacy ``Column`` attributes type as ``Column[T]`` rather than
+        # their Python value, so the row is handled untyped.
+        db_event: Any = result.scalars().first()
         do_insert = False
         if db_event is None:
             db_event = Event(id=event.id)
@@ -575,7 +577,7 @@ async def _update_event(ctx: BackupContext, event: d.Event) -> None:
                 if event_type.smart_type not in types:
                     to_delete.append(event_type)
                 else:
-                    types.remove(event_type.smart_type)
+                    types.remove(cast("str", event_type.smart_type))
 
             for smart_type_str in types:
                 db.add(EventSmartType(event_id=event.id, smart_type=smart_type_str))

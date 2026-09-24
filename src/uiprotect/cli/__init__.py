@@ -2,14 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import hashlib
 import logging
-import ssl
 import sys
 from pathlib import Path
 from typing import cast
 
-import aiohttp
 import orjson
 import typer
 from rich.progress import track
@@ -17,10 +14,10 @@ from rich.progress import track
 from uiprotect.api import MetaInfo, ProtectApiClient
 
 from ..data import WSPacket
-from ..exceptions import BadRequest
 from ..test_util import SampleDataGenerator
-from ..utils import get_local_timezone, run_async
+from ..utils import get_local_timezone
 from ..utils import profile_ws as profile_ws_job
+from . import base
 from .aiports import app as aiports_app
 from .arm import app as arm_app
 from .base import CliContext, OutputFormatEnum
@@ -41,7 +38,6 @@ from .speakers import app as speaker_app
 from .ulp_users_public import app as ulp_users_public_app
 from .users_public import app as users_public_app
 from .viewers import app as viewer_app
-from .viewers_public import app as viewer_public_app
 
 try:
     from .backup import app as backup_app
@@ -57,42 +53,25 @@ try:
 except ImportError:
     embed = termcolor = get_config = None  # type: ignore[assignment]
 
-# Sub-apps that only use the public API (API key) and do not need username/password
-_PUBLIC_ONLY_COMMAND_NAMES: tuple[str, ...] = (
-    "sirens",
-    "relays",
-    "fobs",
-    "speakers",
-    "link-stations",
-    "liveviews",
-    "bridges",
-    "viewers-public",
-    "users-public",
-    "ulp-users-public",
-    "files-public",
-    "arm",
+_PUBLIC_ONLY_HELP = (
+    "Prompted for when a command needs the private API. Omit both (and pass "
+    "--api-key) to run against the Public Integration API only; commands with "
+    "no public equivalent are then unavailable."
 )
-_PUBLIC_ONLY_COMMANDS: frozenset[str] = frozenset(_PUBLIC_ONLY_COMMAND_NAMES)
-_PUBLIC_ONLY_COMMANDS_HELP: str = ", ".join(_PUBLIC_ONLY_COMMAND_NAMES)
+_PENDING_CREDENTIAL = "<pending>"
 
 OPTION_USERNAME = typer.Option(
     None,
     "--username",
     "-U",
-    help=(
-        "UniFi Protect username (not required for public API commands: "
-        f"{_PUBLIC_ONLY_COMMANDS_HELP})"
-    ),
+    help=f"UniFi Protect username. {_PUBLIC_ONLY_HELP}",
     envvar="UFP_USERNAME",
 )
 OPTION_PASSWORD = typer.Option(
     None,
     "--password",
     "-P",
-    help=(
-        "UniFi Protect password (not required for public API commands: "
-        f"{_PUBLIC_ONLY_COMMANDS_HELP})"
-    ),
+    help=f"UniFi Protect password. {_PUBLIC_ONLY_HELP}",
     hide_input=True,
     envvar="UFP_PASSWORD",
 )
@@ -171,7 +150,6 @@ app.add_typer(chime_app, name="chimes")
 app.add_typer(light_app, name="lights")
 app.add_typer(sensor_app, name="sensors")
 app.add_typer(viewer_app, name="viewers")
-app.add_typer(viewer_public_app, name="viewers-public")
 app.add_typer(aiports_app, name="aiports")
 app.add_typer(siren_app, name="sirens")
 app.add_typer(relay_app, name="relays")
@@ -186,40 +164,6 @@ app.add_typer(arm_app, name="arm")
 
 if backup_app is not None:
     app.add_typer(backup_app, name="backup")
-
-
-def _is_ssl_error(exc: BaseException) -> bool:
-    """Check if an exception is an SSL certificate verification error."""
-    if isinstance(exc, aiohttp.ClientConnectorCertificateError):
-        return True
-    if isinstance(exc, aiohttp.ClientConnectorSSLError):
-        return True
-    if isinstance(exc, ssl.SSLCertVerificationError):
-        return True
-    # Check nested exceptions
-    if exc.__cause__ is not None:
-        return _is_ssl_error(exc.__cause__)
-    return False
-
-
-def _get_cert_fingerprint(host: str, port: int) -> str | None:
-    """Return the SHA-256 fingerprint of the server's leaf certificate, or None."""
-    try:
-        pem = ssl.get_server_certificate((host, port), timeout=5)
-    except (OSError, ssl.SSLError):
-        return None
-    if not pem:
-        return None
-    der = ssl.PEM_cert_to_DER_cert(pem)
-    digest = hashlib.sha256(der).hexdigest().upper()
-    return ":".join(digest[i : i + 2] for i in range(0, len(digest), 2))
-
-
-async def _connect_and_bootstrap(protect: ProtectApiClient) -> None:
-    """Connect to the Protect API and fetch bootstrap data."""
-    protect._bootstrap = await protect.get_bootstrap()
-    await protect.close_session()
-    await protect.close_public_api_session()
 
 
 @app.callback()
@@ -238,72 +182,38 @@ def main(
     # preload the timezone before any async code runs
     get_local_timezone()
 
-    is_public_only = ctx.invoked_subcommand in _PUBLIC_ONLY_COMMANDS
+    # The credentials decide the mode, not the subcommand: an API key with no
+    # private credential at all runs the whole CLI against the Public
+    # Integration API, with no login and no private bootstrap.
+    is_public_only = bool(api_key) and not username and not password
 
-    if not is_public_only:
-        # Private API commands require username and password.
-        # Prompt interactively if not supplied via option/env.
-        if not username:
-            username = typer.prompt("Username")
-        if not password:
-            password = typer.prompt("Password", hide_input=True)
-
-    try:
+    if is_public_only:
+        protect = ProtectApiClient.public_only(
+            address,
+            port,
+            api_key=cast("str", api_key),
+            verify_ssl=verify_ssl,
+            ignore_unadopted=not include_unadopted,
+        )
+    else:
+        # The client refuses to be built without a full login, but a
+        # missing half is only prompted for once a command actually needs
+        # the private API (``base.require_private_api``).
         protect = ProtectApiClient(
             address,
             port,
-            username=None if is_public_only else (username or ""),
-            password=None if is_public_only else (password or ""),
+            username=username or _PENDING_CREDENTIAL,
+            password=password or _PENDING_CREDENTIAL,
             api_key=api_key,
             verify_ssl=verify_ssl,
             ignore_unadopted=not include_unadopted,
         )
-    except BadRequest as err:
-        typer.secho(str(err), fg="red", err=True)
-        raise typer.Exit(code=1) from err
+        protect._username = username or None
+        protect._password = password or None
 
-    async def close_protect() -> None:
-        """Close the Protect API client sessions."""
-        await protect.close_session()
-        await protect.close_public_api_session()
-
-    if not is_public_only:
-        try:
-            run_async(_connect_and_bootstrap(protect))
-        except Exception as exc:
-            # Always close the session on error to avoid "Unclosed client session" warning
-            run_async(close_protect())
-
-            if verify_ssl and _is_ssl_error(exc):
-                typer.secho(
-                    f"SSL certificate verification failed for {address}:{port}.",
-                    fg="red",
-                    err=True,
-                )
-                fingerprint = _get_cert_fingerprint(address, port)
-                if fingerprint:
-                    typer.secho(
-                        f"  Server certificate SHA-256: {fingerprint}",
-                        err=True,
-                    )
-                typer.secho(
-                    "Refusing to retry with verification disabled — sending "
-                    "credentials over an unauthenticated TLS channel would "
-                    "expose them to any on-path attacker.",
-                    fg="red",
-                    err=True,
-                )
-                typer.secho(
-                    "If you have verified the fingerprint above out-of-band "
-                    "(e.g. via the UniFi Protect console), rerun the command "
-                    "with --no-verify-ssl to skip verification for this "
-                    "invocation.",
-                    err=True,
-                )
-                raise typer.Exit(code=1) from exc
-            typer.secho(f"Connection failed: {exc}", fg="red")
-            raise typer.Exit(code=1) from exc
-
+    # The private bootstrap is fetched on first use (see
+    # ``base.private_bootstrap``), so a command that only talks to the Public
+    # Integration API never logs in.
     ctx.obj = CliContext(protect=protect, output_format=output_format)
 
 
@@ -333,6 +243,9 @@ def shell(ctx: typer.Context) -> None:
     if embed is None or colored is None:
         typer.echo("ipython and termcolor required for shell subcommand")
         sys.exit(1)
+
+    # The shell hands the client to the operator expecting a loaded bootstrap.
+    base.private_bootstrap(ctx)
 
     # locals passed to shell
     protect = cast(
@@ -366,6 +279,9 @@ def generate_sample_data(
     do_zip: bool = OPTION_ZIP,
 ) -> None:
     """Generates sample data for UniFi Protect instance."""
+    # Logging in up front reports an unreachable console or an untrusted
+    # certificate the same way every other private command does.
+    base.private_bootstrap(ctx)
     protect = cast("ProtectApiClient", ctx.obj.protect)
 
     if output_folder is None:
@@ -401,6 +317,7 @@ def profile_ws(
     output_path: Path | None = OPTION_OUTPUT,
 ) -> None:
     """Profiles Websocket messages for UniFi Protect instance."""
+    base.require_private_api(ctx)
     protect = cast("ProtectApiClient", ctx.obj.protect)
 
     async def callback() -> None:
@@ -419,7 +336,7 @@ def profile_ws(
 
     _setup_logger()
 
-    run_async(callback())
+    base.run(ctx, callback())
 
 
 @app.command()
@@ -450,17 +367,13 @@ def create_api_key(
     name: str = typer.Argument(..., help="Name for the API key"),
 ) -> None:
     """Create a new API key for the current user."""
+    # Provisioning a key is a private-API operation: it needs a logged-in
+    # session, which a public-only client does not have.
+    base.require_private_api(ctx)
     protect = cast("ProtectApiClient", ctx.obj.protect)
 
-    async def callback() -> str:
-        api_key = await protect.create_api_key(name)
-        await protect.close_session()
-        await protect.close_public_api_session()
-        return api_key
-
     _setup_logger()
-    result = run_async(callback())
-    typer.echo(result)
+    typer.echo(base.run(ctx, protect.create_api_key(name)))
 
 
 @app.command()
@@ -468,13 +381,6 @@ def get_meta_info(ctx: typer.Context) -> None:
     """Get metadata about the current UniFi Protect instance."""
     protect = cast("ProtectApiClient", ctx.obj.protect)
 
-    async def callback() -> MetaInfo:
-        meta = await protect.get_meta_info()
-        await protect.close_session()
-        await protect.close_public_api_session()
-        return meta
-
     _setup_logger()
-
-    result = run_async(callback())
-    typer.echo(result.model_dump_json())
+    meta: MetaInfo = base.run(ctx, protect.get_meta_info())
+    typer.echo(meta.model_dump_json())

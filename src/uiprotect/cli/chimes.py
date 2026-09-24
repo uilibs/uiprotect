@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 import typer
 
 from ..api import ProtectApiClient
 from ..cli import base
-from ..data import Chime
+from ..data import Camera, Chime
+from ..data.public_devices import PublicChime
 
 app = typer.Typer(rich_markup_mode="rich")
 
@@ -17,8 +19,8 @@ ARG_VOLUME = typer.Argument(..., help="Volume", min=1, max=100)
 
 @dataclass
 class ChimeContext(base.CliContext):
-    devices: dict[str, Chime]
-    device: Chime | None = None
+    devices: dict[str, Chime | PublicChime]
+    device: Chime | PublicChime | None = None
 
 
 ALL_COMMANDS, DEVICE_COMMANDS = base.init_common_commands(app)
@@ -31,17 +33,17 @@ def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
 
     Returns full list of Chimes without any arguments passed.
     """
-    protect: ProtectApiClient = ctx.obj.protect
+    devices = base.device_map(ctx, "chimes")
     context = ChimeContext(
         protect=ctx.obj.protect,
         device=None,
-        devices=protect.bootstrap.chimes,
+        devices=devices,
         output_format=ctx.obj.output_format,
     )
     ctx.obj = context
 
     if device_id is not None and device_id not in ALL_COMMANDS:
-        if (device := protect.bootstrap.chimes.get(device_id)) is None:
+        if (device := devices.get(device_id)) is None:
             typer.secho("Invalid chime ID", fg="red")
             raise typer.Exit(1)
         ctx.obj.device = device
@@ -74,15 +76,23 @@ def cameras(
     ),
 ) -> None:
     """Returns or sets paired doorbells for the chime."""
-    base.require_device_id(ctx)
-    obj: Chime = ctx.obj.device
+    base.require_device_id(ctx, public_ok=True)
+    obj: Chime | PublicChime = ctx.obj.device
 
     if add and remove:
         typer.secho("Add and remove are mutually exclusive", fg="red")
         raise typer.Exit(1)
 
-    if len(camera_ids) == 0:
-        base.print_unifi_list(obj.cameras)
+    cameras_by_id = base.device_map(ctx, "cameras")
+    # Typer passes ``None`` for an omitted variadic argument.
+    if not camera_ids:
+        base.json_output(
+            [
+                base.camera_dict(cameras_by_id[i])
+                for i in obj.camera_ids
+                if i in cameras_by_id
+            ]
+        )
         return
 
     protect: ProtectApiClient = ctx.obj.protect
@@ -91,11 +101,13 @@ def cameras(
         camera_ids = []
 
     for camera_id in camera_ids:
-        if (camera := protect.bootstrap.cameras.get(camera_id)) is None:
+        if (camera := cameras_by_id.get(camera_id)) is None:
             typer.secho(f"Invalid camera ID: {camera_id}", fg="red")
             raise typer.Exit(1)
 
-        if not camera.feature_flags.is_doorbell:
+        # The public camera model carries no doorbell flag; the console
+        # validates the pairing itself.
+        if isinstance(camera, Camera) and not camera.feature_flags.is_doorbell:
             typer.secho(f"Camera is not a doorbell: {camera_id}", fg="red")
             raise typer.Exit(1)
 
@@ -119,18 +131,25 @@ def set_volume(
     ),
 ) -> None:
     """Set volume level for chime rings."""
-    base.require_device_id(ctx)
-    obj: Chime = ctx.obj.device
+    # Without a camera the whole ring-settings list is rewritten, which only
+    # the private model can build a request body for.
+    base.require_device_id(ctx, public_ok=camera_id is not None)
+    obj: Chime | PublicChime = ctx.obj.device
     protect: ProtectApiClient = ctx.obj.protect
     if camera_id is None:
-        ring_settings = [s.to_api_dict(volume=value) for s in obj.ring_settings]
+        ring_settings = [
+            s.to_api_dict(volume=value) for s in cast("Chime", obj).ring_settings
+        ]
         base.run(ctx, protect.update_chime_public(obj.id, ring_settings=ring_settings))
     else:
-        camera = protect.bootstrap.cameras.get(camera_id)
+        camera = base.device_map(ctx, "cameras").get(camera_id)
         if camera is None:
             typer.secho(f"Invalid camera ID: {camera_id}", fg="red")
             raise typer.Exit(1)
-        base.run(ctx, obj.set_volume_for_camera_public(camera, value))
+        if isinstance(obj, PublicChime):
+            base.run(ctx, obj.set_volume_for_camera(camera.id, value))
+        else:
+            base.run(ctx, obj.set_volume_for_camera_public(camera, value))
 
 
 @app.command()
@@ -165,15 +184,22 @@ def set_repeat_times(
     ),
 ) -> None:
     """Set number of times for a chime to repeat when doorbell is rang."""
-    base.require_device_id(ctx)
-    obj: Chime = ctx.obj.device
+    # Without a camera the whole ring-settings list is rewritten, which only
+    # the private model can build a request body for.
+    base.require_device_id(ctx, public_ok=camera_id is not None)
+    obj: Chime | PublicChime = ctx.obj.device
     protect: ProtectApiClient = ctx.obj.protect
     if camera_id is None:
-        ring_settings = [s.to_api_dict(repeat_times=value) for s in obj.ring_settings]
+        ring_settings = [
+            s.to_api_dict(repeat_times=value) for s in cast("Chime", obj).ring_settings
+        ]
         base.run(ctx, protect.update_chime_public(obj.id, ring_settings=ring_settings))
     else:
-        camera = protect.bootstrap.cameras.get(camera_id)
+        camera = base.device_map(ctx, "cameras").get(camera_id)
         if camera is None:
             typer.secho(f"Invalid camera ID: {camera_id}", fg="red")
             raise typer.Exit(1)
-        base.run(ctx, obj.set_repeat_times_for_camera_public(camera, value))
+        if isinstance(obj, PublicChime):
+            base.run(ctx, obj.set_repeat_times_for_camera(camera.id, value))
+        else:
+            base.run(ctx, obj.set_repeat_times_for_camera_public(camera, value))
