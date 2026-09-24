@@ -69,6 +69,8 @@ Ready to contribute? Here's how to set yourself up for local development.
    $ poetry run pytest
    ```
 
+   `make test` runs the same suite with benchmarks skipped.
+
 6. Linting is done through [pre-commit](https://pre-commit.com). Provided you have the tool installed globally, you can run them all as one-off:
 
    ```shell
