@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.16.0 (2026-09-24)
+
+### Features
+
+
+- Expose current websocket state on the client ([`1757338`](https://github.com/uilibs/uiprotect/commit/1757338a51a376354f9cee273e0fe09bf4c3b943))
+
+
 ## v16.15.0 (2026-09-24)
 
 ### Features
