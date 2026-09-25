@@ -6,7 +6,7 @@ import asyncio
 import base64
 import logging
 from copy import deepcopy
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from ipaddress import IPv4Address
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -43,7 +43,7 @@ from uiprotect.data import (
     create_from_unifi_dict,
 )
 from uiprotect.data.bootstrap import MAX_EVENT_HISTORY_IN_STATE_MACHINE
-from uiprotect.data.devices import LCDMessage
+from uiprotect.data.devices import LCDMessage, VideoStats
 from uiprotect.data.nvr import EventMetadata
 from uiprotect.data.types import RecordingType, ResolutionStorageType
 from uiprotect.data.user import CloudAccount
@@ -2040,3 +2040,52 @@ def test_handle_ws_error_no_device_id(
     # Must not raise — this was a bug before the fix
     bootstrap._handle_ws_error("update", ModelType.CAMERA, action, err)
     assert len(bootstrap._refresh_tasks) == 0
+
+
+_HQ_START = datetime(2026, 9, 6, tzinfo=UTC)
+_LQ_START = datetime(2026, 2, 25, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("hq", "lq", "expected"),
+    [
+        (_HQ_START, _LQ_START, _LQ_START),
+        (_LQ_START, _HQ_START, _LQ_START),
+        (None, _LQ_START, _LQ_START),
+        (_HQ_START, None, _HQ_START),
+        (None, None, None),
+    ],
+)
+def test_video_stats_earliest_recording_start(
+    hq: datetime | None, lq: datetime | None, expected: datetime | None
+) -> None:
+    """earliest_recording_start is the earlier of the HQ and LQ starts."""
+    stats = VideoStats(recording_start=hq, recording_start_lq=lq)
+    assert stats.earliest_recording_start == expected
+
+
+@pytest.mark.parametrize(
+    ("hq", "lq", "expected"),
+    [
+        (_HQ_START, _LQ_START, _LQ_START),
+        (None, _LQ_START, _LQ_START),
+        (_HQ_START, None, _HQ_START),
+        (None, None, None),
+    ],
+)
+def test_bootstrap_recording_start_includes_low_quality(
+    protect_client: ProtectApiClient,
+    hq: datetime | None,
+    lq: datetime | None,
+    expected: datetime | None,
+) -> None:
+    """recording_start and has_media account for low-quality recordings."""
+    bootstrap = protect_client.bootstrap
+    for camera in bootstrap.cameras.values():
+        camera.stats.video.recording_start = hq
+        camera.stats.video.recording_start_lq = lq
+    bootstrap._recording_start = None
+    bootstrap._has_media = None
+
+    assert bootstrap.recording_start == expected
+    assert bootstrap.has_media is (expected is not None)

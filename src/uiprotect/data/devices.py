@@ -749,6 +749,14 @@ class VideoStats(ProtectBaseObject):
     timelapse_start_lq: datetime | None = None
     timelapse_end_lq: datetime | None = None
 
+    @property
+    def earliest_recording_start(self) -> datetime | None:
+        """Earliest recording start across the high- and low-quality tiers."""
+        starts = [
+            s for s in (self.recording_start, self.recording_start_lq) if s is not None
+        ]
+        return min(starts, default=None)
+
     @classmethod
     @cache
     def _get_unifi_remaps(cls) -> dict[str, str]:

@@ -393,9 +393,9 @@ class Bootstrap(ProtectBaseObject):
         if self._recording_start is None:
             try:
                 self._recording_start = min(
-                    c.stats.video.recording_start
+                    start
                     for c in self.cameras.values()
-                    if c.stats.video.recording_start is not None
+                    if (start := c.stats.video.earliest_recording_start) is not None
                 )
             except ValueError:
                 return None
