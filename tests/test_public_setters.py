@@ -124,8 +124,8 @@ def _chime(api: Any) -> PublicChime:
         name="Chime",
         cameraIds=["cam-a", "cam-b"],
         ringSettings=[
-            {"cameraId": "cam-a", "volume": 50, "repeatTimes": 1},
-            {"cameraId": "cam-b", "volume": 60, "repeatTimes": 2},
+            {"cameraId": "cam-a", "volume": 50, "repeatTimes": 1, "ringtoneId": "rt-a"},
+            {"cameraId": "cam-b", "volume": 60, "repeatTimes": 2, "ringtoneId": "rt-b"},
         ],
     )
 
@@ -1073,7 +1073,7 @@ async def test_public_chime_set_name() -> None:
 async def test_public_chime_set_ring_settings() -> None:
     api = MagicMock()
     chime = _chime(api)
-    body = [{"cameraId": "cam-a", "volume": 20, "repeatTimes": 3}]
+    body = [{"cameraId": "cam-a", "volume": 20, "repeatTimes": 3, "ringtoneId": "rt-a"}]
     api.update_chime_public = AsyncMock(
         return_value=chime.model_copy(
             update={
@@ -1113,7 +1113,12 @@ async def test_public_chime_set_volume_for_camera() -> None:
 
     assert result is chime
     body = api.update_chime_public.call_args.kwargs["ring_settings"]
-    assert body[0] == {"cameraId": "cam-a", "volume": 15, "repeatTimes": 1}
+    assert body[0] == {
+        "cameraId": "cam-a",
+        "ringtoneId": "rt-a",
+        "volume": 15,
+        "repeatTimes": 1,
+    }
     assert body[1]["volume"] == 60
     assert chime.ring_settings[0].volume == 15
 
@@ -1127,7 +1132,10 @@ async def test_public_chime_set_repeat_times_for_camera() -> None:
     await chime.set_repeat_times_for_camera("cam-b", 4)
 
     body = api.update_chime_public.call_args.kwargs["ring_settings"]
-    assert body[1] == {"cameraId": "cam-b", "volume": 60, "repeatTimes": 4}
+    assert body == [
+        {"cameraId": "cam-a", "ringtoneId": "rt-a", "volume": 50, "repeatTimes": 1},
+        {"cameraId": "cam-b", "ringtoneId": "rt-b", "volume": 60, "repeatTimes": 4},
+    ]
 
 
 @pytest.mark.asyncio

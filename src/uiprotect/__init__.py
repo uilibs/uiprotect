@@ -15,6 +15,7 @@ from .events import (
 from .exceptions import (
     ArmedModeError,
     BadRequest,
+    ChimeRingtoneNotSetError,
     GlobalAlarmManagerError,
     Invalid,
     NotAuthorized,
@@ -33,6 +34,7 @@ from .utils import (
 __all__ = [
     "ArmedModeError",
     "BadRequest",
+    "ChimeRingtoneNotSetError",
     "DeviceChange",
     "EventChange",
     "EventIdentity",

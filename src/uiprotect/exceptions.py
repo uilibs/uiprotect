@@ -33,6 +33,17 @@ class PublicOnlyModeError(BadRequest):
     """Private-API operation attempted on a public-only (API-key-only) client."""
 
 
+class ChimeRingtoneNotSetError(BadRequest):
+    """Chime ring setting has no ringtone, which the public API requires."""
+
+    def __init__(self, camera_id: str) -> None:
+        self.camera_id = camera_id
+        super().__init__(
+            f"Chime has no ringtone set for camera {camera_id}; select a "
+            "ringtone for that camera in the UniFi Protect app"
+        )
+
+
 class Invalid(ClientError):
     """Invalid return from Authorization Request."""
 
