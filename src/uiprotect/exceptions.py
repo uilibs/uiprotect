@@ -38,8 +38,11 @@ class ChimeRingtoneNotSetError(BadRequest):
 
     def __init__(self, camera_id: str) -> None:
         self.camera_id = camera_id
-        super().__init__(
-            f"Chime has no ringtone set for camera {camera_id}; select a "
+        super().__init__(camera_id)
+
+    def __str__(self) -> str:
+        return (
+            f"Chime has no ringtone set for camera {self.camera_id}; select a "
             "ringtone for that camera in the UniFi Protect app"
         )
 

@@ -137,10 +137,7 @@ def set_volume(
     obj: Chime | PublicChime = ctx.obj.device
     protect: ProtectApiClient = ctx.obj.protect
     if camera_id is None:
-        ring_settings = [
-            s.to_api_dict(volume=value) for s in cast("Chime", obj).ring_settings
-        ]
-        base.run(ctx, protect.update_chime_public(obj.id, ring_settings=ring_settings))
+        base.run(ctx, _update_ring_settings(protect, cast("Chime", obj), volume=value))
     else:
         camera = base.device_map(ctx, "cameras").get(camera_id)
         if camera is None:
@@ -190,10 +187,9 @@ def set_repeat_times(
     obj: Chime | PublicChime = ctx.obj.device
     protect: ProtectApiClient = ctx.obj.protect
     if camera_id is None:
-        ring_settings = [
-            s.to_api_dict(repeat_times=value) for s in cast("Chime", obj).ring_settings
-        ]
-        base.run(ctx, protect.update_chime_public(obj.id, ring_settings=ring_settings))
+        base.run(
+            ctx, _update_ring_settings(protect, cast("Chime", obj), repeat_times=value)
+        )
     else:
         camera = base.device_map(ctx, "cameras").get(camera_id)
         if camera is None:
@@ -203,3 +199,13 @@ def set_repeat_times(
             base.run(ctx, obj.set_repeat_times_for_camera(camera.id, value))
         else:
             base.run(ctx, obj.set_repeat_times_for_camera_public(camera, value))
+
+
+async def _update_ring_settings(
+    protect: ProtectApiClient, chime: Chime, **changes: int
+) -> None:
+    # Built inside the coroutine so ChimeRingtoneNotSetError reaches base.run.
+    await protect.update_chime_public(
+        chime.id,
+        ring_settings=[s.to_api_dict(**changes) for s in chime.ring_settings],
+    )

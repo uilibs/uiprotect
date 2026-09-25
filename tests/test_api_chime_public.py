@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import copy
+import pickle
 import warnings
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock, patch
@@ -874,6 +876,23 @@ async def test_ring_setting_to_api_dict_requires_ringtone_id(
         ring_setting.to_api_dict()
 
     assert exc_info.value.camera_id == camera_obj.id
+
+
+@pytest.mark.parametrize(
+    "clone",
+    [lambda e: pickle.loads(pickle.dumps(e)), copy.copy, copy.deepcopy],  # noqa: S301
+    ids=["pickle", "copy", "deepcopy"],
+)
+def test_chime_ringtone_not_set_error_survives_cloning(clone: Any) -> None:
+    """ChimeRingtoneNotSetError keeps camera_id and message across pickle/copy."""
+    err = ChimeRingtoneNotSetError("cam-1")
+
+    cloned = clone(err)
+
+    assert isinstance(cloned, ChimeRingtoneNotSetError)
+    assert cloned.camera_id == "cam-1"
+    assert str(cloned) == str(err)
+    assert "no ringtone set for camera cam-1" in str(cloned)
 
 
 def _set_chime_ring_settings(
