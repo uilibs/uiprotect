@@ -1,5 +1,16 @@
 # Changelog
 
+## v16.16.1 (2026-09-25)
+
+### Bug fixes
+
+
+- Include low-quality recordings in recording_start ([`72cb66a`](https://github.com/uilibs/uiprotect/commit/72cb66ab261c9f244286660a0d64120e026beb66))
+
+
+- Include low-quality recordings in bootstrap.recording_start ([`72cb66a`](https://github.com/uilibs/uiprotect/commit/72cb66ab261c9f244286660a0d64120e026beb66))
+
+
 ## v16.16.0 (2026-09-24)
 
 ### Features
