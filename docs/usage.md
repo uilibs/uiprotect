@@ -213,6 +213,19 @@ A `False` is not always followed by another attempt: it is final after
 `NotAuthorized` or after the last backoff step, and the callback does not say
 which. A consumer that must not stay stale should refresh with
 `update_public()` or reauthenticate itself rather than wait for the library.
+
+Arm profiles (`public_bootstrap.arm_profiles`) have no `modelKey`, so the
+devices websocket never updates them. After `update_public()` the client
+re-fetches them every `PUBLIC_ARM_PROFILES_REFRESH_INTERVAL` (300 s), so a
+profile created, renamed or deleted from the console or another client
+reaches the cache without a reconnect. When the set actually changed, the
+store is updated in place and a synthetic devices-websocket `update` for the
+NVR is emitted, with the new profiles under `armProfiles` in `changed_data`;
+an unchanged fetch stays silent. A run is skipped while the last
+`update_public()` failed transiently on the arm-profiles endpoint, since the
+resync retry covers it. `close_session()`, `close_public_api_session()` and
+`async_disconnect_ws()` stop the timer; the next `update_public()` starts it
+again.
 `update_public()` keeps the RTSPS streams already cached on each camera, so
 current stream URLs need `get_camera_rtsps_streams(camera_id)`.
 

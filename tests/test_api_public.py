@@ -6233,3 +6233,325 @@ async def test_public_resync_reconnect_restarts_backoff(
     assert protect_client._public_resync_retry_timer is not None
     assert protect_client._public_resync_retries == 1
     await protect_client.close_session()
+
+
+def _arm_profile(client: ProtectApiClient, name: str = "Night") -> ArmProfile:
+    return ArmProfile.from_unifi_dict(
+        id=PROFILE_ID,
+        name=name,
+        automations=["a1"],
+        schedules=[],
+        recordEverything=False,
+        activationDelay=0,
+        api=client,
+    )
+
+
+def _prime_arm_profiles(client: ProtectApiClient) -> PublicBootstrap:
+    pb = PublicBootstrap()
+    pb.nvr = _make_public_nvr(client)
+    pb.arm_profiles[PROFILE_ID] = _arm_profile(client)
+    client._public_bootstrap = pb
+    return pb
+
+
+@pytest.mark.asyncio
+async def test_update_public_arms_arm_profiles_refresh(
+    protect_client: ProtectApiClient,
+) -> None:
+    """update_public arms one refresh timer and a second call keeps it."""
+    _mock_update_public_endpoints(protect_client)
+    assert protect_client._arm_profiles_refresh_timer is None
+    await protect_client.update_public()
+    timer = protect_client._arm_profiles_refresh_timer
+    assert timer is not None
+    await protect_client.update_public()
+    assert protect_client._arm_profiles_refresh_timer is timer
+
+
+@pytest.mark.asyncio
+async def test_arm_profiles_refresh_timer_fires_and_rearms(
+    protect_client: ProtectApiClient,
+) -> None:
+    """The timer refreshes the store in place and re-arms itself."""
+    _mock_update_public_endpoints(protect_client)
+    with patch.object(api_module, "PUBLIC_ARM_PROFILES_REFRESH_INTERVAL", 0.01):
+        await protect_client.update_public()
+        pb = protect_client.public_bootstrap
+        store = pb.arm_profiles
+        renamed = _arm_profile(protect_client, "Away")
+        protect_client._fetch_arm_profiles = AsyncMock(return_value=[renamed])
+        for _ in range(100):
+            if store.get(PROFILE_ID) is renamed:
+                break
+            await asyncio.sleep(0.01)
+    assert pb.arm_profiles is store
+    assert store == {PROFILE_ID: renamed}
+    assert protect_client._arm_profiles_refresh_timer is not None
+
+
+@pytest.mark.asyncio
+async def test_run_arm_profiles_refresh_coalesces(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A tick while a refresh is still running starts no second one."""
+    _prime_arm_profiles(protect_client)
+    gate = asyncio.Event()
+
+    async def _slow_fetch() -> list[ArmProfile]:
+        await gate.wait()
+        return []
+
+    protect_client._fetch_arm_profiles = AsyncMock(side_effect=_slow_fetch)
+    protect_client._run_arm_profiles_refresh()
+    task = protect_client._arm_profiles_refresh_task
+    assert task is not None
+    await asyncio.sleep(0)
+    protect_client._run_arm_profiles_refresh()
+    assert protect_client._arm_profiles_refresh_task is task
+    gate.set()
+    await task
+    assert protect_client._fetch_arm_profiles.await_count == 1
+    assert protect_client._arm_profiles_refresh_timer is not None
+
+
+@pytest.mark.asyncio
+async def test_refresh_arm_profiles_emits_nvr_update_on_change(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A changed set is written in place and announced as an NVR update."""
+    pb = _prime_arm_profiles(protect_client)
+    store = pb.arm_profiles
+    renamed = _arm_profile(protect_client, "Away")
+    protect_client._fetch_arm_profiles = AsyncMock(return_value=[renamed])
+    messages: list[WSSubscriptionMessage] = []
+    changes: list[ProtectDeviceChange] = []
+    protect_client.subscribe_devices_websocket(messages.append)
+    protect_client.subscribe_devices(changes.append)
+
+    await protect_client._refresh_arm_profiles()
+
+    assert pb.arm_profiles is store
+    assert store == {PROFILE_ID: renamed}
+    assert len(messages) == 1
+    msg = messages[0]
+    assert msg.action is WSAction.UPDATE
+    assert msg.new_obj is pb.nvr
+    assert msg.changed_data["modelKey"] == "nvr"
+    assert msg.changed_data["id"] == pb.nvr.id
+    assert msg.changed_data["armProfiles"][0]["name"] == "Away"
+    assert len(changes) == 1
+    assert changes[0].change is DeviceChange.UPDATED
+    assert changes[0].model_type is ModelType.NVR
+
+
+@pytest.mark.asyncio
+async def test_refresh_arm_profiles_silent_when_unchanged(
+    protect_client: ProtectApiClient,
+) -> None:
+    """An equal re-fetch neither rewrites the store nor emits."""
+    pb = _prime_arm_profiles(protect_client)
+    cached = pb.arm_profiles[PROFILE_ID]
+    protect_client._fetch_arm_profiles = AsyncMock(
+        return_value=[_arm_profile(protect_client)]
+    )
+    messages: list[WSSubscriptionMessage] = []
+    protect_client.subscribe_devices_websocket(messages.append)
+
+    await protect_client._refresh_arm_profiles()
+
+    assert pb.arm_profiles[PROFILE_ID] is cached
+    assert messages == []
+
+
+@pytest.mark.asyncio
+async def test_refresh_arm_profiles_announces_deletion(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A profile deleted out-of-band leaves the store and is announced."""
+    pb = _prime_arm_profiles(protect_client)
+    protect_client._fetch_arm_profiles = AsyncMock(return_value=[])
+    messages: list[WSSubscriptionMessage] = []
+    protect_client.subscribe_devices_websocket(messages.append)
+
+    await protect_client._refresh_arm_profiles()
+
+    assert pb.arm_profiles == {}
+    assert len(messages) == 1
+    assert messages[0].changed_data["armProfiles"] == []
+
+
+@pytest.mark.asyncio
+async def test_refresh_arm_profiles_skips_after_transient_failure(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A transiently failed arm-profiles fetch leaves retries to the resync."""
+    _prime_arm_profiles(protect_client)
+    protect_client._public_failed_endpoints = frozenset({"arm-profiles"})
+    protect_client._fetch_arm_profiles = AsyncMock(return_value=[])
+
+    await protect_client._refresh_arm_profiles()
+
+    protect_client._fetch_arm_profiles.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_refresh_arm_profiles_runs_after_other_endpoint_failure(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Only the arm-profiles failure gates the refresh."""
+    pb = _prime_arm_profiles(protect_client)
+    protect_client._public_failed_endpoints = frozenset({"cameras"})
+    protect_client._fetch_arm_profiles = AsyncMock(return_value=[])
+
+    await protect_client._refresh_arm_profiles()
+
+    assert pb.arm_profiles == {}
+
+
+@pytest.mark.asyncio
+async def test_refresh_arm_profiles_without_bootstrap(
+    protect_client: ProtectApiClient,
+) -> None:
+    """No materialised cache means nothing to refresh."""
+    protect_client._fetch_arm_profiles = AsyncMock(return_value=[])
+    await protect_client._refresh_arm_profiles()
+    protect_client._fetch_arm_profiles.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error", [BadRequest("404"), NvrError("timeout"), NotAuthorized("revoked")]
+)
+async def test_refresh_arm_profiles_swallows_fetch_errors(
+    protect_client: ProtectApiClient, error: Exception
+) -> None:
+    """A failed fetch keeps the cached profiles and does not raise."""
+    pb = _prime_arm_profiles(protect_client)
+    cached = pb.arm_profiles[PROFILE_ID]
+    protect_client._fetch_arm_profiles = AsyncMock(side_effect=error)
+
+    await protect_client._refresh_arm_profiles()
+
+    assert pb.arm_profiles == {PROFILE_ID: cached}
+
+
+@pytest.mark.asyncio
+async def test_refresh_arm_profiles_backs_off_on_concurrent_write(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A store write landing mid-fetch wins over the periodic result."""
+    pb = _prime_arm_profiles(protect_client)
+    created = _arm_profile(protect_client, "Created")
+    created.id = "other"
+
+    async def _fetch() -> list[ArmProfile]:
+        pb.arm_profiles[created.id] = created
+        return []
+
+    protect_client._fetch_arm_profiles = AsyncMock(side_effect=_fetch)
+    messages: list[WSSubscriptionMessage] = []
+    protect_client.subscribe_devices_websocket(messages.append)
+
+    await protect_client._refresh_arm_profiles()
+
+    assert set(pb.arm_profiles) == {PROFILE_ID, "other"}
+    assert messages == []
+
+
+@pytest.mark.asyncio
+async def test_refresh_arm_profiles_backs_off_on_replaced_bootstrap(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A bootstrap swapped mid-fetch is not written to."""
+    pb = _prime_arm_profiles(protect_client)
+
+    async def _fetch() -> list[ArmProfile]:
+        protect_client._public_bootstrap = PublicBootstrap()
+        return []
+
+    protect_client._fetch_arm_profiles = AsyncMock(side_effect=_fetch)
+    await protect_client._refresh_arm_profiles()
+
+    assert PROFILE_ID in pb.arm_profiles
+
+
+@pytest.mark.asyncio
+async def test_refresh_arm_profiles_no_frame_without_nvr(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Without a cached NVR the store still updates but nothing is emitted."""
+    pb = _prime_arm_profiles(protect_client)
+    pb.nvr = None
+    protect_client._fetch_arm_profiles = AsyncMock(return_value=[])
+    messages: list[WSSubscriptionMessage] = []
+    protect_client.subscribe_devices_websocket(messages.append)
+
+    await protect_client._refresh_arm_profiles()
+
+    assert pb.arm_profiles == {}
+    assert messages == []
+
+
+@pytest.mark.asyncio
+async def test_refresh_arm_profiles_respects_devices_filter(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A devices-WS filter excluding the NVR suppresses the frame."""
+    pb = _prime_arm_profiles(protect_client)
+    protect_client._devices_ws_subscribed_models = {ModelType.CAMERA}
+    protect_client._fetch_arm_profiles = AsyncMock(return_value=[])
+    messages: list[WSSubscriptionMessage] = []
+    protect_client.subscribe_devices_websocket(messages.append)
+
+    await protect_client._refresh_arm_profiles()
+
+    assert pb.arm_profiles == {}
+    assert messages == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "closer", ["close_session", "close_public_api_session", "async_disconnect_ws"]
+)
+async def test_arm_profiles_refresh_cancelled_on_close(
+    protect_client: ProtectApiClient, closer: str
+) -> None:
+    """Every teardown path cancels the timer and an in-flight refresh."""
+    pb = _prime_arm_profiles(protect_client)
+    gate = asyncio.Event()
+
+    async def _slow_fetch() -> list[ArmProfile]:
+        await gate.wait()
+        return []
+
+    protect_client._fetch_arm_profiles = AsyncMock(side_effect=_slow_fetch)
+    protect_client._run_arm_profiles_refresh()
+    timer = protect_client._arm_profiles_refresh_timer
+    task = protect_client._arm_profiles_refresh_task
+    assert timer is not None
+    assert task is not None
+    await asyncio.sleep(0)
+
+    await getattr(protect_client, closer)()
+
+    assert timer.cancelled()
+    assert task.cancelled()
+    assert protect_client._arm_profiles_refresh_timer is None
+    assert protect_client._arm_profiles_refresh_task is None
+    assert PROFILE_ID in pb.arm_profiles
+
+
+@pytest.mark.asyncio
+async def test_resync_rearms_arm_profiles_refresh_after_disconnect(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A resync after a disconnect restarts the periodic refresh."""
+    _mock_update_public_endpoints(protect_client)
+    await protect_client.update_public()
+    await protect_client.async_disconnect_ws()
+    assert protect_client._arm_profiles_refresh_timer is None
+
+    await protect_client._resync_public_bootstrap()
+
+    assert protect_client._arm_profiles_refresh_timer is not None
