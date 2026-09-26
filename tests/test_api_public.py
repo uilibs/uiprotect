@@ -5800,8 +5800,12 @@ async def test_public_resync_callback_fires_for_queued_follow_up(
 
 
 @pytest.mark.asyncio()
+@pytest.mark.parametrize(
+    "close", ["_cancel_public_resync_task", "close_session", "async_disconnect_ws"]
+)
 async def test_public_resync_callback_not_fired_on_cancel(
     protect_client: ProtectApiClient,
+    close: str,
 ) -> None:
     """Cancelling an in-flight resync on close fires no subscriber."""
     protect_client._public_bootstrap = PublicBootstrap()
@@ -5820,9 +5824,55 @@ async def test_public_resync_callback_not_fired_on_cancel(
     protect_client._on_devices_websocket_state_change(WebsocketState.DISCONNECTED)
     protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
     await asyncio.wait_for(started.wait(), timeout=1.0)
-    await protect_client._cancel_public_resync_task()
+    await getattr(protect_client, close)()
 
+    assert protect_client._public_resync_task is None
     assert results == []
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("close", ["close_session", "async_disconnect_ws"])
+async def test_public_resync_reconnect_while_closing_starts_no_follow_up(
+    protect_client: ProtectApiClient,
+    close: str,
+) -> None:
+    """A reconnect while a cancelled resync unwinds starts no follow-up."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    started = asyncio.Event()
+
+    async def _hang_first() -> PublicBootstrap:
+        if not started.is_set():
+            started.set()
+            await asyncio.Event().wait()
+        return protect_client.public_bootstrap
+
+    protect_client.update_public = AsyncMock(side_effect=_hang_first)  # type: ignore[method-assign]
+    results: list[bool] = []
+    protect_client.subscribe_public_resync(results.append)
+
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    protect_client._on_devices_websocket_state_change(WebsocketState.DISCONNECTED)
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    await asyncio.wait_for(started.wait(), timeout=1.0)
+    closing = asyncio.create_task(getattr(protect_client, close)())
+    await asyncio.sleep(0)
+    protect_client._on_devices_websocket_state_change(WebsocketState.DISCONNECTED)
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    await closing
+    await asyncio.sleep(0.05)
+
+    assert protect_client._public_resync_task is None
+    assert protect_client._public_resync_timer is None
+    assert protect_client._public_resync_pending is False
+    assert protect_client.update_public.await_count == 1
+    assert results == []
+
+    protect_client._last_public_resync = 0.0
+    protect_client._on_devices_websocket_state_change(WebsocketState.DISCONNECTED)
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    assert protect_client._public_resync_task is not None
+    await protect_client._public_resync_task
+    assert results == [True]
 
 
 @pytest.mark.asyncio()
@@ -5892,7 +5942,9 @@ async def test_public_resync_debounced_reconnects_run_one_trailing_resync(
 
 
 @pytest.mark.asyncio()
-@pytest.mark.parametrize("close", ["close_session", "close_public_api_session"])
+@pytest.mark.parametrize(
+    "close", ["close_session", "close_public_api_session", "async_disconnect_ws"]
+)
 async def test_public_resync_close_cancels_trailing_resync(
     protect_client: ProtectApiClient,
     monkeypatch: pytest.MonkeyPatch,

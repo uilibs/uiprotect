@@ -413,6 +413,9 @@ class BaseApiClient:
     _public_resync_task: asyncio.Task[None] | None = None
     # Trailing resync deferred to the end of the debounce window.
     _public_resync_timer: asyncio.TimerHandle | None = None
+    # True while ``_cancel_public_resync_task`` runs; reconnects schedule no
+    # resync until it returns.
+    _public_resync_closing: bool = False
 
     private_api_path: str = "/proxy/protect/api/"
     public_api_path: str = "/proxy/protect/integration"
@@ -699,16 +702,22 @@ class BaseApiClient:
             self._update_task = None
 
     async def _cancel_public_resync_task(self) -> None:
-        # If a subclass tracks queued follow-up resync work, clear it before
-        # cancellation so shutdown cannot re-schedule a new task in a
-        # ``finally`` block.
-        self._public_resync_pending = False
-        self._cancel_public_resync_timer()
-        if self._public_resync_task is not None:
-            self._public_resync_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._public_resync_task
-            self._public_resync_task = None
+        # A CONNECTED landing while the cancelled task unwinds would otherwise
+        # queue a follow-up that its ``finally`` starts and nothing tracks.
+        self._public_resync_closing = True
+        try:
+            # If a subclass tracks queued follow-up resync work, clear it before
+            # cancellation so shutdown cannot re-schedule a new task in a
+            # ``finally`` block.
+            self._public_resync_pending = False
+            self._cancel_public_resync_timer()
+            if self._public_resync_task is not None:
+                self._public_resync_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self._public_resync_task
+                self._public_resync_task = None
+        finally:
+            self._public_resync_closing = False
 
     def _cancel_public_resync_timer(self) -> None:
         if self._public_resync_timer is not None:
@@ -1352,6 +1361,7 @@ class BaseApiClient:
             devices_websocket.stop()
             await devices_websocket.wait_closed()
             self._devices_websocket = None
+        await self._cancel_public_resync_task()
 
     def _process_ws_message(self, msg: aiohttp.WSMessage) -> None:
         raise NotImplementedError
@@ -2643,12 +2653,14 @@ class ProtectApiClient(BaseApiClient):
         """
         Subscribe to completion of the devices-websocket reconnect resync.
 
-        ``callback`` receives ``True`` once every endpoint has been refetched,
-        or ``False`` if the refresh raised or an endpoint failed transiently
-        and kept its stale data. Every reconnect is covered: one during a
-        running resync queues a follow-up, and one inside
-        :data:`PUBLIC_RESYNC_MIN_INTERVAL` schedules a single trailing resync
-        for when the window ends. Each of those fires the callback again.
+        ``callback`` receives ``True`` once every bootstrap endpoint has been
+        refetched, or ``False`` if the refresh raised or an endpoint failed
+        transiently and kept its stale data. The RTSPS stream refresh is
+        best-effort and does not affect the result. The first connect fires
+        nothing; every reconnect is covered: one during a running resync
+        queues a follow-up, and one inside :data:`PUBLIC_RESYNC_MIN_INTERVAL`
+        schedules a single trailing resync for when the window ends. Each of
+        those fires the callback again.
 
         Returns a callback that will unsubscribe.
         """
@@ -2752,7 +2764,9 @@ class ProtectApiClient(BaseApiClient):
             if not self._devices_ws_has_been_connected:
                 self._devices_ws_has_been_connected = True
             elif self._public_bootstrap is not None:
-                if (
+                if self._public_resync_closing:
+                    _LOGGER.debug("Skipping public bootstrap resync while closing")
+                elif (
                     self._public_resync_task is not None
                     and not self._public_resync_task.done()
                 ):
@@ -4909,11 +4923,11 @@ class ProtectApiClient(BaseApiClient):
         updated in place on subsequent calls. All endpoint fetches run
         concurrently.
 
-        Each endpoint is requested best-effort; endpoints that the NVR
-        doesn't (yet) expose (``BadRequest`` / ``NvrError``) are logged at
-        ``DEBUG`` and ignored, and a partial public bootstrap is returned.
-        If an endpoint fails, its previously cached data is left unchanged
-        (not cleared). All results are classified before any are applied: an
+        Each endpoint is requested best-effort and a partial public bootstrap
+        is returned: an endpoint the NVR doesn't (yet) expose (``BadRequest``)
+        and one that fails transiently (``NvrError``: timeout, 429, 5xx) are
+        both logged at ``DEBUG`` and ignored. If an endpoint fails, its
+        previously cached data is left unchanged (not cleared). All results are classified before any are applied: an
         unexpected exception (e.g. a validation error from a new server
         payload) propagates to the caller with the snapshot left untouched,
         never half-applied.
