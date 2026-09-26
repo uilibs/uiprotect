@@ -34,8 +34,10 @@ from uiprotect.data.devices import (
     HotplugExtender,
     WifiStats,
 )
+from uiprotect.data.nvr import GlobalRecordingSettings
 from uiprotect.data.types import PermissionNode, SmartDetectObjectType
 from uiprotect.exceptions import BadRequest, NotAuthorized
+from uiprotect.utils import to_js_time
 
 
 @pytest.mark.parametrize(
@@ -690,6 +692,129 @@ def test_lcd_message_from_unifi_dict_missing_text():
     )
 
     assert msg.text == ""
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    ("before", "after", "expected_text"),
+    [
+        (
+            (DoorbellMessageType.DO_NOT_DISTURB, "DO NOT DISTURB"),
+            (DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR, "stale"),
+            "LEAVE PACKAGE AT DOOR",
+        ),
+        (
+            (DoorbellMessageType.CUSTOM_MESSAGE, "Hi"),
+            (DoorbellMessageType.CUSTOM_MESSAGE, "Bye"),
+            "Bye",
+        ),
+    ],
+    ids=["type", "custom_text"],
+)
+@pytest.mark.asyncio()
+async def test_camera_save_lcd_message_change(
+    camera_obj: Camera | None,
+    before: tuple[DoorbellMessageType, str],
+    after: tuple[DoorbellMessageType, str],
+    expected_text: str,
+):
+    """A changed LCD message is sent whole, keeping the current ``reset_at``."""
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    reset_at = datetime(2030, 1, 1, tzinfo=UTC)
+    camera_obj.lcd_message = LCDMessage(
+        type=before[0], text=before[1], reset_at=reset_at
+    )
+    camera_obj.api.api_request.reset_mock()
+    data_before = camera_obj.dict_with_excludes()
+    camera_obj.lcd_message = LCDMessage(type=after[0], text=after[1], reset_at=reset_at)
+
+    await camera_obj.save_device(data_before)
+
+    camera_obj.api.api_request.assert_called_with(
+        f"cameras/{camera_obj.id}",
+        method="patch",
+        json={
+            "lcdMessage": {
+                "type": after[0].value,
+                "text": expected_text,
+                "resetAt": to_js_time(reset_at),
+            },
+        },
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+@patch("uiprotect.data.devices.utc_now")
+async def test_camera_save_lcd_message_cleared(
+    mock_now: Mock, camera_obj: Camera | None, now: datetime
+):
+    """Clearing the LCD message sends a ``resetAt`` in the past."""
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    mock_now.return_value = now
+    camera_obj.lcd_message = LCDMessage(
+        type=DoorbellMessageType.DO_NOT_DISTURB, text="DO NOT DISTURB"
+    )
+    camera_obj.api.api_request.reset_mock()
+    before = camera_obj.dict_with_excludes()
+    camera_obj.lcd_message = None
+
+    await camera_obj.save_device(before)
+
+    camera_obj.api.api_request.assert_called_with(
+        f"cameras/{camera_obj.id}",
+        method="patch",
+        json={"lcdMessage": {"resetAt": to_js_time(now - timedelta(seconds=10))}},
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_smart_detect_settings_unifi_dict_drops_smoke_cmonx(
+    camera_obj: Camera | None,
+):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    settings = camera_obj.smart_detect_settings
+    settings.audio_types = [
+        SmartDetectAudioType.SMOKE,
+        SmartDetectAudioType.SMOKE_CMONX,
+    ]
+
+    assert settings.unifi_dict()["audioTypes"] == [SmartDetectAudioType.SMOKE.value]
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [(RecordingMode.ALWAYS, True), (RecordingMode.NEVER, False)],
+)
+def test_camera_is_recording_enabled_use_global(
+    camera_obj: Camera | None, mode: RecordingMode, expected: bool
+):
+    """With ``use_global`` the NVR's global recording mode decides."""
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.use_global = True
+    camera_obj.recording_settings.mode = (
+        RecordingMode.NEVER if expected else RecordingMode.ALWAYS
+    )
+    camera_obj.api.bootstrap.nvr.global_camera_settings = (
+        GlobalRecordingSettings.model_construct(
+            osd_settings=camera_obj.osd_settings,
+            recording_settings=camera_obj.recording_settings.model_copy(
+                update={"mode": mode}
+            ),
+            smart_detect_settings=camera_obj.smart_detect_settings,
+        )
+    )
+
+    assert camera_obj.is_recording_enabled is expected
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")

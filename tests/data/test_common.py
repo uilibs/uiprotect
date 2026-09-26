@@ -19,6 +19,7 @@ from tests.conftest import (
     TEST_CAMERA_EXISTS,
     TEST_LIGHT_EXISTS,
     TEST_SENSOR_EXISTS,
+    TEST_SMART_TRACK_EXISTS,
     TEST_VIEWPORT_EXISTS,
     MockTalkback,
     compare_objs,
@@ -38,6 +39,7 @@ from uiprotect.data import (
     RecordingMode,
     SmartDetectAudioType,
     SmartDetectObjectType,
+    SmartDetectTrack,
     StorageType,
     User,
     VideoMode,
@@ -1135,6 +1137,36 @@ def test_bootstrap_ignores_aiports(
         if record.name == "uiprotect.data.bootstrap"
         or "aiport" in record.getMessage().lower()
     ]
+
+
+def test_bootstrap_missing_key(
+    bootstrap: dict[str, Any], caplog: pytest.LogCaptureFixture
+):
+    """A missing bootstrap device key logs an error and loads as empty."""
+    data = deepcopy(bootstrap)
+    del data["chimes"]
+
+    obj = Bootstrap.from_unifi_dict(**data)
+
+    assert obj.chimes == {}
+    assert "Missing key in bootstrap: chimes" in caplog.text
+
+
+@pytest.mark.skipif(not TEST_SMART_TRACK_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_smart_detect_track(
+    protect_client: ProtectApiClient, smart_track: dict[str, Any]
+):
+    track = SmartDetectTrack.from_unifi_dict(
+        **deepcopy(smart_track), api=protect_client
+    )
+    item = smart_track["payload"][0]
+
+    assert track.camera is protect_client.bootstrap.cameras[smart_track["camera"]]
+    assert track.event_id == smart_track["event"]
+    assert len(track.payload) == len(smart_track["payload"])
+    assert track.payload[0].zone_ids == item["zones"]
+    assert track.payload[0].duration == timedelta(milliseconds=item["duration"])
 
 
 def test_doorlock_modelkey_resolves_unknown():

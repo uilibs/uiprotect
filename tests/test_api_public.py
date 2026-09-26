@@ -14,6 +14,7 @@ import orjson
 import pytest
 from pydantic import ValidationError
 
+from tests.conftest import set_no_debug
 from uiprotect import api as api_module
 from uiprotect.api import _UNSET, RTSPSStreams, _UnsetType
 from uiprotect.data import (
@@ -64,7 +65,7 @@ from uiprotect.data.types import (
 from uiprotect.data.websocket import WSAction
 from uiprotect.devices import DeviceChange, ProtectDeviceChange
 from uiprotect.exceptions import BadRequest, NotAuthorized
-from uiprotect.utils import convert_to_datetime, set_no_debug
+from uiprotect.utils import convert_to_datetime
 from uiprotect.websocket import WebsocketState
 
 from .test_public_devices_models import CAMERA_PAYLOAD, SENSOR_PAYLOAD

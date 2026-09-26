@@ -395,6 +395,14 @@ async def test_camera_set_status_light_public(camera: Camera) -> None:
     assert camera.led_settings == updated.led_settings
 
 
+@pytest.mark.asyncio()
+async def test_camera_set_led_public_no_led_status(camera: Camera) -> None:
+    camera.feature_flags.has_led_status = False
+
+    with pytest.raises(BadRequest, match="does not have status light"):
+        await camera.set_status_light_public(True)
+
+
 # --- HDR ---
 
 

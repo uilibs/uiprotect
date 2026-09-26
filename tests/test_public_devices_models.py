@@ -8,6 +8,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from tests.conftest import set_no_debug
 from uiprotect.api import RTSPSStreams
 from uiprotect.data import (
     AlarmHubInput,
@@ -43,7 +44,6 @@ from uiprotect.data.types import (
     SmartDetectObjectType,
 )
 from uiprotect.exceptions import BadRequest
-from uiprotect.utils import set_no_debug
 
 if TYPE_CHECKING:
     from collections.abc import Callable
