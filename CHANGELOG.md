@@ -1,5 +1,13 @@
 # Changelog
 
+## v17.1.1 (2026-09-26)
+
+### Bug fixes
+
+
+- Retry a failed public resync with bounded backoff ([`078a910`](https://github.com/uilibs/uiprotect/commit/078a91096e0616b49b84466d879558663168e342))
+
+
 ## v17.1.0 (2026-09-26)
 
 ### Features
