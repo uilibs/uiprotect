@@ -298,6 +298,10 @@ NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
 # on flaky networks or controller reboots.
 PUBLIC_RESYNC_MIN_INTERVAL = 10.0
 
+# Backoff (seconds) between retries of a failed reconnect resync. After the
+# last step the resync waits for the next reconnect.
+PUBLIC_RESYNC_RETRY_DELAYS = (10.0, 30.0, 60.0)
+
 # WebSocket heartbeat (seconds) for the public integration WS connections. The
 # UniFi OS nginx reverse proxy closes an idle tunnel after ``proxy_read_timeout
 # 10m``; the quiet ``subscribe/devices`` channel only pushes on a ~10-minute
@@ -424,6 +428,10 @@ class BaseApiClient:
     # True while ``_cancel_public_resync_task`` runs; reconnects schedule no
     # resync until it returns.
     _public_resync_closing: bool = False
+    # Retry of a failed resync, pending on the backoff.
+    _public_resync_retry_timer: asyncio.TimerHandle | None = None
+    # Retries scheduled since the last reconnect or successful resync.
+    _public_resync_retries: int = 0
 
     private_api_path: str = "/proxy/protect/api/"
     public_api_path: str = "/proxy/protect/integration"
@@ -698,6 +706,7 @@ class BaseApiClient:
     async def close_public_api_session(self) -> None:
         """Closing and deletes public API client session."""
         self._cancel_public_resync_timer()
+        self._cancel_public_resync_retry()
         if self._public_api_session is not None:
             await self._public_api_session.close()
             self._public_api_session = None
@@ -724,6 +733,7 @@ class BaseApiClient:
                 with contextlib.suppress(asyncio.CancelledError):
                     await self._public_resync_task
                 self._public_resync_task = None
+            self._cancel_public_resync_retry()
         finally:
             self._public_resync_closing = False
 
@@ -731,6 +741,12 @@ class BaseApiClient:
         if self._public_resync_timer is not None:
             self._public_resync_timer.cancel()
             self._public_resync_timer = None
+
+    def _cancel_public_resync_retry(self) -> None:
+        self._public_resync_retries = 0
+        if self._public_resync_retry_timer is not None:
+            self._public_resync_retry_timer.cancel()
+            self._public_resync_retry_timer = None
 
     async def _cancel_rtsps_refresh_tasks(self) -> None:
         """Cancel and await every pending background RTSPS refresh task."""
@@ -1467,9 +1483,10 @@ class ProtectApiClient(BaseApiClient):
     # still running; consumed in ``_resync_public_bootstrap`` to run one
     # follow-up refresh.
     _public_resync_pending: bool = False
-    # Set by each ``update_public`` to whether any endpoint fetch failed
-    # transiently (``NvrError``) and was tolerated, leaving its store stale.
-    _public_fetch_failed: bool = False
+    # Set by each ``update_public`` to the labels of the endpoint fetches that
+    # failed transiently (``NvrError``) and were tolerated, leaving their
+    # stores stale.
+    _public_failed_endpoints: frozenset[str] = frozenset()
     _last_update_dt: datetime | None = None
     _connection_host: IPv4Address | IPv6Address | str | None = None
     _override_connection_host: bool = False
@@ -2663,12 +2680,16 @@ class ProtectApiClient(BaseApiClient):
 
         ``callback`` receives ``True`` once every bootstrap endpoint has been
         refetched, or ``False`` if the refresh raised or an endpoint failed
-        transiently and kept its stale data. The RTSPS stream refresh is
-        best-effort and does not affect the result. The first connect fires
-        nothing; every reconnect is covered: one during a running resync
-        queues a follow-up, and one inside :data:`PUBLIC_RESYNC_MIN_INTERVAL`
-        schedules a single trailing resync for when the window ends. Each of
-        those fires the callback again.
+        transiently and kept its stale data. The RTSPS stream refresh runs
+        unless the cameras fetch failed, is best-effort, and does not affect
+        the result. The first connect fires nothing; every reconnect is covered:
+        one during a running resync queues a follow-up, and one inside
+        :data:`PUBLIC_RESYNC_MIN_INTERVAL` schedules a single trailing resync
+        for when the window ends. A failed resync is retried up to three times,
+        after each step of :data:`PUBLIC_RESYNC_RETRY_DELAYS`, then waits for
+        the next reconnect; ``NotAuthorized`` is never retried, and a reconnect
+        or queued follow-up replaces a pending retry. Each of those fires the
+        callback again.
 
         Returns a callback that will unsubscribe.
         """
@@ -2772,6 +2793,9 @@ class ProtectApiClient(BaseApiClient):
             if not self._devices_ws_has_been_connected:
                 self._devices_ws_has_been_connected = True
             elif self._public_bootstrap is not None:
+                # This reconnect's own resync covers the gap a pending retry
+                # would, so the two never both run.
+                self._cancel_public_resync_retry()
                 if self._public_resync_closing:
                     _LOGGER.debug("Skipping public bootstrap resync while closing")
                 elif (
@@ -2845,22 +2869,35 @@ class ProtectApiClient(BaseApiClient):
         try:
             await self.update_public()
             # Read before the next await, which a later update could overwrite.
-            success = not self._public_fetch_failed
+            failed = self._public_failed_endpoints
+            success = not failed
             # A reconnect gap can hide a full camera flap (the disconnect *and*
             # the reconnect both missed), which rotates the ``rtsp_alias``
             # without leaving a visible state transition for the WS-path
             # refresh to catch. Re-fetch every camera's already-populated RTSPS
             # streams in place so synchronous consumers reading
             # ``camera.rtsps_streams`` never see an emptied field — the stale
-            # URLs are kept until the fresh ones overwrite them.
-            await self._refresh_all_cached_rtsps()
-        except Exception:
+            # URLs are kept until the fresh ones overwrite them. Skipped when
+            # the cameras fetch failed: the next successful resync refreshes
+            # them, and during an outage each attempt would log one failure
+            # per camera.
+            if "cameras" not in failed:
+                await self._refresh_all_cached_rtsps()
+        except Exception as err:
             _LOGGER.exception("Failed to resync public bootstrap after reconnect")
             success = False
+            retry = not isinstance(err, NotAuthorized)
+        else:
+            retry = not success
         finally:
-            if self._public_resync_pending:
+            followed_up = self._public_resync_pending
+            if followed_up:
                 self._public_resync_pending = False
                 self._start_public_resync()
+        if success:
+            self._public_resync_retries = 0
+        elif retry and not followed_up:
+            self._schedule_public_resync_retry()
         # Not reached on cancellation, so a closed client never notifies.
         for sub in self._public_resync_subscriptions.copy():
             try:
@@ -2877,6 +2914,26 @@ class ProtectApiClient(BaseApiClient):
 
     def _run_trailing_public_resync(self) -> None:
         self._public_resync_timer = None
+        self._start_public_resync()
+
+    def _schedule_public_resync_retry(self) -> None:
+        attempt = self._public_resync_retries
+        if attempt >= len(PUBLIC_RESYNC_RETRY_DELAYS):
+            _LOGGER.warning(
+                "Public bootstrap resync still failing after %d retries; "
+                "waiting for the next reconnect",
+                attempt,
+            )
+            return
+        delay = PUBLIC_RESYNC_RETRY_DELAYS[attempt]
+        self._public_resync_retries = attempt + 1
+        _LOGGER.debug("Retrying public bootstrap resync in %.0fs", delay)
+        self._public_resync_retry_timer = asyncio.get_running_loop().call_later(
+            delay, self._run_public_resync_retry
+        )
+
+    def _run_public_resync_retry(self) -> None:
+        self._public_resync_retry_timer = None
         self._start_public_resync()
 
     def _schedule_rtsps_refresh(self, camera_id: str) -> None:
@@ -5065,8 +5122,10 @@ class ProtectApiClient(BaseApiClient):
                     )
             # A missing endpoint (``BadRequest``) is a stable capability gap;
             # only a transient failure leaves the store stale.
-            self._public_fetch_failed = any(
-                isinstance(result, NvrError) for result in results
+            self._public_failed_endpoints = frozenset(
+                label
+                for (_, label, _attr), result in zip(endpoints, results, strict=True)
+                if isinstance(result, NvrError)
             )
 
             # Classification passed: publish the candidate.
