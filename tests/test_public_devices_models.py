@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock
 
 import pytest
-from pydantic import ValidationError
 
 from uiprotect.api import RTSPSStreams
 from uiprotect.data import (
@@ -44,6 +43,7 @@ from uiprotect.data.types import (
     SmartDetectObjectType,
 )
 from uiprotect.exceptions import BadRequest
+from uiprotect.utils import set_no_debug
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -691,12 +691,23 @@ def test_public_sensor_identity_fields_default_when_absent() -> None:
     assert sensor.device_guid is None
 
 
-def test_public_sensor_requires_feature_flags() -> None:
-    """``featureFlags`` is required: a payload without it does not parse."""
+@pytest.mark.parametrize("debug", [True, False])
+@pytest.mark.parametrize("absent", [True, False], ids=["absent", "null"])
+def test_public_sensor_missing_feature_flags_is_empty_map(
+    debug: bool, absent: bool
+) -> None:
+    """An absent or ``null`` ``featureFlags`` parses as an empty capability map."""
+    if not debug:
+        set_no_debug()
     data = dict(SENSOR_PAYLOAD)
-    del data["featureFlags"]
-    with pytest.raises(ValidationError):
-        PublicSensor.from_unifi_dict(api=Mock(), **data)
+    if absent:
+        del data["featureFlags"]
+    else:
+        data["featureFlags"] = None
+    sensor = PublicSensor.from_unifi_dict(api=Mock(), **data)
+    assert sensor.feature_flags.model_dump() == PublicSensorFeatureFlags().model_dump()
+    assert not any(sensor.supports(c) for c in SensorFeatureCapability)
+    assert sensor.unifi_dict()["id"] == SENSOR_PAYLOAD["id"]
 
 
 def test_public_nvr_device_identity_round_trips() -> None:

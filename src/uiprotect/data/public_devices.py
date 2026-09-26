@@ -1387,7 +1387,11 @@ class PublicSensor(PublicDeviceModel):
     leak_settings: PublicSensorLeakSettings
     tampering_detected_at: int | None = None
     wireless_connection_state: PublicWirelessConnectionState
-    feature_flags: PublicSensorFeatureFlags
+    # Spec-optional: the UP-AirQuality omits it (7.3) or sends ``null`` (7.2).
+    # An absent map advertises no capabilities, so it defaults to an empty one.
+    feature_flags: PublicSensorFeatureFlags = Field(
+        default_factory=PublicSensorFeatureFlags
+    )
     # Firmware-new fields (Protect 7.1.76+): older consoles (e.g. 7.1.69) omit
     # them, so default them rather than require — the wire shape shifts across
     # releases and ``from_unifi_dict`` must not raise on the older shape.
@@ -1397,6 +1401,12 @@ class PublicSensor(PublicDeviceModel):
     )
     arm_profile_ids: list[str] | None = None
     has_custom_sensitivity_when_armed: bool = False
+
+    @classmethod
+    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
+        if "featureFlags" in data and data["featureFlags"] is None:
+            data["featureFlags"] = {}
+        return super().unifi_dict_to_dict(data)
 
     @property
     def open_status_changed_at_dt(self) -> datetime | None:
@@ -2340,9 +2350,8 @@ class PublicNVR(PublicIdentifiedModel):
 
     ``name`` is nullable — the API schema declares it as ``oneOf: [string, null]``.
 
-    ``mac`` is exposed on ``GET /v1/nvrs`` from Protect newer than 7.1 and is
-    ``None`` on older firmware that omits the key (and absent from WS
-    partial-update diffs).
+    ``mac`` is always present on ``GET /v1/nvrs`` from the Protect 7.2 floor;
+    it is absent only from WS partial-update diffs.
 
     ``doorbell_settings`` is ``None`` on older firmware that does not yet
     expose the ``doorbellSettings`` key, and is absent from WS partial-update

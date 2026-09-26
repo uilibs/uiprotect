@@ -43,6 +43,7 @@ from uiprotect.data import (
     RelayOutputRebootState,
     RelayOutputState,
     RelayOutputType,
+    SensorFeatureCapability,
     Siren,
     SirenConnectionType,
     Speaker,
@@ -62,10 +63,10 @@ from uiprotect.data.types import (
 from uiprotect.data.websocket import WSAction
 from uiprotect.devices import DeviceChange, ProtectDeviceChange
 from uiprotect.exceptions import BadRequest, NotAuthorized
-from uiprotect.utils import convert_to_datetime
+from uiprotect.utils import convert_to_datetime, set_no_debug
 from uiprotect.websocket import WebsocketState
 
-from .test_public_devices_models import CAMERA_PAYLOAD
+from .test_public_devices_models import CAMERA_PAYLOAD, SENSOR_PAYLOAD
 
 if TYPE_CHECKING:
     from uiprotect.api import ProtectApiClient
@@ -1590,6 +1591,31 @@ async def test_update_public_populates_cache(
 
 
 @pytest.mark.asyncio()
+@pytest.mark.parametrize("debug", [True, False])
+@pytest.mark.parametrize("absent", [True, False], ids=["absent", "null"])
+async def test_update_public_sensor_without_feature_flags(
+    protect_client: ProtectApiClient, debug: bool, absent: bool
+) -> None:
+    """A sensor with absent or ``null`` ``featureFlags`` primes with no capabilities."""
+    if not debug:
+        set_no_debug()
+    payload = deepcopy(SENSOR_PAYLOAD)
+    if absent:
+        del payload["featureFlags"]
+    else:
+        payload["featureFlags"] = None
+    _mock_update_public_endpoints(protect_client)
+    del protect_client.get_sensors_public
+    protect_client.api_request_list = AsyncMock(return_value=[payload])  # type: ignore[method-assign]
+
+    pb = await protect_client.update_public()
+
+    sensor = pb.sensors[SENSOR_PAYLOAD["id"]]
+    assert not any(sensor.supports(c) for c in SensorFeatureCapability)
+    assert sensor.unifi_dict()["id"] == SENSOR_PAYLOAD["id"]
+
+
+@pytest.mark.asyncio()
 async def test_update_public_populates_ulp_users(
     protect_client: ProtectApiClient,
 ) -> None:
@@ -2478,9 +2504,7 @@ async def test_update_public_runs_concurrently(
         peak = max(peak, active)
         await asyncio.sleep(0.01)
         active -= 1
-        nvr = _make_public_nvr(protect_client)
-        nvr.mac = "AABBCCDDEEFF"  # present → no console backfill
-        return nvr
+        return _make_public_nvr(protect_client)
 
     protect_client.get_nvr_public = _slow_nvr  # type: ignore[method-assign]
     for name in (
