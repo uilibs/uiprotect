@@ -1,5 +1,16 @@
 # Changelog
 
+## v17.0.0 (2026-09-26)
+
+### Features
+
+
+- Remove aiport and unused private-api members ([`f435fb0`](https://github.com/uilibs/uiprotect/commit/f435fb0b2dd0922264216930ec2fd60161951ba8))
+
+
+- Drop the pre-7.2 console-mac and optional sensor capability fallbacks ([`025344d`](https://github.com/uilibs/uiprotect/commit/025344d3ed94dd20001e917f4be81875c9c65005))
+
+
 ## v16.16.1 (2026-09-25)
 
 ### Bug fixes
