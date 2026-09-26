@@ -20,7 +20,6 @@ from pydantic.fields import PrivateAttr
 from ..exceptions import BadRequest, NotAuthorized, StreamError
 from ..stream import TalkbackSession, TalkbackStream
 from ..utils import (
-    clamp_value,
     convert_smart_audio_types,
     convert_smart_types,
     convert_to_datetime,
@@ -271,19 +270,6 @@ class Light(ProtectMotionDeviceModel):
             self.id, light_device_settings=device_settings
         )
         self.light_device_settings = device_settings
-
-    async def set_light_mode_public(
-        self,
-        mode: LightModeType,
-        enable_at: LightModeEnableType | None = None,
-    ) -> None:
-        """Set the lighting trigger mode (and optional schedule) via public API."""
-        mode_settings = self.light_mode_settings.model_copy()
-        mode_settings.mode = mode
-        if enable_at is not None:
-            mode_settings.enable_at = enable_at
-        await self._api.update_light_public(self.id, light_mode_settings=mode_settings)
-        self.light_mode_settings = mode_settings
 
     async def set_light_settings_public(
         self,
@@ -937,51 +923,9 @@ class PTZRange(ProtectBaseObject):
     steps: PTZRangeSingle
     degrees: PTZRangeSingle
 
-    def to_native_value(self, degree_value: float, is_relative: bool = False) -> float:
-        """Convert degree values to step values."""
-        if (
-            self.degrees.max is None
-            or self.degrees.min is None
-            or self.degrees.step is None
-            or self.steps.max is None
-            or self.steps.min is None
-            or self.steps.step is None
-        ):
-            raise BadRequest("degree to step conversion not supported.")
-
-        if not is_relative:
-            degree_value -= self.degrees.min
-
-        step_range = self.steps.max - self.steps.min
-        degree_range = self.degrees.max - self.degrees.min
-        ratio = step_range / degree_range
-
-        step_value = clamp_value(degree_value * ratio, self.steps.step)
-        if not is_relative:
-            step_value = self.steps.min + step_value
-
-        return step_value
-
 
 class PTZZoomRange(PTZRange):
     ratio: int
-
-    def to_native_value(self, zoom_value: float, is_relative: bool = False) -> float:
-        """Convert zoom values to step values."""
-        if self.steps.max is None or self.steps.min is None or self.steps.step is None:
-            raise BadRequest("step conversion not supported.")
-
-        step_range = self.steps.max - self.steps.min
-        # zoom levels start at 1
-        ratio = step_range / (self.ratio - 1)
-        if not is_relative:
-            zoom_value -= 1
-
-        step_value = clamp_value(zoom_value * ratio, self.steps.step)
-        if not is_relative:
-            step_value = self.steps.min + step_value
-
-        return step_value
 
 
 class CameraFeatureFlags(ProtectBaseObject):
@@ -1432,11 +1376,6 @@ class Camera(ProtectMotionDeviceModel):
         return index is not None
 
     @property
-    def is_ptz_patrolling(self) -> bool:
-        """Is PTZ camera currently running a patrol?"""
-        return self.active_patrol_slot is not None
-
-    @property
     def is_recording_enabled(self) -> bool:
         """
         Is recording footage/events from the camera enabled?
@@ -1447,30 +1386,6 @@ class Camera(ProtectMotionDeviceModel):
         if self.use_global:
             return self._api.bootstrap.nvr.is_global_recording_enabled
         return self.recording_settings.mode is not RecordingMode.NEVER
-
-    @property
-    def is_smart_detections_allowed(self) -> bool:
-        """Is smart detections allowed for this camera?"""
-        return (
-            self.is_recording_enabled
-            and self._api.bootstrap.nvr.is_smart_detections_enabled
-        )
-
-    @property
-    def is_license_plate_detections_allowed(self) -> bool:
-        """Is license plate detections allowed for this camera?"""
-        return (
-            self.is_recording_enabled
-            and self._api.bootstrap.nvr.is_license_plate_detections_enabled
-        )
-
-    @property
-    def is_face_detections_allowed(self) -> bool:
-        """Is face detections allowed for this camera?"""
-        return (
-            self.is_recording_enabled
-            and self._api.bootstrap.nvr.is_face_detections_enabled
-        )
 
     @property
     def active_recording_settings(self) -> RecordingSettings:
@@ -1514,16 +1429,6 @@ class Camera(ProtectMotionDeviceModel):
             and self.active_recording_settings.enable_motion_detection is not False
         )
 
-    @property
-    def is_motion_currently_detected(self) -> bool:
-        """Is motion currently being detected"""
-        return (
-            self.is_motion_detection_on
-            and self.is_motion_detected
-            and self.last_motion_event is not None
-            and self.last_motion_event.end is None
-        )
-
     async def set_motion_detection(self, enabled: bool) -> None:
         """Sets motion detection on camera"""
         if self.use_global:
@@ -1531,14 +1436,6 @@ class Camera(ProtectMotionDeviceModel):
 
         def callback() -> None:
             self.recording_settings.enable_motion_detection = enabled
-
-        await self.queue_update(callback)
-
-    async def set_use_global(self, enabled: bool) -> None:
-        """Sets if camera should use global recording settings or not."""
-
-        def callback() -> None:
-            self.use_global = enabled
 
         await self.queue_update(callback)
 
@@ -1579,26 +1476,12 @@ class Camera(ProtectMotionDeviceModel):
     # region Person
 
     @property
-    def can_detect_person(self) -> bool:
-        return SmartDetectObjectType.PERSON in self.feature_flags.smart_detect_types
-
-    @property
     def is_person_detection_on(self) -> bool:
         """
         Is Person Detection available and enabled (camera will produce person smart
         detection events)?
         """
         return self._is_smart_enabled(SmartDetectObjectType.PERSON)
-
-    @property
-    def last_person_detect_event(self) -> Event | None:
-        """Get the last person smart detection event."""
-        return self.get_last_smart_detect_event(SmartDetectObjectType.PERSON)
-
-    @property
-    def last_person_detect(self) -> datetime | None:
-        """Get the last person smart detection event."""
-        return self.last_smart_detects.get(SmartDetectObjectType.PERSON)
 
     @property
     def is_person_currently_detected(self) -> bool:
@@ -1618,26 +1501,12 @@ class Camera(ProtectMotionDeviceModel):
     # region Vehicle
 
     @property
-    def can_detect_vehicle(self) -> bool:
-        return SmartDetectObjectType.VEHICLE in self.feature_flags.smart_detect_types
-
-    @property
     def is_vehicle_detection_on(self) -> bool:
         """
         Is Vehicle Detection available and enabled (camera will produce vehicle smart
         detection events)?
         """
         return self._is_smart_enabled(SmartDetectObjectType.VEHICLE)
-
-    @property
-    def last_vehicle_detect_event(self) -> Event | None:
-        """Get the last vehicle smart detection event."""
-        return self.get_last_smart_detect_event(SmartDetectObjectType.VEHICLE)
-
-    @property
-    def last_vehicle_detect(self) -> datetime | None:
-        """Get the last vehicle smart detection event."""
-        return self.last_smart_detects.get(SmartDetectObjectType.VEHICLE)
 
     @property
     def is_vehicle_currently_detected(self) -> bool:
@@ -1648,25 +1517,6 @@ class Camera(ProtectMotionDeviceModel):
     # region Face
 
     @property
-    def can_detect_face(self) -> bool:
-        return SmartDetectObjectType.FACE in self.feature_flags.smart_detect_types
-
-    @property
-    def is_face_detection_on(self) -> bool:
-        """Is Face Detection available and enabled?"""
-        return self._is_smart_enabled(SmartDetectObjectType.FACE)
-
-    @property
-    def last_face_detect_event(self) -> Event | None:
-        """Get the last face smart detection event."""
-        return self.get_last_smart_detect_event(SmartDetectObjectType.FACE)
-
-    @property
-    def last_face_detect(self) -> datetime | None:
-        """Get the last face smart detection event."""
-        return self.last_smart_detects.get(SmartDetectObjectType.FACE)
-
-    @property
     def is_face_currently_detected(self) -> bool:
         """Is face currently being detected"""
         return self._is_smart_detected(SmartDetectObjectType.FACE)
@@ -1675,28 +1525,12 @@ class Camera(ProtectMotionDeviceModel):
     # region License Plate
 
     @property
-    def can_detect_license_plate(self) -> bool:
-        return (
-            SmartDetectObjectType.LICENSE_PLATE in self.feature_flags.smart_detect_types
-        )
-
-    @property
     def is_license_plate_detection_on(self) -> bool:
         """
         Is License Plate Detection available and enabled (camera will produce face license
         plate detection events)?
         """
         return self._is_smart_enabled(SmartDetectObjectType.LICENSE_PLATE)
-
-    @property
-    def last_license_plate_detect_event(self) -> Event | None:
-        """Get the last license plate smart detection event."""
-        return self.get_last_smart_detect_event(SmartDetectObjectType.LICENSE_PLATE)
-
-    @property
-    def last_license_plate_detect(self) -> datetime | None:
-        """Get the last license plate smart detection event."""
-        return self.last_smart_detects.get(SmartDetectObjectType.LICENSE_PLATE)
 
     @property
     def is_license_plate_currently_detected(self) -> bool:
@@ -1719,16 +1553,6 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_smart_enabled(SmartDetectObjectType.PACKAGE)
 
     @property
-    def last_package_detect_event(self) -> Event | None:
-        """Get the last package smart detection event."""
-        return self.get_last_smart_detect_event(SmartDetectObjectType.PACKAGE)
-
-    @property
-    def last_package_detect(self) -> datetime | None:
-        """Get the last package smart detection event."""
-        return self.last_smart_detects.get(SmartDetectObjectType.PACKAGE)
-
-    @property
     def is_package_currently_detected(self) -> bool:
         """Is package currently being detected"""
         return self._is_smart_detected(SmartDetectObjectType.PACKAGE)
@@ -1737,26 +1561,12 @@ class Camera(ProtectMotionDeviceModel):
     # region Animal
 
     @property
-    def can_detect_animal(self) -> bool:
-        return SmartDetectObjectType.ANIMAL in self.feature_flags.smart_detect_types
-
-    @property
     def is_animal_detection_on(self) -> bool:
         """
         Is Animal Detection available and enabled (camera will produce package smart
         detection events)?
         """
         return self._is_smart_enabled(SmartDetectObjectType.ANIMAL)
-
-    @property
-    def last_animal_detect_event(self) -> Event | None:
-        """Get the last animal smart detection event."""
-        return self.get_last_smart_detect_event(SmartDetectObjectType.ANIMAL)
-
-    @property
-    def last_animal_detect(self) -> datetime | None:
-        """Get the last animal smart detection event."""
-        return self.last_smart_detects.get(SmartDetectObjectType.ANIMAL)
 
     @property
     def is_animal_currently_detected(self) -> bool:
@@ -1813,26 +1623,12 @@ class Camera(ProtectMotionDeviceModel):
     # region Smoke Alarm
 
     @property
-    def can_detect_smoke(self) -> bool:
-        return self._can_detect_audio(SmartDetectObjectType.SMOKE)
-
-    @property
     def is_smoke_detection_on(self) -> bool:
         """
         Is Smoke Alarm Detection available and enabled (camera will produce smoke
         smart detection events)?
         """
         return self._is_audio_enabled(SmartDetectObjectType.SMOKE)
-
-    @property
-    def last_smoke_detect_event(self) -> Event | None:
-        """Get the last person smart detection event."""
-        return self.get_last_smart_audio_detect_event(SmartDetectAudioType.SMOKE)
-
-    @property
-    def last_smoke_detect(self) -> datetime | None:
-        """Get the last smoke smart detection event."""
-        return self.last_smart_audio_detects.get(SmartDetectAudioType.SMOKE)
 
     @property
     def is_smoke_currently_detected(self) -> bool:
@@ -1843,10 +1639,6 @@ class Camera(ProtectMotionDeviceModel):
     # region CO Alarm
 
     @property
-    def can_detect_co(self) -> bool:
-        return self._can_detect_audio(SmartDetectObjectType.CMONX)
-
-    @property
     def is_co_detection_on(self) -> bool:
         """
         Is CO Alarm Detection available and enabled (camera will produce smoke smart
@@ -1855,30 +1647,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.CMONX)
 
     @property
-    def last_cmonx_detect_event(self) -> Event | None:
-        """Get the last CO alarm smart detection event."""
-        return self.get_last_smart_audio_detect_event(SmartDetectAudioType.CMONX)
-
-    @property
-    def last_cmonx_detect(self) -> datetime | None:
-        """Get the last CO alarm smart detection event."""
-        return self.last_smart_audio_detects.get(SmartDetectAudioType.CMONX)
-
-    @property
     def is_cmonx_currently_detected(self) -> bool:
         """Is CO alarm currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.CMONX)
 
-    async def set_cmonx_detection(self, enabled: bool) -> None:
-        """Toggles smoke smart detection. Requires camera to have smart detection"""
-        return await self._set_audio_detect(SmartDetectAudioType.CMONX, enabled)
-
     # endregion
     # region Siren
-
-    @property
-    def can_detect_siren(self) -> bool:
-        return self._can_detect_audio(SmartDetectObjectType.SIREN)
 
     @property
     def is_siren_detection_on(self) -> bool:
@@ -1889,26 +1663,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.SIREN)
 
     @property
-    def last_siren_detect_event(self) -> Event | None:
-        """Get the last Siren smart detection event."""
-        return self.get_last_smart_audio_detect_event(SmartDetectAudioType.SIREN)
-
-    @property
-    def last_siren_detect(self) -> datetime | None:
-        """Get the last Siren smart detection event."""
-        return self.last_smart_audio_detects.get(SmartDetectAudioType.SIREN)
-
-    @property
     def is_siren_currently_detected(self) -> bool:
         """Is Siren currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.SIREN)
 
     # endregion
     # region Baby Cry
-
-    @property
-    def can_detect_baby_cry(self) -> bool:
-        return self._can_detect_audio(SmartDetectObjectType.BABY_CRY)
 
     @property
     def is_baby_cry_detection_on(self) -> bool:
@@ -1919,26 +1679,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.BABY_CRY)
 
     @property
-    def last_baby_cry_detect_event(self) -> Event | None:
-        """Get the last Baby Cry smart detection event."""
-        return self.get_last_smart_audio_detect_event(SmartDetectAudioType.BABY_CRY)
-
-    @property
-    def last_baby_cry_detect(self) -> datetime | None:
-        """Get the last Baby Cry smart detection event."""
-        return self.last_smart_audio_detects.get(SmartDetectAudioType.BABY_CRY)
-
-    @property
     def is_baby_cry_currently_detected(self) -> bool:
         """Is Baby Cry currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.BABY_CRY)
 
     # endregion
     # region Speaking
-
-    @property
-    def can_detect_speaking(self) -> bool:
-        return self._can_detect_audio(SmartDetectObjectType.SPEAK)
 
     @property
     def is_speaking_detection_on(self) -> bool:
@@ -1949,16 +1695,6 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.SPEAK)
 
     @property
-    def last_speaking_detect_event(self) -> Event | None:
-        """Get the last Speaking smart detection event."""
-        return self.get_last_smart_audio_detect_event(SmartDetectAudioType.SPEAK)
-
-    @property
-    def last_speaking_detect(self) -> datetime | None:
-        """Get the last Speaking smart detection event."""
-        return self.last_smart_audio_detects.get(SmartDetectAudioType.SPEAK)
-
-    @property
     def is_speaking_currently_detected(self) -> bool:
         """Is Speaking currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.SPEAK)
@@ -1967,26 +1703,12 @@ class Camera(ProtectMotionDeviceModel):
     # region Bark
 
     @property
-    def can_detect_bark(self) -> bool:
-        return self._can_detect_audio(SmartDetectObjectType.BARK)
-
-    @property
     def is_bark_detection_on(self) -> bool:
         """
         Is Bark Detection available and enabled (camera will produce barking smart
         detection events)?
         """
         return self._is_audio_enabled(SmartDetectObjectType.BARK)
-
-    @property
-    def last_bark_detect_event(self) -> Event | None:
-        """Get the last Bark smart detection event."""
-        return self.get_last_smart_audio_detect_event(SmartDetectAudioType.BARK)
-
-    @property
-    def last_bark_detect(self) -> datetime | None:
-        """Get the last Bark smart detection event."""
-        return self.last_smart_audio_detects.get(SmartDetectAudioType.BARK)
 
     @property
     def is_bark_currently_detected(self) -> bool:
@@ -1998,10 +1720,6 @@ class Camera(ProtectMotionDeviceModel):
     # (burglar in code, car alarm in Protect UI)
 
     @property
-    def can_detect_car_alarm(self) -> bool:
-        return self._can_detect_audio(SmartDetectObjectType.BURGLAR)
-
-    @property
     def is_car_alarm_detection_on(self) -> bool:
         """
         Is Car Alarm Detection available and enabled (camera will produce car alarm smart
@@ -2010,30 +1728,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.BURGLAR)
 
     @property
-    def last_car_alarm_detect_event(self) -> Event | None:
-        """Get the last Car Alarm smart detection event."""
-        return self.get_last_smart_audio_detect_event(SmartDetectAudioType.BURGLAR)
-
-    @property
-    def last_car_alarm_detect(self) -> datetime | None:
-        """Get the last Car Alarm smart detection event."""
-        return self.last_smart_audio_detects.get(SmartDetectAudioType.BURGLAR)
-
-    @property
     def is_car_alarm_currently_detected(self) -> bool:
         """Is Car Alarm currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.BURGLAR)
 
-    async def set_car_alarm_detection(self, enabled: bool) -> None:
-        """Toggles car_alarm smart detection. Requires camera to have smart detection"""
-        return await self._set_audio_detect(SmartDetectAudioType.BURGLAR, enabled)
-
     # endregion
     # region Car Horn
-
-    @property
-    def can_detect_car_horn(self) -> bool:
-        return self._can_detect_audio(SmartDetectObjectType.CAR_HORN)
 
     @property
     def is_car_horn_detection_on(self) -> bool:
@@ -2044,16 +1744,6 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.CAR_HORN)
 
     @property
-    def last_car_horn_detect_event(self) -> Event | None:
-        """Get the last Car Horn smart detection event."""
-        return self.get_last_smart_audio_detect_event(SmartDetectAudioType.CAR_HORN)
-
-    @property
-    def last_car_horn_detect(self) -> datetime | None:
-        """Get the last Car Horn smart detection event."""
-        return self.last_smart_audio_detects.get(SmartDetectAudioType.CAR_HORN)
-
-    @property
     def is_car_horn_currently_detected(self) -> bool:
         """Is Car Horn currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.CAR_HORN)
@@ -2062,26 +1752,12 @@ class Camera(ProtectMotionDeviceModel):
     # region Glass Break
 
     @property
-    def can_detect_glass_break(self) -> bool:
-        return self._can_detect_audio(SmartDetectObjectType.GLASS_BREAK)
-
-    @property
     def is_glass_break_detection_on(self) -> bool:
         """
         Is Glass Break available and enabled (camera will produce glass break smart
         detection events)?
         """
         return self._is_audio_enabled(SmartDetectObjectType.GLASS_BREAK)
-
-    @property
-    def last_glass_break_detect_event(self) -> Event | None:
-        """Get the last Glass Break smart detection event."""
-        return self.get_last_smart_audio_detect_event(SmartDetectAudioType.GLASS_BREAK)
-
-    @property
-    def last_glass_break_detect(self) -> datetime | None:
-        """Get the last Glass Break smart detection event."""
-        return self.last_smart_audio_detects.get(SmartDetectAudioType.GLASS_BREAK)
 
     @property
     def is_glass_break_currently_detected(self) -> bool:
@@ -2110,29 +1786,6 @@ class Camera(ProtectMotionDeviceModel):
         if len(self.channels) >= 3:
             return self.channels[0]
         return None
-
-    @property
-    def medium_camera_channel(self) -> CameraChannel | None:
-        if len(self.channels) >= 3:
-            return self.channels[1]
-        return None
-
-    @property
-    def low_camera_channel(self) -> CameraChannel | None:
-        if len(self.channels) >= 3:
-            return self.channels[2]
-        return None
-
-    @property
-    def default_camera_channel(self) -> CameraChannel | None:
-        for channel in [
-            self.high_camera_channel,
-            self.medium_camera_channel,
-            self.low_camera_channel,
-        ]:
-            if channel is not None and channel.is_rtsp_enabled:
-                return channel
-        return self.high_camera_channel
 
     @property
     def package_camera_channel(self) -> CameraChannel | None:
@@ -2235,44 +1888,12 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._api.get_camera_snapshot(self.id, width, height, dt=dt)
 
-    async def get_public_api_snapshot(
-        self, high_quality: bool | None = None, package: bool = False
-    ) -> bytes | None:
-        """Gets snapshot for camera using public API; ``package=True`` fetches the package camera."""
-        if self._api._api_key is None:
-            raise NotAuthorized("Cannot get public API snapshot without an API key.")
-
-        if high_quality is None:
-            high_quality = self.feature_flags.support_full_hd_snapshot or False
-
-        return await self._api.get_public_api_camera_snapshot(
-            camera_id=self.id, high_quality=high_quality, package=package
-        )
-
-    async def create_rtsps_streams(
-        self, qualities: list[ChannelQuality | str] | ChannelQuality | str
-    ) -> RTSPSStreams | None:
-        """Creates RTSPS streams for camera using public API."""
-        if self._api._api_key is None:
-            raise NotAuthorized("Cannot create RTSPS streams without an API key.")
-
-        return await self._api.create_camera_rtsps_streams(self.id, qualities)
-
     async def get_rtsps_streams(self) -> RTSPSStreams | None:
         """Gets existing RTSPS streams for camera using public API."""
         if self._api._api_key is None:
             raise NotAuthorized("Cannot get RTSPS streams without an API key.")
 
         return await self._api.get_camera_rtsps_streams(self.id)
-
-    async def delete_rtsps_streams(
-        self, qualities: list[ChannelQuality | str] | ChannelQuality | str
-    ) -> bool:
-        """Deletes RTSPS streams for camera using public API."""
-        if self._api._api_key is None:
-            raise NotAuthorized("Cannot delete RTSPS streams without an API key.")
-
-        return await self._api.delete_camera_rtsps_streams(self.id, qualities)
 
     async def get_package_snapshot(
         self,
@@ -2506,113 +2127,6 @@ class Camera(ProtectMotionDeviceModel):
 
         await self.queue_update(callback)
 
-    async def set_osd_bitrate(self, enabled: bool) -> None:
-        """Sets whether camera bitrate is in the On Screen Display"""
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
-        def callback() -> None:
-            # mismatch between UI internal data structure debug = bitrate data
-            self.osd_settings.is_debug_enabled = enabled
-
-        await self.queue_update(callback)
-
-    async def set_smart_detect_types(self, types: list[SmartDetectObjectType]) -> None:
-        """Sets current enabled smart detection types. Requires camera to have smart detection"""
-        if not self.feature_flags.has_smart_detect:
-            raise BadRequest("Camera does not have a smart detections")
-
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
-        def callback() -> None:
-            self.smart_detect_settings.object_types = types
-
-        await self.queue_update(callback)
-
-    async def set_smart_audio_detect_types(
-        self,
-        types: list[SmartDetectAudioType],
-    ) -> None:
-        """Sets current enabled smart audio detection types. Requires camera to have smart detection"""
-        if not self.feature_flags.has_smart_detect:
-            raise BadRequest("Camera does not have a smart detections")
-
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
-        def callback() -> None:
-            self.smart_detect_settings.audio_types = types
-
-        await self.queue_update(callback)
-
-    async def _set_audio_detect(
-        self,
-        obj_to_mod: SmartDetectAudioType,
-        enabled: bool,
-    ) -> None:
-        if (
-            self.feature_flags.smart_detect_audio_types is None
-            or obj_to_mod not in self.feature_flags.smart_detect_audio_types
-        ):
-            raise BadRequest(f"Camera does not support the {obj_to_mod} detection type")
-
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
-        def callback() -> None:
-            objects = self.smart_detect_settings.audio_types or []
-            if enabled:
-                if obj_to_mod not in objects:
-                    objects = [*objects, obj_to_mod]
-                    objects.sort()
-            elif obj_to_mod in objects:
-                objects.remove(obj_to_mod)
-            self.smart_detect_settings.audio_types = objects
-
-        await self.queue_update(callback)
-
-    async def set_lcd_text(
-        self,
-        text_type: DoorbellMessageType | None,
-        text: str | None = None,
-        reset_at: datetime | DEFAULT_TYPE | None = None,
-    ) -> None:
-        """Sets doorbell LCD text. Requires camera to be doorbell"""
-        if not self.feature_flags.has_lcd_screen:
-            raise BadRequest("Camera does not have an LCD screen")
-
-        if text_type is None:
-            async with self._update_sync.lock:
-                # yield to the event loop once we have the lock to process any pending updates
-                await asyncio.sleep(0)
-                data_before_changes = self.dict_with_excludes()
-                self.lcd_message = None
-                # UniFi Protect bug: clearing LCD text message does _not_ emit a WS message
-                await self.save_device(data_before_changes, force_emit=True)
-                return
-
-        if text_type != DoorbellMessageType.CUSTOM_MESSAGE:
-            if text is not None:
-                raise BadRequest("Can only set text if text_type is CUSTOM_MESSAGE")
-            text = text_type.value.replace("_", " ")
-
-        if reset_at == DEFAULT:
-            reset_at = (
-                utc_now()
-                + self._api.bootstrap.nvr.doorbell_settings.default_message_reset_timeout
-            )
-
-        def callback() -> None:
-            self.lcd_message = LCDMessage(  # type: ignore[call-arg]
-                api=self._api,
-                type=text_type,
-                text=text,  # type: ignore[arg-type]
-                reset_at=reset_at,  # type: ignore[arg-type]
-            )
-
-        await self.queue_update(callback)
-
     async def set_privacy(
         self,
         enabled: bool,
@@ -2747,11 +2261,6 @@ class Camera(ProtectMotionDeviceModel):
             return True
         return user.can(self.model, PermissionNode.READ_MEDIA, self)
 
-    def can_delete_media(self, user: User) -> bool:
-        if self.model is None:
-            return True
-        return user.can(self.model, PermissionNode.DELETE_MEDIA, self)
-
     # region PTZ
 
     async def get_ptz_presets(self) -> list[PTZPreset]:
@@ -2798,24 +2307,6 @@ class Camera(ProtectMotionDeviceModel):
         if not self.feature_flags.has_led_status:
             raise BadRequest("Camera does not have status light")
         updated = await self._api.update_camera_public(self.id, led_is_enabled=enabled)
-        self._merge_public_led_settings(updated.led_settings)
-
-    async def set_welcome_led_public(self, enabled: bool) -> None:
-        """Set welcome LED via public API."""
-        if not self.feature_flags.has_led_status:
-            raise BadRequest("Camera does not have status light")
-        if self.led_settings.welcome_led is None:
-            raise BadRequest("Camera does not have welcome LED")
-        updated = await self._api.update_camera_public(self.id, led_welcome_led=enabled)
-        self._merge_public_led_settings(updated.led_settings)
-
-    async def set_flood_led_public(self, enabled: bool) -> None:
-        """Set flood LED via public API."""
-        if not self.feature_flags.has_led_status:
-            raise BadRequest("Camera does not have status light")
-        if self.led_settings.flood_led is None:
-            raise BadRequest("Camera does not have flood LED")
-        updated = await self._api.update_camera_public(self.id, led_flood_led=enabled)
         self._merge_public_led_settings(updated.led_settings)
 
     def _merge_public_led_settings(self, led: PublicCameraLedSettings) -> None:
@@ -2892,11 +2383,11 @@ class Camera(ProtectMotionDeviceModel):
             # a provisioned, connected camera, so an offline one echoes the
             # request straight back and would rebuild the message just cleared.
             # The faked frame below only reaches an instance the bootstrap owns,
-            # so set the local state here as ``set_lcd_text`` does.
+            # so set the local state here.
             self.lcd_message = None
             # UniFi Protect bug: clearing the LCD message does _not_ emit a WS
-            # message, so fake one the way ``set_lcd_text`` does. A reset time
-            # in the past is how the console signals a wiped message.
+            # message, so fake one. A reset time in the past is how the console
+            # signals a wiped message.
             reset = to_js_time(utc_now() - timedelta(seconds=10))
             await self.emit_message({"lcdMessage": {"resetAt": reset}})
             return
@@ -2949,148 +2440,6 @@ class Camera(ProtectMotionDeviceModel):
             self.id, osd_nerd_mode_enabled=enabled
         )
         self._merge_public_osd_settings(updated.osd_settings)
-
-    async def set_osd_overlay_location_public(
-        self,
-        location: OsdOverlayLocation,
-    ) -> None:
-        """Set OSD overlay location via public API."""
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-        updated = await self._api.update_camera_public(
-            self.id, osd_overlay_location=location
-        )
-        self._merge_public_osd_settings(updated.osd_settings)
-
-    async def set_person_detection_public(self, enabled: bool) -> None:
-        """Toggle person smart detection via public API."""
-        await self._set_smart_detect_type_public(SmartDetectObjectType.PERSON, enabled)
-
-    async def set_vehicle_detection_public(self, enabled: bool) -> None:
-        """Toggle vehicle smart detection via public API."""
-        await self._set_smart_detect_type_public(SmartDetectObjectType.VEHICLE, enabled)
-
-    async def set_package_detection_public(self, enabled: bool) -> None:
-        """Toggle package smart detection via public API."""
-        await self._set_smart_detect_type_public(SmartDetectObjectType.PACKAGE, enabled)
-
-    async def set_license_plate_detection_public(self, enabled: bool) -> None:
-        """Toggle license plate smart detection via public API."""
-        await self._set_smart_detect_type_public(
-            SmartDetectObjectType.LICENSE_PLATE, enabled
-        )
-
-    async def set_animal_detection_public(self, enabled: bool) -> None:
-        """Toggle animal smart detection via public API."""
-        await self._set_smart_detect_type_public(SmartDetectObjectType.ANIMAL, enabled)
-
-    async def set_face_detection_public(self, enabled: bool) -> None:
-        """Toggle face smart detection via public API."""
-        await self._set_smart_detect_type_public(SmartDetectObjectType.FACE, enabled)
-
-    async def _set_smart_detect_type_public(
-        self, obj_type: SmartDetectObjectType, enabled: bool
-    ) -> None:
-        if not getattr(self.feature_flags, "has_smart_detect", True):
-            raise BadRequest("Camera does not have smart detections")
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-        if obj_type not in self.feature_flags.smart_detect_types:
-            raise BadRequest(f"Camera does not support {obj_type} detection")
-        # Lock serializes concurrent callers that each read-modify-PATCH the full
-        # list. Without the lock two concurrent calls could clobber each other's
-        # change (last PATCH wins). Same pattern as the private queue_update path.
-        async with self._update_sync.lock:
-            types = list(self.smart_detect_settings.object_types)
-            if enabled and obj_type not in types:
-                types.append(obj_type)
-            elif not enabled and obj_type in types:
-                types.remove(obj_type)
-            updated = await self._api.update_camera_public(
-                self.id, smart_detect_object_types=types
-            )
-            self.smart_detect_settings.object_types = (
-                updated.smart_detect_settings.object_types
-            )
-
-    async def set_smoke_detection_public(self, enabled: bool) -> None:
-        """Toggle smoke audio detection via public API."""
-        await self._set_smart_detect_audio_type_public(
-            SmartDetectAudioType.SMOKE, enabled
-        )
-
-    async def set_co_detection_public(self, enabled: bool) -> None:
-        """Toggle CO audio detection via public API."""
-        await self._set_smart_detect_audio_type_public(
-            SmartDetectAudioType.CMONX, enabled
-        )
-
-    async def set_siren_detection_public(self, enabled: bool) -> None:
-        """Toggle siren audio detection via public API."""
-        await self._set_smart_detect_audio_type_public(
-            SmartDetectAudioType.SIREN, enabled
-        )
-
-    async def set_baby_cry_detection_public(self, enabled: bool) -> None:
-        """Toggle baby cry audio detection via public API."""
-        await self._set_smart_detect_audio_type_public(
-            SmartDetectAudioType.BABY_CRY, enabled
-        )
-
-    async def set_speaking_detection_public(self, enabled: bool) -> None:
-        """Toggle speaking audio detection via public API."""
-        await self._set_smart_detect_audio_type_public(
-            SmartDetectAudioType.SPEAK, enabled
-        )
-
-    async def set_bark_detection_public(self, enabled: bool) -> None:
-        """Toggle bark audio detection via public API."""
-        await self._set_smart_detect_audio_type_public(
-            SmartDetectAudioType.BARK, enabled
-        )
-
-    async def set_burglar_detection_public(self, enabled: bool) -> None:
-        """Toggle burglar audio detection via public API."""
-        await self._set_smart_detect_audio_type_public(
-            SmartDetectAudioType.BURGLAR, enabled
-        )
-
-    async def set_car_horn_detection_public(self, enabled: bool) -> None:
-        """Toggle car horn audio detection via public API."""
-        await self._set_smart_detect_audio_type_public(
-            SmartDetectAudioType.CAR_HORN, enabled
-        )
-
-    async def set_glass_break_detection_public(self, enabled: bool) -> None:
-        """Toggle glass break audio detection via public API."""
-        await self._set_smart_detect_audio_type_public(
-            SmartDetectAudioType.GLASS_BREAK, enabled
-        )
-
-    async def _set_smart_detect_audio_type_public(
-        self, audio_type: SmartDetectAudioType, enabled: bool
-    ) -> None:
-        if not getattr(self.feature_flags, "has_smart_detect", True):
-            raise BadRequest("Camera does not have smart detections")
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-        audio_types = self.feature_flags.smart_detect_audio_types
-        if audio_types is None or audio_type not in audio_types:
-            raise BadRequest(f"Camera does not support {audio_type} audio detection")
-        # Lock serializes concurrent callers; same rationale as
-        # _set_smart_detect_type_public above.
-        async with self._update_sync.lock:
-            types = list(self.smart_detect_settings.audio_types or [])
-            if enabled and audio_type not in types:
-                types.append(audio_type)
-            elif not enabled and audio_type in types:
-                types.remove(audio_type)
-            updated = await self._api.update_camera_public(
-                self.id, smart_detect_audio_types=types
-            )
-            self.smart_detect_settings.audio_types = (
-                updated.smart_detect_settings.audio_types
-            )
 
     # endregion
 
@@ -3146,13 +2495,6 @@ class Viewer(ProtectAdoptableDeviceModel):
         """Set viewer name via public API."""
         updated = await self._api.update_viewer_public(self.id, name=name)
         self.name = updated.name
-
-    async def set_liveview_public(self, liveview_id: str | None) -> None:
-        """Set the viewer liveview via public API. Pass ``None`` to clear."""
-        updated = await self._api.update_viewer_public(self.id, liveview=liveview_id)
-        # ``liveview_id`` is non-optional on the private model; the public API
-        # represents a cleared liveview as ``None`` on the wire.
-        self.liveview_id = updated.liveview_id or ""
 
 
 class Bridge(ProtectAdoptableDeviceModel):
@@ -3324,24 +2666,6 @@ class Sensor(ProtectAdoptableDeviceModel):
         self._event_callback_ping()
 
     @property
-    def last_motion_event(self) -> Event | None:
-        if (last_motion_event_id := self.last_motion_event_id) is None:
-            return None
-        return self._api.bootstrap.events.get(last_motion_event_id)
-
-    @property
-    def last_contact_event(self) -> Event | None:
-        if (last_contact_event_id := self.last_contact_event_id) is None:
-            return None
-        return self._api.bootstrap.events.get(last_contact_event_id)
-
-    @property
-    def last_value_event(self) -> Event | None:
-        if (last_value_event_id := self.last_value_event_id) is None:
-            return None
-        return self._api.bootstrap.events.get(last_value_event_id)
-
-    @property
     def last_alarm_event(self) -> Event | None:
         if (last_alarm_event_id := self.last_alarm_event_id) is None:
             return None
@@ -3383,21 +2707,6 @@ class Sensor(ProtectAdoptableDeviceModel):
 
         await self.queue_update(callback)
 
-    async def set_temperature_safe_range(self, low: float, high: float) -> None:
-        """Sets the temperature safe range for the sensor"""
-        if low < 0.0:
-            raise BadRequest("Minimum value is 0°C")
-        if high > 45.0:
-            raise BadRequest("Maximum value is 45°C")
-        if high <= low:
-            raise BadRequest("High value must be above low value")
-
-        def callback() -> None:
-            self.temperature_settings.low_threshold = low
-            self.temperature_settings.high_threshold = high
-
-        await self.queue_update(callback)
-
     async def remove_temperature_safe_range(self) -> None:
         """Removes the temperature safe range for the sensor"""
 
@@ -3412,21 +2721,6 @@ class Sensor(ProtectAdoptableDeviceModel):
 
         def callback() -> None:
             self.humidity_settings.is_enabled = enabled
-
-        await self.queue_update(callback)
-
-    async def set_humidity_safe_range(self, low: float, high: float) -> None:
-        """Sets the humidity safe range for the sensor"""
-        if low < 1.0:
-            raise BadRequest("Minimum value is 1%")
-        if high > 99.0:
-            raise BadRequest("Maximum value is 99%")
-        if high <= low:
-            raise BadRequest("High value must be above low value")
-
-        def callback() -> None:
-            self.humidity_settings.low_threshold = low
-            self.humidity_settings.high_threshold = high
 
         await self.queue_update(callback)
 
@@ -3447,35 +2741,12 @@ class Sensor(ProtectAdoptableDeviceModel):
 
         await self.queue_update(callback)
 
-    async def set_light_safe_range(self, low: float, high: float) -> None:
-        """Sets the light safe range for the sensor"""
-        if low < 1.0:
-            raise BadRequest("Minimum value is 1 lux")
-        if high > 1000.0:
-            raise BadRequest("Maximum value is 1000 lux")
-        if high <= low:
-            raise BadRequest("High value must be above low value")
-
-        def callback() -> None:
-            self.light_settings.low_threshold = low
-            self.light_settings.high_threshold = high
-
-        await self.queue_update(callback)
-
     async def remove_light_safe_range(self) -> None:
         """Removes the light safe range for the sensor"""
 
         def callback() -> None:
             self.light_settings.low_threshold = None
             self.light_settings.high_threshold = None
-
-        await self.queue_update(callback)
-
-    async def set_alarm_status(self, enabled: bool) -> None:
-        """Sets the alarm detection type for the sensor"""
-
-        def callback() -> None:
-            self.alarm_settings.is_enabled = enabled
 
         await self.queue_update(callback)
 
@@ -3862,29 +3133,6 @@ class Chime(ProtectAdoptableDeviceModel):
 
         await self.queue_update(callback)
 
-    async def add_camera(self, camera: Camera) -> None:
-        """Adds new paired camera to chime"""
-        if not camera.feature_flags.is_doorbell:
-            raise BadRequest("Camera does not have a chime")
-
-        if camera.id in self.camera_ids:
-            raise BadRequest("Camera is already paired")
-
-        def callback() -> None:
-            self.camera_ids.append(camera.id)
-
-        await self.queue_update(callback)
-
-    async def remove_camera(self, camera: Camera) -> None:
-        """Removes paired camera from chime"""
-        if camera.id not in self.camera_ids:
-            raise BadRequest("Camera is not paired")
-
-        def callback() -> None:
-            self.camera_ids.remove(camera.id)
-
-        await self.queue_update(callback)
-
     async def play(
         self,
         *,
@@ -4096,10 +3344,6 @@ class Chime(ProtectAdoptableDeviceModel):
             ]
 
             await self.set_ring_settings_public(ring_settings_update)
-
-
-class AiPort(Camera):
-    paired_cameras: list[str]
 
 
 class Ringtone(ProtectBaseObject):

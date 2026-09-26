@@ -25,7 +25,7 @@ from uiprotect.data import NVR, Camera, ModelType
 from uiprotect.data.devices import PTZRange, PTZZoomRange
 from uiprotect.data.nvr import Event
 from uiprotect.data.types import EventType
-from uiprotect.utils import _BAD_UUID, set_debug, set_no_debug
+from uiprotect.utils import _BAD_UUID, DEBUG_ENV, is_debug, set_debug
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -104,7 +104,13 @@ TEST_VIEWPORT_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_viewport.json").exists()
 TEST_BRIDGE_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_bridge.json").exists()
 TEST_LIVEVIEW_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_liveview.json").exists()
 TEST_CHIME_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_chime.json").exists()
-TEST_AIPORT_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_aiport.json").exists()
+
+
+def set_no_debug() -> None:
+    """Turn the UFP_DEBUG flag off."""
+    os.environ[DEBUG_ENV] = str(False)
+    is_debug.cache_clear()
+
 
 ANY_NONE = [[None], None, []]
 
@@ -186,15 +192,6 @@ def read_camera_json_file():
     return camera
 
 
-def read_aiport_json_file():
-    # tests expect global recording settings to be off
-    aiport = read_json_file("sample_aiport")
-    if aiport.get("useGlobal"):
-        aiport["useGlobal"] = False
-
-    return aiport
-
-
 def get_now():
     return datetime.fromisoformat(CONSTANTS["time"]).replace(microsecond=0)
 
@@ -252,8 +249,6 @@ async def mock_api_request(url: str, *args, **kwargs):
         return [read_json_file("sample_liveview")]
     if url == "chimes":
         return [read_json_file("sample_chime")]
-    if url == "aiports":
-        return [read_json_file("sample_aiport")]
     if url.endswith("ptz/preset"):
         return {
             "id": "test-id",
@@ -290,8 +285,6 @@ async def mock_api_request(url: str, *args, **kwargs):
         return read_json_file("sample_liveview")
     if url.startswith("chimes"):
         return read_json_file("sample_chime")
-    if url.startswith("aiports"):
-        return read_json_file("sample_aiport")
     if "smartDetectTrack" in url:
         return read_json_file("sample_event_smart_track")
 
@@ -562,14 +555,6 @@ async def chime_obj_fixture(protect_client: ProtectApiClient):
     return next(iter(protect_client.bootstrap.chimes.values()))
 
 
-@pytest_asyncio.fixture(name="aiport_obj")
-async def aiport_obj_fixture(protect_client: ProtectApiClient):
-    if not TEST_AIPORT_EXISTS:
-        return None
-
-    return next(iter(protect_client.bootstrap.aiports.values()))
-
-
 @pytest_asyncio.fixture
 async def liveview_obj(protect_client: ProtectApiClient):
     if not TEST_LIVEVIEW_EXISTS:
@@ -616,14 +601,6 @@ def camera():
 
 
 @pytest.fixture()
-def aiport():
-    if not TEST_CAMERA_EXISTS:
-        return None
-
-    return read_aiport_json_file()
-
-
-@pytest.fixture()
 def sensor():
     if not TEST_SENSOR_EXISTS:
         return None
@@ -661,14 +638,6 @@ def viewports():
         return []
 
     return [read_json_file("sample_viewport")]
-
-
-@pytest.fixture()
-def aiports():
-    if not TEST_AIPORT_EXISTS:
-        return []
-
-    return [read_json_file("sample_aiport")]
 
 
 @pytest.fixture()
@@ -893,7 +862,7 @@ def compare_objs(obj_type, expected, actual):
     expected = deepcopy(expected)
     actual = deepcopy(actual)
 
-    if obj_type in (ModelType.CAMERA.value, ModelType.AIPORT.value):
+    if obj_type == ModelType.CAMERA.value:
         # fields does not always exist (G4 Instant)
         expected.pop("apMac", None)
         # field no longer exists on newer cameras

@@ -396,63 +396,11 @@ async def test_camera_set_status_light_public(camera: Camera) -> None:
 
 
 @pytest.mark.asyncio()
-async def test_camera_set_welcome_led_public(camera: Camera) -> None:
-    camera.feature_flags.has_led_status = True
-    camera.led_settings.welcome_led = False
-    updated = _led_updated_mock(camera)
-    camera._api.update_camera_public = AsyncMock(return_value=updated)
-
-    await camera.set_welcome_led_public(True)
-
-    camera._api.update_camera_public.assert_called_once_with(
-        camera.id, led_welcome_led=True
-    )
-    assert camera.led_settings == updated.led_settings
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_welcome_led_public_not_supported(camera: Camera) -> None:
-    camera.feature_flags.has_led_status = True
-    camera.led_settings.welcome_led = None
-
-    with pytest.raises(BadRequest, match="does not have welcome LED"):
-        await camera.set_welcome_led_public(True)
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_flood_led_public(camera: Camera) -> None:
-    camera.feature_flags.has_led_status = True
-    camera.led_settings.flood_led = False
-    updated = _led_updated_mock(camera)
-    camera._api.update_camera_public = AsyncMock(return_value=updated)
-
-    await camera.set_flood_led_public(True)
-
-    camera._api.update_camera_public.assert_called_once_with(
-        camera.id, led_flood_led=True
-    )
-    assert camera.led_settings == updated.led_settings
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_flood_led_public_not_supported(camera: Camera) -> None:
-    camera.feature_flags.has_led_status = True
-    camera.led_settings.flood_led = None
-
-    with pytest.raises(BadRequest, match="does not have flood LED"):
-        await camera.set_flood_led_public(True)
-
-
-@pytest.mark.parametrize(
-    "method",
-    ["set_status_light_public", "set_welcome_led_public", "set_flood_led_public"],
-)
-@pytest.mark.asyncio()
-async def test_camera_set_led_public_no_led_status(camera: Camera, method: str) -> None:
+async def test_camera_set_led_public_no_led_status(camera: Camera) -> None:
     camera.feature_flags.has_led_status = False
 
     with pytest.raises(BadRequest, match="does not have status light"):
-        await getattr(camera, method)(True)
+        await camera.set_status_light_public(True)
 
 
 # --- HDR ---
@@ -647,20 +595,6 @@ async def test_camera_set_osd_public(camera: Camera, method: str, kwarg: str) ->
     assert camera.osd_settings == updated.osd_settings
 
 
-@pytest.mark.asyncio()
-async def test_camera_set_osd_overlay_location_public(camera: Camera) -> None:
-    camera.use_global = False
-    updated = _osd_updated_mock(camera)
-    camera._api.update_camera_public = AsyncMock(return_value=updated)
-
-    await camera.set_osd_overlay_location_public(OsdOverlayLocation.TOP_LEFT)
-
-    camera._api.update_camera_public.assert_called_once_with(
-        camera.id, osd_overlay_location=OsdOverlayLocation.TOP_LEFT
-    )
-    assert camera.osd_settings == updated.osd_settings
-
-
 @pytest.mark.parametrize(
     ("method", "arg"),
     [
@@ -668,7 +602,6 @@ async def test_camera_set_osd_overlay_location_public(camera: Camera) -> None:
         ("set_osd_date_public", True),
         ("set_osd_logo_public", True),
         ("set_osd_nerd_mode_public", True),
-        ("set_osd_overlay_location_public", OsdOverlayLocation.TOP_LEFT),
     ],
 )
 @pytest.mark.asyncio()
@@ -886,201 +819,10 @@ async def test_camera_set_lcd_message_public_validation(
 # --- Smart detect object types ---
 
 
-@pytest.mark.parametrize(
-    ("method", "obj_type"),
-    [
-        ("set_person_detection_public", SmartDetectObjectType.PERSON),
-        ("set_vehicle_detection_public", SmartDetectObjectType.VEHICLE),
-        ("set_package_detection_public", SmartDetectObjectType.PACKAGE),
-        ("set_animal_detection_public", SmartDetectObjectType.ANIMAL),
-        ("set_face_detection_public", SmartDetectObjectType.FACE),
-        ("set_license_plate_detection_public", SmartDetectObjectType.LICENSE_PLATE),
-    ],
-)
-@pytest.mark.asyncio()
-async def test_camera_set_object_detection_public_enable(
-    camera: Camera, method: str, obj_type: SmartDetectObjectType
-) -> None:
-    camera.feature_flags.has_smart_detect = True
-    camera.use_global = False
-    camera.feature_flags.smart_detect_types = [obj_type]
-    camera.smart_detect_settings.object_types = []
-    updated = Mock()
-    updated.smart_detect_settings.object_types = [obj_type]
-    camera._api.update_camera_public = AsyncMock(return_value=updated)
-
-    await getattr(camera, method)(True)
-
-    camera._api.update_camera_public.assert_called_once_with(
-        camera.id, smart_detect_object_types=[obj_type]
-    )
-    assert camera.smart_detect_settings.object_types == [obj_type]
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_object_detection_public_disable(camera: Camera) -> None:
-    camera.feature_flags.has_smart_detect = True
-    camera.use_global = False
-    camera.feature_flags.smart_detect_types = [SmartDetectObjectType.PERSON]
-    camera.smart_detect_settings.object_types = [SmartDetectObjectType.PERSON]
-    updated = Mock()
-    updated.smart_detect_settings.object_types = []
-    camera._api.update_camera_public = AsyncMock(return_value=updated)
-
-    await camera.set_person_detection_public(False)
-
-    camera._api.update_camera_public.assert_called_once_with(
-        camera.id, smart_detect_object_types=[]
-    )
-    assert camera.smart_detect_settings.object_types == []
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_object_detection_public_unsupported(camera: Camera) -> None:
-    camera.feature_flags.smart_detect_types = []
-
-    with pytest.raises(BadRequest, match="does not support"):
-        await camera.set_person_detection_public(True)
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_object_detection_public_consecutive_calls(
-    camera: Camera,
-) -> None:
-    """Consecutive enable calls must not clobber each other's state."""
-    camera.feature_flags.has_smart_detect = True
-    camera.use_global = False
-    camera.feature_flags.smart_detect_types = [
-        SmartDetectObjectType.PERSON,
-        SmartDetectObjectType.VEHICLE,
-    ]
-    camera.smart_detect_settings.object_types = []
-
-    after_person = Mock()
-    after_person.smart_detect_settings.object_types = [SmartDetectObjectType.PERSON]
-    after_vehicle = Mock()
-    after_vehicle.smart_detect_settings.object_types = [
-        SmartDetectObjectType.PERSON,
-        SmartDetectObjectType.VEHICLE,
-    ]
-    camera._api.update_camera_public = AsyncMock(
-        side_effect=[after_person, after_vehicle]
-    )
-
-    await camera.set_person_detection_public(True)
-    await camera.set_vehicle_detection_public(True)
-
-    calls = camera._api.update_camera_public.call_args_list
-    assert calls[0] == (
-        (camera.id,),
-        {"smart_detect_object_types": [SmartDetectObjectType.PERSON]},
-    )
-    assert calls[1] == (
-        (camera.id,),
-        {
-            "smart_detect_object_types": [
-                SmartDetectObjectType.PERSON,
-                SmartDetectObjectType.VEHICLE,
-            ]
-        },
-    )
-
-
 # --- Smart detect audio types ---
 
 
-@pytest.mark.parametrize(
-    ("method", "audio_type"),
-    [
-        ("set_smoke_detection_public", SmartDetectAudioType.SMOKE),
-        ("set_co_detection_public", SmartDetectAudioType.CMONX),
-        ("set_siren_detection_public", SmartDetectAudioType.SIREN),
-        ("set_baby_cry_detection_public", SmartDetectAudioType.BABY_CRY),
-        ("set_speaking_detection_public", SmartDetectAudioType.SPEAK),
-        ("set_bark_detection_public", SmartDetectAudioType.BARK),
-        ("set_burglar_detection_public", SmartDetectAudioType.BURGLAR),
-        ("set_car_horn_detection_public", SmartDetectAudioType.CAR_HORN),
-        ("set_glass_break_detection_public", SmartDetectAudioType.GLASS_BREAK),
-    ],
-)
-@pytest.mark.asyncio()
-async def test_camera_set_audio_detection_public_enable(
-    camera: Camera, method: str, audio_type: SmartDetectAudioType
-) -> None:
-    camera.feature_flags.has_smart_detect = True
-    camera.use_global = False
-    camera.feature_flags.smart_detect_audio_types = [audio_type]
-    camera.smart_detect_settings.audio_types = []
-    updated = Mock()
-    updated.smart_detect_settings.audio_types = [audio_type]
-    camera._api.update_camera_public = AsyncMock(return_value=updated)
-
-    await getattr(camera, method)(True)
-
-    camera._api.update_camera_public.assert_called_once_with(
-        camera.id, smart_detect_audio_types=[audio_type]
-    )
-    assert camera.smart_detect_settings.audio_types == [audio_type]
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_audio_detection_public_disable(camera: Camera) -> None:
-    camera.feature_flags.has_smart_detect = True
-    camera.use_global = False
-    camera.feature_flags.smart_detect_audio_types = [SmartDetectAudioType.SMOKE]
-    camera.smart_detect_settings.audio_types = [SmartDetectAudioType.SMOKE]
-    updated = Mock()
-    updated.smart_detect_settings.audio_types = []
-    camera._api.update_camera_public = AsyncMock(return_value=updated)
-
-    await camera.set_smoke_detection_public(False)
-
-    camera._api.update_camera_public.assert_called_once_with(
-        camera.id, smart_detect_audio_types=[]
-    )
-    assert camera.smart_detect_settings.audio_types == []
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_audio_detection_public_unsupported(camera: Camera) -> None:
-    camera.feature_flags.has_smart_detect = True
-    camera.use_global = False
-    camera.feature_flags.smart_detect_audio_types = None
-
-    with pytest.raises(BadRequest, match="does not support"):
-        await camera.set_smoke_detection_public(True)
-
-
 # --- Smart detect guards ---
-
-
-@pytest.mark.parametrize(
-    "method",
-    ["set_person_detection_public", "set_smoke_detection_public"],
-)
-@pytest.mark.asyncio()
-async def test_camera_set_detection_public_no_smart_detect(
-    camera: Camera, method: str
-) -> None:
-    camera.feature_flags.has_smart_detect = False
-
-    with pytest.raises(BadRequest, match="does not have smart detections"):
-        await getattr(camera, method)(True)
-
-
-@pytest.mark.parametrize(
-    "method",
-    ["set_person_detection_public", "set_smoke_detection_public"],
-)
-@pytest.mark.asyncio()
-async def test_camera_set_detection_public_use_global(
-    camera: Camera, method: str
-) -> None:
-    camera.feature_flags.has_smart_detect = True
-    camera.use_global = True
-
-    with pytest.raises(BadRequest, match="global recording settings"):
-        await getattr(camera, method)(True)
 
 
 # =============================================================================

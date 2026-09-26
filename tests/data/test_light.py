@@ -331,39 +331,6 @@ async def test_light_set_duration_public(light_obj: Light, duration: timedelta) 
 
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize("mode", [LightModeType.MANUAL, LightModeType.WHEN_DARK])
-@pytest.mark.parametrize("enable_at", [None, LightModeEnableType.ALWAYS])
-@pytest.mark.asyncio()
-async def test_light_set_light_mode_public(
-    light_obj: Light,
-    mode: LightModeType,
-    enable_at: LightModeEnableType | None,
-) -> None:
-    response_enable_at = (
-        enable_at if enable_at is not None else light_obj.light_mode_settings.enable_at
-    )
-    light_obj.api.update_light_public = AsyncMock(
-        return_value=_public_light_response(
-            light_mode_settings=PublicLightModeSettings(
-                mode=mode, enable_at=response_enable_at
-            ),
-        ),
-    )
-
-    original_enable_at = light_obj.light_mode_settings.enable_at
-
-    await light_obj.set_light_mode_public(mode, enable_at=enable_at)
-
-    sent = light_obj.api.update_light_public.call_args.kwargs["light_mode_settings"]
-    assert sent.mode == mode
-    if enable_at is not None:
-        assert sent.enable_at == enable_at
-    else:
-        assert sent.enable_at == original_enable_at
-    assert light_obj.light_mode_settings.mode == mode
-
-
-@pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize(
     "duration",
     [

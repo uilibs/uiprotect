@@ -55,7 +55,7 @@ uiprotect cameras list-ids
 Commands that have no public equivalent exit with an error telling you to
 supply `--username`/`--password`. In this mode that covers:
 
-- whole groups: `nvr`, `events`, `backup`, `aiports`;
+- whole groups: `nvr`, `events`, `backup`;
 - top-level commands: `create-api-key`, `generate-sample-data`, `profile-ws`,
   `shell`;
 - on every device group: `adopt`, `bridge`, `is-bluetooth`, `is-wifi`,
@@ -135,7 +135,6 @@ expose only the commands that have a public equivalent. `Private` groups are una
 
 | Command                | API     | Description                                                      |
 | ---------------------- | ------- | ---------------------------------------------------------------- |
-| `aiports`              | Private | AiPort device CLI.                                               |
 | `arm`                  | Public  | Arm profile and alarm commands.                                  |
 | `backup`               | Private | [Backup CLI](#backup-cli).                                       |
 | `bridges`              | Public  | Bridge commands.                                                 |

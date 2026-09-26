@@ -106,12 +106,6 @@ def set_debug() -> None:
     is_debug.cache_clear()
 
 
-def set_no_debug() -> None:
-    """Sets ENV variable for UFP_DEBUG to off (False)"""
-    os.environ[DEBUG_ENV] = str(False)
-    is_debug.cache_clear()
-
-
 @cache
 def is_debug() -> bool:
     """Returns if debug ENV is on (True)"""
@@ -682,12 +676,6 @@ def log_event(event: Event) -> None:
 def run_async(callback: Coroutine[Any, Any, T]) -> T:
     """Run async coroutine."""
     return asyncio.run(callback)
-
-
-def clamp_value(value: float, step_size: float) -> float:
-    """Clamps value to multiples of step size."""
-    ratio = 1 / step_size
-    return int(value * ratio) / ratio
 
 
 @lru_cache(maxsize=1024)

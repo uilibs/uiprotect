@@ -239,7 +239,7 @@ async def test_ws_event_motion(
 
     camera = get_camera()
 
-    event = camera.last_motion_event
+    event = protect_client.bootstrap.events[camera.last_motion_event_id]
     camera_before.last_motion_event_id = None
     camera.last_motion_event_id = None
 
@@ -1762,6 +1762,35 @@ async def test_ws_unknown_model_type_ignored(
         protect_client_no_debug, packet, "update", model_key, "some-id", {"k": "v"}
     )
     assert len(messages) == 0
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("action", ["add", "update", "remove"])
+async def test_ws_aiport_ignored(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+    action: str,
+    caplog: pytest.LogCaptureFixture,
+):
+    """AiPort frames are dropped without a message, a log line or a refresh."""
+    caplog.set_level(logging.DEBUG, logger="uiprotect.data.bootstrap")
+    mock_refresh = AsyncMock()
+
+    with patch.object(
+        type(protect_client_no_debug.bootstrap), "refresh_device", mock_refresh
+    ):
+        messages = _send_ws_packet(
+            protect_client_no_debug,
+            packet,
+            action,
+            "aiport",
+            "aiport-id",
+            {"id": "aiport-id", "modelKey": "aiport", "name": "AI Port"},
+        )
+
+    assert messages == []
+    mock_refresh.assert_not_called()
+    assert not [r for r in caplog.records if r.name == "uiprotect.data.bootstrap"]
 
 
 @pytest.mark.asyncio()

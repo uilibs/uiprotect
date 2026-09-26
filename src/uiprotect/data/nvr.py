@@ -13,8 +13,6 @@ from pathlib import Path
 from typing import Any, ClassVar, Literal
 from uuid import UUID
 
-import aiofiles
-import orjson
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
 from pydantic import ConfigDict, Field
 from pydantic.fields import PrivateAttr
@@ -617,40 +615,6 @@ class Event(ProtectModelWithId):
             chunk_size=chunk_size,
         )
 
-    async def get_smart_detect_track(self) -> SmartDetectTrack:
-        """
-        Gets smart detect track for given smart detect event.
-
-        If event is not a smart detect event, it will raise a `BadRequest`
-        """
-        if self.type not in {EventType.SMART_DETECT, EventType.SMART_DETECT_LINE}:
-            raise BadRequest("Not a smart detect event")
-
-        if self._smart_detect_track is None:
-            self._smart_detect_track = await self._api.get_event_smart_detect_track(
-                self.id,
-            )
-
-        return self._smart_detect_track
-
-    async def get_smart_detect_zones(self) -> dict[int, CameraZone]:
-        """Gets the triggering zones for the smart detection"""
-        if self.camera is None:
-            raise BadRequest("No camera on event")
-
-        if self._smart_detect_zones is None:
-            smart_track = await self.get_smart_detect_track()
-
-            ids: set[int] = set()
-            for item in smart_track.payload:
-                ids |= set(item.zone_ids)
-
-            self._smart_detect_zones = {
-                z.id: z for z in self.camera.smart_detect_zones if z.id in ids
-            }
-
-        return self._smart_detect_zones
-
 
 class PortConfig(ProtectBaseObject):
     ump: int
@@ -1175,13 +1139,6 @@ class NVR(ProtectDeviceModel):
         return self.name or self.market_name or self.type
 
     @property
-    def vault_cameras(self) -> list[Camera]:
-        """Vault Cameras for NVR"""
-        if not self.vault_camera_ids:
-            return []
-        return [self._api.bootstrap.cameras[c] for c in self.vault_camera_ids]
-
-    @property
     def is_global_recording_enabled(self) -> bool:
         """
         Is recording footage/events from the camera enabled?
@@ -1193,31 +1150,6 @@ class NVR(ProtectDeviceModel):
             (global_camera_settings := self.global_camera_settings) is not None
             and global_camera_settings.recording_settings.mode
             is not RecordingMode.NEVER
-        )
-
-    @property
-    def is_smart_detections_enabled(self) -> bool:
-        """If smart detected enabled globally."""
-        return (
-            smart_detection := self.smart_detection
-        ) is not None and smart_detection.enable
-
-    @property
-    def is_license_plate_detections_enabled(self) -> bool:
-        """If smart detected enabled globally."""
-        return (
-            (smart_detection := self.smart_detection) is not None
-            and smart_detection.enable
-            and smart_detection.license_plate_recognition
-        )
-
-    @property
-    def is_face_detections_enabled(self) -> bool:
-        """If smart detected enabled globally."""
-        return (
-            (smart_detection := self.smart_detection) is not None
-            and smart_detection.enable
-            and smart_detection.face_recognition
         )
 
     def update_all_messages(self) -> None:
@@ -1321,24 +1253,6 @@ class NVR(ProtectDeviceModel):
         """Reboots the NVR"""
         await self._api.reboot_nvr()
 
-    async def _read_cache_file(self, file_path: Path) -> set[Version] | None:
-        versions: set[Version] | None = None
-        try:
-            _LOGGER.debug("Reading release cache file: %s", file_path)
-            async with aiofiles.open(file_path, "rb") as cache_file:
-                versions = {Version(v) for v in orjson.loads(await cache_file.read())}
-        except FileNotFoundError:
-            # ignore missing file
-            pass
-        except Exception:
-            _LOGGER.warning("Failed to parse cache file: %s", file_path)
-
-        return versions
-
-    async def get_is_prerelease(self) -> bool:
-        """[DEPRECATED] Always returns False. Will be removed after HA 2025.8.0."""
-        return False
-
     async def set_smart_detections(self, value: bool) -> None:
         """Set if smart detections are enabled."""
 
@@ -1370,211 +1284,7 @@ class NVR(ProtectDeviceModel):
 
         await self.queue_update(callback)
 
-    async def set_global_osd_name(self, enabled: bool) -> None:
-        """Sets whether camera name is in the On Screen Display"""
-
-        def callback() -> None:
-            if self.global_camera_settings:
-                self.global_camera_settings.osd_settings.is_name_enabled = enabled
-
-        await self.queue_update(callback)
-
-    async def set_global_osd_date(self, enabled: bool) -> None:
-        """Sets whether current date is in the On Screen Display"""
-
-        def callback() -> None:
-            if self.global_camera_settings:
-                self.global_camera_settings.osd_settings.is_date_enabled = enabled
-
-        await self.queue_update(callback)
-
-    async def set_global_osd_logo(self, enabled: bool) -> None:
-        """Sets whether the UniFi logo is in the On Screen Display"""
-
-        def callback() -> None:
-            if self.global_camera_settings:
-                self.global_camera_settings.osd_settings.is_logo_enabled = enabled
-
-        await self.queue_update(callback)
-
-    async def set_global_osd_bitrate(self, enabled: bool) -> None:
-        """Sets whether camera bitrate is in the On Screen Display"""
-
-        def callback() -> None:
-            # mismatch between UI internal data structure debug = bitrate data
-            if self.global_camera_settings:
-                self.global_camera_settings.osd_settings.is_debug_enabled = enabled
-
-        await self.queue_update(callback)
-
-    async def set_global_motion_detection(self, enabled: bool) -> None:
-        """Sets motion detection on camera"""
-
-        def callback() -> None:
-            if self.global_camera_settings:
-                self.global_camera_settings.recording_settings.enable_motion_detection = enabled
-
-        await self.queue_update(callback)
-
-    async def set_global_recording_mode(self, mode: RecordingMode) -> None:
-        """Sets recording mode on camera"""
-
-        def callback() -> None:
-            if self.global_camera_settings:
-                self.global_camera_settings.recording_settings.mode = mode
-
-        await self.queue_update(callback)
-
     # object smart detections
-
-    def _is_smart_enabled(self, smart_type: SmartDetectObjectType) -> bool:
-        return (
-            self.is_global_recording_enabled
-            and (global_camera_settings := self.global_camera_settings) is not None
-            and smart_type in global_camera_settings.smart_detect_settings.object_types
-        )
-
-    @property
-    def is_global_person_detection_on(self) -> bool:
-        """
-        Is Person Detection available and enabled (camera will produce person smart
-        detection events)?
-        """
-        return self._is_smart_enabled(SmartDetectObjectType.PERSON)
-
-    @property
-    def is_global_person_tracking_enabled(self) -> bool:
-        """Is person tracking enabled"""
-        return (
-            (global_camera_settings := self.global_camera_settings) is not None
-            and (
-                auto_tracking_object_types
-                := global_camera_settings.smart_detect_settings.auto_tracking_object_types
-            )
-            is not None
-            and SmartDetectObjectType.PERSON in auto_tracking_object_types
-        )
-
-    @property
-    def is_global_vehicle_detection_on(self) -> bool:
-        """
-        Is Vehicle Detection available and enabled (camera will produce vehicle smart
-        detection events)?
-        """
-        return self._is_smart_enabled(SmartDetectObjectType.VEHICLE)
-
-    @property
-    def is_global_face_detection_on(self) -> bool:
-        """Is Face Detection available and enabled?"""
-        return self._is_smart_enabled(SmartDetectObjectType.FACE)
-
-    @property
-    def is_global_license_plate_detection_on(self) -> bool:
-        """
-        Is License Plate Detection available and enabled (camera will produce face license
-        plate detection events)?
-        """
-        return self._is_smart_enabled(SmartDetectObjectType.LICENSE_PLATE)
-
-    @property
-    def is_global_package_detection_on(self) -> bool:
-        """
-        Is Package Detection available and enabled (camera will produce package smart
-        detection events)?
-        """
-        return self._is_smart_enabled(SmartDetectObjectType.PACKAGE)
-
-    @property
-    def is_global_animal_detection_on(self) -> bool:
-        """
-        Is Animal Detection available and enabled (camera will produce package smart
-        detection events)?
-        """
-        return self._is_smart_enabled(SmartDetectObjectType.ANIMAL)
-
-    def _is_audio_enabled(self, smart_type: SmartDetectObjectType) -> bool:
-        return (
-            (audio_type := smart_type.audio_type) is not None
-            and self.is_global_recording_enabled
-            and (global_camera_settings := self.global_camera_settings) is not None
-            and (
-                audio_types := global_camera_settings.smart_detect_settings.audio_types
-            )
-            is not None
-            and audio_type in audio_types
-        )
-
-    @property
-    def is_global_smoke_detection_on(self) -> bool:
-        """
-        Is Smoke Alarm Detection available and enabled (camera will produce smoke
-        smart detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.SMOKE)
-
-    @property
-    def is_global_co_detection_on(self) -> bool:
-        """
-        Is CO Alarm Detection available and enabled (camera will produce smoke smart
-        detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.CMONX)
-
-    @property
-    def is_global_siren_detection_on(self) -> bool:
-        """
-        Is Siren Detection available and enabled (camera will produce siren smart
-        detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.SIREN)
-
-    @property
-    def is_global_baby_cry_detection_on(self) -> bool:
-        """
-        Is Baby Cry Detection available and enabled (camera will produce baby cry smart
-        detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.BABY_CRY)
-
-    @property
-    def is_global_speaking_detection_on(self) -> bool:
-        """
-        Is Speaking Detection available and enabled (camera will produce speaking smart
-        detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.SPEAK)
-
-    @property
-    def is_global_bark_detection_on(self) -> bool:
-        """
-        Is Bark Detection available and enabled (camera will produce barking smart
-        detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.BARK)
-
-    @property
-    def is_global_car_alarm_detection_on(self) -> bool:
-        """
-        Is Car Alarm Detection available and enabled (camera will produce car alarm smart
-        detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.BURGLAR)
-
-    @property
-    def is_global_car_horn_detection_on(self) -> bool:
-        """
-        Is Car Horn Detection available and enabled (camera will produce car horn smart
-        detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.CAR_HORN)
-
-    @property
-    def is_global_glass_break_detection_on(self) -> bool:
-        """
-        Is Glass Break available and enabled (camera will produce glass break smart
-        detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.GLASS_BREAK)
 
 
 class LiveviewSlot(ProtectBaseObject):

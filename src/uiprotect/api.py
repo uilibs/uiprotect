@@ -40,7 +40,6 @@ from .data import (
     NVR,
     ArmProfile,
     Bootstrap,
-    Bridge,
     Camera,
     ChannelQuality,
     DeviceState,
@@ -89,17 +88,14 @@ from .data import (
     Siren,
     SmartDetectAudioType,
     SmartDetectObjectType,
-    SmartDetectTrack,
     Speaker,
     Version,
     VideoMode,
-    Viewer,
     WSAction,
     WSPacket,
     WSSubscriptionMessage,
     create_from_unifi_dict,
 )
-from .data.devices import AiPort, Chime
 from .data.types import (
     AssetFileType,
     IteratorCallback,
@@ -1326,25 +1322,6 @@ class BaseApiClient:
             self._last_token_cookie = None
             self._last_token_cookie_decode = None
 
-    async def clear_all_sessions(self) -> None:
-        """Clears all stored sessions from the config file."""
-        if not self.store_sessions:
-            return
-
-        try:
-            await aos.remove(self.config_file)
-        except FileNotFoundError:
-            # File already gone - either never existed or removed by another process
-            return
-
-        # If we get here, the file was successfully removed (no exception raised)
-        _LOGGER.debug("Cleared all sessions from config file")
-
-        # Clear authentication state only after successful deletion
-        self._is_authenticated = False
-        self._last_token_cookie = None
-        self._last_token_cookie_decode = None
-
     def _get_websocket_url(self) -> URL:
         """Get Websocket URL."""
         return self._ws_url_object
@@ -1740,18 +1717,6 @@ class ProtectApiClient(BaseApiClient):
                 await self._async_set_connection_host_from_bootstrap(bootstrap)
 
             return bootstrap
-
-    async def poll_events(self) -> None:
-        """Poll for events."""
-        now_dt = utc_now()
-        max_event_dt = now_dt - timedelta(hours=1)
-        events = await self.get_events(
-            start=self._last_update_dt or max_event_dt,
-            end=now_dt,
-        )
-        for event in events:
-            self.bootstrap.process_event(event)
-        self._last_update_dt = now_dt
 
     def emit_message(self, msg: WSSubscriptionMessage) -> None:
         """Emit message to all subscriptions."""
@@ -3105,38 +3070,6 @@ class ProtectApiClient(BaseApiClient):
         """
         return cast("list[Sensor]", await self.get_devices(ModelType.SENSOR, Sensor))
 
-    async def get_chimes(self) -> list[Chime]:
-        """
-        Gets the list of chimes straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.chimes`
-        """
-        return cast("list[Chime]", await self.get_devices(ModelType.CHIME, Chime))
-
-    async def get_aiports(self) -> list[AiPort]:
-        """
-        Gets the list of aiports straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.aiports`
-        """
-        return cast("list[AiPort]", await self.get_devices(ModelType.AIPORT, AiPort))
-
-    async def get_viewers(self) -> list[Viewer]:
-        """
-        Gets the list of viewers straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.viewers`
-        """
-        return cast("list[Viewer]", await self.get_devices(ModelType.VIEWPORT, Viewer))
-
-    async def get_bridges(self) -> list[Bridge]:
-        """
-        Gets the list of bridges straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.bridges`
-        """
-        return cast("list[Bridge]", await self.get_devices(ModelType.BRIDGE, Bridge))
-
     async def get_liveviews(self) -> list[Liveview]:
         """
         Gets the list of liveviews straight from the NVR.
@@ -3227,45 +3160,6 @@ class ProtectApiClient(BaseApiClient):
         """
         return cast(
             "Sensor", await self.get_device(ModelType.SENSOR, device_id, Sensor)
-        )
-
-    async def get_chime(self, device_id: str) -> Chime:
-        """
-        Gets a chime straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.chimes[device_id]`
-        """
-        return cast("Chime", await self.get_device(ModelType.CHIME, device_id, Chime))
-
-    async def get_aiport(self, device_id: str) -> AiPort:
-        """
-        Gets a AiPort straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.aiport[device_id]`
-        """
-        return cast(
-            "AiPort", await self.get_device(ModelType.AIPORT, device_id, AiPort)
-        )
-
-    async def get_viewer(self, device_id: str) -> Viewer:
-        """
-        Gets a viewer straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.viewers[device_id]`
-        """
-        return cast(
-            "Viewer",
-            await self.get_device(ModelType.VIEWPORT, device_id, Viewer),
-        )
-
-    async def get_bridge(self, device_id: str) -> Bridge:
-        """
-        Gets a bridge straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.bridges[device_id]`
-        """
-        return cast(
-            "Bridge", await self.get_device(ModelType.BRIDGE, device_id, Bridge)
         )
 
     async def get_liveview(self, device_id: str) -> Liveview:
@@ -3722,12 +3616,6 @@ class ProtectApiClient(BaseApiClient):
         """Gets raw Smart Detect Track for a Smart Detection"""
         return await self.api_request_obj(f"events/{event_id}/smartDetectTrack")
 
-    async def get_event_smart_detect_track(self, event_id: str) -> SmartDetectTrack:
-        """Gets raw Smart Detect Track for a Smart Detection"""
-        data = await self.api_request_obj(f"events/{event_id}/smartDetectTrack")
-
-        return SmartDetectTrack.from_unifi_dict(api=self, **data)
-
     async def update_device(
         self,
         model_type: ModelType,
@@ -3845,53 +3733,9 @@ class ProtectApiClient(BaseApiClient):
         """Plays chime tones on a chime"""
         await self.api_request(f"chimes/{device_id}/play-buzzer", method="post")
 
-    async def set_light_is_led_force_on(
-        self, device_id: str, is_led_force_on: bool
-    ) -> None:
-        """
-        Sets isLedForceOn for light.
-
-        .. deprecated::
-            Use :meth:`update_light_public` instead. This method uses the private API
-            and will be removed in a future version.
-        """
-        await self.api_request(
-            f"lights/{device_id}",
-            method="patch",
-            json={"lightOnSettings": {"isLedForceOn": is_led_force_on}},
-        )
-
     async def clear_tamper_sensor(self, device_id: str) -> None:
         """Clears tamper status for sensor"""
         await self.api_request(f"sensors/{device_id}/clear-tamper-flag", method="post")
-
-    async def _get_versions_from_api(
-        self,
-        url: str,
-        package: str = "unifi-protect",
-    ) -> set[Version]:
-        session = await self.get_session()
-        versions: set[Version] = set()
-
-        try:
-            async with session.get(url) as response:
-                is_package = False
-                for line in (await response.text()).split("\n"):
-                    if line.startswith("Package: "):
-                        is_package = False
-                        if line == f"Package: {package}":
-                            is_package = True
-
-                    if is_package and line.startswith("Version: "):
-                        versions.add(Version(line.split(": ")[-1]))
-        except (
-            TimeoutError,
-            aiohttp.ServerDisconnectedError,
-            client_exceptions.ClientError,
-        ) as err:
-            raise NvrError(f"Error packages from {url}: {err}") from err
-
-        return versions
 
     async def create_api_key(self, name: str) -> str:
         """Create an API key with the given name and return the full API key."""

@@ -23,7 +23,6 @@ from .base import (
 )
 from .convert import MODEL_TO_CLASS, create_from_unifi_dict
 from .devices import (
-    AiPort,
     Bridge,
     Camera,
     Chime,
@@ -288,7 +287,6 @@ class Bootstrap(ProtectBaseObject):
     bridges: dict[str, Bridge] = {}
     sensors: dict[str, Sensor] = {}
     chimes: dict[str, Chime] = {}
-    aiports: dict[str, AiPort] = {}
     ringtones: list[Ringtone]
     last_update_id: str
 
@@ -722,6 +720,10 @@ class Bootstrap(ProtectBaseObject):
             _LOGGER.debug("Unknown model type: %s", model_key)
             return None
 
+        # The private API still sends AiPorts, which are no longer modelled.
+        if model_type is ModelType.AIPORT:
+            return None
+
         if models and model_type not in models:
             return None
 
@@ -803,7 +805,3 @@ class Bootstrap(ProtectBaseObject):
             devices: dict[str, ProtectModelWithId] = getattr(self, devices_key)
             devices[device.id] = device
         _LOGGER.debug("Successfully refresh model: %s %s", model_type, device_id)
-
-    async def get_is_prerelease(self) -> bool:
-        """[DEPRECATED] Always returns False. Will be removed after HA 2025.8.0."""
-        return False

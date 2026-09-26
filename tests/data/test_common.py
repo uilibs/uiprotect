@@ -19,9 +19,11 @@ from tests.conftest import (
     TEST_CAMERA_EXISTS,
     TEST_LIGHT_EXISTS,
     TEST_SENSOR_EXISTS,
+    TEST_SMART_TRACK_EXISTS,
     TEST_VIEWPORT_EXISTS,
     MockTalkback,
     compare_objs,
+    set_no_debug,
 )
 from tests.sample_data.constants import CONSTANTS
 from uiprotect.data import (
@@ -33,9 +35,11 @@ from uiprotect.data import (
     FixSizeOrderedDict,
     ModelType,
     Permission,
+    PermissionNode,
     RecordingMode,
     SmartDetectAudioType,
     SmartDetectObjectType,
+    SmartDetectTrack,
     StorageType,
     User,
     VideoMode,
@@ -48,7 +52,7 @@ from uiprotect.data.nvr import EventMetadata
 from uiprotect.data.types import RecordingType, ResolutionStorageType
 from uiprotect.data.user import CloudAccount
 from uiprotect.exceptions import BadRequest, NotAuthorized, StreamError
-from uiprotect.utils import set_debug, set_no_debug, utc_now
+from uiprotect.utils import set_debug, utc_now
 
 from ..common import assert_equal_dump
 
@@ -240,24 +244,39 @@ def test_camera_smart_events(camera_obj: Camera, reset_smart_detect: None):
         camera_obj.api.bootstrap.process_event(event)
 
     assert camera_obj.last_smart_detect == now - timedelta(seconds=5)
-    assert camera_obj.last_person_detect == now - timedelta(seconds=10)
-    assert camera_obj.last_face_detect == now - timedelta(seconds=10)
-    assert camera_obj.last_vehicle_detect == now - timedelta(seconds=10)
-    assert camera_obj.last_package_detect == now - timedelta(seconds=15)
-    assert camera_obj.last_license_plate_detect == now - timedelta(seconds=5)
+    assert camera_obj.last_smart_detects[
+        SmartDetectObjectType.PERSON
+    ] == now - timedelta(seconds=10)
+    assert camera_obj.last_smart_detects[SmartDetectObjectType.FACE] == now - timedelta(
+        seconds=10
+    )
+    assert camera_obj.last_smart_detects[
+        SmartDetectObjectType.VEHICLE
+    ] == now - timedelta(seconds=10)
+    assert camera_obj.last_smart_detects[
+        SmartDetectObjectType.PACKAGE
+    ] == now - timedelta(seconds=15)
+    assert camera_obj.last_smart_detects[
+        SmartDetectObjectType.LICENSE_PLATE
+    ] == now - timedelta(seconds=5)
 
     assert camera_obj.last_smart_detect_event is not None
     assert camera_obj.last_smart_detect_event.id == "test_event_3"
-    assert camera_obj.last_person_detect_event is not None
-    assert camera_obj.last_person_detect_event.id == "test_event_1"
-    assert camera_obj.last_face_detect_event is not None
-    assert camera_obj.last_face_detect_event.id == "test_event_1"
-    assert camera_obj.last_vehicle_detect_event is not None
-    assert camera_obj.last_vehicle_detect_event.id == "test_event_1"
-    assert camera_obj.last_package_detect_event is not None
-    assert camera_obj.last_package_detect_event.id == "test_event_2"
-    assert camera_obj.last_license_plate_detect_event is not None
-    assert camera_obj.last_license_plate_detect_event.id == "test_event_3"
+    event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PERSON)
+    assert event is not None
+    assert event.id == "test_event_1"
+    event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.FACE)
+    assert event is not None
+    assert event.id == "test_event_1"
+    event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.VEHICLE)
+    assert event is not None
+    assert event.id == "test_event_1"
+    event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PACKAGE)
+    assert event is not None
+    assert event.id == "test_event_2"
+    event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.LICENSE_PLATE)
+    assert event is not None
+    assert event.id == "test_event_3"
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -1009,15 +1028,21 @@ def test_camera_smart_audio_events(camera_obj: Camera):
         camera_obj.api.bootstrap.process_event(event)
 
     assert camera_obj.last_smart_audio_detect == now - timedelta(seconds=5)
-    assert camera_obj.last_smoke_detect == now - timedelta(seconds=10)
-    assert camera_obj.last_cmonx_detect == now - timedelta(seconds=5)
+    assert camera_obj.last_smart_audio_detects[
+        SmartDetectAudioType.SMOKE
+    ] == now - timedelta(seconds=10)
+    assert camera_obj.last_smart_audio_detects[
+        SmartDetectAudioType.CMONX
+    ] == now - timedelta(seconds=5)
 
     assert camera_obj.last_smart_audio_detect_event is not None
     assert camera_obj.last_smart_audio_detect_event.id == "test_event_2"
-    assert camera_obj.last_smoke_detect_event is not None
-    assert camera_obj.last_smoke_detect_event.id == "test_event_1"
-    assert camera_obj.last_cmonx_detect_event is not None
-    assert camera_obj.last_cmonx_detect_event.id == "test_event_2"
+    event = camera_obj.get_last_smart_audio_detect_event(SmartDetectAudioType.SMOKE)
+    assert event is not None
+    assert event.id == "test_event_1"
+    event = camera_obj.get_last_smart_audio_detect_event(SmartDetectAudioType.CMONX)
+    assert event is not None
+    assert event.id == "test_event_2"
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -1067,6 +1092,7 @@ def test_bootstrap(bootstrap: dict[str, Any]):
     bootstrap.pop("schedules", None)
     bootstrap.pop("agreements", None)
     bootstrap.pop("deviceGroups", None)
+    bootstrap.pop("aiports", None)
 
     # Remove additional keys from obj_dict
     obj_dict.pop("keyrings", None)
@@ -1089,18 +1115,58 @@ def test_bootstrap(bootstrap: dict[str, Any]):
     assert_equal_dump(obj, obj_construct)
 
 
-def test_bootstrap_aiports_missing(bootstrap: dict[str, Any]):
-    deepcopied_bootstrap_1 = deepcopy(bootstrap)
-    deepcopied_bootstrap_1.pop("aiports", None)
+@pytest.mark.parametrize("has_aiports", [True, False])
+def test_bootstrap_ignores_aiports(
+    bootstrap: dict[str, Any], has_aiports: bool, caplog: pytest.LogCaptureFixture
+):
+    """AiPorts in the private bootstrap, or their absence, are ignored silently."""
+    data = deepcopy(bootstrap)
+    aiport_ids = {aiport["id"] for aiport in data["aiports"]}
+    assert aiport_ids
+    if not has_aiports:
+        del data["aiports"]
+    caplog.set_level(logging.DEBUG, logger="uiprotect")
 
-    logger = logging.getLogger("uiprotect.data.bootstrap")
-    with patch.object(logger, "error") as mock_log_error:
-        obj = Bootstrap.from_unifi_dict(**deepcopied_bootstrap_1)
-        mock_log_error.assert_called_once_with(
-            "Missing key in bootstrap: %s. This may be fixed by updating Protect.",
-            "aiports",
-        )
-        assert obj.aiports == {}
+    obj = Bootstrap.from_unifi_dict(**data)
+
+    assert "aiports" not in obj.unifi_dict()
+    assert aiport_ids.isdisjoint(obj.id_lookup)
+    assert not [
+        record
+        for record in caplog.records
+        if record.name == "uiprotect.data.bootstrap"
+        or "aiport" in record.getMessage().lower()
+    ]
+
+
+def test_bootstrap_missing_key(
+    bootstrap: dict[str, Any], caplog: pytest.LogCaptureFixture
+):
+    """A missing bootstrap device key logs an error and loads as empty."""
+    data = deepcopy(bootstrap)
+    del data["chimes"]
+
+    obj = Bootstrap.from_unifi_dict(**data)
+
+    assert obj.chimes == {}
+    assert "Missing key in bootstrap: chimes" in caplog.text
+
+
+@pytest.mark.skipif(not TEST_SMART_TRACK_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_smart_detect_track(
+    protect_client: ProtectApiClient, smart_track: dict[str, Any]
+):
+    track = SmartDetectTrack.from_unifi_dict(
+        **deepcopy(smart_track), api=protect_client
+    )
+    item = smart_track["payload"][0]
+
+    assert track.camera is protect_client.bootstrap.cameras[smart_track["camera"]]
+    assert track.event_id == smart_track["event"]
+    assert len(track.payload) == len(smart_track["payload"])
+    assert track.payload[0].zone_ids == item["zones"]
+    assert track.payload[0].duration == timedelta(milliseconds=item["duration"])
 
 
 def test_doorlock_modelkey_resolves_unknown():
@@ -1391,47 +1457,6 @@ async def test_play_audio_error(mock_talkback, camera_obj: Camera):
     assert mock_instance.run_until_complete.called
 
 
-@pytest.mark.asyncio()
-async def test_get_smart_detect_track_bad_type(smart_dectect_obj: Event | None):
-    if smart_dectect_obj is None:
-        pytest.skip("No smart detection object found")
-
-    smart_dectect_obj.type = EventType.MOTION
-
-    with pytest.raises(BadRequest):
-        await smart_dectect_obj.get_smart_detect_track()
-
-
-@pytest.mark.asyncio()
-async def test_get_smart_detect_track(smart_dectect_obj: Event | None):
-    if smart_dectect_obj is None:
-        pytest.skip("No smart detection object found")
-
-    track = await smart_dectect_obj.get_smart_detect_track()
-    assert track.camera
-
-
-@pytest.mark.asyncio()
-async def test_get_smart_detect_zones(smart_dectect_obj: Event | None):
-    if smart_dectect_obj is None:
-        pytest.skip("No smart detection object found")
-
-    camera = smart_dectect_obj.camera
-    if camera is None:
-        pytest.skip("Camera not found for smart detection")
-
-    track = await smart_dectect_obj.get_smart_detect_track()
-    zone_ids: set[int] = set()
-    for item in track.payload:
-        zone_ids |= set(item.zone_ids)
-
-    zones = await smart_dectect_obj.get_smart_detect_zones()
-    for zone_id, zone in zones.items():
-        assert zone_id in zone_ids
-        assert zone_id == zone.id
-        assert zone in camera.smart_detect_zones
-
-
 def test_doorbell_bad_state():
     message = LCDMessage.from_unifi_dict(text="Test")
 
@@ -1607,11 +1632,14 @@ async def test_permissions(
     api.bootstrap.cameras[camera_obj.id] = camera_obj
 
     assert camera_obj.can_create(user_obj) is can_create
-    assert camera_obj.can_read(user_obj) is can_read
+    assert user_obj.can(ModelType.CAMERA, PermissionNode.READ, camera_obj) is can_read
     assert camera_obj.can_write(user_obj) is can_write
     assert camera_obj.can_delete(user_obj) is can_delete
     assert camera_obj.can_read_media(user_obj) is can_read_media
-    assert camera_obj.can_delete_media(user_obj) is can_delete_media
+    assert (
+        user_obj.can(ModelType.CAMERA, PermissionNode.DELETE_MEDIA, camera_obj)
+        is can_delete_media
+    )
 
 
 @pytest.mark.parametrize(
@@ -1660,7 +1688,7 @@ async def test_permissions_user(
     api.bootstrap.users = {user1.id: user1}
 
     assert user1.can_create(user1) is can_create
-    assert user1.can_read(user1) is can_read
+    assert user1.can(ModelType.USER, PermissionNode.READ, user1) is can_read
     assert user1.can_write(user1) is can_write
     assert user1.can_delete(user1) is can_delete
 
@@ -1714,7 +1742,7 @@ async def test_permissions_self_with_other(
     api.bootstrap.users = {user1.id: user1, user2.id: user2}
 
     assert user2.can_create(user1) is can_create
-    assert user2.can_read(user1) is can_read
+    assert user1.can(ModelType.USER, PermissionNode.READ, user2) is can_read
     assert user2.can_write(user1) is can_write
     assert user2.can_delete(user1) is can_delete
 
@@ -1755,21 +1783,16 @@ async def test_multiple_updates(user_obj: User, camera_obj: Camera):
     camera_obj.id = "test_id_1"
     camera_obj.recording_settings.enable_motion_detection = False
     camera_obj.recording_settings.mode = RecordingMode.NEVER
-    camera_obj.smart_detect_settings.object_types = []
-    camera_obj.feature_flags.has_smart_detect = True
+    camera_obj.feature_flags.has_led_status = True
+    camera_obj.led_settings.is_enabled = False
+    camera_obj.led_settings.blink_rate = 10
     camera_obj.use_global = False
     api.bootstrap.cameras[camera_obj.id] = camera_obj
 
     await asyncio.gather(
         camera_obj.set_motion_detection(True),
         camera_obj.set_recording_mode(RecordingMode.ALWAYS),
-        camera_obj.set_smart_detect_types(
-            [
-                SmartDetectObjectType.FACE,
-                SmartDetectObjectType.PERSON,
-                SmartDetectObjectType.VEHICLE,
-            ]
-        ),
+        camera_obj.set_status_light(True),
     )
 
     camera_obj.api.api_request.assert_called_with(  # type: ignore[attr-defined]
@@ -1780,7 +1803,7 @@ async def test_multiple_updates(user_obj: User, camera_obj: Camera):
                 "enableMotionDetection": True,
                 "mode": RecordingMode.ALWAYS.value,
             },
-            "smartDetectSettings": {"objectTypes": ["face", "person", "vehicle"]},
+            "ledSettings": {"isEnabled": True, "blinkRate": 0},
         },
     )
 

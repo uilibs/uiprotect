@@ -19,7 +19,7 @@ from aiofiles import os as aos
 from pydantic.fields import FieldInfo
 
 import uiprotect.utils as utils_module
-from tests.conftest import async_read_text
+from tests.conftest import async_read_text, set_no_debug
 from uiprotect.data import EventType
 from uiprotect.data.bootstrap import WSStat
 from uiprotect.data.types import (
@@ -32,7 +32,6 @@ from uiprotect.data.types import (
 )
 from uiprotect.utils import (
     _cached_ip_address,
-    clamp_value,
     convert_smart_audio_types,
     convert_smart_types,
     convert_to_datetime,
@@ -68,7 +67,6 @@ from uiprotect.utils import (
     serialize_point,
     serialize_unifi_obj,
     set_debug,
-    set_no_debug,
     timedelta_total_seconds,
     to_camel_case,
     to_js_time,
@@ -494,18 +492,6 @@ def test_serialize_unifi_obj_with_unifi_dict():
 
 
 # --- Utility function tests ---
-
-
-@pytest.mark.parametrize(
-    ("value", "step", "expected"),
-    [
-        (0.5, 0.1, 0.5),
-        (0.55, 0.1, 0.5),
-        (1.3, 0.25, 1.25),
-    ],
-)
-def test_clamp_value(value, step, expected):
-    assert clamp_value(value, step) == expected
 
 
 @pytest.mark.parametrize(

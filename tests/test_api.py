@@ -25,18 +25,15 @@ pytest.importorskip("PIL")
 from PIL import Image
 
 from tests.conftest import (
-    TEST_BRIDGE_EXISTS,
     TEST_CAMERA_EXISTS,
     TEST_HEATMAP_EXISTS,
     TEST_LIGHT_EXISTS,
     TEST_LIVEVIEW_EXISTS,
     TEST_PUBLIC_API_SNAPSHOT_EXISTS,
     TEST_SENSOR_EXISTS,
-    TEST_SMART_TRACK_EXISTS,
     TEST_SNAPSHOT_EXISTS,
     TEST_THUMBNAIL_EXISTS,
     TEST_VIDEO_EXISTS,
-    TEST_VIEWPORT_EXISTS,
     MockDatetime,
     async_read_bytes,
     async_write_bytes,
@@ -100,8 +97,10 @@ async def check_motion_event(event: Event):
 
 
 async def check_camera(camera: Camera):
-    if camera.last_motion_event is not None:
-        await check_motion_event(camera.last_motion_event)
+    if (
+        motion_event := camera.api.bootstrap.events.get(camera.last_motion_event_id)
+    ) is not None:
+        await check_motion_event(motion_event)
 
     if camera.last_smart_detect_event is not None:
         await check_motion_event(camera.last_smart_detect_event)
@@ -116,11 +115,6 @@ async def check_camera(camera: Camera):
     assert data is not None
     img = Image.open(BytesIO(data))
     assert img.format in {"PNG", "JPEG"}
-
-    pub_data = await camera.get_public_api_snapshot()
-    assert pub_data is not None
-    pub_img = Image.open(BytesIO(pub_data))
-    assert pub_img.format in {"PNG", "JPEG"}
 
     camera.last_ring_event  # noqa: B018
 
@@ -169,7 +163,6 @@ async def check_bootstrap(bootstrap: Bootstrap):
     for light in bootstrap.lights.values():
         if light.camera is not None:
             await check_camera(light.camera)
-        light.last_motion_event  # noqa: B018
         check_device(light)
 
     for camera in bootstrap.cameras.values():
@@ -246,17 +239,6 @@ def test_early_bootstrap():
 
     with pytest.raises(BadRequest):
         client.bootstrap  # noqa: B018
-
-
-@pytest.mark.asyncio()
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-async def test_get_is_prerelease_returns_false(protect_client: ProtectApiClient):
-    protect_client._bootstrap = None
-
-    await protect_client.update()
-
-    assert await protect_client.bootstrap.get_is_prerelease() is False
-    assert await protect_client.bootstrap.nvr.get_is_prerelease() is False
 
 
 @pytest.mark.asyncio()
@@ -828,7 +810,7 @@ async def test_get_device_mismatch(protect_client: ProtectApiClient, camera):
     protect_client.api_request_obj = AsyncMock(return_value=camera)  # type: ignore[method-assign]
 
     with pytest.raises(NvrError):
-        await protect_client.get_bridge("test_id")
+        await protect_client.get_light("test_id")
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -876,22 +858,6 @@ async def test_get_sensor(protect_client: ProtectApiClient, sensor):
     assert_equal_dump(obj, await protect_client.get_sensor("test_id"))
 
 
-@pytest.mark.skipif(not TEST_VIEWPORT_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_viewer(protect_client: ProtectApiClient, viewport):
-    obj = create_from_unifi_dict(viewport)
-
-    assert_equal_dump(obj, await protect_client.get_viewer("test_id"))
-
-
-@pytest.mark.skipif(not TEST_BRIDGE_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_bridge(protect_client: ProtectApiClient, bridge):
-    obj = create_from_unifi_dict(bridge)
-
-    assert_equal_dump(obj, await protect_client.get_bridge("test_id"))
-
-
 @pytest.mark.skipif(not TEST_LIVEVIEW_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
 async def test_get_liveview(protect_client: ProtectApiClient, liveview):
@@ -906,7 +872,7 @@ async def test_get_devices_mismatch(protect_client: ProtectApiClient, cameras):
     protect_client.api_request_list = AsyncMock(return_value=cameras)  # type: ignore[method-assign]
 
     with pytest.raises(NvrError):
-        await protect_client.get_bridges()
+        await protect_client.get_lights()
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -953,22 +919,6 @@ async def test_get_sensors(protect_client: ProtectApiClient, sensors):
     objs = [create_from_unifi_dict(d) for d in sensors]
 
     assert_equal_dump(objs, await protect_client.get_sensors())
-
-
-@pytest.mark.skipif(not TEST_VIEWPORT_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_viewers(protect_client: ProtectApiClient, viewports):
-    objs = [create_from_unifi_dict(d) for d in viewports]
-
-    assert_equal_dump(objs, await protect_client.get_viewers())
-
-
-@pytest.mark.skipif(not TEST_BRIDGE_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_bridges(protect_client: ProtectApiClient, bridges):
-    objs = [create_from_unifi_dict(d) for d in bridges]
-
-    assert_equal_dump(objs, await protect_client.get_bridges())
 
 
 @pytest.mark.skipif(not TEST_LIVEVIEW_EXISTS, reason="Missing testdata")
@@ -1334,87 +1284,6 @@ async def test_get_event_heatmap(protect_client: ProtectApiClient):
     assert img.format in {"PNG", "JPEG"}
 
 
-@pytest.mark.skipif(not TEST_SMART_TRACK_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_event_smart_detect_track(protect_client: ProtectApiClient):
-    data = await protect_client.get_event_smart_detect_track("test_id")
-    assert data.camera
-
-    protect_client.api_request.assert_called_with(  # type: ignore[attr-defined]
-        url="events/test_id/smartDetectTrack",
-        method="get",
-        require_auth=True,
-        raise_exception=True,
-        public_api=False,
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_aiport(protect_client: ProtectApiClient, aiport):
-    obj = create_from_unifi_dict(aiport)
-
-    assert_equal_dump(obj, await protect_client.get_aiport("test_id"))
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_aiport_not_adopted(protect_client: ProtectApiClient, aiport):
-    aiport["isAdopted"] = False
-    protect_client.api_request_obj = AsyncMock(return_value=aiport)
-
-    with pytest.raises(NvrError):
-        await protect_client.get_aiport("test_id")
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_aiport_not_adopted_enabled(protect_client: ProtectApiClient, aiport):
-    aiport["isAdopted"] = False
-    protect_client.ignore_unadopted = False
-    protect_client.api_request_obj = AsyncMock(return_value=aiport)
-
-    obj = create_from_unifi_dict(aiport)
-    assert_equal_dump(obj, await protect_client.get_aiport("test_id"))
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_chime(protect_client: ProtectApiClient, chime):
-    obj = create_from_unifi_dict(chime)
-
-    assert_equal_dump(obj, await protect_client.get_chime("test_id"))
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_chime_not_adopted(protect_client: ProtectApiClient, chime):
-    chime["isAdopted"] = False
-    protect_client.api_request_obj = AsyncMock(return_value=chime)
-
-    with pytest.raises(NvrError):
-        await protect_client.get_chime("test_id")
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_chime_not_adopted_enabled(protect_client: ProtectApiClient, chime):
-    chime["isAdopted"] = False
-    protect_client.ignore_unadopted = False
-    protect_client.api_request_obj = AsyncMock(return_value=chime)
-
-    obj = create_from_unifi_dict(chime)
-    assert_equal_dump(obj, await protect_client.get_chime("test_id"))
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_aiports(protect_client: ProtectApiClient, aiports):
-    objs = [create_from_unifi_dict(d) for d in aiports]
-
-    assert_equal_dump(objs, await protect_client.get_aiports())
-
-
 @pytest.mark.asyncio()
 async def test_play_speaker(protect_client: ProtectApiClient):
     """Test play_speaker with default parameters."""
@@ -1508,51 +1377,6 @@ async def test_play_speaker_with_all_parameters(protect_client: ProtectApiClient
             "ringtoneId": ringtone_id,
         },
     )
-
-
-@pytest.mark.asyncio()
-async def test_set_light_is_led_force_on(protect_client: ProtectApiClient):
-    """Test set_light_is_led_force_on with valid parameters."""
-    device_id = "test_light_id"
-    is_led_force_on = True
-    protect_client.api_request = AsyncMock()
-
-    await protect_client.set_light_is_led_force_on(device_id, is_led_force_on)
-
-    protect_client.api_request.assert_called_with(
-        f"lights/{device_id}",
-        method="patch",
-        json={"lightOnSettings": {"isLedForceOn": is_led_force_on}},
-    )
-
-
-@pytest.mark.asyncio()
-async def test_set_light_is_led_force_on_false(protect_client: ProtectApiClient):
-    """Test set_light_is_led_force_on with is_led_force_on set to False."""
-    device_id = "test_light_id"
-    is_led_force_on = False
-    protect_client.api_request = AsyncMock()
-
-    await protect_client.set_light_is_led_force_on(device_id, is_led_force_on)
-
-    protect_client.api_request.assert_called_with(
-        f"lights/{device_id}",
-        method="patch",
-        json={"lightOnSettings": {"isLedForceOn": is_led_force_on}},
-    )
-
-
-@pytest.mark.asyncio()
-async def test_set_light_is_led_force_on_invalid_device_id(
-    protect_client: ProtectApiClient,
-):
-    """Test set_light_is_led_force_on with invalid device ID."""
-    device_id = "invalid_id"
-    is_led_force_on = True
-    protect_client.api_request = AsyncMock(side_effect=BadRequest)
-
-    with pytest.raises(BadRequest):
-        await protect_client.set_light_is_led_force_on(device_id, is_led_force_on)
 
 
 @pytest.mark.asyncio()
@@ -2070,56 +1894,10 @@ async def test_clear_session_removes_specific_session(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio()
-@patch("uiprotect.api._LOGGER")
-async def test_clear_all_sessions_removes_file(
-    mock_logger: Mock, tmp_path: Path
+async def test_clear_session_does_nothing_when_sessions_disabled(
+    tmp_path: Path,
 ) -> None:
-    """Test that clear_all_sessions removes the config file and logs debug message."""
-    client = ProtectApiClient(
-        "127.0.0.1",
-        0,
-        "test_user",
-        "test_pass",
-        verify_ssl=False,
-        store_sessions=True,
-        config_dir=tmp_path,
-    )
-
-    config = {
-        "sessions": {
-            "hash1": {
-                "metadata": {"path": "/"},
-                "cookiename": "TOKEN",
-                "value": "token1",
-                "csrf": "csrf1",
-            },
-            "hash2": {
-                "metadata": {"path": "/"},
-                "cookiename": "TOKEN",
-                "value": "token2",
-                "csrf": "csrf2",
-            },
-        }
-    }
-
-    config_file = tmp_path / "unifi_protect.json"
-    await async_write_bytes(config_file, orjson.dumps(config))
-
-    await client.clear_all_sessions()
-
-    assert not await aos.path.exists(config_file)
-    assert client._is_authenticated is False
-    assert client._last_token_cookie is None
-    assert client._last_token_cookie_decode is None
-    mock_logger.debug.assert_called_once_with("Cleared all sessions from config file")
-
-
-@pytest.mark.asyncio()
-@pytest.mark.parametrize("clear_method", ["clear_session", "clear_all_sessions"])
-async def test_clear_methods_do_nothing_when_sessions_disabled(
-    tmp_path: Path, clear_method: str
-) -> None:
-    """Test that clear methods do nothing when store_sessions=False."""
+    """Test that clear_session does nothing when store_sessions=False."""
     client = ProtectApiClient(
         "127.0.0.1",
         0,
@@ -2133,7 +1911,7 @@ async def test_clear_methods_do_nothing_when_sessions_disabled(
     config_file = tmp_path / "unifi_protect.json"
     await async_write_bytes(config_file, orjson.dumps({"sessions": {}}))
 
-    await getattr(client, clear_method)()
+    await client.clear_session()
 
     # File should still exist since sessions are disabled
     assert await aos.path.exists(config_file)
@@ -2166,11 +1944,8 @@ async def test_clear_session_with_invalid_config_file(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio()
-@pytest.mark.parametrize("clear_method", ["clear_session", "clear_all_sessions"])
-async def test_clear_methods_handle_missing_file(
-    tmp_path: Path, clear_method: str
-) -> None:
-    """Test that clear methods handle missing config file gracefully."""
+async def test_clear_session_handles_missing_file(tmp_path: Path) -> None:
+    """Test that clear_session handles a missing config file gracefully."""
     client = ProtectApiClient(
         "127.0.0.1",
         0,
@@ -2185,7 +1960,7 @@ async def test_clear_methods_handle_missing_file(
     client._last_token_cookie = "some_token"  # noqa: S105
 
     # Don't create the config file
-    await getattr(client, clear_method)()
+    await client.clear_session()
 
     # No file should exist and no error should be raised
     config_file = tmp_path / "unifi_protect.json"
@@ -2231,44 +2006,6 @@ async def test_clear_session_when_session_not_in_config(tmp_path: Path) -> None:
     updated_config = orjson.loads(await async_read_bytes(config_file))
     assert "different_hash" in updated_config["sessions"]
     # Client state should NOT be reset since no session was actually removed
-    assert client._is_authenticated is True
-    assert client._last_token_cookie == "some_token"  # noqa: S105
-
-
-@pytest.mark.asyncio()
-@patch("uiprotect.api.aos.remove")
-async def test_clear_all_sessions_handles_file_disappearing(
-    mock_remove: AsyncMock, tmp_path: Path
-) -> None:
-    """Test that clear_all_sessions handles FileNotFoundError if file disappears during removal."""
-    client = ProtectApiClient(
-        "127.0.0.1",
-        0,
-        "test_user",
-        "test_pass",
-        verify_ssl=False,
-        store_sessions=True,
-    )
-    client.config_dir = tmp_path
-    # Set auth state to simulate authenticated client
-    client._is_authenticated = True
-    client._last_token_cookie = "some_token"  # noqa: S105
-
-    # Create config file so path.exists() check passes
-    config_file = tmp_path / "unifi_protect.json"
-    await async_write_bytes(config_file, orjson.dumps({"sessions": {}}))
-
-    # Mock aos.remove to raise FileNotFoundError (race condition simulation)
-    mock_remove.side_effect = FileNotFoundError(
-        "File disappeared between exists() and remove()"
-    )
-
-    # Should not raise exception even though remove() fails
-    await client.clear_all_sessions()
-
-    # Should have attempted to remove the file
-    mock_remove.assert_called_once()
-    # Client state should NOT be reset since file removal failed
     assert client._is_authenticated is True
     assert client._last_token_cookie == "some_token"  # noqa: S105
 
@@ -4074,49 +3811,6 @@ def test_rtsps_streams_none_pydantic_extra():
 
 
 @pytest.mark.asyncio
-async def test_camera_create_rtsps_streams():
-    """Test Camera.create_rtsps_streams method."""
-    # Mock camera and API
-    camera = AsyncMock(spec=Camera)
-    camera.id = "test_camera_id"
-    camera._api = AsyncMock()
-    camera._api._api_key = "test_api_key"
-    camera._api.create_camera_rtsps_streams = AsyncMock(
-        return_value=RTSPSStreams(high="rtsps://example.com/high")
-    )
-
-    # Bind the actual method to the mock
-    camera.create_rtsps_streams = Camera.create_rtsps_streams.__get__(camera, Camera)
-
-    # Test successful creation
-    result = await camera.create_rtsps_streams(["high"])
-    assert result is not None
-    assert result.get_stream_url("high") == "rtsps://example.com/high"
-    camera._api.create_camera_rtsps_streams.assert_called_once_with(
-        "test_camera_id", ["high"]
-    )
-
-
-@pytest.mark.asyncio
-async def test_camera_create_rtsps_streams_no_api_key():
-    """Test Camera.create_rtsps_streams method without API key."""
-    # Mock camera and API without key
-    camera = AsyncMock(spec=Camera)
-    camera.id = "test_camera_id"
-    camera._api = AsyncMock()
-    camera._api._api_key = None
-
-    # Bind the actual method to the mock
-    camera.create_rtsps_streams = Camera.create_rtsps_streams.__get__(camera, Camera)
-
-    # Test that it raises NotAuthorized
-    with pytest.raises(
-        NotAuthorized, match="Cannot create RTSPS streams without an API key"
-    ):
-        await camera.create_rtsps_streams(["high"])
-
-
-@pytest.mark.asyncio
 async def test_camera_get_rtsps_streams():
     """Test Camera.get_rtsps_streams method."""
     # Mock camera and API
@@ -4158,46 +3852,6 @@ async def test_camera_get_rtsps_streams_no_api_key():
         NotAuthorized, match="Cannot get RTSPS streams without an API key"
     ):
         await camera.get_rtsps_streams()
-
-
-@pytest.mark.asyncio
-async def test_camera_delete_rtsps_streams():
-    """Test Camera.delete_rtsps_streams method."""
-    # Mock camera and API
-    camera = AsyncMock(spec=Camera)
-    camera.id = "test_camera_id"
-    camera._api = AsyncMock()
-    camera._api._api_key = "test_api_key"
-    camera._api.delete_camera_rtsps_streams = AsyncMock(return_value=True)
-
-    # Bind the actual method to the mock
-    camera.delete_rtsps_streams = Camera.delete_rtsps_streams.__get__(camera, Camera)
-
-    # Test successful deletion
-    result = await camera.delete_rtsps_streams(["high", "medium"])
-    assert result is True
-    camera._api.delete_camera_rtsps_streams.assert_called_once_with(
-        "test_camera_id", ["high", "medium"]
-    )
-
-
-@pytest.mark.asyncio
-async def test_camera_delete_rtsps_streams_no_api_key():
-    """Test Camera.delete_rtsps_streams method without API key."""
-    # Mock camera and API without key
-    camera = AsyncMock(spec=Camera)
-    camera.id = "test_camera_id"
-    camera._api = AsyncMock()
-    camera._api._api_key = None
-
-    # Bind the actual method to the mock
-    camera.delete_rtsps_streams = Camera.delete_rtsps_streams.__get__(camera, Camera)
-
-    # Test that it raises NotAuthorized
-    with pytest.raises(
-        NotAuthorized, match="Cannot delete RTSPS streams without an API key"
-    ):
-        await camera.delete_rtsps_streams(["high"])
 
 
 @pytest.mark.asyncio

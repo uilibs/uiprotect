@@ -16,7 +16,6 @@ from pydantic import ValidationError
 from ..api import ProtectApiClient
 from ..data import (
     NVR,
-    AiPort,
     Bootstrap,
     Camera,
     Chime,
@@ -393,12 +392,7 @@ def set_name(ctx: typer.Context, name: str | None = typer.Argument(None)) -> Non
         return
 
     obj: NVR | ProtectAdoptableDeviceModel = device
-    # AiPort subclasses Camera but has no public-API endpoint of its own.
-    if (
-        name is not None
-        and isinstance(obj, (Camera, Chime, Light, Sensor, Viewer))
-        and not isinstance(obj, AiPort)
-    ):
+    if name is not None and isinstance(obj, (Camera, Chime, Light, Sensor, Viewer)):
         run(ctx, obj.set_name_public(name))
         return
     run(ctx, obj.set_name(name))
