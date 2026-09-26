@@ -4989,7 +4989,7 @@ async def test_devices_ws_reconnect_rearms_siren_expiry():
     client._on_devices_websocket_state_change(WebsocketState.DISCONNECTED)
     assert client._siren_off_tasks == {}
 
-    # Debounced: the reconnect resync that would otherwise re-arm is skipped.
+    # Debounced: the reconnect resync that would otherwise re-arm is deferred.
     client._last_public_resync = time.monotonic()
     client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
 

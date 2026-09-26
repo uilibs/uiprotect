@@ -64,7 +64,7 @@ from uiprotect.data.types import (
 )
 from uiprotect.data.websocket import WSAction
 from uiprotect.devices import DeviceChange, ProtectDeviceChange
-from uiprotect.exceptions import BadRequest, NotAuthorized
+from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
 from uiprotect.utils import convert_to_datetime
 from uiprotect.websocket import WebsocketState
 
@@ -5848,3 +5848,90 @@ async def test_public_resync_unsubscribe_and_raising_callback(
     unsub()
     await protect_client._resync_public_bootstrap()
     assert results == [True]
+
+
+def _debounced_resync_client(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> list[bool]:
+    """Connected client whose last resync just ran; returns the resync results."""
+    monkeypatch.setattr(api_module, "PUBLIC_RESYNC_MIN_INTERVAL", 0.05)
+    protect_client._public_bootstrap = PublicBootstrap()
+    protect_client.update_public = AsyncMock()  # type: ignore[method-assign]
+    results: list[bool] = []
+    protect_client.subscribe_public_resync(results.append)
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    protect_client._last_public_resync = time.monotonic()
+    return results
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("reconnects", [1, 3])
+async def test_public_resync_debounced_reconnects_run_one_trailing_resync(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+    reconnects: int,
+) -> None:
+    """Reconnects inside the debounce window run one resync when it ends."""
+    results = _debounced_resync_client(protect_client, monkeypatch)
+
+    for _ in range(reconnects):
+        protect_client._on_devices_websocket_state_change(WebsocketState.DISCONNECTED)
+        protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    await asyncio.sleep(0)
+    assert protect_client._public_resync_task is None
+    assert results == []
+
+    await asyncio.sleep(0.1)
+    assert protect_client._public_resync_task is not None
+    await protect_client._public_resync_task
+
+    assert protect_client._public_resync_timer is None
+    protect_client.update_public.assert_awaited_once()
+    assert results == [True]
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("close", ["close_session", "close_public_api_session"])
+async def test_public_resync_close_cancels_trailing_resync(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+    close: str,
+) -> None:
+    """Closing the client cancels a scheduled trailing resync without firing."""
+    results = _debounced_resync_client(protect_client, monkeypatch)
+    protect_client._on_devices_websocket_state_change(WebsocketState.DISCONNECTED)
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    assert protect_client._public_resync_timer is not None
+
+    await getattr(protect_client, close)()
+    await asyncio.sleep(0.1)
+
+    assert protect_client._public_resync_timer is None
+    assert protect_client._public_resync_task is None
+    protect_client.update_public.assert_not_awaited()
+    assert results == []
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [(NvrError("timeout"), False), (BadRequest("404"), True)],
+)
+async def test_public_resync_reports_tolerated_endpoint_failure(
+    protect_client: ProtectApiClient,
+    error: Exception,
+    expected: bool,
+) -> None:
+    """A transiently failed endpoint reports ``False``; a missing one does not."""
+    _mock_update_public_endpoints(
+        protect_client, get_sirens_public=AsyncMock(side_effect=error)
+    )
+    results: list[bool] = []
+    protect_client.subscribe_public_resync(results.append)
+
+    await protect_client._resync_public_bootstrap()
+    protect_client.get_sirens_public = AsyncMock(return_value=[])  # type: ignore[method-assign]
+    await protect_client._resync_public_bootstrap()
+
+    assert results == [expected, True]
