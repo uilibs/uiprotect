@@ -2679,15 +2679,16 @@ class ProtectApiClient(BaseApiClient):
 
         ``callback`` receives ``True`` once every bootstrap endpoint has been
         refetched, or ``False`` if the refresh raised or an endpoint failed
-        transiently and kept its stale data. The RTSPS stream refresh is
-        best-effort and does not affect the result. The first connect fires
-        nothing; every reconnect is covered: one during a running resync
-        queues a follow-up, and one inside :data:`PUBLIC_RESYNC_MIN_INTERVAL`
-        schedules a single trailing resync for when the window ends. A failed
-        resync is retried after each step of :data:`PUBLIC_RESYNC_RETRY_DELAYS`
-        until one succeeds, then waits for the next reconnect; ``NotAuthorized``
-        is never retried, and a reconnect replaces a pending retry. Each of
-        those fires the callback again.
+        transiently and kept its stale data. The RTSPS stream refresh runs only
+        after a successful fetch, is best-effort, and does not affect the
+        result. The first connect fires nothing; every reconnect is covered:
+        one during a running resync queues a follow-up, and one inside
+        :data:`PUBLIC_RESYNC_MIN_INTERVAL` schedules a single trailing resync
+        for when the window ends. A failed resync is retried up to three times,
+        after each step of :data:`PUBLIC_RESYNC_RETRY_DELAYS`, then waits for
+        the next reconnect; ``NotAuthorized`` is never retried, and a reconnect
+        or queued follow-up replaces a pending retry. Each of those fires the
+        callback again.
 
         Returns a callback that will unsubscribe.
         """
@@ -2874,8 +2875,11 @@ class ProtectApiClient(BaseApiClient):
             # refresh to catch. Re-fetch every camera's already-populated RTSPS
             # streams in place so synchronous consumers reading
             # ``camera.rtsps_streams`` never see an emptied field — the stale
-            # URLs are kept until the fresh ones overwrite them.
-            await self._refresh_all_cached_rtsps()
+            # URLs are kept until the fresh ones overwrite them. Skipped after a
+            # failed fetch: the retry refreshes them, and during an outage each
+            # attempt would log one failure per camera.
+            if success:
+                await self._refresh_all_cached_rtsps()
         except Exception as err:
             _LOGGER.exception("Failed to resync public bootstrap after reconnect")
             success = False

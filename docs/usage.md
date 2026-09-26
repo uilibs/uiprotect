@@ -182,7 +182,8 @@ initial `update_public()` prime stays silent — it is the baseline, not a diff.
 The reconnect resync runs in the background, so `CONNECTED` reaches
 `subscribe_devices_websocket_state` subscribers **before** the cache is
 refreshed. To learn when it is fresh again, use `subscribe_public_resync`: its
-callback fires once `update_public()` and the RTSPS refresh have finished. It
+callback fires once `update_public()` and, if it succeeded, the RTSPS refresh
+have finished. It
 does not fire on the first connect, which your own `update_public()` primes.
 Every reconnect after that is covered. One during a running resync queues a
 follow-up; one within `PUBLIC_RESYNC_MIN_INTERVAL` of the last resync
@@ -190,21 +191,26 @@ schedules a single trailing resync for when the window ends, however many
 reconnects land in it. Each of those fires the callback again. `True` means
 every bootstrap endpoint was refetched; `False` means the refresh raised or an
 endpoint failed transiently (timeout, 429, 5xx) and kept its stale data. An
-endpoint the console does not expose is not a failure. The RTSPS refresh is
-best-effort: a camera whose streams fail to refresh keeps its previous URLs
-and does not turn the result into `False`.
+endpoint the console does not expose is not a failure. The RTSPS refresh runs
+only after a successful fetch and is best-effort: a camera whose streams fail
+to refresh keeps its previous URLs and does not turn the result into `False`.
 
-A resync that reports `False` is retried with a bounded backoff
-(`PUBLIC_RESYNC_RETRY_DELAYS`: 10 s, 30 s, then 60 s), and each retry fires the
-callback again, so a retry that succeeds reports `True`. After the last step
-the library gives up until the next reconnect. A resync that failed with
-`NotAuthorized` is not retried; the key must be fixed first, and the websocket
-reports that through `WebsocketState.AUTH_FAILED`. A reconnect replaces a
-pending retry with its own resync, so the two never both run for the same gap.
-`close_session()` and `async_disconnect_ws()` cancel a running or scheduled
-resync, or a pending retry, without firing. After `True` there is no need to
-call `update_public()` yourself; after `False`, the library keeps retrying on
-its own, so only act on it if you need fresh data sooner.
+A resync that reports `False` is retried up to three times with a bounded
+backoff (`PUBLIC_RESYNC_RETRY_DELAYS`: 10 s, 30 s, then 60 s), and each retry
+fires the callback again, so a retry that succeeds reports `True`. After the
+last step the library gives up until the next reconnect. A resync that failed
+with `NotAuthorized` is not retried; the key must be fixed first, and the
+websocket reports that through `WebsocketState.AUTH_FAILED`. A reconnect, or a
+follow-up queued by one, replaces a pending retry with its own resync, so the
+two never both run for the same gap. `close_session()` and
+`async_disconnect_ws()` cancel a running or scheduled resync, or a pending
+retry, without firing. After `True` there is no need to call `update_public()`
+yourself.
+
+A `False` is not always followed by another attempt: it is final after
+`NotAuthorized` or after the last backoff step, and the callback does not say
+which. A consumer that must not stay stale should refresh with
+`update_public()` or reauthenticate itself rather than wait for the library.
 
 ```python
 def on_resync(success: bool) -> None:

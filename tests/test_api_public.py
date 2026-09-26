@@ -6176,3 +6176,56 @@ async def test_public_resync_follow_up_replaces_retry(
 
     assert protect_client.update_public.await_count == 2
     assert results == [False, True]
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize(
+    ("error", "refreshed"),
+    [(None, True), (NvrError("timeout"), False)],
+)
+async def test_public_resync_refreshes_rtsps_only_after_successful_fetch(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+    error: Exception | None,
+    refreshed: bool,
+) -> None:
+    """The RTSPS refresh is skipped when an endpoint failed transiently."""
+    monkeypatch.setattr(api_module, "PUBLIC_RESYNC_RETRY_DELAYS", ())
+    _mock_update_public_endpoints(
+        protect_client, get_sirens_public=AsyncMock(side_effect=error, return_value=[])
+    )
+    protect_client._refresh_all_cached_rtsps = AsyncMock()  # type: ignore[method-assign]
+    results: list[bool] = []
+    protect_client.subscribe_public_resync(results.append)
+
+    await protect_client._resync_public_bootstrap()
+
+    assert protect_client._refresh_all_cached_rtsps.await_count == int(refreshed)
+    assert results == [refreshed]
+
+
+@pytest.mark.asyncio()
+async def test_public_resync_reconnect_restarts_backoff(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A reconnect after the backoff gave up retries a new failure again."""
+    results = _retrying_resync_client(
+        protect_client, monkeypatch, *[NvrError("down")] * 5
+    )
+    protect_client._devices_ws_has_been_connected = True
+
+    await protect_client._resync_public_bootstrap()
+    await _drain_resync_retries(protect_client)
+    assert results == [False] * 4
+    assert protect_client._public_resync_retry_timer is None
+
+    protect_client._last_public_resync = 0.0
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    assert protect_client._public_resync_task is not None
+    await protect_client._public_resync_task
+
+    assert results == [False] * 5
+    assert protect_client._public_resync_retry_timer is not None
+    assert protect_client._public_resync_retries == 1
+    await protect_client.close_session()
