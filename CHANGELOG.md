@@ -1,5 +1,13 @@
 # Changelog
 
+## v17.1.0 (2026-09-26)
+
+### Features
+
+
+- Add subscribe_public_resync for reconnect resync completion ([`1ae9f1e`](https://github.com/uilibs/uiprotect/commit/1ae9f1ebfbc8bd10ba67f0cfe66e66af19cf5515))
+
+
 ## v17.0.1 (2026-09-26)
 
 ### Bug fixes
