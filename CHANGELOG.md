@@ -1,5 +1,13 @@
 # Changelog
 
+## v17.0.1 (2026-09-26)
+
+### Bug fixes
+
+
+- Raise chimeringtonenotseterror when a ring setting has no ringtone ([`3e26df8`](https://github.com/uilibs/uiprotect/commit/3e26df8d187be86dfaa7c63c03e4b3d60a1b60ec))
+
+
 ## v17.0.0 (2026-09-26)
 
 ### Features

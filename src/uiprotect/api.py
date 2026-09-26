@@ -17,7 +17,7 @@ from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, NotRequired, Self, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Literal, Self, TypedDict, cast
 from urllib.parse import SplitResult, quote
 
 import aiofiles
@@ -109,6 +109,7 @@ from .data.types import (
 from .exceptions import (
     ArmedModeError,
     BadRequest,
+    ChimeRingtoneNotSetError,
     ClientError,
     GlobalAlarmManagerError,
     NotAuthorized,
@@ -181,7 +182,7 @@ class PublicApiChimeRingSettingRequest(TypedDict):
 
     cameraId: str
     repeatTimes: int
-    ringtoneId: NotRequired[str | None]
+    ringtoneId: str
     volume: int
 
 
@@ -260,6 +261,13 @@ _UNSET: _UnsetType = _UnsetType()
 # tolerated. Extracted as a constant to make the match visible and easy to update.
 _GLOBAL_ALARM_MANAGER_REASON = "global alarm manager"
 _ARM_ALARM_ARMED_REASON = "arm alarm is armed"
+
+
+def _require_ringtone_ids(arguments: dict[str, Any]) -> None:
+    """Raise ``ChimeRingtoneNotSetError`` for a ring setting without ``ringtoneId``."""
+    for entry in arguments.get("ring_settings") or ():
+        if not entry.get("ringtoneId"):
+            raise ChimeRingtoneNotSetError(entry.get("cameraId", ""))
 
 
 def _log_or_raise(
@@ -4081,7 +4089,9 @@ class ProtectApiClient(BaseApiClient):
         """Get a specific chime using public API."""
         raise NotImplementedError
 
-    @public_patch("/v1/chimes/{chime_id}", item=PublicChime)
+    @public_patch(
+        "/v1/chimes/{chime_id}", item=PublicChime, validate=_require_ringtone_ids
+    )
     async def update_chime_public(
         self,
         chime_id: str,

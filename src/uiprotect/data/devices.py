@@ -17,7 +17,12 @@ from convertertools import pop_dict_set_if_none, pop_dict_tuple
 from pydantic import model_validator
 from pydantic.fields import PrivateAttr
 
-from ..exceptions import BadRequest, NotAuthorized, StreamError
+from ..exceptions import (
+    BadRequest,
+    ChimeRingtoneNotSetError,
+    NotAuthorized,
+    StreamError,
+)
 from ..stream import TalkbackSession, TalkbackStream
 from ..utils import (
     convert_smart_audio_types,
@@ -3036,19 +3041,23 @@ class RingSetting(ProtectBaseObject):
 
         Returns:
         -------
-            Dict with cameraId, volume, repeatTimes, and optionally ringtoneId keys.
+            Dict with cameraId, volume, repeatTimes, and ringtoneId keys.
+
+        Raises:
+        ------
+            ChimeRingtoneNotSetError: If no ringtone is set for this camera.
 
         """
-        result: PublicApiChimeRingSettingRequest = {
+        if not self.ringtone_id:
+            raise ChimeRingtoneNotSetError(self.camera_id)
+        return {
             "cameraId": self.camera_id,
+            "ringtoneId": self.ringtone_id,
             "volume": volume if volume is not None else self.volume,
             "repeatTimes": repeat_times
             if repeat_times is not None
             else self.repeat_times,
         }
-        if self.ringtone_id is not None:
-            result["ringtoneId"] = self.ringtone_id
-        return result
 
     @property
     def camera(self) -> Camera | None:
@@ -3216,7 +3225,12 @@ class Chime(ProtectAdoptableDeviceModel):
                 - cameraId: The camera ID this setting applies to
                 - volume: Ring volume (0-100)
                 - repeatTimes: How many times to repeat (1-10)
-                - ringtoneId (optional): The ringtone ID to use
+                - ringtoneId: The ringtone ID to use; Protect rejects entries
+                  without one
+
+        Raises:
+        ------
+            ChimeRingtoneNotSetError: If an entry has no ``ringtoneId``.
 
         Example:
         -------

@@ -25,7 +25,7 @@ from urllib.parse import urlsplit, urlunsplit
 from pydantic import Field
 from pydantic.fields import PrivateAttr
 
-from ..exceptions import BadRequest
+from ..exceptions import BadRequest, ChimeRingtoneNotSetError
 from ..utils import (
     convert_smart_audio_types,
     convert_smart_types,
@@ -1788,9 +1788,12 @@ class PublicChime(PublicDeviceModel):
             raise BadRequest(f"Camera {camera_id} is not paired with chime")
         body: list[PublicApiChimeRingSettingRequest] = []
         for rs in self.ring_settings:
+            if not rs.ringtone_id:
+                raise ChimeRingtoneNotSetError(rs.camera_id or "")
             override = rs.camera_id == camera_id
             entry: PublicApiChimeRingSettingRequest = {
                 "cameraId": rs.camera_id or "",
+                "ringtoneId": rs.ringtone_id,
                 "volume": volume
                 if override and volume is not None
                 else (rs.volume or 0),
@@ -1800,8 +1803,6 @@ class PublicChime(PublicDeviceModel):
                     else (rs.repeat_times or 1)
                 ),
             }
-            if rs.ringtone_id is not None:
-                entry["ringtoneId"] = rs.ringtone_id
             body.append(entry)
         return body
 

@@ -802,6 +802,28 @@ def test_chime_set_repeat_times_whole_device_uses_ring_settings() -> None:
     )
 
 
+@pytest.mark.parametrize("command", [set_volume, set_repeat_times])
+def test_chime_whole_device_without_ringtone_reports_error(
+    command, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Whole-device set without a ringtone prints the error and closes the client."""
+    ring = RingSetting(
+        camera_id="cam-1",
+        repeat_times=1,  # type: ignore[arg-type]
+        ringtone_id=None,
+        volume=20,
+    )
+    ctx, _chime, protect = _make_chime_ctx(ring_settings=[ring])
+
+    with pytest.raises(typer.Exit) as exc:
+        command(ctx, value=3, camera_id=None)
+
+    assert exc.value.exit_code == 1
+    assert "no ringtone set for camera cam-1" in capsys.readouterr().out
+    protect.update_chime_public.assert_not_called()
+    protect.close_session.assert_awaited_once()
+
+
 def test_chime_set_repeat_times_per_camera_uses_public_wrapper() -> None:
     """Per-camera repeat delegates to set_repeat_times_for_camera_public."""
     camera = _doorbell_camera("cam-1")
