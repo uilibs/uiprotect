@@ -111,7 +111,6 @@ def _sensor(api: Any) -> PublicSensor:
         alarmSettings={},
         leakSettings={},
         wirelessConnectionState={},
-        featureFlags={},
     )
 
 

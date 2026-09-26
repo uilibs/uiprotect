@@ -33,6 +33,7 @@ from uiprotect.data import (
     PublicLiveview,
     PublicLiveviewSlot,
     PublicNVR,
+    PublicSensorFeatureFlags,
     PublicSpeakerFeatureFlags,
     PublicSpeakerState,
     PublicUlpUser,
@@ -1611,6 +1612,7 @@ async def test_update_public_sensor_without_feature_flags(
     pb = await protect_client.update_public()
 
     sensor = pb.sensors[SENSOR_PAYLOAD["id"]]
+    assert isinstance(sensor.feature_flags, PublicSensorFeatureFlags)
     assert not any(sensor.supports(c) for c in SensorFeatureCapability)
     assert sensor.unifi_dict()["id"] == SENSOR_PAYLOAD["id"]
 
@@ -2437,7 +2439,7 @@ async def test_get_nvr_public_sets_arm_mode_when_present(
 async def test_get_nvr_public_mac_none_when_absent(
     protect_client: ProtectApiClient,
 ) -> None:
-    """get_nvr_public with no mac in payload (older firmware) → mac is None."""
+    """get_nvr_public with no mac key in the payload → mac is None."""
     protect_client.api_request_obj = AsyncMock(return_value=deepcopy(_NVR_RAW_BASE))
     result = await protect_client.get_nvr_public()
 
@@ -2449,7 +2451,7 @@ async def test_get_nvr_public_mac_none_when_absent(
 async def test_get_nvr_public_parses_mac_when_present(
     protect_client: ProtectApiClient,
 ) -> None:
-    """get_nvr_public with mac in payload (Protect > 7.1) → mac is parsed."""
+    """get_nvr_public with a mac key in the payload → mac is parsed."""
     raw = deepcopy(_NVR_RAW_BASE)
     raw["mac"] = "AABBCCDDEEFF"
     protect_client.api_request_obj = AsyncMock(return_value=raw)
