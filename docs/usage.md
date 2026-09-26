@@ -182,18 +182,20 @@ initial `update_public()` prime stays silent — it is the baseline, not a diff.
 The reconnect resync runs in the background, so `CONNECTED` reaches
 `subscribe_devices_websocket_state` subscribers **before** the cache is
 refreshed. To learn when it is fresh again, use `subscribe_public_resync`: its
-callback fires once `update_public()` and, if it succeeded, the RTSPS refresh
-have finished. It
-does not fire on the first connect, which your own `update_public()` primes.
+callback fires once `update_public()` and, unless the cameras fetch failed,
+the RTSPS refresh have finished. It does not fire on the first connect, which
+your own `update_public()` primes.
 Every reconnect after that is covered. One during a running resync queues a
 follow-up; one within `PUBLIC_RESYNC_MIN_INTERVAL` of the last resync
 schedules a single trailing resync for when the window ends, however many
 reconnects land in it. Each of those fires the callback again. `True` means
 every bootstrap endpoint was refetched; `False` means the refresh raised or an
 endpoint failed transiently (timeout, 429, 5xx) and kept its stale data. An
-endpoint the console does not expose is not a failure. The RTSPS refresh runs
-only after a successful fetch and is best-effort: a camera whose streams fail
-to refresh keeps its previous URLs and does not turn the result into `False`.
+endpoint the console does not expose is not a failure. The RTSPS refresh is
+skipped when the cameras fetch failed, and the next successful resync catches
+up; it still runs when only another endpoint failed. It is best-effort: a
+camera whose streams fail to refresh keeps its previous URLs and does not turn
+the result into `False`.
 
 A resync that reports `False` is retried up to three times with a bounded
 backoff (`PUBLIC_RESYNC_RETRY_DELAYS`: 10 s, 30 s, then 60 s), and each retry
@@ -211,6 +213,8 @@ A `False` is not always followed by another attempt: it is final after
 `NotAuthorized` or after the last backoff step, and the callback does not say
 which. A consumer that must not stay stale should refresh with
 `update_public()` or reauthenticate itself rather than wait for the library.
+`update_public()` keeps the RTSPS streams already cached on each camera, so
+current stream URLs need `get_camera_rtsps_streams(camera_id)`.
 
 ```python
 def on_resync(success: bool) -> None:

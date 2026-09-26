@@ -1483,9 +1483,10 @@ class ProtectApiClient(BaseApiClient):
     # still running; consumed in ``_resync_public_bootstrap`` to run one
     # follow-up refresh.
     _public_resync_pending: bool = False
-    # Set by each ``update_public`` to whether any endpoint fetch failed
-    # transiently (``NvrError``) and was tolerated, leaving its store stale.
-    _public_fetch_failed: bool = False
+    # Set by each ``update_public`` to the labels of the endpoint fetches that
+    # failed transiently (``NvrError``) and were tolerated, leaving their
+    # stores stale.
+    _public_failed_endpoints: frozenset[str] = frozenset()
     _last_update_dt: datetime | None = None
     _connection_host: IPv4Address | IPv6Address | str | None = None
     _override_connection_host: bool = False
@@ -2679,9 +2680,9 @@ class ProtectApiClient(BaseApiClient):
 
         ``callback`` receives ``True`` once every bootstrap endpoint has been
         refetched, or ``False`` if the refresh raised or an endpoint failed
-        transiently and kept its stale data. The RTSPS stream refresh runs only
-        after a successful fetch, is best-effort, and does not affect the
-        result. The first connect fires nothing; every reconnect is covered:
+        transiently and kept its stale data. The RTSPS stream refresh runs
+        unless the cameras fetch failed, is best-effort, and does not affect
+        the result. The first connect fires nothing; every reconnect is covered:
         one during a running resync queues a follow-up, and one inside
         :data:`PUBLIC_RESYNC_MIN_INTERVAL` schedules a single trailing resync
         for when the window ends. A failed resync is retried up to three times,
@@ -2868,17 +2869,19 @@ class ProtectApiClient(BaseApiClient):
         try:
             await self.update_public()
             # Read before the next await, which a later update could overwrite.
-            success = not self._public_fetch_failed
+            failed = self._public_failed_endpoints
+            success = not failed
             # A reconnect gap can hide a full camera flap (the disconnect *and*
             # the reconnect both missed), which rotates the ``rtsp_alias``
             # without leaving a visible state transition for the WS-path
             # refresh to catch. Re-fetch every camera's already-populated RTSPS
             # streams in place so synchronous consumers reading
             # ``camera.rtsps_streams`` never see an emptied field — the stale
-            # URLs are kept until the fresh ones overwrite them. Skipped after a
-            # failed fetch: the retry refreshes them, and during an outage each
-            # attempt would log one failure per camera.
-            if success:
+            # URLs are kept until the fresh ones overwrite them. Skipped when
+            # the cameras fetch failed: the next successful resync refreshes
+            # them, and during an outage each attempt would log one failure
+            # per camera.
+            if "cameras" not in failed:
                 await self._refresh_all_cached_rtsps()
         except Exception as err:
             _LOGGER.exception("Failed to resync public bootstrap after reconnect")
@@ -5119,8 +5122,10 @@ class ProtectApiClient(BaseApiClient):
                     )
             # A missing endpoint (``BadRequest``) is a stable capability gap;
             # only a transient failure leaves the store stale.
-            self._public_fetch_failed = any(
-                isinstance(result, NvrError) for result in results
+            self._public_failed_endpoints = frozenset(
+                label
+                for (_, label, _attr), result in zip(endpoints, results, strict=True)
+                if isinstance(result, NvrError)
             )
 
             # Classification passed: publish the candidate.

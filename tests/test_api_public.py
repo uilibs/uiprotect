@@ -6180,20 +6180,24 @@ async def test_public_resync_follow_up_replaces_retry(
 
 @pytest.mark.asyncio()
 @pytest.mark.parametrize(
-    ("error", "refreshed"),
-    [(None, True), (NvrError("timeout"), False)],
+    ("failing", "refreshed", "success"),
+    [
+        (None, True, True),
+        ("get_sirens_public", True, False),
+        ("get_cameras_public", False, False),
+    ],
 )
-async def test_public_resync_refreshes_rtsps_only_after_successful_fetch(
+async def test_public_resync_refreshes_rtsps_unless_cameras_fetch_failed(
     protect_client: ProtectApiClient,
     monkeypatch: pytest.MonkeyPatch,
-    error: Exception | None,
+    failing: str | None,
     refreshed: bool,
+    success: bool,
 ) -> None:
-    """The RTSPS refresh is skipped when an endpoint failed transiently."""
+    """The RTSPS refresh is skipped only when the cameras fetch failed."""
     monkeypatch.setattr(api_module, "PUBLIC_RESYNC_RETRY_DELAYS", ())
-    _mock_update_public_endpoints(
-        protect_client, get_sirens_public=AsyncMock(side_effect=error, return_value=[])
-    )
+    overrides = {failing: AsyncMock(side_effect=NvrError("timeout"))} if failing else {}
+    _mock_update_public_endpoints(protect_client, **overrides)
     protect_client._refresh_all_cached_rtsps = AsyncMock()  # type: ignore[method-assign]
     results: list[bool] = []
     protect_client.subscribe_public_resync(results.append)
@@ -6201,7 +6205,7 @@ async def test_public_resync_refreshes_rtsps_only_after_successful_fetch(
     await protect_client._resync_public_bootstrap()
 
     assert protect_client._refresh_all_cached_rtsps.await_count == int(refreshed)
-    assert results == [refreshed]
+    assert results == [success]
 
 
 @pytest.mark.asyncio()
