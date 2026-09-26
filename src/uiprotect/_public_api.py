@@ -113,6 +113,7 @@ def _endpoint(
     item: type[Any] | None,
     items: type[Any] | None,
     has_body: bool,
+    validate: Callable[[dict[str, Any]], None] | None = None,
 ) -> Callable[[_Method[_P, _R]], _Method[_P, _R]]:
     placeholders = frozenset(_PLACEHOLDER_RE.findall(path))
 
@@ -135,6 +136,8 @@ def _endpoint(
                 return [items.from_unifi_dict(**entry, api=self) for entry in data]
 
             if has_body:
+                if validate is not None:
+                    validate(arguments)
                 body = _build_body(sig, arguments, placeholders)
                 if not body:
                     raise BadRequest(_EMPTY_BODY_MESSAGE)
@@ -169,10 +172,19 @@ def public_get(
 
 
 def public_patch(
-    path: str, *, item: type[Any]
+    path: str,
+    *,
+    item: type[Any],
+    validate: Callable[[dict[str, Any]], None] | None = None,
 ) -> Callable[[_Method[_P, _R]], _Method[_P, _R]]:
-    """Declare a flat-body PATCH endpoint; empty body raises ``BadRequest``."""
-    return _endpoint("patch", path, item=item, items=None, has_body=True)
+    """
+    Declare a flat-body PATCH endpoint; empty body raises ``BadRequest``.
+
+    ``validate`` receives the bound arguments and may raise before any request.
+    """
+    return _endpoint(
+        "patch", path, item=item, items=None, has_body=True, validate=validate
+    )
 
 
 def public_post(

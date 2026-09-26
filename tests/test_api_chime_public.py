@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import copy
+import pickle
 import warnings
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock, patch
@@ -11,8 +13,8 @@ import pytest
 from pydantic import ValidationError
 
 from tests.conftest import TEST_CAMERA_EXISTS, TEST_CHIME_EXISTS
-from uiprotect.data import PublicRingSettings, RingSetting
-from uiprotect.exceptions import BadRequest
+from uiprotect.data import PublicChime, PublicRingSettings, RingSetting
+from uiprotect.exceptions import BadRequest, ChimeRingtoneNotSetError
 
 if TYPE_CHECKING:
     from uiprotect.api import ProtectApiClient, PublicApiChimeRingSettingRequest
@@ -237,6 +239,129 @@ async def test_update_chime_public_no_parameters(
         await protect_client.update_chime_public(CHIME_ID)
 
 
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("ringtone_id", [None, ""], ids=["missing", "empty"])
+async def test_update_chime_public_requires_ringtone_id(
+    protect_client: ProtectApiClient, ringtone_id: str | None
+) -> None:
+    """update_chime_public raises before sending when an entry has no ringtone."""
+    missing: dict[str, Any] = {"cameraId": "cam-b", "volume": 50, "repeatTimes": 1}
+    if ringtone_id is not None:
+        missing["ringtoneId"] = ringtone_id
+    protect_client.api_request_obj = AsyncMock()
+
+    with pytest.raises(ChimeRingtoneNotSetError) as exc_info:
+        await protect_client.update_chime_public(
+            CHIME_ID,
+            name="Chime",
+            ring_settings=[
+                {
+                    "cameraId": CAMERA_ID,
+                    "volume": 80,
+                    "repeatTimes": 2,
+                    "ringtoneId": RINGTONE_ID,
+                },
+                missing,
+            ],
+        )
+
+    assert exc_info.value.camera_id == "cam-b"
+    assert "cam-b" in str(exc_info.value)
+    protect_client.api_request_obj.assert_not_called()
+
+
+def _public_chime(
+    api: ProtectApiClient, ringtone_a: str | None, ringtone_b: str | None
+) -> PublicChime:
+    ring_settings: list[dict[str, Any]] = []
+    for camera_id, ringtone_id in (("cam-a", ringtone_a), ("cam-b", ringtone_b)):
+        entry: dict[str, Any] = {"cameraId": camera_id, "volume": 50, "repeatTimes": 1}
+        if ringtone_id is not None:
+            entry["ringtoneId"] = ringtone_id
+        ring_settings.append(entry)
+    return PublicChime.from_unifi_dict(
+        api=api,
+        id=CHIME_ID,
+        modelKey="chime",
+        state="CONNECTED",
+        mac="AABBCCDDEE03",
+        name="Chime",
+        cameraIds=["cam-a", "cam-b"],
+        ringSettings=ring_settings,
+    )
+
+
+async def _public_set_ring_settings(chime: PublicChime, camera_id: str) -> None:
+    await chime.set_ring_settings(
+        [
+            {
+                "cameraId": rs.camera_id,
+                "volume": 30 if rs.camera_id == camera_id else rs.volume,
+                "repeatTimes": rs.repeat_times,
+                "ringtoneId": rs.ringtone_id,
+            }
+            if rs.ringtone_id
+            else {
+                "cameraId": rs.camera_id,
+                "volume": rs.volume,
+                "repeatTimes": rs.repeat_times,
+            }
+            for rs in chime.ring_settings
+        ]
+    )
+
+
+_PUBLIC_CHIME_WRITERS = {
+    "set_ring_settings": _public_set_ring_settings,
+    "set_volume_for_camera": lambda chime, cid: chime.set_volume_for_camera(cid, 30),
+    "set_repeat_times_for_camera": lambda chime, cid: chime.set_repeat_times_for_camera(
+        cid, 3
+    ),
+}
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("writer", list(_PUBLIC_CHIME_WRITERS))
+@pytest.mark.parametrize(
+    ("ringtone_a", "ringtone_b", "missing_camera"),
+    [(None, RINGTONE_ID, "cam-a"), (RINGTONE_ID, None, "cam-b")],
+    ids=["target-missing", "other-missing"],
+)
+async def test_public_chime_writes_require_ringtone(
+    protect_client: ProtectApiClient,
+    writer: str,
+    ringtone_a: str | None,
+    ringtone_b: str | None,
+    missing_camera: str,
+) -> None:
+    """PublicChime ring writes raise and send nothing if any camera lacks a ringtone."""
+    chime = _public_chime(protect_client, ringtone_a, ringtone_b)
+    protect_client.api_request_obj = AsyncMock()
+
+    with pytest.raises(ChimeRingtoneNotSetError) as exc_info:
+        await _PUBLIC_CHIME_WRITERS[writer](chime, "cam-a")
+
+    assert exc_info.value.camera_id == missing_camera
+    protect_client.api_request_obj.assert_not_called()
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("writer", list(_PUBLIC_CHIME_WRITERS))
+async def test_public_chime_writes_send_every_ringtone(
+    protect_client: ProtectApiClient, writer: str
+) -> None:
+    """PublicChime ring writes carry ringtoneId for every entry."""
+    chime = _public_chime(protect_client, RINGTONE_ID, "other-ringtone")
+    protect_client.api_request_obj = AsyncMock(
+        return_value=chime.unifi_dict(),
+    )
+
+    await _PUBLIC_CHIME_WRITERS[writer](chime, "cam-a")
+
+    body = protect_client.api_request_obj.call_args.kwargs["json"]["ringSettings"]
+    assert [entry["ringtoneId"] for entry in body] == [RINGTONE_ID, "other-ringtone"]
+
+
 # =============================================================================
 # CHIME DEVICE METHOD TESTS (set_ring_settings_public, set_volume_for_camera_public)
 # =============================================================================
@@ -346,7 +471,14 @@ async def test_chime_set_ring_settings_public_rebuilds_from_public(
     chime_obj.api.update_chime_public = AsyncMock(return_value=updated_chime)
 
     await chime_obj.set_ring_settings_public(
-        [{"cameraId": camera_obj.id, "volume": 80, "repeatTimes": 3}]
+        [
+            {
+                "cameraId": camera_obj.id,
+                "volume": 80,
+                "repeatTimes": 3,
+                "ringtoneId": RINGTONE_ID,
+            }
+        ]
     )
 
     assert isinstance(chime_obj.ring_settings[0], RingSetting)
@@ -723,11 +855,11 @@ async def test_ring_setting_to_api_dict_repeat_times_override(
     reason="Missing testdata",
 )
 @pytest.mark.asyncio()
-async def test_ring_setting_to_api_dict_omits_none_ringtone_id(
+async def test_ring_setting_to_api_dict_requires_ringtone_id(
     chime_obj: Chime | None,
     camera_obj: Camera | None,
 ) -> None:
-    """Test that to_api_dict omits ringtoneId when it's None."""
+    """to_api_dict raises ChimeRingtoneNotSetError when ringtone_id is None."""
     if chime_obj is None:
         pytest.skip("No chime_obj found")
     if camera_obj is None:
@@ -740,12 +872,145 @@ async def test_ring_setting_to_api_dict_omits_none_ringtone_id(
         volume=50,
     )
 
-    result = ring_setting.to_api_dict()
+    with pytest.raises(ChimeRingtoneNotSetError) as exc_info:
+        ring_setting.to_api_dict()
 
-    assert "cameraId" in result
-    assert "volume" in result
-    assert "repeatTimes" in result
-    assert "ringtoneId" not in result
+    assert exc_info.value.camera_id == camera_obj.id
+
+
+@pytest.mark.parametrize(
+    "clone",
+    [lambda e: pickle.loads(pickle.dumps(e)), copy.copy, copy.deepcopy],  # noqa: S301
+    ids=["pickle", "copy", "deepcopy"],
+)
+def test_chime_ringtone_not_set_error_survives_cloning(clone: Any) -> None:
+    """ChimeRingtoneNotSetError keeps camera_id and message across pickle/copy."""
+    err = ChimeRingtoneNotSetError("cam-1")
+
+    cloned = clone(err)
+
+    assert isinstance(cloned, ChimeRingtoneNotSetError)
+    assert cloned.camera_id == "cam-1"
+    assert str(cloned) == str(err)
+    assert "no ringtone set for camera cam-1" in str(cloned)
+
+
+def _set_chime_ring_settings(
+    chime: Chime,
+    camera_id: str,
+    ringtone_target: str | None,
+    ringtone_other: str | None,
+) -> None:
+    chime.ring_settings = [
+        RingSetting(
+            camera_id=camera_id,
+            repeat_times=2,  # type: ignore[arg-type]
+            ringtone_id=ringtone_target,
+            volume=50,
+        ),
+        RingSetting(
+            camera_id="other-doorbell-camera",
+            repeat_times=1,  # type: ignore[arg-type]
+            ringtone_id=ringtone_other,
+            volume=70,
+        ),
+    ]
+
+
+async def _private_set_ring_settings(chime: Chime, camera: Camera) -> None:
+    await chime.set_ring_settings_public(
+        [
+            {
+                "cameraId": rs.camera_id,
+                "volume": 30 if rs.camera_id == camera.id else rs.volume,
+                "repeatTimes": rs.repeat_times,
+                "ringtoneId": rs.ringtone_id,
+            }
+            if rs.ringtone_id
+            else {
+                "cameraId": rs.camera_id,
+                "volume": rs.volume,
+                "repeatTimes": rs.repeat_times,
+            }
+            for rs in chime.ring_settings
+        ]
+    )
+
+
+_PRIVATE_CHIME_WRITERS = {
+    "set_ring_settings_public": _private_set_ring_settings,
+    "set_volume_for_camera_public": lambda chime, camera: (
+        chime.set_volume_for_camera_public(camera, 30)
+    ),
+    "set_repeat_times_for_camera_public": lambda chime, camera: (
+        chime.set_repeat_times_for_camera_public(camera, 3)
+    ),
+}
+
+
+@pytest.mark.skipif(
+    not TEST_CHIME_EXISTS or not TEST_CAMERA_EXISTS,
+    reason="Missing testdata",
+)
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("writer", list(_PRIVATE_CHIME_WRITERS))
+@pytest.mark.parametrize("target_missing", [True, False], ids=["target", "other"])
+async def test_chime_public_writes_require_ringtone(
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
+    writer: str,
+    target_missing: bool,
+) -> None:
+    """Chime ring writes raise and send nothing if any camera lacks a ringtone."""
+    if chime_obj is None or camera_obj is None:
+        pytest.skip("Missing test data")
+
+    _set_chime_ring_settings(
+        chime_obj,
+        camera_obj.id,
+        None if target_missing else RINGTONE_ID,
+        RINGTONE_ID if target_missing else None,
+    )
+    chime_obj.api.api_request_obj = AsyncMock()
+
+    with pytest.raises(ChimeRingtoneNotSetError) as exc_info:
+        await _PRIVATE_CHIME_WRITERS[writer](chime_obj, camera_obj)
+
+    expected = camera_obj.id if target_missing else "other-doorbell-camera"
+    assert exc_info.value.camera_id == expected
+    chime_obj.api.api_request_obj.assert_not_called()
+
+
+@pytest.mark.skipif(
+    not TEST_CHIME_EXISTS or not TEST_CAMERA_EXISTS,
+    reason="Missing testdata",
+)
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("writer", list(_PRIVATE_CHIME_WRITERS))
+async def test_chime_public_writes_send_every_ringtone(
+    chime_obj: Chime | None,
+    camera_obj: Camera | None,
+    writer: str,
+) -> None:
+    """Chime ring writes carry ringtoneId for every entry."""
+    if chime_obj is None or camera_obj is None:
+        pytest.skip("Missing test data")
+
+    _set_chime_ring_settings(chime_obj, camera_obj.id, RINGTONE_ID, "other-ringtone")
+    chime_obj.api.api_request_obj = AsyncMock(
+        return_value={
+            "id": chime_obj.id,
+            "modelKey": "chime",
+            "state": "CONNECTED",
+            "mac": "AABBCCDDEE03",
+            "ringSettings": [],
+        }
+    )
+
+    await _PRIVATE_CHIME_WRITERS[writer](chime_obj, camera_obj)
+
+    body = chime_obj.api.api_request_obj.call_args.kwargs["json"]["ringSettings"]
+    assert [entry["ringtoneId"] for entry in body] == [RINGTONE_ID, "other-ringtone"]
 
 
 # =============================================================================
