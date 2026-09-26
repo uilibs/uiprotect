@@ -51,7 +51,7 @@ def _wire(api: ProtectApiClient) -> list[tuple[ProtectEvent, EventChange]]:
     dispatcher = EventDispatcher(api)
     dispatcher.add_subscriber(lambda e, c: received.append((e, c)))
     api._event_dispatcher = dispatcher
-    # Mark devices WS already connected and suppress the resync (debounced)
+    # Mark devices WS already connected and defer the resync (debounced)
     # so only the sweep runs in these unit tests.
     api._devices_ws_has_been_connected = True
     api._last_public_resync = time.monotonic()

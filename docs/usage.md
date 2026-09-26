@@ -179,6 +179,33 @@ surfaces them as `DeviceChange.ADDED` / `DeviceChange.REMOVED`, exactly like
 live traffic, so consumers need no add/remove bookkeeping of their own. The
 initial `update_public()` prime stays silent — it is the baseline, not a diff.
 
+The reconnect resync runs in the background, so `CONNECTED` reaches
+`subscribe_devices_websocket_state` subscribers **before** the cache is
+refreshed. To learn when it is fresh again, use `subscribe_public_resync`: its
+callback fires once `update_public()` and the RTSPS refresh have finished. It
+does not fire on the first connect, which your own `update_public()` primes.
+Every reconnect after that is covered. One during a running resync queues a
+follow-up; one within `PUBLIC_RESYNC_MIN_INTERVAL` of the last resync
+schedules a single trailing resync for when the window ends, however many
+reconnects land in it. Each of those fires the callback again. `True` means
+every bootstrap endpoint was refetched; `False` means the refresh raised or an
+endpoint failed transiently (timeout, 429, 5xx) and kept its stale data. An
+endpoint the console does not expose is not a failure. The RTSPS refresh is
+best-effort: a camera whose streams fail to refresh keeps its previous URLs
+and does not turn the result into `False`. `close_session()` and
+`async_disconnect_ws()` cancel a running or scheduled resync without firing.
+After `True` there is no need to call `update_public()` yourself; after
+`False`, handle it like any failed `update_public()`.
+
+```python
+def on_resync(success: bool) -> None:
+    if success:
+        refresh_entities_from(protect.public_bootstrap)
+
+
+unsub = protect.subscribe_public_resync(on_resync)
+```
+
 ## Camera RTSPS streams
 
 RTSPS stream URLs live on the camera as `PublicCamera.rtsps_streams`. The
