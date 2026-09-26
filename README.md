@@ -55,7 +55,7 @@ Full documentation for the project is available at [uiprotect.readthedocs.io](ht
 
 If you want to install `uiprotect` natively, the below are the requirements:
 
-- [UniFi Protect](https://ui.com/camera-security) version 7.1+
+- [UniFi Protect](https://ui.com/camera-security) version 7.2+
   - The library is generally tested against the latest stable version.
 - [Python](https://www.python.org/) 3.11+
 - POSIX compatible system
@@ -215,10 +215,10 @@ await protect.update_public()
 for siren in await protect.get_sirens_public():
     print(siren.name)
 
-# the public API exposes no NVR mac; get_console_mac() resolves it out-of-band
-# via the UniFi-OS /api/system endpoint. For new code, prefer the public-API
-# primary key (nvr.id) as the device identity rather than the mac.
-console_mac = await protect.get_console_mac()
+# resolve the console identity; the mac comes straight off the public NVR.
+# For new code, prefer the public-API primary key (nvr.id) as the device
+# identity rather than the mac.
+console_mac = await protect.resolve_nvr_mac()
 ```
 
 ## Usage
