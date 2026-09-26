@@ -302,6 +302,11 @@ PUBLIC_RESYNC_MIN_INTERVAL = 10.0
 # last step the resync waits for the next reconnect.
 PUBLIC_RESYNC_RETRY_DELAYS = (10.0, 30.0, 60.0)
 
+# Interval (seconds) between periodic re-fetches of the public arm profiles.
+# Arm profiles have no ``modelKey`` and never arrive on the devices websocket,
+# so an out-of-band edit is only picked up by this timer or a resync.
+PUBLIC_ARM_PROFILES_REFRESH_INTERVAL = 300.0
+
 # WebSocket heartbeat (seconds) for the public integration WS connections. The
 # UniFi OS nginx reverse proxy closes an idle tunnel after ``proxy_read_timeout
 # 10m``; the quiet ``subscribe/devices`` channel only pushes on a ~10-minute
@@ -496,6 +501,11 @@ class BaseApiClient:
         # Per-instance for the same reason as above; cancelled in
         # :meth:`close_session` and on a devices-websocket disconnect.
         self._siren_off_tasks: dict[str, asyncio.Task[None]] = {}
+        # Periodic arm-profile refresh, armed by ``update_public``. Cancelled in
+        # :meth:`close_session`, :meth:`close_public_api_session` and
+        # :meth:`async_disconnect_ws`; the next ``update_public`` re-arms it.
+        self._arm_profiles_refresh_timer: asyncio.TimerHandle | None = None
+        self._arm_profiles_refresh_task: asyncio.Task[None] | None = None
         # Proactive per-API-key pacer for the public path. Per-instance so
         # several consoles in one process never share a budget.
         self._public_rate_limiter = PublicApiRateLimiter()
@@ -695,6 +705,7 @@ class BaseApiClient:
         await self._cancel_public_resync_task()
         await self._cancel_rtsps_refresh_tasks()
         await self._cancel_siren_off_tasks()
+        await self._cancel_arm_profiles_refresh()
         if self._session is not None:
             await self._session.close()
             self._session = None
@@ -707,6 +718,7 @@ class BaseApiClient:
         """Closing and deletes public API client session."""
         self._cancel_public_resync_timer()
         self._cancel_public_resync_retry()
+        await self._cancel_arm_profiles_refresh()
         if self._public_api_session is not None:
             await self._public_api_session.close()
             self._public_api_session = None
@@ -757,6 +769,17 @@ class BaseApiClient:
         for task in tasks:
             task.cancel()
         for task in tasks:
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+    async def _cancel_arm_profiles_refresh(self) -> None:
+        if self._arm_profiles_refresh_timer is not None:
+            self._arm_profiles_refresh_timer.cancel()
+            self._arm_profiles_refresh_timer = None
+        task = self._arm_profiles_refresh_task
+        self._arm_profiles_refresh_task = None
+        if task is not None:
+            task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await task
 
@@ -1386,6 +1409,9 @@ class BaseApiClient:
             await devices_websocket.wait_closed()
             self._devices_websocket = None
         await self._cancel_public_resync_task()
+        # Home Assistant unloads through here rather than ``close_session``, and
+        # with the websockets down the cache is no longer maintained anyway.
+        await self._cancel_arm_profiles_refresh()
 
     def _process_ws_message(self, msg: aiohttp.WSMessage) -> None:
         raise NotImplementedError
@@ -4786,6 +4812,66 @@ class ProtectApiClient(BaseApiClient):
         arm_profiles.clear()
         arm_profiles.update({p.id: p for p in profiles})
 
+    def _schedule_arm_profiles_refresh(self) -> None:
+        """Arm the periodic arm-profile refresh unless it is already pending."""
+        if self._arm_profiles_refresh_timer is None:
+            self._arm_profiles_refresh_timer = asyncio.get_running_loop().call_later(
+                PUBLIC_ARM_PROFILES_REFRESH_INTERVAL, self._run_arm_profiles_refresh
+            )
+
+    def _run_arm_profiles_refresh(self) -> None:
+        self._arm_profiles_refresh_timer = None
+        self._schedule_arm_profiles_refresh()
+        task = self._arm_profiles_refresh_task
+        if task is not None and not task.done():
+            return
+        self._arm_profiles_refresh_task = asyncio.create_task(
+            self._refresh_arm_profiles()
+        )
+
+    async def _refresh_arm_profiles(self) -> None:
+        """Re-fetch the arm profiles and announce a genuine change."""
+        pb = self._public_bootstrap
+        # A transient failure is retried by the reconnect resync ladder, which
+        # refetches arm profiles too; a second backoff here would compete.
+        if pb is None or "arm-profiles" in self._public_failed_endpoints:
+            return
+        before = dict(pb.arm_profiles)
+        try:
+            profiles = await self._fetch_arm_profiles()
+        except BadRequest as err:
+            _LOGGER.debug("arm-profiles endpoint unavailable: %s", err)
+            return
+        except Exception:
+            _LOGGER.exception("Failed to refresh arm profiles")
+            return
+        fetched = {p.id: p for p in profiles}
+        # Back off if a resync or CRUD setter wrote the store mid-fetch: its
+        # data is at least as fresh. The check and the write share no await.
+        if (
+            self._public_bootstrap is not pb
+            or pb.arm_profiles != before
+            or fetched == before
+        ):
+            return
+        self._apply_arm_profiles(profiles)
+        nvr = pb.nvr
+        if nvr is None or self._devices_ws_filtered_out(ModelType.NVR):
+            return
+        self.emit_devices_message(
+            WSSubscriptionMessage(
+                action=WSAction.UPDATE,
+                new_update_id=nvr.id,
+                changed_data={
+                    "modelKey": ModelType.NVR.value,
+                    "id": nvr.id,
+                    "armProfiles": [p.unifi_dict() for p in profiles],
+                },
+                new_obj=nvr,
+                old_obj=None,
+            )
+        )
+
     async def create_arm_profile_public(
         self,
         *,
@@ -5030,7 +5116,9 @@ class ProtectApiClient(BaseApiClient):
         between). Each caller returns the then-current bootstrap.
         """
         async with self._public_update_lock:
-            return await self._update_public_locked()
+            pb = await self._update_public_locked()
+        self._schedule_arm_profiles_refresh()
+        return pb
 
     async def _update_public_locked(self) -> PublicBootstrap:
         """Fetch and apply the public bootstrap; caller holds the prime lock."""
