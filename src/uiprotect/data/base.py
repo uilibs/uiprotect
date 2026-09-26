@@ -46,7 +46,6 @@ if TYPE_CHECKING:
 
     from ..api import ProtectApiClient
     from ..data.devices import Bridge
-    from ..data.nvr import Event
     from ..data.user import User
 
 
@@ -621,11 +620,6 @@ class ProtectModelWithId(ProtectModel):
             return user.can(model, PermissionNode.CREATE, self)
         return True
 
-    def can_read(self, user: User) -> bool:
-        if (model := self.model) is not None:
-            return user.can(model, PermissionNode.READ, self)
-        return True
-
     def can_write(self, user: User) -> bool:
         if (model := self.model) is not None:
             return user.can(model, PermissionNode.WRITE, self)
@@ -1100,9 +1094,3 @@ class ProtectMotionDeviceModel(ProtectAdoptableDeviceModel):
         data = super().unifi_dict(data=data, exclude=exclude)
         pop_dict_tuple(data, ("lastMotionEventId",))
         return data
-
-    @property
-    def last_motion_event(self) -> Event | None:
-        if (last_motion_event_id := self.last_motion_event_id) is not None:
-            return self._api.bootstrap.events.get(last_motion_event_id)
-        return None

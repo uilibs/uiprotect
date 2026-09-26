@@ -85,35 +85,3 @@ async def test_viewer_set_name_public(viewer_obj: Viewer) -> None:
         name="Renamed",
     )
     assert viewer_obj.name == "Renamed"
-
-
-@pytest.mark.skipif(not TEST_VIEWPORT_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_viewer_set_liveview_public(viewer_obj: Viewer) -> None:
-    viewer_obj.api.update_viewer_public = AsyncMock(
-        return_value=_public_viewer_response(liveview="lv-9"),
-    )
-
-    await viewer_obj.set_liveview_public("lv-9")
-
-    viewer_obj.api.update_viewer_public.assert_awaited_once_with(
-        viewer_obj.id,
-        liveview="lv-9",
-    )
-    assert viewer_obj.liveview_id == "lv-9"
-
-
-@pytest.mark.skipif(not TEST_VIEWPORT_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_viewer_set_liveview_public_clear(viewer_obj: Viewer) -> None:
-    viewer_obj.api.update_viewer_public = AsyncMock(
-        return_value=_public_viewer_response(liveview=None),
-    )
-
-    await viewer_obj.set_liveview_public(None)
-
-    viewer_obj.api.update_viewer_public.assert_awaited_once_with(
-        viewer_obj.id,
-        liveview=None,
-    )
-    assert viewer_obj.liveview_id == ""

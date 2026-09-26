@@ -198,7 +198,6 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
             ModelType.BRIDGE,
             ModelType.SENSOR,
             ModelType.CHIME,
-            ModelType.AIPORT,
         )
 
     @classmethod
@@ -398,11 +397,6 @@ class SmartDetectObjectType(ValuesEnumMixin, enum.StrEnum):
         return OBJECT_TO_AUDIO_MAP.get(self)
 
     @cached_property
-    def is_audio(self) -> bool:
-        """Return True if this is an audio detection type."""
-        return self.audio_type is not None
-
-    @cached_property
     def slug(self) -> str:
         """Return the value in snake_case with any ``alrm`` prefix stripped."""
         return _CAMEL_BOUNDARY_RE.sub(
@@ -422,21 +416,6 @@ class SmartDetectAudioType(ValuesEnumMixin, enum.StrEnum):
     BURGLAR = "alrmBurglar"
     CAR_HORN = "alrmCarHorn"
     GLASS_BREAK = "alrmGlassBreak"
-
-
-@enum.unique
-class DetectionColor(ValuesEnumMixin, enum.StrEnum):
-    BLACK = "black"
-    BLUE = "blue"
-    BROWN = "brown"
-    GRAY = "gray"
-    GREEN = "green"
-    ORANGE = "orange"
-    PINK = "pink"
-    PURPLE = "purple"
-    RED = "red"
-    WHITE = "white"
-    YELLOW = "yellow"
 
 
 OBJECT_TO_AUDIO_MAP = {
@@ -571,15 +550,6 @@ class SensorScheduleMode(UnknownValuesEnumMixin, enum.StrEnum):
     ALWAYS = "always"
     WHEN_ARMED = "when_armed"
     UNKNOWN = "unknown"
-
-
-@enum.unique
-class SleepStateType(ValuesEnumMixin, enum.StrEnum):
-    DISCONNECTED = "disconnected"
-    AWAKE = "awake"
-    START_SLEEP = "goingToSleep"
-    ASLEEP = "asleep"
-    WAKING = "waking"
 
 
 @enum.unique

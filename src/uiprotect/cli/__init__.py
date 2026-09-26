@@ -18,7 +18,6 @@ from ..test_util import SampleDataGenerator
 from ..utils import get_local_timezone
 from ..utils import profile_ws as profile_ws_job
 from . import base
-from .aiports import app as aiports_app
 from .arm import app as arm_app
 from .base import CliContext, OutputFormatEnum
 from .bridges import app as bridges_app
@@ -150,7 +149,6 @@ app.add_typer(chime_app, name="chimes")
 app.add_typer(light_app, name="lights")
 app.add_typer(sensor_app, name="sensors")
 app.add_typer(viewer_app, name="viewers")
-app.add_typer(aiports_app, name="aiports")
 app.add_typer(siren_app, name="sirens")
 app.add_typer(relay_app, name="relays")
 app.add_typer(fob_app, name="fobs")

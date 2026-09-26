@@ -107,7 +107,7 @@ def test_get_field_type_error():
 
 
 @pytest.mark.parametrize(
-    ("value", "is_audio", "slug"),
+    ("value", "has_audio", "slug"),
     [
         (SmartDetectObjectType.PERSON, False, "person"),
         (SmartDetectObjectType.ANIMAL, False, "animal"),
@@ -128,10 +128,10 @@ def test_get_field_type_error():
         (SmartDetectObjectType.PET, False, "pet"),
     ],
 )
-def test_smart_detect_object_type_is_audio_and_slug(
-    value: SmartDetectObjectType, is_audio: bool, slug: str
+def test_smart_detect_object_type_audio_type_and_slug(
+    value: SmartDetectObjectType, has_audio: bool, slug: str
 ) -> None:
-    assert value.is_audio is is_audio
+    assert (value.audio_type is not None) is has_audio
     assert value.slug == slug
 
 

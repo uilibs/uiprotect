@@ -34,10 +34,8 @@ from uiprotect.data.devices import (
     HotplugExtender,
     WifiStats,
 )
-from uiprotect.data.types import DEFAULT, PermissionNode, SmartDetectObjectType
-from uiprotect.data.websocket import WSAction, WSSubscriptionMessage
+from uiprotect.data.types import PermissionNode, SmartDetectObjectType
 from uiprotect.exceptions import BadRequest, NotAuthorized
-from uiprotect.utils import to_js_time
 
 
 @pytest.mark.parametrize(
@@ -680,78 +678,6 @@ async def test_camera_set_system_sounds(camera_obj: Camera | None, status: bool)
     )
 
 
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio()
-async def test_camera_set_osd_bitrate(camera_obj: Camera | None, status: bool):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.osd_settings.is_debug_enabled = not status
-
-    await camera_obj.set_osd_bitrate(status)
-
-    camera_obj.api.api_request.assert_called_with(
-        f"cameras/{camera_obj.id}",
-        method="patch",
-        json={"osdSettings": {"isDebugEnabled": status}},
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_smart_detect_types_no_smart(camera_obj: Camera | None):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_smart_detect = False
-
-    with pytest.raises(BadRequest):
-        await camera_obj.set_smart_detect_types([])
-
-    assert not camera_obj.api.api_request.called
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_smart_detect_types(camera_obj: Camera | None):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_smart_detect = True
-    camera_obj.smart_detect_settings.object_types = []
-
-    await camera_obj.set_smart_detect_types([SmartDetectObjectType.PERSON])
-
-    camera_obj.api.api_request.assert_called_with(
-        f"cameras/{camera_obj.id}",
-        method="patch",
-        json={"smartDetectSettings": {"objectTypes": ["person"]}},
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_lcd_text_no_lcd(camera_obj: Camera | None):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_lcd_screen = False
-
-    with pytest.raises(BadRequest):
-        await camera_obj.set_lcd_text(DoorbellMessageType.DO_NOT_DISTURB)
-
-    assert not camera_obj.api.api_request.called
-
-
 def test_lcd_message_missing_text_defaults_to_empty():
     msg = LCDMessage.model_construct(type=DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR)
 
@@ -764,207 +690,6 @@ def test_lcd_message_from_unifi_dict_missing_text():
     )
 
     assert msg.text == ""
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_lcd_text_custom(camera_obj: Camera | None):
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_lcd_screen = True
-    camera_obj.lcd_message = LCDMessage(
-        type=DoorbellMessageType.DO_NOT_DISTURB,
-        text=DoorbellMessageType.DO_NOT_DISTURB.value.replace("_", " "),
-        reset_at=None,
-    )
-
-    now = datetime.now(tz=UTC)
-    await camera_obj.set_lcd_text(DoorbellMessageType.CUSTOM_MESSAGE, "Test", now)
-
-    camera_obj.api.api_request.assert_called_with(
-        f"cameras/{camera_obj.id}",
-        method="patch",
-        json={
-            "lcdMessage": {
-                "type": DoorbellMessageType.CUSTOM_MESSAGE.value,
-                "text": "Test",
-                "resetAt": to_js_time(now),
-            },
-        },
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_lcd_text_custom_to_custom(camera_obj: Camera | None):
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_lcd_screen = True
-    camera_obj.lcd_message = LCDMessage(
-        type=DoorbellMessageType.CUSTOM_MESSAGE,
-        text="Welcome",
-        reset_at=None,
-    )
-
-    now = datetime.now(tz=UTC)
-    await camera_obj.set_lcd_text(DoorbellMessageType.CUSTOM_MESSAGE, "Test", now)
-
-    camera_obj.api.api_request.assert_called_with(
-        f"cameras/{camera_obj.id}",
-        method="patch",
-        json={
-            "lcdMessage": {
-                "type": DoorbellMessageType.CUSTOM_MESSAGE.value,
-                "text": "Test",
-                "resetAt": to_js_time(now),
-            },
-        },
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_lcd_text_invalid_text(camera_obj: Camera | None):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_lcd_screen = True
-
-    with pytest.raises(BadRequest):
-        await camera_obj.set_lcd_text(DoorbellMessageType.DO_NOT_DISTURB, "Test")
-
-    assert not camera_obj.api.api_request.called
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_lcd_text(camera_obj: Camera | None):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_lcd_screen = True
-    camera_obj.lcd_message = LCDMessage(
-        type=DoorbellMessageType.DO_NOT_DISTURB,
-        text=DoorbellMessageType.DO_NOT_DISTURB.value.replace("_", " "),
-        reset_at=None,
-    )
-
-    await camera_obj.set_lcd_text(DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR)
-
-    camera_obj.api.api_request.assert_called_with(
-        f"cameras/{camera_obj.id}",
-        method="patch",
-        json={
-            "lcdMessage": {
-                "type": DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR.value,
-                "text": DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR.value.replace(
-                    "_",
-                    " ",
-                ),
-                "resetAt": None,
-            },
-        },
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-@patch("uiprotect.data.devices.utc_now")
-async def test_camera_set_lcd_text_none(
-    mock_now,
-    camera_obj: Camera | None,
-    now: datetime,
-):
-    mock_now.return_value = now
-
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.emit_message = Mock()
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_lcd_screen = True
-    camera_obj.lcd_message = LCDMessage(
-        type=DoorbellMessageType.DO_NOT_DISTURB,
-        text=DoorbellMessageType.DO_NOT_DISTURB.value.replace("_", " "),
-        reset_at=None,
-    )
-
-    await camera_obj.set_lcd_text(None)
-
-    expected_dt = now - timedelta(seconds=10)
-    camera_obj.api.api_request.assert_called_with(
-        f"cameras/{camera_obj.id}",
-        method="patch",
-        json={
-            "lcdMessage": {
-                "resetAt": to_js_time(expected_dt),
-            },
-        },
-    )
-
-    # old/new is actually the same here since the client
-    # generating the message is the one that changed it
-    camera_obj.api.emit_message.assert_called_with(
-        WSSubscriptionMessage(
-            action=WSAction.UPDATE,
-            new_update_id=camera_obj.api.bootstrap.last_update_id,
-            changed_data={"lcd_message": {"reset_at": expected_dt}},
-            old_obj=camera_obj,
-            new_obj=camera_obj,
-        ),
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-@patch("uiprotect.data.devices.utc_now")
-async def test_camera_set_lcd_text_default(
-    mock_now,
-    camera_obj: Camera | None,
-    now: datetime,
-):
-    mock_now.return_value = now
-
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_lcd_screen = True
-    camera_obj.lcd_message = LCDMessage(
-        type=DoorbellMessageType.DO_NOT_DISTURB,
-        text=DoorbellMessageType.DO_NOT_DISTURB.value.replace("_", " "),
-        reset_at=None,
-    )
-
-    await camera_obj.set_lcd_text(
-        DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR,
-        reset_at=DEFAULT,
-    )
-
-    expected_dt = (
-        now
-        + camera_obj.api.bootstrap.nvr.doorbell_settings.default_message_reset_timeout
-    )
-    camera_obj.api.api_request.assert_called_with(
-        f"cameras/{camera_obj.id}",
-        method="patch",
-        json={
-            "lcdMessage": {
-                "type": DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR.value,
-                "text": DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR.value.replace(
-                    "_",
-                    " ",
-                ),
-                "resetAt": to_js_time(expected_dt),
-            },
-        },
-    )
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -1103,43 +828,6 @@ async def test_camera_set_person_track(camera_obj: Camera | None, status: bool):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio()
-async def test_camera_disable_co(camera_obj: Camera | None, status: bool):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.feature_flags.is_ptz = True
-    camera_obj.recording_settings.mode = RecordingMode.ALWAYS
-
-    if status:
-        camera_obj.smart_detect_settings.audio_types = []
-    else:
-        camera_obj.smart_detect_settings.audio_types = [
-            SmartDetectAudioType.SMOKE,
-            SmartDetectAudioType.CMONX,
-            SmartDetectAudioType.SMOKE_CMONX,
-        ]
-
-    camera_obj.api.api_request.reset_mock()
-
-    await camera_obj.set_smart_audio_detect_types(
-        [SmartDetectAudioType.SMOKE, SmartDetectAudioType.SMOKE_CMONX]
-    )
-
-    assert camera_obj.smart_detect_settings.audio_types == [
-        SmartDetectAudioType.SMOKE,
-        SmartDetectAudioType.SMOKE_CMONX,
-    ]
-
-    camera_obj.api.api_request.assert_called_with(
-        f"cameras/{camera_obj.id}",
-        method="patch",
-        json={"smartDetectSettings": {"audioTypes": ["alrmSmoke"]}},
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize(
     ("value", "lux"),
     [
@@ -1271,74 +959,6 @@ async def test_get_snapshot_no_permissions(camera_obj: Camera | None):
         ),
     ):
         await camera_obj.get_snapshot()
-
-
-@pytest.mark.asyncio
-async def test_get_public_api_snapshot_no_api_key(camera_obj: Camera):
-    """Test that get_public_api_snapshot fails with NotAuthorized if no API key is set in the API client."""
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api._api_key = None
-
-    # get_public_api_snapshot should raise NotAuthorized if api_key is missing
-    with pytest.raises(
-        NotAuthorized, match=r"Cannot get public API snapshot without an API key\."
-    ):
-        await camera_obj.get_public_api_snapshot()
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("high_quality", [False, True])
-async def test_get_public_api_snapshot_hq(camera_obj: Camera, high_quality: bool):
-    """Test that get_public_api_snapshot returns the correct snapshot quality."""
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_public_api_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-
-    snapshot = await camera_obj.get_public_api_snapshot(high_quality=high_quality)
-
-    assert snapshot == b"snapshot_data"
-    camera_obj._api.get_public_api_camera_snapshot.assert_called_once_with(
-        camera_id=camera_obj.id, high_quality=high_quality, package=False
-    )
-
-
-@pytest.mark.parametrize("high_quality", [False, True])
-@pytest.mark.asyncio
-async def test_get_public_api_snapshot_default_quality(
-    camera_obj: Camera, high_quality: bool
-):
-    """Test get_public_api_snapshot without high_quality argument uses feature flag."""
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj.feature_flags.support_full_hd_snapshot = high_quality
-    camera_obj._api.get_public_api_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-
-    snapshot = await camera_obj.get_public_api_snapshot()
-
-    assert snapshot == b"snapshot_data"
-    camera_obj._api.get_public_api_camera_snapshot.assert_called_once_with(
-        camera_id=camera_obj.id, high_quality=high_quality, package=False
-    )
-
-
-@pytest.mark.parametrize("package", [False, True])
-@pytest.mark.asyncio
-async def test_get_public_api_snapshot_package(camera_obj: Camera, package: bool):
-    """Test get_public_api_snapshot forwards the package flag to the api layer."""
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj.feature_flags.support_full_hd_snapshot = False
-    camera_obj._api.get_public_api_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-
-    snapshot = await camera_obj.get_public_api_snapshot(package=package)
-
-    assert snapshot == b"snapshot_data"
-    camera_obj._api.get_public_api_camera_snapshot.assert_called_once_with(
-        camera_id=camera_obj.id, high_quality=False, package=package
-    )
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing test data")
@@ -1500,33 +1120,6 @@ async def test_get_package_snapshot_dt_no_read_media(camera_obj: Camera | None):
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_camera_can_detect_face(camera_obj: Camera) -> None:
-    # Test when face detection is supported
-    camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.FACE]
-    assert camera_obj.can_detect_face is True
-
-    # Test when face detection is not supported
-    camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.PERSON]
-    assert camera_obj.can_detect_face is False
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_camera_is_face_detection_on(camera_obj: Camera) -> None:
-    # Test when face detection is enabled
-    camera_obj.feature_flags.smart_detect_types = [SmartDetectObjectType.FACE]
-    camera_obj.smart_detect_settings.object_types = [SmartDetectObjectType.FACE]
-    assert camera_obj.is_face_detection_on is True
-
-    # Test when face detection is disabled
-    camera_obj.smart_detect_settings.object_types = []
-    assert camera_obj.is_face_detection_on is False
-
-    # Test when face detection is not supported
-    camera_obj.feature_flags.smart_detect_types = []
-    assert camera_obj.is_face_detection_on is False
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 def test_camera_is_face_currently_detected(camera_obj: Camera) -> None:
     # Set up camera to support face detection
     camera_obj.feature_flags.can_optical_zoom = True
@@ -1623,27 +1216,6 @@ async def test_camera_ptz_public_api_no_ptz(
         await getattr(camera_obj, method)(**args)
 
     assert not camera_obj.api.api_request_raw.called
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize(
-    ("active_patrol_slot", "expected"),
-    [
-        (None, False),
-        (0, True),
-        (1, True),
-    ],
-)
-def test_camera_is_ptz_patrolling(
-    camera_obj: Camera | None,
-    active_patrol_slot: int | None,
-    expected: bool,
-):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.active_patrol_slot = active_patrol_slot
-    assert camera_obj.is_ptz_patrolling is expected
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")

@@ -15,7 +15,6 @@ from .convert import create_from_unifi_dict
 from .devices import (
     CHANNEL_ID_BY_RTSPS_QUALITY,
     RTSPS_QUALITY_BY_CHANNEL_ID,
-    AiPort,
     Bridge,
     Camera,
     CameraChannel,
@@ -207,7 +206,6 @@ __all__ = [
     "PUBLIC_EVENT_TYPES",
     "RTSPS_QUALITY_BY_CHANNEL_ID",
     "WS_HEADER_SIZE",
-    "AiPort",
     "AlarmHubBattery",
     "AlarmHubBatteryStatus",
     "AlarmHubConnectionState",

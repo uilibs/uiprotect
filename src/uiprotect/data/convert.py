@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, cast
 
 from ..exceptions import DataDecodeError
 from .devices import (
-    AiPort,
     Bridge,
     Camera,
     Chime,
@@ -38,7 +37,6 @@ MODEL_TO_CLASS: dict[str, type[ProtectModel]] = {
     ModelType.BRIDGE: Bridge,
     ModelType.SENSOR: Sensor,
     ModelType.CHIME: Chime,
-    ModelType.AIPORT: AiPort,
     ModelType.KEYRING: Keyring,
     ModelType.ULP_USER: UlpUser,
     # Public API only. These are not produced by the private

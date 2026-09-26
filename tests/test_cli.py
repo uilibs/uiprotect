@@ -55,7 +55,6 @@ from uiprotect.cli.viewers import app as viewer_app
 from uiprotect.cli.viewers import liveview
 from uiprotect.data import (
     NVR,
-    AiPort,
     Camera,
     Chime,
     Light,
@@ -1175,7 +1174,6 @@ def test_camera_set_lcd_text_clear_rejects_reset_time() -> None:
 
     assert exc.value.exit_code == 1
     camera.set_lcd_message_public.assert_not_called()
-    camera.set_lcd_text.assert_not_called()
 
 
 def test_sensor_set_status_light_stays_private() -> None:
@@ -1269,14 +1267,6 @@ def test_camera_smart_audio_detects_remove_uses_public() -> None:
     )
 
 
-def test_set_name_aiport_stays_private() -> None:
-    """AiPort has no public-API endpoint of its own, so it keeps the private setter."""
-    ctx, device, _protect = _device_ctx(AiPort)
-    base_cli.set_name(ctx, "Kitchen")
-    device.set_name.assert_awaited_once_with("Kitchen")
-    device.set_name_public.assert_not_called()
-
-
 def test_set_name_nvr_stays_private() -> None:
     """The NVR has no public name setter, so it keeps the private setter."""
     ctx, device, _protect = _device_ctx(NVR)
@@ -1355,7 +1345,6 @@ def test_list_ids_flags_an_unreachable_public_device() -> None:
 _PRIVATE_COMMANDS = [
     ["nvr"],
     ["events"],
-    ["aiports"],
     ["generate-sample-data"],
     ["profile-ws"],
     ["create-api-key", "n"],
@@ -1487,8 +1476,7 @@ def _private_bootstrap_with(attr: str, device: MagicMock) -> MagicMock:
 
 @pytest.mark.parametrize(
     ("group", "model_class"),
-    [(group, private) for group, private, _public in _DEVICE_GROUPS]
-    + [("aiports", AiPort)],
+    [(group, private) for group, private, _public in _DEVICE_GROUPS],
 )
 def test_hybrid_group_lists_devices_from_the_private_bootstrap(
     group, model_class
@@ -1844,13 +1832,9 @@ def test_group_selects_a_device_by_id(mode, group, private_class, public_class):
 
 
 @pytest.mark.parametrize("mode", ["hybrid", "key-only"])
-@pytest.mark.parametrize(
-    "group", [group for group, _p, _q in _DEVICE_GROUPS] + ["aiports"]
-)
+@pytest.mark.parametrize("group", [group for group, _p, _q in _DEVICE_GROUPS])
 def test_group_rejects_an_unknown_device_id(mode, group) -> None:
     """An unknown ID exits 1 in both modes."""
-    if mode == "key-only" and group == "aiports":
-        pytest.skip("aiports is private-only")
     if mode == "hybrid":
         bootstrap = MagicMock()
         setattr(bootstrap, group, {})
@@ -1864,14 +1848,12 @@ def test_group_rejects_an_unknown_device_id(mode, group) -> None:
     assert "Invalid" in result.output
 
 
-def test_aiports_select_a_device_by_id() -> None:
-    """``aiports <id>`` shows the selected AI port."""
-    device = _group_read_device(AiPort)
-    bootstrap = _private_bootstrap_with("aiports", device)
-    result = _invoke_hybrid(bootstrap, "aiports", "dev-1")
+def test_aiports_group_is_gone() -> None:
+    """The ``aiports`` group is no longer a command."""
+    result = runner.invoke(app, ["--help"])
 
-    assert result.exit_code == 0, result.output
-    assert '"id": "dev-1"' in result.stdout
+    assert result.exit_code == 0
+    assert "aiports" not in result.output
 
 
 def test_key_only_chime_cameras_without_ids_via_the_cli() -> None:
