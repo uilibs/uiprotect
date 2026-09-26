@@ -5987,3 +5987,192 @@ async def test_public_resync_reports_tolerated_endpoint_failure(
     await protect_client._resync_public_bootstrap()
 
     assert results == [expected, True]
+
+
+def _retrying_resync_client(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+    *outcomes: Exception | None,
+) -> list[bool]:
+    """Client whose resyncs play ``outcomes`` in order; returns the resync results."""
+    monkeypatch.setattr(api_module, "PUBLIC_RESYNC_RETRY_DELAYS", (0.01, 0.02, 0.03))
+    protect_client._public_bootstrap = PublicBootstrap()
+    protect_client._refresh_all_cached_rtsps = AsyncMock()  # type: ignore[method-assign]
+    protect_client.update_public = AsyncMock(side_effect=list(outcomes))  # type: ignore[method-assign]
+    results: list[bool] = []
+    protect_client.subscribe_public_resync(results.append)
+    return results
+
+
+async def _drain_resync_retries(protect_client: ProtectApiClient) -> None:
+    """Wait until no resync task runs and no retry is pending."""
+    for _ in range(200):
+        task = protect_client._public_resync_task
+        if task is not None and not task.done():
+            await task
+        elif protect_client._public_resync_retry_timer is None:
+            return
+        await asyncio.sleep(0.005)
+    raise AssertionError("resync retries did not settle")  # pragma: no cover
+
+
+@pytest.mark.asyncio()
+async def test_public_resync_retries_transient_failure_until_success(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed resync is retried and a later success reports ``True``."""
+    results = _retrying_resync_client(
+        protect_client, monkeypatch, NvrError("timeout"), RuntimeError("boom"), None
+    )
+
+    await protect_client._resync_public_bootstrap()
+    await _drain_resync_retries(protect_client)
+
+    assert results == [False, False, True]
+    assert protect_client.update_public.await_count == 3
+    assert protect_client._public_resync_retries == 0
+
+
+@pytest.mark.asyncio()
+async def test_public_resync_retries_tolerated_endpoint_failure(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An endpoint that failed transiently inside ``update_public`` is retried."""
+    monkeypatch.setattr(api_module, "PUBLIC_RESYNC_RETRY_DELAYS", (0.01,))
+    _mock_update_public_endpoints(
+        protect_client,
+        get_sirens_public=AsyncMock(side_effect=[NvrError("timeout"), []]),
+    )
+    results: list[bool] = []
+    protect_client.subscribe_public_resync(results.append)
+
+    await protect_client._resync_public_bootstrap()
+    await _drain_resync_retries(protect_client)
+
+    assert results == [False, True]
+
+
+@pytest.mark.asyncio()
+async def test_public_resync_not_authorized_is_not_retried(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A resync that failed with ``NotAuthorized`` schedules no retry."""
+    results = _retrying_resync_client(
+        protect_client, monkeypatch, NotAuthorized("revoked")
+    )
+
+    await protect_client._resync_public_bootstrap()
+    await asyncio.sleep(0.05)
+
+    assert protect_client._public_resync_retry_timer is None
+    assert protect_client.update_public.await_count == 1
+    assert results == [False]
+
+
+@pytest.mark.asyncio()
+async def test_public_resync_retry_gives_up_after_last_step(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The backoff stops after its last step until the next reconnect."""
+    results = _retrying_resync_client(
+        protect_client, monkeypatch, *[NvrError("down")] * 4, None
+    )
+
+    with caplog.at_level("WARNING"):
+        await protect_client._resync_public_bootstrap()
+        await _drain_resync_retries(protect_client)
+    await asyncio.sleep(0.05)
+
+    assert results == [False] * 4
+    assert protect_client.update_public.await_count == 4
+    assert protect_client._public_resync_retry_timer is None
+    assert "still failing after 3 retries" in caplog.text
+
+    protect_client._last_public_resync = 0.0
+    protect_client._devices_ws_has_been_connected = True
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    await _drain_resync_retries(protect_client)
+    assert results == [False] * 4 + [True]
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize(
+    "close",
+    [
+        "close_session",
+        "close_public_api_session",
+        "async_disconnect_ws",
+    ],
+)
+async def test_public_resync_close_cancels_pending_retry(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+    close: str,
+) -> None:
+    """Closing the client cancels a pending retry without firing."""
+    results = _retrying_resync_client(protect_client, monkeypatch, NvrError("down"))
+
+    await protect_client._resync_public_bootstrap()
+    assert protect_client._public_resync_retry_timer is not None
+
+    await getattr(protect_client, close)()
+    await asyncio.sleep(0.05)
+
+    assert protect_client._public_resync_retry_timer is None
+    assert protect_client._public_resync_task is None
+    assert protect_client.update_public.await_count == 1
+    assert results == [False]
+
+
+@pytest.mark.asyncio()
+async def test_public_resync_reconnect_replaces_pending_retry(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A reconnect cancels a pending retry and runs only its own resync."""
+    results = _retrying_resync_client(
+        protect_client, monkeypatch, NvrError("down"), None
+    )
+    monkeypatch.setattr(api_module, "PUBLIC_RESYNC_RETRY_DELAYS", (0.05,))
+    protect_client._devices_ws_has_been_connected = True
+
+    await protect_client._resync_public_bootstrap()
+    retry_timer = protect_client._public_resync_retry_timer
+    assert retry_timer is not None
+
+    protect_client._last_public_resync = 0.0
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    assert retry_timer.cancelled()
+    assert protect_client._public_resync_retry_timer is None
+    assert protect_client._public_resync_task is not None
+    await protect_client._public_resync_task
+    await asyncio.sleep(0.1)
+
+    assert protect_client.update_public.await_count == 2
+    assert results == [False, True]
+
+
+@pytest.mark.asyncio()
+async def test_public_resync_follow_up_replaces_retry(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed resync with a queued follow-up schedules no retry of its own."""
+    results = _retrying_resync_client(
+        protect_client, monkeypatch, NvrError("down"), None
+    )
+    protect_client._public_resync_pending = True
+
+    await protect_client._resync_public_bootstrap()
+    assert protect_client._public_resync_retry_timer is None
+    assert protect_client._public_resync_task is not None
+    await protect_client._public_resync_task
+    await asyncio.sleep(0.05)
+
+    assert protect_client.update_public.await_count == 2
+    assert results == [False, True]

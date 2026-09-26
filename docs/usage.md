@@ -192,10 +192,19 @@ every bootstrap endpoint was refetched; `False` means the refresh raised or an
 endpoint failed transiently (timeout, 429, 5xx) and kept its stale data. An
 endpoint the console does not expose is not a failure. The RTSPS refresh is
 best-effort: a camera whose streams fail to refresh keeps its previous URLs
-and does not turn the result into `False`. `close_session()` and
-`async_disconnect_ws()` cancel a running or scheduled resync without firing.
-After `True` there is no need to call `update_public()` yourself; after
-`False`, handle it like any failed `update_public()`.
+and does not turn the result into `False`.
+
+A resync that reports `False` is retried with a bounded backoff
+(`PUBLIC_RESYNC_RETRY_DELAYS`: 10 s, 30 s, then 60 s), and each retry fires the
+callback again, so a retry that succeeds reports `True`. After the last step
+the library gives up until the next reconnect. A resync that failed with
+`NotAuthorized` is not retried; the key must be fixed first, and the websocket
+reports that through `WebsocketState.AUTH_FAILED`. A reconnect replaces a
+pending retry with its own resync, so the two never both run for the same gap.
+`close_session()` and `async_disconnect_ws()` cancel a running or scheduled
+resync, or a pending retry, without firing. After `True` there is no need to
+call `update_public()` yourself; after `False`, the library keeps retrying on
+its own, so only act on it if you need fresh data sooner.
 
 ```python
 def on_resync(success: bool) -> None:
