@@ -5703,3 +5703,148 @@ async def test_update_public_still_announces_after_an_unparsable_add_frame(
     assert pb.sirens[SIREN_ID] is siren
     # The unparsable frame carried no object; the diff still announces the add.
     assert [msg.new_obj for msg in captured] == [None, siren]
+
+
+@pytest.mark.asyncio()
+async def test_public_resync_callback_fires_after_refresh(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Resync subscribers fire with ``True`` after update and RTSPS refresh finish."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    order: list[str] = []
+
+    async def _fake_update() -> PublicBootstrap:
+        order.append("update")
+        return protect_client.public_bootstrap
+
+    async def _fake_rtsps() -> None:
+        order.append("rtsps")
+
+    protect_client.update_public = _fake_update  # type: ignore[assignment]
+    protect_client._refresh_all_cached_rtsps = _fake_rtsps  # type: ignore[method-assign]
+    states: list[WebsocketState] = []
+    protect_client.subscribe_devices_websocket_state(states.append)
+    results: list[bool] = []
+
+    def _on_resync(ok: bool) -> None:
+        order.append(f"cb:{ok}")
+        results.append(ok)
+
+    protect_client.subscribe_public_resync(_on_resync)
+
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    protect_client._on_devices_websocket_state_change(WebsocketState.DISCONNECTED)
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    assert states[-1] is WebsocketState.CONNECTED
+    assert results == []
+    assert protect_client._public_resync_task is not None
+    await protect_client._public_resync_task
+
+    assert order == ["update", "rtsps", "cb:True"]
+    assert results == [True]
+
+
+@pytest.mark.asyncio()
+async def test_public_resync_callback_reports_failure(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A failed resync fires subscribers with ``False``."""
+    protect_client.update_public = AsyncMock(side_effect=RuntimeError("offline"))  # type: ignore[method-assign]
+    results: list[bool] = []
+    protect_client.subscribe_public_resync(results.append)
+
+    await protect_client._resync_public_bootstrap()
+
+    assert results == [False]
+
+
+@pytest.mark.asyncio()
+async def test_public_resync_callback_fires_for_queued_follow_up(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A follow-up resync queued during a running one fires subscribers again."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    first_started = asyncio.Event()
+    release_first = asyncio.Event()
+    call_count = 0
+
+    async def _fake_update() -> PublicBootstrap:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            first_started.set()
+            await release_first.wait()
+        return protect_client.public_bootstrap
+
+    protect_client.update_public = _fake_update  # type: ignore[assignment]
+    results: list[bool] = []
+    protect_client.subscribe_public_resync(results.append)
+
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    protect_client._on_devices_websocket_state_change(WebsocketState.DISCONNECTED)
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    await asyncio.wait_for(first_started.wait(), timeout=1.0)
+    first_task = protect_client._public_resync_task
+    protect_client._on_devices_websocket_state_change(WebsocketState.DISCONNECTED)
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+
+    release_first.set()
+    assert first_task is not None
+    await first_task
+    follow_up = protect_client._public_resync_task
+    assert follow_up is not None
+    assert follow_up is not first_task
+    await follow_up
+
+    assert results == [True, True]
+
+
+@pytest.mark.asyncio()
+async def test_public_resync_callback_not_fired_on_cancel(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Cancelling an in-flight resync on close fires no subscriber."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    started = asyncio.Event()
+
+    async def _hang() -> PublicBootstrap:
+        started.set()
+        await asyncio.Event().wait()
+        return protect_client.public_bootstrap  # pragma: no cover
+
+    protect_client.update_public = _hang  # type: ignore[assignment]
+    results: list[bool] = []
+    protect_client.subscribe_public_resync(results.append)
+
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    protect_client._on_devices_websocket_state_change(WebsocketState.DISCONNECTED)
+    protect_client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    await asyncio.wait_for(started.wait(), timeout=1.0)
+    await protect_client._cancel_public_resync_task()
+
+    assert results == []
+
+
+@pytest.mark.asyncio()
+async def test_public_resync_unsubscribe_and_raising_callback(
+    protect_client: ProtectApiClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A raising subscriber is logged without blocking others; unsubscribe stops delivery."""
+    protect_client.update_public = AsyncMock()  # type: ignore[method-assign]
+
+    def _boom(ok: bool) -> None:
+        raise RuntimeError("boom")
+
+    results: list[bool] = []
+    protect_client.subscribe_public_resync(_boom)
+    unsub = protect_client.subscribe_public_resync(results.append)
+
+    with caplog.at_level("ERROR"):
+        await protect_client._resync_public_bootstrap()
+    assert results == [True]
+    assert "Exception while running public resync handler" in caplog.text
+
+    unsub()
+    await protect_client._resync_public_bootstrap()
+    assert results == [True]

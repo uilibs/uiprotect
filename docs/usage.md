@@ -179,6 +179,25 @@ surfaces them as `DeviceChange.ADDED` / `DeviceChange.REMOVED`, exactly like
 live traffic, so consumers need no add/remove bookkeeping of their own. The
 initial `update_public()` prime stays silent — it is the baseline, not a diff.
 
+The reconnect resync runs in the background, so `CONNECTED` reaches
+`subscribe_devices_websocket_state` subscribers **before** the cache is
+refreshed. To learn when it is fresh again, use `subscribe_public_resync`: its
+callback fires once `update_public()` and the RTSPS refresh have finished,
+with `True` on success or `False` if the refresh failed. A reconnect during a
+running resync queues a follow-up, which fires the callback again; a reconnect
+debounced by `PUBLIC_RESYNC_MIN_INTERVAL` runs no resync and fires nothing,
+and a resync cancelled by `close_session()` never fires. There is no need to call `update_public()` yourself after a
+reconnect.
+
+```python
+def on_resync(success: bool) -> None:
+    if success:
+        refresh_entities_from(protect.public_bootstrap)
+
+
+unsub = protect.subscribe_public_resync(on_resync)
+```
+
 ## Camera RTSPS streams
 
 RTSPS stream URLs live on the camera as `PublicCamera.rtsps_streams`. The

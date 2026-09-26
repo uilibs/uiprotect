@@ -1422,6 +1422,7 @@ class ProtectApiClient(BaseApiClient):
     _ws_state_subscriptions: list[Callable[[WebsocketState], None]]
     _events_ws_state_subscriptions: list[Callable[[WebsocketState], None]]
     _devices_ws_state_subscriptions: list[Callable[[WebsocketState], None]]
+    _public_resync_subscriptions: list[Callable[[bool], None]]
     _bootstrap: Bootstrap | None = None
     _public_bootstrap: PublicBootstrap | None = None
     # True after the first time the devices WS transitions to CONNECTED; used
@@ -1532,6 +1533,7 @@ class ProtectApiClient(BaseApiClient):
         self._ws_state_subscriptions = []
         self._events_ws_state_subscriptions = []
         self._devices_ws_state_subscriptions = []
+        self._public_resync_subscriptions = []
         self._event_dispatcher = None
         self._device_dispatcher = None
         self.ignore_unadopted = ignore_unadopted
@@ -2622,6 +2624,23 @@ class ProtectApiClient(BaseApiClient):
         self._devices_ws_state_subscriptions.append(ws_callback)
         return partial(self._unsubscribe_devices_websocket_state, ws_callback)
 
+    def subscribe_public_resync(
+        self,
+        callback: Callable[[bool], None],
+    ) -> Callable[[], None]:
+        """
+        Subscribe to completion of the devices-websocket reconnect resync.
+
+        ``callback`` receives ``True`` once the public bootstrap has been
+        refreshed, or ``False`` if the refresh failed. A reconnect during a
+        running resync queues a follow-up that fires the callback again. A
+        debounced reconnect runs no resync and fires nothing.
+
+        Returns a callback that will unsubscribe.
+        """
+        self._public_resync_subscriptions.append(callback)
+        return partial(self._public_resync_subscriptions.remove, callback)
+
     def _unsubscribe_websocket_state(
         self,
         ws_callback: Callable[[WebsocketState], None],
@@ -2800,6 +2819,9 @@ class ProtectApiClient(BaseApiClient):
             await self._refresh_all_cached_rtsps()
         except Exception:
             _LOGGER.exception("Failed to resync public bootstrap after reconnect")
+            success = False
+        else:
+            success = True
         finally:
             if self._public_resync_pending:
                 self._public_resync_pending = False
@@ -2807,6 +2829,12 @@ class ProtectApiClient(BaseApiClient):
                 self._public_resync_task = asyncio.create_task(
                     self._resync_public_bootstrap()
                 )
+        # Not reached on cancellation, so a closed client never notifies.
+        for sub in self._public_resync_subscriptions.copy():
+            try:
+                sub(success)
+            except Exception:
+                _LOGGER.exception("Exception while running public resync handler")
 
     def _schedule_rtsps_refresh(self, camera_id: str) -> None:
         """
