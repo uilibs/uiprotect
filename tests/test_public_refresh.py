@@ -449,6 +449,36 @@ async def test_update_public_finishing_while_teardown_awaits_does_not_arm(
 
 
 @pytest.mark.asyncio()
+async def test_update_public_started_while_teardown_awaits_does_not_arm(
+    client: ProtectApiClient,
+) -> None:
+    await client.update_public()
+    started_during_teardown = False
+
+    async def _fetch() -> list[Any]:
+        nonlocal started_during_teardown
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            await client.update_public()
+            started_during_teardown = True
+            raise
+        return []  # pragma: no cover
+
+    client._fetch_arm_profiles = AsyncMock(side_effect=_fetch)
+    client._run_public_refresh_tick()
+    await asyncio.sleep(0)
+
+    await client.close_public_api_session()
+
+    assert started_during_teardown
+    assert client._public_refresh_timer is None
+    assert not client._public_refresh_closing
+    await client.update_public()
+    assert client._public_refresh_timer is not None
+
+
+@pytest.mark.asyncio()
 async def test_close_public_api_session_cancels_resync_follow_up(
     client: ProtectApiClient,
 ) -> None:

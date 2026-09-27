@@ -461,6 +461,9 @@ class BaseApiClient:
     # Bumped by every teardown; an ``update_public`` that started before one
     # does not arm the refresh.
     _public_refresh_epoch: int = 0
+    # True while ``_cancel_public_refresh`` runs; an ``update_public`` that
+    # starts meanwhile captures the new epoch but must not arm the refresh.
+    _public_refresh_closing: bool = False
 
     private_api_path: str = "/proxy/protect/api/"
     public_api_path: str = "/proxy/protect/integration"
@@ -780,14 +783,18 @@ class BaseApiClient:
         # Bumped before the await so an ``update_public`` finishing meanwhile
         # does not re-arm the timer.
         self._public_refresh_epoch += 1
-        if self._public_refresh_timer is not None:
-            self._public_refresh_timer.cancel()
-            self._public_refresh_timer = None
-        tasks = list(self._public_refresh_tasks.values())
-        self._public_refresh_tasks.clear()
-        for task in tasks:
-            task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
+        self._public_refresh_closing = True
+        try:
+            if self._public_refresh_timer is not None:
+                self._public_refresh_timer.cancel()
+                self._public_refresh_timer = None
+            tasks = list(self._public_refresh_tasks.values())
+            self._public_refresh_tasks.clear()
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        finally:
+            self._public_refresh_closing = False
 
     def _cancel_public_resync_timer(self) -> None:
         if self._public_resync_timer is not None:
@@ -5130,6 +5137,7 @@ class ProtectApiClient(BaseApiClient):
         if (
             self._public_refresh_interval is None
             or self._public_refresh_timer is not None
+            or self._public_refresh_closing
         ):
             return
         self._public_refresh_timer = asyncio.get_running_loop().call_later(
