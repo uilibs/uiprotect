@@ -10,9 +10,14 @@ from unittest.mock import AsyncMock
 import pytest
 
 from uiprotect import ProtectApiClient
-from uiprotect.api import _PUBLIC_REFRESH_JOBS, PUBLIC_REFRESH_INTERVAL
+from uiprotect.api import (
+    _PUBLIC_REFRESH_JOBS,
+    DEVICE_UPDATE_INTERVAL,
+    PUBLIC_REFRESH_INTERVAL,
+)
 from uiprotect.data import PublicStoreChange
 from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
+from uiprotect.websocket import WebsocketState
 
 from .test_api_public import _mock_update_public_endpoints
 from .test_public_store_changes import PROFILE_ID, _profile, _profile_raw, _ulp_user
@@ -61,12 +66,45 @@ def _blocking_fetch() -> tuple[AsyncMock, asyncio.Event]:
 
 
 def test_default_interval_matches_device_update_interval() -> None:
-    assert PUBLIC_REFRESH_INTERVAL == 900.0
+    assert PUBLIC_REFRESH_INTERVAL == DEVICE_UPDATE_INTERVAL
 
 
-def test_non_positive_interval_rejected() -> None:
+@pytest.mark.parametrize("interval", [0, -1.0, float("nan"), float("inf"), True, False])
+def test_invalid_interval_rejected(interval: float) -> None:
     with pytest.raises(BadRequest):
-        ProtectApiClient("h", 443, "u", "p", public_refresh_interval=0)
+        ProtectApiClient("h", 443, "u", "p", public_refresh_interval=interval)
+
+
+@pytest.mark.asyncio()
+async def test_public_only_uses_default_interval() -> None:
+    client = ProtectApiClient.public_only("h", 443, api_key="k")
+    _mock_update_public_endpoints(client)
+    try:
+        await client.update_public()
+        assert _delay(client) == pytest.approx(PUBLIC_REFRESH_INTERVAL / 2, abs=0.5)
+    finally:
+        await client.close_session()
+
+
+@pytest.mark.asyncio()
+async def test_real_timer_keeps_refreshing_every_store() -> None:
+    client = ProtectApiClient.public_only(
+        "h", 443, api_key="k", public_refresh_interval=0.02
+    )
+    _mock_update_public_endpoints(client)
+    try:
+        await client.update_public()
+        for _ in range(200):
+            if (
+                client._fetch_arm_profiles.await_count >= 3
+                and client.get_ulp_users_public.await_count >= 3
+            ):
+                break
+            await asyncio.sleep(0.01)
+        assert client._fetch_arm_profiles.await_count >= 3
+        assert client.get_ulp_users_public.await_count >= 3
+    finally:
+        await client.close_session()
 
 
 @pytest.mark.asyncio()
@@ -161,6 +199,32 @@ async def test_tick_refreshes_and_notifies_only_on_change(
     client._fetch_arm_profiles = AsyncMock(return_value=[_profile(client)])
     await _tick(client)
     assert len(changes) == 1
+    assert list(client.public_bootstrap.arm_profiles) == [PROFILE_ID]
+
+
+@pytest.mark.asyncio()
+async def test_refresh_removes_missing_entries(client: ProtectApiClient) -> None:
+    client._fetch_arm_profiles = AsyncMock(return_value=[_profile(client)])
+    await client.update_public()
+    changes: list[PublicStoreChange] = []
+    client.subscribe_public_store_changes(changes.append)
+
+    client._fetch_arm_profiles = AsyncMock(return_value=[])
+    await _tick(client)
+    assert client.public_bootstrap.arm_profiles == {}
+    assert changes == [
+        PublicStoreChange(
+            "arm_profiles", frozenset(), frozenset({PROFILE_ID}), frozenset()
+        )
+    ]
+
+
+@pytest.mark.asyncio()
+async def test_failed_refresh_keeps_cache(client: ProtectApiClient) -> None:
+    client._fetch_arm_profiles = AsyncMock(return_value=[_profile(client)])
+    await client.update_public()
+    client._fetch_arm_profiles = AsyncMock(side_effect=NvrError("down"))
+    assert await _tick(client) == "arm_profiles"
     assert list(client.public_bootstrap.arm_profiles) == [PROFILE_ID]
 
 
@@ -270,10 +334,13 @@ async def test_teardown_cancels_timer_and_running_job(
     client._fetch_arm_profiles = fetch
     client._run_public_refresh_tick()
     running = client._public_refresh_tasks["arm_profiles"]
+    timer = client._public_refresh_timer
+    assert timer is not None
     await asyncio.sleep(0)
 
     await getattr(client, teardown)()
 
+    assert timer.cancelled()
     assert client._public_refresh_timer is None
     assert running.cancelled()
     assert client._public_refresh_tasks == {}
@@ -338,13 +405,43 @@ async def test_update_public_finishing_while_teardown_awaits_does_not_arm(
     client._fetch_arm_profiles = AsyncMock(side_effect=_fetch)
     # The in-flight update holds the lock; bypass the skip to start a job.
     client._public_refresh_tasks["arm_profiles"] = asyncio.create_task(
-        client._refresh_public_store(_PUBLIC_REFRESH_JOBS[0])
+        client._refresh_public_store(_PUBLIC_REFRESH_JOBS[0], None)
     )
     await asyncio.sleep(0)
 
     await client.close_public_api_session()
 
     assert finished_during_teardown
+    assert client._public_refresh_timer is None
+
+
+@pytest.mark.asyncio()
+async def test_close_public_api_session_cancels_resync_follow_up(
+    client: ProtectApiClient,
+) -> None:
+    await client.update_public()
+    client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    release = asyncio.Event()
+    nvr = await client.get_nvr_public()
+
+    async def _nvr() -> Any:
+        await release.wait()
+        return nvr
+
+    client.get_nvr_public = AsyncMock(side_effect=_nvr)
+    client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    resync = client._public_resync_task
+    assert resync is not None
+    await asyncio.sleep(0)
+    client._on_devices_websocket_state_change(WebsocketState.CONNECTED)
+    assert client._public_resync_pending
+
+    await client.close_public_api_session()
+    release.set()
+    await asyncio.sleep(0.05)
+
+    assert resync.cancelled()
+    assert client._public_resync_task is None
     assert client._public_refresh_timer is None
 
 
@@ -395,6 +492,23 @@ async def test_failure_warns_once_and_recovery_logs_once(
     recovered = [r for r in caplog.records if "recovered" in r.getMessage()]
     assert len(recovered) == 1
     assert recovered[0].levelno == logging.INFO
+
+
+@pytest.mark.asyncio()
+async def test_failure_of_one_store_does_not_suppress_other(
+    client: ProtectApiClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    await client.update_public()
+    client._fetch_arm_profiles = AsyncMock(side_effect=NvrError("down"))
+    client.get_ulp_users_public = AsyncMock(side_effect=NvrError("down"))
+    with caplog.at_level(logging.WARNING, logger="uiprotect.api"):
+        await _tick(client)
+        await _tick(client)
+
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 2
+    assert any("arm-profiles" in w for w in warnings)
+    assert any("ulp-users" in w for w in warnings)
 
 
 @pytest.mark.asyncio()

@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import hashlib
 import logging
+import math
 import random
 import re
 import sys
@@ -500,7 +501,11 @@ class BaseApiClient:
                 "Provide both username and password, or an api_key, "
                 "to construct a client"
             )
-        if public_refresh_interval is not None and public_refresh_interval <= 0:
+        if public_refresh_interval is not None and (
+            isinstance(public_refresh_interval, bool)
+            or not math.isfinite(public_refresh_interval)
+            or public_refresh_interval <= 0
+        ):
             raise BadRequest("public_refresh_interval must be positive or None")
 
         self._auth_lock = asyncio.Lock()
@@ -739,8 +744,7 @@ class BaseApiClient:
 
     async def close_public_api_session(self) -> None:
         """Closing and deletes public API client session."""
-        self._cancel_public_resync_timer()
-        self._cancel_public_resync_retry()
+        await self._cancel_public_resync_task()
         await self._cancel_public_refresh()
         if self._public_api_session is not None:
             await self._public_api_session.close()
@@ -1540,9 +1544,6 @@ class ProtectApiClient(BaseApiClient):
     # failed transiently (``NvrError``) and were tolerated, leaving their
     # stores stale.
     _public_failed_endpoints: frozenset[str] = frozenset()
-    # Bumped each time ``update_public`` takes the prime lock; a periodic
-    # refresh whose fetch spans a bump drops its older result.
-    _public_update_generation: int = 0
     # Index into ``_PUBLIC_REFRESH_JOBS`` of the job the next tick runs.
     _public_refresh_next: int = 0
     _last_update_dt: datetime | None = None
@@ -5120,7 +5121,6 @@ class ProtectApiClient(BaseApiClient):
         """
         epoch = self._public_refresh_epoch
         async with self._public_update_lock:
-            self._public_update_generation += 1
             pb = await self._update_public_locked()
         if epoch == self._public_refresh_epoch:
             self._start_public_refresh()
@@ -5154,12 +5154,12 @@ class ProtectApiClient(BaseApiClient):
             _LOGGER.debug("Skipping %s refresh during update_public", job.label)
             return
         self._public_refresh_tasks[job.store] = asyncio.create_task(
-            self._refresh_public_store(job)
+            self._refresh_public_store(job, self._public_store_writes.get(job.store))
         )
 
-    async def _refresh_public_store(self, job: _PublicRefreshJob) -> None:
-        writes = self._public_store_writes.get(job.store)
-        generation = self._public_update_generation
+    async def _refresh_public_store(
+        self, job: _PublicRefreshJob, writes: int | None
+    ) -> None:
         try:
             objs = await getattr(self, job.fetch)()
         except NotAuthorized as err:
@@ -5187,10 +5187,7 @@ class ProtectApiClient(BaseApiClient):
             _LOGGER.info("Periodic refresh of %s recovered", job.label)
         # An ``update_public`` or a setter wrote the store while the fetch was
         # in flight; the fetched list may predate that write.
-        if (
-            self._public_update_generation != generation
-            or self._public_store_writes.get(job.store) != writes
-        ):
+        if self._public_store_writes.get(job.store) != writes:
             return
         self._emit_public_store_change(
             self._apply_public_store(job.store, objs, replace=True)
@@ -5360,6 +5357,11 @@ class ProtectApiClient(BaseApiClient):
                 # fetched list may predate that write, so keep the cache.
                 if self._public_store_writes.get(store) != store_writes.get(store):
                     continue
+                # Lets an in-flight periodic refresh of this store drop its
+                # possibly older result.
+                self._public_store_writes[store] = (
+                    self._public_store_writes.get(store, 0) + 1
+                )
                 if change := pb.apply_store(store, result, replace=True):
                     store_changes.append(change)
             elif attr == "nvr":
