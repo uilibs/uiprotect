@@ -259,6 +259,37 @@ def on_store_change(change: PublicStoreChange) -> None:
 unsub = protect.subscribe_public_store_changes(on_store_change)
 ```
 
+### Periodic refresh of these stores
+
+Without a websocket channel, an edit made on the console or by another client
+would stay invisible until the next reconnect. The client therefore refetches
+`arm_profiles` and `ulp_users` on a timer. The first successful
+`update_public()` starts it. Each store is refreshed at least once every
+`public_refresh_interval` seconds (default `PUBLIC_REFRESH_INTERVAL`, 900). The
+refreshes take turns, so one request goes out every `interval / 2` seconds.
+Results go through the same apply path as above, so
+`subscribe_public_store_changes` fires only when the data actually changed.
+
+```python
+protect = ProtectApiClient.public_only(
+    host, port, api_key=api_key, public_refresh_interval=300.0
+)
+```
+
+Pass `public_refresh_interval=None` to turn the timer off. A turn is skipped
+while `update_public()` is running, since it refetches the store anyway, and
+while the same store's previous refresh is still in flight. A result is
+discarded if `update_public()` or an arm-profile write ran during the fetch. A
+failed refresh keeps the cached data, logs one warning, and is retried on the
+next turn. The recovery is logged once. An endpoint the firmware does not
+expose (`BadRequest`) is logged at debug level only. On consoles without UniFi
+Identity, `NotAuthorized` from `ulp-users` is expected and also logged at debug
+level.
+`close_session()`, `close_public_api_session()` and `async_disconnect_ws()` all
+stop the timer. An `update_public()` still running when one of them is called
+does not start it again. Device stores are not refreshed on this timer: the
+devices websocket stays their change channel.
+
 ## Camera RTSPS streams
 
 RTSPS stream URLs live on the camera as `PublicCamera.rtsps_streams`. The
