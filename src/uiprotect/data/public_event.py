@@ -26,6 +26,7 @@ from pydantic import Field
 from ..utils import convert_smart_types, convert_to_datetime
 from .base import ProtectBaseObject, ProtectModelWithId
 from .types import (
+    AlarmHubTamperStatus,
     EventButtonType,
     EventType,
     ModelType,
@@ -105,6 +106,9 @@ class PublicEventMetadata(ProtectBaseObject):
     sensor_type: SensorExtremeMetricType | None = None
     sensor_value: float | None = None
     status: SensorStatusType | None = None
+    # ``status`` is only ``sensorStatus``-typed on ``sensorExtremeValues``; the
+    # alarm hub events send other values that ``status`` coerces to ``UNKNOWN``.
+    status_text: str | None = None
     sensor_mount_type: MountType | None = None
     alarm_type: SensorAlarmType | None = None
     button: EventButtonType | None = None
@@ -118,6 +122,7 @@ class PublicEventMetadata(ProtectBaseObject):
     sensor_battery_percentage: float | None = None
     # Flat string (no envelope).
     source: SmokeTestSource | None = None
+    user_name: str | None = None
     # Nested identity holders (public-only, never imported from ``nvr.py``).
     nfc: PublicNfcMetadata | None = None
     fingerprint: PublicFingerprintMetadata | None = None
@@ -154,6 +159,8 @@ class PublicEventMetadata(ProtectBaseObject):
                         data[wire_key] = value[inner_key]
                     else:
                         del data[wire_key]
+        if "status" in data:
+            data["statusText"] = data["status"]
         return super().unifi_dict_to_dict(data)
 
     def unifi_dict(
@@ -163,6 +170,8 @@ class PublicEventMetadata(ProtectBaseObject):
     ) -> dict[str, Any]:
         """Serialise, dropping ``None`` fields and re-wrapping metadata envelopes."""
         data = super().unifi_dict(data=data, exclude=exclude)
+        if (status_text := data.pop("statusText", None)) is not None:
+            data["status"] = status_text
         for key, value in list(data.items()):
             if value is None:
                 del data[key]
@@ -200,3 +209,21 @@ class PublicEvent(ProtectModelWithId):
             | {"smartDetectTypes": convert_smart_types}
             | super().unifi_dict_conversions()
         )
+
+    @property
+    def sensor_status(self) -> SensorStatusType | None:
+        """Threshold status of a ``sensorExtremeValues`` event, else ``None``."""
+        if self.type is not EventType.SENSOR_EXTREME_VALUE or self.metadata is None:
+            return None
+        return self.metadata.status
+
+    @property
+    def tamper_status(self) -> AlarmHubTamperStatus | None:
+        """Tamper state of an ``alarmHubDeviceTamper`` event, else ``None``."""
+        if (
+            self.type is not EventType.ALARM_HUB_DEVICE_TAMPER
+            or self.metadata is None
+            or self.metadata.status_text is None
+        ):
+            return None
+        return AlarmHubTamperStatus(self.metadata.status_text)

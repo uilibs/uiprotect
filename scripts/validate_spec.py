@@ -381,6 +381,7 @@ _ENUM_COVERAGE_WAIVERS: dict[tuple[str, frozenset[str]], str] = {
 # Fields the library owns that no spec revision lists (computed convenience).
 _LIBRARY_OWNED_FIELDS: dict[str, set[str]] = {
     "camera": {"rtsps_streams"},
+    "event.metadata": {"status_text"},
 }
 
 # Model fields not present in the spec schema; excluded from the drift error.
@@ -392,6 +393,8 @@ _EXTRA_MODEL_FIELDS: dict[str, set[str]] = {
     "nvr": {"device_type", "device_guid"},
     "viewer": {"device_type", "device_guid"},
     "bridge": {"device_type", "device_guid"},
+    # ``alarmHubDeviceTamper`` ``userName`` first appears in the 7.3 spec.
+    "event.metadata": {"user_name"},
 }
 
 _HTTP_METHODS = ("get", "post", "put", "patch", "delete")
