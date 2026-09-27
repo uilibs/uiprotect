@@ -66,9 +66,7 @@ registry = _PublicEndpointRegistry()
 
 
 def _build_body(
-    sig: inspect.Signature,
-    arguments: dict[str, Any],
-    placeholders: frozenset[str],
+    arguments: dict[str, Any], placeholders: frozenset[str]
 ) -> dict[str, Any]:
     """Assemble a flat camelCase JSON body from non-``None`` keyword params."""
     body: dict[str, Any] = {}
@@ -138,7 +136,7 @@ def _endpoint(
             if has_body:
                 if validate is not None:
                     validate(arguments)
-                body = _build_body(sig, arguments, placeholders)
+                body = _build_body(arguments, placeholders)
                 if not body:
                     raise BadRequest(_EMPTY_BODY_MESSAGE)
                 result = await self.api_request_obj(
