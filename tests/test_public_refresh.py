@@ -336,6 +336,34 @@ async def test_setter_write_during_fetch_drops_tick_result(
 
 
 @pytest.mark.asyncio()
+async def test_tick_during_getter_fetch_is_not_overwritten(
+    client: ProtectApiClient,
+) -> None:
+    await client.update_public()
+    release = asyncio.Event()
+    calls = 0
+
+    async def _fetch() -> list[Any]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            await release.wait()
+            return []
+        return [_profile(client)]
+
+    client._fetch_arm_profiles = AsyncMock(side_effect=_fetch)
+    getter = asyncio.create_task(client.get_arm_profiles_public())
+    await asyncio.sleep(0)
+    assert calls == 1
+
+    assert await _tick(client) == "arm_profiles"
+    assert list(client.public_bootstrap.arm_profiles) == [PROFILE_ID]
+    release.set()
+    assert await getter == []
+    assert list(client.public_bootstrap.arm_profiles) == [PROFILE_ID]
+
+
+@pytest.mark.asyncio()
 async def test_running_job_skips_only_its_own_turn(client: ProtectApiClient) -> None:
     await client.update_public()
     fetch, release = _blocking_fetch()

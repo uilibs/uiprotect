@@ -4863,8 +4863,12 @@ class ProtectApiClient(BaseApiClient):
 
     async def get_arm_profiles_public(self) -> list[ArmProfile]:
         """Get all arm profiles."""
+        writes = self._public_store_writes.get("arm_profiles")
         profiles = await self._fetch_arm_profiles()
-        self._emit_public_store_change(self._apply_arm_profiles(profiles))
+        # A refresh, ``update_public`` or setter that wrote the store during
+        # the fetch may hold newer data than this response.
+        if self._public_store_writes.get("arm_profiles") == writes:
+            self._emit_public_store_change(self._apply_arm_profiles(profiles))
         return profiles
 
     async def _fetch_arm_profiles(self) -> list[ArmProfile]:
