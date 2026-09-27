@@ -128,7 +128,9 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class LightDeviceSettings(ProtectBaseObject):
+    # Status LED
     is_indicator_enabled: bool
+    # Brightness
     led_level: LEDLevel
     pir_duration: timedelta
     pir_sensitivity: PercentInt
