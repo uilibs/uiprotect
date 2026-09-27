@@ -1,5 +1,13 @@
 # Changelog
 
+## v17.4.0 (2026-09-27)
+
+### Features
+
+
+- Keep public event status wire string and add typed accessors ([`a6f7f20`](https://github.com/uilibs/uiprotect/commit/a6f7f20513cb5e7fd028adcddde93846d8512ae0))
+
+
 ## v17.3.1 (2026-09-27)
 
 ### Bug fixes
