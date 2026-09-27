@@ -281,8 +281,8 @@ Pass `public_refresh_interval=None` to turn the timer off. A turn is skipped
 while `update_public()` is running, since it refetches the store anyway, and
 while the same store's previous refresh is still in flight. A result is
 discarded if `update_public()` or an arm-profile write (including
-`get_arm_profiles_public()`) updated the store during the fetch. A
-failed refresh keeps the cached data, logs one warning, and is retried on the
+`get_arm_profiles_public()`) updated the store during the fetch, or if
+`update_public()` is still running when it arrives. A failed refresh keeps the cached data, logs one warning, and is retried on the
 next turn. The recovery is logged once. An endpoint the firmware does not
 expose (`BadRequest`) is logged at debug level only. On consoles without UniFi
 Identity, `NotAuthorized` from `ulp-users` is expected and also logged at debug
@@ -290,8 +290,8 @@ level.
 
 `close_session()`, `close_public_api_session()` and `async_disconnect_ws()` all
 stop the timer. An `update_public()` still running when one of them is called
-does not start it again; a later `update_public()` does. Device stores are not refreshed on this timer: the
-devices websocket stays their change channel.
+does not start it again; a later `update_public()` does. Device stores are not
+refreshed on this timer: the devices websocket stays their change channel.
 
 ## Camera RTSPS streams
 

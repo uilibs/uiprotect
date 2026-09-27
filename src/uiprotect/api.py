@@ -5186,8 +5186,13 @@ class ProtectApiClient(BaseApiClient):
             self._public_refresh_failing.discard(job.label)
             _LOGGER.info("Periodic refresh of %s recovered", job.label)
         # An ``update_public`` or a setter wrote the store while the fetch was
-        # in flight; the fetched list may predate that write.
-        if self._public_store_writes.get(job.store) != writes:
+        # in flight; the fetched list may predate that write. A running
+        # ``update_public`` applies the store itself, and bumping the write
+        # counter here would make it skip its newer result.
+        if (
+            self._public_store_writes.get(job.store) != writes
+            or self._public_update_lock.locked()
+        ):
             return
         self._emit_public_store_change(
             self._apply_public_store(job.store, objs, replace=True)

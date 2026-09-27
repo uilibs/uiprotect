@@ -274,6 +274,39 @@ async def test_update_public_during_fetch_drops_tick_result(
 
 
 @pytest.mark.asyncio()
+async def test_tick_finishing_during_update_public_defers_to_it(
+    client: ProtectApiClient,
+) -> None:
+    await client.update_public()
+    tick_release = asyncio.Event()
+    update_release = asyncio.Event()
+    calls = 0
+
+    async def _fetch() -> list[Any]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            await tick_release.wait()
+            return [_profile(client)]
+        await update_release.wait()
+        return []
+
+    client._fetch_arm_profiles = AsyncMock(side_effect=_fetch)
+    client._run_public_refresh_tick()
+    task = client._public_refresh_tasks["arm_profiles"]
+    await asyncio.sleep(0)
+
+    update = asyncio.create_task(client.update_public())
+    while calls < 2:
+        await asyncio.sleep(0)
+    tick_release.set()
+    await task
+    update_release.set()
+    await update
+    assert client.public_bootstrap.arm_profiles == {}
+
+
+@pytest.mark.asyncio()
 async def test_setter_write_during_fetch_drops_tick_result(
     client: ProtectApiClient,
 ) -> None:
