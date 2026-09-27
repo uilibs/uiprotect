@@ -2003,6 +2003,47 @@ def test_key_only_rtsps_stream_commands(command, method, result) -> None:
     assert getattr(protect, method).await_args.args[0] == "device-1"
 
 
+@pytest.mark.parametrize(
+    ("command", "method", "outcome", "message"),
+    [
+        (
+            lambda ctx: cameras_cli.create_rtsps_streams(ctx, ["high"]),
+            "create_camera_rtsps_streams",
+            {"return_value": None},
+            "Failed to create RTSPS streams",
+        ),
+        (
+            lambda ctx: cameras_cli.create_rtsps_streams(ctx, ["high"]),
+            "create_camera_rtsps_streams",
+            {"side_effect": NvrError("boom")},
+            "Error creating RTSPS streams: boom",
+        ),
+        (
+            lambda ctx: cameras_cli.delete_rtsps_streams(ctx, ["high"]),
+            "delete_camera_rtsps_streams",
+            {"return_value": False},
+            "Failed to delete RTSPS streams: high",
+        ),
+        (
+            lambda ctx: cameras_cli.delete_rtsps_streams(ctx, ["high"]),
+            "delete_camera_rtsps_streams",
+            {"side_effect": NvrError("boom")},
+            "Error deleting RTSPS streams: boom",
+        ),
+    ],
+)
+def test_key_only_rtsps_stream_failures_print_one_error(
+    command, method, outcome, message, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A failed RTSPS create/delete exits 1 with exactly one error line."""
+    ctx, _camera, protect = _device_ctx(PublicCamera)
+    setattr(protect, method, AsyncMock(**outcome))
+    with pytest.raises(typer.Exit) as exc:
+        command(ctx)
+    assert exc.value.exit_code == 1
+    assert capsys.readouterr().out.splitlines() == [message]
+
+
 def test_key_only_rtsps_streams_print_urls() -> None:
     """get-rtsps-streams prints the stream URLs the public endpoint returned."""
     ctx, _camera, protect = _device_ctx(PublicCamera)
