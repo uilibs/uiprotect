@@ -469,11 +469,6 @@ def test_license_plate_state_not_exposed() -> None:
     assert not hasattr(PublicCamera, "is_license_plate_currently_detected")
 
 
-# ---------------------------------------------------------------------------
-# Detection-state model updates (process_events_ws_message third return value)
-# ---------------------------------------------------------------------------
-
-
 def test_motion_start_emits_transition() -> None:
     """An open motion event yields a single ``is_motion_detected: True`` update."""
     pb = _bootstrap_with_camera()

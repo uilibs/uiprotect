@@ -130,11 +130,6 @@ def _chime(api: Any) -> PublicChime:
     )
 
 
-# ---------------------------------------------------------------------------
-# Write-through helper
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_apply_from_response_merges_and_skips_rtsps() -> None:
     api = MagicMock()
@@ -149,11 +144,6 @@ async def test_apply_from_response_merges_and_skips_rtsps() -> None:
     assert cam.mic_volume == 42
     assert cam.rtsps_streams is not None
     assert cam.rtsps_streams.get_stream_url("high") == "rtsps://sentinel"
-
-
-# ---------------------------------------------------------------------------
-# Camera
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -571,11 +561,6 @@ async def test_public_camera_audio_detection_unsupported() -> None:
         await cam.set_smoke_detection(True)
 
 
-# ---------------------------------------------------------------------------
-# Light
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_public_light_set_name() -> None:
     api = MagicMock()
@@ -806,11 +791,6 @@ async def test_public_light_set_light_settings_bad_duration() -> None:
             LightModeType.MOTION, duration=timedelta(seconds=1000)
         )
     assert not api.update_light_public.called
-
-
-# ---------------------------------------------------------------------------
-# Sensor
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -1049,11 +1029,6 @@ async def test_public_sensor_set_motion_sensitivity() -> None:
     }
 
 
-# ---------------------------------------------------------------------------
-# Chime
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_public_chime_set_name() -> None:
     api = MagicMock()
@@ -1238,11 +1213,6 @@ async def test_public_light_concurrent_settings_no_lost_update() -> None:
 
     assert light.light_device_settings.led_level == 4
     assert light.light_device_settings.pir_sensitivity == 80
-
-
-# ---------------------------------------------------------------------------
-# Central write-through (private-with-public-bootstrap keeps the twin fresh)
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio

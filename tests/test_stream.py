@@ -26,8 +26,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Generator
     from pathlib import Path
 
-# --- Fixtures ---
-
 
 @pytest.fixture
 def mock_camera() -> Mock:
@@ -88,9 +86,6 @@ def audio_file(tmp_path: Path) -> str:
     return str(filepath)
 
 
-# --- Helper Functions ---
-
-
 def _create_mock_av_containers(
     with_frames: bool = False,
 ) -> tuple[MagicMock, MagicMock, MagicMock]:
@@ -127,9 +122,6 @@ def _create_mock_av_containers(
         mock_output_stream.encode.return_value = []
 
     return mock_input, mock_output, mock_resampler
-
-
-# --- TalkbackSession Tests ---
 
 
 @pytest.mark.parametrize(
@@ -177,9 +169,6 @@ def test_talkback_session_host_port(url: str, expected_host: str, expected_port:
     assert session.port == expected_port
 
 
-# --- CodecConfig and Constants Tests ---
-
-
 def test_codec_config():
     config = CodecConfig(encoder="aac", format="adts")
     assert config.encoder == "aac"
@@ -216,9 +205,6 @@ def test_constants():
     assert OUTPUT_TIMEOUT == (5.0, None)
 
 
-# --- TalkbackStream Initialization Tests ---
-
-
 def test_talkback_stream_init(mock_camera: Mock, talkback_session: TalkbackSession):
     stream = TalkbackStream(mock_camera, "/path/to/audio.wav", talkback_session)
     assert stream.camera is mock_camera
@@ -235,9 +221,6 @@ def test_talkback_stream_init_no_session(mock_camera: Mock):
 def test_talkback_stream_init_no_speaker_raises(mock_camera_no_speaker: Mock):
     with pytest.raises(BadRequest, match="does not have a speaker"):
         TalkbackStream(mock_camera_no_speaker, "/path/to/audio.wav")
-
-
-# --- TalkbackStream Start/Stop Tests ---
 
 
 def _blocking_mock(stop_event: threading.Event) -> Callable[[], None]:
@@ -297,9 +280,6 @@ async def test_multiple_start_stop_cycles(mock_camera: Mock, audio_file: str):
             assert stream.is_running is False
 
 
-# --- TalkbackStream Context Manager Tests ---
-
-
 @pytest.mark.asyncio
 async def test_context_manager(mock_camera: Mock, audio_file: str):
     stop_event = threading.Event()
@@ -310,9 +290,6 @@ async def test_context_manager(mock_camera: Mock, audio_file: str):
             assert stream.is_running is True
             stop_event.set()
         assert stream.is_running is False
-
-
-# --- IPv6 URL Construction Tests ---
 
 
 @pytest.mark.asyncio
@@ -337,9 +314,6 @@ async def test_ipv6_url_construction(
         output_call = calls[1]
         output_url = output_call[0][0]
         assert output_url == "rtp://[2001:db8::1]:7004"
-
-
-# --- TalkbackStream Audio Processing Tests ---
 
 
 @pytest.mark.asyncio
@@ -513,9 +487,6 @@ async def test_run_until_complete_av_error(
         stream = TalkbackStream(mock_camera, audio_file, talkback_session)
         with pytest.raises(StreamError, match="Audio streaming failed"):
             await stream.run_until_complete()
-
-
-# --- TalkbackStream Stop Signal Tests ---
 
 
 @pytest.mark.asyncio

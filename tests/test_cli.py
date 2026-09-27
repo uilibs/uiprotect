@@ -139,11 +139,6 @@ def test_is_ssl_error_with_non_ssl_exceptions():
     assert _is_ssl_error(ConnectionError("network error")) is False
 
 
-# ---------------------------------------------------------------------------
-# New Public-API sub-app smoke tests (no server needed)
-# ---------------------------------------------------------------------------
-
-
 def test_root_help_shows_public_subcommands() -> None:
     """Top-level --help must list the new public-API sub-apps."""
     result = runner.invoke(app, ["--help"])
@@ -457,11 +452,6 @@ def test_relays_activate_rejects_pulse_without_any_state() -> None:
     assert "--pulse-duration-ms requires" in result.stdout
 
 
-# ---------------------------------------------------------------------------
-# SSL verification failure behaviour
-# ---------------------------------------------------------------------------
-
-
 _BASE_AUTH_ARGS = [
     "--username",
     "u",
@@ -586,11 +576,6 @@ def test_non_ssl_failure_still_exits_with_message() -> None:
     output = result.stdout + (result.stderr or "")
     assert "Connection failed" in output
     assert client_cls.call_count == 1
-
-
-# ---------------------------------------------------------------------------
-# Chime CLI — public-API migration
-# ---------------------------------------------------------------------------
 
 
 def _make_chime_ctx(

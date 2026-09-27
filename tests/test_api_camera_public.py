@@ -61,11 +61,6 @@ def camera(camera_obj: Camera | None) -> Camera:
     return camera_obj  # type: ignore[return-value]
 
 
-# =============================================================================
-# GET CAMERA TESTS
-# =============================================================================
-
-
 @pytest.mark.asyncio()
 @patch("uiprotect.data.public_devices.PublicCamera.from_unifi_dict")
 async def test_get_cameras_public_success(
@@ -106,11 +101,6 @@ async def test_get_camera_public_success(
     protect_client.api_request_obj.assert_called_with(
         url=f"/v1/cameras/{CAMERA_ID}", public_api=True
     )
-
-
-# =============================================================================
-# UPDATE CAMERA TESTS
-# =============================================================================
 
 
 @pytest.mark.parametrize(
@@ -323,11 +313,6 @@ async def test_update_camera_public_audio_types_passed_through(
     )
 
 
-# =============================================================================
-# CAMERA DEVICE METHOD TESTS
-# =============================================================================
-
-
 def _led_updated_mock(camera_obj: Camera) -> Mock:  # type: ignore[type-arg]
     m = Mock()
     m.led_settings = camera_obj.led_settings.model_copy(
@@ -377,9 +362,6 @@ async def test_camera_set_name_public(camera: Camera) -> None:
     assert camera.name == "Front Door"
 
 
-# --- LED ---
-
-
 @pytest.mark.asyncio()
 async def test_camera_set_status_light_public(camera: Camera) -> None:
     camera.feature_flags.has_led_status = True
@@ -401,9 +383,6 @@ async def test_camera_set_led_public_no_led_status(camera: Camera) -> None:
 
     with pytest.raises(BadRequest, match="does not have status light"):
         await camera.set_status_light_public(True)
-
-
-# --- HDR ---
 
 
 @pytest.mark.parametrize(
@@ -452,9 +431,6 @@ async def test_camera_set_hdr_mode_public_updates_isp_settings(camera: Camera) -
     assert camera.isp_settings.hdr_mode == HDRMode.ALWAYS_ON
 
 
-# --- Video mode ---
-
-
 @pytest.mark.asyncio()
 async def test_camera_set_video_mode_public(camera: Camera) -> None:
     camera.feature_flags.video_modes = [VideoMode.DEFAULT]
@@ -475,9 +451,6 @@ async def test_camera_set_video_mode_public_unsupported(camera: Camera) -> None:
 
     with pytest.raises(BadRequest, match="Camera does not have"):
         await camera.set_video_mode_public(VideoMode.HIGH_FPS)
-
-
-# --- Mic volume ---
 
 
 @pytest.mark.asyncio()
@@ -571,9 +544,6 @@ async def test_camera_set_mic_volume_public_out_of_range(
     assert not camera._api.update_camera_public.called
 
 
-# --- OSD ---
-
-
 @pytest.mark.parametrize(
     ("method", "kwarg"),
     [
@@ -612,9 +582,6 @@ async def test_camera_set_osd_public_use_global(
 
     with pytest.raises(BadRequest, match="global recording settings"):
         await getattr(camera, method)(arg)
-
-
-# --- LCD message ---
 
 
 @pytest.mark.parametrize(
@@ -814,20 +781,6 @@ async def test_camera_set_lcd_message_public_validation(
 
     with pytest.raises(BadRequest, match=match):
         await camera.set_lcd_message_public(text_type, text=text)
-
-
-# --- Smart detect object types ---
-
-
-# --- Smart detect audio types ---
-
-
-# --- Smart detect guards ---
-
-
-# =============================================================================
-# POS TRANSACTION TESTS
-# =============================================================================
 
 
 @pytest.mark.asyncio()
