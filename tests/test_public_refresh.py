@@ -454,9 +454,13 @@ async def test_update_public_started_while_teardown_awaits_does_not_arm(
 ) -> None:
     await client.update_public()
     started_during_teardown = False
+    calls = 0
 
     async def _fetch() -> list[Any]:
-        nonlocal started_during_teardown
+        nonlocal started_during_teardown, calls
+        calls += 1
+        if calls > 1:
+            return []
         try:
             await asyncio.Event().wait()
         except asyncio.CancelledError:
@@ -473,7 +477,42 @@ async def test_update_public_started_while_teardown_awaits_does_not_arm(
 
     assert started_during_teardown
     assert client._public_refresh_timer is None
-    assert not client._public_refresh_closing
+    assert client._public_refresh_closing == 0
+    await client.update_public()
+    assert client._public_refresh_timer is not None
+
+
+@pytest.mark.asyncio()
+async def test_overlapping_teardowns_do_not_arm(
+    client: ProtectApiClient,
+) -> None:
+    await client.update_public()
+    started_during_teardown = False
+    calls = 0
+
+    async def _fetch() -> list[Any]:
+        nonlocal started_during_teardown, calls
+        calls += 1
+        if calls > 1:
+            return []
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            await client.close_public_api_session()
+            await client.update_public()
+            started_during_teardown = True
+            raise
+        return []  # pragma: no cover
+
+    client._fetch_arm_profiles = AsyncMock(side_effect=_fetch)
+    client._run_public_refresh_tick()
+    await asyncio.sleep(0)
+
+    await client.close_public_api_session()
+
+    assert started_during_teardown
+    assert client._public_refresh_timer is None
+    assert client._public_refresh_closing == 0
     await client.update_public()
     assert client._public_refresh_timer is not None
 
