@@ -176,6 +176,7 @@ ignore = [
 ]
 select = [
     "A",    # flake8-builtins
+    "ASYNC", # flake8-async
     "B",    # flake8-bugbear
     "D",    # flake8-docstrings
     "C4",   # flake8-comprehensions
@@ -214,6 +215,8 @@ select = [
     "RET",  # return rules
     "RUF",  # ruff specific
     "SIM",  # simplify
+    "TRY300", # try-consider-else
+    "TRY301", # raise-within-try
 ]
 
 [tool.ruff.lint.per-file-ignores]
