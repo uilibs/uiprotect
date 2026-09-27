@@ -234,7 +234,7 @@ devices-websocket `modelKey`, so no frame ever announces a change to them. Use
 `"arm_profiles"` or `"ulp_users"`, and the other three are frozensets of ids.
 
 It fires when `update_public()` (the first prime, your own calls, and the
-reconnect resync), `get_arm_profiles_public()`, or
+reconnect resync), the periodic refresh below, `get_arm_profiles_public()`, or
 `create_arm_profile_public()` / `update_arm_profile_public()` /
 `delete_arm_profile_public()` change a store. `updated` compares values per id,
 so a refetch that returns the same data fires nothing, and a resync after your
@@ -258,6 +258,41 @@ def on_store_change(change: PublicStoreChange) -> None:
 
 unsub = protect.subscribe_public_store_changes(on_store_change)
 ```
+
+### Periodic refresh of these stores
+
+Without a websocket channel, an edit made on the console or by another client
+would stay invisible until the next reconnect. The client therefore refetches
+`arm_profiles` and `ulp_users` on a timer. The first successful
+`update_public()` starts it. Each store gets one turn per
+`public_refresh_interval` seconds (default `PUBLIC_REFRESH_INTERVAL`, 900); a
+skipped or failed turn waits for the next one. The refreshes take turns, so one
+request goes out every `interval / 2` seconds.
+Results go through the same apply path as above, so
+`subscribe_public_store_changes` fires only when the data actually changed.
+
+```python
+protect = ProtectApiClient.public_only(
+    host, port, api_key=api_key, public_refresh_interval=300.0
+)
+```
+
+Pass `public_refresh_interval=None` to turn the timer off. A turn is skipped
+while `update_public()` is running, since it refetches the store anyway, and
+while the same store's previous refresh is still in flight. A result is
+discarded if `update_public()` or an arm-profile write (including
+`get_arm_profiles_public()`) updated the store during the fetch, or if
+`update_public()` is still running when it arrives. A failed refresh keeps the
+cached data, logs one warning, and is retried on the next turn. The recovery is
+logged once. An endpoint the firmware does not expose (`BadRequest`) is logged
+at debug level only. On consoles without UniFi Identity, `NotAuthorized` from
+`ulp-users` is expected and also logged at debug level.
+
+`close_session()`, `close_public_api_session()` and `async_disconnect_ws()` all
+stop the timer. An `update_public()` still running when one of them is called,
+or started before it returns, does not start it again; a later
+`update_public()` does. Device stores are not
+refreshed on this timer: the devices websocket stays their change channel.
 
 ## Camera RTSPS streams
 

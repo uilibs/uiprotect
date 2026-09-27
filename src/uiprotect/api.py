@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import hashlib
 import logging
+import math
 import random
 import re
 import sys
@@ -17,7 +18,7 @@ from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Self, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Self, TypedDict, cast
 from urllib.parse import SplitResult, quote
 
 import aiofiles
@@ -219,6 +220,8 @@ TOKEN_COOKIE_MAX_EXP_SECONDS = 60
 
 # how many seconds before the bootstrap is refreshed from Protect
 DEVICE_UPDATE_INTERVAL = 900
+# Seconds within which every websocket-less public store is refetched once
+PUBLIC_REFRESH_INTERVAL = 900.0
 # retry timeout for thumbnails/heatmaps
 RETRY_TIMEOUT = 10
 
@@ -294,6 +297,22 @@ def _log_or_raise(
         _LOGGER.debug("%s endpoint unavailable: %s", label, exc)
     else:
         raise exc
+
+
+class _PublicRefreshJob(NamedTuple):
+    store: PublicStoreName
+    fetch: str
+    label: str
+    tolerate_not_authorized: bool
+
+
+# Websocket-less public stores refreshed round robin on the
+# ``public_refresh_interval`` timer. Device stores stay off this list: a refetch
+# replaces their objects and would roll back fresher websocket state.
+_PUBLIC_REFRESH_JOBS = (
+    _PublicRefreshJob("arm_profiles", "_fetch_arm_profiles", "arm-profiles", False),
+    _PublicRefreshJob("ulp_users", "get_ulp_users_public", "ulp-users", True),
+)
 
 
 NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
@@ -437,6 +456,16 @@ class BaseApiClient:
     _public_resync_retry_timer: asyncio.TimerHandle | None = None
     # Retries scheduled since the last reconnect or successful resync.
     _public_resync_retries: int = 0
+    # Next round-robin tick of the websocket-less public store refresh.
+    _public_refresh_timer: asyncio.TimerHandle | None = None
+    # Bumped by every teardown; an ``update_public`` that started before one
+    # does not arm the refresh.
+    _public_refresh_epoch: int = 0
+    # Number of ``_cancel_public_refresh`` calls in progress; an
+    # ``update_public`` that starts meanwhile captures the new epoch but must
+    # not arm the refresh. A counter so overlapping teardowns cannot clear it
+    # while another one still awaits its jobs.
+    _public_refresh_closing: int = 0
 
     private_api_path: str = "/proxy/protect/api/"
     public_api_path: str = "/proxy/protect/integration"
@@ -464,6 +493,7 @@ class BaseApiClient:
         store_sessions: bool = True,
         ws_receive_timeout: int | None = None,
         max_retries: int = RETRY_DEFAULT_ATTEMPTS,
+        public_refresh_interval: float | None = PUBLIC_REFRESH_INTERVAL,
     ) -> None:
         # Public-only when no private credentials are supplied but an API key
         # is. The private session is never opened in this mode.
@@ -476,6 +506,12 @@ class BaseApiClient:
                 "Provide both username and password, or an api_key, "
                 "to construct a client"
             )
+        if public_refresh_interval is not None and (
+            isinstance(public_refresh_interval, bool)
+            or not math.isfinite(public_refresh_interval)
+            or public_refresh_interval <= 0
+        ):
+            raise BadRequest("public_refresh_interval must be positive or None")
 
         self._auth_lock = asyncio.Lock()
         # Serializes ``update_public()``: an overlapping prime could apply an
@@ -505,6 +541,8 @@ class BaseApiClient:
         # several consoles in one process never share a budget.
         self._public_rate_limiter = PublicApiRateLimiter()
         self._max_retries = max_retries
+        self._public_refresh_interval = public_refresh_interval
+        self._public_refresh_tasks: dict[PublicStoreName, asyncio.Task[None]] = {}
 
         self.config_dir = config_dir or (Path(user_config_dir()) / "ufp")
         self.cache_dir = cache_dir or (Path(user_cache_dir()) / "ufp_cache")
@@ -698,6 +736,7 @@ class BaseApiClient:
         """Closing and deletes all client sessions."""
         await self._cancel_update_task()
         await self._cancel_public_resync_task()
+        await self._cancel_public_refresh()
         await self._cancel_rtsps_refresh_tasks()
         await self._cancel_siren_off_tasks()
         if self._session is not None:
@@ -710,8 +749,8 @@ class BaseApiClient:
 
     async def close_public_api_session(self) -> None:
         """Closing and deletes public API client session."""
-        self._cancel_public_resync_timer()
-        self._cancel_public_resync_retry()
+        await self._cancel_public_resync_task()
+        await self._cancel_public_refresh()
         if self._public_api_session is not None:
             await self._public_api_session.close()
             self._public_api_session = None
@@ -741,6 +780,23 @@ class BaseApiClient:
             self._cancel_public_resync_retry()
         finally:
             self._public_resync_closing = False
+
+    async def _cancel_public_refresh(self) -> None:
+        # Bumped before the await so an ``update_public`` finishing meanwhile
+        # does not re-arm the timer.
+        self._public_refresh_epoch += 1
+        self._public_refresh_closing += 1
+        try:
+            if self._public_refresh_timer is not None:
+                self._public_refresh_timer.cancel()
+                self._public_refresh_timer = None
+            tasks = list(self._public_refresh_tasks.values())
+            self._public_refresh_tasks.clear()
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        finally:
+            self._public_refresh_closing -= 1
 
     def _cancel_public_resync_timer(self) -> None:
         if self._public_resync_timer is not None:
@@ -1391,6 +1447,7 @@ class BaseApiClient:
             await devices_websocket.wait_closed()
             self._devices_websocket = None
         await self._cancel_public_resync_task()
+        await self._cancel_public_refresh()
 
     def _process_ws_message(self, msg: aiohttp.WSMessage) -> None:
         raise NotImplementedError
@@ -1496,6 +1553,8 @@ class ProtectApiClient(BaseApiClient):
     # failed transiently (``NvrError``) and were tolerated, leaving their
     # stores stale.
     _public_failed_endpoints: frozenset[str] = frozenset()
+    # Index into ``_PUBLIC_REFRESH_JOBS`` of the job the next tick runs.
+    _public_refresh_next: int = 0
     _last_update_dt: datetime | None = None
     _connection_host: IPv4Address | IPv6Address | str | None = None
     _override_connection_host: bool = False
@@ -1558,6 +1617,7 @@ class ProtectApiClient(BaseApiClient):
         debug: bool = False,
         ws_receive_timeout: int | None = None,
         max_retries: int = RETRY_DEFAULT_ATTEMPTS,
+        public_refresh_interval: float | None = PUBLIC_REFRESH_INTERVAL,
     ) -> None:
         super().__init__(
             host=host,
@@ -1574,6 +1634,7 @@ class ProtectApiClient(BaseApiClient):
             config_dir=config_dir,
             store_sessions=store_sessions,
             max_retries=max_retries,
+            public_refresh_interval=public_refresh_interval,
         )
 
         self._minimum_score = minimum_score
@@ -1592,6 +1653,9 @@ class ProtectApiClient(BaseApiClient):
         self._public_resync_subscriptions = []
         self._public_store_subscriptions = []
         self._public_store_writes = {}
+        # Labels of refresh jobs whose last attempt failed, so each outage
+        # warns once and its recovery logs once.
+        self._public_refresh_failing: set[str] = set()
         self._event_dispatcher = None
         self._device_dispatcher = None
         self.ignore_unadopted = ignore_unadopted
@@ -1621,6 +1685,7 @@ class ProtectApiClient(BaseApiClient):
         ignore_unadopted: bool = True,
         override_connection_host: bool = False,
         max_retries: int = RETRY_DEFAULT_ATTEMPTS,
+        public_refresh_interval: float | None = PUBLIC_REFRESH_INTERVAL,
     ) -> Self:
         """
         Construct a client that operates entirely on the Public Integration API.
@@ -1648,6 +1713,7 @@ class ProtectApiClient(BaseApiClient):
             ignore_unadopted=ignore_unadopted,
             override_connection_host=override_connection_host,
             max_retries=max_retries,
+            public_refresh_interval=public_refresh_interval,
         )
 
     def _set_connection_host_from_bootstrap(self) -> None:
@@ -4797,8 +4863,12 @@ class ProtectApiClient(BaseApiClient):
 
     async def get_arm_profiles_public(self) -> list[ArmProfile]:
         """Get all arm profiles."""
+        writes = self._public_store_writes.get("arm_profiles")
         profiles = await self._fetch_arm_profiles()
-        self._emit_public_store_change(self._apply_arm_profiles(profiles))
+        # A refresh, ``update_public`` or setter that wrote the store during
+        # the fetch may hold newer data than this response.
+        if self._public_store_writes.get("arm_profiles") == writes:
+            self._emit_public_store_change(self._apply_arm_profiles(profiles))
         return profiles
 
     async def _fetch_arm_profiles(self) -> list[ArmProfile]:
@@ -5057,9 +5127,101 @@ class ProtectApiClient(BaseApiClient):
         Concurrent calls are serialized: an overlapping prime could otherwise
         apply an older snapshot over a newer one (and over live WS merges in
         between). Each caller returns the then-current bootstrap.
+
+        A successful call starts the periodic refresh of ``arm_profiles`` and
+        ``ulp_users`` (see ``public_refresh_interval``) unless the client was
+        torn down while it ran.
         """
+        epoch = self._public_refresh_epoch
         async with self._public_update_lock:
-            return await self._update_public_locked()
+            pb = await self._update_public_locked()
+        if epoch == self._public_refresh_epoch:
+            self._start_public_refresh()
+        return pb
+
+    def _start_public_refresh(self) -> None:
+        if (
+            self._public_refresh_interval is None
+            or self._public_refresh_timer is not None
+            or self._public_refresh_closing
+        ):
+            return
+        self._public_refresh_timer = asyncio.get_running_loop().call_later(
+            self._public_refresh_interval / len(_PUBLIC_REFRESH_JOBS),
+            self._run_public_refresh_tick,
+        )
+
+    def _run_public_refresh_tick(self) -> None:
+        self._public_refresh_timer = None
+        self._start_public_refresh()
+        job = _PUBLIC_REFRESH_JOBS[self._public_refresh_next]
+        self._public_refresh_next = (self._public_refresh_next + 1) % len(
+            _PUBLIC_REFRESH_JOBS
+        )
+        running = self._public_refresh_tasks.get(job.store)
+        if running is not None and not running.done():
+            _LOGGER.debug("Skipping %s refresh; previous one still running", job.label)
+            return
+        # The running ``update_public`` refetches this store and would apply
+        # its older snapshot over the tick's result.
+        if self._public_update_lock.locked():
+            _LOGGER.debug("Skipping %s refresh during update_public", job.label)
+            return
+        self._public_refresh_tasks[job.store] = asyncio.create_task(
+            self._refresh_public_store(job, self._public_store_writes.get(job.store))
+        )
+
+    async def _refresh_public_store(
+        self, job: _PublicRefreshJob, writes: int | None
+    ) -> None:
+        try:
+            objs = await getattr(self, job.fetch)()
+        except NotAuthorized as err:
+            if job.tolerate_not_authorized:
+                _LOGGER.debug(
+                    "%s endpoint not authorized (feature disabled?): %s",
+                    job.label,
+                    err,
+                )
+            else:
+                self._log_public_refresh_failure(job.label, err)
+            return
+        except BadRequest as err:
+            # Endpoint not exposed by this firmware, as in ``_log_or_raise``.
+            _LOGGER.debug("%s endpoint unavailable: %s", job.label, err)
+            return
+        except (NvrError, TimeoutError) as err:
+            self._log_public_refresh_failure(job.label, err)
+            return
+        except Exception as err:
+            self._log_public_refresh_failure(job.label, err, traceback=True)
+            return
+        if job.label in self._public_refresh_failing:
+            self._public_refresh_failing.discard(job.label)
+            _LOGGER.info("Periodic refresh of %s recovered", job.label)
+        # An ``update_public`` or a setter wrote the store while the fetch was
+        # in flight; the fetched list may predate that write. A running
+        # ``update_public`` applies the store itself, and bumping the write
+        # counter here would make it skip its newer result.
+        if (
+            self._public_store_writes.get(job.store) != writes
+            or self._public_update_lock.locked()
+        ):
+            return
+        self._emit_public_store_change(
+            self._apply_public_store(job.store, objs, replace=True)
+        )
+
+    def _log_public_refresh_failure(
+        self, label: str, err: Exception, *, traceback: bool = False
+    ) -> None:
+        if label in self._public_refresh_failing:
+            _LOGGER.debug("Periodic refresh of %s still failing: %s", label, err)
+            return
+        self._public_refresh_failing.add(label)
+        _LOGGER.warning(
+            "Periodic refresh of %s failed: %s", label, err, exc_info=traceback
+        )
 
     async def _update_public_locked(self) -> PublicBootstrap:
         """Fetch and apply the public bootstrap; caller holds the prime lock."""
@@ -5214,6 +5376,11 @@ class ProtectApiClient(BaseApiClient):
                 # fetched list may predate that write, so keep the cache.
                 if self._public_store_writes.get(store) != store_writes.get(store):
                     continue
+                # Lets an in-flight periodic refresh of this store drop its
+                # possibly older result.
+                self._public_store_writes[store] = (
+                    self._public_store_writes.get(store, 0) + 1
+                )
                 if change := pb.apply_store(store, result, replace=True):
                     store_changes.append(change)
             elif attr == "nvr":
