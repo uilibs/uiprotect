@@ -1065,7 +1065,6 @@ async def _events(
     prune: bool,
     force: bool,
     verify: bool,
-    no_input: bool,
 ) -> None:
     try:
         await ctx.create_db()
@@ -1133,5 +1132,5 @@ def events_cmd(
     if prune and force:
         _wipe_files(ctx.obj, no_input)
     asyncio.run(
-        _events(ctx.obj, ufp_events, smart_types, prune, force, verify, no_input),
+        _events(ctx.obj, ufp_events, smart_types, prune, force, verify),
     )

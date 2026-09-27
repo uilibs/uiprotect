@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
@@ -88,6 +89,29 @@ async def test_light_set_status_light(light_obj: Light, status: bool) -> None:
         f"lights/{light_obj.id}",
         method="patch",
         json={"lightDeviceSettings": {"isIndicatorEnabled": status}},
+    )
+
+
+@pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_light_concurrent_setters_send_one_patch(light_obj: Light) -> None:
+    """A setter queued while another waits takes over and sends one PATCH."""
+    light_obj.api.api_request.reset_mock()
+    light_obj.light_device_settings.is_indicator_enabled = False
+
+    first = asyncio.create_task(light_obj.set_status_light(True))
+    # land inside the first setter's 50 ms coalescing window
+    await asyncio.sleep(0.01)
+    await light_obj.set_name("Renamed")
+    await first
+
+    light_obj.api.api_request.assert_called_once_with(
+        f"lights/{light_obj.id}",
+        method="patch",
+        json={
+            "lightDeviceSettings": {"isIndicatorEnabled": True},
+            "name": "Renamed",
+        },
     )
 
 

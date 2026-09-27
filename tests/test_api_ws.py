@@ -71,6 +71,23 @@ class SubscriptionTest:
             self.unsub()
 
 
+async def _wait_for_ws_state(
+    protect_client: ProtectApiClient, state: WebsocketState
+) -> None:
+    reached = asyncio.Event()
+
+    def _on_state(new_state: WebsocketState) -> None:
+        if new_state is state:
+            reached.set()
+
+    unsub = protect_client.subscribe_websocket_state(_on_state)
+    try:
+        if protect_client._get_websocket().state is not state:
+            await reached.wait()
+    finally:
+        unsub()
+
+
 @pytest.mark.asyncio()
 @pytest.mark.timeout(0)
 async def test_ws_all(
@@ -84,14 +101,12 @@ async def test_ws_all(
 
     websocket = protect_client._get_websocket()
 
-    while not websocket.is_connected:
-        await asyncio.sleep(0.05)
+    await _wait_for_ws_state(protect_client, WebsocketState.CONNECTED)
 
     ws_connect: MockWebsocket | None = websocket._ws_connection  # type: ignore[assignment]
     assert ws_connect is not None
 
-    while websocket.is_connected:
-        await asyncio.sleep(0.05)
+    await _wait_for_ws_state(protect_client, WebsocketState.DISCONNECTED)
 
     assert sub.callback_count == 3
 
@@ -117,14 +132,13 @@ async def test_ws_filtered(
     sub.unsub = protect_client.subscribe_websocket(sub.callback)
 
     websocket = protect_client._get_websocket()
-    while not websocket.is_connected:
-        await asyncio.sleep(0.05)
+
+    await _wait_for_ws_state(protect_client, WebsocketState.CONNECTED)
 
     ws_connect: MockWebsocket | None = websocket._ws_connection  # type: ignore[assignment]
     assert ws_connect is not None
 
-    while websocket.is_connected:
-        await asyncio.sleep(0.05)
+    await _wait_for_ws_state(protect_client, WebsocketState.DISCONNECTED)
 
     print_ws_stat_summary(protect_client.bootstrap.ws_stats)
 
@@ -645,8 +659,7 @@ async def test_check_ws_connected(
 ):
     caplog.set_level(logging.DEBUG)
     unsub = protect_client_ws.subscribe_websocket(lambda _: None)
-    while not protect_client_ws._private_websocket.is_connected:
-        await asyncio.sleep(0.01)
+    await _wait_for_ws_state(protect_client_ws, WebsocketState.CONNECTED)
     assert protect_client_ws._private_websocket.is_connected
     unsub()
 
@@ -667,13 +680,11 @@ async def test_check_ws_connected_state_callback(
 
     unsub_state = protect_client_ws.subscribe_websocket_state(_on_state)
     unsub = protect_client_ws.subscribe_websocket(lambda _: None)
-    while websocket._current_state is not WebsocketState.CONNECTED:
-        await asyncio.sleep(0.01)
+    await _wait_for_ws_state(protect_client_ws, WebsocketState.CONNECTED)
 
     assert states == [WebsocketState.CONNECTED]
     await protect_client_ws.async_disconnect_ws()
-    while websocket._current_state is not WebsocketState.DISCONNECTED:
-        await asyncio.sleep(0.01)
+    await _wait_for_ws_state(protect_client_ws, WebsocketState.DISCONNECTED)
 
     assert states == [WebsocketState.CONNECTED, WebsocketState.DISCONNECTED]
     unsub()

@@ -280,6 +280,7 @@ async def test_tick_finishing_during_update_public_defers_to_it(
     await client.update_public()
     tick_release = asyncio.Event()
     update_release = asyncio.Event()
+    update_fetching = asyncio.Event()
     calls = 0
 
     async def _fetch() -> list[Any]:
@@ -288,6 +289,7 @@ async def test_tick_finishing_during_update_public_defers_to_it(
         if calls == 1:
             await tick_release.wait()
             return [_profile(client)]
+        update_fetching.set()
         await update_release.wait()
         return []
 
@@ -297,8 +299,7 @@ async def test_tick_finishing_during_update_public_defers_to_it(
     await asyncio.sleep(0)
 
     update = asyncio.create_task(client.update_public())
-    while calls < 2:
-        await asyncio.sleep(0)
+    await update_fetching.wait()
     tick_release.set()
     await task
     update_release.set()

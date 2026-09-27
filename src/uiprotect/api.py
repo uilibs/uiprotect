@@ -887,7 +887,6 @@ class BaseApiClient:
                 except Exception:
                     response.release()
                     raise
-                return response
             except aiohttp.ServerDisconnectedError as err:
                 # If the server disconnected, try again
                 # since HTTP/1.1 allows the server to disconnect at any time
@@ -896,6 +895,8 @@ class BaseApiClient:
                 raise NvrError(
                     f"Error requesting data from {self._host}: {err}",
                 ) from err
+            else:
+                return response
 
         raise NvrError(
             f"Error requesting data from {self._host}: {last_err}",
@@ -1043,12 +1044,12 @@ class BaseApiClient:
                     f"Error reading response from {self._host}: {err}",
                 ) from err
             response.release()
-
-            return data
         except Exception:
             # make sure response is released
             response.release()
             raise
+        else:
+            return data
 
     async def _raise_for_status(
         self, response: aiohttp.ClientResponse, raise_exception: bool = True
@@ -1118,10 +1119,11 @@ class BaseApiClient:
             json_data: list[Any] | dict[str, Any]
             try:
                 json_data = orjson.loads(data)
-                return json_data
             except orjson.JSONDecodeError as ex:
                 _LOGGER.error("Could not decode JSON from %s", url)
                 raise NvrError(f"Could not decode JSON from {url}") from ex
+            else:
+                return json_data
         return None
 
     async def api_request_obj(

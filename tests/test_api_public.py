@@ -3958,18 +3958,20 @@ async def test_update_public_prime_respects_concurrency_bound(
         get_cameras_public=AsyncMock(return_value=cameras),
     )
     started: list[str] = []
+    two_started = asyncio.Event()
     release = asyncio.Event()
 
     async def _fetch(camera_id: str) -> RTSPSStreams:
         started.append(camera_id)
+        if len(started) == 2:
+            two_started.set()
         await release.wait()
         return RTSPSStreams(high=f"rtsps://example.com/{camera_id}")
 
     protect_client.get_camera_rtsps_streams = _fetch  # type: ignore[method-assign]
 
     task = asyncio.create_task(protect_client.update_public())
-    while len(started) < 2:
-        await asyncio.sleep(0)
+    await two_started.wait()
     # Give any over-eager third fetch a chance to (wrongly) start.
     await asyncio.sleep(0)
     assert len(started) == 2

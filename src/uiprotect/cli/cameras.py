@@ -643,23 +643,23 @@ def create_rtsps_streams(
     async def create_streams() -> None:
         try:
             result = await protect.create_camera_rtsps_streams(obj.id, qualities)
-            if result is None:
-                typer.secho("Failed to create RTSPS streams", fg="red")
-                raise typer.Exit(1)
-
-            if ctx.obj.output_format == base.OutputFormatEnum.JSON:
-                stream_data = {
-                    quality: result.get_stream_url(quality)
-                    for quality in result.get_available_stream_qualities()
-                }
-                base.json_output(stream_data)
-            else:
-                for quality in result.get_available_stream_qualities():
-                    url = result.get_stream_url(quality)
-                    typer.echo(f"{quality:10}\t{url}")
         except Exception as e:
             typer.secho(f"Error creating RTSPS streams: {e}", fg="red")
             raise typer.Exit(1) from e
+        if result is None:
+            typer.secho("Failed to create RTSPS streams", fg="red")
+            raise typer.Exit(1)
+
+        if ctx.obj.output_format == base.OutputFormatEnum.JSON:
+            stream_data = {
+                quality: result.get_stream_url(quality)
+                for quality in result.get_available_stream_qualities()
+            }
+            base.json_output(stream_data)
+        else:
+            for quality in result.get_available_stream_qualities():
+                url = result.get_stream_url(quality)
+                typer.echo(f"{quality:10}\t{url}")
 
     base.run(ctx, create_streams())
 
@@ -723,19 +723,18 @@ def delete_rtsps_streams(
     async def delete_streams() -> None:
         try:
             result = await protect.delete_camera_rtsps_streams(obj.id, qualities)
-            if result:
-                typer.secho(
-                    f"Successfully deleted RTSPS streams: {', '.join(qualities)}",
-                    fg="green",
-                )
-            else:
-                typer.secho(
-                    f"Failed to delete RTSPS streams: {', '.join(qualities)}", fg="red"
-                )
-                raise typer.Exit(1)
         except Exception as e:
             typer.secho(f"Error deleting RTSPS streams: {e}", fg="red")
             raise typer.Exit(1) from e
+        if not result:
+            typer.secho(
+                f"Failed to delete RTSPS streams: {', '.join(qualities)}", fg="red"
+            )
+            raise typer.Exit(1)
+        typer.secho(
+            f"Successfully deleted RTSPS streams: {', '.join(qualities)}",
+            fg="green",
+        )
 
     base.run(ctx, delete_streams())
 
