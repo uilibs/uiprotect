@@ -225,6 +225,35 @@ def on_resync(success: bool) -> None:
 unsub = protect.subscribe_public_resync(on_resync)
 ```
 
+### Stores without a websocket channel
+
+`public_bootstrap.arm_profiles` and `public_bootstrap.ulp_users` have no
+devices-websocket `modelKey`, so no frame ever announces a change to them. Use
+`subscribe_public_store_changes` instead. Its callback receives a
+`PublicStoreChange(store, added, removed, updated)`: `store` is
+`"arm_profiles"` or `"ulp_users"`, and the other three are frozensets of ids.
+
+It fires when `update_public()` (the first prime, your own calls, and the
+reconnect resync), `get_arm_profiles_public()`, or
+`create_arm_profile_public()` / `update_arm_profile_public()` /
+`delete_arm_profile_public()` change a store. `updated` compares values per id,
+so a refetch that returns the same data fires nothing, and a resync after your
+own create or update does not announce it a second time. An endpoint that fails
+during `update_public()` keeps its cached data and fires nothing. Device stores
+keep the devices websocket as their only change channel.
+
+```python
+from uiprotect.data import PublicStoreChange
+
+
+def on_store_change(change: PublicStoreChange) -> None:
+    if change.store == "arm_profiles":
+        refresh_arm_profile_entities(protect.public_bootstrap.arm_profiles)
+
+
+unsub = protect.subscribe_public_store_changes(on_store_change)
+```
+
 ## Camera RTSPS streams
 
 RTSPS stream URLs live on the camera as `PublicCamera.rtsps_streams`. The

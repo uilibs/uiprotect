@@ -37,9 +37,9 @@ from __future__ import annotations
 
 import logging
 from collections import OrderedDict
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, NamedTuple, cast
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, cast
 
 from .base import ProtectModelWithId
 from .convert import create_from_unifi_dict
@@ -143,6 +143,19 @@ class FetchDiff:
     attr: str
     added_ids: list[str]
     removed: list[ProtectModelWithId]
+
+
+PublicStoreName = Literal["arm_profiles", "ulp_users"]
+
+
+@dataclass(frozen=True, slots=True)
+class PublicStoreChange:
+    """Ids one write added to, removed from, or changed in a websocket-less store."""
+
+    store: PublicStoreName
+    added: frozenset[str]
+    removed: frozenset[str]
+    updated: frozenset[str]
 
 
 @dataclass
@@ -338,6 +351,40 @@ class PublicBootstrap:
         for obj in objs:
             store[obj.id] = obj
         return FetchDiff(attr, added_ids, removed)
+
+    def apply_store(
+        self,
+        store: PublicStoreName,
+        objs: Iterable[ArmProfile | PublicUlpUser],
+        *,
+        replace: bool = False,
+        removed_ids: Iterable[str] = (),
+    ) -> PublicStoreChange | None:
+        """
+        Write ``objs`` into ``self.<store>`` and return the diff, or ``None``.
+
+        ``replace`` drops every cached id absent from ``objs``; ``removed_ids``
+        drops the given ids. The store dict is mutated in place.
+        """
+        cache = cast("dict[str, ArmProfile | PublicUlpUser]", getattr(self, store))
+        written = {obj.id: obj for obj in objs}
+        if replace:
+            removed_ids = [k for k in cache if k not in written]
+        removed = frozenset(k for k in removed_ids if cache.pop(k, None) is not None)
+        added: set[str] = set()
+        updated: set[str] = set()
+        for obj_id, obj in written.items():
+            old = cache.get(obj_id)
+            if old is None:
+                added.add(obj_id)
+            # A refetch always builds new objects, so compare values; pydantic
+            # ``==`` would also compare private attributes.
+            elif old.model_dump() != obj.model_dump():
+                updated.add(obj_id)
+            cache[obj_id] = obj
+        if not (added or removed or updated):
+            return None
+        return PublicStoreChange(store, frozenset(added), removed, frozenset(updated))
 
     def supports_device(self, model_type: ModelType) -> bool:
         """Return whether ``model_type`` maps to a public device store."""

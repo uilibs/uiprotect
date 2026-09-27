@@ -36,7 +36,7 @@ from .nvr import (
     SmartDetectItem,
     SmartDetectTrack,
 )
-from .public_bootstrap import PublicBootstrap
+from .public_bootstrap import PublicBootstrap, PublicStoreChange
 from .public_devices import (
     AlarmHubBattery,
     AlarmHubCover,
@@ -333,6 +333,7 @@ __all__ = [
     "PublicSmartDetectSettings",
     "PublicSpeakerFeatureFlags",
     "PublicSpeakerState",
+    "PublicStoreChange",
     "PublicUlpUser",
     "PublicUser",
     "PublicViewer",

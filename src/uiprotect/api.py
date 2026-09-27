@@ -144,7 +144,12 @@ if TYPE_CHECKING:
     )
 
     from .data.base import ProtectModelWithId
-    from .data.public_bootstrap import DeviceWSResult, FetchDiff
+    from .data.public_bootstrap import (
+        DeviceWSResult,
+        FetchDiff,
+        PublicStoreChange,
+        PublicStoreName,
+    )
     from .devices import ProtectDeviceChange
     from .events import EventChange, ProtectEvent
 
@@ -1466,6 +1471,7 @@ class ProtectApiClient(BaseApiClient):
     _events_ws_state_subscriptions: list[Callable[[WebsocketState], None]]
     _devices_ws_state_subscriptions: list[Callable[[WebsocketState], None]]
     _public_resync_subscriptions: list[Callable[[bool], None]]
+    _public_store_subscriptions: list[Callable[[PublicStoreChange], None]]
     _bootstrap: Bootstrap | None = None
     _public_bootstrap: PublicBootstrap | None = None
     # True after the first time the devices WS transitions to CONNECTED; used
@@ -1581,6 +1587,7 @@ class ProtectApiClient(BaseApiClient):
         self._events_ws_state_subscriptions = []
         self._devices_ws_state_subscriptions = []
         self._public_resync_subscriptions = []
+        self._public_store_subscriptions = []
         self._event_dispatcher = None
         self._device_dispatcher = None
         self.ignore_unadopted = ignore_unadopted
@@ -2695,6 +2702,23 @@ class ProtectApiClient(BaseApiClient):
         """
         self._public_resync_subscriptions.append(callback)
         return partial(self._public_resync_subscriptions.remove, callback)
+
+    def subscribe_public_store_changes(
+        self,
+        callback: Callable[[PublicStoreChange], None],
+    ) -> Callable[[], None]:
+        """
+        Subscribe to changes of the public stores the devices websocket never covers.
+
+        ``callback`` receives a :class:`PublicStoreChange` for ``arm_profiles``
+        or ``ulp_users`` whenever ``update_public()``, ``get_arm_profiles_public``
+        or an arm-profile create/update/delete changes that store's contents.
+        A write that changes nothing does not fire.
+
+        Returns a callback that will unsubscribe.
+        """
+        self._public_store_subscriptions.append(callback)
+        return partial(self._public_store_subscriptions.remove, callback)
 
     def _unsubscribe_websocket_state(
         self,
@@ -4768,7 +4792,7 @@ class ProtectApiClient(BaseApiClient):
     async def get_arm_profiles_public(self) -> list[ArmProfile]:
         """Get all arm profiles."""
         profiles = await self._fetch_arm_profiles()
-        self._apply_arm_profiles(profiles)
+        self._emit_public_store_change(self._apply_arm_profiles(profiles))
         return profiles
 
     async def _fetch_arm_profiles(self) -> list[ArmProfile]:
@@ -4776,15 +4800,11 @@ class ProtectApiClient(BaseApiClient):
         data = await self.api_request_list(url="/v1/arm-profiles", public_api=True)
         return [ArmProfile.from_unifi_dict(**item, api=self) for item in data]
 
-    def _apply_arm_profiles(self, profiles: list[ArmProfile]) -> None:
-        """Merge fetched arm profiles into the cache in place, preserving identity."""
-        if self._public_bootstrap is None:
-            return
-        # Update in place to preserve dict identity for consumers holding
-        # a reference to ``public_bootstrap.arm_profiles``.
-        arm_profiles = self._public_bootstrap.arm_profiles
-        arm_profiles.clear()
-        arm_profiles.update({p.id: p for p in profiles})
+    def _apply_arm_profiles(
+        self, profiles: list[ArmProfile]
+    ) -> PublicStoreChange | None:
+        """Replace the cached arm profiles in place, preserving dict identity."""
+        return self._apply_public_store("arm_profiles", profiles, replace=True)
 
     async def create_arm_profile_public(
         self,
@@ -4810,8 +4830,9 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
         )
         profile = ArmProfile.from_unifi_dict(**data, api=self)
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.arm_profiles[profile.id] = profile
+        self._emit_public_store_change(
+            self._apply_public_store("arm_profiles", [profile])
+        )
         return profile
 
     async def update_arm_profile_public(
@@ -4847,8 +4868,9 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
         )
         profile = ArmProfile.from_unifi_dict(**data, api=self)
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.arm_profiles[profile.id] = profile
+        self._emit_public_store_change(
+            self._apply_public_store("arm_profiles", [profile])
+        )
         return profile
 
     async def delete_arm_profile_public(self, profile_id: str) -> None:
@@ -4858,8 +4880,9 @@ class ProtectApiClient(BaseApiClient):
             method="delete",
             public_api=True,
         )
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.arm_profiles.pop(profile_id, None)
+        self._emit_public_store_change(
+            self._apply_public_store("arm_profiles", [], removed_ids=(profile_id,))
+        )
 
     async def get_arm_manager_settings_public(self) -> NvrArmMode | None:
         """
@@ -5106,6 +5129,7 @@ class ProtectApiClient(BaseApiClient):
     ) -> None:
         """Run the ``update_public`` fetch/apply/announce sequence for ``pb``."""
         diffs: list[FetchDiff] = []
+        store_changes: list[PublicStoreChange] = []
         try:
             results = await asyncio.gather(
                 *[coro for coro, _, _ in endpoints], return_exceptions=True
@@ -5129,14 +5153,14 @@ class ProtectApiClient(BaseApiClient):
             )
 
             # Classification passed: publish the candidate.
-            # ``_apply_arm_profiles`` reads ``self._public_bootstrap``, so this
-            # must precede Phase 2.
             self._public_bootstrap = pb
 
             # Phase 2 — no unexpected error: apply the whole batch. No ``await``
             # between writes, so a concurrent public-WS frame cannot interleave
             # a torn state. Tolerated-missing endpoints keep their prior data.
-            diffs = self._apply_public_fetch_results(pb, endpoints, results)
+            diffs, store_changes = self._apply_public_fetch_results(
+                pb, endpoints, results
+            )
             # Re-derive the siren deadlines in the same await-free window the
             # merge ran in: a timer armed for a superseded run must not outlive
             # the status it was derived from.
@@ -5153,6 +5177,8 @@ class ProtectApiClient(BaseApiClient):
             for handler, msg in replay:
                 handler(msg)
 
+        for change in store_changes:
+            self._emit_public_store_change(change)
         await self._prime_rtsps_streams(pb, previous_streams)
         if was_primed:
             self._emit_public_fetch_diffs(pb, diffs, seen)
@@ -5162,19 +5188,46 @@ class ProtectApiClient(BaseApiClient):
         pb: PublicBootstrap,
         endpoints: list[tuple[Any, str, str]],
         results: list[Any],
-    ) -> list[FetchDiff]:
+    ) -> tuple[list[FetchDiff], list[PublicStoreChange]]:
         """Apply the classified ``update_public`` fetch results to ``pb``."""
         diffs: list[FetchDiff] = []
+        store_changes: list[PublicStoreChange] = []
         for (_, _label, attr), result in zip(endpoints, results, strict=True):
             if isinstance(result, BaseException):
                 continue
-            if attr == "arm_profiles":
-                self._apply_arm_profiles(cast("list[ArmProfile]", result))
+            if attr in ("arm_profiles", "ulp_users"):
+                if change := pb.apply_store(
+                    cast("PublicStoreName", attr), result, replace=True
+                ):
+                    store_changes.append(change)
             elif attr == "nvr":
                 pb.nvr = result
             else:
                 diffs.append(pb.apply_fetch_result(attr, result))
-        return diffs
+        return diffs, store_changes
+
+    def _apply_public_store(
+        self,
+        store: PublicStoreName,
+        objs: list[ArmProfile],
+        *,
+        replace: bool = False,
+        removed_ids: tuple[str, ...] = (),
+    ) -> PublicStoreChange | None:
+        if self._public_bootstrap is None:
+            return None
+        return self._public_bootstrap.apply_store(
+            store, objs, replace=replace, removed_ids=removed_ids
+        )
+
+    def _emit_public_store_change(self, change: PublicStoreChange | None) -> None:
+        if change is None:
+            return
+        for sub in self._public_store_subscriptions.copy():
+            try:
+                sub(change)
+            except Exception:
+                _LOGGER.exception("Exception while running public store handler")
 
     def _emit_public_fetch_diffs(
         self,
