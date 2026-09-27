@@ -1,5 +1,13 @@
 # Changelog
 
+## v17.3.0 (2026-09-27)
+
+### Features
+
+
+- Periodically refresh websocket-less public stores ([`04d7636`](https://github.com/uilibs/uiprotect/commit/04d76368d05c923e5c4427f8e2a58315c463b408))
+
+
 ## v17.2.0 (2026-09-27)
 
 ### Features
