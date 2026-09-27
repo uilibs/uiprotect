@@ -128,9 +128,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class LightDeviceSettings(ProtectBaseObject):
-    # Status LED
     is_indicator_enabled: bool
-    # Brightness
     led_level: LEDLevel
     pir_duration: timedelta
     pir_sensitivity: PercentInt
@@ -470,7 +468,6 @@ class ISPSettings(ProtectBaseObject):
 
 
 class OSDSettings(ProtectBaseObject):
-    # Overlay Information
     is_name_enabled: bool
     is_date_enabled: bool
     is_logo_enabled: bool
@@ -490,7 +487,6 @@ class OSDSettings(ProtectBaseObject):
 
 
 class LEDSettings(ProtectBaseObject):
-    # Status Light
     is_enabled: bool
     blink_rate: int | None = (
         None  # in milliseconds between blinks, 0 = solid (removed in Protect 6.x)
@@ -534,15 +530,11 @@ class SpeakerSettings(ProtectBaseObject):
 
 
 class RecordingSettings(ProtectBaseObject):
-    # Seconds to record before Motion
     pre_padding: timedelta
-    # Seconds to record after Motion
     post_padding: timedelta
-    # Seconds of Motion Needed
     min_motion_event_trigger: timedelta
     end_motion_event_delay: timedelta
     suppress_illumination_surge: bool
-    # High Frame Rate Mode
     mode: RecordingMode
     geofencing: GeofencingSetting
     motion_algorithm: MotionAlgorithm
@@ -1450,8 +1442,6 @@ class Camera(ProtectMotionDeviceModel):
             return self._can_detect_audio(smart_type)
         return smart_type in self.feature_flags.smart_detect_types
 
-    # region Object Smart Detections
-
     def _is_smart_enabled(self, smart_type: SmartDetectObjectType) -> bool:
         return (
             self.is_recording_enabled and smart_type in self.active_smart_detect_types
@@ -1478,8 +1468,6 @@ class Camera(ProtectMotionDeviceModel):
             and self.last_smart_detect_event.end is None
         )
 
-    # region Person
-
     @property
     def is_person_detection_on(self) -> bool:
         """
@@ -1502,9 +1490,6 @@ class Camera(ProtectMotionDeviceModel):
             in self.active_smart_detect_settings.auto_tracking_object_types
         )
 
-    # endregion
-    # region Vehicle
-
     @property
     def is_vehicle_detection_on(self) -> bool:
         """
@@ -1518,16 +1503,10 @@ class Camera(ProtectMotionDeviceModel):
         """Is vehicle currently being detected"""
         return self._is_smart_detected(SmartDetectObjectType.VEHICLE)
 
-    # endregion
-    # region Face
-
     @property
     def is_face_currently_detected(self) -> bool:
         """Is face currently being detected"""
         return self._is_smart_detected(SmartDetectObjectType.FACE)
-
-    # endregion
-    # region License Plate
 
     @property
     def is_license_plate_detection_on(self) -> bool:
@@ -1541,9 +1520,6 @@ class Camera(ProtectMotionDeviceModel):
     def is_license_plate_currently_detected(self) -> bool:
         """Is license plate currently being detected"""
         return self._is_smart_detected(SmartDetectObjectType.LICENSE_PLATE)
-
-    # endregion
-    # region Package
 
     @property
     def can_detect_package(self) -> bool:
@@ -1562,9 +1538,6 @@ class Camera(ProtectMotionDeviceModel):
         """Is package currently being detected"""
         return self._is_smart_detected(SmartDetectObjectType.PACKAGE)
 
-    # endregion
-    # region Animal
-
     @property
     def is_animal_detection_on(self) -> bool:
         """
@@ -1577,10 +1550,6 @@ class Camera(ProtectMotionDeviceModel):
     def is_animal_currently_detected(self) -> bool:
         """Is animal currently being detected"""
         return self._is_smart_detected(SmartDetectObjectType.ANIMAL)
-
-    # endregion
-    # endregion
-    # region Audio Smart Detections
 
     def _can_detect_audio(self, smart_type: SmartDetectObjectType) -> bool:
         audio_type = smart_type.audio_type
@@ -1625,8 +1594,6 @@ class Camera(ProtectMotionDeviceModel):
             and last_smart_audio_detect_event.end is None
         )
 
-    # region Smoke Alarm
-
     @property
     def is_smoke_detection_on(self) -> bool:
         """
@@ -1639,9 +1606,6 @@ class Camera(ProtectMotionDeviceModel):
     def is_smoke_currently_detected(self) -> bool:
         """Is smoke alarm currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.SMOKE)
-
-    # endregion
-    # region CO Alarm
 
     @property
     def is_co_detection_on(self) -> bool:
@@ -1656,9 +1620,6 @@ class Camera(ProtectMotionDeviceModel):
         """Is CO alarm currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.CMONX)
 
-    # endregion
-    # region Siren
-
     @property
     def is_siren_detection_on(self) -> bool:
         """
@@ -1671,9 +1632,6 @@ class Camera(ProtectMotionDeviceModel):
     def is_siren_currently_detected(self) -> bool:
         """Is Siren currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.SIREN)
-
-    # endregion
-    # region Baby Cry
 
     @property
     def is_baby_cry_detection_on(self) -> bool:
@@ -1688,9 +1646,6 @@ class Camera(ProtectMotionDeviceModel):
         """Is Baby Cry currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.BABY_CRY)
 
-    # endregion
-    # region Speaking
-
     @property
     def is_speaking_detection_on(self) -> bool:
         """
@@ -1703,9 +1658,6 @@ class Camera(ProtectMotionDeviceModel):
     def is_speaking_currently_detected(self) -> bool:
         """Is Speaking currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.SPEAK)
-
-    # endregion
-    # region Bark
 
     @property
     def is_bark_detection_on(self) -> bool:
@@ -1720,10 +1672,7 @@ class Camera(ProtectMotionDeviceModel):
         """Is Bark currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.BARK)
 
-    # endregion
-    # region Car Alarm
-    # (burglar in code, car alarm in Protect UI)
-
+    # SmartDetectObjectType.BURGLAR is "Car Alarm" in the Protect UI.
     @property
     def is_car_alarm_detection_on(self) -> bool:
         """
@@ -1736,9 +1685,6 @@ class Camera(ProtectMotionDeviceModel):
     def is_car_alarm_currently_detected(self) -> bool:
         """Is Car Alarm currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.BURGLAR)
-
-    # endregion
-    # region Car Horn
 
     @property
     def is_car_horn_detection_on(self) -> bool:
@@ -1753,9 +1699,6 @@ class Camera(ProtectMotionDeviceModel):
         """Is Car Horn currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.CAR_HORN)
 
-    # endregion
-    # region Glass Break
-
     @property
     def is_glass_break_detection_on(self) -> bool:
         """
@@ -1768,9 +1711,6 @@ class Camera(ProtectMotionDeviceModel):
     def is_glass_break_currently_detected(self) -> bool:
         """Is Glass Break currently being detected"""
         return self._is_audio_detected(SmartDetectObjectType.GLASS_BREAK)
-
-    # endregion
-    # endregion
 
     @property
     def chime_type(self) -> ChimeType:
@@ -2266,8 +2206,6 @@ class Camera(ProtectMotionDeviceModel):
             return True
         return user.can(self.model, PermissionNode.READ_MEDIA, self)
 
-    # region PTZ
-
     async def get_ptz_presets(self) -> list[PTZPreset]:
         """Get PTZ Presets for camera."""
         if not self.feature_flags.is_ptz:
@@ -2445,8 +2383,6 @@ class Camera(ProtectMotionDeviceModel):
             self.id, osd_nerd_mode_enabled=enabled
         )
         self._merge_public_osd_settings(updated.osd_settings)
-
-    # endregion
 
 
 class Viewer(ProtectAdoptableDeviceModel):
