@@ -238,9 +238,14 @@ reconnect resync), `get_arm_profiles_public()`, or
 `create_arm_profile_public()` / `update_arm_profile_public()` /
 `delete_arm_profile_public()` change a store. `updated` compares values per id,
 so a refetch that returns the same data fires nothing, and a resync after your
-own create or update does not announce it a second time. An endpoint that fails
-during `update_public()` keeps its cached data and fires nothing. Device stores
-keep the devices websocket as their only change channel.
+own create or update does not announce it a second time. If an arm-profile
+create, update, delete or `get_arm_profiles_public()` finishes while an
+`update_public()` fetch is in flight, that refresh leaves `arm_profiles` alone
+rather than roll the write back; the next refresh picks up anything it missed.
+An endpoint that fails during `update_public()` keeps its cached data and fires
+nothing. The first prime reports every id it caches as `added`. Callbacks run
+synchronously, after the whole refresh has been applied. Device stores keep the
+devices websocket as their only change channel.
 
 ```python
 from uiprotect.data import PublicStoreChange

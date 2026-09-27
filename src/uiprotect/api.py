@@ -135,7 +135,7 @@ from .utils import (
 from .websocket import Websocket, WebsocketState
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
 
     from uiprotect.data.devices import LightDeviceSettings, LightModeSettings
     from uiprotect.data.public_devices import (
@@ -1472,6 +1472,9 @@ class ProtectApiClient(BaseApiClient):
     _devices_ws_state_subscriptions: list[Callable[[WebsocketState], None]]
     _public_resync_subscriptions: list[Callable[[bool], None]]
     _public_store_subscriptions: list[Callable[[PublicStoreChange], None]]
+    # Bumped by every write outside ``update_public``; a batch whose fetch
+    # started before a bump would roll that write back, so it skips the store.
+    _public_store_writes: dict[PublicStoreName, int]
     _bootstrap: Bootstrap | None = None
     _public_bootstrap: PublicBootstrap | None = None
     # True after the first time the devices WS transitions to CONNECTED; used
@@ -1588,6 +1591,7 @@ class ProtectApiClient(BaseApiClient):
         self._devices_ws_state_subscriptions = []
         self._public_resync_subscriptions = []
         self._public_store_subscriptions = []
+        self._public_store_writes = {}
         self._event_dispatcher = None
         self._device_dispatcher = None
         self.ignore_unadopted = ignore_unadopted
@@ -2713,7 +2717,9 @@ class ProtectApiClient(BaseApiClient):
         ``callback`` receives a :class:`PublicStoreChange` for ``arm_profiles``
         or ``ulp_users`` whenever ``update_public()``, ``get_arm_profiles_public``
         or an arm-profile create/update/delete changes that store's contents.
-        A write that changes nothing does not fire.
+        A write that changes nothing does not fire. The prime that first
+        materialises the bootstrap reports every cached id as ``added``.
+        Callbacks run synchronously in the writing coroutine.
 
         Returns a callback that will unsubscribe.
         """
@@ -5070,7 +5076,7 @@ class ProtectApiClient(BaseApiClient):
 
         # Snapshot existing streams before the re-parse below replaces the
         # camera objects with freshly-built ones (whose ``rtsps_streams``
-        # default to ``None``); the prime step carries them forward by id so
+        # default to ``None``); they are carried forward by id after the merge so
         # the never-empty contract holds across a resync.
         previous_streams = {
             camera_id: camera.rtsps_streams
@@ -5130,6 +5136,7 @@ class ProtectApiClient(BaseApiClient):
         """Run the ``update_public`` fetch/apply/announce sequence for ``pb``."""
         diffs: list[FetchDiff] = []
         store_changes: list[PublicStoreChange] = []
+        store_writes = dict(self._public_store_writes)
         try:
             results = await asyncio.gather(
                 *[coro for coro, _, _ in endpoints], return_exceptions=True
@@ -5159,7 +5166,7 @@ class ProtectApiClient(BaseApiClient):
             # between writes, so a concurrent public-WS frame cannot interleave
             # a torn state. Tolerated-missing endpoints keep their prior data.
             diffs, store_changes = self._apply_public_fetch_results(
-                pb, endpoints, results
+                pb, endpoints, results, store_writes
             )
             # Re-derive the siren deadlines in the same await-free window the
             # merge ran in: a timer armed for a superseded run must not outlive
@@ -5177,9 +5184,14 @@ class ProtectApiClient(BaseApiClient):
             for handler, msg in replay:
                 handler(msg)
 
+        # Carry forward before notifying anyone, so a store-change callback
+        # never reads an emptied ``rtsps_streams`` from a re-parsed camera.
+        for camera_id, camera in pb.cameras.items():
+            if camera.rtsps_streams is None and camera_id in previous_streams:
+                camera.rtsps_streams = previous_streams[camera_id]
         for change in store_changes:
             self._emit_public_store_change(change)
-        await self._prime_rtsps_streams(pb, previous_streams)
+        await self._prime_rtsps_streams(pb)
         if was_primed:
             self._emit_public_fetch_diffs(pb, diffs, seen)
 
@@ -5188,6 +5200,7 @@ class ProtectApiClient(BaseApiClient):
         pb: PublicBootstrap,
         endpoints: list[tuple[Any, str, str]],
         results: list[Any],
+        store_writes: dict[PublicStoreName, int],
     ) -> tuple[list[FetchDiff], list[PublicStoreChange]]:
         """Apply the classified ``update_public`` fetch results to ``pb``."""
         diffs: list[FetchDiff] = []
@@ -5196,9 +5209,12 @@ class ProtectApiClient(BaseApiClient):
             if isinstance(result, BaseException):
                 continue
             if attr in ("arm_profiles", "ulp_users"):
-                if change := pb.apply_store(
-                    cast("PublicStoreName", attr), result, replace=True
-                ):
+                store = cast("PublicStoreName", attr)
+                # A setter wrote this store while the fetch was in flight; the
+                # fetched list may predate that write, so keep the cache.
+                if self._public_store_writes.get(store) != store_writes.get(store):
+                    continue
+                if change := pb.apply_store(store, result, replace=True):
                     store_changes.append(change)
             elif attr == "nvr":
                 pb.nvr = result
@@ -5209,13 +5225,14 @@ class ProtectApiClient(BaseApiClient):
     def _apply_public_store(
         self,
         store: PublicStoreName,
-        objs: list[ArmProfile],
+        objs: Iterable[ArmProfile | PublicUlpUser],
         *,
         replace: bool = False,
-        removed_ids: tuple[str, ...] = (),
+        removed_ids: Iterable[str] = (),
     ) -> PublicStoreChange | None:
         if self._public_bootstrap is None:
             return None
+        self._public_store_writes[store] = self._public_store_writes.get(store, 0) + 1
         return self._public_bootstrap.apply_store(
             store, objs, replace=replace, removed_ids=removed_ids
         )
@@ -5264,8 +5281,8 @@ class ProtectApiClient(BaseApiClient):
     ) -> None:
         """Emit one synthetic devices-WS ``add``/``remove`` for ``obj``."""
         model = obj.model
-        # Non-device stores (ulp-users) and objects the devices WS never
-        # routes have no membership frame to speak of.
+        # Objects the devices WS never routes have no membership frame to
+        # speak of.
         if model is None or not pb.supports_device(model):
             return
         # A real frame already announced this change, or the subscriber asked
@@ -5286,16 +5303,13 @@ class ProtectApiClient(BaseApiClient):
             )
         )
 
-    async def _prime_rtsps_streams(
-        self,
-        pb: PublicBootstrap,
-        previous_streams: dict[str, RTSPSStreams],
-    ) -> None:
+    async def _prime_rtsps_streams(self, pb: PublicBootstrap) -> None:
         """
         Populate each camera's ``rtsps_streams`` after an ``update_public`` fetch.
 
-        Carries forward the pre-re-parse streams by id, then fetches streams for
-        the genuinely-missing connected cameras under a bounded concurrency
+        Runs after the pre-re-parse streams were carried forward by id and
+        fetches streams for the genuinely-missing connected cameras under a
+        bounded concurrency
         semaphore. Each fetch is bounded by ``RTSPS_PRIME_TIMEOUT`` and retried
         ``RTSPS_PRIME_RETRIES`` times on transient failure. Best-effort per
         camera: one slow/unreachable camera cannot abort the prime, and the
@@ -5303,10 +5317,6 @@ class ProtectApiClient(BaseApiClient):
         failure mode is diagnosable in the field. Disconnected cameras are
         skipped — they yield no usable stream, only a per-camera timeout.
         """
-        for camera_id, camera in pb.cameras.items():
-            if camera.rtsps_streams is None and camera_id in previous_streams:
-                camera.rtsps_streams = previous_streams[camera_id]
-
         to_prime = [
             camera
             for camera in pb.cameras.values()

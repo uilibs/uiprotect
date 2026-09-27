@@ -11,19 +11,22 @@ import pytest
 from uiprotect.data import (
     ArmProfile,
     PublicBootstrap,
+    PublicCamera,
     PublicStoreChange,
     PublicUlpUser,
+    RTSPSStreams,
 )
-from uiprotect.data.types import ModelType, UlpUserStatus
+from uiprotect.data.types import DeviceState, ModelType, UlpUserStatus
 from uiprotect.exceptions import NvrError
 
 from .test_api_public import _mock_update_public_endpoints
 
 if TYPE_CHECKING:
     from uiprotect import ProtectApiClient
-    from uiprotect.data.public_bootstrap import PublicStoreName
+    from uiprotect.data import PublicStoreName
 
 PROFILE_ID = "6878d82800155803e45928e0"
+OTHER_ID = "p2"
 
 
 def _profile_raw(name: str = "Night", profile_id: str = PROFILE_ID) -> dict[str, Any]:
@@ -115,10 +118,24 @@ async def test_create_then_resync_with_same_data_notifies_once(
 async def test_create_with_existing_identical_profile_is_silent(
     protect_client: ProtectApiClient, changes: list[PublicStoreChange]
 ) -> None:
-    protect_client.public_bootstrap.arm_profiles[PROFILE_ID] = _profile(protect_client)
+    pb = protect_client.public_bootstrap
+    pb.arm_profiles[PROFILE_ID] = _profile(protect_client)
     protect_client.api_request_obj = AsyncMock(return_value=_profile_raw())
     await _create(protect_client)
     assert changes == []
+
+
+@pytest.mark.asyncio()
+async def test_create_keeps_other_profiles(
+    protect_client: ProtectApiClient, changes: list[PublicStoreChange]
+) -> None:
+    pb = protect_client.public_bootstrap
+    other = _profile(protect_client, profile_id=OTHER_ID)
+    pb.arm_profiles[OTHER_ID] = other
+    protect_client.api_request_obj = AsyncMock(return_value=_profile_raw())
+    await _create(protect_client)
+    assert changes == [_change("arm_profiles", added={PROFILE_ID})]
+    assert pb.arm_profiles[OTHER_ID] is other
 
 
 @pytest.mark.asyncio()
@@ -127,6 +144,8 @@ async def test_update_setter_notifies_only_on_change(
 ) -> None:
     pb = protect_client.public_bootstrap
     pb.arm_profiles[PROFILE_ID] = _profile(protect_client)
+    other = _profile(protect_client, profile_id=OTHER_ID)
+    pb.arm_profiles[OTHER_ID] = other
 
     protect_client.api_request_obj = AsyncMock(return_value=_profile_raw())
     await protect_client.update_arm_profile_public(PROFILE_ID, name="Night")
@@ -136,6 +155,56 @@ async def test_update_setter_notifies_only_on_change(
     await protect_client.update_arm_profile_public(PROFILE_ID, name="Day")
     assert changes == [_change("arm_profiles", updated={PROFILE_ID})]
     assert pb.arm_profiles[PROFILE_ID].name == "Day"
+    assert pb.arm_profiles[OTHER_ID] is other
+
+
+@pytest.mark.asyncio()
+async def test_update_then_reconnect_resync_notifies_once(
+    protect_client: ProtectApiClient, changes: list[PublicStoreChange]
+) -> None:
+    """A reconnect resync returning the updated profile does not re-announce it."""
+    protect_client.public_bootstrap.arm_profiles[PROFILE_ID] = _profile(protect_client)
+    protect_client.api_request_obj = AsyncMock(return_value=_profile_raw(name="Day"))
+    await protect_client.update_arm_profile_public(PROFILE_ID, name="Day")
+    assert changes == [_change("arm_profiles", updated={PROFILE_ID})]
+
+    _mock_update_public_endpoints(
+        protect_client,
+        _fetch_arm_profiles=AsyncMock(
+            return_value=[_profile(protect_client, name="Day")]
+        ),
+    )
+    await protect_client._resync_public_bootstrap()
+
+    assert changes == [_change("arm_profiles", updated={PROFILE_ID})]
+
+
+@pytest.mark.asyncio()
+async def test_setter_during_resync_fetch_is_not_rolled_back(
+    protect_client: ProtectApiClient, changes: list[PublicStoreChange]
+) -> None:
+    """A resync whose fetch predates a create leaves the created profile alone."""
+    protect_client.api_request_obj = AsyncMock(return_value=_profile_raw())
+
+    async def _stale_fetch() -> list[ArmProfile]:
+        await _create(protect_client)
+        return []
+
+    _mock_update_public_endpoints(
+        protect_client, _fetch_arm_profiles=AsyncMock(side_effect=_stale_fetch)
+    )
+    await protect_client.update_public()
+
+    assert changes == [_change("arm_profiles", added={PROFILE_ID})]
+    assert PROFILE_ID in protect_client.public_bootstrap.arm_profiles
+
+    _mock_update_public_endpoints(
+        protect_client,
+        _fetch_arm_profiles=AsyncMock(return_value=[_profile(protect_client)]),
+    )
+    await protect_client.update_public()
+
+    assert changes == [_change("arm_profiles", added={PROFILE_ID})]
 
 
 @pytest.mark.asyncio()
@@ -290,6 +359,58 @@ async def test_subscriber_error_is_logged_and_unsubscribe_works(
     await protect_client.delete_arm_profile_public(PROFILE_ID)
     assert "public store handler" not in caplog.text
     assert len(changes) == 2
+
+
+@pytest.mark.asyncio()
+async def test_subscriber_unsubscribing_itself_does_not_skip_others(
+    protect_client: ProtectApiClient, changes: list[PublicStoreChange]
+) -> None:
+    unsubs: list[Any] = []
+    first: list[PublicStoreChange] = []
+
+    def _once(change: PublicStoreChange) -> None:
+        first.append(change)
+        unsubs[0]()
+
+    changes.clear()
+    protect_client._public_store_subscriptions.clear()
+    unsubs.append(protect_client.subscribe_public_store_changes(_once))
+    protect_client.subscribe_public_store_changes(changes.append)
+    protect_client.api_request_obj = AsyncMock(return_value=_profile_raw())
+    await _create(protect_client)
+
+    assert first == changes == [_change("arm_profiles", added={PROFILE_ID})]
+    assert protect_client._public_store_subscriptions == [changes.append]
+
+
+@pytest.mark.asyncio()
+async def test_callback_sees_carried_forward_rtsps_streams(
+    protect_client: ProtectApiClient, changes: list[PublicStoreChange]
+) -> None:
+    """A store-change callback never reads an emptied camera ``rtsps_streams``."""
+    streams = RTSPSStreams(high="rtsps://example.com/cam1")
+    protect_client.public_bootstrap.cameras["cam1"] = PublicCamera.model_construct(
+        id="cam1", state=DeviceState.CONNECTED, rtsps_streams=streams
+    )
+    fresh = PublicCamera.model_construct(
+        id="cam1", state=DeviceState.CONNECTED, rtsps_streams=None
+    )
+    seen: list[RTSPSStreams | None] = []
+    protect_client.subscribe_public_store_changes(
+        lambda _change: seen.append(
+            protect_client.public_bootstrap.cameras["cam1"].rtsps_streams
+        )
+    )
+    _mock_update_public_endpoints(
+        protect_client,
+        get_cameras_public=AsyncMock(return_value=[fresh]),
+        _fetch_arm_profiles=AsyncMock(return_value=[_profile(protect_client)]),
+    )
+
+    await protect_client.update_public()
+
+    assert len(changes) == 1
+    assert seen == [streams]
 
 
 def test_apply_store_mutates_in_place(protect_client: ProtectApiClient) -> None:

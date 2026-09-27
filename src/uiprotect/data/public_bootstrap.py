@@ -363,8 +363,9 @@ class PublicBootstrap:
         """
         Write ``objs`` into ``self.<store>`` and return the diff, or ``None``.
 
-        ``replace`` drops every cached id absent from ``objs``; ``removed_ids``
-        drops the given ids. The store dict is mutated in place.
+        ``replace`` drops every cached id absent from ``objs`` and ignores
+        ``removed_ids``; otherwise ``removed_ids`` drops the given ids. The
+        store dict is mutated in place.
         """
         cache = cast("dict[str, ArmProfile | PublicUlpUser]", getattr(self, store))
         written = {obj.id: obj for obj in objs}
