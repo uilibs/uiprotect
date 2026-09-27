@@ -1,5 +1,13 @@
 # Changelog
 
+## v17.3.1 (2026-09-27)
+
+### Bug fixes
+
+
+- Enable ruff async/try300/try301 and fix double rtsps error ([`2907471`](https://github.com/uilibs/uiprotect/commit/2907471c48579156b3d99f42f8ea9cadead6d4a6))
+
+
 ## v17.3.0 (2026-09-27)
 
 ### Features
