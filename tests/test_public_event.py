@@ -6,6 +6,7 @@ from datetime import datetime
 
 import pytest
 
+from uiprotect.data.public_bootstrap import _merge
 from uiprotect.data.public_event import (
     PUBLIC_EVENT_TYPES,
     PublicEvent,
@@ -275,16 +276,88 @@ def test_nox_sensor_extreme_metric_enum_resolves() -> None:
 
 @pytest.mark.parametrize("status", ["tampered", "restored"])
 def test_alarm_hub_tamper_status_modelled(status: str) -> None:
-    """``AlarmHubTamperStatus`` models the tamper states, unwired from the model."""
-    assert AlarmHubTamperStatus(status) is not AlarmHubTamperStatus.UNKNOWN
+    """``tamper_status`` types ``alarmHubDeviceTamper`` status from the wire string."""
+    event = PublicEvent.from_unifi_dict(
+        **_minimal(
+            "alarmHubDeviceTamper",
+            metadata={
+                "status": {"text": status},
+                "deviceId": {"text": "aabbccddeeff00112233aabb"},
+                "deviceName": {"text": "Alarm Hub"},
+                "userName": "admin",
+            },
+        )
+    )
+    assert event.metadata is not None
+    assert event.metadata.status is SensorStatusType.UNKNOWN
+    assert event.metadata.status_text == status
+    assert event.metadata.user_name == "admin"
+    assert event.tamper_status is AlarmHubTamperStatus(status)
+    assert event.tamper_status is not AlarmHubTamperStatus.UNKNOWN
+    assert event.sensor_status is None
+    assert event.unifi_dict()["metadata"] == {
+        "status": {"text": status},
+        "deviceId": {"text": "aabbccddeeff00112233aabb"},
+        "deviceName": {"text": "Alarm Hub"},
+        "userName": "admin",
+    }
+
+
+def test_sensor_status_accessor() -> None:
+    event = PublicEvent.from_unifi_dict(
+        **_minimal("sensorExtremeValues", metadata={"status": {"text": "high"}})
+    )
+    assert event.sensor_status is SensorStatusType.HIGH
+    assert event.tamper_status is None
+
+
+def test_alarm_hub_input_status_kept_as_text() -> None:
+    event = PublicEvent.from_unifi_dict(
+        **_minimal("alarmHubMotion", metadata={"status": {"text": "alarm"}})
+    )
+    assert event.metadata is not None
+    assert event.metadata.status_text == "alarm"
+    assert event.sensor_status is None
+    assert event.tamper_status is None
+    assert event.unifi_dict()["metadata"] == {"status": {"text": "alarm"}}
+
+
+@pytest.mark.parametrize(
+    "metadata", [None, {"deviceId": {"text": "aabbccddeeff00112233aabb"}}]
+)
+def test_status_accessors_without_status(metadata: dict[str, object] | None) -> None:
+    for type_str in ("alarmHubDeviceTamper", "sensorExtremeValues"):
+        event = PublicEvent.from_unifi_dict(**_minimal(type_str, metadata=metadata))
+        assert event.tamper_status is None
+        assert event.sensor_status is None
+
+
+def test_status_text_survives_partial_update() -> None:
+    """A partial update frame without ``type`` refreshes ``status_text``."""
+    event = PublicEvent.from_unifi_dict(
+        **_minimal("alarmHubDeviceTamper", metadata={"status": {"text": "tampered"}})
+    )
+    merged = _merge(
+        event,
+        {
+            "id": "evt-1",
+            "modelKey": "event",
+            "metadata": {"status": {"text": "restored"}},
+        },
+        set(),
+    )
+    assert merged is event
+    assert event.tamper_status is AlarmHubTamperStatus.RESTORED
+
+
+def test_metadata_unifi_dict_honours_status_exclude() -> None:
     metadata = PublicEventMetadata.from_unifi_dict(
-        status={"text": status},
-        deviceId={"text": "aabbccddeeff00112233aabb"},
+        status={"text": "tampered"},
         deviceName={"text": "Alarm Hub"},
     )
-    # The ``status`` wire key is shared with ``sensorExtremeValues``, so the field
-    # stays typed as ``SensorStatusType``; retyping it is a breaking change.
-    assert metadata.status is SensorStatusType.UNKNOWN
+    assert metadata.unifi_dict(exclude={"status"}) == {
+        "deviceName": {"text": "Alarm Hub"}
+    }
 
 
 def test_alarm_hub_tamper_status_unknown_value() -> None:
