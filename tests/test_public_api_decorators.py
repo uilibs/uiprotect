@@ -198,10 +198,6 @@ def test_body_less_endpoint_rejects_extra_param_at_decoration() -> None:
                 raise NotImplementedError
 
 
-# ---------------------------------------------------------------------------
-# Invariants against the real client
-# ---------------------------------------------------------------------------
-
 _REGISTRY = registry.for_class("ProtectApiClient")
 _REGISTERED_METHODS = sorted(_REGISTRY.values())
 

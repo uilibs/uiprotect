@@ -1109,7 +1109,6 @@ class PTZPresetPosition(BaseModel):
     zoom: int
 
 
-# PTZ slot constant for home position
 PTZ_HOME_SLOT: int = -1
 
 

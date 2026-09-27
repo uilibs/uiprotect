@@ -23,10 +23,6 @@ from uiprotect.api import (
 )
 from uiprotect.exceptions import NvrError
 
-# =============================================================================
-# Fixtures
-# =============================================================================
-
 
 @pytest.fixture
 def mock_response() -> MagicMock:
@@ -112,11 +108,6 @@ def _create_mock_request_context(
     return MockRequestContext()
 
 
-# =============================================================================
-# Retry Constants Tests
-# =============================================================================
-
-
 def test_default_attempts() -> None:
     """Test default retry attempts value."""
     assert RETRY_DEFAULT_ATTEMPTS == 3
@@ -140,11 +131,6 @@ def test_exponential_base() -> None:
 def test_status_codes() -> None:
     """Test retry status codes include 408, 429, 500, 502, 503, 504."""
     assert frozenset({408, 429, 500, 502, 503, 504}) == RETRY_STATUS_CODES
-
-
-# =============================================================================
-# calculate_retry_delay Tests
-# =============================================================================
 
 
 def test_exponential_backoff() -> None:
@@ -215,11 +201,6 @@ def test_calculated_delay_can_subtract_jitter() -> None:
     assert any(d > base_delay for d in delays)
 
 
-# =============================================================================
-# parse_retry_after Tests
-# =============================================================================
-
-
 def test_parse_valid_integer(mock_response: MagicMock) -> None:
     """Test parsing integer Retry-After value."""
     mock_response.headers = {"Retry-After": "5"}
@@ -248,11 +229,6 @@ def test_parse_http_date_not_supported(mock_response: MagicMock) -> None:
     """Test that HTTP-date format returns None."""
     mock_response.headers = {"Retry-After": "Wed, 21 Oct 2025 07:28:00 GMT"}
     assert parse_retry_after(mock_response) is None
-
-
-# =============================================================================
-# API Client Integration Tests
-# =============================================================================
 
 
 def test_default_max_retries_applied(base_client: BaseApiClient) -> None:
@@ -394,11 +370,6 @@ async def test_no_retry_when_max_retries_zero(protect_client_factory) -> None:
 
     assert result is response_503
     assert mock_request.await_count == 1  # No retries
-
-
-# =============================================================================
-# 401 Re-auth-and-retry Tests
-# =============================================================================
 
 
 @pytest.mark.asyncio()
@@ -553,11 +524,6 @@ async def test_private_401_retry_sends_refreshed_cookie(
     assert client.headers["cookie"] == "fresh-cookie"
 
 
-# =============================================================================
-# _do_request Exception Handling Tests
-# =============================================================================
-
-
 @pytest.fixture
 def do_request_client() -> ProtectApiClient:
     """Create a ProtectApiClient for _do_request testing."""
@@ -659,11 +625,6 @@ async def test_update_token_cookie_failure_releases_response(
         )
 
     response.release.assert_called_once()
-
-
-# =============================================================================
-# api_request_raw body-read failure Tests
-# =============================================================================
 
 
 @pytest.mark.parametrize(

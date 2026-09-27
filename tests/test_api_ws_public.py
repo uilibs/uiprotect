@@ -1291,10 +1291,6 @@ async def test_process_devices_ws_message_without_cache_emits_none_obj(
     unsub()
 
 
-# ---------------------------------------------------------------------------
-# NVR WS updates (PublicNVR — devices websocket)
-# ---------------------------------------------------------------------------
-
 _NVR_ID = "66d025b301ebc903e80003ec"
 
 _NVR_ADD_PAYLOAD = {

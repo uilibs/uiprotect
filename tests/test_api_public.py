@@ -153,11 +153,6 @@ def _mock_update_public_endpoints(client: ProtectApiClient, **overrides: Any) ->
         setattr(client, name, value)
 
 
-# ---------------------------------------------------------------------------
-# Camera snapshot: package channel
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio()
 async def test_get_public_api_camera_snapshot_package(
     protect_client: ProtectApiClient,
@@ -178,11 +173,6 @@ async def test_get_public_api_camera_snapshot_no_package(
     await protect_client.get_public_api_camera_snapshot("cam-1")
     _, kwargs = protect_client.api_request_raw.call_args
     assert "channel" not in kwargs["params"]
-
-
-# ---------------------------------------------------------------------------
-# Sensors
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio()
@@ -243,11 +233,6 @@ async def test_update_sensor_public_body(
         "name": "kitchen",
         "motionSettings": {"isEnabled": True, "sensitivity": 80},
     }
-
-
-# ---------------------------------------------------------------------------
-# Sirens
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio()
@@ -344,11 +329,6 @@ async def test_update_siren_public_empty(
         await protect_client.update_siren_public(SIREN_ID)
 
 
-# ---------------------------------------------------------------------------
-# Relays
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio()
 async def test_activate_relay_output_toggle(
     protect_client: ProtectApiClient,
@@ -388,11 +368,6 @@ async def test_update_relay_public(
         "name": "garage",
         "ledSettings": {"isEnabled": False},
     }
-
-
-# ---------------------------------------------------------------------------
-# Fobs
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio()
@@ -445,11 +420,6 @@ async def test_update_fob_public_empty(
 ) -> None:
     with pytest.raises(BadRequest):
         await protect_client.update_fob_public(FOB_ID)
-
-
-# ---------------------------------------------------------------------------
-# Speakers
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio()
@@ -550,11 +520,6 @@ async def test_test_speaker_sound_public_no_volume(
     await protect_client.test_speaker_sound_public(SPEAKER_ID)
     _, kwargs = protect_client.api_request_raw.call_args
     assert kwargs["json"] == {}
-
-
-# ---------------------------------------------------------------------------
-# Link stations / Alarm hubs
-# ---------------------------------------------------------------------------
 
 
 _LINK_STATION_FIXTURE: dict[str, Any] = {
@@ -900,11 +865,6 @@ def test_public_bootstrap_alarm_hubs_property(
     assert set(pb.alarm_hubs) == {ALARM_HUB_ID}
 
 
-# ---------------------------------------------------------------------------
-# Alarm webhook + arm profiles
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio()
 async def test_send_alarm_webhook(protect_client: ProtectApiClient) -> None:
     protect_client.api_request_raw = AsyncMock(return_value=None)
@@ -986,11 +946,6 @@ async def test_update_arm_profile_empty(
 ) -> None:
     with pytest.raises(BadRequest):
         await protect_client.update_arm_profile_public(PROFILE_ID)
-
-
-# ---------------------------------------------------------------------------
-# Models
-# ---------------------------------------------------------------------------
 
 
 def test_siren_model_from_unifi_dict() -> None:
@@ -1446,11 +1401,6 @@ def test_arm_profile_model_iso_timestamps() -> None:
     assert profile.updated_at.day == 24
 
 
-# ---------------------------------------------------------------------------
-# PublicBootstrap WS apply
-# ---------------------------------------------------------------------------
-
-
 def test_public_bootstrap_applies_add_and_update(
     protect_client: ProtectApiClient,
 ) -> None:
@@ -1556,11 +1506,6 @@ def test_public_bootstrap_warning_state_is_per_instance() -> None:
 
     assert key in first._warned_merge_failures
     assert key not in second._warned_merge_failures
-
-
-# ---------------------------------------------------------------------------
-# update_public wires everything together
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio()
@@ -2060,11 +2005,6 @@ async def test_subscribe_events_and_prime_rolls_back_on_failure(
     assert client._event_dispatcher.subscriber_count == 0
 
 
-# ---------------------------------------------------------------------------
-# Relay pulse guard & dict access
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio()
 async def test_activate_relay_output_pulse_without_on_raises(
     protect_client: ProtectApiClient,
@@ -2184,11 +2124,6 @@ def test_relay_unknown_enum_values_do_not_raise() -> None:
     assert relay.inputs[0].action_type is RelayInputActionType.UNKNOWN
 
 
-# ---------------------------------------------------------------------------
-# URL-quoting of trigger ids
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio()
 async def test_send_alarm_webhook_quotes_id(
     protect_client: ProtectApiClient,
@@ -2197,11 +2132,6 @@ async def test_send_alarm_webhook_quotes_id(
     await protect_client.send_alarm_webhook_public("my trigger/with+special")
     _, kwargs = protect_client.api_request_raw.call_args
     assert kwargs["url"] == ("/v1/alarm-manager/webhook/my%20trigger%2Fwith%2Bspecial")
-
-
-# ---------------------------------------------------------------------------
-# Arm-manager settings (from NVR armMode)
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio()
@@ -2263,11 +2193,6 @@ async def test_set_current_arm_profile_updates_arm_mode_profile_id(
     assert pb.arm_mode.arm_profile_id == PROFILE_ID
 
 
-# ---------------------------------------------------------------------------
-# Typed settings are forwarded as plain dict
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio()
 @patch("uiprotect.api.PublicSensor.from_unifi_dict")
 async def test_update_sensor_public_all_settings(
@@ -2318,11 +2243,6 @@ async def test_update_sensor_public_armed_fields(
         "armProfileIds": ["p1", "p2"],
         "hasCustomSensitivityWhenArmed": True,
     }
-
-
-# ---------------------------------------------------------------------------
-# Arm profile create/update forward typed schedules
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio()
@@ -2382,12 +2302,6 @@ async def test_delete_arm_profile(protect_client: ProtectApiClient) -> None:
     assert kwargs["url"] == f"/v1/arm-profiles/{PROFILE_ID}"
     assert kwargs["method"] == "delete"
     assert PROFILE_ID not in pb.arm_profiles
-
-
-# ---------------------------------------------------------------------------
-# Review fixes: strict property, arm-settings consistency, WS fallback,
-# concurrent update_public, resync on reconnect
-# ---------------------------------------------------------------------------
 
 
 def test_public_bootstrap_property_raises_before_update(
@@ -2625,11 +2539,6 @@ def test_is_public_live_follows_devices_websocket(
     assert protect_client.is_public_live is True
     devices_websocket._state_changed(WebsocketState.AUTH_FAILED)
     assert protect_client.is_public_live is False
-
-
-# ---------------------------------------------------------------------------
-# HA-realistic roundtrip: partial WS diffs applied to full cached objects
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio()
@@ -3087,11 +2996,6 @@ async def test_events_ws_subscribed_models_overrides_subscribed_models(
         unsub()
 
 
-# ---------------------------------------------------------------------------
-# Device action helpers (public_devices.py)
-# ---------------------------------------------------------------------------
-
-
 def _build_siren(protect_client: ProtectApiClient, siren_id: str = SIREN_ID) -> Siren:
     pb = PublicBootstrap()
     protect_client._public_bootstrap = pb
@@ -3266,11 +3170,6 @@ async def test_speaker_api_update_rejects_generic_mutations(
     speaker = _build_speaker(protect_client)
     with pytest.raises(BadRequest, match="Speaker mutations"):
         await speaker._api_update({"name": "new"})
-
-
-# ---------------------------------------------------------------------------
-# PublicBootstrap edge cases
-# ---------------------------------------------------------------------------
 
 
 def test_public_bootstrap_get_and_unknown_model(
@@ -3538,11 +3437,6 @@ def test_parse_ws_envelope_none_item() -> None:
 
     assert _parse_ws_envelope({"type": "add", "item": None}) == (None, {}, None)
     assert _parse_ws_envelope({}) == (None, {}, None)
-
-
-# ---------------------------------------------------------------------------
-# Additional api.py Public API coverage
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio()
@@ -4439,11 +4333,6 @@ async def test_relay_api_update_rejects_generic_mutations(
         await relay._api_update({"name": "new"})
 
 
-# ---------------------------------------------------------------------------
-# Liveviews
-# ---------------------------------------------------------------------------
-
-
 def _liveview_raw(**overrides: Any) -> dict[str, Any]:
     raw: dict[str, Any] = {
         "id": LIVEVIEW_ID,
@@ -4779,11 +4668,6 @@ async def test_liveview_api_update_rejects_generic_mutations() -> None:
         await liveview._api_update({"name": "new"})
 
 
-# ---------------------------------------------------------------------------
-# Bridges
-# ---------------------------------------------------------------------------
-
-
 def _bridge_raw(**overrides: Any) -> dict[str, Any]:
     raw: dict[str, Any] = {
         "id": BRIDGE_ID,
@@ -5008,11 +4892,6 @@ async def test_bridge_api_update_rejects_generic_mutations() -> None:
     bridge = PublicBridge.from_unifi_dict(**_bridge_raw())
     with pytest.raises(BadRequest, match="Bridge mutations"):
         await bridge._api_update({"name": "new"})
-
-
-# ---------------------------------------------------------------------------
-# Viewers
-# ---------------------------------------------------------------------------
 
 
 def _viewer_raw(**overrides: Any) -> dict[str, Any]:

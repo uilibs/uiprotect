@@ -51,11 +51,6 @@ def virtual_clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     return clock
 
 
-# ---------------------------------------------------------------------------
-# _parse_policy_rate / _to_float
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize(
     ("policy", "expected"),
     [
@@ -84,11 +79,6 @@ def test_to_float() -> None:
     assert _to_float("nope") is None
     assert _to_float("nan") is None
     assert _to_float("inf") is None
-
-
-# ---------------------------------------------------------------------------
-# PublicApiRateLimiter pacing
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -143,11 +133,6 @@ async def test_idle_does_not_accumulate_burst_credit(
     assert virtual_clock[0] == pytest.approx(100.0)
 
 
-# ---------------------------------------------------------------------------
-# Seeding from RateLimit-Policy
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_seed_changes_pacing(virtual_clock: list[float]) -> None:
     limiter = PublicApiRateLimiter()
@@ -184,11 +169,6 @@ async def test_absent_policy_keeps_default(virtual_clock: list[float]) -> None:
     await limiter.acquire()
     await limiter.acquire()
     assert virtual_clock[0] == pytest.approx(1 / DEFAULT_RATE)
-
-
-# ---------------------------------------------------------------------------
-# Integration with BaseApiClient.request
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio

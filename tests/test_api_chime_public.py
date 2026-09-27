@@ -25,11 +25,6 @@ CAMERA_ID = "6878d82800215803e45928e1"
 RINGTONE_ID = "67ececbd02fe9603e40003f0"
 
 
-# =============================================================================
-# GET CHIMES TESTS
-# =============================================================================
-
-
 @pytest.mark.asyncio()
 @patch("uiprotect.data.public_devices.PublicChime.from_unifi_dict")
 async def test_get_chimes_public_success(
@@ -80,11 +75,6 @@ async def test_get_chime_public_success(
     protect_client.api_request_obj.assert_called_with(
         url=f"/v1/chimes/{CHIME_ID}", public_api=True
     )
-
-
-# =============================================================================
-# UPDATE CHIME TESTS
-# =============================================================================
 
 
 @pytest.mark.asyncio()
@@ -360,11 +350,6 @@ async def test_public_chime_writes_send_every_ringtone(
 
     body = protect_client.api_request_obj.call_args.kwargs["json"]["ringSettings"]
     assert [entry["ringtoneId"] for entry in body] == [RINGTONE_ID, "other-ringtone"]
-
-
-# =============================================================================
-# CHIME DEVICE METHOD TESTS (set_ring_settings_public, set_volume_for_camera_public)
-# =============================================================================
 
 
 @pytest.mark.skipif(not TEST_CHIME_EXISTS, reason="Missing testdata")
@@ -1011,11 +996,6 @@ async def test_chime_public_writes_send_every_ringtone(
 
     body = chime_obj.api.api_request_obj.call_args.kwargs["json"]["ringSettings"]
     assert [entry["ringtoneId"] for entry in body] == [RINGTONE_ID, "other-ringtone"]
-
-
-# =============================================================================
-# PLAY_SPEAKER EDGE CASE TESTS
-# =============================================================================
 
 
 @pytest.mark.skipif(not TEST_CHIME_EXISTS, reason="Missing testdata")

@@ -225,7 +225,6 @@ PUBLIC_REFRESH_INTERVAL = 900.0
 # retry timeout for thumbnails/heatmaps
 RETRY_TIMEOUT = 10
 
-# Retry configuration constants
 RETRY_DEFAULT_ATTEMPTS = 3
 RETRY_BASE_DELAY = 1.0
 RETRY_MAX_DELAY = 30.0
@@ -1001,7 +1000,6 @@ class BaseApiClient:
             except Exception:
                 # make sure response is released
                 response.release()
-                # re-raise exception
                 raise
 
         return response
@@ -1050,7 +1048,6 @@ class BaseApiClient:
         except Exception:
             # make sure response is released
             response.release()
-            # re-raise exception
             raise
 
     async def _raise_for_status(
@@ -4033,8 +4030,6 @@ class ProtectApiClient(BaseApiClient):
 
         return None
 
-    # Public API Methods
-
     @public_get("/v1/nvrs", item=PublicNVR)
     async def get_nvr_public(self) -> PublicNVR:
         """Get NVR information using public API."""
@@ -4256,8 +4251,6 @@ class ProtectApiClient(BaseApiClient):
         """Update chime settings using public API."""
         raise NotImplementedError
 
-    # PTZ Control Private API Methods
-
     async def get_presets_ptz_camera(self, device_id: str) -> list[PTZPreset]:
         """Get PTZ Presets for camera."""
         presets = await self.api_request(f"cameras/{device_id}/ptz/preset")
@@ -4277,8 +4270,6 @@ class ProtectApiClient(BaseApiClient):
 
         patrols = cast("list[dict[str, Any]]", patrols)
         return [PTZPatrol(**p) for p in patrols]
-
-    # PTZ Control Public API Methods
 
     @public_post("/v1/cameras/{camera_id}/ptz/goto/{slot}")
     async def ptz_goto_preset_public(self, camera_id: str, *, slot: int) -> None:

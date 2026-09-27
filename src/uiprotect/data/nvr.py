@@ -240,7 +240,6 @@ class EventThumbnailAttributes(ProtectBaseObject):
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        # Convert nested attribute objects to EventThumbnailAttribute instances
         return {
             key: EventThumbnailAttribute.from_unifi_dict(**value)
             if isinstance(value, dict) and "val" in value and "confidence" in value
@@ -255,7 +254,6 @@ class EventThumbnailAttributes(ProtectBaseObject):
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
 
-        # Remove None values from extra fields
         return {k: v for k, v in data.items() if v is not None}
 
 
@@ -1283,8 +1281,6 @@ class NVR(ProtectDeviceModel):
                 self.smart_detection.license_plate_recognition = value
 
         await self.queue_update(callback)
-
-    # object smart detections
 
 
 class LiveviewSlot(ProtectBaseObject):

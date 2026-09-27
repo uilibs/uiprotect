@@ -36,11 +36,6 @@ def _public_only_client() -> ProtectApiClient:
     )
 
 
-# ---------------------------------------------------------------------------
-# Construction
-# ---------------------------------------------------------------------------
-
-
 def test_public_only_factory_sets_flag() -> None:
     client = _public_only_client()
     assert client.is_public_only is True
@@ -80,11 +75,6 @@ def test_partial_credentials_raise() -> None:
         ProtectApiClient("127.0.0.1", 443, "user")
     with pytest.raises(BadRequest):
         ProtectApiClient("127.0.0.1", 443, "user", api_key=API_KEY)
-
-
-# ---------------------------------------------------------------------------
-# Private-session entry points are guarded
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio()
@@ -127,11 +117,6 @@ def test_private_bootstrap_property_raises() -> None:
     client = _public_only_client()
     with pytest.raises(BadRequest):
         _ = client.bootstrap
-
-
-# ---------------------------------------------------------------------------
-# Public surface remains available
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio()
@@ -178,11 +163,6 @@ async def test_public_ws_auth_revoked_key_raises() -> None:
         await client._auth_public_api_websocket()
 
 
-# ---------------------------------------------------------------------------
-# Auth-error mapping on public requests
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio()
 @pytest.mark.parametrize("status", [401, 403])
 async def test_public_request_maps_auth_error(status: int) -> None:
@@ -204,11 +184,6 @@ async def test_public_request_missing_key_raises() -> None:
     assert client._api_key is None
     with pytest.raises(NotAuthorized, match="API key is required"):
         await client.get_meta_info()
-
-
-# ---------------------------------------------------------------------------
-# NVR mac resolution
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio()
@@ -299,11 +274,6 @@ async def test_update_public_leaves_mac_less_nvr_untouched() -> None:
     api_request.assert_not_awaited()
 
 
-# ---------------------------------------------------------------------------
-# Min-version source
-# ---------------------------------------------------------------------------
-
-
 def test_meta_info_version_is_parsed() -> None:
     meta = MetaInfo(application_version="7.0.104")
     assert meta.version == Version("7.0.104")
@@ -314,11 +284,6 @@ def test_meta_info_from_unifi_dict_maps_wire_key() -> None:
     meta = MetaInfo.from_unifi_dict(applicationVersion="7.0.104")
     assert meta.application_version == "7.0.104"
     assert meta.version == Version("7.0.104")
-
-
-# ---------------------------------------------------------------------------
-# Session helpers short-circuit (no private username to key the store on)
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio()

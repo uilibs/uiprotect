@@ -83,11 +83,6 @@ def _subscribe(
     return received, unsub
 
 
-# ---------------------------------------------------------------------------
-# Full message-path tests (orjson frame -> dispatch -> ProtectDeviceChange)
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_single_add_emits_added(
     protect_client_no_debug: ProtectApiClient,
@@ -282,11 +277,6 @@ async def test_remove_unsupported_model_dropped(
     unsub()
 
 
-# ---------------------------------------------------------------------------
-# Lifecycle
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_subscribe_requires_public_bootstrap(
     protect_client_no_debug: ProtectApiClient,
@@ -340,11 +330,6 @@ def test_unsubscribe_without_dispatcher_is_noop(
     client = protect_client_no_debug
     client._device_dispatcher = None
     client._unsubscribe_devices(lambda c: None)
-
-
-# ---------------------------------------------------------------------------
-# Façade parity + dispatcher-direct behaviour
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -430,11 +415,6 @@ def test_dispatch_generic_model_type(
     assert len(seen) == 1
     assert seen[0].model_type is ModelType.SIREN
     assert seen[0].device_id == "siren-1"
-
-
-# ---------------------------------------------------------------------------
-# Defensive branches (no observable change emitted)
-# ---------------------------------------------------------------------------
 
 
 def test_remove_without_resolvable_id_is_dropped(

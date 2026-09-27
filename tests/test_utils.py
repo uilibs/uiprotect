@@ -84,9 +84,6 @@ class _MockEnum(Enum):
     C = 3
 
 
-# --- dict_diff tests ---
-
-
 def test_dict_diff():
     """Test dict_diff with equal, new keys, and changed values."""
     obj = {"a": 1, "b": 2, "c": None, "d": 2.5, "e": "test", "f": [], "g": [1, 2, 3]}
@@ -120,9 +117,6 @@ def test_dict_diff():
     ) == {"a": 3, "c": "test", "d": "test", "e": "test6", "f": [1]}
 
 
-# --- String conversion tests ---
-
-
 @pytest.mark.parametrize(
     ("input_val", "expected"),
     [
@@ -146,9 +140,6 @@ def test_to_snake_case(input_val, expected):
 )
 def test_to_camel_case(input_val, expected):
     assert to_camel_case(input_val) == expected
-
-
-# --- convert_unifi_data tests ---
 
 
 @pytest.mark.parametrize(
@@ -212,9 +203,6 @@ def test_convert_unifi_data(value, annotation, expected):
     assert result == expected
 
 
-# --- convert_to_datetime tests ---
-
-
 @pytest.mark.parametrize(
     ("input_val", "expected"),
     [
@@ -240,9 +228,6 @@ def test_convert_to_datetime_caching():
     result1 = convert_to_datetime(1715563200.0)
     result2 = convert_to_datetime(1715563200.0)
     assert result1 is result2
-
-
-# --- Attribute getter tests ---
 
 
 def test_get_nested_attr():
@@ -275,9 +260,6 @@ def test_make_getters():
     assert make_enabled_getter("b")(data) is True
     assert make_required_getter("a")(data) is True
     assert make_required_getter("d")(data) is False
-
-
-# --- Host/IP tests ---
 
 
 @pytest.mark.parametrize(
@@ -325,9 +307,6 @@ def test_cached_ip_address(ip, expected_type):
     assert isinstance(_cached_ip_address(ip), expected_type)
 
 
-# --- Time conversion tests ---
-
-
 @pytest.mark.parametrize(
     ("dt", "expected"),
     [
@@ -373,9 +352,6 @@ def test_timedelta_total_seconds():
     assert timedelta_total_seconds(timedelta(hours=1, minutes=30)) == 5400.0
 
 
-# --- Format tests ---
-
-
 @pytest.mark.parametrize(
     ("dt", "default", "expected"),
     [
@@ -402,9 +378,6 @@ def test_format_duration(duration, expected):
     assert format_duration(duration) == expected
 
 
-# --- Data check tests ---
-
-
 @pytest.mark.parametrize(
     ("data", "expected"),
     [
@@ -426,9 +399,6 @@ def test_is_online(data, expected):
 )
 def test_is_doorbell(data, expected):
     assert is_doorbell(data) == expected
-
-
-# --- Serialization tests ---
 
 
 @pytest.mark.parametrize(
@@ -491,9 +461,6 @@ def test_serialize_unifi_obj_with_unifi_dict():
     assert serialize_unifi_obj(obj) == {"key": "value"}
 
 
-# --- Utility function tests ---
-
-
 @pytest.mark.parametrize(
     ("mac", "expected"),
     [
@@ -511,9 +478,6 @@ def test_pybool_to_json_bool():
     assert pybool_to_json_bool(False) == "false"
 
 
-# --- Debug flag tests ---
-
-
 def test_debug_flags():
     set_no_debug()
     assert is_debug() is False
@@ -522,17 +486,11 @@ def test_debug_flags():
     set_no_debug()
 
 
-# --- run_async tests ---
-
-
 def test_run_async():
     async def coro() -> int:
         return 42
 
     assert run_async(coro()) == 42
-
-
-# --- Smart type conversion tests ---
 
 
 def test_convert_smart_types():
@@ -553,9 +511,6 @@ def test_convert_video_modes():
     assert VideoMode.DEFAULT in result
     assert VideoMode.HIGH_FPS in result
     assert len(result) == 2
-
-
-# --- get_response_reason tests ---
 
 
 @pytest.mark.asyncio()
@@ -585,9 +540,6 @@ async def test_get_response_reason():
     assert await get_response_reason(resp) == "Error"
 
 
-# --- decode_token_cookie tests ---
-
-
 def test_decode_token_cookie():
     # HMAC key must be >=32 bytes to satisfy PyJWT's SHA256 minimum
     hmac_key = "0123456789abcdef0123456789abcdef"
@@ -609,9 +561,6 @@ def test_decode_token_cookie():
     assert decode_token_cookie(morsel) is None
 
 
-# --- local_datetime tests ---
-
-
 def test_local_datetime():
     assert local_datetime(None).tzinfo is not None
     assert (
@@ -628,9 +577,6 @@ def test_get_local_timezone(monkeypatch):
     monkeypatch.setenv("TZ", "Europe/Berlin")
     assert get_local_timezone() is not None
     monkeypatch.setattr(utils_module, "TIMEZONE_GLOBAL", None)
-
-
-# --- WS stat tests ---
 
 
 def test_ws_stat_summary():
@@ -717,18 +663,12 @@ def test_print_ws_stat_summary_without_typer(monkeypatch, capsys):
     assert "camera: 1" in capsys.readouterr().out
 
 
-# --- write_json tests ---
-
-
 @pytest.mark.asyncio()
 async def test_write_json(tmp_path: Path):
     path = tmp_path / "test.json"
     await write_json(path, {"key": "value"})
     assert await aos.path.exists(path)
     assert '"key": "value"' in await async_read_text(path)
-
-
-# --- log_event tests ---
 
 
 def test_log_event():
