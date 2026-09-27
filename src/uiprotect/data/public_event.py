@@ -170,7 +170,8 @@ class PublicEventMetadata(ProtectBaseObject):
     ) -> dict[str, Any]:
         """Serialise, dropping ``None`` fields and re-wrapping metadata envelopes."""
         data = super().unifi_dict(data=data, exclude=exclude)
-        if (status_text := data.pop("statusText", None)) is not None:
+        status_text = data.pop("statusText", None)
+        if status_text is not None and (exclude is None or "status" not in exclude):
             data["status"] = status_text
         for key, value in list(data.items()):
             if value is None:

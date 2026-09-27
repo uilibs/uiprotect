@@ -350,6 +350,16 @@ def test_status_text_survives_partial_update() -> None:
     assert event.tamper_status is AlarmHubTamperStatus.RESTORED
 
 
+def test_metadata_unifi_dict_honours_status_exclude() -> None:
+    metadata = PublicEventMetadata.from_unifi_dict(
+        status={"text": "tampered"},
+        deviceName={"text": "Alarm Hub"},
+    )
+    assert metadata.unifi_dict(exclude={"status"}) == {
+        "deviceName": {"text": "Alarm Hub"}
+    }
+
+
 def test_alarm_hub_tamper_status_unknown_value() -> None:
     assert AlarmHubTamperStatus("unobtanium") is AlarmHubTamperStatus.UNKNOWN
 
