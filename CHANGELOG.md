@@ -1,5 +1,13 @@
 # Changelog
 
+## v17.2.0 (2026-09-27)
+
+### Features
+
+
+- Notify consumers when a websocket-less public store changes ([`35248f7`](https://github.com/uilibs/uiprotect/commit/35248f70fa5c33926ddaad6739698f9b8635fde1))
+
+
 ## v17.1.1 (2026-09-26)
 
 ### Bug fixes
