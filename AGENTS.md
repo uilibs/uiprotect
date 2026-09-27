@@ -333,8 +333,9 @@ endpoint. If the file is absent, run the script first.
 
 `scripts/validate_spec.py` checks the public-API client against a fetched
 spec and reports drift: spec endpoints with no covering `*_public` method
-(warning), model fields the spec dropped/retyped (error) or added (warning),
-new values on a named, tracked enum (warning), and any spec enum — named **or**
+(warning), model fields the spec dropped/retyped (error) or added (warning,
+nested objects included), new values on a named, tracked enum (warning), and
+any spec enum — named **or**
 inline — that is not faithfully typed in the library (**error**, so the check
 gates: `main()` exits non-zero and the cron opens a drift issue instead of a
 green marker-bump PR). The enum-coverage check walks the whole spec keyed by

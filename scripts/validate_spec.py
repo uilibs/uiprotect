@@ -573,12 +573,34 @@ def check_model_fields(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
             f"(server removed/retyped it)"
             for name in sorted(removed)
         )
-        added = spec_fields - model_fields
-        warnings.extend(
-            f"{schema_name}: spec field `{name}` has no model counterpart"
-            for name in sorted(added)
-        )
+        warnings.extend(_unmodelled_spec_fields(cls, props, schemas, schema_name))
     return errors, warnings
+
+
+def _unmodelled_spec_fields(
+    cls: type[ProtectBaseObject],
+    props: dict[str, dict[str, Any]],
+    schemas: dict[str, Any],
+    path: str,
+) -> list[str]:
+    """Warn for each spec key without a model field, recursing into nested models."""
+    remaps = cls._get_unifi_remaps()
+    added = {_spec_field_name(key, remaps) for key in props} - set(cls.model_fields)
+    warnings = [
+        f"{path}: spec field `{name}` has no model counterpart"
+        for name in sorted(added)
+    ]
+    for key, prop_schema in props.items():
+        field = cls.model_fields.get(_spec_field_name(key, remaps))
+        if field is None:
+            continue
+        nested_props = _resolve_object_props(prop_schema, schemas)
+        leaf = _leaf_model(field.annotation)
+        if nested_props is not None and leaf is not None:
+            warnings.extend(
+                _unmodelled_spec_fields(leaf, nested_props, schemas, f"{path}.{key}")
+            )
+    return warnings
 
 
 def check_enums(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
