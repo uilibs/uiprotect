@@ -561,19 +561,25 @@ def check_model_fields(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
         if props is None:
             errors.append(f"{schema_name}: spec schema is not object-shaped")
             continue
-        remaps = cls._get_unifi_remaps()
-        spec_fields = {_spec_field_name(key, remaps) for key in props}
-        model_fields = set(cls.model_fields)
-        owned = _LIBRARY_OWNED_FIELDS.get(schema_name, set())
-        extra = _EXTRA_MODEL_FIELDS.get(schema_name, set())
-
-        removed = model_fields - spec_fields - owned - extra
-        errors.extend(
-            f"{schema_name}: model field `{name}` absent from spec "
-            f"(server removed/retyped it)"
-            for name in sorted(removed)
-        )
-        warnings.extend(_unmodelled_spec_fields(cls, props, schemas, schema_name))
+        for model, model_props, path in walk_models(cls, props, schemas, schema_name):
+            remaps = model._get_unifi_remaps()
+            spec_fields = {_spec_field_name(key, remaps) for key in model_props}
+            model_fields = set(model.model_fields)
+            removed = (
+                model_fields
+                - spec_fields
+                - _LIBRARY_OWNED_FIELDS.get(path, set())
+                - _EXTRA_MODEL_FIELDS.get(path, set())
+            )
+            errors.extend(
+                f"{path}: model field `{name}` absent from spec "
+                f"(server removed/retyped it)"
+                for name in sorted(removed)
+            )
+            warnings.extend(
+                f"{path}: spec field `{name}` has no model counterpart"
+                for name in sorted(spec_fields - model_fields)
+            )
     return errors, warnings
 
 
@@ -596,24 +602,6 @@ def walk_models(
         leaf = _leaf_model(field.annotation)
         if leaf is not None:
             yield from walk_models(leaf, nested_props, schemas, f"{path}.{key}")
-
-
-def _unmodelled_spec_fields(
-    cls: type[ProtectBaseObject],
-    props: dict[str, dict[str, Any]],
-    schemas: dict[str, Any],
-    path: str,
-) -> list[str]:
-    """Warn for each spec key without a model field, including nested models."""
-    warnings: list[str] = []
-    for model, model_props, model_path in walk_models(cls, props, schemas, path):
-        remaps = model._get_unifi_remaps()
-        spec_fields = {_spec_field_name(key, remaps) for key in model_props}
-        warnings.extend(
-            f"{model_path}: spec field `{name}` has no model counterpart"
-            for name in sorted(spec_fields - set(model.model_fields))
-        )
-    return warnings
 
 
 def check_enums(spec: dict[str, Any]) -> tuple[list[str], list[str]]:

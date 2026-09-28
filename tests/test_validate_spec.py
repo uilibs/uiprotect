@@ -7,9 +7,10 @@ spec, absent in CI) to one check function and pins its ``(errors, warnings)``.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import orjson
+import pytest
 import validate_spec  # local import via conftest sys.path insert
 from validate_spec import (
     _CHECKS,
@@ -43,9 +44,6 @@ from uiprotect._public_api import registry
 from uiprotect.api import ProtectApiClient
 from uiprotect.data import PUBLIC_EVENT_TYPES, PublicChime
 from uiprotect.data.public_devices import PublicRingSettings
-
-if TYPE_CHECKING:
-    import pytest
 
 
 def _model_props(cls: Any, name: str) -> dict[str, dict[str, Any]]:
@@ -223,6 +221,36 @@ def test_check_model_fields_nested_added_field_warns() -> None:
     assert warnings == [
         "chime.ringSettings: spec field `new_nested_field` has no model counterpart"
     ]
+
+
+@pytest.mark.parametrize(
+    ("waiver", "expected"),
+    [
+        (
+            None,
+            [
+                "chime.ringSettings: model field `volume` absent from spec "
+                "(server removed/retyped it)"
+            ],
+        ),
+        ("_LIBRARY_OWNED_FIELDS", []),
+        ("_EXTRA_MODEL_FIELDS", []),
+    ],
+)
+def test_check_model_fields_nested_removed_field(
+    monkeypatch: pytest.MonkeyPatch, waiver: str | None, expected: list[str]
+) -> None:
+    """A nested model field the spec dropped errors unless waived by its path."""
+    spec = _ring_settings_spec()
+    ring = spec["components"]["schemas"]["chime"]["properties"]["ringSettings"]
+    del ring["items"]["properties"]["volume"]
+    if waiver is not None:
+        monkeypatch.setitem(
+            getattr(validate_spec, waiver), "chime.ringSettings", {"volume"}
+        )
+    errors, warnings = check_model_fields(spec)
+    assert errors == expected
+    assert warnings == []
 
 
 def test_check_model_fields_nested_object_on_non_model_field_skipped() -> None:
