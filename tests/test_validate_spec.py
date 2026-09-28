@@ -7,9 +7,10 @@ spec, absent in CI) to one check function and pins its ``(errors, warnings)``.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import orjson
+import pytest
 import validate_spec  # local import via conftest sys.path insert
 from validate_spec import (
     _CHECKS,
@@ -44,17 +45,23 @@ from uiprotect.api import ProtectApiClient
 from uiprotect.data import PUBLIC_EVENT_TYPES, PublicChime
 from uiprotect.data.public_devices import PublicRingSettings
 
-if TYPE_CHECKING:
-    import pytest
-
 
 def _model_props(cls: Any, name: str) -> dict[str, dict[str, Any]]:
     """Build green spec ``properties`` for one tracked model schema."""
     inv = {v: k for k, v in cls._get_unifi_remaps().items()}
     owned = validate_spec._LIBRARY_OWNED_FIELDS.get(name, set())
-    return {
-        inv.get(f, f): {"type": "string"} for f in cls.model_fields if f not in owned
-    }
+    props: dict[str, dict[str, Any]] = {}
+    for field_name, field in cls.model_fields.items():
+        if field_name in owned:
+            continue
+        key = inv.get(field_name, field_name)
+        leaf = validate_spec._leaf_model(field.annotation)
+        props[key] = (
+            {"type": "string"}
+            if leaf is None
+            else {"type": "object", "properties": _model_props(leaf, f"{name}.{key}")}
+        )
+    return props
 
 
 def _event_union(props: dict[str, dict[str, Any]]) -> dict[str, Any]:
@@ -223,6 +230,55 @@ def test_check_model_fields_nested_added_field_warns() -> None:
     assert warnings == [
         "chime.ringSettings: spec field `new_nested_field` has no model counterpart"
     ]
+
+
+@pytest.mark.parametrize(
+    ("retype", "waiver", "expected"),
+    [
+        (
+            False,
+            None,
+            [
+                (
+                    "chime.ringSettings: model field `volume` absent from spec "
+                    "(server removed/retyped it)"
+                )
+            ],
+        ),
+        (False, "_LIBRARY_OWNED_FIELDS", []),
+        (False, "_EXTRA_MODEL_FIELDS", []),
+        (
+            True,
+            None,
+            [
+                (
+                    "chime: model field `ring_settings` expects an object but the "
+                    "spec retyped it to a scalar"
+                )
+            ],
+        ),
+    ],
+)
+def test_check_model_fields_nested_removed_field(
+    monkeypatch: pytest.MonkeyPatch,
+    retype: bool,
+    waiver: str | None,
+    expected: list[str],
+) -> None:
+    """A nested model field the spec dropped or made scalar errors unless waived."""
+    spec = _ring_settings_spec()
+    chime = spec["components"]["schemas"]["chime"]["properties"]
+    if retype:
+        chime["ringSettings"] = {"type": "string"}
+    else:
+        del chime["ringSettings"]["items"]["properties"]["volume"]
+    if waiver is not None:
+        monkeypatch.setitem(
+            getattr(validate_spec, waiver), "chime.ringSettings", {"volume"}
+        )
+    errors, warnings = check_model_fields(spec)
+    assert errors == expected
+    assert warnings == []
 
 
 def test_check_model_fields_nested_object_on_non_model_field_skipped() -> None:

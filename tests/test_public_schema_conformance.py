@@ -2,7 +2,7 @@
 
 # The spec (``openapi/integration.json``) is gitignored and not fetched in CI, so
 # this test skips cleanly when it is absent. Run ``python scripts/fetch_openapi.py``
-# (defaults to the latest release) locally to enable it.
+# (defaults to the latest version on the developer portal) locally to enable it.
 #
 # The check is a subset assertion (model fields ⊆ spec fields), NOT strict
 # equality: it catches phantom fields — model fields with no counterpart in the
@@ -19,68 +19,16 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-
 import orjson
 import pytest
 from validate_spec import (  # local import via conftest sys.path insert
-    _EXTRA_MODEL_FIELDS,
-    _LIBRARY_OWNED_FIELDS,
-    _MODEL_SCHEMAS,
     SPEC_PATH,
-    _resolve_object_props,
-    _spec_field_name,
     check_completeness,
     check_enum_coverage,
     run_checks,
-    walk_models,
 )
-
-if TYPE_CHECKING:
-    from uiprotect.data.base import ProtectBaseObject
 
 _SPEC_PATH = SPEC_PATH
-
-
-def _assert_matches(
-    cls: type[ProtectBaseObject],
-    node: dict[str, Any],
-    schemas: dict[str, Any],
-    path: str,
-) -> None:
-    """Assert ``cls.model_fields`` is a subset of the spec property set (no phantom fields), recursively."""
-    props = _resolve_object_props(node, schemas)
-    assert props is not None, f"{path}: spec schema is not object-shaped"
-
-    for model, model_props, model_path in walk_models(cls, props, schemas, path):
-        remaps = model._get_unifi_remaps()
-        spec_fields = {_spec_field_name(key, remaps) for key in model_props}
-        phantom = (
-            set(model.model_fields)
-            - spec_fields
-            - _LIBRARY_OWNED_FIELDS.get(model_path, set())
-            - _EXTRA_MODEL_FIELDS.get(model_path, set())
-        )
-        assert not phantom, (
-            f"{model_path}: model declares field(s) absent from the spec: "
-            f"{sorted(phantom)}"
-        )
-
-
-@pytest.mark.skipif(not _SPEC_PATH.exists(), reason="openapi/integration.json absent")
-@pytest.mark.parametrize(
-    ("cls", "schema_name"),
-    _MODEL_SCHEMAS,
-    ids=[schema_name for _cls, schema_name in _MODEL_SCHEMAS],
-)
-def test_public_model_matches_spec(
-    cls: type[ProtectBaseObject], schema_name: str
-) -> None:
-    """``model_fields`` is a subset of the resolved spec property set, including nested leaves."""
-    schemas = orjson.loads(_SPEC_PATH.read_bytes())["components"]["schemas"]
-    _assert_matches(
-        cls, {"$ref": f"#/components/schemas/{schema_name}"}, schemas, schema_name
-    )
 
 
 @pytest.mark.skipif(not _SPEC_PATH.exists(), reason="openapi/integration.json absent")

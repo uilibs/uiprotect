@@ -24,12 +24,21 @@ if TYPE_CHECKING:
 class _FakeResponse:
     """Minimal stand-in for the object returned by ``urlopen`` as a context manager."""
 
-    def __init__(self, body: bytes, content_type: str = "application/json") -> None:
+    def __init__(
+        self,
+        body: bytes = b"",
+        content_type: str = "application/json",
+        url: str = "",
+    ) -> None:
         self._body = body
+        self._url = url
         self.headers = {"Content-Type": content_type}
 
     def read(self) -> bytes:
         return self._body
+
+    def geturl(self) -> str:
+        return self._url
 
 
 @contextmanager
@@ -37,29 +46,46 @@ def _urlopen_returning(response: _FakeResponse) -> Any:
     yield response
 
 
-def test_list_versions_parses_portal_payload() -> None:
-    """`list_versions` extracts vX.Y.Z entries from the Next.js payload."""
-    html = (
-        'foo<script>{\\"versions\\":[{\\"version\\":\\"v7.1.87\\"},'
-        '{\\"version\\":\\"v7.1.83\\"},{\\"version\\":\\"v5.3.48\\"}]}</script>bar'
-    )
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://developer.ui.com/protect/v7.3.68/gettingstarted",
+        "https://developer.ui.com/protect/v7.3.68",
+    ],
+)
+def test_latest_portal_version_follows_redirect(url: str) -> None:
+    """The latest version is read from the portal index's redirect target."""
     with patch(
         "fetch_openapi.urllib.request.urlopen",
-        return_value=_urlopen_returning(_FakeResponse(html.encode())),
+        return_value=_urlopen_returning(_FakeResponse(url=url)),
     ):
-        assert fetch_openapi.list_versions() == ["7.1.87", "7.1.83", "5.3.48"]
+        assert fetch_openapi.latest_portal_version() == "7.3.68"
 
 
-def test_list_versions_raises_when_payload_missing() -> None:
-    """`list_versions` raises when the version array is absent from the page."""
+def test_latest_portal_version_raises_without_versioned_redirect() -> None:
+    """An unversioned redirect target surfaces as a RuntimeError naming the URL."""
+    url = "https://developer.ui.com/protect/gettingstarted"
     with (
         patch(
             "fetch_openapi.urllib.request.urlopen",
-            return_value=_urlopen_returning(_FakeResponse(b"no versions here")),
+            return_value=_urlopen_returning(_FakeResponse(url=url)),
         ),
-        pytest.raises(RuntimeError, match="version list"),
+        pytest.raises(RuntimeError, match="gettingstarted"),
     ):
-        fetch_openapi.list_versions()
+        fetch_openapi.latest_portal_version()
+
+
+@pytest.mark.parametrize(
+    ("requested", "expected", "portal_calls"),
+    [(None, "7.3.68", 1), ("7.3.56", "7.3.56", 0), ("v7.3.56", "7.3.56", 0)],
+)
+def test_resolve_version(
+    requested: str | None, expected: str, portal_calls: int
+) -> None:
+    """An explicit version is normalised offline; none resolves the portal latest."""
+    with patch("fetch_openapi.latest_portal_version", return_value="7.3.68") as latest:
+        assert fetch_openapi.resolve_version(requested) == expected
+    assert latest.call_count == portal_calls
 
 
 def test_fetch_from_portal_returns_json_bytes() -> None:
@@ -87,7 +113,7 @@ def test_fetch_from_portal_rejects_non_json() -> None:
 
 
 def test_fetch_from_portal_404_hints_at_fallback() -> None:
-    """A 404 from the portal surfaces a hint to use --list or --from-deb."""
+    """A 404 from the portal surfaces a hint to retry with --from-deb."""
     err = urllib.error.HTTPError(url="x", code=404, msg="Not Found", hdrs=None, fp=None)
     with (
         patch("fetch_openapi.urllib.request.urlopen", side_effect=err),
@@ -113,10 +139,7 @@ def test_fetch_spec_stamps_placeholder_version(tmp_path: Path) -> None:
     out = tmp_path / "integration.json"
     spec = {"info": {"version": "0.0.0"}, "paths": {"/x": {}}}
     with (
-        patch(
-            "fetch_openapi._query_firmware",
-            return_value=("deb-url", "7.1.87"),
-        ),
+        patch("fetch_openapi.latest_portal_version", return_value="7.3.68"),
         patch(
             "fetch_openapi._fetch_from_portal",
             return_value=json.dumps(spec).encode(),
@@ -125,7 +148,29 @@ def test_fetch_spec_stamps_placeholder_version(tmp_path: Path) -> None:
         fetch_openapi.fetch_spec(output=out)
 
     written = json.loads(out.read_bytes())
-    assert written["info"]["version"] == "7.1.87"
+    assert written["info"]["version"] == "7.3.68"
+
+
+@pytest.mark.parametrize(
+    ("requested", "expected"), [(None, "7.3.68"), ("7.3.56", "7.3.56")]
+)
+def test_fetch_spec_from_portal_skips_firmware_api(
+    tmp_path: Path, requested: str | None, expected: str
+) -> None:
+    """A portal fetch never queries the firmware API, even for a portal-only version."""
+    spec = {"info": {"version": "0.0.0"}, "paths": {}}
+    with (
+        patch("fetch_openapi.latest_portal_version", return_value="7.3.68"),
+        patch("fetch_openapi._query_firmware") as firmware,
+        patch(
+            "fetch_openapi._fetch_from_portal",
+            return_value=json.dumps(spec).encode(),
+        ) as portal,
+    ):
+        fetch_openapi.fetch_spec(requested, tmp_path / "integration.json")
+
+    firmware.assert_not_called()
+    portal.assert_called_once_with(expected)
 
 
 def test_fetch_spec_from_deb_preserves_real_version(tmp_path: Path) -> None:
