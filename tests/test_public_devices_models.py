@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock
@@ -42,6 +43,8 @@ from uiprotect.data.types import (
     ModelType,
     SensorScheduleMode,
     SmartDetectObjectType,
+    ThreadNetworkRole,
+    ThreadNetworkStatus,
 )
 from uiprotect.exceptions import BadRequest
 
@@ -823,6 +826,125 @@ def test_fob_model_name_falls_back_to_class_name() -> None:
 
     reported = Fob.from_unifi_dict(api=Mock(), **{**FOB_PAYLOAD, "type": "UFP-Fob"})
     assert reported.model_name == "UFP-Fob"
+
+
+FOB_7_3_KEYS: dict[str, Any] = {
+    "featureFlags": {"buttons": ["arm", "disarm"], "hasKeypad": True},
+    "armControlSettings": {
+        "enabled": True,
+        "armProfileId": "profile1",
+        "nightProfileId": None,
+    },
+    "keypadSettings": {"beepEnabled": False, "beepVolume": 40},
+}
+
+LINK_STATION_PAYLOAD: dict[str, Any] = {
+    "id": "ls1",
+    "modelKey": "linkstation",
+    "state": "CONNECTED",
+    "name": "Garage Link",
+    "mac": "AABBCCDDEE05",
+    "isAlarmHub": False,
+    "ledSettings": {"isEnabled": True},
+    "lastEvent": None,
+    "alarmHub": None,
+}
+
+THREAD_NETWORK: dict[str, Any] = {
+    "status": "ready",
+    "role": "leader",
+    "networkName": "ProtectThread",
+    "channel": 15,
+    "panId": "1a2b",
+    "extendedPanId": "0011223344556677",
+    "joinedDeviceCount": 3,
+    "errorReason": None,
+    "lastUpdatedAt": 1700000000000,
+}
+
+
+@pytest.mark.parametrize("debug", [True, False])
+@pytest.mark.parametrize("firmware", ["7.3", "7.2"])
+def test_fob_7_3_settings(debug: bool, firmware: str) -> None:
+    """7.3 fob settings and ``hasKeypad`` parse and round-trip; 7.2 leaves ``None``."""
+    if not debug:
+        set_no_debug()
+    extra = FOB_7_3_KEYS if firmware == "7.3" else {}
+    fob = Fob.from_unifi_dict(api=Mock(), **deepcopy({**FOB_PAYLOAD, **extra}))
+    if firmware == "7.2":
+        assert fob.feature_flags.has_keypad is None
+        assert fob.arm_control_settings is None
+        assert fob.keypad_settings is None
+        return
+    assert fob.feature_flags.has_keypad is True
+    assert fob.arm_control_settings is not None
+    assert fob.arm_control_settings.enabled is True
+    assert fob.arm_control_settings.arm_profile_id == "profile1"
+    assert fob.arm_control_settings.night_profile_id is None
+    assert fob.keypad_settings is not None
+    assert fob.keypad_settings.beep_enabled is False
+    assert fob.keypad_settings.beep_volume == 40
+    data = fob.unifi_dict()
+    for key, value in FOB_7_3_KEYS.items():
+        assert data[key] == value
+
+
+@pytest.mark.parametrize("debug", [True, False])
+@pytest.mark.parametrize(
+    "thread_state",
+    [None, {"network": None}, {"network": THREAD_NETWORK}],
+    ids=["7.2", "no-thread-radio", "7.3"],
+)
+def test_link_station_thread_state(
+    debug: bool, thread_state: dict[str, Any] | None
+) -> None:
+    """``threadState`` parses and round-trips; absent on 7.2 leaves ``None``."""
+    if not debug:
+        set_no_debug()
+    data = dict(LINK_STATION_PAYLOAD)
+    if thread_state is not None:
+        data["threadState"] = deepcopy(thread_state)
+    ls = LinkStation.from_unifi_dict(api=Mock(), **data)
+    if thread_state is None:
+        assert ls.thread_state is None
+        return
+    assert ls.thread_state is not None
+    assert ls.unifi_dict()["threadState"] == thread_state
+    network = ls.thread_state.network
+    if thread_state["network"] is None:
+        assert network is None
+        return
+    assert network is not None
+    assert network.status is ThreadNetworkStatus.READY
+    assert network.role is ThreadNetworkRole.LEADER
+    assert network.network_name == "ProtectThread"
+    assert network.channel == 15
+    assert network.pan_id == "1a2b"
+    assert network.extended_pan_id == "0011223344556677"
+    assert network.joined_device_count == 3
+    assert network.error_reason is None
+    assert network.last_updated_at_dt == datetime(2023, 11, 14, 22, 13, 20, tzinfo=UTC)
+
+
+def test_link_station_thread_network_unknown_values() -> None:
+    """Unknown Thread status/role coerce to ``UNKNOWN``; null role stays ``None``."""
+    network = {**THREAD_NETWORK, "status": "degraded", "role": "sleepy"}
+    ls = LinkStation.from_unifi_dict(
+        api=Mock(), **{**LINK_STATION_PAYLOAD, "threadState": {"network": network}}
+    )
+    assert ls.thread_state is not None
+    assert ls.thread_state.network is not None
+    assert ls.thread_state.network.status is ThreadNetworkStatus.UNKNOWN
+    assert ls.thread_state.network.role is ThreadNetworkRole.UNKNOWN
+
+    network = {**THREAD_NETWORK, "status": "error", "role": None}
+    ls = LinkStation.from_unifi_dict(
+        api=Mock(), **{**LINK_STATION_PAYLOAD, "threadState": {"network": network}}
+    )
+    assert ls.thread_state is not None
+    assert ls.thread_state.network is not None
+    assert ls.thread_state.network.status is ThreadNetworkStatus.ERROR
+    assert ls.thread_state.network.role is None
 
 
 @pytest.mark.asyncio

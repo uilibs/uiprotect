@@ -974,6 +974,27 @@ class SpeakerMode(UnknownValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
+class ThreadNetworkStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API Thread network status (``threadState.network.status``)."""
+
+    READY = "ready"
+    ERROR = "error"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class ThreadNetworkRole(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API Thread network role (``threadState.network.role``)."""
+
+    DISABLED = "disabled"
+    DETACHED = "detached"
+    CHILD = "child"
+    ROUTER = "router"
+    LEADER = "leader"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
 class LiveviewCycleMode(UnknownValuesEnumMixin, enum.StrEnum):
     """Public-API liveview slot cycle mode (``slots[].cycleMode`` field)."""
 
