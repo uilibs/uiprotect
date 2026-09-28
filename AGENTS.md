@@ -321,7 +321,7 @@ The OpenAPI spec is not committed (Ubiquiti's IP). Fetch it on demand — no
 auth or console access needed:
 
 ```bash
-python scripts/fetch_openapi.py                    # latest release
+python scripts/fetch_openapi.py                    # latest on the portal
 python scripts/fetch_openapi.py --version 7.0.104  # pin to a version
 ```
 
@@ -384,10 +384,11 @@ string (no IP) whose git history records when conformance last moved forward.
 present and skips cleanly when it is absent (the CI default); the logic itself
 is unit-tested network-free against in-memory mock specs in
 `tests/test_validate_spec.py`. The `.github/workflows/spec-validation.yml`
-cron runs the full validation at most once per Protect release — opening a
-marker-bump PR when green or a single drift issue when red — and short-circuits
-on a firmware-API check before downloading anything while the marker is current
-or a drift issue is already open. Endpoint coverage is **derived, not hand-
+cron runs the full validation at most once per spec version published on the
+developer portal — opening a marker-bump PR whose body carries the report's
+warnings when green, or a single drift issue when red — and short-circuits on
+the portal's latest-version redirect before downloading anything while the
+marker is current or a drift issue is already open. Endpoint coverage is **derived, not hand-
 maintained**: the declarative `@public_*` decorator registry
 (`uiprotect._public_api.registry`) covers every uniform endpoint, and the
 hand-written exception methods are covered by one recorded example call each
