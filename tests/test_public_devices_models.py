@@ -901,7 +901,7 @@ def test_link_station_thread_state(
     """``threadState`` parses and round-trips; absent on 7.2 leaves ``None``."""
     if not debug:
         set_no_debug()
-    data = dict(LINK_STATION_PAYLOAD)
+    data = deepcopy(LINK_STATION_PAYLOAD)
     if thread_state is not None:
         data["threadState"] = deepcopy(thread_state)
     ls = LinkStation.from_unifi_dict(api=Mock(), **data)
@@ -930,7 +930,8 @@ def test_link_station_thread_network_unknown_values() -> None:
     """Unknown Thread status/role coerce to ``UNKNOWN``; null role stays ``None``."""
     network = {**THREAD_NETWORK, "status": "degraded", "role": "sleepy"}
     ls = LinkStation.from_unifi_dict(
-        api=Mock(), **{**LINK_STATION_PAYLOAD, "threadState": {"network": network}}
+        api=Mock(),
+        **deepcopy({**LINK_STATION_PAYLOAD, "threadState": {"network": network}}),
     )
     assert ls.thread_state is not None
     assert ls.thread_state.network is not None
@@ -939,7 +940,8 @@ def test_link_station_thread_network_unknown_values() -> None:
 
     network = {**THREAD_NETWORK, "status": "error", "role": None}
     ls = LinkStation.from_unifi_dict(
-        api=Mock(), **{**LINK_STATION_PAYLOAD, "threadState": {"network": network}}
+        api=Mock(),
+        **deepcopy({**LINK_STATION_PAYLOAD, "threadState": {"network": network}}),
     )
     assert ls.thread_state is not None
     assert ls.thread_state.network is not None

@@ -395,6 +395,11 @@ _EXTRA_MODEL_FIELDS: dict[str, set[str]] = {
     "bridge": {"device_type", "device_guid"},
     # ``alarmHubDeviceTamper`` ``userName`` first appears in the 7.3 spec.
     "event.metadata": {"user_name"},
+    # Fob arm-control/keypad settings and link-station Thread state first
+    # appear in the 7.3 spec.
+    "fob": {"arm_control_settings", "keypad_settings"},
+    "fob.featureFlags": {"has_keypad"},
+    "linkStation": {"thread_state"},
 }
 
 _HTTP_METHODS = ("get", "post", "put", "patch", "delete")
