@@ -77,6 +77,8 @@ from .types import (
     SmartDetectObjectType,
     SpeakerMode,
     SpeakerStatus,
+    ThreadNetworkRole,
+    ThreadNetworkStatus,
     UlpUserStatus,
     VideoMode,
 )
@@ -1983,6 +1985,19 @@ class PublicFobFeatureFlags(ProtectBaseObject):
     # ``FobButton`` carries an ``unknown`` member, so button kinds added by
     # newer firmware coerce to ``FobButton.UNKNOWN`` instead of raising.
     buttons: list[FobButton]
+    # Added in Protect 7.3; ``None`` means the firmware does not report it.
+    has_keypad: bool | None = None
+
+
+class PublicFobArmControlSettings(ProtectBaseObject):
+    enabled: bool
+    arm_profile_id: str | None = None
+    night_profile_id: str | None = None
+
+
+class PublicFobKeypadSettings(ProtectBaseObject):
+    beep_enabled: bool
+    beep_volume: int
 
 
 class Fob(PublicDeviceModel):
@@ -1997,6 +2012,9 @@ class Fob(PublicDeviceModel):
     away_state: FobAwayState
     button_labels: FobButtonLabels
     feature_flags: PublicFobFeatureFlags
+    # Added in Protect 7.3; absent on older firmware.
+    arm_control_settings: PublicFobArmControlSettings | None = None
+    keypad_settings: PublicFobKeypadSettings | None = None
     # Required by the spec — a fob is always a wireless battery device.
     wireless_connection_state: PublicWirelessConnectionState
 
@@ -2117,6 +2135,28 @@ class AlarmHubOutput(ProtectBaseObject):
     duration: int | None = None
 
 
+class PublicLinkStationThreadNetwork(ProtectBaseObject):
+    status: ThreadNetworkStatus
+    role: ThreadNetworkRole | None = None
+    network_name: str | None = None
+    channel: int | None = None
+    pan_id: str | None = None
+    extended_pan_id: str | None = None
+    joined_device_count: int
+    error_reason: str | None = None
+    last_updated_at: int
+
+    @property
+    def last_updated_at_dt(self) -> datetime | None:
+        """``last_updated_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.last_updated_at)
+
+
+class PublicLinkStationThreadState(ProtectBaseObject):
+    # Populated only on Thread-capable gateway SKUs.
+    network: PublicLinkStationThreadNetwork | None = None
+
+
 class LinkStation(PublicDeviceModel):
     """
     Public API link station / alarm hub.
@@ -2147,6 +2187,8 @@ class LinkStation(PublicDeviceModel):
     # ``alarm_hub_battery``, ``alarm_hub_cover``, ``alarm_hub_inputs``,
     # ``alarm_hub_outputs``).
     alarm_hub: dict[str, Any] | None = None
+    # Added in Protect 7.3; absent on older firmware.
+    thread_state: PublicLinkStationThreadState | None = None
 
     @classmethod
     @cache
