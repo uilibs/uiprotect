@@ -580,7 +580,32 @@ def check_model_fields(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
                 f"{path}: spec field `{name}` has no model counterpart"
                 for name in sorted(spec_fields - model_fields)
             )
+            errors.extend(
+                f"{path}: model field `{name}` expects an object but the spec "
+                f"retyped it to a scalar"
+                for name in _scalar_retyped_fields(model, model_props, schemas)
+            )
     return errors, warnings
+
+
+def _scalar_retyped_fields(
+    cls: type[ProtectBaseObject],
+    props: dict[str, dict[str, Any]],
+    schemas: dict[str, Any],
+) -> list[str]:
+    """Model-typed fields whose spec schema no longer resolves to an object."""
+    remaps = cls._get_unifi_remaps()
+    retyped: list[str] = []
+    for key, prop_schema in props.items():
+        name = _spec_field_name(key, remaps)
+        field = cls.model_fields.get(name)
+        if (
+            field is not None
+            and _leaf_model(field.annotation) is not None
+            and _resolve_object_props(prop_schema, schemas) is None
+        ):
+            retyped.append(name)
+    return sorted(retyped)
 
 
 def walk_models(

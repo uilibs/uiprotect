@@ -50,9 +50,18 @@ def _model_props(cls: Any, name: str) -> dict[str, dict[str, Any]]:
     """Build green spec ``properties`` for one tracked model schema."""
     inv = {v: k for k, v in cls._get_unifi_remaps().items()}
     owned = validate_spec._LIBRARY_OWNED_FIELDS.get(name, set())
-    return {
-        inv.get(f, f): {"type": "string"} for f in cls.model_fields if f not in owned
-    }
+    props: dict[str, dict[str, Any]] = {}
+    for field_name, field in cls.model_fields.items():
+        if field_name in owned:
+            continue
+        key = inv.get(field_name, field_name)
+        leaf = validate_spec._leaf_model(field.annotation)
+        props[key] = (
+            {"type": "string"}
+            if leaf is None
+            else {"type": "object", "properties": _model_props(leaf, f"{name}.{key}")}
+        )
+    return props
 
 
 def _event_union(props: dict[str, dict[str, Any]]) -> dict[str, Any]:
@@ -224,9 +233,10 @@ def test_check_model_fields_nested_added_field_warns() -> None:
 
 
 @pytest.mark.parametrize(
-    ("waiver", "expected"),
+    ("retype", "waiver", "expected"),
     [
         (
+            False,
             None,
             [
                 (
@@ -235,17 +245,33 @@ def test_check_model_fields_nested_added_field_warns() -> None:
                 )
             ],
         ),
-        ("_LIBRARY_OWNED_FIELDS", []),
-        ("_EXTRA_MODEL_FIELDS", []),
+        (False, "_LIBRARY_OWNED_FIELDS", []),
+        (False, "_EXTRA_MODEL_FIELDS", []),
+        (
+            True,
+            None,
+            [
+                (
+                    "chime: model field `ring_settings` expects an object but the "
+                    "spec retyped it to a scalar"
+                )
+            ],
+        ),
     ],
 )
 def test_check_model_fields_nested_removed_field(
-    monkeypatch: pytest.MonkeyPatch, waiver: str | None, expected: list[str]
+    monkeypatch: pytest.MonkeyPatch,
+    retype: bool,
+    waiver: str | None,
+    expected: list[str],
 ) -> None:
-    """A nested model field the spec dropped errors unless waived by its path."""
+    """A nested model field the spec dropped or made scalar errors unless waived."""
     spec = _ring_settings_spec()
-    ring = spec["components"]["schemas"]["chime"]["properties"]["ringSettings"]
-    del ring["items"]["properties"]["volume"]
+    chime = spec["components"]["schemas"]["chime"]["properties"]
+    if retype:
+        chime["ringSettings"] = {"type": "string"}
+    else:
+        del chime["ringSettings"]["items"]["properties"]["volume"]
     if waiver is not None:
         monkeypatch.setitem(
             getattr(validate_spec, waiver), "chime.ringSettings", {"volume"}
