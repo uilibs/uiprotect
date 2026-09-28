@@ -42,7 +42,7 @@ from ..utils import (
 )
 
 if TYPE_CHECKING:
-    from click.core import Parameter
+    from typer._click.core import Parameter
 
 app = typer.Typer(rich_markup_mode="rich")
 Base = declarative_base()
