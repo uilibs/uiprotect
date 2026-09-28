@@ -42,6 +42,7 @@ from validate_spec import (
 from uiprotect._public_api import registry
 from uiprotect.api import ProtectApiClient
 from uiprotect.data import PUBLIC_EVENT_TYPES, PublicChime
+from uiprotect.data.public_devices import PublicRingSettings
 
 if TYPE_CHECKING:
     import pytest
@@ -193,6 +194,46 @@ def test_check_model_fields_added_field_warns() -> None:
     errors, warnings = check_model_fields(_chime_spec(extra="newServerField"))
     assert errors == []
     assert any("new_server_field" in w for w in warnings)
+
+
+def _ring_settings_spec(**extra: dict[str, Any]) -> dict[str, Any]:
+    """Build a green spec whose ``chime.ringSettings`` is a nested object array."""
+    spec = _chime_spec()
+    item = {
+        "type": "object",
+        "properties": {**_model_props(PublicRingSettings, "ringSettings"), **extra},
+    }
+    spec["components"]["schemas"]["chime"]["properties"]["ringSettings"] = {
+        "type": "array",
+        "items": item,
+    }
+    return spec
+
+
+def test_check_model_fields_nested_all_green() -> None:
+    errors, warnings = check_model_fields(_ring_settings_spec())
+    assert errors == []
+    assert warnings == []
+
+
+def test_check_model_fields_nested_added_field_warns() -> None:
+    spec = _ring_settings_spec(newNestedField={"type": "boolean"})
+    errors, warnings = check_model_fields(spec)
+    assert errors == []
+    assert warnings == [
+        "chime.ringSettings: spec field `new_nested_field` has no model counterpart"
+    ]
+
+
+def test_check_model_fields_nested_object_on_non_model_field_skipped() -> None:
+    spec = _chime_spec()
+    spec["components"]["schemas"]["chime"]["properties"]["cameraIds"] = {
+        "type": "object",
+        "properties": {"unmodelled": {"type": "string"}},
+    }
+    errors, warnings = check_model_fields(spec)
+    assert errors == []
+    assert warnings == []
 
 
 def test_check_model_fields_missing_schema_errors() -> None:
