@@ -1,5 +1,13 @@
 # Changelog
 
+## v17.4.1 (2026-09-28)
+
+### Bug fixes
+
+
+- Warn on nested spec fields the models do not cover ([`cbba286`](https://github.com/uilibs/uiprotect/commit/cbba286fd9ceb2fffbf2db178c8c53aa991e8e30))
+
+
 ## v17.4.0 (2026-09-27)
 
 ### Features
