@@ -2,11 +2,11 @@ name: Spec conformance
 
 # Validate the public-API client against Ubiquiti's Integration OpenAPI spec.
 #
-# The expensive validation runs at most ONCE per Protect release: the daily cron
-# only queries the firmware-latest API (seconds, no download) and short-circuits
-# while the validated version is current or a drift issue is already open. The
-# spec (~400 KB, from the developer portal) is fetched ephemerally and never
-# committed or uploaded.
+# The expensive validation runs at most ONCE per published spec version: the
+# daily cron only resolves the developer portal's latest version (one redirect,
+# no download) and short-circuits while the validated version is current or a
+# drift issue is already open. The spec (~400 KB, from the developer portal) is
+# fetched ephemerally and never committed or uploaded.
 
 on:
   schedule:
@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Protect version to validate (MAJOR.MINOR.PATCH); blank = latest release"
+        description: "Protect version to validate (MAJOR.MINOR.PATCH); blank = latest on the developer portal"
         required: false
         type: string
       dry_run:
@@ -58,7 +58,7 @@ jobs:
           python-version: 3.x
           cache: "poetry"
 
-      # Step 1: resolve the latest (or requested) release — API call only, no download.
+      # Step 1: resolve the latest (or requested) version — no spec download.
       - name: Resolve target version
         id: resolve
         run: |
@@ -71,7 +71,7 @@ jobs:
           validated=$(cat openapi/.validated-version)
           echo "latest=$latest" >> "$GITHUB_OUTPUT"
           echo "validated=$validated" >> "$GITHUB_OUTPUT"
-          echo "Latest release: $latest | validated marker: $validated"
+          echo "Latest version: $latest | validated marker: $validated"
 
       # Step 2: steady state — nothing to do.
       - name: Short-circuit if already validated
@@ -79,7 +79,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ "${{ steps.resolve.outputs.latest }}" = "${{ steps.resolve.outputs.validated }}" ]; then
-            echo "Marker already at latest release; nothing to validate."
+            echo "Marker already at latest version; nothing to validate."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
@@ -110,20 +110,20 @@ jobs:
       - name: Fetch spec and validate
         id: validate
         if: steps.steady.outputs.skip != 'true' && steps.known.outputs.skip != 'true'
+        env:
+          LATEST: ${{ steps.resolve.outputs.latest }}
         run: |
           set -euo pipefail
-          if [ -n "$VERSION" ]; then
-            poetry run python scripts/fetch_openapi.py --version "$VERSION"
-          else
-            poetry run python scripts/fetch_openapi.py
-          fi
+          poetry run python scripts/fetch_openapi.py --version "$LATEST"
           set +e
           poetry run python scripts/validate_spec.py > report.md
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
           set -e
           cat report.md
 
-      # Step 4b (green): bump the marker via PR.
+      # Step 4b (green): bump the marker via PR. The report carries any warnings
+      # (e.g. new spec fields) so they are reviewed before the bump merges;
+      # once merged, the version is never validated again.
       - name: Open marker-bump PR (green)
         if: >-
           steps.steady.outputs.skip != 'true' &&
@@ -144,6 +144,7 @@ jobs:
           branch="spec-validation/bump-$LATEST"
           if [ "$DRY_RUN" = "true" ]; then
             echo "[dry-run] would open PR bumping .validated-version to $LATEST"
+            cat report.md
             exit 0
           fi
           open=$(gh pr list --state open --limit 200 --head "$branch" --json number --jq "length")
@@ -163,9 +164,14 @@ jobs:
           git add openapi/.validated-version
           git commit -m "chore(spec): bump validated version to $LATEST"
           git push --force --set-upstream origin "$branch"
+          {
+            echo "Automated: public-API client conforms to the Protect $LATEST Integration spec. The spec itself is not committed (Ubiquiti IP); reproduce locally with \`python scripts/fetch_openapi.py --version $LATEST && python scripts/validate_spec.py\`."
+            echo
+            cat report.md
+          } > pr-body.md
           gh pr create \
             --title "chore(spec): bump validated version to $LATEST" \
-            --body "Automated: public-API client conforms to the Protect $LATEST Integration spec. The spec itself is not committed (Ubiquiti IP); reproduce locally with \`python scripts/fetch_openapi.py --version $LATEST && python scripts/validate_spec.py\`." \
+            --body-file pr-body.md \
             --base main --head "$branch"
 
       # Step 4c (red): open one drift issue, close superseded ones.
