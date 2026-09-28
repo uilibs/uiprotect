@@ -36,10 +36,14 @@ def fetch_spec(
     from_deb: bool = False,
 ) -> None:
     """Fetch the integration OpenAPI spec and write it to ``output``."""
-    deb_url, ver = _query_firmware(version)
-    print(f"unifi-protect {ver}", file=sys.stderr)
-
-    spec_bytes = _fetch_from_deb(deb_url) if from_deb else _fetch_from_portal(ver)
+    if from_deb:
+        deb_url, ver = _query_firmware(version)
+        print(f"unifi-protect {ver}", file=sys.stderr)
+        spec_bytes = _fetch_from_deb(deb_url)
+    else:
+        ver = resolve_version(version)
+        print(f"unifi-protect {ver}", file=sys.stderr)
+        spec_bytes = _fetch_from_portal(ver)
 
     spec = json.loads(spec_bytes)
     # The portal spec carries a placeholder ``info.version`` ("0.0.0"); the
@@ -72,7 +76,7 @@ def _fetch_from_portal(version: str) -> bytes:
         if err.code == 404:
             raise RuntimeError(
                 f"No spec for version {version} on the developer portal; "
-                "see --list for published versions or retry with --from-deb"
+                "retry with --from-deb"
             ) from err
         raise
 
@@ -86,17 +90,29 @@ def _fetch_from_deb(url: str) -> bytes:
     return _extract_from_deb(deb_bytes)
 
 
-def list_versions() -> list[str]:
-    """Return the spec versions published on the developer portal, newest first."""
-    request = urllib.request.Request(PORTAL_INDEX)
-    with urllib.request.urlopen(request, timeout=60) as resp:  # noqa: S310
-        html = resp.read().decode(errors="replace")
-    # The portal is a Next.js app; the version picker's data is embedded in
-    # the page payload as an escaped JSON array of {"version": "vX.Y.Z"}.
-    match = re.search(r'versions\\":\[(.*?)\]', html)
+def resolve_version(version: str | None = None) -> str:
+    """Return ``version`` normalised, or the latest version on the developer portal."""
+    return _normalize_version(version) if version else latest_portal_version()
+
+
+def latest_portal_version() -> str:
+    """Return the newest spec version published on the developer portal."""
+    # The portal index redirects to the newest version's docs, e.g.
+    # /protect/v7.3.68/gettingstarted; the page itself no longer lists versions.
+    with urllib.request.urlopen(PORTAL_INDEX, timeout=60) as resp:  # noqa: S310
+        url = resp.geturl()
+    match = re.search(r"/protect/v(\d+\.\d+\.\d+)(?:/|$)", url)
     if match is None:
-        raise RuntimeError(f"Could not find the version list on {PORTAL_INDEX}")
-    return re.findall(r"v(\d+\.\d+\.\d+)", match.group(1))
+        raise RuntimeError(f"Could not find the latest version in {url}")
+    return match.group(1)
+
+
+def _normalize_version(version: str) -> str:
+    """Return ``version`` as a bare ``MAJOR.MINOR.PATCH``, rejecting other shapes."""
+    bare = version.removeprefix("v")
+    if not re.fullmatch(r"\d+\.\d+\.\d+", bare):
+        raise ValueError(f"version must be MAJOR.MINOR.PATCH, got {version!r}")
+    return bare
 
 
 def _query_firmware(version: str | None) -> tuple[str, str]:
@@ -111,10 +127,7 @@ def _query_firmware(version: str | None) -> tuple[str, str]:
         "filter=eq~~platform~~uos-deb11-arm64",
     ]
     if version:
-        parts = version.split(".")
-        if len(parts) != 3:
-            raise ValueError(f"version must be MAJOR.MINOR.PATCH, got {version!r}")
-        major, minor, patch = parts
+        major, minor, patch = _normalize_version(version).split(".")
         params += [
             f"filter=eq~~version_major~~{major}",
             f"filter=eq~~version_minor~~{minor}",
@@ -165,7 +178,11 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--version",
-        help="Protect version to fetch, e.g. 7.0.104 (default: latest release)",
+        help=(
+            "Protect version to fetch, e.g. 7.0.104 "
+            "(default: latest on the developer portal; latest release with "
+            "--from-deb)"
+        ),
     )
     parser.add_argument(
         "--output",
@@ -180,20 +197,15 @@ if __name__ == "__main__":
         help="Print the resolved version to stdout and exit (no download)",
     )
     parser.add_argument(
-        "--list",
-        action="store_true",
-        help="List spec versions published on the developer portal and exit",
-    )
-    parser.add_argument(
         "--from-deb",
         action="store_true",
         help="Extract the spec from the official deb (~74 MB) instead of the portal",
     )
     args = parser.parse_args()
-    if args.list:
-        print("\n".join(list_versions()))
-    elif args.print_version:
-        _, ver = _query_firmware(args.version)
-        print(ver)
+    if args.print_version:
+        if args.from_deb:
+            print(_query_firmware(args.version)[1])
+        else:
+            print(resolve_version(args.version))
     else:
         fetch_spec(args.version, args.output, from_deb=args.from_deb)
