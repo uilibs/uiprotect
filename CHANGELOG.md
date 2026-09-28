@@ -1,5 +1,13 @@
 # Changelog
 
+## v17.4.2 (2026-09-28)
+
+### Bug fixes
+
+
+- Validate against the portal's latest spec and surface warnings ([`bb328c0`](https://github.com/uilibs/uiprotect/commit/bb328c0cf8f4189352498da650feaef6a50215f1))
+
+
 ## v17.4.1 (2026-09-28)
 
 ### Bug fixes
