@@ -229,8 +229,10 @@ def test_check_model_fields_nested_added_field_warns() -> None:
         (
             None,
             [
-                "chime.ringSettings: model field `volume` absent from spec "
-                "(server removed/retyped it)"
+                (
+                    "chime.ringSettings: model field `volume` absent from spec "
+                    "(server removed/retyped it)"
+                )
             ],
         ),
         ("_LIBRARY_OWNED_FIELDS", []),

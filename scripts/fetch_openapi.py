@@ -99,7 +99,7 @@ def latest_portal_version() -> str:
     """Return the newest spec version published on the developer portal."""
     # The portal index redirects to the newest version's docs, e.g.
     # /protect/v7.3.68/gettingstarted; the page itself no longer lists versions.
-    with urllib.request.urlopen(PORTAL_INDEX, timeout=60) as resp:
+    with urllib.request.urlopen(PORTAL_INDEX, timeout=60) as resp:  # noqa: S310
         url = resp.geturl()
     match = re.search(r"/protect/v(\d+\.\d+\.\d+)(?:/|$)", url)
     if match is None:
