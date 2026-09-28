@@ -78,7 +78,7 @@ from uiprotect.data.types import DeviceState  # noqa: E402
 from uiprotect.utils import to_snake_case  # noqa: E402
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Awaitable, Callable, Iterator
 
 SPEC_PATH = Path(__file__).resolve().parents[1] / "openapi" / "integration.json"
 
@@ -577,29 +577,42 @@ def check_model_fields(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
+def walk_models(
+    cls: type[ProtectBaseObject],
+    props: dict[str, dict[str, Any]],
+    schemas: dict[str, Any],
+    path: str,
+) -> Iterator[tuple[type[ProtectBaseObject], dict[str, dict[str, Any]], str]]:
+    """Yield ``(cls, props, path)`` for a model and every nested object-backed model."""
+    yield cls, props, path
+    remaps = cls._get_unifi_remaps()
+    for key, prop_schema in props.items():
+        nested_props = _resolve_object_props(prop_schema, schemas)
+        if nested_props is None:
+            continue
+        field = cls.model_fields.get(_spec_field_name(key, remaps))
+        if field is None:
+            continue
+        leaf = _leaf_model(field.annotation)
+        if leaf is not None:
+            yield from walk_models(leaf, nested_props, schemas, f"{path}.{key}")
+
+
 def _unmodelled_spec_fields(
     cls: type[ProtectBaseObject],
     props: dict[str, dict[str, Any]],
     schemas: dict[str, Any],
     path: str,
 ) -> list[str]:
-    """Warn for each spec key without a model field, recursing into nested models."""
-    remaps = cls._get_unifi_remaps()
-    added = {_spec_field_name(key, remaps) for key in props} - set(cls.model_fields)
-    warnings = [
-        f"{path}: spec field `{name}` has no model counterpart"
-        for name in sorted(added)
-    ]
-    for key, prop_schema in props.items():
-        field = cls.model_fields.get(_spec_field_name(key, remaps))
-        if field is None:
-            continue
-        nested_props = _resolve_object_props(prop_schema, schemas)
-        leaf = _leaf_model(field.annotation)
-        if nested_props is not None and leaf is not None:
-            warnings.extend(
-                _unmodelled_spec_fields(leaf, nested_props, schemas, f"{path}.{key}")
-            )
+    """Warn for each spec key without a model field, including nested models."""
+    warnings: list[str] = []
+    for model, model_props, model_path in walk_models(cls, props, schemas, path):
+        remaps = model._get_unifi_remaps()
+        spec_fields = {_spec_field_name(key, remaps) for key in model_props}
+        warnings.extend(
+            f"{model_path}: spec field `{name}` has no model counterpart"
+            for name in sorted(spec_fields - set(model.model_fields))
+        )
     return warnings
 
 

@@ -28,12 +28,12 @@ from validate_spec import (  # local import via conftest sys.path insert
     _LIBRARY_OWNED_FIELDS,
     _MODEL_SCHEMAS,
     SPEC_PATH,
-    _leaf_model,
     _resolve_object_props,
     _spec_field_name,
     check_completeness,
     check_enum_coverage,
     run_checks,
+    walk_models,
 )
 
 if TYPE_CHECKING:
@@ -52,27 +52,19 @@ def _assert_matches(
     props = _resolve_object_props(node, schemas)
     assert props is not None, f"{path}: spec schema is not object-shaped"
 
-    remaps = cls._get_unifi_remaps()
-    spec_fields = {_spec_field_name(key, remaps) for key in props}
-    phantom = (
-        set(cls.model_fields)
-        - spec_fields
-        - _LIBRARY_OWNED_FIELDS.get(path, set())
-        - _EXTRA_MODEL_FIELDS.get(path, set())
-    )
-    assert not phantom, (
-        f"{path}: model declares field(s) absent from the spec: {sorted(phantom)}"
-    )
-
-    for key, prop_schema in props.items():
-        if _resolve_object_props(prop_schema, schemas) is None:
-            continue  # scalar / enum leaf — nothing nested to compare
-        field = cls.model_fields.get(_spec_field_name(key, remaps))
-        if field is None:
-            continue
-        leaf = _leaf_model(field.annotation)
-        if leaf is not None:
-            _assert_matches(leaf, prop_schema, schemas, f"{path}.{key}")
+    for model, model_props, model_path in walk_models(cls, props, schemas, path):
+        remaps = model._get_unifi_remaps()
+        spec_fields = {_spec_field_name(key, remaps) for key in model_props}
+        phantom = (
+            set(model.model_fields)
+            - spec_fields
+            - _LIBRARY_OWNED_FIELDS.get(model_path, set())
+            - _EXTRA_MODEL_FIELDS.get(model_path, set())
+        )
+        assert not phantom, (
+            f"{model_path}: model declares field(s) absent from the spec: "
+            f"{sorted(phantom)}"
+        )
 
 
 @pytest.mark.skipif(not _SPEC_PATH.exists(), reason="openapi/integration.json absent")

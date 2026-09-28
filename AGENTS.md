@@ -335,12 +335,12 @@ endpoint. If the file is absent, run the script first.
 spec and reports drift: spec endpoints with no covering `*_public` method
 (warning), model fields the spec dropped/retyped (error) or added (warning,
 nested objects included), new values on a named, tracked enum (warning), and
-any spec enum — named **or**
-inline — that is not faithfully typed in the library (**error**, so the check
-gates: `main()` exits non-zero and the cron opens a drift issue instead of a
-green marker-bump PR). The enum-coverage check walks the whole spec keyed by
-value-set (the `unknown` forward-compat sentinel ignored on both sides) and
-counts a value-set covered only when it _equals_ a single library enum, or is
+any spec enum — named **or** inline — that is not faithfully typed in the
+library (**error**, so the check gates: `main()` exits non-zero and the
+cron opens a drift issue instead of a green marker-bump PR). The
+enum-coverage check walks the whole spec keyed by value-set (the `unknown`
+forward-compat sentinel ignored on both sides) and counts a value-set
+covered only when it _equals_ a single library enum, or is
 explicitly pinned in `_MODELLED_AS_SUBSET` to one named superset enum the public
 models already type the field with — never a coincidental subset of _any_ enum,
 which is the value-set collision an earlier any-subset check let slip. Coverage
