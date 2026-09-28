@@ -1,5 +1,13 @@
 # Changelog
 
+## v17.5.0 (2026-09-28)
+
+### Features
+
+
+- Model protect 7.3 fob settings and link station thread state ([`2bb4aee`](https://github.com/uilibs/uiprotect/commit/2bb4aee9f60d04200d337567564216d85a758783))
+
+
 ## v17.4.2 (2026-09-28)
 
 ### Bug fixes
