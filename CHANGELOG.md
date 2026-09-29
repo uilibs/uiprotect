@@ -1,5 +1,13 @@
 # Changelog
 
+## v17.6.0 (2026-09-29)
+
+### Features
+
+
+- Resolve publicviewer.liveview from the public bootstrap ([`ef89720`](https://github.com/uilibs/uiprotect/commit/ef8972086001e3c5b68d1a0593283ab069bcf97b))
+
+
 ## v17.5.0 (2026-09-28)
 
 ### Features
