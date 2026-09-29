@@ -176,6 +176,6 @@ def test_public_viewer_liveview_follows_devices_ws_update(
         )
     )
 
-    viewer = client.public_bootstrap.viewers["viewer-1"]
+    assert viewer is client.public_bootstrap.viewers["viewer-1"]
     assert viewer.liveview is client.public_bootstrap.liveviews["lv-2"]
     assert viewer.liveview.name == "Front"
