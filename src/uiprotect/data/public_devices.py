@@ -2506,6 +2506,14 @@ class PublicViewer(PublicDeviceModel):
     def _get_unifi_remaps(cls) -> dict[str, str]:
         return {**super()._get_unifi_remaps(), "liveview": "liveviewId"}
 
+    @property
+    def liveview(self) -> PublicLiveview | None:
+        """Assigned liveview, or ``None`` if unset, unloaded, or not listed."""
+        # personal (non-global) liveviews are not listed by the public API
+        if self.liveview_id is None or not self._api.has_public_bootstrap:
+            return None
+        return self._api.public_bootstrap.liveviews.get(self.liveview_id)
+
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
             "Viewer mutations must go through the dedicated public API helpers "
