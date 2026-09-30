@@ -509,7 +509,11 @@ async def test_refresh_public_store_refetches_after_setter_write(
     fresh = [_liveview(protect_client), _liveview(protect_client, "lv-2")]
     protect_client._fetch_liveviews, release = _gated_fetch([], fresh)
     refresh = asyncio.create_task(protect_client.refresh_public_store("liveviews"))
-    await asyncio.sleep(0)
+    for _ in range(50):
+        if protect_client._fetch_liveviews.await_count:
+            break
+        await asyncio.sleep(0)
+    assert protect_client._fetch_liveviews.await_count == 1
 
     protect_client.api_request_obj = AsyncMock(return_value=_liveview_raw(id="lv-1"))
     await protect_client.get_liveview_public("lv-1")
