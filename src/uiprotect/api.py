@@ -311,6 +311,7 @@ class _PublicRefreshJob(NamedTuple):
 _PUBLIC_REFRESH_JOBS = (
     _PublicRefreshJob("arm_profiles", "_fetch_arm_profiles", "arm-profiles", False),
     _PublicRefreshJob("ulp_users", "get_ulp_users_public", "ulp-users", True),
+    _PublicRefreshJob("liveviews", "_fetch_liveviews", "liveviews", False),
 )
 
 
@@ -2779,9 +2780,11 @@ class ProtectApiClient(BaseApiClient):
         """
         Subscribe to changes of the public stores the devices websocket never covers.
 
-        ``callback`` receives a :class:`PublicStoreChange` for ``arm_profiles``
-        or ``ulp_users`` whenever ``update_public()``, ``get_arm_profiles_public``
-        or an arm-profile create/update/delete changes that store's contents.
+        ``callback`` receives a :class:`PublicStoreChange` for ``arm_profiles``,
+        ``liveviews`` or ``ulp_users`` whenever ``update_public()``, a store
+        refresh, ``get_arm_profiles_public``, ``get_liveviews_public``,
+        ``get_liveview_public`` or an arm-profile or liveview write changes that
+        store's contents.
         A write that changes nothing does not fire. The prime that first
         materialises the bootstrap reports every cached id as ``added``.
         Callbacks run synchronously in the writing coroutine.
@@ -4757,9 +4760,21 @@ class ProtectApiClient(BaseApiClient):
             self._public_bootstrap.viewers[viewer.id] = viewer
         return viewer
 
-    @public_get("/v1/liveviews", items=PublicLiveview)
     async def get_liveviews_public(self) -> list[PublicLiveview]:
         """Get all liveviews using public API."""
+        writes = self._public_store_writes.get("liveviews")
+        liveviews = await self._fetch_liveviews()
+        # A refresh, ``update_public`` or setter that wrote the store during
+        # the fetch may hold newer data than this response.
+        if self._public_store_writes.get("liveviews") == writes:
+            self._emit_public_store_change(
+                self._apply_public_store("liveviews", liveviews, replace=True)
+            )
+        return liveviews
+
+    @public_get("/v1/liveviews", items=PublicLiveview)
+    async def _fetch_liveviews(self) -> list[PublicLiveview]:
+        """Fetch liveviews without mutating the cached bootstrap."""
         raise NotImplementedError
 
     async def get_liveview_public(self, liveview_id: str) -> PublicLiveview:
@@ -4768,8 +4783,9 @@ class ProtectApiClient(BaseApiClient):
             url=f"/v1/liveviews/{liveview_id}", public_api=True
         )
         liveview = PublicLiveview.from_unifi_dict(**data, api=self)
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.liveviews[liveview.id] = liveview
+        self._emit_public_store_change(
+            self._apply_public_store("liveviews", [liveview])
+        )
         return liveview
 
     async def create_liveview_public(
@@ -4800,8 +4816,9 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
         )
         liveview = PublicLiveview.from_unifi_dict(**data, api=self)
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.liveviews[liveview.id] = liveview
+        self._emit_public_store_change(
+            self._apply_public_store("liveviews", [liveview])
+        )
         return liveview
 
     async def update_liveview_public(
@@ -4815,24 +4832,52 @@ class ProtectApiClient(BaseApiClient):
         layout: int | None = None,
         slots: list[PublicLiveviewSlotDict] | None = None,
     ) -> PublicLiveview:
-        """Patch an existing liveview (partial update) using public API."""
+        """
+        Update an existing liveview using public API.
+
+        Fields left as ``None`` keep their current value, read from the cached
+        liveview (fetched first when not cached). ``is_default`` and ``owner``
+        are deprecated and ignored: the console rejects them on update.
+        """
+        if is_default is not None or owner is not None:
+            warnings.warn(
+                "update_liveview_public: is_default and owner are deprecated and "
+                "ignored; the console does not accept them on update",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        if name is None and is_global is None and layout is None and slots is None:
+            raise BadRequest("At least one parameter must be provided")
         if layout is not None and not 1 <= layout <= 26:
             raise BadRequest("layout must be between 1 and 26")
-        body: dict[str, Any] = {}
-        if name is not None:
-            body["name"] = name
-        if is_default is not None:
-            body["isDefault"] = is_default
-        if is_global is not None:
-            body["isGlobal"] = is_global
-        if owner is not None:
-            body["owner"] = owner
-        if layout is not None:
-            body["layout"] = layout
-        if slots is not None:
-            body["slots"] = [dict(s) for s in slots]
-        if not body:
-            raise BadRequest("At least one parameter must be provided")
+        # The console validates the PATCH body as a full liveview: ``name``,
+        # ``isGlobal``, ``layout`` and ``slots`` are all required.
+        if name is None or is_global is None or layout is None or slots is None:
+            pb = self._public_bootstrap
+            current = pb.liveviews.get(liveview_id) if pb is not None else None
+            if current is None:
+                current = await self.get_liveview_public(liveview_id)
+            if name is None:
+                name = current.name
+            if is_global is None:
+                is_global = current.is_global
+            if layout is None:
+                layout = current.layout
+            if slots is None:
+                slots = [
+                    {
+                        "cameras": list(slot.camera_ids),
+                        "cycleMode": slot.cycle_mode,
+                        "cycleInterval": slot.cycle_interval,
+                    }
+                    for slot in current.slots
+                ]
+        body: dict[str, Any] = {
+            "name": name,
+            "isGlobal": is_global,
+            "layout": layout,
+            "slots": [dict(s) for s in slots],
+        }
         data = await self.api_request_obj(
             url=f"/v1/liveviews/{liveview_id}",
             method="patch",
@@ -4840,8 +4885,9 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
         )
         liveview = PublicLiveview.from_unifi_dict(**data, api=self)
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.liveviews[liveview.id] = liveview
+        self._emit_public_store_change(
+            self._apply_public_store("liveviews", [liveview])
+        )
         return liveview
 
     async def send_alarm_webhook_public(self, trigger_id: str) -> None:
@@ -5121,9 +5167,9 @@ class ProtectApiClient(BaseApiClient):
         apply an older snapshot over a newer one (and over live WS merges in
         between). Each caller returns the then-current bootstrap.
 
-        A successful call starts the periodic refresh of ``arm_profiles`` and
-        ``ulp_users`` (see ``public_refresh_interval``) unless the client was
-        torn down while it ran.
+        A successful call starts the periodic refresh of ``arm_profiles``,
+        ``liveviews`` and ``ulp_users`` (see ``public_refresh_interval``) unless
+        the client was torn down while it ran.
         """
         epoch = self._public_refresh_epoch
         async with self._public_update_lock:
@@ -5131,6 +5177,19 @@ class ProtectApiClient(BaseApiClient):
         if epoch == self._public_refresh_epoch:
             self._start_public_refresh()
         return pb
+
+    async def refresh_public_store(self, store: PublicStoreName) -> None:
+        """
+        Refetch one websocket-less public store now and announce its change.
+
+        Applies like a periodic refresh turn: the result is discarded when
+        ``update_public()`` or a setter wrote the store during the fetch, and
+        a failed fetch is logged and keeps the cached data.
+        """
+        job = next((j for j in _PUBLIC_REFRESH_JOBS if j.store == store), None)
+        if job is None:
+            raise ValueError(f"Unknown public store: {store!r}")
+        await self._refresh_public_store(job, self._public_store_writes.get(job.store))
 
     def _start_public_refresh(self) -> None:
         if (
@@ -5255,7 +5314,7 @@ class ProtectApiClient(BaseApiClient):
             (self.get_fobs_public(), "fobs", "fobs"),
             (self.get_speakers_public(), "speakers", "speakers"),
             (self.get_link_stations_public(), "link-stations", "link_stations"),
-            (self.get_liveviews_public(), "liveviews", "liveviews"),
+            (self._fetch_liveviews(), "liveviews", "liveviews"),
             (self.get_bridges_public(), "bridges", "bridges"),
             (self.get_viewers_public(), "viewers", "viewers"),
             (self.get_ulp_users_public(), "ulp-users", "ulp_users"),
@@ -5363,7 +5422,7 @@ class ProtectApiClient(BaseApiClient):
         for (_, _label, attr), result in zip(endpoints, results, strict=True):
             if isinstance(result, BaseException):
                 continue
-            if attr in ("arm_profiles", "ulp_users"):
+            if attr in ("arm_profiles", "liveviews", "ulp_users"):
                 store = cast("PublicStoreName", attr)
                 # A setter wrote this store while the fetch was in flight; the
                 # fetched list may predate that write, so keep the cache.
@@ -5385,7 +5444,7 @@ class ProtectApiClient(BaseApiClient):
     def _apply_public_store(
         self,
         store: PublicStoreName,
-        objs: Iterable[ArmProfile | PublicUlpUser],
+        objs: Iterable[ArmProfile | PublicLiveview | PublicUlpUser],
         *,
         replace: bool = False,
         removed_ids: Iterable[str] = (),

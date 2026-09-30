@@ -265,7 +265,7 @@ four subcommands:
 | `list`   | List all liveviews.                          |
 | `show`   | Show a single liveview by ID.                |
 | `create` | Create a new liveview.                       |
-| `update` | Patch an existing liveview (partial update). |
+| `update` | Update an existing liveview; omitted fields keep their value. |
 
 ```bash
 # list all liveviews

@@ -145,7 +145,7 @@ class FetchDiff:
     removed: list[ProtectModelWithId]
 
 
-PublicStoreName = Literal["arm_profiles", "ulp_users"]
+PublicStoreName = Literal["arm_profiles", "liveviews", "ulp_users"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -205,7 +205,9 @@ class PublicBootstrap:
     # (``LIVEVIEW`` / ``BRIDGE`` / ``VIEWPORT``) are already owned by the
     # private ``Liveview`` / ``Bridge`` / ``Viewer`` classes in
     # ``MODEL_TO_CLASS``. The WS handler routes each to its own store via an
-    # explicit branch with a public-API-aware factory.
+    # explicit branch with a public-API-aware factory. The devices websocket
+    # sends no liveview frames on current firmware, so ``liveviews`` is also a
+    # websocket-less store kept fresh by refetching.
     liveviews: dict[str, PublicLiveview] = field(default_factory=dict)
     bridges: dict[str, PublicBridge] = field(default_factory=dict)
     viewers: dict[str, PublicViewer] = field(default_factory=dict)
@@ -355,7 +357,7 @@ class PublicBootstrap:
     def apply_store(
         self,
         store: PublicStoreName,
-        objs: Iterable[ArmProfile | PublicUlpUser],
+        objs: Iterable[ArmProfile | PublicLiveview | PublicUlpUser],
         *,
         replace: bool = False,
         removed_ids: Iterable[str] = (),
@@ -367,7 +369,10 @@ class PublicBootstrap:
         ``removed_ids``; otherwise ``removed_ids`` drops the given ids. The
         store dict is mutated in place.
         """
-        cache = cast("dict[str, ArmProfile | PublicUlpUser]", getattr(self, store))
+        cache = cast(
+            "dict[str, ArmProfile | PublicLiveview | PublicUlpUser]",
+            getattr(self, store),
+        )
         written = {obj.id: obj for obj in objs}
         if replace:
             removed_ids = [k for k in cache if k not in written]

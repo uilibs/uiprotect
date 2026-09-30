@@ -425,6 +425,13 @@ def test_liveviews_update_rejects_empty_args() -> None:
     assert "At least one field must be provided" in result.stdout
 
 
+@pytest.mark.parametrize("option", ["--owner=u1", "--default"])
+def test_liveviews_update_has_no_create_only_options(option: str) -> None:
+    """``update`` offers no ``--owner``/``--default``; the console rejects them."""
+    result = runner.invoke(liveview_app, ["update", "lv-1", option])
+    assert result.exit_code == 2
+
+
 def test_relays_activate_rejects_invalid_state() -> None:
     """``activate --state bad`` must exit with code 1 before any API call."""
     result = runner.invoke(relay_app, ["activate", "relay-id", "0", "--state", "bad"])

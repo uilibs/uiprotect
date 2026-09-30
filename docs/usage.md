@@ -227,16 +227,20 @@ unsub = protect.subscribe_public_resync(on_resync)
 
 ### Stores without a websocket channel
 
-`public_bootstrap.arm_profiles` and `public_bootstrap.ulp_users` have no
-devices-websocket `modelKey`, so no frame ever announces a change to them. Use
-`subscribe_public_store_changes` instead. Its callback receives a
+`public_bootstrap.arm_profiles`, `public_bootstrap.liveviews` and
+`public_bootstrap.ulp_users` get no devices-websocket frame when they change
+(the console sends none for liveviews, and the other two have no `modelKey`).
+Use `subscribe_public_store_changes` instead. Its callback receives a
 `PublicStoreChange(store, added, removed, updated)`: `store` is
-`"arm_profiles"` or `"ulp_users"`, and the other three are frozensets of ids.
+`"arm_profiles"`, `"liveviews"` or `"ulp_users"`, and the other three are
+frozensets of ids.
 
 It fires when `update_public()` (the first prime, your own calls, and the
-reconnect resync), the periodic refresh below, `get_arm_profiles_public()`, or
+reconnect resync), the periodic refresh below, `refresh_public_store()`,
+`get_arm_profiles_public()`, `get_liveviews_public()`, `get_liveview_public()`,
 `create_arm_profile_public()` / `update_arm_profile_public()` /
-`delete_arm_profile_public()` change a store. `updated` compares values per id,
+`delete_arm_profile_public()`, or `create_liveview_public()` /
+`update_liveview_public()` change a store. `updated` compares values per id,
 so a refetch that returns the same data fires nothing, and a resync after your
 own create or update does not announce it a second time. If an arm-profile
 create, update, delete or `get_arm_profiles_public()` finishes while an
@@ -263,11 +267,11 @@ unsub = protect.subscribe_public_store_changes(on_store_change)
 
 Without a websocket channel, an edit made on the console or by another client
 would stay invisible until the next reconnect. The client therefore refetches
-`arm_profiles` and `ulp_users` on a timer. The first successful
+`arm_profiles`, `ulp_users` and `liveviews` on a timer. The first successful
 `update_public()` starts it. Each store gets one turn per
 `public_refresh_interval` seconds (default `PUBLIC_REFRESH_INTERVAL`, 900); a
 skipped or failed turn waits for the next one. The refreshes take turns, so one
-request goes out every `interval / 2` seconds.
+request goes out every `interval / 3` seconds.
 Results go through the same apply path as above, so
 `subscribe_public_store_changes` fires only when the data actually changed.
 
@@ -277,11 +281,17 @@ protect = ProtectApiClient.public_only(
 )
 ```
 
+To refresh one of these stores right away, for example when the private
+websocket reports a liveview change, call
+`await protect.refresh_public_store("liveviews")`. It applies and announces the
+result exactly like a timer turn, including the discard rules below.
+
 Pass `public_refresh_interval=None` to turn the timer off. A turn is skipped
 while `update_public()` is running, since it refetches the store anyway, and
 while the same store's previous refresh is still in flight. A result is
-discarded if `update_public()` or an arm-profile write (including
-`get_arm_profiles_public()`) updated the store during the fetch, or if
+discarded if `update_public()` or a write to that store (including
+`get_arm_profiles_public()` and `get_liveviews_public()`) updated it during the
+fetch, or if
 `update_public()` is still running when it arrives. A failed refresh keeps the
 cached data, logs one warning, and is retried on the next turn. The recovery is
 logged once. An endpoint the firmware does not expose (`BadRequest`) is logged
