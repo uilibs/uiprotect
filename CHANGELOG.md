@@ -1,5 +1,13 @@
 # Changelog
 
+## v17.7.0 (2026-09-30)
+
+### Features
+
+
+- Refresh and announce public liveview changes ([`38e8632`](https://github.com/uilibs/uiprotect/commit/38e86328e6fbe54c2a7d870098bbad9aca075663))
+
+
 ## v17.6.0 (2026-09-29)
 
 ### Features
