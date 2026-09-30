@@ -4654,6 +4654,55 @@ async def test_update_liveview_public_serializes_same_liveview(
 
 
 @pytest.mark.asyncio()
+async def test_update_liveview_public_missing_slots_come_from_fetch(
+    protect_client: ProtectApiClient,
+) -> None:
+    protect_client._public_bootstrap = PublicBootstrap()
+    protect_client.api_request_obj = AsyncMock(
+        side_effect=[_liveview_raw(), _liveview_raw()]
+    )
+
+    await protect_client.update_liveview_public(
+        LIVEVIEW_ID, name="N", is_global=False, layout=4
+    )
+
+    assert protect_client.api_request_obj.await_count == 2
+    assert protect_client.api_request_obj.call_args.kwargs["json"] == {
+        "name": "N",
+        "isGlobal": False,
+        "layout": 4,
+        "slots": _LIVEVIEW_SLOTS,
+    }
+
+
+@pytest.mark.asyncio()
+async def test_update_liveview_public_different_liveviews_run_in_parallel(
+    protect_client: ProtectApiClient,
+) -> None:
+    protect_client._public_bootstrap = PublicBootstrap()
+    release = asyncio.Event()
+    fetched: set[str] = set()
+
+    async def _request(**kwargs: Any) -> dict[str, Any]:
+        liveview_id = kwargs["url"].rsplit("/", 1)[-1]
+        if kwargs.get("method") != "patch":
+            fetched.add(liveview_id)
+            await release.wait()
+        return _liveview_raw(id=liveview_id)
+
+    protect_client.api_request_obj = AsyncMock(side_effect=_request)
+    updates = asyncio.gather(
+        protect_client.update_liveview_public("lv-a", name="A"),
+        protect_client.update_liveview_public("lv-b", name="B"),
+    )
+    for _ in range(3):
+        await asyncio.sleep(0)
+    assert fetched == {"lv-a", "lv-b"}
+    release.set()
+    await updates
+
+
+@pytest.mark.asyncio()
 @pytest.mark.parametrize("kwargs", [{"is_default": True}, {"owner": "u9"}])
 async def test_update_liveview_public_rejects_create_only_fields(
     protect_client: ProtectApiClient, kwargs: dict[str, Any]

@@ -15,7 +15,7 @@ from uiprotect.api import (
     DEVICE_UPDATE_INTERVAL,
     PUBLIC_REFRESH_INTERVAL,
 )
-from uiprotect.data import PublicStoreChange
+from uiprotect.data import PublicBootstrap, PublicStoreChange
 from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
 from uiprotect.websocket import WebsocketState
 
@@ -254,6 +254,51 @@ async def test_tick_skipped_while_update_public_runs(client: ProtectApiClient) -
     client._fetch_arm_profiles.assert_not_awaited()
     assert client._public_refresh_timer is not None
     assert await _tick(client) == "ulp_users"
+
+
+@pytest.mark.asyncio()
+async def test_update_public_running_reset_on_failure(client: ProtectApiClient) -> None:
+    client._update_public_locked = AsyncMock(side_effect=NotAuthorized("revoked"))
+    with pytest.raises(NotAuthorized):
+        await client.update_public()
+    assert client._public_update_running is False
+
+
+@pytest.mark.asyncio()
+async def test_update_public_running_set_only_while_lock_held(
+    client: ProtectApiClient,
+) -> None:
+    started = [asyncio.Event(), asyncio.Event()]
+    releases = [asyncio.Event(), asyncio.Event()]
+    calls = 0
+
+    async def _locked() -> PublicBootstrap:
+        nonlocal calls
+        call = calls
+        calls += 1
+        started[call].set()
+        await releases[call].wait()
+        return PublicBootstrap()
+
+    client._update_public_locked = AsyncMock(side_effect=_locked)
+    await client._public_update_lock.acquire()
+    first = asyncio.create_task(client.update_public())
+    await asyncio.sleep(0)
+    assert client._public_update_running is False
+
+    client._public_update_lock.release()
+    await started[0].wait()
+    assert client._public_update_running is True
+    second = asyncio.create_task(client.update_public())
+    await asyncio.sleep(0)
+
+    releases[0].set()
+    await first
+    await started[1].wait()
+    assert client._public_update_running is True
+    releases[1].set()
+    await second
+    assert client._public_update_running is False
 
 
 @pytest.mark.asyncio()

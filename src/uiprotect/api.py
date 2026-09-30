@@ -2112,6 +2112,8 @@ class ProtectApiClient(BaseApiClient):
         scratch = PublicBootstrap(
             liveviews={k: v.model_copy() for k, v in pb.liveviews.items()}
         )
+        # Share the one-shot warning dedupe so a bad frame warns only once.
+        scratch._warned_merge_failures = pb._warned_merge_failures
         results = scratch.process_devices_ws_messages(self, data)
         if any(r.new_obj is not None or r.old_obj is not None for r in results):
             self._emit_public_store_change(
