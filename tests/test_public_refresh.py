@@ -248,8 +248,9 @@ async def test_refresh_not_gated_on_startup_failure(client: ProtectApiClient) ->
 async def test_tick_skipped_while_update_public_runs(client: ProtectApiClient) -> None:
     await client.update_public()
     client._fetch_arm_profiles.reset_mock()
-    async with client._public_update_lock:
-        assert await _tick(client) is None
+    client._public_update_running = True
+    assert await _tick(client) is None
+    client._public_update_running = False
     client._fetch_arm_profiles.assert_not_awaited()
     assert client._public_refresh_timer is not None
     assert await _tick(client) == "ulp_users"

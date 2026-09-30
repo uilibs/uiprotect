@@ -487,17 +487,21 @@ async def test_update_public_announces_liveview_prime(
     assert changes == [_change("liveviews", added={"lv-1"})]
 
 
-def _gated_fetch(*results: list[Any]) -> tuple[AsyncMock, asyncio.Event]:
-    """Fetch mock whose first call waits for the event; returns ``results`` in order."""
+def _gated_fetch(
+    *results: list[Any],
+) -> tuple[AsyncMock, asyncio.Event, asyncio.Event]:
+    """Fetch mock whose first call sets ``started`` and waits for ``release``."""
     release = asyncio.Event()
+    started = asyncio.Event()
     pending = list(results)
 
     async def _fetch() -> list[Any]:
         if len(pending) == len(results):
+            started.set()
             await release.wait()
         return pending.pop(0)
 
-    return AsyncMock(side_effect=_fetch), release
+    return AsyncMock(side_effect=_fetch), release, started
 
 
 @pytest.mark.asyncio()
@@ -507,12 +511,9 @@ async def test_refresh_public_store_refetches_after_setter_write(
     _mock_update_public_endpoints(protect_client)
     await protect_client.update_public()
     fresh = [_liveview(protect_client), _liveview(protect_client, "lv-2")]
-    protect_client._fetch_liveviews, release = _gated_fetch([], fresh)
+    protect_client._fetch_liveviews, release, started = _gated_fetch([], fresh)
     refresh = asyncio.create_task(protect_client.refresh_public_store("liveviews"))
-    for _ in range(50):
-        if protect_client._fetch_liveviews.await_count:
-            break
-        await asyncio.sleep(0)
+    await started.wait()
     assert protect_client._fetch_liveviews.await_count == 1
 
     protect_client.api_request_obj = AsyncMock(return_value=_liveview_raw(id="lv-1"))
@@ -548,7 +549,7 @@ async def test_refresh_public_store_waits_for_update_public(
 ) -> None:
     _mock_update_public_endpoints(protect_client)
     await protect_client.update_public()
-    stale, release = _gated_fetch([])
+    stale, release, _started = _gated_fetch([])
     protect_client._fetch_liveviews = stale
     update = asyncio.create_task(protect_client.update_public())
     await asyncio.sleep(0)
@@ -590,7 +591,7 @@ async def test_refresh_public_store_after_fetch_started_fetches_again(
     _mock_update_public_endpoints(protect_client)
     await protect_client.update_public()
     newer = [_liveview(protect_client, name="Newer")]
-    protect_client._fetch_liveviews, release = _gated_fetch(
+    protect_client._fetch_liveviews, release, _started = _gated_fetch(
         [_liveview(protect_client)], newer
     )
     first = asyncio.create_task(protect_client.refresh_public_store("liveviews"))
@@ -612,7 +613,7 @@ async def test_refresh_public_store_waits_for_timer_turn(
 ) -> None:
     _mock_update_public_endpoints(protect_client)
     await protect_client.update_public()
-    timer_fetch, release = _gated_fetch(
+    timer_fetch, release, _started = _gated_fetch(
         [_liveview(protect_client)], [_liveview(protect_client, name="Newer")]
     )
     protect_client._fetch_liveviews = timer_fetch
@@ -643,8 +644,57 @@ async def test_refresh_public_store_failure_keeps_cache(
     )
     await protect_client.update_public()
     protect_client._fetch_liveviews = AsyncMock(side_effect=NvrError("down"))
-    await protect_client.refresh_public_store("liveviews")
+    with pytest.raises(NvrError):
+        await protect_client.refresh_public_store("liveviews")
     assert list(protect_client.public_bootstrap.liveviews) == ["lv-1"]
+
+
+@pytest.mark.asyncio()
+async def test_refresh_public_store_failure_raises_to_joiners_without_periodic_log(
+    protect_client: ProtectApiClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    _mock_update_public_endpoints(protect_client)
+    await protect_client.update_public()
+    protect_client._fetch_liveviews = AsyncMock(side_effect=NvrError("down"))
+    caplog.set_level(logging.DEBUG)
+
+    results = await asyncio.gather(
+        protect_client.refresh_public_store("liveviews"),
+        protect_client.refresh_public_store("liveviews"),
+        return_exceptions=True,
+    )
+    assert [type(r) for r in results] == [NvrError, NvrError]
+    protect_client._fetch_liveviews.assert_awaited_once()
+    assert protect_client._public_refresh_failing == set()
+
+    protect_client._fetch_liveviews = AsyncMock(return_value=[])
+    await protect_client.refresh_public_store("liveviews")
+    assert "Periodic refresh" not in caplog.text
+
+
+@pytest.mark.asyncio()
+async def test_manual_refresh_does_not_discard_other_store_timer_turn(
+    protect_client: ProtectApiClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    _mock_update_public_endpoints(protect_client)
+    await protect_client.update_public()
+    protect_client._fetch_liveviews, release, started = _gated_fetch([])
+    refresh = asyncio.create_task(protect_client.refresh_public_store("liveviews"))
+    await started.wait()
+    assert protect_client._public_update_lock.locked()
+
+    caplog.set_level(logging.DEBUG)
+    protect_client._fetch_arm_profiles = AsyncMock(
+        return_value=[_profile(protect_client)]
+    )
+    protect_client._public_refresh_next = 0
+    protect_client._run_public_refresh_tick()
+    await protect_client._public_refresh_tasks["arm_profiles"]
+    assert list(protect_client.public_bootstrap.arm_profiles) == [PROFILE_ID]
+    assert "during update_public" not in caplog.text
+
+    release.set()
+    await refresh
 
 
 @pytest.mark.asyncio()
@@ -676,17 +726,33 @@ async def test_close_cancels_pending_manual_refresh(
 ) -> None:
     _mock_update_public_endpoints(protect_client)
     await protect_client.update_public()
-    protect_client._fetch_liveviews, _release = _gated_fetch([])
+    protect_client._fetch_liveviews, _release, _started = _gated_fetch([])
     refresh = asyncio.create_task(protect_client.refresh_public_store("liveviews"))
     await asyncio.sleep(0)
     second = asyncio.create_task(protect_client.refresh_public_store("liveviews"))
     await asyncio.sleep(0)
 
     await protect_client._cancel_public_refresh()
-    for task in (refresh, second):
-        with pytest.raises(asyncio.CancelledError):
-            await task
+    assert await refresh is None
+    assert await second is None
     assert protect_client._public_refresh_pending == {}
+
+
+@pytest.mark.asyncio()
+async def test_cancelled_manual_refresh_caller_still_raises(
+    protect_client: ProtectApiClient,
+) -> None:
+    _mock_update_public_endpoints(protect_client)
+    await protect_client.update_public()
+    protect_client._fetch_liveviews, release, started = _gated_fetch([])
+    refresh = asyncio.create_task(protect_client.refresh_public_store("liveviews"))
+    await started.wait()
+
+    refresh.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await refresh
+    release.set()
+    await protect_client._public_refresh_tasks["liveviews"]
 
 
 def _liveview_ws(action: str, item: dict[str, Any]) -> aiohttp.WSMessage:
@@ -731,6 +797,23 @@ async def test_liveview_ws_frames_announce_store_changes(
     assert [f.action.value for f in frames] == ["add", "update", "update", "remove"]
     assert frames[1].new_obj.name == "New"
     assert protect_client.public_bootstrap.liveviews == {}
+
+
+@pytest.mark.asyncio()
+async def test_liveview_ws_update_for_unknown_id_does_not_bump_writes(
+    protect_client: ProtectApiClient,
+) -> None:
+    _mock_update_public_endpoints(protect_client)
+    await protect_client.update_public()
+    changes: list[PublicStoreChange] = []
+    protect_client.subscribe_public_store_changes(changes.append)
+    writes = protect_client._public_store_writes.get("liveviews", 0)
+
+    protect_client._process_devices_ws_message(
+        _liveview_ws("update", {"id": "lv-9", "modelKey": "liveview", "name": "X"})
+    )
+    assert protect_client._public_store_writes.get("liveviews", 0) == writes
+    assert changes == []
 
 
 @pytest.mark.asyncio()

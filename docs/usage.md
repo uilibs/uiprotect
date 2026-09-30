@@ -290,10 +290,17 @@ like a timer turn, but the store ends at least as new as the call: it waits
 for a running `update_public()` and for an in-flight refresh of the same
 store, calls made before its fetch starts share that fetch, and a result a
 write made stale during the fetch is refetched once instead of discarded.
+If the fetch fails, the store keeps its cached data and the error (for
+example `NvrError`, `NotAuthorized` or `BadRequest`) is raised to every call
+sharing that fetch. Manual refreshes do not affect the timer's failure and
+recovery logging. If the client is torn down while a call waits, the call
+returns without raising.
 
 Pass `public_refresh_interval=None` to turn the timer off. A turn is skipped
 while `update_public()` is running, since it refetches the store anyway, and
-while the same store's previous refresh is still in flight. A result is
+while the same store's previous refresh (timer or manual) is still in flight.
+A manual refresh of one store does not skip or discard the timer turns of the
+other stores. A result is
 discarded if `update_public()` or a write to that store (including
 `get_arm_profiles_public()` and `get_liveviews_public()`) updated it during the
 fetch, or if

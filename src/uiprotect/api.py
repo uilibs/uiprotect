@@ -517,6 +517,9 @@ class BaseApiClient:
         # Serializes ``update_public()``: an overlapping prime could apply an
         # older snapshot over a newer one (and over live WS merges in between).
         self._public_update_lock = asyncio.Lock()
+        # True while ``update_public`` runs; a manual store refresh also holds
+        # the lock, so the timer cannot read ``locked()`` as this signal.
+        self._public_update_running = False
         self._host = host
         self._port = port
 
@@ -2110,11 +2113,12 @@ class ProtectApiClient(BaseApiClient):
             liveviews={k: v.model_copy() for k, v in pb.liveviews.items()}
         )
         results = scratch.process_devices_ws_messages(self, data)
-        self._emit_public_store_change(
-            self._apply_public_store(
-                "liveviews", scratch.liveviews.values(), replace=True
+        if any(r.new_obj is not None or r.old_obj is not None for r in results):
+            self._emit_public_store_change(
+                self._apply_public_store(
+                    "liveviews", scratch.liveviews.values(), replace=True
+                )
             )
-        )
         return results
 
     def _devices_ws_filtered_out(self, model_type: ModelType) -> bool:
@@ -5211,7 +5215,11 @@ class ProtectApiClient(BaseApiClient):
         """
         epoch = self._public_refresh_epoch
         async with self._public_update_lock:
-            pb = await self._update_public_locked()
+            self._public_update_running = True
+            try:
+                pb = await self._update_public_locked()
+            finally:
+                self._public_update_running = False
         if epoch == self._public_refresh_epoch:
             self._start_public_refresh()
         return pb
@@ -5224,7 +5232,7 @@ class ProtectApiClient(BaseApiClient):
         the same store, so the store ends at least as new as the call. Calls
         overlapping before the fetch starts share it. A result that a write
         to the store made stale during the fetch is refetched once. A failed
-        fetch is logged and keeps the cached data.
+        fetch keeps the cached data and raises to every caller sharing it.
         """
         job = next((j for j in _PUBLIC_REFRESH_JOBS if j.store == store), None)
         if job is None:
@@ -5233,7 +5241,14 @@ class ProtectApiClient(BaseApiClient):
         if pending is None or pending.done():
             pending = asyncio.create_task(self._refresh_public_store_now(job))
             self._public_refresh_pending[store] = pending
-        await asyncio.shield(pending)
+        try:
+            await asyncio.shield(pending)
+        except asyncio.CancelledError:
+            # Teardown cancelled the shared fetch, not this caller.
+            current = cast("asyncio.Task[None]", asyncio.current_task())
+            if pending.cancelled() and not current.cancelling():
+                return
+            raise
 
     def _start_public_refresh(self) -> None:
         if (
@@ -5260,7 +5275,7 @@ class ProtectApiClient(BaseApiClient):
             return
         # The running ``update_public`` refetches this store and would apply
         # its older snapshot over the tick's result.
-        if self._public_update_lock.locked():
+        if self._public_update_running:
             _LOGGER.debug("Skipping %s refresh during update_public", job.label)
             return
         self._public_refresh_tasks[job.store] = asyncio.create_task(
@@ -5281,9 +5296,7 @@ class ProtectApiClient(BaseApiClient):
                 del self._public_refresh_pending[job.store]
             for _ in range(2):
                 writes = self._public_store_writes.get(job.store)
-                objs = await self._fetch_public_store(job)
-                if objs is None:
-                    return
+                objs: list[Any] = await getattr(self, job.fetch)()
                 if self._public_store_writes.get(job.store) == writes:
                     self._emit_public_store_change(
                         self._apply_public_store(job.store, objs, replace=True)
@@ -5302,7 +5315,7 @@ class ProtectApiClient(BaseApiClient):
         if (
             objs is None
             or self._public_store_writes.get(job.store) != writes
-            or self._public_update_lock.locked()
+            or self._public_update_running
         ):
             return
         self._emit_public_store_change(
