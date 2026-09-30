@@ -474,15 +474,20 @@ class Bootstrap(ProtectBaseObject):
             self.nvr = obj
         elif model_type in ModelType.bootstrap_models_types_set:
             if TYPE_CHECKING:
-                assert isinstance(obj, ProtectAdoptableDeviceModel)
-            if not self._api.ignore_unadopted or (
-                obj.is_adopted and not obj.is_adopted_by_other
+                assert isinstance(obj, ProtectModelWithId)
+            # Liveviews, users and groups are bootstrap models too but carry
+            # no adoption state or MAC address.
+            if (
+                not self._api.ignore_unadopted
+                or not isinstance(obj, ProtectAdoptableDeviceModel)
+                or (obj.is_adopted and not obj.is_adopted_by_other)
             ):
                 id_ = obj.id
                 getattr(self, model_type.devices_key)[id_] = obj
                 ref = ProtectDeviceRef(model=model_type, id=id_)
                 self.id_lookup[id_] = ref
-                self.mac_lookup[normalize_mac(obj.mac)] = ref
+                if isinstance(obj, ProtectDeviceModel):
+                    self.mac_lookup[normalize_mac(obj.mac)] = ref
         else:
             _LOGGER.debug("Unexpected bootstrap model type for add: %s", model_type)
             return None
@@ -498,7 +503,7 @@ class Bootstrap(ProtectBaseObject):
         self, model_type: ModelType, action: dict[str, Any]
     ) -> WSSubscriptionMessage | None:
         devices_key = model_type.devices_key
-        devices: dict[str, ProtectDeviceModel] | None = getattr(self, devices_key, None)
+        devices: dict[str, ProtectModelWithId] | None = getattr(self, devices_key, None)
         if devices is None:
             return None
 
@@ -506,7 +511,8 @@ class Bootstrap(ProtectBaseObject):
         self.id_lookup.pop(device_id, None)
         if (device := devices.pop(device_id, None)) is None:
             return None
-        self.mac_lookup.pop(normalize_mac(device.mac), None)
+        if isinstance(device, ProtectDeviceModel):
+            self.mac_lookup.pop(normalize_mac(device.mac), None)
         return WSSubscriptionMessage(
             action=WSAction.REMOVE,
             new_update_id=self.last_update_id,

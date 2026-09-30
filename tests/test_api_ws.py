@@ -1857,3 +1857,133 @@ async def test_refresh_device_catches_data_decode_error(
 
     # Should not raise — DataDecodeError is caught and logged as warning
     await protect_client.bootstrap.refresh_device(ModelType.SCHEDULE, "some-id")
+
+
+def _ws_packet(
+    packet: WSPacket, action: str, model_key: str, obj_id: str, data: dict[str, Any]
+) -> WSPacket:
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": action,
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": model_key,
+        "id": obj_id,
+    }
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = data
+    return WSPacket(packet.pack_frames())
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("ignore_unadopted", [True, False])
+async def test_ws_liveview_add_update_remove(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+    ignore_unadopted: bool,
+):
+    """Liveview add, update and remove frames return messages and keep the cache consistent."""
+    protect_client = protect_client_no_debug
+    protect_client.ignore_unadopted = ignore_unadopted
+    bootstrap = protect_client.bootstrap
+    liveview = next(iter(bootstrap.liveviews.values()))
+    raw = liveview.unifi_dict()
+    raw["id"] = new_id = "new-liveview-id"
+    raw["name"] = "Added"
+    mac_lookup = dict(bootstrap.mac_lookup)
+    models = {ModelType.LIVEVIEW}
+
+    msg = bootstrap.process_ws_packet(
+        _ws_packet(packet, "add", "liveview", new_id, raw), models=models
+    )
+    assert msg is not None
+    assert msg.action is WSAction.ADD
+    added = bootstrap.liveviews[new_id]
+    assert msg.new_obj is added
+    assert added.name == "Added"
+    assert bootstrap.id_lookup[new_id].model is ModelType.LIVEVIEW
+    assert bootstrap.get_device_from_id(new_id) is added
+
+    msg = bootstrap.process_ws_packet(
+        _ws_packet(packet, "update", "liveview", new_id, {"name": "Renamed"}),
+        models=models,
+    )
+    assert msg is not None
+    assert msg.action is WSAction.UPDATE
+    assert msg.new_obj is not None
+    assert msg.new_obj.name == "Renamed"  # type: ignore[attr-defined]
+    assert bootstrap.liveviews[new_id].name == "Renamed"
+
+    msg = bootstrap.process_ws_packet(
+        _ws_packet(packet, "remove", "liveview", new_id, {}), models=models
+    )
+    assert msg is not None
+    assert msg.action is WSAction.REMOVE
+    assert msg.old_obj is not None
+    assert msg.old_obj.id == new_id
+    assert new_id not in bootstrap.liveviews
+    assert new_id not in bootstrap.id_lookup
+    assert bootstrap.mac_lookup == mac_lookup
+
+
+@pytest.mark.asyncio()
+async def test_ws_liveview_remove_via_client_emits(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+):
+    """A liveview remove frame reaches websocket subscribers."""
+    protect_client = protect_client_no_debug
+    protect_client._subscribed_models = {ModelType.LIVEVIEW}
+    liveview_id = next(iter(protect_client.bootstrap.liveviews))
+
+    messages = _send_ws_packet(
+        protect_client, packet, "remove", "liveview", liveview_id, {}
+    )
+
+    assert len(messages) == 1
+    assert messages[0].action is WSAction.REMOVE
+    assert messages[0].old_obj is not None
+    assert messages[0].old_obj.id == liveview_id
+    assert liveview_id not in protect_client.bootstrap.liveviews
+
+
+@pytest.mark.asyncio()
+async def test_ws_camera_remove_drops_mac_lookup(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+):
+    """A device remove frame still drops the device's MAC lookup entry."""
+    bootstrap = protect_client_no_debug.bootstrap
+    camera = next(iter(bootstrap.cameras.values()))
+    mac = camera.mac
+
+    msg = bootstrap.process_ws_packet(
+        _ws_packet(packet, "remove", "camera", camera.id, {})
+    )
+
+    assert msg is not None
+    assert msg.old_obj is camera
+    assert bootstrap.get_device_from_mac(mac) is None
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize(("is_adopted", "cached"), [(True, True), (False, False)])
+async def test_ws_camera_add_respects_ignore_unadopted(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+    is_adopted: bool,
+    cached: bool,
+):
+    """A device add frame is cached with its MAC only when adopted."""
+    protect_client_no_debug.ignore_unadopted = True
+    bootstrap = protect_client_no_debug.bootstrap
+    raw = next(iter(bootstrap.cameras.values())).unifi_dict()
+    raw["id"] = new_id = "new-camera-id"
+    raw["mac"] = "AABBCCDDEEFF"
+    raw["isAdopted"] = is_adopted
+
+    msg = bootstrap.process_ws_packet(_ws_packet(packet, "add", "camera", new_id, raw))
+
+    assert msg is not None
+    assert (new_id in bootstrap.cameras) is cached
+    device = bootstrap.get_device_from_mac("AA:BB:CC:DD:EE:FF")
+    assert (device is msg.new_obj) is cached
