@@ -386,6 +386,15 @@ The expiry is **inferred, not observed**: `activatedAt` is server time and the
 deadline is compared against the local clock, so clock skew between the console
 and the client shifts the announcement by the same amount.
 
+## Viewer liveview changes
+
+The console sends no devices-websocket frame when a viewer's liveview changes.
+`update_viewer_public` (and so `PublicViewer.set_liveview` / `set_name`)
+writes the PATCH response into the cached `PublicViewer` in place, so
+`protect.public_bootstrap.viewers[viewer_id]` stays the same object, and then
+emits a synthetic devices-WS `update` for the viewer (`new_obj` is the cached
+viewer, `old_obj` a copy from before the change). A failed PATCH emits nothing.
+
 ## Public vs. private API
 
 `uiprotect` can talk to UniFi Protect two ways, and is actively migrating
