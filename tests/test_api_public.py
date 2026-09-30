@@ -33,6 +33,7 @@ from uiprotect.data import (
     PublicCamera,
     PublicLiveview,
     PublicLiveviewSlot,
+    PublicLiveviewSlotDict,
     PublicNVR,
     PublicSensorFeatureFlags,
     PublicSpeakerFeatureFlags,
@@ -4428,6 +4429,21 @@ async def test_get_liveviews_public(
 
 
 @pytest.mark.asyncio()
+async def test_get_liveviews_public_drops_stale_cached_id(
+    protect_client: ProtectApiClient,
+) -> None:
+    pb = protect_client._public_bootstrap = PublicBootstrap()
+    pb.liveviews["gone"] = PublicLiveview.from_unifi_dict(
+        **_liveview_raw(id="gone"), api=protect_client
+    )
+    protect_client.api_request_list = AsyncMock(return_value=[_liveview_raw()])
+
+    await protect_client.get_liveviews_public()
+
+    assert list(pb.liveviews) == [LIVEVIEW_ID]
+
+
+@pytest.mark.asyncio()
 @patch("uiprotect.api.PublicLiveview.from_unifi_dict")
 async def test_get_liveview_public(
     mock_ctor: Mock,
@@ -4505,97 +4521,101 @@ async def test_create_liveview_public_body(
     assert pb.liveviews[new_id] is obj
 
 
+_LIVEVIEW_SLOTS = [
+    {"cameras": ["cam-1", "cam-2"], "cycleMode": "motion", "cycleInterval": 10}
+]
+
+
 @pytest.mark.asyncio()
-async def test_update_liveview_public_fills_body_from_cache(
+async def test_update_liveview_public_fills_body_from_fresh_fetch(
     protect_client: ProtectApiClient,
 ) -> None:
     pb = protect_client._public_bootstrap = PublicBootstrap()
     pb.liveviews[LIVEVIEW_ID] = PublicLiveview.from_unifi_dict(
-        **_liveview_raw(), api=protect_client
+        **_liveview_raw(name="Stale", layout=9, isGlobal=False, slots=[]),
+        api=protect_client,
     )
-    protect_client.api_request_obj = AsyncMock(return_value=_liveview_raw(name="new"))
+    changes: list[Any] = []
+    protect_client.subscribe_public_store_changes(changes.append)
+    protect_client.api_request_obj = AsyncMock(
+        side_effect=[_liveview_raw(), _liveview_raw(name="new")]
+    )
 
     result = await protect_client.update_liveview_public(LIVEVIEW_ID, name="new")
 
-    protect_client.api_request_obj.assert_awaited_once()
-    _, kwargs = protect_client.api_request_obj.call_args
-    assert kwargs["url"] == f"/v1/liveviews/{LIVEVIEW_ID}"
-    assert kwargs["method"] == "patch"
-    assert kwargs["json"] == {
+    first, second = protect_client.api_request_obj.call_args_list
+    assert first.kwargs == {"url": f"/v1/liveviews/{LIVEVIEW_ID}", "public_api": True}
+    assert second.kwargs["url"] == f"/v1/liveviews/{LIVEVIEW_ID}"
+    assert second.kwargs["method"] == "patch"
+    assert second.kwargs["json"] == {
         "name": "new",
         "isGlobal": True,
         "layout": 1,
-        "slots": [
-            {"cameras": ["cam-1", "cam-2"], "cycleMode": "motion", "cycleInterval": 10}
-        ],
+        "slots": _LIVEVIEW_SLOTS,
     }
     assert pb.liveviews[LIVEVIEW_ID] is result
     assert result.name == "new"
+    assert len(changes) == 1
 
 
 @pytest.mark.asyncio()
-async def test_update_liveview_public_fetches_when_not_cached(
+async def test_update_liveview_public_slots_keep_fetched_layout(
     protect_client: ProtectApiClient,
 ) -> None:
     protect_client._public_bootstrap = PublicBootstrap()
     protect_client.api_request_obj = AsyncMock(
-        side_effect=[_liveview_raw(), _liveview_raw(isGlobal=False)]
+        side_effect=[_liveview_raw(layout=4), _liveview_raw(layout=4)]
     )
+    slots: list[PublicLiveviewSlotDict] = [
+        {"cameras": ["a"], "cycleMode": LiveviewCycleMode.TIME, "cycleInterval": 5}
+    ]
 
-    await protect_client.update_liveview_public(LIVEVIEW_ID, is_global=False)
+    await protect_client.update_liveview_public(LIVEVIEW_ID, slots=slots)
 
-    first, second = protect_client.api_request_obj.call_args_list
-    assert first.kwargs == {"url": f"/v1/liveviews/{LIVEVIEW_ID}", "public_api": True}
-    assert second.kwargs["method"] == "patch"
-    assert second.kwargs["json"] == {
+    assert protect_client.api_request_obj.call_args.kwargs["json"] == {
         "name": "Garage",
-        "isGlobal": False,
-        "layout": 1,
-        "slots": [
-            {"cameras": ["cam-1", "cam-2"], "cycleMode": "motion", "cycleInterval": 10}
-        ],
+        "isGlobal": True,
+        "layout": 4,
+        "slots": [{"cameras": ["a"], "cycleMode": "time", "cycleInterval": 5}],
     }
 
 
 @pytest.mark.asyncio()
-async def test_update_liveview_public_without_bootstrap_fetches(
+async def test_update_liveview_public_keeps_unknown_cycle_mode(
     protect_client: ProtectApiClient,
 ) -> None:
     protect_client._public_bootstrap = None
+    raw_slots = [{"cameras": ["cam-1"], "cycleMode": "future", "cycleInterval": 3}]
     protect_client.api_request_obj = AsyncMock(
-        side_effect=[_liveview_raw(), _liveview_raw(layout=4)]
+        side_effect=[_liveview_raw(slots=raw_slots), _liveview_raw()]
     )
 
     await protect_client.update_liveview_public(LIVEVIEW_ID, layout=4)
 
-    assert protect_client.api_request_obj.await_count == 2
-    _, kwargs = protect_client.api_request_obj.call_args
-    assert kwargs["json"]["layout"] == 4
-    assert kwargs["json"]["name"] == "Garage"
+    body = protect_client.api_request_obj.call_args.kwargs["json"]
+    assert body["slots"] == raw_slots
+    assert body["layout"] == 4
 
 
 @pytest.mark.asyncio()
-async def test_update_liveview_public_full_body(
+async def test_update_liveview_public_full_body_skips_fetch(
     protect_client: ProtectApiClient,
 ) -> None:
     protect_client._public_bootstrap = PublicBootstrap()
     protect_client.api_request_obj = AsyncMock(return_value=_liveview_raw())
-    with pytest.warns(DeprecationWarning, match="is_default and owner"):
-        await protect_client.update_liveview_public(
-            LIVEVIEW_ID,
-            name="N",
-            is_default=True,
-            is_global=False,
-            owner="u9",
-            layout=9,
-            slots=[
-                {
-                    "cameras": ["a", "b"],
-                    "cycleMode": LiveviewCycleMode.TIME,
-                    "cycleInterval": 5,
-                }
-            ],
-        )
+    await protect_client.update_liveview_public(
+        LIVEVIEW_ID,
+        name="N",
+        is_global=False,
+        layout=9,
+        slots=[
+            {
+                "cameras": ["a", "b"],
+                "cycleMode": LiveviewCycleMode.TIME,
+                "cycleInterval": 5,
+            }
+        ],
+    )
     protect_client.api_request_obj.assert_awaited_once()
     _, kwargs = protect_client.api_request_obj.call_args
     assert kwargs["json"] == {
@@ -4607,16 +4627,40 @@ async def test_update_liveview_public_full_body(
 
 
 @pytest.mark.asyncio()
+async def test_update_liveview_public_serializes_same_liveview(
+    protect_client: ProtectApiClient,
+) -> None:
+    protect_client._public_bootstrap = PublicBootstrap()
+    server = _liveview_raw()
+    calls: list[str] = []
+
+    async def _request(**kwargs: Any) -> dict[str, Any]:
+        calls.append(kwargs.get("method", "get"))
+        await asyncio.sleep(0)
+        if kwargs.get("method") == "patch":
+            server.update(kwargs["json"])
+        return dict(server)
+
+    protect_client.api_request_obj = AsyncMock(side_effect=_request)
+
+    await asyncio.gather(
+        protect_client.update_liveview_public(LIVEVIEW_ID, name="A"),
+        protect_client.update_liveview_public(LIVEVIEW_ID, layout=4),
+    )
+
+    assert calls == ["get", "patch", "get", "patch"]
+    assert server["name"] == "A"
+    assert server["layout"] == 4
+
+
+@pytest.mark.asyncio()
 @pytest.mark.parametrize("kwargs", [{"is_default": True}, {"owner": "u9"}])
-async def test_update_liveview_public_deprecated_only_is_rejected(
+async def test_update_liveview_public_rejects_create_only_fields(
     protect_client: ProtectApiClient, kwargs: dict[str, Any]
 ) -> None:
     protect_client.api_request_obj = AsyncMock()
-    with (
-        pytest.warns(DeprecationWarning),
-        pytest.raises(BadRequest, match="At least one parameter"),
-    ):
-        await protect_client.update_liveview_public(LIVEVIEW_ID, **kwargs)
+    with pytest.raises(BadRequest, match="is_default and owner"):
+        await protect_client.update_liveview_public(LIVEVIEW_ID, name="N", **kwargs)
     protect_client.api_request_obj.assert_not_awaited()
 
 

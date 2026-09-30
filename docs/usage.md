@@ -240,7 +240,9 @@ reconnect resync), the periodic refresh below, `refresh_public_store()`,
 `get_arm_profiles_public()`, `get_liveviews_public()`, `get_liveview_public()`,
 `create_arm_profile_public()` / `update_arm_profile_public()` /
 `delete_arm_profile_public()`, or `create_liveview_public()` /
-`update_liveview_public()` change a store. `updated` compares values per id,
+`update_liveview_public()` change a store. Liveview frames from the devices
+websocket fire it too, and `update_public()` sends no synthetic devices-websocket
+`add`/`remove` frames for these stores. `updated` compares values per id,
 so a refetch that returns the same data fires nothing, and a resync after your
 own create or update does not announce it a second time. If an arm-profile
 create, update, delete or `get_arm_profiles_public()` finishes while an
@@ -283,8 +285,11 @@ protect = ProtectApiClient.public_only(
 
 To refresh one of these stores right away, for example when the private
 websocket reports a liveview change, call
-`await protect.refresh_public_store("liveviews")`. It applies and announces the
-result exactly like a timer turn, including the discard rules below.
+`await protect.refresh_public_store("liveviews")`. It announces the result
+like a timer turn, but the store ends at least as new as the call: it waits
+for a running `update_public()` and for an in-flight refresh of the same
+store, calls made before its fetch starts share that fetch, and a result a
+write made stale during the fetch is refetched once instead of discarded.
 
 Pass `public_refresh_interval=None` to turn the timer off. A turn is skipped
 while `update_public()` is running, since it refetches the store anyway, and

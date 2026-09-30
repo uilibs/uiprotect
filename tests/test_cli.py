@@ -430,6 +430,7 @@ def test_liveviews_update_has_no_create_only_options(option: str) -> None:
     """``update`` offers no ``--owner``/``--default``; the console rejects them."""
     result = runner.invoke(liveview_app, ["update", "lv-1", option])
     assert result.exit_code == 2
+    assert "No such option" in _ANSI_ESCAPE_RE.sub("", result.output)
 
 
 def test_relays_activate_rejects_invalid_state() -> None:
