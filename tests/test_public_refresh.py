@@ -15,7 +15,7 @@ from uiprotect.api import (
     DEVICE_UPDATE_INTERVAL,
     PUBLIC_REFRESH_INTERVAL,
 )
-from uiprotect.data import PublicStoreChange
+from uiprotect.data import PublicBootstrap, PublicStoreChange
 from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
 from uiprotect.websocket import WebsocketState
 
@@ -81,7 +81,7 @@ async def test_public_only_uses_default_interval() -> None:
     _mock_update_public_endpoints(client)
     try:
         await client.update_public()
-        assert _delay(client) == pytest.approx(PUBLIC_REFRESH_INTERVAL / 2, abs=0.5)
+        assert _delay(client) == pytest.approx(PUBLIC_REFRESH_INTERVAL / 3, abs=0.5)
     finally:
         await client.close_session()
 
@@ -98,17 +98,19 @@ async def test_real_timer_keeps_refreshing_every_store() -> None:
             if (
                 client._fetch_arm_profiles.await_count >= 3
                 and client.get_ulp_users_public.await_count >= 3
+                and client._fetch_liveviews.await_count >= 3
             ):
                 break
             await asyncio.sleep(0.01)
         assert client._fetch_arm_profiles.await_count >= 3
         assert client.get_ulp_users_public.await_count >= 3
+        assert client._fetch_liveviews.await_count >= 3
     finally:
         await client.close_session()
 
 
 @pytest.mark.asyncio()
-@pytest.mark.parametrize(("interval", "expected"), [(60.0, 30.0), (10.0, 5.0)])
+@pytest.mark.parametrize(("interval", "expected"), [(60.0, 20.0), (9.0, 3.0)])
 async def test_tick_spacing_scales_with_interval(
     interval: float, expected: float
 ) -> None:
@@ -127,7 +129,7 @@ async def test_tick_spacing_scales_with_interval(
 
 @pytest.mark.asyncio()
 async def test_private_constructor_passes_interval() -> None:
-    client = ProtectApiClient("h", 443, "u", "p", public_refresh_interval=40.0)
+    client = ProtectApiClient("h", 443, "u", "p", public_refresh_interval=60.0)
     _mock_update_public_endpoints(client)
     try:
         await client.update_public()
@@ -152,14 +154,17 @@ async def test_none_disables_refresh() -> None:
 @pytest.mark.asyncio()
 async def test_jobs_run_round_robin(client: ProtectApiClient) -> None:
     await client.update_public()
-    assert [await _tick(client) for _ in range(4)] == [
+    assert [await _tick(client) for _ in range(6)] == [
         "arm_profiles",
         "ulp_users",
+        "liveviews",
         "arm_profiles",
         "ulp_users",
+        "liveviews",
     ]
     assert client._fetch_arm_profiles.await_count == 3
     assert client.get_ulp_users_public.await_count == 3
+    assert client._fetch_liveviews.await_count == 3
 
 
 @pytest.mark.asyncio()
@@ -243,11 +248,57 @@ async def test_refresh_not_gated_on_startup_failure(client: ProtectApiClient) ->
 async def test_tick_skipped_while_update_public_runs(client: ProtectApiClient) -> None:
     await client.update_public()
     client._fetch_arm_profiles.reset_mock()
-    async with client._public_update_lock:
-        assert await _tick(client) is None
+    client._public_update_running = True
+    assert await _tick(client) is None
+    client._public_update_running = False
     client._fetch_arm_profiles.assert_not_awaited()
     assert client._public_refresh_timer is not None
     assert await _tick(client) == "ulp_users"
+
+
+@pytest.mark.asyncio()
+async def test_update_public_running_reset_on_failure(client: ProtectApiClient) -> None:
+    client._update_public_locked = AsyncMock(side_effect=NotAuthorized("revoked"))
+    with pytest.raises(NotAuthorized):
+        await client.update_public()
+    assert client._public_update_running is False
+
+
+@pytest.mark.asyncio()
+async def test_update_public_running_set_only_while_lock_held(
+    client: ProtectApiClient,
+) -> None:
+    started = [asyncio.Event(), asyncio.Event()]
+    releases = [asyncio.Event(), asyncio.Event()]
+    calls = 0
+
+    async def _locked() -> PublicBootstrap:
+        nonlocal calls
+        call = calls
+        calls += 1
+        started[call].set()
+        await releases[call].wait()
+        return PublicBootstrap()
+
+    client._update_public_locked = AsyncMock(side_effect=_locked)
+    await client._public_update_lock.acquire()
+    first = asyncio.create_task(client.update_public())
+    await asyncio.sleep(0)
+    assert client._public_update_running is False
+
+    client._public_update_lock.release()
+    await started[0].wait()
+    assert client._public_update_running is True
+    second = asyncio.create_task(client.update_public())
+    await asyncio.sleep(0)
+
+    releases[0].set()
+    await first
+    await started[1].wait()
+    assert client._public_update_running is True
+    releases[1].set()
+    await second
+    assert client._public_update_running is False
 
 
 @pytest.mark.asyncio()
@@ -375,6 +426,7 @@ async def test_running_job_skips_only_its_own_turn(client: ProtectApiClient) -> 
     running = client._public_refresh_tasks["arm_profiles"]
     await asyncio.sleep(0)
     assert await _tick(client) == "ulp_users"
+    assert await _tick(client) == "liveviews"
     assert await _tick(client) is None
     assert client._public_refresh_tasks["arm_profiles"] is running
     assert fetch.await_count == 1
@@ -581,14 +633,11 @@ def _fail_then_recover(
 ) -> Callable[[ProtectApiClient], Awaitable[None]]:
     async def _run(client: ProtectApiClient) -> None:
         client._fetch_arm_profiles = AsyncMock(side_effect=exc)
-        await _tick(client)
-        await _tick(client)
-        await _tick(client)
-        await _tick(client)
+        for _ in range(2 * len(_PUBLIC_REFRESH_JOBS)):
+            await _tick(client)
         client._fetch_arm_profiles = AsyncMock(return_value=[])
-        await _tick(client)
-        await _tick(client)
-        await _tick(client)
+        for _ in range(2 * len(_PUBLIC_REFRESH_JOBS) - 1):
+            await _tick(client)
 
     return _run
 

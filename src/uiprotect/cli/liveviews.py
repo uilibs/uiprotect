@@ -97,30 +97,22 @@ def update(
     ctx: typer.Context,
     liveview_id: str = ARG_LIVEVIEW_ID,
     name: str | None = typer.Option(None, "--name"),
-    owner: str | None = typer.Option(None, "--owner"),
     layout: int | None = typer.Option(None, "--layout", min=1, max=26),
     slots: str | None = typer.Option(
         None, "--slots", help="JSON array of slot objects"
-    ),
-    is_default: bool | None = typer.Option(
-        None, "--default/--no-default", show_default=False
     ),
     is_global: bool | None = typer.Option(
         None, "--global/--no-global", show_default=False
     ),
 ) -> None:
-    """Patch an existing liveview (partial update)."""
+    """Update an existing liveview; omitted fields keep their current value."""
     kwargs: dict[str, Any] = {}
     if name is not None:
         kwargs["name"] = name
-    if owner is not None:
-        kwargs["owner"] = owner
     if layout is not None:
         kwargs["layout"] = layout
     if slots is not None:
         kwargs["slots"] = _parse_slots(slots)
-    if is_default is not None:
-        kwargs["is_default"] = is_default
     if is_global is not None:
         kwargs["is_global"] = is_global
     if not kwargs:

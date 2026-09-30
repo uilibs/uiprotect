@@ -163,11 +163,15 @@ _EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
     "update_bridge_public": lambda c: c.update_bridge_public(_S, name=_S),
     "get_viewer_public": lambda c: c.get_viewer_public(_S),
     "update_viewer_public": lambda c: c.update_viewer_public(_S, name=_S),
+    "get_liveviews_public": lambda c: c.get_liveviews_public(),
     "get_liveview_public": lambda c: c.get_liveview_public(_S),
     "create_liveview_public": lambda c: c.create_liveview_public(
         name=_S, is_default=False, is_global=False, owner=_S, layout=1, slots=[]
     ),
-    "update_liveview_public": lambda c: c.update_liveview_public(_S, name=_S),
+    # Every field is passed so the call does not fetch the liveview first.
+    "update_liveview_public": lambda c: c.update_liveview_public(
+        _S, name=_S, is_global=False, layout=1, slots=[]
+    ),
     "send_alarm_webhook_public": lambda c: c.send_alarm_webhook_public(_S),
     "get_arm_profiles_public": lambda c: c.get_arm_profiles_public(),
     "create_arm_profile_public": lambda c: c.create_arm_profile_public(

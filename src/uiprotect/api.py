@@ -311,6 +311,7 @@ class _PublicRefreshJob(NamedTuple):
 _PUBLIC_REFRESH_JOBS = (
     _PublicRefreshJob("arm_profiles", "_fetch_arm_profiles", "arm-profiles", False),
     _PublicRefreshJob("ulp_users", "get_ulp_users_public", "ulp-users", True),
+    _PublicRefreshJob("liveviews", "_fetch_liveviews", "liveviews", False),
 )
 
 
@@ -516,6 +517,9 @@ class BaseApiClient:
         # Serializes ``update_public()``: an overlapping prime could apply an
         # older snapshot over a newer one (and over live WS merges in between).
         self._public_update_lock = asyncio.Lock()
+        # True while ``update_public`` runs; a manual store refresh also holds
+        # the lock, so the timer cannot read ``locked()`` as this signal.
+        self._public_update_running = False
         self._host = host
         self._port = port
 
@@ -542,6 +546,10 @@ class BaseApiClient:
         self._max_retries = max_retries
         self._public_refresh_interval = public_refresh_interval
         self._public_refresh_tasks: dict[PublicStoreName, asyncio.Task[None]] = {}
+        # Manual refreshes that have not started fetching yet; later calls
+        # for the same store join them.
+        self._public_refresh_pending: dict[PublicStoreName, asyncio.Task[None]] = {}
+        self._liveview_update_locks: dict[str, asyncio.Lock] = {}
 
         self.config_dir = config_dir or (Path(user_config_dir()) / "ufp")
         self.cache_dir = cache_dir or (Path(user_cache_dir()) / "ufp_cache")
@@ -789,8 +797,12 @@ class BaseApiClient:
             if self._public_refresh_timer is not None:
                 self._public_refresh_timer.cancel()
                 self._public_refresh_timer = None
-            tasks = list(self._public_refresh_tasks.values())
+            tasks = [
+                *self._public_refresh_tasks.values(),
+                *self._public_refresh_pending.values(),
+            ]
             self._public_refresh_tasks.clear()
+            self._public_refresh_pending.clear()
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
@@ -2059,9 +2071,13 @@ class ProtectApiClient(BaseApiClient):
                 # Bulk envelopes carry an ``id`` array sharing one payload;
                 # expand to one frame per device so every subscriber sees
                 # clean single-device messages regardless of batching.
-                for result in self._public_bootstrap.process_devices_ws_messages(
-                    self, data
-                ):
+                if model_type is ModelType.LIVEVIEW:
+                    results = self._process_liveview_ws_message(data)
+                else:
+                    results = self._public_bootstrap.process_devices_ws_messages(
+                        self, data
+                    )
+                for result in results:
                     self._note_membership_frame(action_type, result)
                     self.emit_devices_message(
                         WSSubscriptionMessage(
@@ -2085,6 +2101,27 @@ class ProtectApiClient(BaseApiClient):
             )
         except Exception:
             _LOGGER.exception("Error processing public API devices websocket message")
+
+    def _process_liveview_ws_message(
+        self, data: dict[str, Any]
+    ) -> list[DeviceWSResult]:
+        """Apply a liveview frame through the store write path and announce it."""
+        pb = cast("PublicBootstrap", self._public_bootstrap)
+        # ``update`` merges in place, so apply to shallow copies and write the
+        # result back through ``_apply_public_store`` to diff against the cache.
+        scratch = PublicBootstrap(
+            liveviews={k: v.model_copy() for k, v in pb.liveviews.items()}
+        )
+        # Share the one-shot warning dedupe so a bad frame warns only once.
+        scratch._warned_merge_failures = pb._warned_merge_failures
+        results = scratch.process_devices_ws_messages(self, data)
+        if any(r.new_obj is not None or r.old_obj is not None for r in results):
+            self._emit_public_store_change(
+                self._apply_public_store(
+                    "liveviews", scratch.liveviews.values(), replace=True
+                )
+            )
+        return results
 
     def _devices_ws_filtered_out(self, model_type: ModelType) -> bool:
         """
@@ -2779,9 +2816,11 @@ class ProtectApiClient(BaseApiClient):
         """
         Subscribe to changes of the public stores the devices websocket never covers.
 
-        ``callback`` receives a :class:`PublicStoreChange` for ``arm_profiles``
-        or ``ulp_users`` whenever ``update_public()``, ``get_arm_profiles_public``
-        or an arm-profile create/update/delete changes that store's contents.
+        ``callback`` receives a :class:`PublicStoreChange` for ``arm_profiles``,
+        ``liveviews`` or ``ulp_users`` whenever ``update_public()``, a store
+        refresh, ``get_arm_profiles_public``, ``get_liveviews_public``,
+        ``get_liveview_public``, a devices-websocket liveview frame or an
+        arm-profile or liveview write changes that store's contents.
         A write that changes nothing does not fire. The prime that first
         materialises the bootstrap reports every cached id as ``added``.
         Callbacks run synchronously in the writing coroutine.
@@ -4757,9 +4796,21 @@ class ProtectApiClient(BaseApiClient):
             self._public_bootstrap.viewers[viewer.id] = viewer
         return viewer
 
-    @public_get("/v1/liveviews", items=PublicLiveview)
     async def get_liveviews_public(self) -> list[PublicLiveview]:
         """Get all liveviews using public API."""
+        writes = self._public_store_writes.get("liveviews")
+        liveviews = await self._fetch_liveviews()
+        # A refresh, ``update_public`` or setter that wrote the store during
+        # the fetch may hold newer data than this response.
+        if self._public_store_writes.get("liveviews") == writes:
+            self._emit_public_store_change(
+                self._apply_public_store("liveviews", liveviews, replace=True)
+            )
+        return liveviews
+
+    @public_get("/v1/liveviews", items=PublicLiveview)
+    async def _fetch_liveviews(self) -> list[PublicLiveview]:
+        """Fetch liveviews without mutating the cached bootstrap."""
         raise NotImplementedError
 
     async def get_liveview_public(self, liveview_id: str) -> PublicLiveview:
@@ -4768,8 +4819,9 @@ class ProtectApiClient(BaseApiClient):
             url=f"/v1/liveviews/{liveview_id}", public_api=True
         )
         liveview = PublicLiveview.from_unifi_dict(**data, api=self)
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.liveviews[liveview.id] = liveview
+        self._emit_public_store_change(
+            self._apply_public_store("liveviews", [liveview])
+        )
         return liveview
 
     async def create_liveview_public(
@@ -4800,8 +4852,9 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
         )
         liveview = PublicLiveview.from_unifi_dict(**data, api=self)
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.liveviews[liveview.id] = liveview
+        self._emit_public_store_change(
+            self._apply_public_store("liveviews", [liveview])
+        )
         return liveview
 
     async def update_liveview_public(
@@ -4815,24 +4868,59 @@ class ProtectApiClient(BaseApiClient):
         layout: int | None = None,
         slots: list[PublicLiveviewSlotDict] | None = None,
     ) -> PublicLiveview:
-        """Patch an existing liveview (partial update) using public API."""
+        """
+        Update an existing liveview using public API.
+
+        Fields left as ``None`` keep their current value, read from a fresh
+        fetch of the liveview; passing all four skips that fetch. Updates of
+        the same liveview are serialized. ``is_default`` and ``owner`` are
+        not accepted on update and raise ``BadRequest``.
+        """
+        if is_default is not None or owner is not None:
+            raise BadRequest("is_default and owner cannot be changed on update")
+        if name is None and is_global is None and layout is None and slots is None:
+            raise BadRequest("At least one parameter must be provided")
         if layout is not None and not 1 <= layout <= 26:
             raise BadRequest("layout must be between 1 and 26")
+        lock = self._liveview_update_locks.setdefault(liveview_id, asyncio.Lock())
+        async with lock:
+            return await self._update_liveview_public_locked(
+                liveview_id, name=name, is_global=is_global, layout=layout, slots=slots
+            )
+
+    async def _update_liveview_public_locked(
+        self,
+        liveview_id: str,
+        *,
+        name: str | None,
+        is_global: bool | None,
+        layout: int | None,
+        slots: list[PublicLiveviewSlotDict] | None,
+    ) -> PublicLiveview:
+        # The spec's PATCH body is the full liveview schema, but the console's
+        # validator requires ``name``, ``isGlobal``, ``layout`` and ``slots``
+        # and rejects ``isDefault`` and ``owner``.
         body: dict[str, Any] = {}
+        if name is None or is_global is None or layout is None or slots is None:
+            # Read the raw payload so slots keep cycle modes the library does
+            # not model; the cache may predate a change made in the app.
+            current = await self.api_request_obj(
+                url=f"/v1/liveviews/{liveview_id}", public_api=True
+            )
+            body = {
+                "name": current.get("name"),
+                "isGlobal": current.get("isGlobal"),
+                "layout": current.get("layout"),
+                "slots": current.get("slots", []),
+            }
         if name is not None:
             body["name"] = name
-        if is_default is not None:
-            body["isDefault"] = is_default
         if is_global is not None:
             body["isGlobal"] = is_global
-        if owner is not None:
-            body["owner"] = owner
         if layout is not None:
             body["layout"] = layout
         if slots is not None:
             body["slots"] = [dict(s) for s in slots]
-        if not body:
-            raise BadRequest("At least one parameter must be provided")
         data = await self.api_request_obj(
             url=f"/v1/liveviews/{liveview_id}",
             method="patch",
@@ -4840,8 +4928,9 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
         )
         liveview = PublicLiveview.from_unifi_dict(**data, api=self)
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.liveviews[liveview.id] = liveview
+        self._emit_public_store_change(
+            self._apply_public_store("liveviews", [liveview])
+        )
         return liveview
 
     async def send_alarm_webhook_public(self, trigger_id: str) -> None:
@@ -5115,22 +5204,53 @@ class ProtectApiClient(BaseApiClient):
         excluded by the devices-WS ``subscribed_models`` filter are skipped.
         A call that raises announces nothing, and a store whose endpoint was
         tolerated as missing keeps its previous data, so it has no difference
-        to announce.
+        to announce. Liveviews, arm profiles and ULP users get no synthetic
+        frames; their changes go to :meth:`subscribe_public_store_changes`.
 
         Concurrent calls are serialized: an overlapping prime could otherwise
         apply an older snapshot over a newer one (and over live WS merges in
         between). Each caller returns the then-current bootstrap.
 
-        A successful call starts the periodic refresh of ``arm_profiles`` and
-        ``ulp_users`` (see ``public_refresh_interval``) unless the client was
-        torn down while it ran.
+        A successful call starts the periodic refresh of ``arm_profiles``,
+        ``liveviews`` and ``ulp_users`` (see ``public_refresh_interval``) unless
+        the client was torn down while it ran.
         """
         epoch = self._public_refresh_epoch
         async with self._public_update_lock:
-            pb = await self._update_public_locked()
+            self._public_update_running = True
+            try:
+                pb = await self._update_public_locked()
+            finally:
+                self._public_update_running = False
         if epoch == self._public_refresh_epoch:
             self._start_public_refresh()
         return pb
+
+    async def refresh_public_store(self, store: PublicStoreName) -> None:
+        """
+        Refetch one websocket-less public store now and announce its change.
+
+        Waits for a running ``update_public()`` and for an in-flight refresh of
+        the same store, so the store ends at least as new as the call. Calls
+        overlapping before the fetch starts share it. A result that a write
+        to the store made stale during the fetch is refetched once. A failed
+        fetch keeps the cached data and raises to every caller sharing it.
+        """
+        job = next((j for j in _PUBLIC_REFRESH_JOBS if j.store == store), None)
+        if job is None:
+            raise ValueError(f"Unknown public store: {store!r}")
+        pending = self._public_refresh_pending.get(store)
+        if pending is None or pending.done():
+            pending = asyncio.create_task(self._refresh_public_store_now(job))
+            self._public_refresh_pending[store] = pending
+        try:
+            await asyncio.shield(pending)
+        except asyncio.CancelledError:
+            # Teardown cancelled the shared fetch, not this caller.
+            current = cast("asyncio.Task[None]", asyncio.current_task())
+            if pending.cancelled() and not current.cancelling():
+                return
+            raise
 
     def _start_public_refresh(self) -> None:
         if (
@@ -5157,18 +5277,56 @@ class ProtectApiClient(BaseApiClient):
             return
         # The running ``update_public`` refetches this store and would apply
         # its older snapshot over the tick's result.
-        if self._public_update_lock.locked():
+        if self._public_update_running:
             _LOGGER.debug("Skipping %s refresh during update_public", job.label)
             return
         self._public_refresh_tasks[job.store] = asyncio.create_task(
             self._refresh_public_store(job, self._public_store_writes.get(job.store))
         )
 
+    async def _refresh_public_store_now(self, job: _PublicRefreshJob) -> None:
+        task = cast("asyncio.Task[None]", asyncio.current_task())
+        while (
+            running := self._public_refresh_tasks.get(job.store)
+        ) is not None and not running.done():
+            await asyncio.wait([running])
+        self._public_refresh_tasks[job.store] = task
+        # Holding the prime lock keeps ``update_public`` from applying an
+        # older snapshot over this result.
+        async with self._public_update_lock:
+            if self._public_refresh_pending.get(job.store) is task:
+                del self._public_refresh_pending[job.store]
+            for _ in range(2):
+                writes = self._public_store_writes.get(job.store)
+                objs: list[Any] = await getattr(self, job.fetch)()
+                if self._public_store_writes.get(job.store) == writes:
+                    self._emit_public_store_change(
+                        self._apply_public_store(job.store, objs, replace=True)
+                    )
+                    return
+            _LOGGER.debug("Dropping %s refresh; store written during fetch", job.label)
+
     async def _refresh_public_store(
         self, job: _PublicRefreshJob, writes: int | None
     ) -> None:
+        objs = await self._fetch_public_store(job)
+        # An ``update_public`` or a setter wrote the store while the fetch was
+        # in flight; the fetched list may predate that write. A running
+        # ``update_public`` applies the store itself, and bumping the write
+        # counter here would make it skip its newer result.
+        if (
+            objs is None
+            or self._public_store_writes.get(job.store) != writes
+            or self._public_update_running
+        ):
+            return
+        self._emit_public_store_change(
+            self._apply_public_store(job.store, objs, replace=True)
+        )
+
+    async def _fetch_public_store(self, job: _PublicRefreshJob) -> list[Any] | None:
         try:
-            objs = await getattr(self, job.fetch)()
+            objs: list[Any] = await getattr(self, job.fetch)()
         except NotAuthorized as err:
             if job.tolerate_not_authorized:
                 _LOGGER.debug(
@@ -5178,32 +5336,21 @@ class ProtectApiClient(BaseApiClient):
                 )
             else:
                 self._log_public_refresh_failure(job.label, err)
-            return
+            return None
         except BadRequest as err:
             # Endpoint not exposed by this firmware, as in ``_log_or_raise``.
             _LOGGER.debug("%s endpoint unavailable: %s", job.label, err)
-            return
+            return None
         except (NvrError, TimeoutError) as err:
             self._log_public_refresh_failure(job.label, err)
-            return
+            return None
         except Exception as err:
             self._log_public_refresh_failure(job.label, err, traceback=True)
-            return
+            return None
         if job.label in self._public_refresh_failing:
             self._public_refresh_failing.discard(job.label)
             _LOGGER.info("Periodic refresh of %s recovered", job.label)
-        # An ``update_public`` or a setter wrote the store while the fetch was
-        # in flight; the fetched list may predate that write. A running
-        # ``update_public`` applies the store itself, and bumping the write
-        # counter here would make it skip its newer result.
-        if (
-            self._public_store_writes.get(job.store) != writes
-            or self._public_update_lock.locked()
-        ):
-            return
-        self._emit_public_store_change(
-            self._apply_public_store(job.store, objs, replace=True)
-        )
+        return objs
 
     def _log_public_refresh_failure(
         self, label: str, err: Exception, *, traceback: bool = False
@@ -5255,7 +5402,7 @@ class ProtectApiClient(BaseApiClient):
             (self.get_fobs_public(), "fobs", "fobs"),
             (self.get_speakers_public(), "speakers", "speakers"),
             (self.get_link_stations_public(), "link-stations", "link_stations"),
-            (self.get_liveviews_public(), "liveviews", "liveviews"),
+            (self._fetch_liveviews(), "liveviews", "liveviews"),
             (self.get_bridges_public(), "bridges", "bridges"),
             (self.get_viewers_public(), "viewers", "viewers"),
             (self.get_ulp_users_public(), "ulp-users", "ulp_users"),
@@ -5363,7 +5510,7 @@ class ProtectApiClient(BaseApiClient):
         for (_, _label, attr), result in zip(endpoints, results, strict=True):
             if isinstance(result, BaseException):
                 continue
-            if attr in ("arm_profiles", "ulp_users"):
+            if attr in ("arm_profiles", "liveviews", "ulp_users"):
                 store = cast("PublicStoreName", attr)
                 # A setter wrote this store while the fetch was in flight; the
                 # fetched list may predate that write, so keep the cache.
@@ -5385,7 +5532,7 @@ class ProtectApiClient(BaseApiClient):
     def _apply_public_store(
         self,
         store: PublicStoreName,
-        objs: Iterable[ArmProfile | PublicUlpUser],
+        objs: Iterable[ArmProfile | PublicLiveview | PublicUlpUser],
         *,
         replace: bool = False,
         removed_ids: Iterable[str] = (),

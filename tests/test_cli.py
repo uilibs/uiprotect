@@ -34,6 +34,7 @@ from uiprotect.cli.files_public import app as files_public_app
 from uiprotect.cli.fobs import app as fob_app
 from uiprotect.cli.link_stations import app as link_station_app
 from uiprotect.cli.liveviews import app as liveview_app
+from uiprotect.cli.liveviews import update as liveview_update
 from uiprotect.cli.relays import app as relay_app
 from uiprotect.cli.sensors import app as sensor_app
 from uiprotect.cli.sensors import (
@@ -423,6 +424,36 @@ def test_liveviews_update_rejects_empty_args() -> None:
     result = runner.invoke(liveview_app, ["update", "lv-1"])
     assert result.exit_code == 1
     assert "At least one field must be provided" in result.stdout
+
+
+@pytest.mark.parametrize("option", ["--owner=u1", "--default"])
+def test_liveviews_update_has_no_create_only_options(option: str) -> None:
+    """``update`` offers no ``--owner``/``--default``; the console rejects them."""
+    result = runner.invoke(liveview_app, ["update", "lv-1", option])
+    assert result.exit_code == 2
+    assert "No such option" in _ANSI_ESCAPE_RE.sub("", result.output)
+
+
+def test_liveviews_update_forwards_global() -> None:
+    """``update <id> --global`` forwards ``is_global=True``."""
+    protect = MagicMock(is_public_only=True)
+    protect.update_liveview_public = AsyncMock()
+    protect.close_session = AsyncMock()
+    protect.close_public_api_session = AsyncMock()
+    ctx = MagicMock()
+    ctx.obj.protect = protect
+
+    with patch.object(base_cli, "print_unifi_obj"):
+        liveview_update(
+            ctx,
+            liveview_id="lv-1",
+            name=None,
+            layout=None,
+            slots=None,
+            is_global=True,
+        )
+
+    protect.update_liveview_public.assert_awaited_once_with("lv-1", is_global=True)
 
 
 def test_relays_activate_rejects_invalid_state() -> None:
