@@ -260,11 +260,11 @@ The `liveviews` command group is driven by the Public Integration API and
 authenticates with an API key only (no username/password required). It exposes
 four subcommands:
 
-| Command  | Description                                  |
-| -------- | -------------------------------------------- |
-| `list`   | List all liveviews.                          |
-| `show`   | Show a single liveview by ID.                |
-| `create` | Create a new liveview.                       |
+| Command  | Description                                                   |
+| -------- | ------------------------------------------------------------- |
+| `list`   | List all liveviews.                                           |
+| `show`   | Show a single liveview by ID.                                 |
+| `create` | Create a new liveview.                                        |
 | `update` | Update an existing liveview; omitted fields keep their value. |
 
 ```bash
