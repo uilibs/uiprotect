@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import sys
 import time as time_module
 import zoneinfo
@@ -10,10 +11,10 @@ from http.cookies import Morsel
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 from uuid import UUID
 
-import jwt
+import orjson
 import pytest
 from aiofiles import os as aos
 from pydantic.fields import FieldInfo
@@ -540,25 +541,71 @@ async def test_get_response_reason():
     assert await get_response_reason(resp) == "Error"
 
 
-def test_decode_token_cookie():
-    # HMAC key must be >=32 bytes to satisfy PyJWT's SHA256 minimum
-    hmac_key = "0123456789abcdef0123456789abcdef"
-    # Valid token
-    payload: dict[str, Any] = {"sub": "user", "exp": int(time_module.time()) + 3600}
-    token = jwt.encode(payload, hmac_key, algorithm="HS256")
+def _b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+
+def _make_token(payload: Any) -> str:
+    header = _b64url(orjson.dumps({"alg": "none", "typ": "JWT"}))
+    return f"{header}.{_b64url(orjson.dumps(payload))}.signature"
+
+
+def _token_morsel(value: str) -> Morsel[str]:
     morsel: Morsel[str] = Morsel()
-    morsel.set("token", token, token)
-    assert decode_token_cookie(morsel)["sub"] == "user"
+    morsel.set("token", value, value)
+    return morsel
 
-    # Expired token
-    payload = {"sub": "user", "exp": int(time_module.time()) - 3600}
-    token = jwt.encode(payload, hmac_key, algorithm="HS256")
-    morsel.set("token", token, token)
-    assert decode_token_cookie(morsel) is None
 
-    # Invalid token
-    morsel.set("token", "invalid", "invalid")
-    assert decode_token_cookie(morsel) is None
+def test_decode_token_cookie():
+    exp = int(time_module.time()) + 3600
+    token = _make_token({"sub": "user", "exp": exp})
+    assert decode_token_cookie(_token_morsel(token)) == {"sub": "user", "exp": exp}
+
+
+def test_decode_token_cookie_float_exp():
+    exp = time_module.time() + 3600
+    token = _make_token({"sub": "user", "exp": exp})
+    assert decode_token_cookie(_token_morsel(token)) == {"sub": "user", "exp": exp}
+
+
+def test_decode_token_cookie_missing_exp():
+    token = _make_token({"sub": "user"})
+    assert decode_token_cookie(_token_morsel(token)) == {"sub": "user"}
+
+
+@pytest.mark.parametrize("offset", [-3600, 0])
+def test_decode_token_cookie_expired(
+    offset: int, caplog: pytest.LogCaptureFixture
+) -> None:
+    now = int(time_module.time())
+    token = _make_token({"sub": "user", "exp": now + offset})
+    caplog.set_level("DEBUG", logger="uiprotect.utils")
+    with patch("uiprotect.utils.time.time", return_value=now):
+        assert decode_token_cookie(_token_morsel(token)) is None
+    assert "Authentication token has expired." in caplog.text
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        pytest.param("invalid", id="one-segment"),
+        pytest.param("a.b", id="two-segments"),
+        pytest.param(_make_token({"exp": 1}) + ".extra", id="four-segments"),
+        pytest.param("header.a.signature", id="bad-base64-length"),
+        pytest.param("header.\u00e9.signature", id="non-ascii-base64"),
+        pytest.param(f"header.{_b64url(b'not json')}.sig", id="non-json-payload"),
+        pytest.param(_make_token([1, 2]), id="array-payload"),
+        pytest.param(_make_token(42), id="scalar-payload"),
+        pytest.param(_make_token({"exp": "soon"}), id="string-exp"),
+        pytest.param(_make_token({"exp": None}), id="null-exp"),
+    ],
+)
+def test_decode_token_cookie_malformed(
+    token: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level("DEBUG", logger="uiprotect.utils")
+    assert decode_token_cookie(_token_morsel(token)) is None
+    assert "Authentication token decode error" in caplog.text
 
 
 def test_local_datetime():
