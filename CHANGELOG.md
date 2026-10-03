@@ -1,5 +1,13 @@
 # Changelog
 
+## v20.0.0 (2026-10-03)
+
+### Features
+
+
+- Drop unread private-model fields ([`62ea563`](https://github.com/uilibs/uiprotect/commit/62ea563b2a5a432d92c40bf42e1b9794ce2261a5))
+
+
 ## v19.0.1 (2026-10-03)
 
 ### Bug fixes
