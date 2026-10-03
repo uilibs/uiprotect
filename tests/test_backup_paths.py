@@ -2,22 +2,28 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import asyncio
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 pytest.importorskip("sqlalchemy")
 
+from sqlalchemy.ext.asyncio import create_async_engine
 from typer.testing import CliRunner
 
+from uiprotect import data as d
+from uiprotect.cli import backup
 from uiprotect.cli.backup import (
     BackupContext,
     Event,
+    _download_events,
     _safe_first_glob_match,
     _safe_join,
     _safe_slug,
+    _update_ongoing_events,
 )
 from uiprotect.cli.backup import app as backup_app
 
@@ -232,3 +238,64 @@ def test_public_only_mode_rejected(args: list[str]) -> None:
 
     assert result.exit_code == 1
     assert "public-only mode" in (result.stdout + (result.stderr or ""))
+
+
+async def _seed_events(ctx: BackupContext, *events: Event) -> None:
+    ctx._db_engine = create_async_engine("sqlite+aiosqlite://")
+    await ctx.create_db()
+    async with ctx.create_db_session() as db:
+        db.add_all(events)
+        await db.commit()
+
+
+def _db_event(event_id: str, event_type: str, end: datetime | None) -> Event:
+    return Event(
+        id=event_id,
+        start_naive=datetime(2024, 1, 2),
+        end_naive=end,
+        camera_mac="aabbccddeeff",
+        event_type=event_type,
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_ongoing_events_matches_event_without_end(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only non-ring events with a NULL end are refreshed."""
+    monkeypatch.setattr(backup, "track", lambda seq, **_: seq)
+    ctx = _make_ctx(tmp_path)
+    await _seed_events(
+        ctx,
+        _db_event("ongoing", "motion", None),
+        _db_event("ended", "motion", datetime(2024, 1, 2, 0, 1)),
+        _db_event("ring", "ring", None),
+    )
+    ctx.protect.get_event = AsyncMock(return_value=MagicMock(camera=None))
+    try:
+        assert await _update_ongoing_events(ctx) == 1
+    finally:
+        await ctx.db_engine.dispose()
+    ctx.protect.get_event.assert_awaited_once_with("ongoing")
+
+
+@pytest.mark.asyncio
+async def test_download_events_counts_event_without_end(tmp_path: Path) -> None:
+    """Events with a NULL end are counted and skipped without stalling."""
+    ctx = _make_ctx(tmp_path, thumbnail_format="", gif_format="", event_format="")
+    ctx.length_cutoff = timedelta(hours=1)
+    ctx.end = datetime(2024, 1, 3, tzinfo=UTC)
+    await _seed_events(
+        ctx,
+        _db_event("ongoing", "motion", None),
+        _db_event("ended", "motion", datetime(2024, 1, 2, 0, 1)),
+        _db_event("late", "motion", datetime(2024, 1, 4)),
+    )
+    try:
+        count, downloaded = await asyncio.wait_for(
+            _download_events(ctx, [d.EventType.MOTION], [], False, False),
+            timeout=10,
+        )
+    finally:
+        await ctx.db_engine.dispose()
+    assert (count, downloaded) == (2, 0)
