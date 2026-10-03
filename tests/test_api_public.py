@@ -2485,7 +2485,6 @@ def test_ws_reconnect_skips_resync_without_cache(
 @pytest.mark.parametrize(
     ("get_websocket", "prop", "subscribe"),
     [
-        ("_get_websocket", "websocket_state", "subscribe_websocket_state"),
         (
             "_get_events_websocket",
             "events_websocket_state",

@@ -41,35 +41,6 @@ from uiprotect.utils import to_js_time
 
 
 @pytest.mark.parametrize(
-    ("channel_id", "fps", "expected"),
-    [
-        (3, 2, True),  # Package channel with low fps (legacy behavior)
-        (3, 15, True),  # Package channel with higher fps (G6 Entry)
-        (3, None, False),  # Package channel with no fps
-        (0, 2, False),  # Non-package channel with low fps
-        (1, 15, False),  # Non-package channel
-        (2, None, False),  # Non-package channel with no fps
-    ],
-)
-def test_camera_channel_is_package(channel_id: int, fps: int | None, expected: bool):
-    """Test CameraChannel.is_package uses channel id == 3 for detection."""
-    channel = CameraChannel.from_unifi_dict(
-        id=channel_id,
-        videoId="test",
-        name="test",
-        enabled=True,
-        isRtspEnabled=False,
-        width=1920,
-        height=1080,
-        fps=fps,
-        bitrate=1000,
-        fpsValues=[],
-        idrInterval=1,
-    )
-    assert channel.is_package is expected
-
-
-@pytest.mark.parametrize(
     ("channel_id", "expected"),
     [
         (0, ChannelQuality.HIGH),
@@ -175,6 +146,37 @@ async def test_camera_set_motion_detection(camera_obj: Camera | None, status: bo
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    ("mode", "object_types", "expected"),
+    [
+        (RecordingMode.ALWAYS, [SmartDetectObjectType.PERSON], True),
+        (RecordingMode.ALWAYS, [], False),
+        (RecordingMode.NEVER, [SmartDetectObjectType.PERSON], False),
+    ],
+)
+def test_camera_is_person_detection_on(
+    camera_obj: Camera,
+    mode: RecordingMode,
+    object_types: list[SmartDetectObjectType],
+    expected: bool,
+) -> None:
+    """is_person_detection_on follows the camera's own recording and smart settings."""
+    camera_obj.use_global = False
+    camera_obj.recording_settings.mode = mode
+    camera_obj.smart_detect_settings.object_types = object_types
+
+    assert camera_obj.is_person_detection_on is expected
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_camera_get_last_smart_detect_event_without_id(camera_obj: Camera) -> None:
+    """get_last_smart_detect_event is None when no event id is tracked for the type."""
+    camera_obj.last_smart_detect_event_ids.pop(SmartDetectObjectType.PERSON, None)
+
+    assert camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PERSON) is None
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("mode", [RecordingMode.ALWAYS, RecordingMode.DETECTIONS])
 @pytest.mark.asyncio()
 async def test_camera_set_recording_mode(
@@ -231,44 +233,6 @@ async def test_camera_set_ir_led_model(camera_obj: Camera | None, mode: IRLEDMod
         f"cameras/{camera_obj.id}",
         method="patch",
         json={"ispSettings": {"irLedMode": mode.value}},
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_status_light_no_status(camera_obj: Camera | None):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_led_status = False
-
-    with pytest.raises(BadRequest):
-        await camera_obj.set_status_light(True)
-
-    assert not camera_obj.api.api_request.called
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio()
-async def test_camera_set_status_light(camera_obj: Camera | None, status: bool):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_led_status = True
-    camera_obj.led_settings.is_enabled = not status
-    camera_obj.led_settings.blink_rate = 10
-
-    await camera_obj.set_status_light(status)
-
-    camera_obj.api.api_request.assert_called_with(
-        f"cameras/{camera_obj.id}",
-        method="patch",
-        json={"ledSettings": {"isEnabled": status, "blinkRate": 0}},
     )
 
 
@@ -1242,36 +1206,6 @@ async def test_get_package_snapshot_dt_no_read_media(camera_obj: Camera | None):
         ),
     ):
         await camera_obj.get_package_snapshot(dt=datetime.now())
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_camera_is_face_currently_detected(camera_obj: Camera) -> None:
-    # Set up camera to support face detection
-    camera_obj.feature_flags.can_optical_zoom = True
-    camera_obj.smart_detect_settings.object_types = [SmartDetectObjectType.FACE]
-
-    # Test when face is currently detected
-    camera_obj.is_smart_detected = True
-    camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.FACE] = "test_event_id"
-
-    # Create mock event that's ongoing (end=None) with face detection
-    mock_event = Mock()
-    mock_event.end = None
-    mock_event.smart_detect_types = [SmartDetectObjectType.FACE]
-
-    with patch.object(camera_obj.api.bootstrap.events, "get", return_value=mock_event):
-        assert camera_obj.is_face_currently_detected is True
-
-    # Test when face is not currently detected (no event)
-    camera_obj.last_smart_detect_event_ids.pop(SmartDetectObjectType.FACE, None)
-    assert camera_obj.is_face_currently_detected is False
-
-    # Test when face is not currently detected (event ended)
-    camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.FACE] = "test_event_id"
-    mock_event.end = datetime.now()
-
-    with patch.object(camera_obj.api.bootstrap.events, "get", return_value=mock_event):
-        assert camera_obj.is_face_currently_detected is False
 
 
 def test_camera_zone_color_serialization() -> None:
