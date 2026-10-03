@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from uiprotect.data.user import Keyring, Keyrings, UlpUser, UlpUsers
 
 
@@ -10,7 +8,6 @@ def test_ulp_user_creation():
         first_name="John",
         last_name="Doe",
         full_name="John Doe",
-        avatar="avatar_url",
         status="active",
     )
     assert user.id == "1"
@@ -18,7 +15,6 @@ def test_ulp_user_creation():
     assert user.first_name == "John"
     assert user.last_name == "Doe"
     assert user.full_name == "John Doe"
-    assert user.avatar == "avatar_url"
     assert user.status == "active"
 
 
@@ -30,7 +26,6 @@ def test_ulp_users_add_and_remove():
         first_name="John",
         last_name="Doe",
         full_name="John Doe",
-        avatar="avatar_url",
         status="active",
     )
     users.add(user)
@@ -49,7 +44,6 @@ def test_keyring_creation():
         device_id="device1",
         registry_type="reg_type1",
         registry_id="reg_id1",
-        last_activity=datetime.now(),
         ulp_user="ulp1",
     )
     assert keyring.id == "1"
@@ -68,7 +62,6 @@ def test_keyrings_add_and_remove():
         device_id="device1",
         registry_type="reg_type1",
         registry_id="reg_id1",
-        last_activity=datetime.now(),
         ulp_user="ulp1",
     )
     keyrings.add(keyring)
@@ -90,7 +83,6 @@ def test_keyrings_equality():
         device_id="device1",
         registry_type="reg_type1",
         registry_id="reg_id1",
-        last_activity=datetime.now(),
         ulp_user="ulp1",
     )
     keyring2 = Keyring(
@@ -99,7 +91,6 @@ def test_keyrings_equality():
         device_id="device2",
         registry_type="reg_type2",
         registry_id="reg_id2",
-        last_activity=datetime.now(),
         ulp_user="ulp2",
     )
     keyrings1.add(keyring1)
@@ -118,7 +109,6 @@ def test_keyrings_equality():
         device_id="device3",
         registry_type="reg_type3",
         registry_id="reg_id3",
-        last_activity=datetime.now(),
         ulp_user="ulp3",
     )
     keyrings3.add(keyring3)
@@ -144,7 +134,6 @@ def test_ulp_users_equality():
         first_name="John",
         last_name="Doe",
         full_name="John Doe",
-        avatar="avatar_url",
         status="active",
     )
     user2 = UlpUser(
@@ -153,7 +142,6 @@ def test_ulp_users_equality():
         first_name="Jane",
         last_name="Doe",
         full_name="Jane Doe",
-        avatar="avatar_url",
         status="inactive",
     )
     users1.add(user1)
@@ -172,7 +160,6 @@ def test_ulp_users_equality():
         first_name="Jim",
         last_name="Beam",
         full_name="Jim Beam",
-        avatar="avatar_url",
         status="active",
     )
     users3.add(user3)
@@ -188,7 +175,6 @@ def test_ulp_users_as_list():
         first_name="John",
         last_name="Doe",
         full_name="John Doe",
-        avatar="avatar_url",
         status="active",
     )
     user2 = UlpUser(
@@ -197,7 +183,6 @@ def test_ulp_users_as_list():
         first_name="Jane",
         last_name="Doe",
         full_name="Jane Doe",
-        avatar="avatar_url",
         status="inactive",
     )
     users.add(user1)
@@ -215,7 +200,6 @@ def test_keyrings_from_list():
         device_id="device1",
         registry_type="reg_type1",
         registry_id="reg_id1",
-        last_activity=datetime.now(),
         ulp_user="ulp1",
     )
     keyring2 = Keyring(
@@ -224,7 +208,6 @@ def test_keyrings_from_list():
         device_id="device2",
         registry_type="reg_type2",
         registry_id="reg_id2",
-        last_activity=datetime.now(),
         ulp_user="ulp2",
     )
     keyrings_list = [keyring1, keyring2]
@@ -245,7 +228,6 @@ def test_ulp_users_from_list():
         first_name="John",
         last_name="Doe",
         full_name="John Doe",
-        avatar="avatar_url",
         status="active",
     )
     user2 = UlpUser(
@@ -254,7 +236,6 @@ def test_ulp_users_from_list():
         first_name="Jane",
         last_name="Doe",
         full_name="Jane Doe",
-        avatar="avatar_url",
         status="inactive",
     )
     users_list = [user1, user2]

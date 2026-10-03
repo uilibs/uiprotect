@@ -1,5 +1,43 @@
 # Changelog
 
+## v20.0.0 (2026-10-03)
+
+### Features
+
+
+- Drop unread private-model fields ([`62ea563`](https://github.com/uilibs/uiprotect/commit/62ea563b2a5a432d92c40bf42e1b9794ce2261a5))
+
+
+## v19.0.1 (2026-10-03)
+
+### Bug fixes
+
+
+- Drop pyjwt dependency ([`5462cc8`](https://github.com/uilibs/uiprotect/commit/5462cc8b5a01ca0e2e84267429f78662ea26358c))
+
+
+### Refactoring
+
+
+- Clean up leftovers after #1296 ([`123140d`](https://github.com/uilibs/uiprotect/commit/123140dbad9eea4384ae5dc0e4cfe2edd62a7b57))
+
+
+## v19.0.0 (2026-10-03)
+
+### Features
+
+
+- Run the cli on public models and drop cli-only private members ([`7edf47b`](https://github.com/uilibs/uiprotect/commit/7edf47bdc2b753211df53644b9a60ebebdbce570))
+
+
+## v18.0.0 (2026-10-03)
+
+### Features
+
+
+- Remove private-api members nothing uses ([`c1c6beb`](https://github.com/uilibs/uiprotect/commit/c1c6bebc5dabde773142172d3c6658b66ca930ec))
+
+
 ## v17.7.0 (2026-09-30)
 
 ### Features

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import MagicMock, Mock
 
 import orjson
 import pytest
@@ -100,22 +100,6 @@ async def test_viewer_set_liveview_valid(viewer_obj: Viewer, liveview_obj: Livev
             new_obj=viewer_obj,
         ),
     )
-
-
-@pytest.mark.skipif(not TEST_VIEWPORT_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_viewer_set_name_public(viewer_obj: Viewer) -> None:
-    viewer_obj.api.update_viewer_public = AsyncMock(
-        return_value=_public_viewer_response(name="Renamed"),
-    )
-
-    await viewer_obj.set_name_public("Renamed")
-
-    viewer_obj.api.update_viewer_public.assert_awaited_once_with(
-        viewer_obj.id,
-        name="Renamed",
-    )
-    assert viewer_obj.name == "Renamed"
 
 
 @pytest.mark.parametrize(

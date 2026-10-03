@@ -11,7 +11,6 @@ from functools import cache
 from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
 from typing import Any, ClassVar, Literal
-from uuid import UUID
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
 from pydantic import ConfigDict, Field
@@ -39,7 +38,6 @@ from .types import (
     DoorbellText,
     EventCategories,
     EventType,
-    FirmwareReleaseChannel,
     IteratorCallback,
     ModelType,
     MountType,
@@ -51,18 +49,17 @@ from .types import (
     ResolutionStorageType,
     SensorAlarmType,
     SensorStatusType,
-    SensorType,
     SmartDetectObjectType,
     StorageType,
     Version,
 )
-from .user import User, UserLocation
+from .user import User
 
 _LOGGER = logging.getLogger(__name__)
 MAX_SUPPORTED_CAMERAS = 256
 MAX_EVENT_HISTORY_IN_STATE_MACHINE = MAX_SUPPORTED_CAMERAS * 2
 DELETE_KEYS_THUMB = {"color", "vehicleType"}
-DELETE_KEYS_EVENT = {"deletedAt", "category", "subCategory", "device"}
+DELETE_KEYS_EVENT = {"category", "device"}
 
 
 class MetaInfo(ProtectBaseObject):
@@ -72,12 +69,6 @@ class MetaInfo(ProtectBaseObject):
     def version(self) -> Version:
         """Parsed application version, comparable to the private ``NVR.version``."""
         return Version(self.application_version)
-
-
-class NVRLocation(UserLocation):
-    is_geofencing_enabled: bool
-    radius: int
-    model: ModelType | None = None
 
 
 class SmartDetectItemAttribute(ProtectBaseObject):
@@ -231,13 +222,6 @@ class EventThumbnailAttributes(ProtectBaseObject):
 
     model_config = ConfigDict(extra="allow")
 
-    def get_value(self, key: str) -> str | None:
-        """Get the string value from an EventThumbnailAttribute field, if it exists."""
-        attr = getattr(self, key, None)
-        if isinstance(attr, EventThumbnailAttribute):
-            return attr.val
-        return None
-
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         return {
@@ -285,15 +269,11 @@ class EventDetectedThumbnail(ProtectBaseObject):
 
 
 class EventMetadata(ProtectBaseObject):
-    client_platform: str | None = None
     reason: str | None = None
-    app_update: str | None = None
     light_id: str | None = None
     light_name: str | None = None
     type: str | None = None
     sensor_id: str | None = None
-    sensor_name: str | None = None
-    sensor_type: SensorType | None = None
     from_value: str | None = None
     to_value: str | None = None
     mount_type: MountType | None = None
@@ -312,8 +292,6 @@ class EventMetadata(ProtectBaseObject):
         "lightName",
         "type",
         "sensorId",
-        "sensorName",
-        "sensorType",
         "mountType",
         "status",
         "alarmType",
@@ -375,7 +353,6 @@ class Event(ProtectModelWithId):
     # payloads (motion start, doorbell ring, etc.). Defaults keep the
     # strict model constructable from either source.
     score: int = 0
-    heatmap_id: str | None = None
     camera_id: str | None = None
     # Public Integration API ``add`` payloads carry the originating device
     # identifier under a top-level ``device`` field; private-API payloads
@@ -388,17 +365,9 @@ class Event(ProtectModelWithId):
     user_id: str | None = None
     timestamp: datetime | None = None
     metadata: EventMetadata | None = None
-    # requires 2.7.5+
-    deleted_at: datetime | None = None
-    deletion_type: Literal["manual", "automatic"] | None = None
     # only appears if `get_events` is called with category
     category: EventCategories | None = None
-    sub_category: str | None = None
-    # requires 6.0.0+
-    is_favorite: bool | None = None
-    favorite_object_ids: list[str] | None = None
 
-    _smart_detect_events: list[Event] | None = PrivateAttr(None)
     _smart_detect_track: SmartDetectTrack | None = PrivateAttr(None)
     _smart_detect_zones: dict[int, CameraZone] | None = PrivateAttr(None)
 
@@ -408,7 +377,6 @@ class Event(ProtectModelWithId):
         return {
             **super()._get_unifi_remaps(),
             "camera": "cameraId",
-            "heatmap": "heatmapId",
             "user": "userId",
             "thumbnail": "thumbnailId",
             "smartDetectEvents": "smartDetectEventIds",
@@ -419,9 +387,7 @@ class Event(ProtectModelWithId):
     @cache
     def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
         return (
-            dict.fromkeys(
-                ("start", "end", "timestamp", "deletedAt"), convert_to_datetime
-            )
+            dict.fromkeys(("start", "end", "timestamp"), convert_to_datetime)
             | {"smartDetectTypes": convert_smart_types}
             | super().unifi_dict_conversions()
         )
@@ -462,57 +428,6 @@ class Event(ProtectModelWithId):
             return None
 
         return self._api.bootstrap.users.get(self.user_id)
-
-    @property
-    def smart_detect_events(self) -> list[Event]:
-        if self._smart_detect_events is not None:
-            return self._smart_detect_events
-
-        self._smart_detect_events = [
-            self._api.bootstrap.events[g]
-            for g in self.smart_detect_event_ids
-            if g in self._api.bootstrap.events
-        ]
-        return self._smart_detect_events
-
-    def get_detected_thumbnail(self) -> EventDetectedThumbnail | None:
-        """
-        Gets best detected thumbnail for event (UFP 6.x+).
-
-        Returns the thumbnail marked with clockBestWall, which indicates
-        the optimal frame for this detection (highest confidence, best angle, etc.).
-
-        Returns:
-            EventDetectedThumbnail with the best detection frame, or None if:
-            - Event has no metadata
-            - No detected thumbnails available
-            - No thumbnail has clockBestWall set
-
-        Example usage:
-            >>> # License Plate Recognition
-            >>> thumbnail = event.get_detected_thumbnail()
-            >>> if thumbnail and thumbnail.group:
-            ...     plate = thumbnail.group.matched_name  # "ABC123"
-            ...     confidence = thumbnail.group.confidence  # 95
-            ...     if thumbnail.attributes:
-            ...         color = thumbnail.attributes.get_value("color")  # "white"
-            ...         vehicle = thumbnail.attributes.get_value("vehicleType")  # "sedan"
-
-            >>> # Face Detection
-            >>> thumbnail = event.get_detected_thumbnail()
-            >>> if thumbnail and thumbnail.group:
-            ...     face_name = thumbnail.group.matched_name  # "John Doe"
-            ...     confidence = thumbnail.group.confidence  # 87
-
-        """
-        if not self.metadata or not self.metadata.detected_thumbnails:
-            return None
-
-        for thumbnail in self.metadata.detected_thumbnails:
-            if thumbnail.clock_best_wall:
-                return thumbnail
-
-        return None
 
     async def get_thumbnail(
         self,
@@ -556,20 +471,6 @@ class Event(ProtectModelWithId):
             height,
             speedup=speedup,
         )
-
-    async def get_heatmap(self) -> bytes | None:
-        """Gets heatmap for event"""
-        if self.heatmap_id is None:
-            return None
-        if not self._api.bootstrap.auth_user.can(
-            ModelType.CAMERA,
-            PermissionNode.READ_MEDIA,
-            self.camera,
-        ):
-            raise NotAuthorized(
-                f"Do not have permission to read media for camera: {self.id}",
-            )
-        return await self._api.get_event_heatmap(self.heatmap_id)
 
     async def get_video(
         self,
@@ -615,39 +516,10 @@ class Event(ProtectModelWithId):
 
 
 class PortConfig(ProtectBaseObject):
-    ump: int
     http: int
     https: int
-    rtsp: int
     rtsps: int
-    rtmp: int
-    devices_wss: int
-    camera_https: int
-    live_ws: int
-    live_wss: int
-    tcp_streams: int
     playback: int
-    ems_cli: int
-    ems_live_flv: int
-    camera_events: int
-    tcp_bridge: int
-    ucore: int
-    discovery_client: int
-    piongw: int | None = None
-    ems_json_cli: int | None = None
-    stacking: int | None = None
-    # 3.0.22+
-    ai_feature_console: int | None = None
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {
-            **super()._get_unifi_remaps(),
-            "emsCLI": "emsCli",
-            "emsLiveFLV": "emsLiveFlv",
-            "emsJsonCLI": "emsJsonCli",
-        }
 
 
 class CPUInfo(ProtectBaseObject):
@@ -669,7 +541,6 @@ class StorageDevice(ProtectBaseObject):
 
 class StorageInfo(ProtectBaseObject):
     available: int
-    is_recycling: bool
     size: int
     type: StorageType
     used: int
@@ -688,19 +559,6 @@ class StorageInfo(ProtectBaseObject):
                 data["type"] = StorageType.UNKNOWN
 
         return super().unifi_dict_to_dict(data)
-
-
-class StorageSpace(ProtectBaseObject):
-    total: int
-    used: int
-    available: int
-
-
-class TMPFSInfo(ProtectBaseObject):
-    available: int
-    total: int
-    used: int
-    path: Path
 
 
 class UOSDisk(ProtectBaseObject):
@@ -795,59 +653,14 @@ class UOSDisk(ProtectBaseObject):
         }
 
 
-class UOSSpace(ProtectBaseObject):
-    device: str
-    total_bytes: int
-    used_bytes: int
-    action: str
-    progress: PercentFloat | None = None
-    estimate: timedelta | None = None
-    # requires 2.8.14+
-    health: str | None = None
-    # requires 2.8.22+
-    space_type: str | None = None
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {
-            **super()._get_unifi_remaps(),
-            "total_bytes": "totalBytes",
-            "used_bytes": "usedBytes",
-            "space_type": "spaceType",
-        }
-
-    @classmethod
-    @cache
-    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
-        return {
-            "estimate": lambda x: timedelta(seconds=x)
-        } | super().unifi_dict_conversions()
-
-    def unifi_dict(
-        self,
-        data: dict[str, Any] | None = None,
-        exclude: set[str] | None = None,
-    ) -> dict[str, Any]:
-        data = super().unifi_dict(data=data, exclude=exclude)
-
-        # estimate is actually in seconds, not milliseconds
-        if "estimate" in data and data["estimate"] is not None:
-            data["estimate"] /= 1000
-
-        return data
-
-
 class UOSStorage(ProtectBaseObject):
     disks: list[UOSDisk]
-    space: list[UOSSpace]
 
 
 class SystemInfo(ProtectBaseObject):
     cpu: CPUInfo
     memory: MemoryInfo
     storage: StorageInfo
-    tmpfs: TMPFSInfo
     ustorage: UOSStorage | None = None
 
     def unifi_dict(
@@ -867,25 +680,8 @@ class DoorbellMessage(ProtectBaseObject):
 
 class DoorbellSettings(ProtectBaseObject):
     default_message_text: DoorbellText
-    default_message_reset_timeout: timedelta
     all_messages: list[DoorbellMessage]
     custom_messages: list[DoorbellText]
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {
-            **super()._get_unifi_remaps(),
-            "defaultMessageResetTimeoutMs": "defaultMessageResetTimeout",
-        }
-
-    @classmethod
-    @cache
-    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
-        return {
-            # defaultMessageResetTimeoutMs is remapped to defaultMessageResetTimeout
-            "defaultMessageResetTimeoutMs": lambda x: timedelta(milliseconds=x),
-        } | super().unifi_dict_conversions()
 
 
 class RecordingTypeDistribution(ProtectBaseObject):
@@ -968,8 +764,6 @@ class StorageDistribution(ProtectBaseObject):
 class StorageStats(ProtectBaseObject):
     utilization: float
     capacity: timedelta | None = None
-    remaining_capacity: timedelta | None = None
-    recording_space: StorageSpace
     storage_distribution: StorageDistribution
 
     @classmethod
@@ -977,25 +771,16 @@ class StorageStats(ProtectBaseObject):
     def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
         return {
             "capacity": lambda x: timedelta(milliseconds=x),
-            "remainingCapacity": lambda x: timedelta(milliseconds=x),
         } | super().unifi_dict_conversions()
 
 
 class NVRFeatureFlags(ProtectBaseObject):
     beta: bool
     dev: bool
-    notifications_v2: bool
-    homekit_paired: bool | None = None
-    ulp_role_management: bool | None = None
-    # 2.9.20+
-    detection_labels: bool | None = None
-    has_two_way_audio_media_streams: bool | None = None
 
 
 class NVRSmartDetection(ProtectBaseObject):
     enable: bool
-    face_recognition: bool
-    license_plate_recognition: bool
 
 
 class GlobalRecordingSettings(ProtectBaseObject):
@@ -1005,120 +790,38 @@ class GlobalRecordingSettings(ProtectBaseObject):
 
 
 class NVR(ProtectDeviceModel):
-    can_auto_update: bool
-    is_stats_gathering_enabled: bool
     timezone: tzinfo
     version: Version
-    ucore_version: str
-    hardware_platform: str
     ports: PortConfig
-    last_update_at: datetime | None = None
-    is_station: bool
-    enable_automatic_backups: bool
-    enable_stats_reporting: bool
-    release_channel: FirmwareReleaseChannel
     hosts: list[IPv4Address | IPv6Address | str]
-    enable_bridge_auto_adoption: bool
-    hardware_id: UUID
-    host_type: int
-    host_shortname: str
-    is_hardware: bool
-    is_wireless_uplink_enabled: bool | None = None
-    time_format: Literal["12h", "24h"]
-    temperature_unit: Literal["C", "F"]
-    recording_retention_duration: timedelta | None = None
-    enable_crash_reporting: bool
-    disable_audio: bool
     analytics_data: AnalyticsOption
-    anonymous_device_id: UUID | None = None
-    camera_utilization: int
-    is_recycling: bool
-    disable_auto_link: bool
-    skip_firmware_update: bool
-    location_settings: NVRLocation
     feature_flags: NVRFeatureFlags
     system_info: SystemInfo
     doorbell_settings: DoorbellSettings
     storage_stats: StorageStats
-    is_away: bool
-    is_setup: bool
     network: str
-    max_camera_capacity: dict[Literal["4K", "2K", "HD"], int]
     market_name: str | None = None
-    stream_sharing_available: bool | None = None
-    is_db_available: bool | None = None
     is_insights_enabled: bool | None = None
-    is_recording_disabled: bool | None = None
-    is_recording_motion_only: bool | None = None
-    ui_version: str | None = None
-    sso_channel: FirmwareReleaseChannel | None = None
-    is_stacked: bool | None = None
-    is_primary: bool | None = None
-    last_drive_slow_event: datetime | None = None
-    is_u_core_setup: bool | None = None
-    vault_camera_ids: list[str] = []
-    # requires 2.8.14+
-    corruption_state: str | None = None
-    country_code: str | None = None
-    has_gateway: bool | None = None
-    is_vault_registered: bool | None = None
-    public_ip: IPv4Address | IPv6Address | None = None
-    ulp_version: str | None = None
-    wan_ip: IPv4Address | IPv6Address | None = None
-    # requires 2.9.20+
-    hard_drive_state: str | None = None
-    is_network_installed: bool | None = None
-    is_protect_updatable: bool | None = None
-    is_ucore_updatable: bool | None = None
-    # requires 2.11.13+
-    last_device_fw_updates_checked_at: datetime | None = None
     # requires 3.0.22+
     smart_detection: NVRSmartDetection | None = None
-    is_ucore_stacked: bool | None = None
     global_camera_settings: GlobalRecordingSettings | None = None
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {
-            **super()._get_unifi_remaps(),
-            "recordingRetentionDurationMs": "recordingRetentionDuration",
-            "vaultCameras": "vaultCameraIds",
-            "lastDeviceFWUpdatesCheckedAt": "lastDeviceFwUpdatesCheckedAt",
-            "isUCoreStacked": "isUcoreStacked",
-        }
 
     @classmethod
     @cache
     def _get_read_only_fields(cls) -> set[str]:
         return super()._get_read_only_fields() | {
             "version",
-            "uiVersion",
-            "hardwarePlatform",
             "ports",
-            "lastUpdateAt",
-            "isStation",
             "hosts",
-            "hostShortname",
-            "isDbAvailable",
-            "isRecordingDisabled",
-            "isRecordingMotionOnly",
-            "cameraUtilization",
             "storageStats",
-            "isRecycling",
             "avgMotions",
-            "streamSharingAvailable",
         }
 
     @classmethod
     @cache
     def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
         return {
-            "lastUpdateAt": convert_to_datetime,
-            "lastDeviceFwUpdatesCheckedAt": convert_to_datetime,
             "timezone": zoneinfo.ZoneInfo,
-            # recordingRetentionDurationMs is remapped to recordingRetentionDuration
-            "recordingRetentionDurationMs": lambda x: timedelta(milliseconds=x),
         } | super().unifi_dict_conversions()
 
     async def _api_update(self, data: dict[str, Any]) -> None:
@@ -1194,22 +897,6 @@ class NVR(ProtectDeviceModel):
         else:
             await self.set_analytics(AnalyticsOption.NONE)
 
-    async def set_default_reset_timeout(self, timeout: timedelta) -> None:
-        """Sets the default message reset timeout"""
-
-        def callback() -> None:
-            self.doorbell_settings.default_message_reset_timeout = timeout
-
-        await self.queue_update(callback)
-
-    async def set_default_doorbell_message(self, message: str) -> None:
-        """Sets default doorbell message"""
-
-        def callback() -> None:
-            self.doorbell_settings.default_message_text = DoorbellText(message)
-
-        await self.queue_update(callback)
-
     async def add_custom_doorbell_message(self, message: str) -> None:
         """Adds custom doorbell message"""
         if len(message) > 30:
@@ -1250,37 +937,6 @@ class NVR(ProtectDeviceModel):
     async def reboot(self) -> None:
         """Reboots the NVR"""
         await self._api.reboot_nvr()
-
-    async def set_smart_detections(self, value: bool) -> None:
-        """Set if smart detections are enabled."""
-
-        def callback() -> None:
-            if self.smart_detection is not None:
-                self.smart_detection.enable = value
-
-        await self.queue_update(callback)
-
-    async def set_face_recognition(self, value: bool) -> None:
-        """Set if face detections are enabled. Requires smart detections to be enabled."""
-        if self.smart_detection is None or not self.smart_detection.enable:
-            raise BadRequest("Smart detections are not enabled.")
-
-        def callback() -> None:
-            if self.smart_detection is not None:
-                self.smart_detection.face_recognition = value
-
-        await self.queue_update(callback)
-
-    async def set_license_plate_recognition(self, value: bool) -> None:
-        """Set if license plate detections are enabled. Requires smart detections to be enabled."""
-        if self.smart_detection is None or not self.smart_detection.enable:
-            raise BadRequest("Smart detections are not enabled.")
-
-        def callback() -> None:
-            if self.smart_detection is not None:
-                self.smart_detection.license_plate_recognition = value
-
-        await self.queue_update(callback)
 
 
 class LiveviewSlot(ProtectBaseObject):

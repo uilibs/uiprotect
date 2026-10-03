@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from datetime import datetime
 from functools import cache
 from typing import Any, Generic, Self, TypeVar
 
@@ -72,9 +71,7 @@ class Group(ProtectModelWithId):
 
 
 class UserLocation(ProtectModel):
-    is_away: bool
-    latitude: float | None = None
-    longitude: float | None = None
+    pass
 
 
 class CloudAccount(ProtectModelWithId):
@@ -112,24 +109,17 @@ class CloudAccount(ProtectModelWithId):
 
 
 class UserFeatureFlags(ProtectBaseObject):
-    notifications_v2: bool
+    pass
 
 
 class User(ProtectModelWithId):
     permissions: list[Permission]
-    last_login_ip: str | None = None
-    last_login_time: datetime | None = None
-    is_owner: bool
-    enable_notifications: bool
-    has_accepted_invite: bool
     all_permissions: list[Permission]
-    scopes: list[str] | None = None
     location: UserLocation | None = None
     name: str
     first_name: str
     last_name: str
     email: str | None = None
-    local_username: str
     group_ids: list[str]
     cloud_account: CloudAccount | None = None
     feature_flags: UserFeatureFlags
@@ -279,7 +269,6 @@ class Keyring(ProtectModelWithId):
     device_id: str
     registry_type: str
     registry_id: str
-    last_activity: datetime | None = None
     ulp_user: str
 
 
@@ -316,7 +305,6 @@ class UlpUser(ProtectModelWithId):
     first_name: str
     last_name: str
     full_name: str
-    avatar: str
     status: str
 
 

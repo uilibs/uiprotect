@@ -2485,7 +2485,6 @@ def test_ws_reconnect_skips_resync_without_cache(
 @pytest.mark.parametrize(
     ("get_websocket", "prop", "subscribe"),
     [
-        ("_get_websocket", "websocket_state", "subscribe_websocket_state"),
         (
             "_get_events_websocket",
             "events_websocket_state",
@@ -2809,14 +2808,14 @@ def test_nvr_ws_partial_update_merges_in_place(
             "item": {
                 "id": pb.nvr.id,
                 "modelKey": "nvr",
-                "isAway": True,
+                "name": "Renamed NVR",
             },
         },
     )
 
     assert mt is ModelType.NVR
     assert old is not None and new is not None
-    assert pb.nvr.is_away is True
+    assert pb.nvr.name == "Renamed NVR"
     # Unchanged fields preserved.
     assert pb.nvr.version == before_version
 

@@ -28,7 +28,6 @@ from ..utils import (
 )
 from .types import (
     ModelType,
-    PercentFloat,
     PermissionNode,
     ProtectWSPayloadFormat,
     StateType,
@@ -827,8 +826,6 @@ class ProtectDeviceModel(ProtectModelWithId):
     host: IPv4Address | IPv6Address | str | None = None
     up_since: datetime | None = None
     uptime: timedelta | None = None
-    last_seen: datetime | None = None
-    hardware_revision: str | None = None
     firmware_version: str | None = None
     is_updating: bool
     is_ssh_enabled: bool
@@ -844,8 +841,6 @@ class ProtectDeviceModel(ProtectModelWithId):
             "type",
             "upSince",
             "uptime",
-            "lastSeen",
-            "hardwareRevision",
             "isUpdating",
         }
 
@@ -855,10 +850,6 @@ class ProtectDeviceModel(ProtectModelWithId):
         return {
             "upSince": convert_to_datetime,
             "uptime": lambda x: timedelta(milliseconds=int(x)),
-            "lastSeen": convert_to_datetime,
-            # hardware revisions for all devices are not simple numbers
-            # so cast them all to str to be consistent
-            "hardwareRevision": str,
         } | super().unifi_dict_conversions()
 
     def _event_callback_ping(self) -> None:
@@ -889,83 +880,51 @@ class WirelessConnectionState(ProtectBaseObject):
 
 
 class BluetoothConnectionState(WirelessConnectionState):
-    experience_score: PercentFloat | None = None
+    pass
 
 
 class WifiConnectionState(WirelessConnectionState):
     phy_rate: float | None = None
     channel: int | None = None
-    frequency: int | None = None
-    ssid: str | None = None
-    bssid: str | None = None
-    tx_rate: float | None = None
-    # requires 2.7.5+
-    ap_name: str | None = None
-    experience: str | None = None
-    # requires 2.7.15+
-    connectivity: str | None = None
 
 
 class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     state: StateType
     connection_host: IPv4Address | IPv6Address | str | None = None
-    connected_since: datetime | None = None
-    latest_firmware_version: str | None = None
-    firmware_build: str | None = None
     is_adopting: bool
     is_adopted: bool
     is_adopted_by_other: bool
-    is_provisioned: bool
     is_rebooting: bool
     can_adopt: bool
-    is_attempting_to_connect: bool
     is_connected: bool
     # requires 1.21+
     market_name: str | None = None
-    # requires 2.7.5+
-    fw_update_state: str | None = None
     # requires 2.8.14+
     nvr_mac: str | None = None
     # requires 2.8.22+
     guid: UUID | None = None
-    # requires 2.9.20+
-    is_restoring: bool | None = None
-    last_disconnect: datetime | None = None
-    anonymous_device_id: UUID | None = None
 
     wired_connection_state: WiredConnectionState | None = None
     wifi_connection_state: WifiConnectionState | None = None
     bluetooth_connection_state: BluetoothConnectionState | None = None
     bridge_id: str | None = None
-    is_downloading_firmware: bool | None = None
 
     @classmethod
     @cache
     def _get_read_only_fields(cls) -> set[str]:
         return super()._get_read_only_fields() | {
             "connectionHost",
-            "connectedSince",
             "state",
-            "latestFirmwareVersion",
-            "firmwareBuild",
             "isAdopting",
-            "isProvisioned",
             "isRebooting",
             "canAdopt",
-            "isAttemptingToConnect",
             "bluetoothConnectionState",
-            "isDownloadingFirmware",
-            "anonymousDeviceId",
         }
 
     @classmethod
     @cache
     def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {
-            **super()._get_unifi_remaps(),
-            "bridge": "bridgeId",
-            "isDownloadingFW": "isDownloadingFirmware",
-        }
+        return {**super()._get_unifi_remaps(), "bridge": "bridgeId"}
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         if (model := self.model) is not None:
@@ -984,28 +943,9 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
         )
         return data
 
-    @classmethod
-    @cache
-    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
-        return {
-            "lastDisconnect": convert_to_datetime,
-        } | super().unifi_dict_conversions()
-
     @property
     def display_name(self) -> str:
         return self.name or self.market_name or self.type
-
-    @property
-    def is_wired(self) -> bool:
-        return self.wired_connection_state is not None
-
-    @property
-    def is_wifi(self) -> bool:
-        return self.wifi_connection_state is not None
-
-    @property
-    def is_bluetooth(self) -> bool:
-        return self.bluetooth_connection_state is not None
 
     @property
     def bridge(self) -> Bridge | None:

@@ -27,10 +27,10 @@ from rich.progress import (
     TimeRemainingColumn,
     track,
 )
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func, or_, select
+from sqlalchemy import DateTime, ForeignKey, Integer, String, func, or_, select
 from sqlalchemy import event as saevent
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-from sqlalchemy.orm import Mapped, declarative_base, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from .. import data as d
 from ..cli import base
@@ -45,7 +45,6 @@ if TYPE_CHECKING:
     from typer._click.core import Parameter
 
 app = typer.Typer(rich_markup_mode="rich")
-Base = declarative_base()
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -90,6 +89,10 @@ def _on_db_connect(dbapi_con, connection_record) -> None:  # type: ignore[no-unt
     cursor = dbapi_con.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
+
+
+class Base(DeclarativeBase):
+    pass
 
 
 @dataclass
@@ -148,23 +151,27 @@ class EventTypeChoice(StrEnum):
     SMART_DETECT_LINE = d.EventType.SMART_DETECT_LINE.value
 
 
-class EventSmartType(Base):  # type: ignore[valid-type,misc]
+# Columns typed non-optional keep ``nullable=True`` so the schema of existing
+# backup databases is unchanged; the backup always writes them.
+class EventSmartType(Base):
     __tablename__ = "event_smart_type"
 
-    id = Column(Integer, primary_key=True)
-    event_id = Column(String(24), ForeignKey("event.id"), nullable=False)
-    smart_type = Column(String(32), index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    event_id: Mapped[str] = mapped_column(
+        String(24), ForeignKey("event.id"), nullable=False
+    )
+    smart_type: Mapped[str] = mapped_column(String(32), index=True, nullable=True)
 
 
-class Event(Base):  # type: ignore[valid-type,misc]
+class Event(Base):
     __tablename__ = "event"
     __allow_unmapped__ = True
 
-    id = Column(String(24), primary_key=True)
-    start_naive = Column(DateTime())
-    end_naive = Column(DateTime(), nullable=True)
-    camera_mac = Column(String(12), index=True)
-    event_type = Column(String(32), index=True)
+    id: Mapped[str] = mapped_column(String(24), primary_key=True)
+    start_naive: Mapped[datetime] = mapped_column(DateTime(), nullable=True)
+    end_naive: Mapped[datetime | None] = mapped_column(DateTime(), nullable=True)
+    camera_mac: Mapped[str] = mapped_column(String(12), index=True, nullable=True)
+    event_type: Mapped[str] = mapped_column(String(32), index=True, nullable=True)
 
     smart_detect_types: Mapped[list[EventSmartType]] = relationship(
         "EventSmartType",
@@ -181,7 +188,7 @@ class Event(Base):  # type: ignore[valid-type,misc]
     @property
     def start(self) -> datetime:
         if self._start is None:
-            self._start = self.start_naive.replace(tzinfo=UTC)  # type: ignore[union-attr]
+            self._start = self.start_naive.replace(tzinfo=UTC)
         return self._start
 
     @property
@@ -193,12 +200,12 @@ class Event(Base):  # type: ignore[valid-type,misc]
     @property
     def smart_types(self) -> set[str]:
         if self._smart_types is None:
-            self._smart_types = {s.smart_type for s in self.smart_detect_types}  # type: ignore[misc]
+            self._smart_types = {s.smart_type for s in self.smart_detect_types}
         return self._smart_types
 
     def get_file_context(self, ctx: BackupContext) -> dict[str, str]:
         if self._context is None:
-            camera = ctx.protect.bootstrap.get_device_from_mac(self.camera_mac)  # type: ignore[arg-type]
+            camera = ctx.protect.bootstrap.get_device_from_mac(self.camera_mac)
             camera_slug = ""
             display_name = ""
             length = timedelta(seconds=0)
@@ -551,9 +558,7 @@ async def _update_event(ctx: BackupContext, event: d.Event) -> None:
     to_delete: list[EventSmartType] = []
     async with db:
         result = await db.execute(select(Event).where(Event.id == event.id))
-        # The legacy ``Column`` attributes type as ``Column[T]`` rather than
-        # their Python value, so the row is handled untyped.
-        db_event: Any = result.scalars().first()
+        db_event = result.scalars().first()
         do_insert = False
         if db_event is None:
             db_event = Event(id=event.id)
@@ -569,15 +574,14 @@ async def _update_event(ctx: BackupContext, event: d.Event) -> None:
         }:
             types = {e.value for e in event.smart_detect_types}
 
-            result = await db.execute(
+            smart_type_result = await db.execute(
                 select(EventSmartType).where(EventSmartType.event_id == event.id),
             )
-            for event_smart_type in result.unique().scalars():
-                event_type = cast("EventSmartType", event_smart_type)
-                if event_type.smart_type not in types:
-                    to_delete.append(event_type)
+            for event_smart_type in smart_type_result.unique().scalars():
+                if event_smart_type.smart_type not in types:
+                    to_delete.append(event_smart_type)
                 else:
-                    types.remove(cast("str", event_type.smart_type))
+                    types.remove(event_smart_type.smart_type)
 
             for smart_type_str in types:
                 db.add(EventSmartType(event_id=event.id, smart_type=smart_type_str))
@@ -595,7 +599,7 @@ async def _update_ongoing_events(ctx: BackupContext) -> int:
         result = await db.execute(
             select(Event)
             .where(Event.event_type != "ring")
-            .where(Event.end_naive is None),  # type: ignore[arg-type]
+            .where(Event.end_naive.is_(None)),
         )
 
         events = list(result.unique().scalars())
@@ -603,8 +607,7 @@ async def _update_ongoing_events(ctx: BackupContext) -> int:
     if len(events) == 0:
         return 0
     for event in track(events, description="Updating Events"):
-        event_id = cast("str", event.id)
-        await _update_event(ctx, await ctx.protect.get_event(event_id))
+        await _update_event(ctx, await ctx.protect.get_event(event.id))
     return len(events)
 
 
@@ -948,7 +951,7 @@ async def _download_event(
     pb: Progress,
 ) -> bool:
     downloaded = False
-    camera = ctx.protect.bootstrap.get_device_from_mac(event.camera_mac)  # type: ignore[arg-type]
+    camera = ctx.protect.bootstrap.get_device_from_mac(event.camera_mac)
     if camera is not None:
         camera = cast("d.Camera", camera)
         downloads = []
@@ -981,7 +984,7 @@ async def _download_events(
             select(func.count(Event.id))
             .where(Event.event_type.in_([e.value for e in event_types]))
             .where(Event.start_naive >= start)
-            .where(or_(Event.end_naive <= end, Event.end_naive is None))  # type: ignore[arg-type]
+            .where(or_(Event.end_naive <= end, Event.end_naive.is_(None)))
         )
         count = cast("int", (await db.execute(count_query)).scalar())
         _LOGGER.info("Downloading %s events", count)
@@ -1000,7 +1003,7 @@ async def _download_events(
                 select(Event)
                 .where(Event.event_type.in_([e.value for e in event_types]))
                 .where(Event.start_naive >= start)
-                .where(or_(Event.end_naive <= end, Event.end_naive is None))  # type: ignore[arg-type]
+                .where(or_(Event.end_naive <= end, Event.end_naive.is_(None)))
                 .limit(ctx.page_size)
             )
             smart_types_set = {s.value for s in smart_types}
@@ -1018,6 +1021,7 @@ async def _download_events(
                 result = await db.execute(page)
                 for event in result.unique().scalars():
                     if event.end is None:
+                        await tasks.put(QueuedDownload(task=None, args=[]))
                         continue
 
                     length = event.end - event.start

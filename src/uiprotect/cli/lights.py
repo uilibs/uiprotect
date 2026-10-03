@@ -76,9 +76,9 @@ def camera(ctx: typer.Context, camera_id: str | None = typer.Argument(None)) -> 
 def set_status_light(ctx: typer.Context, enabled: bool) -> None:
     """Sets status light for light device."""
     base.require_device_id(ctx, public_ok=True)
-    obj: Light | PublicLight = ctx.obj.device
+    obj = base.public_device(ctx, PublicLight)
 
-    base.run(ctx, base.public_call(obj, "set_status_light", enabled))
+    base.run(ctx, obj.set_status_light(enabled))
 
 
 @app.command()
@@ -88,9 +88,9 @@ def set_led_level(
 ) -> None:
     """Sets brightness of LED on light."""
     base.require_device_id(ctx, public_ok=True)
-    obj: Light | PublicLight = ctx.obj.device
+    obj = base.public_device(ctx, PublicLight)
 
-    base.run(ctx, base.public_call(obj, "set_led_level", led_level))
+    base.run(ctx, obj.set_led_level(led_level))
 
 
 @app.command()
@@ -100,9 +100,9 @@ def set_sensitivity(
 ) -> None:
     """Sets motion sensitivity for the light."""
     base.require_device_id(ctx, public_ok=True)
-    obj: Light | PublicLight = ctx.obj.device
+    obj = base.public_device(ctx, PublicLight)
 
-    base.run(ctx, base.public_call(obj, "set_sensitivity", sensitivity))
+    base.run(ctx, obj.set_sensitivity(sensitivity))
 
 
 @app.command()
@@ -112,15 +112,15 @@ def set_duration(
 ) -> None:
     """Sets timeout duration (in seconds) for light."""
     base.require_device_id(ctx, public_ok=True)
-    obj: Light | PublicLight = ctx.obj.device
+    obj = base.public_device(ctx, PublicLight)
 
-    base.run(ctx, base.public_call(obj, "set_duration", timedelta(seconds=duration)))
+    base.run(ctx, obj.set_duration(timedelta(seconds=duration)))
 
 
 @app.command()
 def set_flood_light(ctx: typer.Context, enabled: bool) -> None:
     """Sets flood light (force on) for light device."""
     base.require_device_id(ctx, public_ok=True)
-    obj: Light | PublicLight = ctx.obj.device
+    obj = base.public_device(ctx, PublicLight)
 
-    base.run(ctx, base.public_call(obj, "set_flood_light", enabled))
+    base.run(ctx, obj.set_flood_light(enabled))

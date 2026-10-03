@@ -318,9 +318,12 @@ def test_concurrent_smart_detect_zone_and_line(
         camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.PERSON]
         == "line_event_1"
     )
-    # Both top-level and per-type sensor state should report ON.
-    assert camera_obj.is_smart_currently_detected is True
-    assert camera_obj.is_person_currently_detected is True
+    # Both the top-level and the per-type event should read as active.
+    assert camera_obj.last_smart_detect_event is not None
+    assert camera_obj.last_smart_detect_event.end is None
+    event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PERSON)
+    assert event is not None
+    assert event.end is None
 
     # Zone event ends
     zone_event_ended = Event(  # type: ignore[call-arg]
@@ -344,9 +347,9 @@ def test_concurrent_smart_detect_zone_and_line(
     event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PERSON)
     assert event is not None
     assert event.end is None
-    # Sensor state must stay ON during the overlap — this is the HA regression.
-    assert camera_obj.is_smart_currently_detected is True
-    assert camera_obj.is_person_currently_detected is True
+    # The top-level event must stay active during the overlap.
+    assert camera_obj.last_smart_detect_event is not None
+    assert camera_obj.last_smart_detect_event.end is None
 
     # Line event ends
     line_event_ended = Event(  # type: ignore[call-arg]
@@ -366,8 +369,8 @@ def test_concurrent_smart_detect_zone_and_line(
     event = camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PERSON)
     assert event is not None
     assert event.end is not None
-    assert camera_obj.is_smart_currently_detected is False
-    assert camera_obj.is_person_currently_detected is False
+    assert camera_obj.last_smart_detect_event is not None
+    assert camera_obj.last_smart_detect_event.end is not None
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -379,9 +382,8 @@ def test_singular_last_smart_detect_event_id_not_overwritten_by_ended(
 
     Protect v7 emits a SMART_DETECT and SMART_DETECT_LINE simultaneously. When one
     ends while the other is still active, the singular ``last_smart_detect_event_id``
-    (used by ``Camera.is_smart_currently_detected`` and ``last_smart_detect_event``)
-    must not be overwritten with the ended event's id — otherwise the sensor flips
-    OFF for the overlap window.
+    (used by ``last_smart_detect_event``) must not be overwritten with the ended
+    event's id — otherwise the sensor flips OFF for the overlap window.
     """
     now = utc_now()
     bootstrap = camera_obj.api.bootstrap
@@ -727,7 +729,7 @@ def test_no_prior_tracking_stores_ended_event_as_last_known(
     )
     bootstrap.process_event(ended_event)
 
-    # Ended event is stored as last known; _is_smart_detected returns False because end is set
+    # Ended event is stored as last known, with end set
     assert (
         camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.PERSON]
         == "ended_event"
@@ -918,7 +920,6 @@ def test_active_event_survives_bootstrap_events_eviction(
     assert (
         camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.PERSON] == "line1"
     )
-    assert camera_obj._is_smart_detected(SmartDetectObjectType.PERSON) is True
 
     # Simulate eviction: remove tracked event from bootstrap.events
     del bootstrap.events["line1"]
@@ -930,8 +931,6 @@ def test_active_event_survives_bootstrap_events_eviction(
     assert event.end is None
     assert camera_obj.last_smart_detect_event is not None
     assert camera_obj.last_smart_detect_event.id == "line1"
-    assert camera_obj.is_smart_currently_detected is True
-    assert camera_obj._is_smart_detected(SmartDetectObjectType.PERSON) is True
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -1093,6 +1092,8 @@ def test_bootstrap(bootstrap: dict[str, Any]):
     bootstrap.pop("agreements", None)
     bootstrap.pop("deviceGroups", None)
     bootstrap.pop("aiports", None)
+    bootstrap.pop("accessKey", None)
+    bootstrap.pop("ringtones", None)
 
     # Remove additional keys from obj_dict
     obj_dict.pop("keyrings", None)
@@ -1113,6 +1114,29 @@ def test_bootstrap(bootstrap: dict[str, Any]):
 
     assert bootstrap == obj_dict
     assert_equal_dump(obj, obj_construct)
+
+
+def test_bootstrap_parses_without_unread_keys(bootstrap: dict[str, Any]):
+    """The private bootstrap parses when keys no model reads are absent."""
+    data = deepcopy(bootstrap)
+    del data["accessKey"]
+    del data["ringtones"]
+    for key in ("hardwareId", "isStation", "timeFormat", "cameraUtilization"):
+        del data["nvr"][key]
+    del data["nvr"]["ports"]["ump"]
+    camera = data["cameras"][0]
+    for key in ("isDeleting", "hasWifi", "isManaged"):
+        del camera[key]
+    del camera["featureFlags"]["hasWifi"]
+    del camera["ispSettings"]["aeMode"]
+    del camera["recordingSettings"]["prePaddingSecs"]
+    del data["lights"][0]["isCameraPaired"]
+    del data["users"][0]["isOwner"]
+
+    obj = Bootstrap.from_unifi_dict(**data)
+
+    assert obj.nvr.id == bootstrap["nvr"]["id"]
+    assert camera["id"] in obj.cameras
 
 
 @pytest.mark.parametrize("has_aiports", [True, False])
@@ -1783,16 +1807,14 @@ async def test_multiple_updates(user_obj: User, camera_obj: Camera):
     camera_obj.id = "test_id_1"
     camera_obj.recording_settings.enable_motion_detection = False
     camera_obj.recording_settings.mode = RecordingMode.NEVER
-    camera_obj.feature_flags.has_led_status = True
-    camera_obj.led_settings.is_enabled = False
-    camera_obj.led_settings.blink_rate = 10
+    camera_obj.is_ssh_enabled = False
     camera_obj.use_global = False
     api.bootstrap.cameras[camera_obj.id] = camera_obj
 
     await asyncio.gather(
         camera_obj.set_motion_detection(True),
         camera_obj.set_recording_mode(RecordingMode.ALWAYS),
-        camera_obj.set_status_light(True),
+        camera_obj.set_ssh(True),
     )
 
     camera_obj.api.api_request.assert_called_with(  # type: ignore[attr-defined]
@@ -1803,7 +1825,7 @@ async def test_multiple_updates(user_obj: User, camera_obj: Camera):
                 "enableMotionDetection": True,
                 "mode": RecordingMode.ALWAYS.value,
             },
-            "ledSettings": {"isEnabled": True, "blinkRate": 0},
+            "isSshEnabled": True,
         },
     )
 
@@ -1988,12 +2010,12 @@ def test_protect7_duplicate_snake_and_camel_case_keys():
 def test_event_metadata_collapse_keys_text_format():
     """Collapse keys with standard {"text": "value"} format are correctly unwrapped."""
     data: dict[str, Any] = {
-        "sensorType": {"text": "temperature"},
+        "lightName": {"text": "Porch"},
         "mountType": {"text": "door"},
         "status": {"text": "safe"},
     }
     result = EventMetadata.unifi_dict_to_dict(data)
-    assert result["sensor_type"] == "temperature"
+    assert result["light_name"] == "Porch"
     assert result["mount_type"] == "door"
     assert result["status"] == "safe"
 
@@ -2001,12 +2023,12 @@ def test_event_metadata_collapse_keys_text_format():
 def test_event_metadata_collapse_keys_unexpected_format():
     """Collapse keys with unexpected dict format (no 'text' key) are dropped gracefully."""
     data: dict[str, Any] = {
-        "sensorType": {"newFormat": "temperature", "extra": 123},
+        "lightName": {"newFormat": "Porch", "extra": 123},
         "sensorId": "abc123",
     }
     result = EventMetadata.unifi_dict_to_dict(data)
     # Malformed key should be dropped
-    assert "sensor_type" not in result
+    assert "light_name" not in result
     # Other keys should still be processed
     assert result["sensor_id"] == "abc123"
 
@@ -2014,11 +2036,11 @@ def test_event_metadata_collapse_keys_unexpected_format():
 def test_event_metadata_collapse_keys_non_dict_passthrough():
     """Collapse keys that are plain strings (not dicts) pass through unchanged."""
     data: dict[str, Any] = {
-        "sensorType": "temperature",
+        "lightName": "Porch",
         "type": "motion",
     }
     result = EventMetadata.unifi_dict_to_dict(data)
-    assert result["sensor_type"] == "temperature"
+    assert result["light_name"] == "Porch"
     assert result["type"] == "motion"
 
 

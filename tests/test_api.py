@@ -26,11 +26,7 @@ from PIL import Image
 
 from tests.conftest import (
     TEST_CAMERA_EXISTS,
-    TEST_HEATMAP_EXISTS,
-    TEST_LIGHT_EXISTS,
-    TEST_LIVEVIEW_EXISTS,
     TEST_PUBLIC_API_SNAPSHOT_EXISTS,
-    TEST_SENSOR_EXISTS,
     TEST_SNAPSHOT_EXISTS,
     TEST_THUMBNAIL_EXISTS,
     TEST_VIDEO_EXISTS,
@@ -49,6 +45,7 @@ from uiprotect.data import (
     ChannelQuality,
     Event,
     EventType,
+    Light,
     ModelType,
     PTZPatrol,
     PTZPreset,
@@ -90,11 +87,6 @@ async def check_motion_event(event: Event):
     img = Image.open(BytesIO(data))
     assert img.format in {"PNG", "JPEG"}
 
-    data = await event.get_heatmap()
-    assert data is not None
-    img = Image.open(BytesIO(data))
-    assert img.format in {"PNG", "JPEG"}
-
 
 async def check_camera(camera: Camera):
     if (
@@ -118,16 +110,11 @@ async def check_camera(camera: Camera):
 
     camera.last_ring_event  # noqa: B018
 
-    assert camera.timelapse_url == f"https://127.0.0.1:0/protect/timelapse/{camera.id}"
     check_device(camera)
 
     for channel in camera.channels:
         if channel.is_rtsp_enabled:
             for _ in range(2):
-                assert (
-                    channel.rtsp_url
-                    == f"rtsp://{camera.api.connection_host}:7447/{channel.rtsp_alias}"
-                )
                 assert (
                     channel.rtsps_url
                     == f"rtsps://{camera.api.connection_host}:7441/{channel.rtsp_alias}?enableSrtp"
@@ -205,13 +192,13 @@ def test_base_url(protect_client: ProtectApiClient):
     arg = f"{protect_client.private_ws_path}?lastUpdateId={protect_client.bootstrap.last_update_id}"
 
     assert protect_client.base_url == "https://127.0.0.1:0"
-    assert protect_client.ws_url == f"wss://127.0.0.1:0{arg}"
+    assert str(protect_client._ws_url_object) == f"wss://127.0.0.1:0{arg}"
 
     protect_client._port = 443
     protect_client._update_url()
 
     assert protect_client.base_url == "https://127.0.0.1"
-    assert protect_client.ws_url == f"wss://127.0.0.1{arg}"
+    assert str(protect_client._ws_url_object) == f"wss://127.0.0.1{arg}"
 
 
 def test_api_client_creation():
@@ -457,9 +444,6 @@ def test_rtsp_urls_with_ipv6(protect_client: ProtectApiClient):
             expected_host = "[fe80::1ff:fe23:4567:890a]"
 
             assert (
-                channel.rtsp_url == f"rtsp://{expected_host}:7447/{channel.rtsp_alias}"
-            )
-            assert (
                 channel.rtsps_url
                 == f"rtsps://{expected_host}:7441/{channel.rtsp_alias}?enableSrtp"
             )
@@ -489,7 +473,6 @@ def test_rtsp_urls_with_stacked_nvr(protect_client: ProtectApiClient, camera):
 
     for channel in rtsp_channels:
         if channel.rtsp_alias:
-            assert channel.rtsp_url == f"rtsp://192.168.2.100:7447/{channel.rtsp_alias}"
             assert (
                 channel.rtsps_url
                 == f"rtsps://192.168.2.100:7441/{channel.rtsp_alias}?enableSrtp"
@@ -810,7 +793,7 @@ async def test_get_device_mismatch(protect_client: ProtectApiClient, camera):
     protect_client.api_request_obj = AsyncMock(return_value=camera)  # type: ignore[method-assign]
 
     with pytest.raises(NvrError):
-        await protect_client.get_light("test_id")
+        await protect_client.get_device(ModelType.LIGHT, "test_id", Light)
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -820,7 +803,7 @@ async def test_get_device_not_adopted(protect_client: ProtectApiClient, camera):
     protect_client.api_request_obj = AsyncMock(return_value=camera)  # type: ignore[method-assign]
 
     with pytest.raises(NvrError):
-        await protect_client.get_camera("test_id")
+        await protect_client.get_device(ModelType.CAMERA, "test_id")
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -831,102 +814,9 @@ async def test_get_device_not_adopted_enabled(protect_client: ProtectApiClient, 
     protect_client.api_request_obj = AsyncMock(return_value=camera)  # type: ignore[method-assign]
 
     obj = create_from_unifi_dict(camera)
-    assert_equal_dump(obj, await protect_client.get_camera("test_id"))
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_camera(protect_client: ProtectApiClient, camera):
-    obj = create_from_unifi_dict(camera)
-
-    assert_equal_dump(obj, await protect_client.get_camera("test_id"))
-
-
-@pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_light(protect_client: ProtectApiClient, light):
-    obj = create_from_unifi_dict(light)
-
-    assert_equal_dump(obj, await protect_client.get_light("test_id"))
-
-
-@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_sensor(protect_client: ProtectApiClient, sensor):
-    obj = create_from_unifi_dict(sensor)
-
-    assert_equal_dump(obj, await protect_client.get_sensor("test_id"))
-
-
-@pytest.mark.skipif(not TEST_LIVEVIEW_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_liveview(protect_client: ProtectApiClient, liveview):
-    obj = create_from_unifi_dict(liveview)
-
-    assert_equal_dump(obj, (await protect_client.get_liveview("test_id")))
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_devices_mismatch(protect_client: ProtectApiClient, cameras):
-    protect_client.api_request_list = AsyncMock(return_value=cameras)  # type: ignore[method-assign]
-
-    with pytest.raises(NvrError):
-        await protect_client.get_lights()
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_devices_not_adopted(protect_client: ProtectApiClient, cameras):
-    cameras[0]["isAdopted"] = False
-    protect_client.api_request_list = AsyncMock(return_value=cameras)  # type: ignore[method-assign]
-
-    assert len(await protect_client.get_cameras()) == len(cameras) - 1
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_devices_not_adopted_enabled(
-    protect_client: ProtectApiClient,
-    cameras,
-):
-    cameras[0]["isAdopted"] = False
-    protect_client.ignore_unadopted = False
-    protect_client.api_request_list = AsyncMock(return_value=cameras)  # type: ignore[method-assign]
-
-    assert len(await protect_client.get_cameras()) == len(cameras)
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_cameras(protect_client: ProtectApiClient, cameras):
-    objs = [create_from_unifi_dict(d) for d in cameras]
-
-    assert_equal_dump(objs, await protect_client.get_cameras())
-
-
-@pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_lights(protect_client: ProtectApiClient, lights):
-    objs = [create_from_unifi_dict(d) for d in lights]
-
-    assert_equal_dump(objs, await protect_client.get_lights())
-
-
-@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_sensors(protect_client: ProtectApiClient, sensors):
-    objs = [create_from_unifi_dict(d) for d in sensors]
-
-    assert_equal_dump(objs, await protect_client.get_sensors())
-
-
-@pytest.mark.skipif(not TEST_LIVEVIEW_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_liveviews(protect_client: ProtectApiClient, liveviews):
-    objs = [create_from_unifi_dict(d) for d in liveviews]
-
-    assert_equal_dump(objs, await protect_client.get_liveviews())
+    assert_equal_dump(
+        obj, await protect_client.get_device(ModelType.CAMERA, "test_id", Camera)
+    )
 
 
 @pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
@@ -996,56 +886,12 @@ async def test_get_public_api_camera_snapshot_hq_true(
 @patch("uiprotect.utils.datetime", MockDatetime)
 @patch("uiprotect.api.time.time", get_time)
 @pytest.mark.asyncio()
-async def test_get_pacakge_camera_snapshot(protect_client: ProtectApiClient, now):
-    data = await protect_client.get_package_camera_snapshot("test_id")
-    assert data is not None
-
-    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
-        "cameras/test_id/package-snapshot",
-        params={
-            "ts": to_js_time(now),
-            "force": "true",
-        },
-        raise_exception=False,
-    )
-
-    img = Image.open(BytesIO(data))
-    assert img.format in {"PNG", "JPEG"}
-
-
-@pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
-@patch("uiprotect.utils.datetime", MockDatetime)
-@patch("uiprotect.api.time.time", get_time)
-@pytest.mark.asyncio()
 async def test_get_camera_snapshot_args(protect_client: ProtectApiClient, now):
     data = await protect_client.get_camera_snapshot("test_id", 1920, 1080)
     assert data is not None
 
     protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
         "cameras/test_id/snapshot",
-        params={
-            "ts": to_js_time(now),
-            "force": "true",
-            "w": 1920,
-            "h": 1080,
-        },
-        raise_exception=False,
-    )
-
-    img = Image.open(BytesIO(data))
-    assert img.format in {"PNG", "JPEG"}
-
-
-@pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
-@patch("uiprotect.utils.datetime", MockDatetime)
-@patch("uiprotect.api.time.time", get_time)
-@pytest.mark.asyncio()
-async def test_get_package_camera_snapshot_args(protect_client: ProtectApiClient, now):
-    data = await protect_client.get_package_camera_snapshot("test_id", 1920, 1080)
-    assert data is not None
-
-    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
-        "cameras/test_id/package-snapshot",
         params={
             "ts": to_js_time(now),
             "force": "true",
@@ -1237,20 +1083,6 @@ async def test_get_event_animated_thumbnail_uuid_with_e_dash(
     )
 
 
-@pytest.mark.skipif(not TEST_HEATMAP_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_event_heatmap_uuid_with_e_dash(protect_client: ProtectApiClient):
-    """Regression test for #810: event IDs containing 'e-' must not be corrupted."""
-    event_id = "4028adde-42c6-4873-a49e-94da9bd22190"
-    data = await protect_client.get_event_heatmap(event_id)
-    assert data is not None
-
-    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
-        f"events/{event_id}/heatmap",
-        raise_exception=False,
-    )
-
-
 @pytest.mark.skipif(not TEST_THUMBNAIL_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
 async def test_get_event_thumbnail_strips_legacy_prefix(
@@ -1267,21 +1099,6 @@ async def test_get_event_thumbnail_strips_legacy_prefix(
         params={},
         raise_exception=False,
     )
-
-
-@pytest.mark.skipif(not TEST_HEATMAP_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_event_heatmap(protect_client: ProtectApiClient):
-    data = await protect_client.get_event_heatmap("e-test_id")
-    assert data is not None
-
-    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
-        "events/test_id/heatmap",
-        raise_exception=False,
-    )
-
-    img = Image.open(BytesIO(data))
-    assert img.format in {"PNG", "JPEG"}
 
 
 @pytest.mark.asyncio()
@@ -3811,50 +3628,6 @@ def test_rtsps_streams_none_pydantic_extra():
 
 
 @pytest.mark.asyncio
-async def test_camera_get_rtsps_streams():
-    """Test Camera.get_rtsps_streams method."""
-    # Mock camera and API
-    camera = AsyncMock(spec=Camera)
-    camera.id = "test_camera_id"
-    camera._api = AsyncMock()
-    camera._api._api_key = "test_api_key"
-    camera._api.get_camera_rtsps_streams = AsyncMock(
-        return_value=RTSPSStreams(
-            high="rtsps://example.com/high", medium="rtsps://example.com/medium"
-        )
-    )
-
-    # Bind the actual method to the mock
-    camera.get_rtsps_streams = Camera.get_rtsps_streams.__get__(camera, Camera)
-
-    # Test successful retrieval
-    result = await camera.get_rtsps_streams()
-    assert result is not None
-    assert result.get_stream_url("high") == "rtsps://example.com/high"
-    assert result.get_stream_url("medium") == "rtsps://example.com/medium"
-    camera._api.get_camera_rtsps_streams.assert_called_once_with("test_camera_id")
-
-
-@pytest.mark.asyncio
-async def test_camera_get_rtsps_streams_no_api_key():
-    """Test Camera.get_rtsps_streams method without API key."""
-    # Mock camera and API without key
-    camera = AsyncMock(spec=Camera)
-    camera.id = "test_camera_id"
-    camera._api = AsyncMock()
-    camera._api._api_key = None
-
-    # Bind the actual method to the mock
-    camera.get_rtsps_streams = Camera.get_rtsps_streams.__get__(camera, Camera)
-
-    # Test that it raises NotAuthorized
-    with pytest.raises(
-        NotAuthorized, match="Cannot get RTSPS streams without an API key"
-    ):
-        await camera.get_rtsps_streams()
-
-
-@pytest.mark.asyncio
 async def test_raise_for_status_status_codes():
     """Test _raise_for_status with different HTTP status codes."""
     # Create API client
@@ -4351,65 +4124,13 @@ async def test_get_chime_public_error():
     )
 
 
-def test_led_settings_deserialization_with_blink_rate():
-    """Test that LEDSettings can be created with blink_rate field (older Protect versions)."""
-    led_data = {
-        "isEnabled": False,
-        "blinkRate": 100,
-    }
-    led_settings = LEDSettings.from_unifi_dict(**led_data)
-
-    assert led_settings.is_enabled is False
-    assert led_settings.blink_rate == 100
-    assert led_settings.welcome_led is None
-    assert led_settings.flood_led is None
-
-
-def test_led_settings_deserialization_without_blink_rate():
-    """Test that LEDSettings can be created without blink_rate field (Protect 6.x+)."""
-    led_data = {
-        "isEnabled": True,
-    }
-    led_settings = LEDSettings.from_unifi_dict(**led_data)
-
-    assert led_settings.is_enabled is True
-    assert led_settings.blink_rate is None
-    assert led_settings.welcome_led is None
-    assert led_settings.flood_led is None
-
-
-def test_led_settings_with_new_fields():
-    """Test LED settings with welcome_led and flood_led fields (Protect 6.2+)."""
-    led_data = {
-        "isEnabled": True,
-        "welcomeLed": True,
-        "floodLed": False,
-    }
-    led_settings = LEDSettings.from_unifi_dict(**led_data)
-
-    assert led_settings.is_enabled is True
-    assert led_settings.blink_rate is None
-    assert led_settings.welcome_led is True
-    assert led_settings.flood_led is False
-
-
-def test_led_settings_serialization_with_all_fields():
-    """Test that LEDSettings serialization includes all fields when set."""
-    led_settings = LEDSettings(
-        is_enabled=True,
-        blink_rate=0,
-        welcome_led=True,
-        flood_led=False,
+def test_led_settings_ignores_unmodelled_keys():
+    """LEDSettings parses and serialises without the keys it does not model."""
+    led_settings = LEDSettings.from_unifi_dict(
+        isEnabled=True, blinkRate=100, welcomeLed=True, floodLed=False
     )
 
-    # Test unifi_dict() serialization (for API)
-    serialized = led_settings.unifi_dict()
-
-    # All fields should be present in camelCase
-    assert serialized["isEnabled"] is True
-    assert serialized["blinkRate"] == 0
-    assert serialized["welcomeLed"] is True
-    assert serialized["floodLed"] is False
+    assert led_settings.unifi_dict() == {"isEnabled": True}
 
 
 @pytest.mark.asyncio()

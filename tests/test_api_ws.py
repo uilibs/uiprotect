@@ -201,7 +201,6 @@ async def test_ws_event_ring(
     assert event.id == expected_event_id
     assert event.type == EventType.RING
     assert event.thumbnail_id == f"e-{expected_event_id}"
-    assert event.heatmap_id == f"e-{expected_event_id}"
 
     for channel in camera.channels:
         assert channel._api is not None
@@ -265,7 +264,6 @@ async def test_ws_event_motion(
     assert event.id == expected_event_id
     assert event.type == EventType.MOTION
     assert event.thumbnail_id == f"e-{expected_event_id}"
-    assert event.heatmap_id == f"e-{expected_event_id}"
     assert event.start == (now - timedelta(seconds=30))
 
     for channel in camera.channels:
@@ -386,7 +384,6 @@ async def test_ws_event_nfc_card_scanned(
     assert event.metadata.nfc.nfc_id == expected_nfc_id
     assert event.metadata.nfc.user_id == expected_user_id
     assert event.thumbnail_id == f"e-{expected_event_id}"
-    assert event.heatmap_id == f"e-{expected_event_id}"
     assert event.start == (now - timedelta(seconds=30))
     assert event.end == now
 
@@ -459,7 +456,6 @@ async def test_ws_event_fingerprint_identified(
     assert event.type == EventType.FINGERPRINT_IDENTIFIED
     assert event.metadata.fingerprint.ulp_id == expected_ulp_id
     assert event.thumbnail_id == f"e-{expected_event_id}"
-    assert event.heatmap_id == f"e-{expected_event_id}"
     assert event.start == (now - timedelta(seconds=30))
     assert event.end == now
 
@@ -527,7 +523,6 @@ async def test_ws_event_smart(
     assert smart_event.id == expected_event_id
     assert smart_event.type == EventType.SMART_DETECT
     assert smart_event.thumbnail_id == f"e-{expected_event_id}"
-    assert smart_event.heatmap_id == f"e-{expected_event_id}"
     assert smart_event.start == (now - timedelta(seconds=30))
     assert smart_event.end == now
 
@@ -559,9 +554,6 @@ async def test_ws_event_update(
         new_stats["txBytes"] += 100
     new_stats["video"]["recordingEnd"] = to_js_time(now)
     new_stats_unifi = camera_before.unifi_dict(data={"stats": deepcopy(new_stats)})
-
-    del new_stats_unifi["stats"]["wifiQuality"]
-    del new_stats_unifi["stats"]["wifiStrength"]
 
     expected_updated_id = "0441ecc6-f0fa-4b19-b071-7987c143138a"
 
@@ -1365,7 +1357,6 @@ async def test_ws_ulp_user_update(
         first_name="viewonly",
         last_name="",
         full_name="viewonly",
-        avatar="",
         status="ACTIVE",
         model_key="ulpUser",
     )
@@ -1426,7 +1417,6 @@ async def test_ws_ulp_user_remove(
         first_name="viewonly",
         last_name="",
         full_name="viewonly",
-        avatar="",
         status="ACTIVE",
         model_key="ulpUser",
     )

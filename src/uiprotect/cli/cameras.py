@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import cast
 
 import typer
 from rich.progress import Progress
@@ -69,17 +68,6 @@ def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
 
 
 @app.command()
-def timelapse_url(ctx: typer.Context) -> None:
-    """Returns UniFi Protect timelapse URL."""
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
-    if ctx.obj.output_format == base.OutputFormatEnum.JSON:
-        base.json_output(obj.timelapse_url)
-    else:
-        typer.echo(obj.timelapse_url)
-
-
-@app.command()
 def privacy_mode(
     ctx: typer.Context,
     enabled: bool | None = typer.Argument(None),
@@ -118,30 +106,6 @@ def chime_type(ctx: typer.Context, value: d.ChimeType | None = None) -> None:
 
 
 @app.command()
-def stream_urls(ctx: typer.Context) -> None:
-    """Returns all of the enabled RTSP(S) URLs."""
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
-    data: list[tuple[str, str]] = []
-    for channel in obj.channels:
-        if channel.is_rtsp_enabled:
-            rtsp_url = cast("str", channel.rtsp_url)
-            rtsps_url = cast("str", channel.rtsps_url)
-            data.extend(
-                (
-                    (f"{channel.name} RTSP", rtsp_url),
-                    (f"{channel.name} RTSPS", rtsps_url),
-                ),
-            )
-
-    if ctx.obj.output_format == base.OutputFormatEnum.JSON:
-        base.json_output(data)
-    else:
-        for name, url in data:
-            typer.echo(f"{name:20}\t{url}")
-
-
-@app.command()
 def save_snapshot(
     ctx: typer.Context,
     output_path: Path = typer.Argument(..., help="JPEG format"),
@@ -160,19 +124,15 @@ def save_snapshot(
     it will default to UTC. You can override your timezone with the
     TZ environment variable.
     """
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
-
-    if dt is not None:
-        local_tz = datetime.now(UTC).astimezone().tzinfo
-        dt = dt.replace(tzinfo=local_tz)
+    base.require_device_id(ctx, public_ok=package)
 
     if package:
-        if not obj.feature_flags.has_package_camera:
-            typer.secho("Camera does not have package camera", fg="red")
-            raise typer.Exit(1)
-        snapshot = base.run(ctx, obj.get_package_snapshot(width, height, dt=dt))
+        snapshot = _get_package_snapshot(ctx, width, height, dt)
     else:
+        obj: d.Camera = ctx.obj.device
+        if dt is not None:
+            local_tz = datetime.now(UTC).astimezone().tzinfo
+            dt = dt.replace(tzinfo=local_tz)
         snapshot = base.run(ctx, obj.get_snapshot(width, height, dt=dt))
 
     if snapshot is None:
@@ -407,18 +367,18 @@ def set_ir_led_mode(ctx: typer.Context, mode: d.IRLEDMode) -> None:
 def set_status_light(ctx: typer.Context, enabled: bool) -> None:
     """Sets status indicicator light on camera"""
     base.require_device_id(ctx, public_ok=True)
-    obj: d.Camera | PublicCamera = ctx.obj.device
+    obj = base.public_device(ctx, PublicCamera)
 
-    base.run(ctx, base.public_call(obj, "set_status_light", enabled))
+    base.run(ctx, obj.set_status_light(enabled))
 
 
 @app.command()
 def set_hdr(ctx: typer.Context, mode: d.PublicHdrMode) -> None:
     """Sets HDR (High Dynamic Range) mode on camera"""
     base.require_device_id(ctx, public_ok=True)
-    obj: d.Camera | PublicCamera = ctx.obj.device
+    obj = base.public_device(ctx, PublicCamera)
 
-    base.run(ctx, base.public_call(obj, "set_hdr_mode", mode))
+    base.run(ctx, obj.set_hdr_mode(mode))
 
 
 @app.command()
@@ -447,9 +407,9 @@ def set_person_track(ctx: typer.Context, enabled: bool) -> None:
 def set_video_mode(ctx: typer.Context, mode: d.VideoMode) -> None:
     """Sets video mode on camera"""
     base.require_device_id(ctx, public_ok=True)
-    obj: d.Camera | PublicCamera = ctx.obj.device
+    obj = base.public_device(ctx, PublicCamera)
 
-    base.run(ctx, base.public_call(obj, "set_video_mode", mode))
+    base.run(ctx, obj.set_video_mode(mode))
 
 
 @app.command()
@@ -483,9 +443,9 @@ def set_mic_volume(
 ) -> None:
     """Sets the mic sensitivity level on camera"""
     base.require_device_id(ctx, public_ok=True)
-    obj: d.Camera | PublicCamera = ctx.obj.device
+    obj = base.public_device(ctx, PublicCamera)
 
-    base.run(ctx, base.public_call(obj, "set_mic_volume", level))
+    base.run(ctx, obj.set_mic_volume(level))
 
 
 @app.command()
@@ -537,36 +497,36 @@ def set_system_sounds(ctx: typer.Context, enabled: bool) -> None:
 def set_osd_name(ctx: typer.Context, enabled: bool) -> None:
     """Sets whether camera name is in the On Screen Display"""
     base.require_device_id(ctx, public_ok=True)
-    obj: d.Camera | PublicCamera = ctx.obj.device
+    obj = base.public_device(ctx, PublicCamera)
 
-    base.run(ctx, base.public_call(obj, "set_osd_name", enabled))
+    base.run(ctx, obj.set_osd_name(enabled))
 
 
 @app.command()
 def set_osd_date(ctx: typer.Context, enabled: bool) -> None:
     """Sets whether current date is in the On Screen Display"""
     base.require_device_id(ctx, public_ok=True)
-    obj: d.Camera | PublicCamera = ctx.obj.device
+    obj = base.public_device(ctx, PublicCamera)
 
-    base.run(ctx, base.public_call(obj, "set_osd_date", enabled))
+    base.run(ctx, obj.set_osd_date(enabled))
 
 
 @app.command()
 def set_osd_logo(ctx: typer.Context, enabled: bool) -> None:
     """Sets whether the UniFi logo is in the On Screen Display"""
     base.require_device_id(ctx, public_ok=True)
-    obj: d.Camera | PublicCamera = ctx.obj.device
+    obj = base.public_device(ctx, PublicCamera)
 
-    base.run(ctx, base.public_call(obj, "set_osd_logo", enabled))
+    base.run(ctx, obj.set_osd_logo(enabled))
 
 
 @app.command()
 def set_osd_bitrate(ctx: typer.Context, enabled: bool) -> None:
     """Sets whether camera bitrate is in the On Screen Display"""
     base.require_device_id(ctx, public_ok=True)
-    obj: d.Camera | PublicCamera = ctx.obj.device
+    obj = base.public_device(ctx, PublicCamera)
 
-    base.run(ctx, base.public_call(obj, "set_osd_nerd_mode", enabled))
+    base.run(ctx, obj.set_osd_nerd_mode(enabled))
 
 
 @app.command()
@@ -601,25 +561,16 @@ def set_lcd_text(
     TZ environment variable.
     """
     base.require_device_id(ctx, public_ok=True)
-    obj: d.Camera | PublicCamera = ctx.obj.device
 
-    if text_type is None:
-        # The public setter rejects a reset time on a clear; say so here rather
-        # than dropping the option on the floor.
-        if reset_at is not None:
-            typer.secho(
-                "--reset-time does not apply when clearing the message", fg="red"
-            )
-            raise typer.Exit(1)
-        base.run(ctx, base.public_call(obj, "set_lcd_message", None))
-        return
+    # The public setter rejects a reset time on a clear; say so here rather
+    # than dropping the option on the floor.
+    if text_type is None and reset_at is not None:
+        typer.secho("--reset-time does not apply when clearing the message", fg="red")
+        raise typer.Exit(1)
 
-    base.run(
-        ctx,
-        base.public_call(
-            obj, "set_lcd_message", text_type, text, _parse_reset_time(reset_at)
-        ),
-    )
+    reset = _parse_reset_time(reset_at)
+    obj = base.public_device(ctx, PublicCamera)
+    base.run(ctx, obj.set_lcd_message(text_type, text, reset))
 
 
 @app.command()
@@ -764,6 +715,30 @@ def disable_mic_permanently(
         await ctx.obj.protect.disable_camera_mic_permanently_public(obj.id)
 
     base.run(ctx, _disable())
+
+
+def _get_package_snapshot(
+    ctx: typer.Context,
+    width: int | None,
+    height: int | None,
+    dt: datetime | None,
+) -> bytes | None:
+    """Package-camera snapshot from the public API, which takes no size or time."""
+    if width is not None or height is not None or dt is not None:
+        typer.secho(
+            "--width, --height and --timestamp do not apply to --package", fg="red"
+        )
+        raise typer.Exit(1)
+    obj: d.Camera | PublicCamera = ctx.obj.device
+    if isinstance(obj, PublicCamera):
+        has_package_camera = obj.has_package_camera
+    else:
+        has_package_camera = obj.feature_flags.has_package_camera
+    if not has_package_camera:
+        typer.secho("Camera does not have package camera", fg="red")
+        raise typer.Exit(1)
+    protect: ProtectApiClient = ctx.obj.protect
+    return base.run(ctx, protect.get_public_api_camera_snapshot(obj.id, package=True))
 
 
 def _parse_reset_time(reset_at: str | None) -> datetime | DEFAULT_TYPE | None:

@@ -43,44 +43,27 @@ from .base import (
     ProtectMotionDeviceModel,
 )
 from .public_devices import (
-    _PUBLIC_HUMIDITY_LOW_RANGE,
-    _PUBLIC_LED_LEVEL_RANGE,
-    _PUBLIC_LIGHT_LUX_LOW_RANGE,
-    _PUBLIC_MIC_VOLUME_RANGE,
-    _PUBLIC_SENSITIVITY_RANGE,
-    _PUBLIC_TEMPERATURE_LOW_RANGE,
     _build_public_lcd_message,
-    _coerce_public_int,
-    _validate_public_range,
 )
 from .types import (
     DEFAULT,
     DEFAULT_TYPE,
     AudioCodecs,
-    AudioStyle,
-    AutoExposureMode,
     ChannelQuality,
     ChimeType,
     Color,
     DoorbellMessageType,
-    FocusMode,
-    GeofencingSetting,
     HDRMode,
     ICRCustomValue,
     ICRLuxValue,
-    ICRSensitivity,
     IRLEDMode,
     IteratorCallback,
     LEDLevel,
     LensType,
     LightModeEnableType,
     LightModeType,
-    LowMedHigh,
     ModelType,
-    MotionAlgorithm,
-    MountPosition,
     MountType,
-    OsdOverlayLocation,
     Percent,
     PercentInt,
     PermissionNode,
@@ -90,11 +73,9 @@ from .types import (
     PublicHdrMode,
     RecordingMode,
     RepeatTimes,
-    SensorScheduleMode,
     SensorStatusType,
     SmartDetectAudioType,
     SmartDetectObjectType,
-    TwoByteInt,
     VideoMode,
     WDRLevel,
 )
@@ -103,19 +84,8 @@ from .user import User
 if TYPE_CHECKING:
     from ..api import (
         PublicApiChimeRingSettingRequest,
-        RTSPSStreams,
     )
     from .nvr import Event, Liveview
-    from .public_devices import (
-        PublicCameraLedSettings,
-        PublicOsdSettings,
-        PublicSensorAlarmSettings,
-        PublicSensorGlassBreakSettingsWrite,
-        PublicSensorHumiditySettings,
-        PublicSensorLightSettings,
-        PublicSensorMotionSettings,
-        PublicSensorTemperatureSettings,
-    )
 
 PRIVACY_ZONE_NAME = "pyufp_privacy_zone"
 LUX_MAPPING_VALUES = [30, 25, 20, 15, 12, 10, 7, 5, 3, 1, 0]
@@ -134,8 +104,6 @@ class LightDeviceSettings(ProtectBaseObject):
     led_level: LEDLevel
     pir_duration: timedelta
     pir_sensitivity: PercentInt
-    # lux_sensitivity exists in Private API but not in Public API - filtered when sending updates
-    lux_sensitivity: LowMedHigh | None = None
 
     @classmethod
     @cache
@@ -143,11 +111,6 @@ class LightDeviceSettings(ProtectBaseObject):
         return {
             "pirDuration": lambda x: timedelta(milliseconds=x)
         } | super().unifi_dict_conversions()
-
-
-class LightOnSettings(ProtectBaseObject):
-    # Manual toggle in UI
-    is_led_force_on: bool
 
 
 class LightModeSettings(ProtectBaseObject):
@@ -159,12 +122,9 @@ class LightModeSettings(ProtectBaseObject):
 class Light(ProtectMotionDeviceModel):
     is_pir_motion_detected: bool
     is_light_on: bool
-    is_locating: bool
     light_device_settings: LightDeviceSettings
-    light_on_settings: LightOnSettings
     light_mode_settings: LightModeSettings
     camera_id: str | None = None
-    is_camera_paired: bool
 
     @classmethod
     @cache
@@ -177,7 +137,6 @@ class Light(ProtectMotionDeviceModel):
         return super()._get_read_only_fields() | {
             "isPirMotionDetected",
             "isLightOn",
-            "isLocating",
         }
 
     @property
@@ -199,117 +158,6 @@ class Light(ProtectMotionDeviceModel):
             else:
                 self.camera_id = camera.id
             await self.save_device(data_before_changes, force_emit=True)
-
-    async def set_status_light(self, enabled: bool) -> None:
-        """Sets the status indicator light for the light"""
-
-        def callback() -> None:
-            self.light_device_settings.is_indicator_enabled = enabled
-
-        await self.queue_update(callback)
-
-    async def set_name_public(self, name: str) -> None:
-        """Set light name via public API."""
-        updated = await self._api.update_light_public(self.id, name=name)
-        self.name = updated.name
-
-    async def set_flood_light_public(self, enabled: bool) -> None:
-        """Force the flood light on/off via public API."""
-        await self._api.update_light_public(self.id, is_light_force_enabled=enabled)
-        self.light_on_settings.is_led_force_on = enabled
-
-    async def set_status_light_public(self, enabled: bool) -> None:
-        """Toggle the status indicator LED via public API."""
-        device_settings = self.light_device_settings.model_copy()
-        device_settings.is_indicator_enabled = enabled
-        await self._api.update_light_public(
-            self.id, light_device_settings=device_settings
-        )
-        self.light_device_settings = device_settings
-
-    async def set_led_level_public(self, led_level: float) -> None:
-        """Set the LED brightness level via public API."""
-        led_level = _coerce_public_int("led_level", led_level, _PUBLIC_LED_LEVEL_RANGE)
-        device_settings = self.light_device_settings.model_copy()
-        device_settings.led_level = LEDLevel(led_level)
-        await self._api.update_light_public(
-            self.id, light_device_settings=device_settings
-        )
-        self.light_device_settings = device_settings
-
-    async def set_light_public(
-        self, enabled: bool, led_level: float | None = None
-    ) -> None:
-        """Force the light on/off, optionally setting LED brightness (1-6), via public API."""
-        if led_level is None:
-            await self._api.update_light_public(self.id, is_light_force_enabled=enabled)
-            self.light_on_settings.is_led_force_on = enabled
-            return
-        led_level = _coerce_public_int("led_level", led_level, _PUBLIC_LED_LEVEL_RANGE)
-        device_settings = self.light_device_settings.model_copy()
-        device_settings.led_level = LEDLevel(led_level)
-        await self._api.update_light_public(
-            self.id,
-            is_light_force_enabled=enabled,
-            light_device_settings=device_settings,
-        )
-        self.light_on_settings.is_led_force_on = enabled
-        self.light_device_settings = device_settings
-
-    async def set_sensitivity_public(self, sensitivity: int) -> None:
-        """Set PIR motion sensitivity via public API."""
-        device_settings = self.light_device_settings.model_copy()
-        device_settings.pir_sensitivity = PercentInt(sensitivity)
-        await self._api.update_light_public(
-            self.id, light_device_settings=device_settings
-        )
-        self.light_device_settings = device_settings
-
-    async def set_duration_public(self, duration: timedelta) -> None:
-        """Set how long the light stays on after motion (15s-900s) via public API."""
-        if duration.total_seconds() < 15 or duration.total_seconds() > 900:
-            raise BadRequest("Duration outside of 15s to 900s range")
-        device_settings = self.light_device_settings.model_copy()
-        device_settings.pir_duration = duration
-        await self._api.update_light_public(
-            self.id, light_device_settings=device_settings
-        )
-        self.light_device_settings = device_settings
-
-    async def set_light_settings_public(
-        self,
-        mode: LightModeType,
-        enable_at: LightModeEnableType | None = None,
-        duration: timedelta | None = None,
-        sensitivity: int | None = None,
-    ) -> None:
-        """Update mode, enable schedule, duration and PIR sensitivity via public API."""
-        if duration is not None and (
-            duration.total_seconds() < 15 or duration.total_seconds() > 900
-        ):
-            raise BadRequest("Duration outside of 15s to 900s range")
-
-        mode_settings = self.light_mode_settings.model_copy()
-        mode_settings.mode = mode
-        if enable_at is not None:
-            mode_settings.enable_at = enable_at
-
-        device_settings: LightDeviceSettings | None = None
-        if duration is not None or sensitivity is not None:
-            device_settings = self.light_device_settings.model_copy()
-            if duration is not None:
-                device_settings.pir_duration = duration
-            if sensitivity is not None:
-                device_settings.pir_sensitivity = PercentInt(sensitivity)
-
-        await self._api.update_light_public(
-            self.id,
-            light_mode_settings=mode_settings,
-            light_device_settings=device_settings,
-        )
-        self.light_mode_settings = mode_settings
-        if device_settings is not None:
-            self.light_device_settings = device_settings
 
 
 RTSPS_QUALITY_BY_CHANNEL_ID: Mapping[int, ChannelQuality] = MappingProxyType(
@@ -357,7 +205,6 @@ class CameraChannel(ProtectBaseObject):
     auto_fps: bool | None = None
 
     _parent: Camera | None = PrivateAttr(None)
-    _rtsp_url: str | None = PrivateAttr(None)
     _rtsps_url: str | None = PrivateAttr(None)
     _rtsps_no_srtp_url: str | None = PrivateAttr(None)
 
@@ -366,20 +213,6 @@ class CameraChannel(ProtectBaseObject):
         if self._parent is not None and self._parent.connection_host is not None:
             return self._parent.connection_host
         return self._api.connection_host
-
-    @property
-    def rtsp_url(self) -> str | None:
-        if not self.is_rtsp_enabled or self.rtsp_alias is None:
-            return None
-
-        if self._rtsp_url is not None:
-            return self._rtsp_url
-
-        host = format_host_for_url(self._get_connection_host())
-        self._rtsp_url = (
-            f"rtsp://{host}:{self._api.bootstrap.nvr.ports.rtsp}/{self.rtsp_alias}"
-        )
-        return self._rtsp_url
 
     @property
     def rtsps_url(self) -> str | None:
@@ -412,61 +245,17 @@ class CameraChannel(ProtectBaseObject):
         """RTSPS quality tier for this channel (id 0→HIGH, 1→MEDIUM, 2→LOW, 3→PACKAGE)."""
         return quality_for_channel_id(self.id)
 
-    @property
-    def is_package(self) -> bool:
-        # NOTE: The previous logic (checking fps <= 2) stopped working with G6 Entry
-        # due to higher FPS values. This is now aligned with the logic used in
-        # package_camera_channel. Not optimal, but will be fixed with the switch
-        # to the public API.
-        return self.fps is not None and self.id == 3
-
 
 class ISPSettings(ProtectBaseObject):
-    ae_mode: AutoExposureMode
     ir_led_mode: IRLEDMode
-    ir_led_level: TwoByteInt
     wdr: WDRLevel
-    icr_sensitivity: ICRSensitivity
     brightness: int
-    contrast: int
-    hue: int
-    saturation: int
-    sharpness: int
-    denoise: int
-    is_flipped_vertical: bool
-    is_flipped_horizontal: bool
-    is_auto_rotate_enabled: bool
-    is_ldc_enabled: bool
-    is_3dnr_enabled: bool
-    is_external_ir_enabled: bool
-    is_aggressive_anti_flicker_enabled: bool
-    is_pause_motion_enabled: bool
-    d_zoom_center_x: int
-    d_zoom_center_y: int
-    d_zoom_scale: int
-    d_zoom_stream_id: int
-    focus_mode: FocusMode | None = None
-    focus_position: int
-    touch_focus_x: int | None = None
-    touch_focus_y: int | None = None
     zoom_position: PercentInt
-    mount_position: MountPosition | None = None
     # requires 2.8.14+
     is_color_night_vision_enabled: bool | None = None
     # 3.0.22+
     hdr_mode: HDRMode | None = None
     icr_custom_value: ICRCustomValue | None = None
-    icr_switch_mode: str | None = None
-    spotlight_duration: int | None = None
-
-    def unifi_dict(
-        self,
-        data: dict[str, Any] | None = None,
-        exclude: set[str] | None = None,
-    ) -> dict[str, Any]:
-        data = super().unifi_dict(data=data, exclude=exclude)
-        pop_dict_set_if_none(data, {"focusMode"})
-        return data
 
 
 class OSDSettings(ProtectBaseObject):
@@ -474,37 +263,10 @@ class OSDSettings(ProtectBaseObject):
     is_date_enabled: bool
     is_logo_enabled: bool
     is_debug_enabled: bool
-    overlay_location: OsdOverlayLocation | None = None
-
-    def unifi_dict(
-        self,
-        data: dict[str, Any] | None = None,
-        exclude: set[str] | None = None,
-    ) -> dict[str, Any]:
-        data = super().unifi_dict(data=data, exclude=exclude)
-        # overlayLocation is public-API-only; always strip it from private-API payloads
-        # to avoid rejection by endpoints that don't accept unknown fields.
-        data.pop("overlayLocation", None)
-        return data
 
 
 class LEDSettings(ProtectBaseObject):
     is_enabled: bool
-    blink_rate: int | None = (
-        None  # in milliseconds between blinks, 0 = solid (removed in Protect 6.x)
-    )
-    # 6.2+
-    welcome_led: bool | None = None
-    flood_led: bool | None = None
-
-    def unifi_dict(
-        self,
-        data: dict[str, Any] | None = None,
-        exclude: set[str] | None = None,
-    ) -> dict[str, Any]:
-        data = super().unifi_dict(data=data, exclude=exclude)
-        pop_dict_set_if_none(data, {"blinkRate", "welcomeLed", "floodLed"})
-        return data
 
 
 class SpeakerSettings(ProtectBaseObject):
@@ -532,90 +294,8 @@ class SpeakerSettings(ProtectBaseObject):
 
 
 class RecordingSettings(ProtectBaseObject):
-    pre_padding: timedelta
-    post_padding: timedelta
-    min_motion_event_trigger: timedelta
-    end_motion_event_delay: timedelta
-    suppress_illumination_surge: bool
     mode: RecordingMode
-    geofencing: GeofencingSetting
-    motion_algorithm: MotionAlgorithm
     enable_motion_detection: bool | None = None
-    use_new_motion_algorithm: bool
-    # requires 2.9.20+
-    in_schedule_mode: str | None = None
-    out_schedule_mode: str | None = None
-    # 2.11.13+
-    retention_duration: datetime | None = None
-    smart_detect_post_padding: timedelta | None = None
-    smart_detect_pre_padding: timedelta | None = None
-    # requires 5.2.39+
-    create_access_event: bool | None = None
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {
-            **super()._get_unifi_remaps(),
-            "retentionDurationMs": "retentionDuration",
-        }
-
-    @classmethod
-    @cache
-    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
-        return {
-            "minMotionEventTrigger": lambda x: timedelta(seconds=x),
-            "endMotionEventDelay": lambda x: timedelta(seconds=x),
-        } | super().unifi_dict_conversions()
-
-    @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "prePaddingSecs" in data:
-            data["prePadding"] = timedelta(seconds=data.pop("prePaddingSecs"))
-        if "postPaddingSecs" in data:
-            data["postPadding"] = timedelta(seconds=data.pop("postPaddingSecs"))
-        if "smartDetectPrePaddingSecs" in data:
-            data["smartDetectPrePadding"] = timedelta(
-                seconds=data.pop("smartDetectPrePaddingSecs"),
-            )
-        if "smartDetectPostPaddingSecs" in data:
-            data["smartDetectPostPadding"] = timedelta(
-                seconds=data.pop("smartDetectPostPaddingSecs"),
-            )
-
-        return super().unifi_dict_to_dict(data)
-
-    def unifi_dict(
-        self,
-        data: dict[str, Any] | None = None,
-        exclude: set[str] | None = None,
-    ) -> dict[str, Any]:
-        data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "prePadding" in data:
-            data["prePaddingSecs"] = data.pop("prePadding") // 1000
-        if "postPadding" in data:
-            data["postPaddingSecs"] = data.pop("postPadding") // 1000
-        if (
-            "smartDetectPrePadding" in data
-            and data["smartDetectPrePadding"] is not None
-        ):
-            data["smartDetectPrePaddingSecs"] = (
-                data.pop("smartDetectPrePadding") // 1000
-            )
-        if (
-            "smartDetectPostPadding" in data
-            and data["smartDetectPostPadding"] is not None
-        ):
-            data["smartDetectPostPaddingSecs"] = (
-                data.pop("smartDetectPostPadding") // 1000
-            )
-        if "minMotionEventTrigger" in data:
-            data["minMotionEventTrigger"] = data.pop("minMotionEventTrigger") // 1000
-        if "endMotionEventDelay" in data:
-            data["endMotionEventDelay"] = data.pop("endMotionEventDelay") // 1000
-
-        return data
 
 
 class SmartDetectSettings(ProtectBaseObject):
@@ -705,23 +385,11 @@ class LCDMessage(ProtectBaseObject):
 
 class TalkbackSettings(ProtectBaseObject):
     type_fmt: AudioCodecs
-    type_in: str
-    bind_addr: IPv4Address | IPv6Address | str | None = None
     bind_port: int
-    filter_addr: str | None = None  # can be used to restrict sender address
-    filter_port: int | None = None  # can be used to restrict sender port
     channels: int  # 1 or 2
     sampling_rate: int  # 8000, 11025, 22050, 44100, 48000
     bits_per_sample: int
     quality: PercentInt  # only for vorbis
-
-
-class WifiStats(ProtectBaseObject):
-    channel: int | None = None
-    frequency: int | None = None
-    link_speed_mbps: int | str | None = None
-    signal_quality: PercentInt
-    signal_strength: int
 
 
 class VideoStats(ProtectBaseObject):
@@ -805,11 +473,8 @@ class StorageStats(ProtectBaseObject):
 class CameraStats(ProtectBaseObject):
     rx_bytes: int | None = None  # deprecated: removed in Protect 6.1+
     tx_bytes: int | None = None  # deprecated: removed in Protect 6.1+
-    wifi: WifiStats
     video: VideoStats
     storage: StorageStats | None = None
-    wifi_quality: PercentInt
-    wifi_strength: int
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -885,112 +550,52 @@ class SmartMotionZone(MotionZone):
         } | super().unifi_dict_conversions()
 
 
-class PrivacyMaskCapability(ProtectBaseObject):
-    max_masks: int | None = None
-    rectangle_only: bool
-
-
 class HotplugExtender(ProtectBaseObject):
-    has_flash: bool | None = None
-    has_ir: bool | None = None
-    has_radar: bool | None = None
     is_attached: bool | None = None
-    # 3.0.22+
-    flash_range: Any | None = None
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {**super()._get_unifi_remaps(), "hasIR": "hasIr"}
 
 
 class Hotplug(ProtectBaseObject):
     audio: bool | None = None
     video: bool | None = None
     extender: HotplugExtender | None = None
-    # 2.8.35+
-    standalone_adoption: bool | None = None
-
-
-class PTZRangeSingle(ProtectBaseObject):
-    max: float | None = None
-    min: float | None = None
-    step: float | None = None
 
 
 class PTZRange(ProtectBaseObject):
-    steps: PTZRangeSingle
-    degrees: PTZRangeSingle
+    pass
 
 
 class PTZZoomRange(PTZRange):
-    ratio: int
+    pass
 
 
 class CameraFeatureFlags(ProtectBaseObject):
-    can_adjust_ir_led_level: bool
-    can_magic_zoom: bool
     can_optical_zoom: bool
-    can_touch_focus: bool
-    has_accelerometer: bool
-    has_aec: bool
-    has_bluetooth: bool
     has_chime: bool
-    has_external_ir: bool
-    has_icr_sensitivity: bool
-    has_ldc: bool
     has_led_ir: bool
     has_led_status: bool
-    has_line_in: bool
     has_mic: bool
     has_privacy_mask: bool
-    has_rtc: bool
-    has_sd_card: bool
     has_speaker: bool
-    has_wifi: bool
     has_hdr: bool
-    has_auto_icr_only: bool
     video_modes: list[VideoMode]
-    video_mode_max_fps: list[int]
-    has_motion_zones: bool
     has_lcd_screen: bool
     smart_detect_types: list[SmartDetectObjectType]
-    motion_algorithms: list[MotionAlgorithm]
-    has_square_event_thumbnail: bool
     has_package_camera: bool
-    privacy_mask_capability: PrivacyMaskCapability
     has_smart_detect: bool
     audio: list[str] = []
-    audio_codecs: list[AudioCodecs] = []
-    mount_positions: list[MountPosition] = []
-    has_infrared: bool | None = None
     lens_type: LensType | None = None
     hotplug: Hotplug | None = None
     smart_detect_audio_types: list[SmartDetectAudioType] | None = None
     # 2.7.18+
     is_doorbell: bool
-    # 2.8.22+
-    lens_model: str | None = None
-    # 2.9.20+
-    has_color_lcd_screen: bool | None = None
-    has_line_crossing: bool | None = None
-    has_line_crossing_counting: bool | None = None
-    has_liveview_tracking: bool | None = None
     # 2.10.10+
-    has_flash: bool | None = None
     is_ptz: bool | None = None
-    # 2.11.13+
-    audio_style: list[AudioStyle] | None = None
-    has_vertical_flip: bool | None = None
-    # 3.0.22+
-    flash_range: Any | None = None
     # 4.73.71+
     support_nfc: bool | None = None
     has_fingerprint_sensor: bool | None = None
     # 6.0.0+
     support_full_hd_snapshot: bool | None = None
 
-    focus: PTZRange
     pan: PTZRange
     tilt: PTZRange
     zoom: PTZZoomRange
@@ -1012,11 +617,6 @@ class CameraFeatureFlags(ProtectBaseObject):
 
         return super().unifi_dict_to_dict(data)
 
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {**super()._get_unifi_remaps(), "hasAutoICROnly": "hasAutoIcrOnly"}
-
     @property
     def has_highfps(self) -> bool:
         return VideoMode.HIGH_FPS in self.video_modes
@@ -1031,17 +631,6 @@ class CameraLenses(ProtectBaseObject):
     video: VideoStats
 
 
-class CameraHomekitSettings(ProtectBaseObject):
-    microphone_muted: bool
-    speaker_muted: bool
-    stream_in_progress: bool
-    talkback_settings_active: bool
-
-
-class CameraAudioSettings(ProtectBaseObject):
-    style: list[AudioStyle]
-
-
 @lru_cache
 def _chime_type_from_total_seconds(total_seconds: float) -> ChimeType:
     if total_seconds == 0.3:
@@ -1052,7 +641,6 @@ def _chime_type_from_total_seconds(total_seconds: float) -> ChimeType:
 
 
 class Camera(ProtectMotionDeviceModel):
-    is_deleting: bool
     # Microphone Sensitivity
     mic_volume: PercentInt
     is_mic_enabled: bool
@@ -1063,11 +651,8 @@ class Camera(ProtectMotionDeviceModel):
     hdr_mode: bool
     # Recording Quality -> High Frame
     video_mode: VideoMode
-    is_probing_for_wifi: bool
     chime_duration: timedelta
     last_ring: datetime | None = None
-    is_live_heatmap_enabled: bool
-    video_reconfiguration_in_progress: bool
     channels: list[CameraChannel]
     isp_settings: ISPSettings
     talkback_settings: TalkbackSettings
@@ -1085,40 +670,14 @@ class Camera(ProtectMotionDeviceModel):
     lenses: list[CameraLenses]
     platform: str | None = None
     has_speaker: bool
-    has_wifi: bool
-    audio_bitrate: int
-    can_manage: bool
-    is_managed: bool
     voltage: float | None = None
-    # requires 1.21+
-    is_poor_network: bool | None = None
-    is_wireless_uplink_enabled: bool | None = None
-    # requires 2.6.13+
-    homekit_settings: CameraHomekitSettings | None = None
-    # requires 2.6.17+
-    ap_mgmt_ip: IPv4Address | IPv6Address | None = None
-    # requires 2.7.5+
-    is_waterproof_case_attached: bool | None = None
-    last_disconnect: datetime | None = None
     # requires 2.8.14+
-    is_2k: bool | None = None
-    is_4k: bool | None = None
     use_global: bool | None = None
-    # requires 2.8.22+
-    user_configured_ap: bool | None = None
-    # requires 2.9.20+
-    has_recordings: bool | None = None
     # requires 2.10.10+
     is_ptz: bool | None = None
     active_patrol_slot: int | None = None
-    # requires 2.11.13+
-    audio_settings: CameraAudioSettings | None = None
     # requires 5.0.33+
     is_third_party_camera: bool | None = None
-    # requires 5.1.78+
-    is_paired_with_ai_port: bool | None = None
-    # requires 5.2.39+
-    is_adopted_by_access_app: bool | None = None
 
     # not directly from UniFi
     last_ring_event_id: str | None = None
@@ -1138,11 +697,6 @@ class Camera(ProtectMotionDeviceModel):
     _active_smart_detect_events: dict[SmartDetectObjectType, dict[str, Event]] = (
         PrivateAttr(default_factory=dict)
     )
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {**super()._get_unifi_remaps(), "is2K": "is2k", "is4K": "is4k"}
 
     @classmethod
     @cache
@@ -1169,17 +723,12 @@ class Camera(ProtectMotionDeviceModel):
     def _get_read_only_fields(cls) -> set[str]:
         return super()._get_read_only_fields() | {
             "stats",
-            "isDeleting",
             "isRecording",
             "isMotionDetected",
             "isSmartDetected",
             "phyRate",
-            "isProbingForWifi",
             "lastRing",
-            "isLiveHeatmapEnabled",
-            "videoReconfigurationInProgress",
             "lenses",
-            "isPoorNetwork",
             "featureFlags",
         }
 
@@ -1366,10 +915,6 @@ class Camera(ProtectMotionDeviceModel):
         return self._api.bootstrap.events.get(event_id)
 
     @property
-    def timelapse_url(self) -> str:
-        return f"{self._api.base_url}/protect/timelapse/{self.id}"
-
-    @property
     def is_privacy_on(self) -> bool:
         index, _ = self.get_privacy_zone()
         return index is not None
@@ -1420,14 +965,6 @@ class Camera(ProtectMotionDeviceModel):
             return set(feature_audio_types).intersection(enabled_audio_types)
         return set(enabled_audio_types)
 
-    @property
-    def is_motion_detection_on(self) -> bool:
-        """Is Motion Detection available and enabled (camera will produce motion events)?"""
-        return (
-            self.is_recording_enabled
-            and self.active_recording_settings.enable_motion_detection is not False
-        )
-
     async def set_motion_detection(self, enabled: bool) -> None:
         """Sets motion detection on camera"""
         if self.use_global:
@@ -1449,27 +986,6 @@ class Camera(ProtectMotionDeviceModel):
             self.is_recording_enabled and smart_type in self.active_smart_detect_types
         )
 
-    def _is_smart_detected(self, smart_type: SmartDetectObjectType) -> bool:
-        event = self.get_last_smart_detect_event(smart_type)
-        return (
-            self._is_smart_enabled(smart_type)
-            and self.is_smart_detected
-            and event is not None
-            and event.end is None
-            and smart_type in event.smart_detect_types
-        )
-
-    @property
-    def is_smart_currently_detected(self) -> bool:
-        """Is smart detection currently being detected"""
-        return (
-            self.is_recording_enabled
-            and bool(self.active_smart_detect_types)
-            and self.is_smart_detected
-            and self.last_smart_detect_event is not None
-            and self.last_smart_detect_event.end is None
-        )
-
     @property
     def is_person_detection_on(self) -> bool:
         """
@@ -1477,11 +993,6 @@ class Camera(ProtectMotionDeviceModel):
         detection events)?
         """
         return self._is_smart_enabled(SmartDetectObjectType.PERSON)
-
-    @property
-    def is_person_currently_detected(self) -> bool:
-        """Is person currently being detected"""
-        return self._is_smart_detected(SmartDetectObjectType.PERSON)
 
     @property
     def is_person_tracking_enabled(self) -> bool:
@@ -1501,31 +1012,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_smart_enabled(SmartDetectObjectType.VEHICLE)
 
     @property
-    def is_vehicle_currently_detected(self) -> bool:
-        """Is vehicle currently being detected"""
-        return self._is_smart_detected(SmartDetectObjectType.VEHICLE)
-
-    @property
-    def is_face_currently_detected(self) -> bool:
-        """Is face currently being detected"""
-        return self._is_smart_detected(SmartDetectObjectType.FACE)
-
-    @property
     def is_license_plate_detection_on(self) -> bool:
         """
         Is License Plate Detection available and enabled (camera will produce face license
         plate detection events)?
         """
         return self._is_smart_enabled(SmartDetectObjectType.LICENSE_PLATE)
-
-    @property
-    def is_license_plate_currently_detected(self) -> bool:
-        """Is license plate currently being detected"""
-        return self._is_smart_detected(SmartDetectObjectType.LICENSE_PLATE)
-
-    @property
-    def can_detect_package(self) -> bool:
-        return SmartDetectObjectType.PACKAGE in self.feature_flags.smart_detect_types
 
     @property
     def is_package_detection_on(self) -> bool:
@@ -1536,22 +1028,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_smart_enabled(SmartDetectObjectType.PACKAGE)
 
     @property
-    def is_package_currently_detected(self) -> bool:
-        """Is package currently being detected"""
-        return self._is_smart_detected(SmartDetectObjectType.PACKAGE)
-
-    @property
     def is_animal_detection_on(self) -> bool:
         """
         Is Animal Detection available and enabled (camera will produce package smart
         detection events)?
         """
         return self._is_smart_enabled(SmartDetectObjectType.ANIMAL)
-
-    @property
-    def is_animal_currently_detected(self) -> bool:
-        """Is animal currently being detected"""
-        return self._is_smart_detected(SmartDetectObjectType.ANIMAL)
 
     def _can_detect_audio(self, smart_type: SmartDetectObjectType) -> bool:
         audio_type = smart_type.audio_type
@@ -1572,30 +1054,6 @@ class Camera(ProtectMotionDeviceModel):
             and audio_type in self.active_audio_detect_types
         )
 
-    def _is_audio_detected(self, smart_type: SmartDetectObjectType) -> bool:
-        audio_type = smart_type.audio_type
-        if audio_type is None:
-            return False
-
-        event = self.get_last_smart_audio_detect_event(audio_type)
-        return (
-            self._is_audio_enabled(smart_type)
-            and event is not None
-            and event.end is None
-            and smart_type in event.smart_detect_types
-        )
-
-    @property
-    def is_audio_currently_detected(self) -> bool:
-        """Is audio detection currently being detected"""
-        return (
-            self.is_recording_enabled
-            and bool(self.active_audio_detect_types)
-            and (last_smart_audio_detect_event := self.last_smart_audio_detect_event)
-            is not None
-            and last_smart_audio_detect_event.end is None
-        )
-
     @property
     def is_smoke_detection_on(self) -> bool:
         """
@@ -1603,11 +1061,6 @@ class Camera(ProtectMotionDeviceModel):
         smart detection events)?
         """
         return self._is_audio_enabled(SmartDetectObjectType.SMOKE)
-
-    @property
-    def is_smoke_currently_detected(self) -> bool:
-        """Is smoke alarm currently being detected"""
-        return self._is_audio_detected(SmartDetectObjectType.SMOKE)
 
     @property
     def is_co_detection_on(self) -> bool:
@@ -1618,22 +1071,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.CMONX)
 
     @property
-    def is_cmonx_currently_detected(self) -> bool:
-        """Is CO alarm currently being detected"""
-        return self._is_audio_detected(SmartDetectObjectType.CMONX)
-
-    @property
     def is_siren_detection_on(self) -> bool:
         """
         Is Siren Detection available and enabled (camera will produce siren smart
         detection events)?
         """
         return self._is_audio_enabled(SmartDetectObjectType.SIREN)
-
-    @property
-    def is_siren_currently_detected(self) -> bool:
-        """Is Siren currently being detected"""
-        return self._is_audio_detected(SmartDetectObjectType.SIREN)
 
     @property
     def is_baby_cry_detection_on(self) -> bool:
@@ -1644,11 +1087,6 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.BABY_CRY)
 
     @property
-    def is_baby_cry_currently_detected(self) -> bool:
-        """Is Baby Cry currently being detected"""
-        return self._is_audio_detected(SmartDetectObjectType.BABY_CRY)
-
-    @property
     def is_speaking_detection_on(self) -> bool:
         """
         Is Speaking Detection available and enabled (camera will produce speaking smart
@@ -1657,22 +1095,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.SPEAK)
 
     @property
-    def is_speaking_currently_detected(self) -> bool:
-        """Is Speaking currently being detected"""
-        return self._is_audio_detected(SmartDetectObjectType.SPEAK)
-
-    @property
     def is_bark_detection_on(self) -> bool:
         """
         Is Bark Detection available and enabled (camera will produce barking smart
         detection events)?
         """
         return self._is_audio_enabled(SmartDetectObjectType.BARK)
-
-    @property
-    def is_bark_currently_detected(self) -> bool:
-        """Is Bark currently being detected"""
-        return self._is_audio_detected(SmartDetectObjectType.BARK)
 
     # SmartDetectObjectType.BURGLAR is "Car Alarm" in the Protect UI.
     @property
@@ -1684,11 +1112,6 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.BURGLAR)
 
     @property
-    def is_car_alarm_currently_detected(self) -> bool:
-        """Is Car Alarm currently being detected"""
-        return self._is_audio_detected(SmartDetectObjectType.BURGLAR)
-
-    @property
     def is_car_horn_detection_on(self) -> bool:
         """
         Is Car Horn Detection available and enabled (camera will produce car horn smart
@@ -1697,22 +1120,12 @@ class Camera(ProtectMotionDeviceModel):
         return self._is_audio_enabled(SmartDetectObjectType.CAR_HORN)
 
     @property
-    def is_car_horn_currently_detected(self) -> bool:
-        """Is Car Horn currently being detected"""
-        return self._is_audio_detected(SmartDetectObjectType.CAR_HORN)
-
-    @property
     def is_glass_break_detection_on(self) -> bool:
         """
         Is Glass Break available and enabled (camera will produce glass break smart
         detection events)?
         """
         return self._is_audio_enabled(SmartDetectObjectType.GLASS_BREAK)
-
-    @property
-    def is_glass_break_currently_detected(self) -> bool:
-        """Is Glass Break currently being detected"""
-        return self._is_audio_detected(SmartDetectObjectType.GLASS_BREAK)
 
     @property
     def chime_type(self) -> ChimeType:
@@ -1766,11 +1179,6 @@ class Camera(ProtectMotionDeviceModel):
     def has_mic(self) -> bool:
         """Does the camera have a microphone, counting a hot-plugged audio module."""
         return self.feature_flags.has_mic or self.has_removable_speaker
-
-    @property
-    def has_mic_public(self) -> bool:
-        """Does the camera have the microphone the public API can control."""
-        return self.feature_flags.has_mic
 
     @property
     def has_color_night_vision(self) -> bool:
@@ -1834,49 +1242,6 @@ class Camera(ProtectMotionDeviceModel):
             height = self.high_camera_channel.height
 
         return await self._api.get_camera_snapshot(self.id, width, height, dt=dt)
-
-    async def get_rtsps_streams(self) -> RTSPSStreams | None:
-        """Gets existing RTSPS streams for camera using public API."""
-        if self._api._api_key is None:
-            raise NotAuthorized("Cannot get RTSPS streams without an API key.")
-
-        return await self._api.get_camera_rtsps_streams(self.id)
-
-    async def get_package_snapshot(
-        self,
-        width: int | None = None,
-        height: int | None = None,
-        dt: datetime | None = None,
-    ) -> bytes | None:
-        """
-        Gets snapshot from the package camera.
-
-        Datetime of screenshot is approximate. It may be +/- a few seconds.
-        """
-        if not self.feature_flags.has_package_camera:
-            raise BadRequest("Device does not have package camera")
-
-        auth_user = self._api.bootstrap.auth_user
-        # Use READ_LIVE if dt is None, otherwise READ_MEDIA
-        if dt is None:
-            if not (
-                auth_user.can(ModelType.CAMERA, PermissionNode.READ_LIVE, self)
-                or auth_user.can(ModelType.CAMERA, PermissionNode.READ_MEDIA, self)
-            ):
-                raise NotAuthorized(
-                    f"Do not have permission to read live or media for camera: {self.id}"
-                )
-        elif not auth_user.can(ModelType.CAMERA, PermissionNode.READ_MEDIA, self):
-            raise NotAuthorized(
-                f"Do not have permission to read media for camera: {self.id}"
-            )
-
-        if height is None and width is None and self.package_camera_channel is not None:
-            height = self.package_camera_channel.height
-
-        return await self._api.get_package_camera_snapshot(
-            self.id, width, height, dt=dt
-        )
 
     async def get_video(
         self,
@@ -1966,19 +1331,6 @@ class Camera(ProtectMotionDeviceModel):
             self.feature_flags.has_led_ir
             and self.isp_settings.ir_led_mode in _ICR_LUX_IR_LED_MODES
         )
-
-    async def set_status_light(self, enabled: bool) -> None:
-        """Sets status indicicator light on camera"""
-        if not self.feature_flags.has_led_status:
-            raise BadRequest("Camera does not have status light")
-
-        def callback() -> None:
-            self.led_settings.is_enabled = enabled
-            # blink_rate was removed in Protect 6.x
-            if self.led_settings.blink_rate is not None:
-                self.led_settings.blink_rate = 0
-
-        await self.queue_update(callback)
 
     async def set_color_night_vision(self, enabled: bool) -> None:
         """Sets Color Night Vision on camera"""
@@ -2242,34 +1594,6 @@ class Camera(ProtectMotionDeviceModel):
         self._check_ptz_public_api()
         await self._api.ptz_patrol_stop_public(self.id)
 
-    async def set_name_public(self, name: str) -> None:
-        """Set camera name via public API."""
-        updated = await self._api.update_camera_public(self.id, name=name)
-        self.name = updated.name
-
-    async def set_status_light_public(self, enabled: bool) -> None:
-        """Set status LED via public API."""
-        if not self.feature_flags.has_led_status:
-            raise BadRequest("Camera does not have status light")
-        updated = await self._api.update_camera_public(self.id, led_is_enabled=enabled)
-        self._merge_public_led_settings(updated.led_settings)
-
-    def _merge_public_led_settings(self, led: PublicCameraLedSettings) -> None:
-        """Sync the private LED sub-model from a public PATCH response in place."""
-        # Only the public-API fields; private-only fields (e.g. ``blink_rate``)
-        # are left untouched.
-        self.led_settings.is_enabled = led.is_enabled
-        self.led_settings.welcome_led = led.welcome_led
-        self.led_settings.flood_led = led.flood_led
-
-    def _merge_public_osd_settings(self, osd: PublicOsdSettings) -> None:
-        """Sync the private OSD sub-model from a public PATCH response in place."""
-        self.osd_settings.is_name_enabled = osd.is_name_enabled
-        self.osd_settings.is_date_enabled = osd.is_date_enabled
-        self.osd_settings.is_logo_enabled = osd.is_logo_enabled
-        self.osd_settings.is_debug_enabled = osd.is_debug_enabled
-        self.osd_settings.overlay_location = osd.overlay_location
-
     async def set_hdr_mode_public(self, mode: PublicHdrMode) -> None:
         """Set HDR mode via public API."""
         if not self.feature_flags.has_hdr:
@@ -2287,21 +1611,6 @@ class Camera(ProtectMotionDeviceModel):
                 isp.hdr_mode = (
                     HDRMode.ALWAYS_ON if mode == PublicHdrMode.ON else HDRMode.NORMAL
                 )
-
-    async def set_video_mode_public(self, mode: VideoMode) -> None:
-        """Set video mode via public API."""
-        if mode not in self.feature_flags.video_modes:
-            raise BadRequest(f"Camera does not have {mode}")
-        updated = await self._api.update_camera_public(self.id, video_mode=mode)
-        self.video_mode = updated.video_mode
-
-    async def set_mic_volume_public(self, level: float) -> None:
-        """Set microphone volume via public API."""
-        if not self.has_mic_public:
-            raise BadRequest("Camera does not have mic")
-        level = _coerce_public_int("mic_volume", level, _PUBLIC_MIC_VOLUME_RANGE)
-        updated = await self._api.update_camera_public(self.id, mic_volume=level)
-        self.mic_volume = updated.mic_volume
 
     async def set_lcd_message_public(
         self,
@@ -2350,57 +1659,14 @@ class Camera(ProtectMotionDeviceModel):
             )
         )
 
-    async def set_osd_name_public(self, enabled: bool) -> None:
-        """Toggle name overlay (OSD) via public API."""
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-        updated = await self._api.update_camera_public(
-            self.id, osd_name_enabled=enabled
-        )
-        self._merge_public_osd_settings(updated.osd_settings)
-
-    async def set_osd_date_public(self, enabled: bool) -> None:
-        """Toggle date overlay (OSD) via public API."""
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-        updated = await self._api.update_camera_public(
-            self.id, osd_date_enabled=enabled
-        )
-        self._merge_public_osd_settings(updated.osd_settings)
-
-    async def set_osd_logo_public(self, enabled: bool) -> None:
-        """Toggle logo overlay (OSD) via public API."""
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-        updated = await self._api.update_camera_public(
-            self.id, osd_logo_enabled=enabled
-        )
-        self._merge_public_osd_settings(updated.osd_settings)
-
-    async def set_osd_nerd_mode_public(self, enabled: bool) -> None:
-        """Toggle bitrate/debug overlay (OSD) via public API."""
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-        updated = await self._api.update_camera_public(
-            self.id, osd_nerd_mode_enabled=enabled
-        )
-        self._merge_public_osd_settings(updated.osd_settings)
-
 
 class Viewer(ProtectAdoptableDeviceModel):
-    stream_limit: int
-    software_version: str
     liveview_id: str
 
     @classmethod
     @cache
     def _get_unifi_remaps(cls) -> dict[str, str]:
         return {**super()._get_unifi_remaps(), "liveview": "liveviewId"}
-
-    @classmethod
-    @cache
-    def _get_read_only_fields(cls) -> set[str]:
-        return super()._get_read_only_fields() | {"softwareVersion"}
 
     @property
     def liveview(self) -> Liveview | None:
@@ -2433,11 +1699,6 @@ class Viewer(ProtectAdoptableDeviceModel):
             self.liveview_id = liveview.id
             # UniFi Protect bug: changing the liveview does _not_ emit a WS message
             await self.save_device(data_before_changes, force_emit=True)
-
-    async def set_name_public(self, name: str) -> None:
-        """Set viewer name via public API."""
-        updated = await self._api.update_viewer_public(self.id, name=name)
-        self.name = updated.name
 
 
 class Bridge(ProtectAdoptableDeviceModel):
@@ -2572,37 +1833,8 @@ class Sensor(ProtectAdoptableDeviceModel):
         return utc_now() < self._alarm_timeout
 
     @property
-    def is_contact_sensor_enabled(self) -> bool:
-        return self.mount_type in {MountType.DOOR, MountType.WINDOW, MountType.GARAGE}
-
-    @property
-    def is_motion_sensor_enabled(self) -> bool:
-        return self.mount_type is not MountType.LEAK and self.motion_settings.is_enabled
-
-    @property
     def is_alarm_sensor_enabled(self) -> bool:
         return self.mount_type is not MountType.LEAK and self.alarm_settings.is_enabled
-
-    @property
-    def is_light_sensor_enabled(self) -> bool:
-        return self.mount_type is not MountType.LEAK and self.light_settings.is_enabled
-
-    @property
-    def is_temperature_sensor_enabled(self) -> bool:
-        return (
-            self.mount_type is not MountType.LEAK
-            and self.temperature_settings.is_enabled
-        )
-
-    @property
-    def is_humidity_sensor_enabled(self) -> bool:
-        return (
-            self.mount_type is not MountType.LEAK and self.humidity_settings.is_enabled
-        )
-
-    @property
-    def is_leak_sensor_enabled(self) -> bool:
-        return self.mount_type is MountType.LEAK
 
     def set_alarm_timeout(self) -> None:
         self._alarm_timeout = utc_now() + EVENT_PING_INTERVAL
@@ -2634,65 +1866,6 @@ class Sensor(ProtectAdoptableDeviceModel):
 
         await self.queue_update(callback)
 
-    async def set_motion_status(self, enabled: bool) -> None:
-        """Sets the motion detection type for the sensor"""
-
-        def callback() -> None:
-            self.motion_settings.is_enabled = enabled
-
-        await self.queue_update(callback)
-
-    async def set_temperature_status(self, enabled: bool) -> None:
-        """Sets the temperature detection type for the sensor"""
-
-        def callback() -> None:
-            self.temperature_settings.is_enabled = enabled
-
-        await self.queue_update(callback)
-
-    async def remove_temperature_safe_range(self) -> None:
-        """Removes the temperature safe range for the sensor"""
-
-        def callback() -> None:
-            self.temperature_settings.low_threshold = None
-            self.temperature_settings.high_threshold = None
-
-        await self.queue_update(callback)
-
-    async def set_humidity_status(self, enabled: bool) -> None:
-        """Sets the humidity detection type for the sensor"""
-
-        def callback() -> None:
-            self.humidity_settings.is_enabled = enabled
-
-        await self.queue_update(callback)
-
-    async def remove_humidity_safe_range(self) -> None:
-        """Removes the humidity safe range for the sensor"""
-
-        def callback() -> None:
-            self.humidity_settings.low_threshold = None
-            self.humidity_settings.high_threshold = None
-
-        await self.queue_update(callback)
-
-    async def set_light_status(self, enabled: bool) -> None:
-        """Sets the light detection type for the sensor"""
-
-        def callback() -> None:
-            self.light_settings.is_enabled = enabled
-
-        await self.queue_update(callback)
-
-    async def remove_light_safe_range(self) -> None:
-        """Removes the light safe range for the sensor"""
-
-        def callback() -> None:
-            self.light_settings.low_threshold = None
-            self.light_settings.high_threshold = None
-
-        await self.queue_update(callback)
-
     async def set_paired_camera(self, camera: Camera | None) -> None:
         """Sets the camera paired with the sensor"""
 
@@ -2716,239 +1889,9 @@ class Sensor(ProtectAdoptableDeviceModel):
             )
         await self._api.clear_tamper_sensor(self.id)
 
-    async def set_name_public(self, name: str) -> None:
-        """Set sensor name via public API."""
-        updated = await self._api.update_sensor_public(self.id, name=name)
-        self.name = updated.name
-
-    async def set_temperature_settings_public(
-        self,
-        *,
-        is_enabled: bool | None = None,
-        low_threshold: float | None = None,
-        high_threshold: float | None = None,
-        margin: float | None = None,
-    ) -> None:
-        """Update temperature alert settings via public API."""
-        low, high = _PUBLIC_TEMPERATURE_LOW_RANGE
-        settings: PublicSensorTemperatureSettings = {}
-        if is_enabled is not None:
-            settings["isEnabled"] = is_enabled
-        if low_threshold is not None:
-            _validate_public_range("low_threshold", low_threshold, (low, high))
-            settings["lowThreshold"] = low_threshold
-        if high_threshold is not None:
-            settings["highThreshold"] = high_threshold
-        if margin is not None:
-            settings["margin"] = margin
-        if not settings:
-            raise BadRequest("At least one parameter must be provided")
-        await self._api.update_sensor_public(self.id, temperature_settings=settings)
-        self._merge_threshold_local(
-            "temperature_settings",
-            is_enabled=is_enabled,
-            low_threshold=low_threshold,
-            high_threshold=high_threshold,
-            margin=margin,
-        )
-
-    async def set_humidity_settings_public(
-        self,
-        *,
-        is_enabled: bool | None = None,
-        low_threshold: float | None = None,
-        high_threshold: float | None = None,
-        margin: int | None = None,
-    ) -> None:
-        """Update humidity alert settings via public API."""
-        low, high = _PUBLIC_HUMIDITY_LOW_RANGE
-        settings: PublicSensorHumiditySettings = {}
-        if is_enabled is not None:
-            settings["isEnabled"] = is_enabled
-        if low_threshold is not None:
-            _validate_public_range("low_threshold", low_threshold, (low, high))
-            settings["lowThreshold"] = low_threshold
-        if high_threshold is not None:
-            settings["highThreshold"] = high_threshold
-        if margin is not None:
-            settings["margin"] = margin
-        if not settings:
-            raise BadRequest("At least one parameter must be provided")
-        await self._api.update_sensor_public(self.id, humidity_settings=settings)
-        self._merge_threshold_local(
-            "humidity_settings",
-            is_enabled=is_enabled,
-            low_threshold=low_threshold,
-            high_threshold=high_threshold,
-            margin=margin,
-        )
-
-    async def set_light_settings_public(
-        self,
-        *,
-        is_enabled: bool | None = None,
-        low_threshold: float | None = None,
-        high_threshold: float | None = None,
-        margin: int | None = None,
-    ) -> None:
-        """Update light (lux) alert settings via public API."""
-        low, high = _PUBLIC_LIGHT_LUX_LOW_RANGE
-        settings: PublicSensorLightSettings = {}
-        if is_enabled is not None:
-            settings["isEnabled"] = is_enabled
-        if low_threshold is not None:
-            _validate_public_range("low_threshold", low_threshold, (low, high))
-            settings["lowThreshold"] = low_threshold
-        if high_threshold is not None:
-            settings["highThreshold"] = high_threshold
-        if margin is not None:
-            settings["margin"] = margin
-        if not settings:
-            raise BadRequest("At least one parameter must be provided")
-        await self._api.update_sensor_public(self.id, light_settings=settings)
-        self._merge_threshold_local(
-            "light_settings",
-            is_enabled=is_enabled,
-            low_threshold=low_threshold,
-            high_threshold=high_threshold,
-            margin=margin,
-        )
-
-    async def set_motion_settings_public(
-        self,
-        *,
-        is_enabled: bool | None = None,
-        sensitivity: float | None = None,
-        sensitivity_when_armed: float | None = None,
-    ) -> None:
-        """Update motion detection settings via public API."""
-        settings: PublicSensorMotionSettings = {}
-        if is_enabled is not None:
-            settings["isEnabled"] = is_enabled
-        if sensitivity is not None:
-            sensitivity = _coerce_public_int(
-                "sensitivity", sensitivity, _PUBLIC_SENSITIVITY_RANGE
-            )
-            settings["sensitivity"] = sensitivity
-        if sensitivity_when_armed is not None:
-            settings["sensitivityWhenArmed"] = _coerce_public_int(
-                "sensitivity_when_armed",
-                sensitivity_when_armed,
-                _PUBLIC_SENSITIVITY_RANGE,
-            )
-        if not settings:
-            raise BadRequest("At least one parameter must be provided")
-        await self._api.update_sensor_public(self.id, motion_settings=settings)
-        current = self.motion_settings.model_copy()
-        if is_enabled is not None:
-            current.is_enabled = is_enabled
-        if sensitivity is not None:
-            current.sensitivity = PercentInt(sensitivity)
-        if sensitivity_when_armed is not None:
-            current.sensitivity_when_armed = PercentInt(sensitivity_when_armed)
-        self.motion_settings = current
-
-    async def set_glass_break_settings_public(
-        self,
-        *,
-        is_enabled: bool | None = None,
-        sensitivity: float | None = None,
-        sensitivity_when_armed: float | None = None,
-    ) -> None:
-        """Update glass-break detection settings via public API."""
-        settings: PublicSensorGlassBreakSettingsWrite = {}
-        if is_enabled is not None:
-            settings["isEnabled"] = is_enabled
-        if sensitivity is not None:
-            settings["sensitivity"] = _coerce_public_int(
-                "sensitivity", sensitivity, _PUBLIC_SENSITIVITY_RANGE
-            )
-        if sensitivity_when_armed is not None:
-            settings["sensitivityWhenArmed"] = _coerce_public_int(
-                "sensitivity_when_armed",
-                sensitivity_when_armed,
-                _PUBLIC_SENSITIVITY_RANGE,
-            )
-        if not settings:
-            raise BadRequest("At least one parameter must be provided")
-        await self._api.update_sensor_public(self.id, glass_break_settings=settings)
-
-    async def set_alarm_public(self, enabled: bool) -> None:
-        """Toggle the (audio) alarm detection setting via public API."""
-        alarm_settings: PublicSensorAlarmSettings = {"isEnabled": enabled}
-        await self._api.update_sensor_public(self.id, alarm_settings=alarm_settings)
-        current = self.alarm_settings.model_copy()
-        current.is_enabled = enabled
-        self.alarm_settings = current
-
-    async def set_schedule_mode_public(self, mode: SensorScheduleMode) -> None:
-        """Set the arm-schedule mode via public API."""
-        await self._api.update_sensor_public(self.id, schedule_mode=mode)
-
-    async def set_arm_profile_ids_public(self, arm_profile_ids: list[str]) -> None:
-        """Set the arm-profile ids associated with the sensor via public API."""
-        await self._api.update_sensor_public(self.id, arm_profile_ids=arm_profile_ids)
-
-    async def set_custom_sensitivity_when_armed_public(self, enabled: bool) -> None:
-        """Toggle custom armed sensitivity via public API."""
-        await self._api.update_sensor_public(
-            self.id, has_custom_sensitivity_when_armed=enabled
-        )
-
-    async def set_motion_status_public(self, enabled: bool) -> None:
-        """Toggle motion detection via public API."""
-        await self.set_motion_settings_public(is_enabled=enabled)
-
-    async def set_motion_sensitivity_public(self, sensitivity: float) -> None:
-        """Set motion detection sensitivity via public API."""
-        await self.set_motion_settings_public(sensitivity=sensitivity)
-
-    async def set_temperature_status_public(self, enabled: bool) -> None:
-        """Toggle temperature alerts via public API."""
-        await self.set_temperature_settings_public(is_enabled=enabled)
-
-    async def set_humidity_status_public(self, enabled: bool) -> None:
-        """Toggle humidity alerts via public API."""
-        await self.set_humidity_settings_public(is_enabled=enabled)
-
-    async def set_light_status_public(self, enabled: bool) -> None:
-        """Toggle light (lux) alerts via public API."""
-        await self.set_light_settings_public(is_enabled=enabled)
-
-    async def set_glass_break_status_public(self, enabled: bool) -> None:
-        """Toggle glass-break detection via public API."""
-        await self.set_glass_break_settings_public(is_enabled=enabled)
-
-    def _merge_threshold_local(
-        self,
-        attr: str,
-        *,
-        is_enabled: bool | None,
-        low_threshold: float | None,
-        high_threshold: float | None,
-        margin: float | None,
-    ) -> None:
-        current: SensorThresholdSettings = getattr(self, attr).model_copy()
-        if is_enabled is not None:
-            current.is_enabled = is_enabled
-        if low_threshold is not None:
-            current.low_threshold = low_threshold
-        if high_threshold is not None:
-            current.high_threshold = high_threshold
-        if margin is not None:
-            current.margin = margin
-        setattr(self, attr, current)
-
 
 class ChimeFeatureFlags(ProtectBaseObject):
-    has_wifi: bool
-    # 2.9.20+
-    has_https_client_ota: bool | None = None
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {**super()._get_unifi_remaps(), "hasHttpsClientOTA": "hasHttpsClientOta"}
+    pass
 
 
 class RingSetting(ProtectBaseObject):
@@ -3006,48 +1949,21 @@ class RingSetting(ProtectBaseObject):
         return self._api.bootstrap.cameras[self.camera_id]
 
 
-class ChimeTrack(ProtectBaseObject):
-    md5: str
-    name: str
-    state: str
-    track_no: int
-    volume: int
-    size: int
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {**super()._get_unifi_remaps(), "track_no": "trackNo"}
-
-
 class Chime(ProtectAdoptableDeviceModel):
     volume: PercentInt
-    is_probing_for_wifi: bool
     last_ring: datetime | None = None
-    is_wireless_uplink_enabled: bool
     camera_ids: list[str]
-    # requires 2.6.17+
-    ap_mgmt_ip: IPv4Address | IPv6Address | None = None
     # requires 2.7.15+
     feature_flags: ChimeFeatureFlags | None = None
-    # requires 2.8.22+
-    user_configured_ap: bool | None = None
     # requires 3.0.22+
-    has_https_client_ota: bool | None = None
     platform: str | None = None
     repeat_times: RepeatTimes | None = None
     ring_settings: list[RingSetting] = []
-    speaker_track_list: list[ChimeTrack] = []
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {**super()._get_unifi_remaps(), "hasHttpsClientOTA": "hasHttpsClientOta"}
 
     @classmethod
     @cache
     def _get_read_only_fields(cls) -> set[str]:
-        return super()._get_read_only_fields() | {"isProbingForWifi", "lastRing"}
+        return super()._get_read_only_fields() | {"lastRing"}
 
     @property
     def cameras(self) -> list[Camera]:
@@ -3055,30 +1971,6 @@ class Chime(ProtectAdoptableDeviceModel):
         if len(self.camera_ids) == 0:
             return []
         return [self._api.bootstrap.cameras[c] for c in self.camera_ids]
-
-    async def set_volume(self, level: int) -> None:
-        """
-        Set the speaker volume on chime.
-
-        .. deprecated::
-            Use :meth:`set_volume_for_camera_public` instead. This method
-            updates the speaker volume but not the doorbell ring volume.
-        """
-        warnings.warn(
-            "set_volume is deprecated, use set_volume_for_camera_public instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        old_value = self.volume
-        new_value = PercentInt(level)
-
-        def callback() -> None:
-            self.volume = new_value
-            for setting in self.ring_settings:
-                if setting.volume == old_value:
-                    setting.volume = new_value
-
-        await self.queue_update(callback)
 
     async def play(
         self,
@@ -3118,34 +2010,6 @@ class Chime(ProtectAdoptableDeviceModel):
     async def play_buzzer(self) -> None:
         """Plays chime buzzer"""
         await self._api.play_buzzer(self.id)
-
-    async def set_repeat_times(self, value: int) -> None:
-        """
-        Set repeat times on chime.
-
-        .. deprecated::
-            Use :meth:`set_ring_settings_public` instead. This method uses
-            the private API.
-        """
-        warnings.warn(
-            "set_repeat_times is deprecated, use set_ring_settings_public instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        old_value = self.repeat_times
-
-        def callback() -> None:
-            self.repeat_times = cast("RepeatTimes", value)
-            for setting in self.ring_settings:
-                if setting.repeat_times == old_value:
-                    setting.repeat_times = cast("RepeatTimes", value)
-
-        await self.queue_update(callback)
-
-    async def set_name_public(self, name: str) -> None:
-        """Set chime name via public API."""
-        updated = await self._api.update_chime_public(self.id, name=name)
-        self.name = updated.name
 
     async def set_ring_settings_public(
         self,
@@ -3248,60 +2112,3 @@ class Chime(ProtectAdoptableDeviceModel):
             ]
 
             await self.set_ring_settings_public(ring_settings_update)
-
-    async def set_repeat_times_for_camera_public(
-        self,
-        camera: Camera,
-        value: int,
-    ) -> None:
-        """
-        Set the ring repeat times for a specific camera using public API.
-
-        This is the preferred method to change ring repeat times as it uses
-        the official public API.
-
-        Args:
-        ----
-            camera: The doorbell camera to set repeat times for
-            value: Number of times to repeat the ring (1-6)
-
-        Raises:
-        ------
-            BadRequest: If the camera is not paired with this chime
-            ValidationError: If value is not in range 1-6
-
-        """
-        # Validate value using RepeatTimes (raises ValidationError if invalid)
-        RepeatTimes(value)
-
-        # Hold the lock across the whole read-modify-write (see
-        # ``set_volume_for_camera_public``).
-        async with self._update_sync.lock:
-            # Find the current ring setting for this camera
-            ring_setting = None
-            for setting in self.ring_settings:
-                if setting.camera_id == camera.id:
-                    ring_setting = setting
-                    break
-
-            if ring_setting is None:
-                raise BadRequest(f"Camera {camera.id} is not paired with chime")
-
-            # Build the update payload preserving original order
-            ring_settings_update: list[PublicApiChimeRingSettingRequest] = [
-                setting.to_api_dict(repeat_times=value)
-                if setting.camera_id == camera.id
-                else setting.to_api_dict()
-                for setting in self.ring_settings
-            ]
-
-            await self.set_ring_settings_public(ring_settings_update)
-
-
-class Ringtone(ProtectBaseObject):
-    id: str
-    name: str
-    size: int
-    is_default: bool
-    nvr_mac: str
-    model_key: str

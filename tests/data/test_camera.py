@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -32,41 +32,11 @@ from uiprotect.data.devices import (
     CameraZone,
     Hotplug,
     HotplugExtender,
-    WifiStats,
 )
 from uiprotect.data.nvr import GlobalRecordingSettings
 from uiprotect.data.types import PermissionNode, SmartDetectObjectType
 from uiprotect.exceptions import BadRequest, NotAuthorized
 from uiprotect.utils import to_js_time
-
-
-@pytest.mark.parametrize(
-    ("channel_id", "fps", "expected"),
-    [
-        (3, 2, True),  # Package channel with low fps (legacy behavior)
-        (3, 15, True),  # Package channel with higher fps (G6 Entry)
-        (3, None, False),  # Package channel with no fps
-        (0, 2, False),  # Non-package channel with low fps
-        (1, 15, False),  # Non-package channel
-        (2, None, False),  # Non-package channel with no fps
-    ],
-)
-def test_camera_channel_is_package(channel_id: int, fps: int | None, expected: bool):
-    """Test CameraChannel.is_package uses channel id == 3 for detection."""
-    channel = CameraChannel.from_unifi_dict(
-        id=channel_id,
-        videoId="test",
-        name="test",
-        enabled=True,
-        isRtspEnabled=False,
-        width=1920,
-        height=1080,
-        fps=fps,
-        bitrate=1000,
-        fpsValues=[],
-        idrInterval=1,
-    )
-    assert channel.is_package is expected
 
 
 @pytest.mark.parametrize(
@@ -135,25 +105,6 @@ def test_rtsps_quality_mappings_are_inverses():
     } == dict(CHANNEL_ID_BY_RTSPS_QUALITY)
 
 
-@pytest.mark.parametrize(
-    ("link_speed", "expected_type"),
-    [
-        (300, int),  # new Protect behavior
-        ("300 Mbps", str),  # legacy behavior
-        (None, type(None)),
-    ],
-)
-def test_wifi_stats_link_speed_mbps(link_speed: int | str | None, expected_type: type):
-    """Test WifiStats accepts int, str, and None for link_speed_mbps (Protect 6.x+)."""
-    stats = WifiStats.from_unifi_dict(
-        linkSpeedMbps=link_speed,
-        signalQuality=50,
-        signalStrength=0,
-    )
-    assert stats.link_speed_mbps == link_speed
-    assert isinstance(stats.link_speed_mbps, expected_type)
-
-
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize("status", [True, False])
 @pytest.mark.asyncio()
@@ -172,6 +123,37 @@ async def test_camera_set_motion_detection(camera_obj: Camera | None, status: bo
         method="patch",
         json={"recordingSettings": {"enableMotionDetection": status}},
     )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    ("mode", "object_types", "expected"),
+    [
+        (RecordingMode.ALWAYS, [SmartDetectObjectType.PERSON], True),
+        (RecordingMode.ALWAYS, [], False),
+        (RecordingMode.NEVER, [SmartDetectObjectType.PERSON], False),
+    ],
+)
+def test_camera_is_person_detection_on(
+    camera_obj: Camera,
+    mode: RecordingMode,
+    object_types: list[SmartDetectObjectType],
+    expected: bool,
+) -> None:
+    """is_person_detection_on follows the camera's own recording and smart settings."""
+    camera_obj.use_global = False
+    camera_obj.recording_settings.mode = mode
+    camera_obj.smart_detect_settings.object_types = object_types
+
+    assert camera_obj.is_person_detection_on is expected
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_camera_get_last_smart_detect_event_without_id(camera_obj: Camera) -> None:
+    """get_last_smart_detect_event is None when no event id is tracked for the type."""
+    camera_obj.last_smart_detect_event_ids.pop(SmartDetectObjectType.PERSON, None)
+
+    assert camera_obj.get_last_smart_detect_event(SmartDetectObjectType.PERSON) is None
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -231,44 +213,6 @@ async def test_camera_set_ir_led_model(camera_obj: Camera | None, mode: IRLEDMod
         f"cameras/{camera_obj.id}",
         method="patch",
         json={"ispSettings": {"irLedMode": mode.value}},
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_camera_set_status_light_no_status(camera_obj: Camera | None):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_led_status = False
-
-    with pytest.raises(BadRequest):
-        await camera_obj.set_status_light(True)
-
-    assert not camera_obj.api.api_request.called
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize("status", [True, False])
-@pytest.mark.asyncio()
-async def test_camera_set_status_light(camera_obj: Camera | None, status: bool):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request.reset_mock()
-
-    camera_obj.feature_flags.has_led_status = True
-    camera_obj.led_settings.is_enabled = not status
-    camera_obj.led_settings.blink_rate = 10
-
-    await camera_obj.set_status_light(status)
-
-    camera_obj.api.api_request.assert_called_with(
-        f"cameras/{camera_obj.id}",
-        method="patch",
-        json={"ledSettings": {"isEnabled": status, "blinkRate": 0}},
     )
 
 
@@ -1123,157 +1067,6 @@ async def test_get_snapshot_with_dt_no_read_media(camera_obj: Camera | None):
         await camera_obj.get_snapshot(dt=datetime.now())
 
 
-@pytest.mark.asyncio
-async def test_get_package_snapshot_read_live_granted(camera_obj: Camera | None):
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-    camera_obj.feature_flags.has_package_camera = True
-
-    auth_user = camera_obj._api.bootstrap.auth_user
-
-    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
-        return permission == PermissionNode.READ_LIVE
-
-    with patch.object(auth_user, "can", side_effect=mock_can):
-        snapshot = await camera_obj.get_package_snapshot()
-        assert snapshot == b"snapshot_data"
-
-
-@pytest.mark.asyncio
-async def test_get_package_snapshot_read_media_granted(camera_obj: Camera | None):
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-    camera_obj.feature_flags.has_package_camera = True
-
-    auth_user = camera_obj._api.bootstrap.auth_user
-
-    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
-        return permission == PermissionNode.READ_MEDIA
-
-    with patch.object(auth_user, "can", side_effect=mock_can):
-        snapshot = await camera_obj.get_package_snapshot()
-        assert snapshot == b"snapshot_data"
-
-
-@pytest.mark.asyncio
-async def test_get_package_snapshot_no_permissions(camera_obj: Camera | None):
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-    camera_obj.feature_flags.has_package_camera = True
-
-    auth_user = camera_obj._api.bootstrap.auth_user
-
-    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
-        return False
-
-    with (
-        patch.object(auth_user, "can", side_effect=mock_can),
-        pytest.raises(
-            NotAuthorized,
-            match=f"Do not have permission to read live or media for camera: {camera_obj.id}",
-        ),
-    ):
-        await camera_obj.get_package_snapshot()
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing test data")
-@pytest.mark.asyncio
-async def test_get_package_snapshot_with_dt(camera_obj: Camera):
-    camera_obj.api.api_request.reset_mock()
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-    camera_obj.feature_flags.has_package_camera = True
-
-    now = datetime.now(tz=UTC)
-
-    snapshot = await camera_obj.get_package_snapshot(dt=now)
-
-    assert snapshot == b"snapshot_data"
-    camera_obj._api.get_package_camera_snapshot.assert_called_once_with(
-        camera_obj.id, None, None, dt=now
-    )
-
-
-@pytest.mark.asyncio
-async def test_get_package_snapshot_no_package_camera(camera_obj: Camera | None):
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-
-    # Simulate a device without a package camera
-    camera_obj.feature_flags.has_package_camera = False
-
-    with pytest.raises(
-        BadRequest,
-        match="Device does not have package camera",
-    ):
-        await camera_obj.get_package_snapshot()
-
-
-@pytest.mark.asyncio
-async def test_get_package_snapshot_dt_no_read_media(camera_obj: Camera | None):
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-    camera_obj.feature_flags.has_package_camera = True
-
-    auth_user = camera_obj._api.bootstrap.auth_user
-
-    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
-        return (
-            permission != PermissionNode.READ_MEDIA
-        )  # Simulate missing READ_MEDIA permission
-
-    with (
-        patch.object(auth_user, "can", side_effect=mock_can),
-        pytest.raises(
-            NotAuthorized,
-            match=f"Do not have permission to read media for camera: {camera_obj.id}",
-        ),
-    ):
-        await camera_obj.get_package_snapshot(dt=datetime.now())
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_camera_is_face_currently_detected(camera_obj: Camera) -> None:
-    # Set up camera to support face detection
-    camera_obj.feature_flags.can_optical_zoom = True
-    camera_obj.smart_detect_settings.object_types = [SmartDetectObjectType.FACE]
-
-    # Test when face is currently detected
-    camera_obj.is_smart_detected = True
-    camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.FACE] = "test_event_id"
-
-    # Create mock event that's ongoing (end=None) with face detection
-    mock_event = Mock()
-    mock_event.end = None
-    mock_event.smart_detect_types = [SmartDetectObjectType.FACE]
-
-    with patch.object(camera_obj.api.bootstrap.events, "get", return_value=mock_event):
-        assert camera_obj.is_face_currently_detected is True
-
-    # Test when face is not currently detected (no event)
-    camera_obj.last_smart_detect_event_ids.pop(SmartDetectObjectType.FACE, None)
-    assert camera_obj.is_face_currently_detected is False
-
-    # Test when face is not currently detected (event ended)
-    camera_obj.last_smart_detect_event_ids[SmartDetectObjectType.FACE] = "test_event_id"
-    mock_event.end = datetime.now()
-
-    with patch.object(camera_obj.api.bootstrap.events, "get", return_value=mock_event):
-        assert camera_obj.is_face_currently_detected is False
-
-
 def test_camera_zone_color_serialization() -> None:
     """Test that CameraZone color is serialized as hex string, not dict with RGB values."""
     zone = CameraZone.create_privacy_zone(0)
@@ -1452,3 +1245,41 @@ async def test_camera_can_detect(
     camera_obj.feature_flags.smart_detect_audio_types = smart_detect_audio_types
 
     assert camera_obj.can_detect(smart_type) is expected
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    ("flag", "hotplug", "expected"),
+    [(True, False, True), (False, True, True), (False, False, False)],
+)
+def test_camera_has_mic_counts_hotplug(
+    camera_obj: Camera | None, flag: bool, hotplug: bool, expected: bool
+) -> None:
+    """``has_mic`` is the mic flag or a hot-plugged audio module."""
+    assert camera_obj is not None
+    camera_obj.feature_flags.has_mic = flag
+    with patch.object(
+        type(camera_obj), "has_removable_speaker", new_callable=PropertyMock
+    ) as removable:
+        removable.return_value = hotplug
+        assert camera_obj.has_mic is expected
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    ("has_package_camera", "channel_count", "expected_index"),
+    [(True, 4, 3), (True, 3, None), (False, 4, None)],
+)
+def test_camera_package_camera_channel(
+    camera_obj: Camera | None,
+    has_package_camera: bool,
+    channel_count: int,
+    expected_index: int | None,
+) -> None:
+    """The package channel is the fourth one, on cameras with a package lens."""
+    assert camera_obj is not None
+    camera_obj.feature_flags.has_package_camera = has_package_camera
+    channels = [camera_obj.channels[0].model_copy() for _ in range(channel_count)]
+    camera_obj.channels = channels
+    expected = None if expected_index is None else channels[expected_index]
+    assert camera_obj.package_camera_channel is expected
