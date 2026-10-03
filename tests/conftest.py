@@ -22,7 +22,6 @@ import pytest_asyncio
 from tests.sample_data.constants import CONSTANTS
 from uiprotect import ProtectApiClient
 from uiprotect.data import NVR, Camera, ModelType
-from uiprotect.data.devices import PTZRange, PTZZoomRange
 from uiprotect.data.nvr import Event
 from uiprotect.data.types import EventType
 from uiprotect.utils import _BAD_UUID, DEBUG_ENV, is_debug, set_debug
@@ -466,55 +465,6 @@ async def ptz_camera(protect_client: ProtectApiClient):
     # G4 PTZ
     camera.is_ptz = True
     camera.feature_flags.is_ptz = True
-    camera.feature_flags.focus = PTZRange(
-        steps={  # type: ignore[arg-type]
-            "max": 1560,
-            "min": 0,
-            "step": 1,
-        },
-        degrees={  # type: ignore[arg-type]
-            "max": None,
-            "min": None,
-            "step": None,
-        },
-    )
-    camera.feature_flags.pan = PTZRange(
-        steps={  # type: ignore[arg-type]
-            "max": 35200,
-            "min": 0,
-            "step": 1,
-        },
-        degrees={  # type: ignore[arg-type]
-            "max": 360,
-            "min": 0,
-            "step": 0.1,
-        },
-    )
-    camera.feature_flags.tilt = PTZRange(
-        steps={  # type: ignore[arg-type]
-            "max": 9777,
-            "min": 1,
-            "step": 1,
-        },
-        degrees={  # type: ignore[arg-type]
-            "max": 90,
-            "min": -20,
-            "step": 0.1,
-        },
-    )
-    camera.feature_flags.zoom = PTZZoomRange(
-        ratio=22,
-        steps={  # type: ignore[arg-type]
-            "max": 2010,
-            "min": 0,
-            "step": 1,
-        },
-        degrees={  # type: ignore[arg-type]
-            "max": None,
-            "min": None,
-            "step": None,
-        },
-    )
 
     protect_client.bootstrap.cameras[camera.id] = camera
     return camera
@@ -724,105 +674,36 @@ NEW_FIELDS = {
     "voltage",
     # 1.21.0-beta1
     "timestamp",
-    "isWirelessUplinkEnabled",
     "marketName",
-    # 1.21.0-beta3
-    "isPoorNetwork",
-    # 2.0-beta2
-    "scopes",
-    "streamSharingAvailable",
-    "isDbAvailable",
-    "isRecordingDisabled",
-    "isRecordingMotionOnly",
-    # 2.1.1-beta3
-    "anonymousDeviceId",  # added to viewport
-    "isStacked",
-    "isPrimary",
-    "lastDriveSlowEvent",
-    "isUCoreSetup",
     # 2.2.1-beta2
     "isInsightsEnabled",
-    # 2.2.2
-    "isDownloadingFW",
-    # 2.6.13
-    "vaultCameras",
-    "homekitSettings",
-    # 2.6.17
-    "apMgmtIp",
-    # 2.7.5
-    "fwUpdateState",
-    "isWaterproofCaseAttached",
-    "deletedAt",
-    "deletionType",
-    "lastDisconnect",
     # 2.7.15
     "featureFlags",  # added to chime
     # 2.8.14+
     "nvrMac",
     "useGlobal",
-    "is2K",
-    "is4K",
-    "ulpVersion",
-    "wanIp",
-    "publicIp",
-    "isVaultRegistered",
-    "hasGateway",
-    "corruptionState",
-    "countryCode",
     # 2.8.22+
     "guid",
-    "userConfiguredAp",
-    # 2.9.20+
-    "isRestoring",
-    "hasRecordings",
-    "hardDriveState",
-    "isNetworkInstalled",
-    "isProtectUpdatable",
-    "isUcoreUpdatable",
     # 2.10.10+
     "isPtz",
-    # 2.11.13+
-    "lastDeviceFWUpdatesCheckedAt",
-    "audioSettings",
     # 3.0.22+
     "smartDetection",
     "platform",
     "repeatTimes",
     "ringSettings",
-    "speakerTrackList",
-    "hasHttpsClientOTA",
-    "isUCoreStacked",
     # 5.0.33+
     "isThirdPartyCamera",
-    # 6.0.0+
-    "isFavorite",
-    "favoriteObjectIds",
 }
 
 NEW_CAMERA_FEATURE_FLAGS = {
     "audio",
-    "audioCodecs",
-    "hasInfrared",
     "hotplug",
     "smartDetectAudioTypes",
     "lensType",
     # 2.7.18+
     "isDoorbell",
-    # 2.8.22+
-    "lensModel",
-    # 2.9.20+
-    "hasColorLcdScreen",
-    "hasLineCrossing",
-    "hasLineCrossingCounting",
-    "hasLiveviewTracking",
     # 2.10.10+
-    "hasFlash",
     "isPtz",
-    # 2.11.13+
-    "audioStyle",
-    "hasVerticalFlip",
-    # 3.0.22+
-    "flashRange",
     # 4.73.71+
     "supportNfc",
     "hasFingerprintSensor",
@@ -834,13 +715,6 @@ NEW_ISP_SETTINGS = {
     # 3.0.22+
     "hdrMode",
     "icrCustomValue",
-    "icrSwitchMode",
-    "spotlightDuration",
-}
-
-NEW_NVR_FEATURE_FLAGS = {
-    # 2.8.14+
-    "ulpRoleManagement",
 }
 
 OLD_FIELDS = {
@@ -852,12 +726,321 @@ OLD_FIELDS = {
     "pirSettings",
 }
 
+# wire keys the private models no longer parse, by nested path
+_DROPPED_RECORDING_SETTINGS_KEYS = {
+    "prePaddingSecs",
+    "postPaddingSecs",
+    "minMotionEventTrigger",
+    "endMotionEventDelay",
+    "suppressIlluminationSurge",
+    "geofencing",
+    "motionAlgorithm",
+    "useNewMotionAlgorithm",
+    "inScheduleMode",
+    "outScheduleMode",
+    "retentionDurationMs",
+    "smartDetectPostPaddingSecs",
+    "smartDetectPrePaddingSecs",
+    "createAccessEvent",
+}
+_DROPPED_DEVICE_KEYS: dict[tuple[str, ...], set[str]] = {
+    (): {
+        "lastSeen",
+        "hardwareRevision",
+        "connectedSince",
+        "latestFirmwareVersion",
+        "firmwareBuild",
+        "isProvisioned",
+        "isAttemptingToConnect",
+        "fwUpdateState",
+        "isRestoring",
+        "lastDisconnect",
+        "anonymousDeviceId",
+        "isDownloadingFW",
+    },
+    ("bluetoothConnectionState",): {"experienceScore"},
+    ("wifiConnectionState",): {
+        "frequency",
+        "ssid",
+        "bssid",
+        "txRate",
+        "apName",
+        "experience",
+        "connectivity",
+    },
+}
+DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
+    ModelType.CAMERA.value: {
+        (): {
+            "isDeleting",
+            "isProbingForWifi",
+            "isLiveHeatmapEnabled",
+            "videoReconfigurationInProgress",
+            "hasWifi",
+            "audioBitrate",
+            "canManage",
+            "isManaged",
+            "isPoorNetwork",
+            "isWirelessUplinkEnabled",
+            "homekitSettings",
+            "apMgmtIp",
+            "isWaterproofCaseAttached",
+            "is2K",
+            "is4K",
+            "userConfiguredAp",
+            "hasRecordings",
+            "audioSettings",
+            "isPairedWithAiPort",
+            "isAdoptedByAccessApp",
+        },
+        ("ispSettings",): {
+            "aeMode",
+            "irLedLevel",
+            "icrSensitivity",
+            "contrast",
+            "hue",
+            "saturation",
+            "sharpness",
+            "denoise",
+            "isFlippedVertical",
+            "isFlippedHorizontal",
+            "isAutoRotateEnabled",
+            "isLdcEnabled",
+            "is3dnrEnabled",
+            "isExternalIrEnabled",
+            "isAggressiveAntiFlickerEnabled",
+            "isPauseMotionEnabled",
+            "dZoomCenterX",
+            "dZoomCenterY",
+            "dZoomScale",
+            "dZoomStreamId",
+            "focusMode",
+            "focusPosition",
+            "touchFocusX",
+            "touchFocusY",
+            "mountPosition",
+            "icrSwitchMode",
+            "spotlightDuration",
+        },
+        ("osdSettings",): {"overlayLocation"},
+        ("ledSettings",): {"blinkRate", "welcomeLed", "floodLed"},
+        ("recordingSettings",): _DROPPED_RECORDING_SETTINGS_KEYS,
+        ("talkbackSettings",): {"typeIn", "bindAddr", "filterAddr", "filterPort"},
+        ("stats",): {"wifi", "wifiQuality", "wifiStrength"},
+        ("featureFlags",): {
+            "canAdjustIrLedLevel",
+            "canMagicZoom",
+            "canTouchFocus",
+            "hasAccelerometer",
+            "hasAec",
+            "hasBluetooth",
+            "hasExternalIr",
+            "hasIcrSensitivity",
+            "hasLdc",
+            "hasLineIn",
+            "hasRtc",
+            "hasSdCard",
+            "hasWifi",
+            "hasAutoICROnly",
+            "videoModeMaxFps",
+            "hasMotionZones",
+            "motionAlgorithms",
+            "hasSquareEventThumbnail",
+            "privacyMaskCapability",
+            "audioCodecs",
+            "mountPositions",
+            "hasInfrared",
+            "lensModel",
+            "hasColorLcdScreen",
+            "hasLineCrossing",
+            "hasLineCrossingCounting",
+            "hasLiveviewTracking",
+            "hasFlash",
+            "audioStyle",
+            "hasVerticalFlip",
+            "flashRange",
+            "focus",
+        },
+        ("featureFlags", "hotplug"): {"standaloneAdoption"},
+        ("featureFlags", "hotplug", "extender"): {
+            "hasFlash",
+            "hasIR",
+            "hasRadar",
+            "flashRange",
+        },
+        ("featureFlags", "pan"): {"steps", "degrees"},
+        ("featureFlags", "tilt"): {"steps", "degrees"},
+        ("featureFlags", "zoom"): {"steps", "degrees", "ratio"},
+    },
+    ModelType.LIGHT.value: {
+        (): {"isLocating", "lightOnSettings", "isCameraPaired"},
+        ("lightDeviceSettings",): {"luxSensitivity"},
+    },
+    ModelType.VIEWPORT.value: {(): {"streamLimit", "softwareVersion"}},
+    ModelType.CHIME.value: {
+        (): {
+            "isProbingForWifi",
+            "isWirelessUplinkEnabled",
+            "apMgmtIp",
+            "userConfiguredAp",
+            "hasHttpsClientOTA",
+            "speakerTrackList",
+        },
+        ("featureFlags",): {"hasWifi", "hasHttpsClientOTA"},
+    },
+    ModelType.EVENT.value: {
+        (): {
+            "heatmap",
+            "deletedAt",
+            "deletionType",
+            "subCategory",
+            "isFavorite",
+            "favoriteObjectIds",
+        },
+        ("metadata",): {"clientPlatform", "appUpdate", "sensorName", "sensorType"},
+    },
+    ModelType.NVR.value: {
+        (): {
+            "canAutoUpdate",
+            "isStatsGatheringEnabled",
+            "ucoreVersion",
+            "hardwarePlatform",
+            "lastUpdateAt",
+            "isStation",
+            "enableAutomaticBackups",
+            "enableStatsReporting",
+            "releaseChannel",
+            "enableBridgeAutoAdoption",
+            "hardwareId",
+            "hostType",
+            "hostShortname",
+            "isHardware",
+            "isWirelessUplinkEnabled",
+            "timeFormat",
+            "temperatureUnit",
+            "recordingRetentionDurationMs",
+            "enableCrashReporting",
+            "disableAudio",
+            "cameraUtilization",
+            "isRecycling",
+            "disableAutoLink",
+            "skipFirmwareUpdate",
+            "locationSettings",
+            "isAway",
+            "isSetup",
+            "maxCameraCapacity",
+            "streamSharingAvailable",
+            "isDbAvailable",
+            "isRecordingDisabled",
+            "isRecordingMotionOnly",
+            "uiVersion",
+            "ssoChannel",
+            "isStacked",
+            "isPrimary",
+            "lastDriveSlowEvent",
+            "isUCoreSetup",
+            "vaultCameras",
+            "corruptionState",
+            "countryCode",
+            "hasGateway",
+            "isVaultRegistered",
+            "publicIp",
+            "ulpVersion",
+            "wanIp",
+            "hardDriveState",
+            "isNetworkInstalled",
+            "isProtectUpdatable",
+            "isUcoreUpdatable",
+            "lastDeviceFWUpdatesCheckedAt",
+            "isUCoreStacked",
+        },
+        ("ports",): {
+            "ump",
+            "rtsp",
+            "rtmp",
+            "devicesWss",
+            "cameraHttps",
+            "liveWs",
+            "liveWss",
+            "tcpStreams",
+            "emsCLI",
+            "emsLiveFLV",
+            "cameraEvents",
+            "tcpBridge",
+            "ucore",
+            "discoveryClient",
+            "piongw",
+            "emsJsonCLI",
+            "stacking",
+            "aiFeatureConsole",
+        },
+        ("systemInfo",): {"tmpfs"},
+        ("systemInfo", "storage"): {"isRecycling"},
+        ("systemInfo", "ustorage"): {"space"},
+        ("doorbellSettings",): {"defaultMessageResetTimeoutMs"},
+        ("storageStats",): {"remainingCapacity", "recordingSpace"},
+        ("featureFlags",): {
+            "notificationsV2",
+            "homekitPaired",
+            "ulpRoleManagement",
+            "detectionLabels",
+            "hasTwoWayAudioMediaStreams",
+        },
+        ("smartDetection",): {"faceRecognition", "licensePlateRecognition"},
+        ("globalCameraSettings", "recordingSettings"): (
+            _DROPPED_RECORDING_SETTINGS_KEYS
+        ),
+    },
+    ModelType.USER.value: {
+        (): {
+            "lastLoginIp",
+            "lastLoginTime",
+            "isOwner",
+            "enableNotifications",
+            "hasAcceptedInvite",
+            "scopes",
+            "localUsername",
+        },
+        ("location",): {"isAway", "latitude", "longitude"},
+        ("featureFlags",): {"notificationsV2"},
+    },
+    ModelType.KEYRING.value: {(): {"lastActivity"}},
+    ModelType.ULP_USER.value: {(): {"avatar"}},
+}
+_DEVICE_MODEL_TYPES = {
+    ModelType.CAMERA.value,
+    ModelType.LIGHT.value,
+    ModelType.VIEWPORT.value,
+    ModelType.SENSOR.value,
+    ModelType.BRIDGE.value,
+    ModelType.CHIME.value,
+}
+
+
+def strip_dropped_keys(obj_type: str, data: dict[str, Any]) -> None:
+    """Remove wire keys the private model for obj_type no longer parses."""
+    paths = dict(DROPPED_KEYS.get(obj_type, {}))
+    if obj_type in _DEVICE_MODEL_TYPES:
+        for path, keys in _DROPPED_DEVICE_KEYS.items():
+            paths[path] = paths.get(path, set()) | keys
+    elif obj_type == ModelType.NVR.value:
+        paths[()] = paths[()] | {"lastSeen", "hardwareRevision", "anonymousDeviceId"}
+    for path, keys in paths.items():
+        node: Any = data
+        for part in path:
+            node = node.get(part) if isinstance(node, dict) else None
+        if isinstance(node, dict):
+            for key in keys:
+                node.pop(key, None)
+
+
 pytest.register_assert_rewrite("tests.common")
 
 
 def compare_objs(obj_type, expected, actual):
     expected = deepcopy(expected)
     actual = deepcopy(actual)
+    strip_dropped_keys(obj_type, expected)
 
     if obj_type == ModelType.CAMERA.value:
         # fields does not always exist (G4 Instant)
@@ -899,29 +1082,9 @@ def compare_objs(obj_type, expected, actual):
             del actual["smartDetectSettings"]["autoTrackingObjectTypes"]
 
         exp_settings = expected["recordingSettings"]
-        act_settings = actual["recordingSettings"]
         exp_settings["enableMotionDetection"] = exp_settings.get(
             "enableMotionDetection",
         )
-        if act_settings and "inScheduleMode" not in exp_settings:
-            del act_settings["inScheduleMode"]
-        if "outScheduleMode" in act_settings and "outScheduleMode" not in exp_settings:
-            del act_settings["outScheduleMode"]
-        if "retentionDurationMs" not in exp_settings:
-            act_settings.pop("retentionDurationMs", None)
-        if "smartDetectPostPadding" not in exp_settings:
-            act_settings.pop("smartDetectPostPadding", None)
-        if "smartDetectPrePadding" not in exp_settings:
-            act_settings.pop("smartDetectPrePadding", None)
-        if (
-            "talkbackSettings" in expected
-            and expected["talkbackSettings"].get("bindAddr") == ""
-        ):
-            actual["talkbackSettings"]["bindAddr"] = ""
-
-        if "createAccessEvent" not in expected["recordingSettings"]:
-            actual["recordingSettings"].pop("createAccessEvent", None)
-
         for flag in NEW_CAMERA_FEATURE_FLAGS:
             if flag not in expected["featureFlags"]:
                 del actual["featureFlags"][flag]
@@ -933,9 +1096,6 @@ def compare_objs(obj_type, expected, actual):
         # ignore changes to motion for live tests
         assert isinstance(actual["isMotionDetected"], bool)
         expected["isMotionDetected"] = actual["isMotionDetected"]
-
-        if "isAdoptedByAccessApp" not in expected:
-            actual.pop("isAdoptedByAccessApp", None)
 
         for index, channel in enumerate(expected["channels"]):
             if "bitrate" not in channel:
@@ -955,16 +1115,10 @@ def compare_objs(obj_type, expected, actual):
         del expected["alertRules"]
         del expected["notificationsV2"]
         expected.pop("notifications", None)
-        # lastLoginIp/lastLoginTime is not always present
-        if "lastLoginIp" not in expected:
-            actual.pop("lastLoginIp", None)
-        if "lastLoginTime" not in expected:
-            actual.pop("lastLoginTime", None)
         if "email" not in expected and "email" in actual and actual["email"] is None:
             actual.pop("email", None)
     elif obj_type == ModelType.EVENT.value:
         expected.pop("partition", None)
-        expected.pop("deletionType", None)
         expected.pop("description", None)
         if "category" in expected and expected["category"] is None:
             expected.pop("category", None)
@@ -1002,36 +1156,9 @@ def compare_objs(obj_type, expected, actual):
         # removed fields
         expected["ports"].pop("cameraTcp", None)
 
-        expected["ports"]["piongw"] = expected["ports"].get("piongw")
-        expected["ports"]["stacking"] = expected["ports"].get("stacking")
-        expected["ports"]["emsJsonCLI"] = expected["ports"].get("emsJsonCLI")
-        expected["ports"]["aiFeatureConsole"] = expected["ports"].get(
-            "aiFeatureConsole",
-        )
         expected["globalCameraSettings"] = expected.get("globalCameraSettings")
         if expected["globalCameraSettings"]:
-            settings = expected["globalCameraSettings"]["recordingSettings"]
-            settings["retentionDurationMs"] = settings.get(
-                "retentionDurationMs",
-            )
-
             expected["globalCameraSettings"].pop("recordingSchedulesV2", None)
-
-        if (
-            "homekitPaired" in actual["featureFlags"]
-            and "homekitPaired" not in expected["featureFlags"]
-        ):
-            del actual["featureFlags"]["homekitPaired"]
-        if (
-            "detectionLabels" in actual["featureFlags"]
-            and "detectionLabels" not in expected["featureFlags"]
-        ):
-            del actual["featureFlags"]["detectionLabels"]
-        if (
-            "hasTwoWayAudioMediaStreams" in actual["featureFlags"]
-            and "hasTwoWayAudioMediaStreams" not in expected["featureFlags"]
-        ):
-            del actual["featureFlags"]["hasTwoWayAudioMediaStreams"]
 
         if "capability" not in expected["systemInfo"]["storage"]:
             actual["systemInfo"]["storage"].pop("capability", None)
@@ -1063,62 +1190,12 @@ def compare_objs(obj_type, expected, actual):
                 ):
                     actual_ustor["disks"][index]["estimate"] = estimate
 
-            for index, device in enumerate(expected_ustor["space"]):
-                actual_device = actual_ustor["space"][index]
-                estimate = device.get("estimate")
-                actual_estimate = actual_device.get("estimate")
-                if (
-                    estimate is not None
-                    and actual_estimate is not None
-                    and math.isclose(estimate, actual_estimate, rel_tol=0.01)
-                ):
-                    actual_ustor["space"][index]["estimate"] = estimate
-                if "space_type" not in device:
-                    del actual_device["space_type"]
-                if "size" in device:
-                    actual_device["size"] = actual_device.pop("size", None)
-                if "reasons" in device:
-                    del device["reasons"]
-
-        for flag in NEW_NVR_FEATURE_FLAGS:
-            if flag not in expected["featureFlags"]:
-                del actual["featureFlags"][flag]
-
     if "bridge" not in expected and "bridge" in actual and actual["bridge"] is None:
         actual.pop("bridge", None)
-
-    if "bluetoothConnectionState" in expected:
-        expected["bluetoothConnectionState"]["experienceScore"] = expected[
-            "bluetoothConnectionState"
-        ].get(
-            "experienceScore",
-        )
-
-    if "wifiConnectionState" in expected:
-        expected["wifiConnectionState"]["bssid"] = expected["wifiConnectionState"].get(
-            "bssid",
-        )
-        expected["wifiConnectionState"]["txRate"] = expected["wifiConnectionState"].get(
-            "txRate",
-        )
-        expected["wifiConnectionState"]["experience"] = expected[
-            "wifiConnectionState"
-        ].get("experience")
-        expected["wifiConnectionState"]["apName"] = expected["wifiConnectionState"].get(
-            "apName",
-        )
-        expected["wifiConnectionState"]["connectivity"] = expected[
-            "wifiConnectionState"
-        ].get("connectivity")
 
     # sometimes uptime comes back as a str...
     if "uptime" in expected and expected["uptime"] is not None:
         expected["uptime"] = int(expected["uptime"])
-
-    # force hardware revision to str to make sure types line up
-    if "hardwareRevision" in expected and expected["hardwareRevision"] is not None:
-        expected["hardwareRevision"] = str(expected["hardwareRevision"])
-        actual["hardwareRevision"] = str(actual["hardwareRevision"])
 
     # edge case with broken UUID from Protect
     if (
@@ -1134,9 +1211,6 @@ def compare_objs(obj_type, expected, actual):
 
     for key in OLD_FIELDS.intersection(expected.keys()):
         del expected[key]
-
-    if "anonymousDeviceId" in expected and not expected["anonymousDeviceId"]:
-        expected["anonymousDeviceId"] = None
 
     assert expected == actual
 

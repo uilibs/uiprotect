@@ -49,30 +49,21 @@ from .types import (
     DEFAULT,
     DEFAULT_TYPE,
     AudioCodecs,
-    AudioStyle,
-    AutoExposureMode,
     ChannelQuality,
     ChimeType,
     Color,
     DoorbellMessageType,
-    FocusMode,
-    GeofencingSetting,
     HDRMode,
     ICRCustomValue,
     ICRLuxValue,
-    ICRSensitivity,
     IRLEDMode,
     IteratorCallback,
     LEDLevel,
     LensType,
     LightModeEnableType,
     LightModeType,
-    LowMedHigh,
     ModelType,
-    MotionAlgorithm,
-    MountPosition,
     MountType,
-    OsdOverlayLocation,
     Percent,
     PercentInt,
     PermissionNode,
@@ -85,7 +76,6 @@ from .types import (
     SensorStatusType,
     SmartDetectAudioType,
     SmartDetectObjectType,
-    TwoByteInt,
     VideoMode,
     WDRLevel,
 )
@@ -114,8 +104,6 @@ class LightDeviceSettings(ProtectBaseObject):
     led_level: LEDLevel
     pir_duration: timedelta
     pir_sensitivity: PercentInt
-    # lux_sensitivity exists in Private API but not in Public API - filtered when sending updates
-    lux_sensitivity: LowMedHigh | None = None
 
     @classmethod
     @cache
@@ -123,11 +111,6 @@ class LightDeviceSettings(ProtectBaseObject):
         return {
             "pirDuration": lambda x: timedelta(milliseconds=x)
         } | super().unifi_dict_conversions()
-
-
-class LightOnSettings(ProtectBaseObject):
-    # Manual toggle in UI
-    is_led_force_on: bool
 
 
 class LightModeSettings(ProtectBaseObject):
@@ -139,12 +122,9 @@ class LightModeSettings(ProtectBaseObject):
 class Light(ProtectMotionDeviceModel):
     is_pir_motion_detected: bool
     is_light_on: bool
-    is_locating: bool
     light_device_settings: LightDeviceSettings
-    light_on_settings: LightOnSettings
     light_mode_settings: LightModeSettings
     camera_id: str | None = None
-    is_camera_paired: bool
 
     @classmethod
     @cache
@@ -157,7 +137,6 @@ class Light(ProtectMotionDeviceModel):
         return super()._get_read_only_fields() | {
             "isPirMotionDetected",
             "isLightOn",
-            "isLocating",
         }
 
     @property
@@ -268,51 +247,15 @@ class CameraChannel(ProtectBaseObject):
 
 
 class ISPSettings(ProtectBaseObject):
-    ae_mode: AutoExposureMode
     ir_led_mode: IRLEDMode
-    ir_led_level: TwoByteInt
     wdr: WDRLevel
-    icr_sensitivity: ICRSensitivity
     brightness: int
-    contrast: int
-    hue: int
-    saturation: int
-    sharpness: int
-    denoise: int
-    is_flipped_vertical: bool
-    is_flipped_horizontal: bool
-    is_auto_rotate_enabled: bool
-    is_ldc_enabled: bool
-    is_3dnr_enabled: bool
-    is_external_ir_enabled: bool
-    is_aggressive_anti_flicker_enabled: bool
-    is_pause_motion_enabled: bool
-    d_zoom_center_x: int
-    d_zoom_center_y: int
-    d_zoom_scale: int
-    d_zoom_stream_id: int
-    focus_mode: FocusMode | None = None
-    focus_position: int
-    touch_focus_x: int | None = None
-    touch_focus_y: int | None = None
     zoom_position: PercentInt
-    mount_position: MountPosition | None = None
     # requires 2.8.14+
     is_color_night_vision_enabled: bool | None = None
     # 3.0.22+
     hdr_mode: HDRMode | None = None
     icr_custom_value: ICRCustomValue | None = None
-    icr_switch_mode: str | None = None
-    spotlight_duration: int | None = None
-
-    def unifi_dict(
-        self,
-        data: dict[str, Any] | None = None,
-        exclude: set[str] | None = None,
-    ) -> dict[str, Any]:
-        data = super().unifi_dict(data=data, exclude=exclude)
-        pop_dict_set_if_none(data, {"focusMode"})
-        return data
 
 
 class OSDSettings(ProtectBaseObject):
@@ -320,37 +263,10 @@ class OSDSettings(ProtectBaseObject):
     is_date_enabled: bool
     is_logo_enabled: bool
     is_debug_enabled: bool
-    overlay_location: OsdOverlayLocation | None = None
-
-    def unifi_dict(
-        self,
-        data: dict[str, Any] | None = None,
-        exclude: set[str] | None = None,
-    ) -> dict[str, Any]:
-        data = super().unifi_dict(data=data, exclude=exclude)
-        # overlayLocation is public-API-only; always strip it from private-API payloads
-        # to avoid rejection by endpoints that don't accept unknown fields.
-        data.pop("overlayLocation", None)
-        return data
 
 
 class LEDSettings(ProtectBaseObject):
     is_enabled: bool
-    blink_rate: int | None = (
-        None  # in milliseconds between blinks, 0 = solid (removed in Protect 6.x)
-    )
-    # 6.2+
-    welcome_led: bool | None = None
-    flood_led: bool | None = None
-
-    def unifi_dict(
-        self,
-        data: dict[str, Any] | None = None,
-        exclude: set[str] | None = None,
-    ) -> dict[str, Any]:
-        data = super().unifi_dict(data=data, exclude=exclude)
-        pop_dict_set_if_none(data, {"blinkRate", "welcomeLed", "floodLed"})
-        return data
 
 
 class SpeakerSettings(ProtectBaseObject):
@@ -378,90 +294,8 @@ class SpeakerSettings(ProtectBaseObject):
 
 
 class RecordingSettings(ProtectBaseObject):
-    pre_padding: timedelta
-    post_padding: timedelta
-    min_motion_event_trigger: timedelta
-    end_motion_event_delay: timedelta
-    suppress_illumination_surge: bool
     mode: RecordingMode
-    geofencing: GeofencingSetting
-    motion_algorithm: MotionAlgorithm
     enable_motion_detection: bool | None = None
-    use_new_motion_algorithm: bool
-    # requires 2.9.20+
-    in_schedule_mode: str | None = None
-    out_schedule_mode: str | None = None
-    # 2.11.13+
-    retention_duration: datetime | None = None
-    smart_detect_post_padding: timedelta | None = None
-    smart_detect_pre_padding: timedelta | None = None
-    # requires 5.2.39+
-    create_access_event: bool | None = None
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {
-            **super()._get_unifi_remaps(),
-            "retentionDurationMs": "retentionDuration",
-        }
-
-    @classmethod
-    @cache
-    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
-        return {
-            "minMotionEventTrigger": lambda x: timedelta(seconds=x),
-            "endMotionEventDelay": lambda x: timedelta(seconds=x),
-        } | super().unifi_dict_conversions()
-
-    @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "prePaddingSecs" in data:
-            data["prePadding"] = timedelta(seconds=data.pop("prePaddingSecs"))
-        if "postPaddingSecs" in data:
-            data["postPadding"] = timedelta(seconds=data.pop("postPaddingSecs"))
-        if "smartDetectPrePaddingSecs" in data:
-            data["smartDetectPrePadding"] = timedelta(
-                seconds=data.pop("smartDetectPrePaddingSecs"),
-            )
-        if "smartDetectPostPaddingSecs" in data:
-            data["smartDetectPostPadding"] = timedelta(
-                seconds=data.pop("smartDetectPostPaddingSecs"),
-            )
-
-        return super().unifi_dict_to_dict(data)
-
-    def unifi_dict(
-        self,
-        data: dict[str, Any] | None = None,
-        exclude: set[str] | None = None,
-    ) -> dict[str, Any]:
-        data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "prePadding" in data:
-            data["prePaddingSecs"] = data.pop("prePadding") // 1000
-        if "postPadding" in data:
-            data["postPaddingSecs"] = data.pop("postPadding") // 1000
-        if (
-            "smartDetectPrePadding" in data
-            and data["smartDetectPrePadding"] is not None
-        ):
-            data["smartDetectPrePaddingSecs"] = (
-                data.pop("smartDetectPrePadding") // 1000
-            )
-        if (
-            "smartDetectPostPadding" in data
-            and data["smartDetectPostPadding"] is not None
-        ):
-            data["smartDetectPostPaddingSecs"] = (
-                data.pop("smartDetectPostPadding") // 1000
-            )
-        if "minMotionEventTrigger" in data:
-            data["minMotionEventTrigger"] = data.pop("minMotionEventTrigger") // 1000
-        if "endMotionEventDelay" in data:
-            data["endMotionEventDelay"] = data.pop("endMotionEventDelay") // 1000
-
-        return data
 
 
 class SmartDetectSettings(ProtectBaseObject):
@@ -551,23 +385,11 @@ class LCDMessage(ProtectBaseObject):
 
 class TalkbackSettings(ProtectBaseObject):
     type_fmt: AudioCodecs
-    type_in: str
-    bind_addr: IPv4Address | IPv6Address | str | None = None
     bind_port: int
-    filter_addr: str | None = None  # can be used to restrict sender address
-    filter_port: int | None = None  # can be used to restrict sender port
     channels: int  # 1 or 2
     sampling_rate: int  # 8000, 11025, 22050, 44100, 48000
     bits_per_sample: int
     quality: PercentInt  # only for vorbis
-
-
-class WifiStats(ProtectBaseObject):
-    channel: int | None = None
-    frequency: int | None = None
-    link_speed_mbps: int | str | None = None
-    signal_quality: PercentInt
-    signal_strength: int
 
 
 class VideoStats(ProtectBaseObject):
@@ -651,11 +473,8 @@ class StorageStats(ProtectBaseObject):
 class CameraStats(ProtectBaseObject):
     rx_bytes: int | None = None  # deprecated: removed in Protect 6.1+
     tx_bytes: int | None = None  # deprecated: removed in Protect 6.1+
-    wifi: WifiStats
     video: VideoStats
     storage: StorageStats | None = None
-    wifi_quality: PercentInt
-    wifi_strength: int
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -731,112 +550,52 @@ class SmartMotionZone(MotionZone):
         } | super().unifi_dict_conversions()
 
 
-class PrivacyMaskCapability(ProtectBaseObject):
-    max_masks: int | None = None
-    rectangle_only: bool
-
-
 class HotplugExtender(ProtectBaseObject):
-    has_flash: bool | None = None
-    has_ir: bool | None = None
-    has_radar: bool | None = None
     is_attached: bool | None = None
-    # 3.0.22+
-    flash_range: Any | None = None
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {**super()._get_unifi_remaps(), "hasIR": "hasIr"}
 
 
 class Hotplug(ProtectBaseObject):
     audio: bool | None = None
     video: bool | None = None
     extender: HotplugExtender | None = None
-    # 2.8.35+
-    standalone_adoption: bool | None = None
-
-
-class PTZRangeSingle(ProtectBaseObject):
-    max: float | None = None
-    min: float | None = None
-    step: float | None = None
 
 
 class PTZRange(ProtectBaseObject):
-    steps: PTZRangeSingle
-    degrees: PTZRangeSingle
+    pass
 
 
 class PTZZoomRange(PTZRange):
-    ratio: int
+    pass
 
 
 class CameraFeatureFlags(ProtectBaseObject):
-    can_adjust_ir_led_level: bool
-    can_magic_zoom: bool
     can_optical_zoom: bool
-    can_touch_focus: bool
-    has_accelerometer: bool
-    has_aec: bool
-    has_bluetooth: bool
     has_chime: bool
-    has_external_ir: bool
-    has_icr_sensitivity: bool
-    has_ldc: bool
     has_led_ir: bool
     has_led_status: bool
-    has_line_in: bool
     has_mic: bool
     has_privacy_mask: bool
-    has_rtc: bool
-    has_sd_card: bool
     has_speaker: bool
-    has_wifi: bool
     has_hdr: bool
-    has_auto_icr_only: bool
     video_modes: list[VideoMode]
-    video_mode_max_fps: list[int]
-    has_motion_zones: bool
     has_lcd_screen: bool
     smart_detect_types: list[SmartDetectObjectType]
-    motion_algorithms: list[MotionAlgorithm]
-    has_square_event_thumbnail: bool
     has_package_camera: bool
-    privacy_mask_capability: PrivacyMaskCapability
     has_smart_detect: bool
     audio: list[str] = []
-    audio_codecs: list[AudioCodecs] = []
-    mount_positions: list[MountPosition] = []
-    has_infrared: bool | None = None
     lens_type: LensType | None = None
     hotplug: Hotplug | None = None
     smart_detect_audio_types: list[SmartDetectAudioType] | None = None
     # 2.7.18+
     is_doorbell: bool
-    # 2.8.22+
-    lens_model: str | None = None
-    # 2.9.20+
-    has_color_lcd_screen: bool | None = None
-    has_line_crossing: bool | None = None
-    has_line_crossing_counting: bool | None = None
-    has_liveview_tracking: bool | None = None
     # 2.10.10+
-    has_flash: bool | None = None
     is_ptz: bool | None = None
-    # 2.11.13+
-    audio_style: list[AudioStyle] | None = None
-    has_vertical_flip: bool | None = None
-    # 3.0.22+
-    flash_range: Any | None = None
     # 4.73.71+
     support_nfc: bool | None = None
     has_fingerprint_sensor: bool | None = None
     # 6.0.0+
     support_full_hd_snapshot: bool | None = None
 
-    focus: PTZRange
     pan: PTZRange
     tilt: PTZRange
     zoom: PTZZoomRange
@@ -858,11 +617,6 @@ class CameraFeatureFlags(ProtectBaseObject):
 
         return super().unifi_dict_to_dict(data)
 
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {**super()._get_unifi_remaps(), "hasAutoICROnly": "hasAutoIcrOnly"}
-
     @property
     def has_highfps(self) -> bool:
         return VideoMode.HIGH_FPS in self.video_modes
@@ -877,17 +631,6 @@ class CameraLenses(ProtectBaseObject):
     video: VideoStats
 
 
-class CameraHomekitSettings(ProtectBaseObject):
-    microphone_muted: bool
-    speaker_muted: bool
-    stream_in_progress: bool
-    talkback_settings_active: bool
-
-
-class CameraAudioSettings(ProtectBaseObject):
-    style: list[AudioStyle]
-
-
 @lru_cache
 def _chime_type_from_total_seconds(total_seconds: float) -> ChimeType:
     if total_seconds == 0.3:
@@ -898,7 +641,6 @@ def _chime_type_from_total_seconds(total_seconds: float) -> ChimeType:
 
 
 class Camera(ProtectMotionDeviceModel):
-    is_deleting: bool
     # Microphone Sensitivity
     mic_volume: PercentInt
     is_mic_enabled: bool
@@ -909,11 +651,8 @@ class Camera(ProtectMotionDeviceModel):
     hdr_mode: bool
     # Recording Quality -> High Frame
     video_mode: VideoMode
-    is_probing_for_wifi: bool
     chime_duration: timedelta
     last_ring: datetime | None = None
-    is_live_heatmap_enabled: bool
-    video_reconfiguration_in_progress: bool
     channels: list[CameraChannel]
     isp_settings: ISPSettings
     talkback_settings: TalkbackSettings
@@ -931,40 +670,14 @@ class Camera(ProtectMotionDeviceModel):
     lenses: list[CameraLenses]
     platform: str | None = None
     has_speaker: bool
-    has_wifi: bool
-    audio_bitrate: int
-    can_manage: bool
-    is_managed: bool
     voltage: float | None = None
-    # requires 1.21+
-    is_poor_network: bool | None = None
-    is_wireless_uplink_enabled: bool | None = None
-    # requires 2.6.13+
-    homekit_settings: CameraHomekitSettings | None = None
-    # requires 2.6.17+
-    ap_mgmt_ip: IPv4Address | IPv6Address | None = None
-    # requires 2.7.5+
-    is_waterproof_case_attached: bool | None = None
-    last_disconnect: datetime | None = None
     # requires 2.8.14+
-    is_2k: bool | None = None
-    is_4k: bool | None = None
     use_global: bool | None = None
-    # requires 2.8.22+
-    user_configured_ap: bool | None = None
-    # requires 2.9.20+
-    has_recordings: bool | None = None
     # requires 2.10.10+
     is_ptz: bool | None = None
     active_patrol_slot: int | None = None
-    # requires 2.11.13+
-    audio_settings: CameraAudioSettings | None = None
     # requires 5.0.33+
     is_third_party_camera: bool | None = None
-    # requires 5.1.78+
-    is_paired_with_ai_port: bool | None = None
-    # requires 5.2.39+
-    is_adopted_by_access_app: bool | None = None
 
     # not directly from UniFi
     last_ring_event_id: str | None = None
@@ -984,11 +697,6 @@ class Camera(ProtectMotionDeviceModel):
     _active_smart_detect_events: dict[SmartDetectObjectType, dict[str, Event]] = (
         PrivateAttr(default_factory=dict)
     )
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {**super()._get_unifi_remaps(), "is2K": "is2k", "is4K": "is4k"}
 
     @classmethod
     @cache
@@ -1015,17 +723,12 @@ class Camera(ProtectMotionDeviceModel):
     def _get_read_only_fields(cls) -> set[str]:
         return super()._get_read_only_fields() | {
             "stats",
-            "isDeleting",
             "isRecording",
             "isMotionDetected",
             "isSmartDetected",
             "phyRate",
-            "isProbingForWifi",
             "lastRing",
-            "isLiveHeatmapEnabled",
-            "videoReconfigurationInProgress",
             "lenses",
-            "isPoorNetwork",
             "featureFlags",
         }
 
@@ -1958,19 +1661,12 @@ class Camera(ProtectMotionDeviceModel):
 
 
 class Viewer(ProtectAdoptableDeviceModel):
-    stream_limit: int
-    software_version: str
     liveview_id: str
 
     @classmethod
     @cache
     def _get_unifi_remaps(cls) -> dict[str, str]:
         return {**super()._get_unifi_remaps(), "liveview": "liveviewId"}
-
-    @classmethod
-    @cache
-    def _get_read_only_fields(cls) -> set[str]:
-        return super()._get_read_only_fields() | {"softwareVersion"}
 
     @property
     def liveview(self) -> Liveview | None:
@@ -2195,14 +1891,7 @@ class Sensor(ProtectAdoptableDeviceModel):
 
 
 class ChimeFeatureFlags(ProtectBaseObject):
-    has_wifi: bool
-    # 2.9.20+
-    has_https_client_ota: bool | None = None
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {**super()._get_unifi_remaps(), "hasHttpsClientOTA": "hasHttpsClientOta"}
+    pass
 
 
 class RingSetting(ProtectBaseObject):
@@ -2260,48 +1949,21 @@ class RingSetting(ProtectBaseObject):
         return self._api.bootstrap.cameras[self.camera_id]
 
 
-class ChimeTrack(ProtectBaseObject):
-    md5: str
-    name: str
-    state: str
-    track_no: int
-    volume: int
-    size: int
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {**super()._get_unifi_remaps(), "track_no": "trackNo"}
-
-
 class Chime(ProtectAdoptableDeviceModel):
     volume: PercentInt
-    is_probing_for_wifi: bool
     last_ring: datetime | None = None
-    is_wireless_uplink_enabled: bool
     camera_ids: list[str]
-    # requires 2.6.17+
-    ap_mgmt_ip: IPv4Address | IPv6Address | None = None
     # requires 2.7.15+
     feature_flags: ChimeFeatureFlags | None = None
-    # requires 2.8.22+
-    user_configured_ap: bool | None = None
     # requires 3.0.22+
-    has_https_client_ota: bool | None = None
     platform: str | None = None
     repeat_times: RepeatTimes | None = None
     ring_settings: list[RingSetting] = []
-    speaker_track_list: list[ChimeTrack] = []
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {**super()._get_unifi_remaps(), "hasHttpsClientOTA": "hasHttpsClientOta"}
 
     @classmethod
     @cache
     def _get_read_only_fields(cls) -> set[str]:
-        return super()._get_read_only_fields() | {"isProbingForWifi", "lastRing"}
+        return super()._get_read_only_fields() | {"lastRing"}
 
     @property
     def cameras(self) -> list[Camera]:
@@ -2450,12 +2112,3 @@ class Chime(ProtectAdoptableDeviceModel):
             ]
 
             await self.set_ring_settings_public(ring_settings_update)
-
-
-class Ringtone(ProtectBaseObject):
-    id: str
-    name: str
-    size: int
-    is_default: bool
-    nvr_mac: str
-    model_key: str

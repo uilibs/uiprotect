@@ -3946,10 +3946,7 @@ class ProtectApiClient(BaseApiClient):
         if light_mode_settings is not None:
             data["lightModeSettings"] = light_mode_settings.unifi_dict()
         if light_device_settings is not None:
-            # luxSensitivity may come from Private API but is not settable - filter it out
-            device_dict = light_device_settings.unifi_dict()
-            device_dict.pop("luxSensitivity", None)
-            data["lightDeviceSettings"] = device_dict
+            data["lightDeviceSettings"] = light_device_settings.unifi_dict()
 
         if not data:
             raise BadRequest("At least one parameter must be provided")

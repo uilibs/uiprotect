@@ -32,7 +32,6 @@ from uiprotect.data.devices import (
     CameraZone,
     Hotplug,
     HotplugExtender,
-    WifiStats,
 )
 from uiprotect.data.nvr import GlobalRecordingSettings
 from uiprotect.data.types import PermissionNode, SmartDetectObjectType
@@ -104,25 +103,6 @@ def test_rtsps_quality_mappings_are_inverses():
         quality: channel_id
         for channel_id, quality in RTSPS_QUALITY_BY_CHANNEL_ID.items()
     } == dict(CHANNEL_ID_BY_RTSPS_QUALITY)
-
-
-@pytest.mark.parametrize(
-    ("link_speed", "expected_type"),
-    [
-        (300, int),  # new Protect behavior
-        ("300 Mbps", str),  # legacy behavior
-        (None, type(None)),
-    ],
-)
-def test_wifi_stats_link_speed_mbps(link_speed: int | str | None, expected_type: type):
-    """Test WifiStats accepts int, str, and None for link_speed_mbps (Protect 6.x+)."""
-    stats = WifiStats.from_unifi_dict(
-        linkSpeedMbps=link_speed,
-        signalQuality=50,
-        signalStrength=0,
-    )
-    assert stats.link_speed_mbps == link_speed
-    assert isinstance(stats.link_speed_mbps, expected_type)
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")

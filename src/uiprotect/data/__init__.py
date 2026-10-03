@@ -32,7 +32,6 @@ from .nvr import (
     DoorbellMessage,
     Event,
     Liveview,
-    NVRLocation,
     SmartDetectItem,
     SmartDetectTrack,
 )
@@ -264,7 +263,6 @@ __all__ = [
     "LiveviewCycleMode",
     "ModelType",
     "MountType",
-    "NVRLocation",
     "NvrArmMode",
     "NvrArmModeStatus",
     "OnOffState",
