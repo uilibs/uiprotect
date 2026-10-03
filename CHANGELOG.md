@@ -1,5 +1,13 @@
 # Changelog
 
+## v19.0.0 (2026-10-03)
+
+### Features
+
+
+- Run the cli on public models and drop cli-only private members ([`7edf47b`](https://github.com/uilibs/uiprotect/commit/7edf47bdc2b753211df53644b9a60ebebdbce570))
+
+
 ## v18.0.0 (2026-10-03)
 
 ### Features
