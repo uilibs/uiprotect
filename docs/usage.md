@@ -138,8 +138,8 @@ unsub = protect.subscribe_events_websocket_state(on_state)
 
 ### Reading the current websocket state
 
-The state channels only report transitions. To read the current state, use
-`protect.websocket_state`, `protect.events_websocket_state`, and
+The state channels only report transitions. To read the current state of the
+public websockets, use `protect.events_websocket_state` and
 `protect.devices_websocket_state`. Each returns the last `WebsocketState`
 delivered on its channel; a websocket that was never started or has been
 closed reads `DISCONNECTED`. The value is updated before the state callbacks

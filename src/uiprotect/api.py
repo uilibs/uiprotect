@@ -41,22 +41,18 @@ from .data import (
     NVR,
     ArmProfile,
     Bootstrap,
-    Camera,
     ChannelQuality,
     DeviceState,
     Event,
     EventCategories,
     EventType,
     Fob,
-    Light,
     LinkStation,
-    Liveview,
     ModelType,
     NvrArmMode,
     NvrArmModeStatus,
     OsdOverlayLocation,
     ProtectAdoptableDeviceModel,
-    ProtectModel,
     PublicArmScheduleDict,
     PublicBootstrap,
     PublicBridge,
@@ -85,7 +81,6 @@ from .data import (
     PublicViewer,
     Relay,
     RTSPSStreams,
-    Sensor,
     Siren,
     SmartDetectAudioType,
     SmartDetectObjectType,
@@ -600,11 +595,6 @@ class BaseApiClient:
         return self._ws_url
 
     @property
-    def ws_url(self) -> str:
-        """Get Websocket URL."""
-        return str(self._ws_url_object)
-
-    @property
     def events_ws_url(self) -> str:
         """Get Events Websocket URL."""
         return str(self._events_ws_url)
@@ -618,11 +608,6 @@ class BaseApiClient:
     def is_public_only(self) -> bool:
         """Whether this client was built with only an API key (no private login)."""
         return self._public_only
-
-    @property
-    def websocket_state(self) -> WebsocketState:
-        """Current state of the private websocket."""
-        return _websocket_state(self._private_websocket)
 
     @property
     def events_websocket_state(self) -> WebsocketState:
@@ -3276,73 +3261,6 @@ class ProtectApiClient(BaseApiClient):
         await _async_warm_nvr_timezone(data["nvr"])
         return Bootstrap.from_unifi_dict(**data, api=self)
 
-    async def get_devices_raw(self, model_type: ModelType) -> list[dict[str, Any]]:
-        """Gets a raw device list given a model_type"""
-        return await self.api_request_list(model_type.devices_key)
-
-    async def get_devices(
-        self,
-        model_type: ModelType,
-        expected_type: type[ProtectModel] | None = None,
-    ) -> list[ProtectModel]:
-        """Gets a device list given a model_type, converted into Python objects"""
-        objs: list[ProtectModel] = []
-
-        for obj_dict in await self.get_devices_raw(model_type):
-            obj = create_from_unifi_dict(obj_dict, api=self)
-
-            if expected_type is not None and not isinstance(obj, expected_type):
-                raise NvrError(f"Unexpected model returned: {obj.model}")
-            if (
-                self.ignore_unadopted
-                and isinstance(obj, ProtectAdoptableDeviceModel)
-                and not obj.is_adopted
-            ):
-                continue
-
-            objs.append(obj)
-
-        return objs
-
-    async def get_cameras(self) -> list[Camera]:
-        """
-        Gets the list of cameras straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.cameras`
-        """
-        return cast("list[Camera]", await self.get_devices(ModelType.CAMERA, Camera))
-
-    async def get_lights(self) -> list[Light]:
-        """
-        Gets the list of lights straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.lights`
-
-        .. deprecated::
-            Use :meth:`get_lights_public` instead. This method uses the private API
-            and will be removed in a future version.
-        """
-        return cast("list[Light]", await self.get_devices(ModelType.LIGHT, Light))
-
-    async def get_sensors(self) -> list[Sensor]:
-        """
-        Gets the list of sensors straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.sensors`
-        """
-        return cast("list[Sensor]", await self.get_devices(ModelType.SENSOR, Sensor))
-
-    async def get_liveviews(self) -> list[Liveview]:
-        """
-        Gets the list of liveviews straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.liveviews`
-        """
-        return cast(
-            "list[Liveview]",
-            await self.get_devices(ModelType.LIVEVIEW, Liveview),
-        )
-
     async def get_device_raw(
         self,
         model_type: ModelType,
@@ -3391,49 +3309,6 @@ class ProtectApiClient(BaseApiClient):
         This is a great alternative if the event is no longer in the `self.bootstrap.events[event_id]` cache
         """
         return cast("Event", await self.get_device(ModelType.EVENT, event_id, Event))
-
-    async def get_camera(self, device_id: str) -> Camera:
-        """
-        Gets a camera straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.cameras[device_id]`
-        """
-        return cast(
-            "Camera", await self.get_device(ModelType.CAMERA, device_id, Camera)
-        )
-
-    async def get_light(self, device_id: str) -> Light:
-        """
-        Gets a light straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.lights[device_id]`
-
-        .. deprecated::
-            Use :meth:`get_light_public` instead. This method uses the private API
-            and will be removed in a future version.
-        """
-        return cast("Light", await self.get_device(ModelType.LIGHT, device_id, Light))
-
-    async def get_sensor(self, device_id: str) -> Sensor:
-        """
-        Gets a sensor straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.sensors[device_id]`
-        """
-        return cast(
-            "Sensor", await self.get_device(ModelType.SENSOR, device_id, Sensor)
-        )
-
-    async def get_liveview(self, device_id: str) -> Liveview:
-        """
-        Gets a liveview straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.liveviews[device_id]`
-        """
-        return cast(
-            "Liveview",
-            await self.get_device(ModelType.LIVEVIEW, device_id, Liveview),
-        )
 
     async def get_camera_snapshot(
         self,

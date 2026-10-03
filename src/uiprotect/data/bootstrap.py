@@ -225,7 +225,7 @@ def _process_smart_detect_event(event: Event, camera: Camera) -> None:
     # Update the singular last_smart_detect_event_id only if it no longer
     # references an active event. Protect v7 emits overlapping SMART_DETECT
     # and SMART_DETECT_LINE events; letting an ended event overwrite the
-    # singular field would make is_smart_currently_detected flip OFF while
+    # singular field would make last_smart_detect_event read as ended while
     # the sibling event is still active.
     singular_id = camera.last_smart_detect_event_id
     if singular_id is None or not _singular_id_is_active(camera, singular_id):

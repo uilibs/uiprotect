@@ -231,13 +231,6 @@ class EventThumbnailAttributes(ProtectBaseObject):
 
     model_config = ConfigDict(extra="allow")
 
-    def get_value(self, key: str) -> str | None:
-        """Get the string value from an EventThumbnailAttribute field, if it exists."""
-        attr = getattr(self, key, None)
-        if isinstance(attr, EventThumbnailAttribute):
-            return attr.val
-        return None
-
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         return {
@@ -398,7 +391,6 @@ class Event(ProtectModelWithId):
     is_favorite: bool | None = None
     favorite_object_ids: list[str] | None = None
 
-    _smart_detect_events: list[Event] | None = PrivateAttr(None)
     _smart_detect_track: SmartDetectTrack | None = PrivateAttr(None)
     _smart_detect_zones: dict[int, CameraZone] | None = PrivateAttr(None)
 
@@ -462,57 +454,6 @@ class Event(ProtectModelWithId):
             return None
 
         return self._api.bootstrap.users.get(self.user_id)
-
-    @property
-    def smart_detect_events(self) -> list[Event]:
-        if self._smart_detect_events is not None:
-            return self._smart_detect_events
-
-        self._smart_detect_events = [
-            self._api.bootstrap.events[g]
-            for g in self.smart_detect_event_ids
-            if g in self._api.bootstrap.events
-        ]
-        return self._smart_detect_events
-
-    def get_detected_thumbnail(self) -> EventDetectedThumbnail | None:
-        """
-        Gets best detected thumbnail for event (UFP 6.x+).
-
-        Returns the thumbnail marked with clockBestWall, which indicates
-        the optimal frame for this detection (highest confidence, best angle, etc.).
-
-        Returns:
-            EventDetectedThumbnail with the best detection frame, or None if:
-            - Event has no metadata
-            - No detected thumbnails available
-            - No thumbnail has clockBestWall set
-
-        Example usage:
-            >>> # License Plate Recognition
-            >>> thumbnail = event.get_detected_thumbnail()
-            >>> if thumbnail and thumbnail.group:
-            ...     plate = thumbnail.group.matched_name  # "ABC123"
-            ...     confidence = thumbnail.group.confidence  # 95
-            ...     if thumbnail.attributes:
-            ...         color = thumbnail.attributes.get_value("color")  # "white"
-            ...         vehicle = thumbnail.attributes.get_value("vehicleType")  # "sedan"
-
-            >>> # Face Detection
-            >>> thumbnail = event.get_detected_thumbnail()
-            >>> if thumbnail and thumbnail.group:
-            ...     face_name = thumbnail.group.matched_name  # "John Doe"
-            ...     confidence = thumbnail.group.confidence  # 87
-
-        """
-        if not self.metadata or not self.metadata.detected_thumbnails:
-            return None
-
-        for thumbnail in self.metadata.detected_thumbnails:
-            if thumbnail.clock_best_wall:
-                return thumbnail
-
-        return None
 
     async def get_thumbnail(
         self,

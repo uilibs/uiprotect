@@ -27,10 +27,7 @@ from PIL import Image
 from tests.conftest import (
     TEST_CAMERA_EXISTS,
     TEST_HEATMAP_EXISTS,
-    TEST_LIGHT_EXISTS,
-    TEST_LIVEVIEW_EXISTS,
     TEST_PUBLIC_API_SNAPSHOT_EXISTS,
-    TEST_SENSOR_EXISTS,
     TEST_SNAPSHOT_EXISTS,
     TEST_THUMBNAIL_EXISTS,
     TEST_VIDEO_EXISTS,
@@ -49,6 +46,7 @@ from uiprotect.data import (
     ChannelQuality,
     Event,
     EventType,
+    Light,
     ModelType,
     PTZPatrol,
     PTZPreset,
@@ -205,13 +203,13 @@ def test_base_url(protect_client: ProtectApiClient):
     arg = f"{protect_client.private_ws_path}?lastUpdateId={protect_client.bootstrap.last_update_id}"
 
     assert protect_client.base_url == "https://127.0.0.1:0"
-    assert protect_client.ws_url == f"wss://127.0.0.1:0{arg}"
+    assert str(protect_client._ws_url_object) == f"wss://127.0.0.1:0{arg}"
 
     protect_client._port = 443
     protect_client._update_url()
 
     assert protect_client.base_url == "https://127.0.0.1"
-    assert protect_client.ws_url == f"wss://127.0.0.1{arg}"
+    assert str(protect_client._ws_url_object) == f"wss://127.0.0.1{arg}"
 
 
 def test_api_client_creation():
@@ -810,7 +808,7 @@ async def test_get_device_mismatch(protect_client: ProtectApiClient, camera):
     protect_client.api_request_obj = AsyncMock(return_value=camera)  # type: ignore[method-assign]
 
     with pytest.raises(NvrError):
-        await protect_client.get_light("test_id")
+        await protect_client.get_device(ModelType.LIGHT, "test_id", Light)
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -820,7 +818,7 @@ async def test_get_device_not_adopted(protect_client: ProtectApiClient, camera):
     protect_client.api_request_obj = AsyncMock(return_value=camera)  # type: ignore[method-assign]
 
     with pytest.raises(NvrError):
-        await protect_client.get_camera("test_id")
+        await protect_client.get_device(ModelType.CAMERA, "test_id")
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -831,102 +829,9 @@ async def test_get_device_not_adopted_enabled(protect_client: ProtectApiClient, 
     protect_client.api_request_obj = AsyncMock(return_value=camera)  # type: ignore[method-assign]
 
     obj = create_from_unifi_dict(camera)
-    assert_equal_dump(obj, await protect_client.get_camera("test_id"))
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_camera(protect_client: ProtectApiClient, camera):
-    obj = create_from_unifi_dict(camera)
-
-    assert_equal_dump(obj, await protect_client.get_camera("test_id"))
-
-
-@pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_light(protect_client: ProtectApiClient, light):
-    obj = create_from_unifi_dict(light)
-
-    assert_equal_dump(obj, await protect_client.get_light("test_id"))
-
-
-@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_sensor(protect_client: ProtectApiClient, sensor):
-    obj = create_from_unifi_dict(sensor)
-
-    assert_equal_dump(obj, await protect_client.get_sensor("test_id"))
-
-
-@pytest.mark.skipif(not TEST_LIVEVIEW_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_liveview(protect_client: ProtectApiClient, liveview):
-    obj = create_from_unifi_dict(liveview)
-
-    assert_equal_dump(obj, (await protect_client.get_liveview("test_id")))
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_devices_mismatch(protect_client: ProtectApiClient, cameras):
-    protect_client.api_request_list = AsyncMock(return_value=cameras)  # type: ignore[method-assign]
-
-    with pytest.raises(NvrError):
-        await protect_client.get_lights()
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_devices_not_adopted(protect_client: ProtectApiClient, cameras):
-    cameras[0]["isAdopted"] = False
-    protect_client.api_request_list = AsyncMock(return_value=cameras)  # type: ignore[method-assign]
-
-    assert len(await protect_client.get_cameras()) == len(cameras) - 1
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_devices_not_adopted_enabled(
-    protect_client: ProtectApiClient,
-    cameras,
-):
-    cameras[0]["isAdopted"] = False
-    protect_client.ignore_unadopted = False
-    protect_client.api_request_list = AsyncMock(return_value=cameras)  # type: ignore[method-assign]
-
-    assert len(await protect_client.get_cameras()) == len(cameras)
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_cameras(protect_client: ProtectApiClient, cameras):
-    objs = [create_from_unifi_dict(d) for d in cameras]
-
-    assert_equal_dump(objs, await protect_client.get_cameras())
-
-
-@pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_lights(protect_client: ProtectApiClient, lights):
-    objs = [create_from_unifi_dict(d) for d in lights]
-
-    assert_equal_dump(objs, await protect_client.get_lights())
-
-
-@pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_sensors(protect_client: ProtectApiClient, sensors):
-    objs = [create_from_unifi_dict(d) for d in sensors]
-
-    assert_equal_dump(objs, await protect_client.get_sensors())
-
-
-@pytest.mark.skipif(not TEST_LIVEVIEW_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_liveviews(protect_client: ProtectApiClient, liveviews):
-    objs = [create_from_unifi_dict(d) for d in liveviews]
-
-    assert_equal_dump(objs, await protect_client.get_liveviews())
+    assert_equal_dump(
+        obj, await protect_client.get_device(ModelType.CAMERA, "test_id", Camera)
+    )
 
 
 @pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
@@ -3808,50 +3713,6 @@ def test_rtsps_streams_none_pydantic_extra():
 
     # get_stream_url should still work (uses getattr, not __pydantic_extra__)
     assert streams.get_stream_url("any") is None
-
-
-@pytest.mark.asyncio
-async def test_camera_get_rtsps_streams():
-    """Test Camera.get_rtsps_streams method."""
-    # Mock camera and API
-    camera = AsyncMock(spec=Camera)
-    camera.id = "test_camera_id"
-    camera._api = AsyncMock()
-    camera._api._api_key = "test_api_key"
-    camera._api.get_camera_rtsps_streams = AsyncMock(
-        return_value=RTSPSStreams(
-            high="rtsps://example.com/high", medium="rtsps://example.com/medium"
-        )
-    )
-
-    # Bind the actual method to the mock
-    camera.get_rtsps_streams = Camera.get_rtsps_streams.__get__(camera, Camera)
-
-    # Test successful retrieval
-    result = await camera.get_rtsps_streams()
-    assert result is not None
-    assert result.get_stream_url("high") == "rtsps://example.com/high"
-    assert result.get_stream_url("medium") == "rtsps://example.com/medium"
-    camera._api.get_camera_rtsps_streams.assert_called_once_with("test_camera_id")
-
-
-@pytest.mark.asyncio
-async def test_camera_get_rtsps_streams_no_api_key():
-    """Test Camera.get_rtsps_streams method without API key."""
-    # Mock camera and API without key
-    camera = AsyncMock(spec=Camera)
-    camera.id = "test_camera_id"
-    camera._api = AsyncMock()
-    camera._api._api_key = None
-
-    # Bind the actual method to the mock
-    camera.get_rtsps_streams = Camera.get_rtsps_streams.__get__(camera, Camera)
-
-    # Test that it raises NotAuthorized
-    with pytest.raises(
-        NotAuthorized, match="Cannot get RTSPS streams without an API key"
-    ):
-        await camera.get_rtsps_streams()
 
 
 @pytest.mark.asyncio
