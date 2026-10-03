@@ -1,5 +1,19 @@
 # Changelog
 
+## v19.0.1 (2026-10-03)
+
+### Bug fixes
+
+
+- Drop pyjwt dependency ([`5462cc8`](https://github.com/uilibs/uiprotect/commit/5462cc8b5a01ca0e2e84267429f78662ea26358c))
+
+
+### Refactoring
+
+
+- Clean up leftovers after #1296 ([`123140d`](https://github.com/uilibs/uiprotect/commit/123140dbad9eea4384ae5dc0e4cfe2edd62a7b57))
+
+
 ## v19.0.0 (2026-10-03)
 
 ### Features
