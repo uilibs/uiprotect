@@ -1,5 +1,13 @@
 # Changelog
 
+## v20.0.1 (2026-10-03)
+
+### Bug fixes
+
+
+- Type backup models and use is null for ongoing events ([`4f3ca1a`](https://github.com/uilibs/uiprotect/commit/4f3ca1a11a55c31f2be25c88d5e86f5d1d6ea5de))
+
+
 ## v20.0.0 (2026-10-03)
 
 ### Features
