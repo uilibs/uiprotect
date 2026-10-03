@@ -244,21 +244,22 @@ async def _close_protect(protect: ProtectApiClient) -> None:
     await protect.close_public_api_session()
 
 
-def public_call(
-    obj: ProtectBaseObject,
-    method: str,
-    *args: Any,
-    **kwargs: Any,
-) -> Awaitable[Any]:
-    """
-    Calls a Public Integration API setter on a private or public device model.
+_PUBLIC_GETTERS: tuple[tuple[type[ProtectAdoptableDeviceModel], str], ...] = (
+    (Camera, "get_camera_public"),
+    (Chime, "get_chime_public"),
+    (Light, "get_light_public"),
+    (Sensor, "get_sensor_public"),
+    (Viewer, "get_viewer_public"),
+)
 
-    The public device models name these ``set_x``; their private counterparts
-    carry the same call as ``set_x_public``.
-    """
-    if isinstance(obj, PublicDeviceModel):
-        return cast("Awaitable[Any]", getattr(obj, method)(*args, **kwargs))
-    return cast("Awaitable[Any]", getattr(obj, f"{method}_public")(*args, **kwargs))
+
+def public_device(ctx: typer.Context) -> Any:
+    """The selected device's public model, fetched by id when it is a private one."""
+    device: ProtectAdoptableDeviceModel | PublicDeviceModel = ctx.obj.device
+    if isinstance(device, PublicDeviceModel):
+        return device
+    getter = next(name for cls, name in _PUBLIC_GETTERS if isinstance(device, cls))
+    return run(ctx, getattr(ctx.obj.protect, getter)(device.id))
 
 
 def device_map(ctx: typer.Context, attr: str) -> dict[str, Any]:
@@ -341,27 +342,6 @@ def protect_url(ctx: typer.Context) -> None:
         typer.echo(obj.protect_url)
 
 
-def is_wired(ctx: typer.Context) -> None:
-    """Returns if the device is wired or not."""
-    require_device_id(ctx)
-    obj: ProtectAdoptableDeviceModel = ctx.obj.device
-    json_output(obj.is_wired)
-
-
-def is_wifi(ctx: typer.Context) -> None:
-    """Returns if the device has WiFi or not."""
-    require_device_id(ctx)
-    obj: ProtectAdoptableDeviceModel = ctx.obj.device
-    json_output(obj.is_wifi)
-
-
-def is_bluetooth(ctx: typer.Context) -> None:
-    """Returns if the device has Bluetooth or not."""
-    require_device_id(ctx)
-    obj: ProtectAdoptableDeviceModel = ctx.obj.device
-    json_output(obj.is_bluetooth)
-
-
 def bridge(ctx: typer.Context) -> None:
     """Returns bridge device if connected via Bluetooth."""
     require_device_id(ctx)
@@ -387,15 +367,12 @@ def set_name(ctx: typer.Context, name: str | None = typer.Argument(None)) -> Non
     # path and is unavailable in public-only mode.
     require_device_id(ctx, public_ok=name is not None)
     device: NVR | ProtectAdoptableDeviceModel | PublicDeviceModel = ctx.obj.device
-    if isinstance(device, PublicDeviceModel):
-        run(ctx, public_call(device, "set_name", cast("str", name)))
+    if isinstance(device, PublicDeviceModel) or (
+        name is not None and isinstance(device, (Camera, Chime, Light, Sensor, Viewer))
+    ):
+        run(ctx, public_device(ctx).set_name(name))
         return
-
-    obj: NVR | ProtectAdoptableDeviceModel = device
-    if name is not None and isinstance(obj, (Camera, Chime, Light, Sensor, Viewer)):
-        run(ctx, obj.set_name_public(name))
-        return
-    run(ctx, obj.set_name(name))
+    run(ctx, device.set_name(name))
 
 
 def update(ctx: typer.Context, data: str) -> None:
@@ -449,9 +426,6 @@ def init_common_commands(
     device_commands: dict[str, Callable[..., Any]] = {}
 
     deviceless_commands["list-ids"] = app.command()(list_ids)
-    device_commands["is-wired"] = app.command()(is_wired)
-    device_commands["is-wifi"] = app.command()(is_wifi)
-    device_commands["is-bluetooth"] = app.command()(is_bluetooth)
     device_commands["bridge"] = app.command()(bridge)
     device_commands["set-ssh"] = app.command()(set_ssh)
     device_commands["set-name"] = app.command()(set_name)

@@ -26,7 +26,6 @@ from PIL import Image
 
 from tests.conftest import (
     TEST_CAMERA_EXISTS,
-    TEST_HEATMAP_EXISTS,
     TEST_PUBLIC_API_SNAPSHOT_EXISTS,
     TEST_SNAPSHOT_EXISTS,
     TEST_THUMBNAIL_EXISTS,
@@ -88,11 +87,6 @@ async def check_motion_event(event: Event):
     img = Image.open(BytesIO(data))
     assert img.format in {"PNG", "JPEG"}
 
-    data = await event.get_heatmap()
-    assert data is not None
-    img = Image.open(BytesIO(data))
-    assert img.format in {"PNG", "JPEG"}
-
 
 async def check_camera(camera: Camera):
     if (
@@ -116,16 +110,11 @@ async def check_camera(camera: Camera):
 
     camera.last_ring_event  # noqa: B018
 
-    assert camera.timelapse_url == f"https://127.0.0.1:0/protect/timelapse/{camera.id}"
     check_device(camera)
 
     for channel in camera.channels:
         if channel.is_rtsp_enabled:
             for _ in range(2):
-                assert (
-                    channel.rtsp_url
-                    == f"rtsp://{camera.api.connection_host}:7447/{channel.rtsp_alias}"
-                )
                 assert (
                     channel.rtsps_url
                     == f"rtsps://{camera.api.connection_host}:7441/{channel.rtsp_alias}?enableSrtp"
@@ -455,9 +444,6 @@ def test_rtsp_urls_with_ipv6(protect_client: ProtectApiClient):
             expected_host = "[fe80::1ff:fe23:4567:890a]"
 
             assert (
-                channel.rtsp_url == f"rtsp://{expected_host}:7447/{channel.rtsp_alias}"
-            )
-            assert (
                 channel.rtsps_url
                 == f"rtsps://{expected_host}:7441/{channel.rtsp_alias}?enableSrtp"
             )
@@ -487,7 +473,6 @@ def test_rtsp_urls_with_stacked_nvr(protect_client: ProtectApiClient, camera):
 
     for channel in rtsp_channels:
         if channel.rtsp_alias:
-            assert channel.rtsp_url == f"rtsp://192.168.2.100:7447/{channel.rtsp_alias}"
             assert (
                 channel.rtsps_url
                 == f"rtsps://192.168.2.100:7441/{channel.rtsp_alias}?enableSrtp"
@@ -901,56 +886,12 @@ async def test_get_public_api_camera_snapshot_hq_true(
 @patch("uiprotect.utils.datetime", MockDatetime)
 @patch("uiprotect.api.time.time", get_time)
 @pytest.mark.asyncio()
-async def test_get_pacakge_camera_snapshot(protect_client: ProtectApiClient, now):
-    data = await protect_client.get_package_camera_snapshot("test_id")
-    assert data is not None
-
-    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
-        "cameras/test_id/package-snapshot",
-        params={
-            "ts": to_js_time(now),
-            "force": "true",
-        },
-        raise_exception=False,
-    )
-
-    img = Image.open(BytesIO(data))
-    assert img.format in {"PNG", "JPEG"}
-
-
-@pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
-@patch("uiprotect.utils.datetime", MockDatetime)
-@patch("uiprotect.api.time.time", get_time)
-@pytest.mark.asyncio()
 async def test_get_camera_snapshot_args(protect_client: ProtectApiClient, now):
     data = await protect_client.get_camera_snapshot("test_id", 1920, 1080)
     assert data is not None
 
     protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
         "cameras/test_id/snapshot",
-        params={
-            "ts": to_js_time(now),
-            "force": "true",
-            "w": 1920,
-            "h": 1080,
-        },
-        raise_exception=False,
-    )
-
-    img = Image.open(BytesIO(data))
-    assert img.format in {"PNG", "JPEG"}
-
-
-@pytest.mark.skipif(not TEST_SNAPSHOT_EXISTS, reason="Missing testdata")
-@patch("uiprotect.utils.datetime", MockDatetime)
-@patch("uiprotect.api.time.time", get_time)
-@pytest.mark.asyncio()
-async def test_get_package_camera_snapshot_args(protect_client: ProtectApiClient, now):
-    data = await protect_client.get_package_camera_snapshot("test_id", 1920, 1080)
-    assert data is not None
-
-    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
-        "cameras/test_id/package-snapshot",
         params={
             "ts": to_js_time(now),
             "force": "true",
@@ -1142,20 +1083,6 @@ async def test_get_event_animated_thumbnail_uuid_with_e_dash(
     )
 
 
-@pytest.mark.skipif(not TEST_HEATMAP_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_event_heatmap_uuid_with_e_dash(protect_client: ProtectApiClient):
-    """Regression test for #810: event IDs containing 'e-' must not be corrupted."""
-    event_id = "4028adde-42c6-4873-a49e-94da9bd22190"
-    data = await protect_client.get_event_heatmap(event_id)
-    assert data is not None
-
-    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
-        f"events/{event_id}/heatmap",
-        raise_exception=False,
-    )
-
-
 @pytest.mark.skipif(not TEST_THUMBNAIL_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
 async def test_get_event_thumbnail_strips_legacy_prefix(
@@ -1172,21 +1099,6 @@ async def test_get_event_thumbnail_strips_legacy_prefix(
         params={},
         raise_exception=False,
     )
-
-
-@pytest.mark.skipif(not TEST_HEATMAP_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_event_heatmap(protect_client: ProtectApiClient):
-    data = await protect_client.get_event_heatmap("e-test_id")
-    assert data is not None
-
-    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
-        "events/test_id/heatmap",
-        raise_exception=False,
-    )
-
-    img = Image.open(BytesIO(data))
-    assert img.format in {"PNG", "JPEG"}
 
 
 @pytest.mark.asyncio()

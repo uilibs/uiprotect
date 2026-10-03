@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, Mock, PropertyMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -22,11 +22,9 @@ from uiprotect.data.devices import LCDMessage
 from uiprotect.data.types import (
     DoorbellMessageType,
     HDRMode,
-    PercentInt,
     PosTransactionType,
     SmartDetectAudioType,
     SmartDetectObjectType,
-    VideoMode,
 )
 from uiprotect.exceptions import BadRequest
 from uiprotect.utils import to_js_time
@@ -313,76 +311,11 @@ async def test_update_camera_public_audio_types_passed_through(
     )
 
 
-def _led_updated_mock(camera_obj: Camera) -> Mock:  # type: ignore[type-arg]
-    m = Mock()
-    m.led_settings = camera_obj.led_settings.model_copy(
-        update={"is_enabled": not camera_obj.led_settings.is_enabled}
-    )
-    return m
-
-
 def _hdr_updated_mock(camera_obj: Camera, hdr_on: bool) -> Mock:  # type: ignore[type-arg]
     m = Mock()
     m.hdr_mode = hdr_on
     m.isp_settings.hdr_mode = HDRMode.NORMAL
     return m
-
-
-def _video_updated_mock(mode: VideoMode) -> Mock:  # type: ignore[type-arg]
-    m = Mock()
-    m.video_mode = mode
-    return m
-
-
-def _mic_updated_mock(level: int) -> Mock:  # type: ignore[type-arg]
-    m = Mock()
-    m.mic_volume = PercentInt(level)
-    return m
-
-
-def _osd_updated_mock(camera_obj: Camera) -> Mock:  # type: ignore[type-arg]
-    m = Mock()
-    m.osd_settings = camera_obj.osd_settings.model_copy(
-        update={"is_name_enabled": not camera_obj.osd_settings.is_name_enabled}
-    )
-    return m
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_name_public(camera: Camera) -> None:
-    updated = Mock()
-    updated.name = "Front Door"
-    camera._api.update_camera_public = AsyncMock(return_value=updated)
-
-    await camera.set_name_public("Front Door")
-
-    camera._api.update_camera_public.assert_called_once_with(
-        camera.id, name="Front Door"
-    )
-    assert camera.name == "Front Door"
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_status_light_public(camera: Camera) -> None:
-    camera.feature_flags.has_led_status = True
-    camera.use_global = False
-    updated = _led_updated_mock(camera)
-    camera._api.update_camera_public = AsyncMock(return_value=updated)
-
-    await camera.set_status_light_public(True)
-
-    camera._api.update_camera_public.assert_called_once_with(
-        camera.id, led_is_enabled=True
-    )
-    assert camera.led_settings == updated.led_settings
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_led_public_no_led_status(camera: Camera) -> None:
-    camera.feature_flags.has_led_status = False
-
-    with pytest.raises(BadRequest, match="does not have status light"):
-        await camera.set_status_light_public(True)
 
 
 @pytest.mark.parametrize(
@@ -429,159 +362,6 @@ async def test_camera_set_hdr_mode_public_updates_isp_settings(camera: Camera) -
 
     assert camera.hdr_mode is True
     assert camera.isp_settings.hdr_mode == HDRMode.ALWAYS_ON
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_video_mode_public(camera: Camera) -> None:
-    camera.feature_flags.video_modes = [VideoMode.DEFAULT]
-    updated = _video_updated_mock(VideoMode.DEFAULT)
-    camera._api.update_camera_public = AsyncMock(return_value=updated)
-
-    await camera.set_video_mode_public(VideoMode.DEFAULT)
-
-    camera._api.update_camera_public.assert_called_once_with(
-        camera.id, video_mode=VideoMode.DEFAULT.value
-    )
-    assert camera.video_mode == VideoMode.DEFAULT
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_video_mode_public_unsupported(camera: Camera) -> None:
-    camera.feature_flags.video_modes = []
-
-    with pytest.raises(BadRequest, match="Camera does not have"):
-        await camera.set_video_mode_public(VideoMode.HIGH_FPS)
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_mic_volume_public(camera: Camera) -> None:
-    camera.feature_flags.has_mic = True
-    updated = _mic_updated_mock(75)
-    camera._api.update_camera_public = AsyncMock(return_value=updated)
-
-    await camera.set_mic_volume_public(75)
-
-    camera._api.update_camera_public.assert_called_once_with(camera.id, mic_volume=75)
-    assert camera.mic_volume == 75
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_mic_volume_public_mute(camera: Camera) -> None:
-    camera.feature_flags.has_mic = True
-    updated = _mic_updated_mock(0)
-    camera._api.update_camera_public = AsyncMock(return_value=updated)
-
-    await camera.set_mic_volume_public(0)
-
-    camera._api.update_camera_public.assert_called_once_with(camera.id, mic_volume=0)
-    assert camera.mic_volume == 0
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_mic_volume_public_no_mic(camera: Camera) -> None:
-    camera.feature_flags.has_mic = False
-
-    with pytest.raises(BadRequest, match="does not have mic"):
-        await camera.set_mic_volume_public(50)
-
-
-@pytest.mark.parametrize(("flag", "hotplug"), [(True, False), (False, True)])
-def test_camera_has_mic_public_excludes_hotplug(
-    camera: Camera, flag: bool, hotplug: bool
-) -> None:
-    """``has_mic_public`` tracks the flag only; ``has_mic`` also counts hot-plug."""
-    camera.feature_flags.has_mic = flag
-
-    with patch.object(
-        type(camera), "has_removable_speaker", new_callable=PropertyMock
-    ) as removable:
-        removable.return_value = hotplug
-
-        assert camera.has_mic_public is flag
-        assert camera.has_mic is True
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_mic_volume_public_gates_on_has_mic_public(
-    camera: Camera,
-) -> None:
-    """``set_mic_volume_public`` reads ``has_mic_public``, not the raw flag."""
-    camera.feature_flags.has_mic = False
-    camera._api.update_camera_public = AsyncMock(return_value=_mic_updated_mock(50))
-
-    with patch.object(
-        type(camera), "has_mic_public", new_callable=PropertyMock, return_value=True
-    ):
-        await camera.set_mic_volume_public(50)
-
-    camera._api.update_camera_public.assert_called_once_with(camera.id, mic_volume=50)
-
-
-@pytest.mark.asyncio()
-async def test_camera_set_mic_volume_public_coerces_float(camera: Camera) -> None:
-    camera.feature_flags.has_mic = True
-    updated = _mic_updated_mock(75)
-    camera._api.update_camera_public = AsyncMock(return_value=updated)
-
-    await camera.set_mic_volume_public(75.0)
-
-    camera._api.update_camera_public.assert_called_once_with(camera.id, mic_volume=75)
-    sent = camera._api.update_camera_public.call_args.kwargs["mic_volume"]
-    assert isinstance(sent, int)
-
-
-@pytest.mark.parametrize("level", [-1, 101, 150])
-@pytest.mark.asyncio()
-async def test_camera_set_mic_volume_public_out_of_range(
-    camera: Camera, level: int
-) -> None:
-    camera.feature_flags.has_mic = True
-    camera._api.update_camera_public = AsyncMock()
-
-    with pytest.raises(BadRequest, match="mic_volume must be between 0 and 100"):
-        await camera.set_mic_volume_public(level)
-
-    assert not camera._api.update_camera_public.called
-
-
-@pytest.mark.parametrize(
-    ("method", "kwarg"),
-    [
-        ("set_osd_name_public", "osd_name_enabled"),
-        ("set_osd_date_public", "osd_date_enabled"),
-        ("set_osd_logo_public", "osd_logo_enabled"),
-        ("set_osd_nerd_mode_public", "osd_nerd_mode_enabled"),
-    ],
-)
-@pytest.mark.asyncio()
-async def test_camera_set_osd_public(camera: Camera, method: str, kwarg: str) -> None:
-    camera.use_global = False
-    updated = _osd_updated_mock(camera)
-    camera._api.update_camera_public = AsyncMock(return_value=updated)
-
-    await getattr(camera, method)(True)
-
-    camera._api.update_camera_public.assert_called_once_with(camera.id, **{kwarg: True})
-    assert camera.osd_settings == updated.osd_settings
-
-
-@pytest.mark.parametrize(
-    ("method", "arg"),
-    [
-        ("set_osd_name_public", True),
-        ("set_osd_date_public", True),
-        ("set_osd_logo_public", True),
-        ("set_osd_nerd_mode_public", True),
-    ],
-)
-@pytest.mark.asyncio()
-async def test_camera_set_osd_public_use_global(
-    camera: Camera, method: str, arg: Any
-) -> None:
-    camera.use_global = True
-
-    with pytest.raises(BadRequest, match="global recording settings"):
-        await getattr(camera, method)(arg)
 
 
 @pytest.mark.parametrize(

@@ -143,10 +143,8 @@ def set_volume(
         if camera is None:
             typer.secho(f"Invalid camera ID: {camera_id}", fg="red")
             raise typer.Exit(1)
-        if isinstance(obj, PublicChime):
-            base.run(ctx, obj.set_volume_for_camera(camera.id, value))
-        else:
-            base.run(ctx, obj.set_volume_for_camera_public(camera, value))
+        public: PublicChime = base.public_device(ctx)
+        base.run(ctx, public.set_volume_for_camera(camera.id, value))
 
 
 @app.command()
@@ -195,10 +193,8 @@ def set_repeat_times(
         if camera is None:
             typer.secho(f"Invalid camera ID: {camera_id}", fg="red")
             raise typer.Exit(1)
-        if isinstance(obj, PublicChime):
-            base.run(ctx, obj.set_repeat_times_for_camera(camera.id, value))
-        else:
-            base.run(ctx, obj.set_repeat_times_for_camera_public(camera, value))
+        public: PublicChime = base.public_device(ctx)
+        base.run(ctx, public.set_repeat_times_for_camera(camera.id, value))
 
 
 async def _update_ring_settings(

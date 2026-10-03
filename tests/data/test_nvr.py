@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
 from ipaddress import IPv4Address, IPv6Address
 from unittest.mock import Mock
 
 import pytest
-from pydantic import ValidationError
 
 from uiprotect.data import (
     NVR,
@@ -17,10 +15,9 @@ from uiprotect.data import (
     Event,
     EventType,
 )
-from uiprotect.data.nvr import NVRSmartDetection, StorageDevice
+from uiprotect.data.nvr import StorageDevice
 from uiprotect.data.types import SmartDetectObjectType
 from uiprotect.exceptions import BadRequest
-from uiprotect.utils import to_ms
 
 
 @pytest.mark.parametrize(
@@ -85,40 +82,6 @@ async def test_nvr_set_anonymous_analytics(nvr_obj: NVR):
         method="patch",
         json={"analyticsData": "none"},
     )
-
-
-@pytest.mark.asyncio()
-async def test_nvr_set_default_reset_timeout(nvr_obj: NVR):
-    nvr_obj.api.api_request.reset_mock()
-
-    duration = timedelta(seconds=10)
-    await nvr_obj.set_default_reset_timeout(duration)
-
-    nvr_obj.api.api_request.assert_called_with(
-        "nvr",
-        method="patch",
-        json={"doorbellSettings": {"defaultMessageResetTimeoutMs": to_ms(duration)}},
-    )
-
-
-@pytest.mark.parametrize("message", ["Test", "fqthpqBgVMKXp9jXX2VeuGeXYfx2mMjB"])
-@pytest.mark.asyncio()
-async def test_nvr_set_default_doorbell_message(nvr_obj: NVR, message: str):
-    nvr_obj.api.api_request.reset_mock()
-
-    if len(message) > 30:
-        with pytest.raises(ValidationError):
-            await nvr_obj.set_default_doorbell_message(message)
-
-        assert not nvr_obj.api.api_request.called
-    else:
-        await nvr_obj.set_default_doorbell_message(message)
-
-        nvr_obj.api.api_request.assert_called_with(
-            "nvr",
-            method="patch",
-            json={"doorbellSettings": {"defaultMessageText": message}},
-        )
 
 
 @pytest.mark.parametrize(
@@ -213,87 +176,3 @@ async def test_nvr_wan_ip(nvr_obj: NVR, ip: str, expected: IPv4Address | IPv6Add
     nvr = NVR.from_unifi_dict(**nvr_dict)
     assert nvr.wan_ip == expected
     assert nvr.unifi_dict()["wanIp"] == ip
-
-
-@pytest.mark.asyncio()
-async def test_nvr_set_smart_detections(nvr_obj: NVR):
-    nvr_obj.smart_detection = NVRSmartDetection(
-        enable=False,
-        face_recognition=False,
-        license_plate_recognition=False,
-    )
-    nvr_obj.api.api_request.reset_mock()
-
-    await nvr_obj.set_smart_detections(True)
-
-    nvr_obj.api.api_request.assert_called_with(
-        "nvr",
-        method="patch",
-        json={"smartDetection": {"enable": True}},
-    )
-
-
-@pytest.mark.asyncio()
-async def test_nvr_set_face_recognition(nvr_obj: NVR):
-    nvr_obj.smart_detection = NVRSmartDetection(
-        enable=True,
-        face_recognition=False,
-        license_plate_recognition=False,
-    )
-    nvr_obj.api.api_request.reset_mock()
-
-    await nvr_obj.set_face_recognition(True)
-
-    nvr_obj.api.api_request.assert_called_with(
-        "nvr",
-        method="patch",
-        json={"smartDetection": {"faceRecognition": True}},
-    )
-
-
-@pytest.mark.asyncio()
-async def test_nvr_set_face_recognition_no_smart(nvr_obj: NVR):
-    nvr_obj.smart_detection = NVRSmartDetection(
-        enable=False,
-        face_recognition=False,
-        license_plate_recognition=False,
-    )
-    nvr_obj.api.api_request.reset_mock()
-
-    with pytest.raises(BadRequest):
-        await nvr_obj.set_face_recognition(True)
-
-    assert not nvr_obj.api.api_request.called
-
-
-@pytest.mark.asyncio()
-async def test_nvr_set_license_plate_recognition(nvr_obj: NVR):
-    nvr_obj.smart_detection = NVRSmartDetection(
-        enable=True,
-        face_recognition=False,
-        license_plate_recognition=False,
-    )
-    nvr_obj.api.api_request.reset_mock()
-
-    await nvr_obj.set_license_plate_recognition(True)
-
-    nvr_obj.api.api_request.assert_called_with(
-        "nvr",
-        method="patch",
-        json={"smartDetection": {"licensePlateRecognition": True}},
-    )
-
-
-@pytest.mark.asyncio()
-async def test_nvr_set_license_plate_recognition_no_smart(nvr_obj: NVR):
-    nvr_obj.smart_detection = NVRSmartDetection(
-        enable=False,
-        face_recognition=False,
-        license_plate_recognition=False,
-    )
-    nvr_obj.api.api_request.reset_mock()
-
-    with pytest.raises(BadRequest):
-        await nvr_obj.set_license_plate_recognition(True)
-
-    assert not nvr_obj.api.api_request.called

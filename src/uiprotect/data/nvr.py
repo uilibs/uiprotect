@@ -498,20 +498,6 @@ class Event(ProtectModelWithId):
             speedup=speedup,
         )
 
-    async def get_heatmap(self) -> bytes | None:
-        """Gets heatmap for event"""
-        if self.heatmap_id is None:
-            return None
-        if not self._api.bootstrap.auth_user.can(
-            ModelType.CAMERA,
-            PermissionNode.READ_MEDIA,
-            self.camera,
-        ):
-            raise NotAuthorized(
-                f"Do not have permission to read media for camera: {self.id}",
-            )
-        return await self._api.get_event_heatmap(self.heatmap_id)
-
     async def get_video(
         self,
         channel_index: int = 0,
@@ -1135,22 +1121,6 @@ class NVR(ProtectDeviceModel):
         else:
             await self.set_analytics(AnalyticsOption.NONE)
 
-    async def set_default_reset_timeout(self, timeout: timedelta) -> None:
-        """Sets the default message reset timeout"""
-
-        def callback() -> None:
-            self.doorbell_settings.default_message_reset_timeout = timeout
-
-        await self.queue_update(callback)
-
-    async def set_default_doorbell_message(self, message: str) -> None:
-        """Sets default doorbell message"""
-
-        def callback() -> None:
-            self.doorbell_settings.default_message_text = DoorbellText(message)
-
-        await self.queue_update(callback)
-
     async def add_custom_doorbell_message(self, message: str) -> None:
         """Adds custom doorbell message"""
         if len(message) > 30:
@@ -1191,37 +1161,6 @@ class NVR(ProtectDeviceModel):
     async def reboot(self) -> None:
         """Reboots the NVR"""
         await self._api.reboot_nvr()
-
-    async def set_smart_detections(self, value: bool) -> None:
-        """Set if smart detections are enabled."""
-
-        def callback() -> None:
-            if self.smart_detection is not None:
-                self.smart_detection.enable = value
-
-        await self.queue_update(callback)
-
-    async def set_face_recognition(self, value: bool) -> None:
-        """Set if face detections are enabled. Requires smart detections to be enabled."""
-        if self.smart_detection is None or not self.smart_detection.enable:
-            raise BadRequest("Smart detections are not enabled.")
-
-        def callback() -> None:
-            if self.smart_detection is not None:
-                self.smart_detection.face_recognition = value
-
-        await self.queue_update(callback)
-
-    async def set_license_plate_recognition(self, value: bool) -> None:
-        """Set if license plate detections are enabled. Requires smart detections to be enabled."""
-        if self.smart_detection is None or not self.smart_detection.enable:
-            raise BadRequest("Smart detections are not enabled.")
-
-        def callback() -> None:
-            if self.smart_detection is not None:
-                self.smart_detection.license_plate_recognition = value
-
-        await self.queue_update(callback)
 
 
 class LiveviewSlot(ProtectBaseObject):

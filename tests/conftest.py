@@ -94,7 +94,6 @@ TEST_VIDEO_EXISTS = (
     SAMPLE_DATA_DIRECTORY / "sample_camera_video.mp4"
 ).exists() or "camera_video_length" not in CONSTANTS
 TEST_THUMBNAIL_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_camera_thumbnail.png").exists()
-TEST_HEATMAP_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_camera_heatmap.png").exists()
 TEST_SMART_TRACK_EXISTS = (
     SAMPLE_DATA_DIRECTORY / "sample_event_smart_track.json"
 ).exists()
@@ -221,8 +220,6 @@ async def mock_api_request_raw(url: str, *args, **kwargs):
         return read_binary_file("sample_camera_snapshot")
     if url.startswith("/v1/cameras/"):
         return read_binary_file("sample_public_api_camera_snapshot")
-    if url.startswith("heatmaps/") or url.endswith("heatmap"):
-        return read_binary_file("sample_camera_heatmap")
     if url == "video/export":
         return read_binary_file("sample_camera_video", "mp4")
     return b""
