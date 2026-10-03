@@ -58,20 +58,18 @@ supply `--username`/`--password`. In this mode that covers:
 - whole groups: `nvr`, `events`, `backup`;
 - top-level commands: `create-api-key`, `generate-sample-data`, `profile-ws`,
   `shell`;
-- on every device group: `adopt`, `bridge`, `is-bluetooth`, `is-wifi`,
-  `is-wired`, `reboot`, `set-ssh`, `unadopt`, `update`, and `set-name` with no
-  argument (clearing a name);
-- `cameras`: `chime-type`, `play-audio`, `privacy-mode`, `save-snapshot`,
-  `save-video`, `set-camera-zoom`, `set-color-night-vision`, `set-ir-led-mode`,
-  `set-motion-detection`, `set-person-track`, `set-recording-mode`,
-  `set-ring-volume`, `set-speaker-volume`, `set-system-sounds`, `set-volume`,
-  `set-wdr-level`, `smart-audio-detects`, `smart-detects`, `stream-urls`,
-  `timelapse-url`;
+- on every device group: `adopt`, `bridge`, `reboot`, `set-ssh`, `unadopt`,
+  `update`, and `set-name` with no argument (clearing a name);
+- `cameras`: `chime-type`, `play-audio`, `privacy-mode`, `save-snapshot`
+  without `--package`, `save-video`, `set-camera-zoom`,
+  `set-color-night-vision`, `set-ir-led-mode`, `set-motion-detection`,
+  `set-person-track`, `set-recording-mode`, `set-ring-volume`,
+  `set-speaker-volume`, `set-system-sounds`, `set-volume`, `set-wdr-level`,
+  `smart-audio-detects`, `smart-detects`;
 - `chimes`: `play`, `play-buzzer`, and `set-volume` / `set-repeat-times`
   without `--camera`;
 - `lights`: `camera`;
-- `sensors`: `camera`, `is-alarm-detected`, `remove-humidity-range`,
-  `remove-light-range`, `remove-temperature-range`, `set-mount-type`,
+- `sensors`: `camera`, `is-alarm-detected`, `set-mount-type`,
   `set-status-light`.
 
 Everything else — `list-ids`, showing a device, `set-name NAME`, and the
@@ -85,6 +83,13 @@ exits with an error instead. For a device group (`cameras`, `chimes`, `lights`,
 `sensors`, `viewers`) given an API key, it also points out that dropping the
 username/password runs the group on the key alone. Public-API commands never
 prompt: without an API key they fail with an "API key is required" error.
+
+In hybrid mode, the device commands that also work on the API key alone
+(`set-name NAME`, the public setters, the sensor reads other than
+`is-alarm-detected` and `is-alarm-enabled`, `chimes set-volume` and
+`set-repeat-times` with `--camera`, `cameras save-snapshot --package`) fetch
+the device from the public API and act on it there, as in public-only mode, so
+they need an API key.
 
 ## Timezones
 
@@ -240,16 +245,13 @@ $ uiprotect cameras 61ddb66b018e2703e7008c19 save-snapshot output.jpg
 
 Adoptable devices (Cameras, Chimes, Lights, Sensors, Viewers) all have some commands in common.
 
-| Command        | Description                                       |
-| -------------- | ------------------------------------------------- |
-| `adopt`        | Adopts a device.                                  |
-| `bridge`       | Returns bridge device if connected via Bluetooth. |
-| `is-bluetooth` | Returns if the device has Bluetooth or not.       |
-| `is-wifi`      | Returns if the device has WiFi or not.            |
-| `is-wired`     | Returns if the device is wired or not.            |
-| `reboot`       | Reboots the device.                               |
-| `unadopt`      | Unadopt/Unmanage adopted device.                  |
-| `update`       | Updates the device.                               |
+| Command   | Description                                       |
+| --------- | ------------------------------------------------- |
+| `adopt`   | Adopts a device.                                  |
+| `bridge`  | Returns bridge device if connected via Bluetooth. |
+| `reboot`  | Reboots the device.                               |
+| `unadopt` | Unadopt/Unmanage adopted device.                  |
+| `update`  | Updates the device.                               |
 
 Most of these are unavailable in public-only mode; see the list under
 [Public-only mode](#public-only-mode).
