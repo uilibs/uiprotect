@@ -50,7 +50,7 @@ packaging = ">=26.2"
 pillow = { version = ">=12.3.0", optional = true }
 platformdirs = ">=4.11.11"
 pydantic = ">=2.13.4"
-yarl = ">=1.24.5"
+yarl = ">=1.25.1"
 typer = { version = ">=0.27.2", optional = true }
 convertertools = ">=0.5.0"
 propcache = ">=0.5.2"
