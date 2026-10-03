@@ -43,17 +43,17 @@ python = ">=3.11"
 rich = { version = ">=15.0.0", optional = true }
 aiofiles = ">=24"
 aiohttp = ">=3.14.3"
-av = ">=17.0.1"
+av = ">=18.1.0"
 dateparser = { version = ">=1.4.3", optional = true }
-orjson = ">=3.11.9"
-packaging = ">=26.2"
+orjson = ">=3.12.0"
+packaging = ">=26.3"
 pillow = { version = ">=12.3.0", optional = true }
-platformdirs = ">=4.11.11"
-pydantic = ">=2.13.4"
-yarl = ">=1.24.5"
+platformdirs = ">=4.12.2"
+pydantic = ">=2.13.5"
+yarl = ">=1.25.1"
 typer = { version = ">=0.27.2", optional = true }
 convertertools = ">=0.5.0"
-propcache = ">=0.5.2"
+propcache = ">=0.5.4"
 pydantic-extra-types = ">=2.10.1"
 aiozoneinfo = ">=0.2.3"
 
