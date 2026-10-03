@@ -344,7 +344,6 @@ class SampleDataGenerator:
                 and event_dict["type"] == EventType.MOTION.value
                 and event_dict["camera"] is not None
                 and event_dict["thumbnail"] is not None
-                and event_dict["heatmap"] is not None
                 and event_dict["end"] is not None
             ):
                 motion_event = deepcopy(event_dict)
@@ -405,13 +404,13 @@ class SampleDataGenerator:
         # Check if camera has channels
         if not obj.get("channels") or len(obj["channels"]) == 0:
             self.log(
-                "Camera has no channels, skipping snapshot, thumbnail and heatmap generation",
+                "Camera has no channels, skipping snapshot and thumbnail generation",
             )
             return
 
         if not camera_is_online:
             self.log(
-                "Camera is not online, skipping snapshot, thumbnail and heatmap generation",
+                "Camera is not online, skipping snapshot and thumbnail generation",
             )
             return
 
