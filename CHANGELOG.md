@@ -1,5 +1,13 @@
 # Changelog
 
+## v18.0.0 (2026-10-03)
+
+### Features
+
+
+- Remove private-api members nothing uses ([`c1c6beb`](https://github.com/uilibs/uiprotect/commit/c1c6bebc5dabde773142172d3c6658b66ca930ec))
+
+
 ## v17.7.0 (2026-09-30)
 
 ### Features
