@@ -25,7 +25,14 @@ from ..data import (
     Sensor,
     Viewer,
 )
-from ..data.public_devices import PublicCamera, PublicDeviceModel
+from ..data.public_devices import (
+    PublicCamera,
+    PublicChime,
+    PublicDeviceModel,
+    PublicLight,
+    PublicSensor,
+    PublicViewer,
+)
 from ..exceptions import BadRequest, NvrError, StreamError
 from ..utils import run_async
 
@@ -244,6 +251,10 @@ async def _close_protect(protect: ProtectApiClient) -> None:
     await protect.close_public_api_session()
 
 
+_PublicT = TypeVar("_PublicT", bound=PublicDeviceModel)
+
+_RENAMABLE = (PublicCamera, PublicChime, PublicLight, PublicSensor, PublicViewer)
+
 _PUBLIC_GETTERS: tuple[tuple[type[ProtectAdoptableDeviceModel], str], ...] = (
     (Camera, "get_camera_public"),
     (Chime, "get_chime_public"),
@@ -253,13 +264,18 @@ _PUBLIC_GETTERS: tuple[tuple[type[ProtectAdoptableDeviceModel], str], ...] = (
 )
 
 
-def public_device(ctx: typer.Context) -> Any:
-    """The selected device's public model, fetched by id when it is a private one."""
-    device: ProtectAdoptableDeviceModel | PublicDeviceModel = ctx.obj.device
-    if isinstance(device, PublicDeviceModel):
-        return device
-    getter = next(name for cls, name in _PUBLIC_GETTERS if isinstance(device, cls))
-    return run(ctx, getattr(ctx.obj.protect, getter)(device.id))
+def public_device(ctx: typer.Context, cls: type[_PublicT]) -> _PublicT:
+    """The selected device as a ``cls``, fetched by id when it is a private one."""
+    device = ctx.obj.device
+    getter = next(
+        (name for private, name in _PUBLIC_GETTERS if isinstance(device, private)),
+        None,
+    )
+    if getter is not None:
+        device = run(ctx, getattr(ctx.obj.protect, getter)(device.id))
+    if not isinstance(device, cls):
+        raise TypeError(f"{type(device).__name__} is not a {cls.__name__}")
+    return device
 
 
 def device_map(ctx: typer.Context, attr: str) -> dict[str, Any]:
@@ -365,14 +381,16 @@ def set_name(ctx: typer.Context, name: str | None = typer.Argument(None)) -> Non
     """Sets name for the device"""
     # The public API cannot express clearing a name, so that keeps the private
     # path and is unavailable in public-only mode.
-    require_device_id(ctx, public_ok=name is not None)
-    device: NVR | ProtectAdoptableDeviceModel | PublicDeviceModel = ctx.obj.device
-    if isinstance(device, PublicDeviceModel) or (
-        name is not None and isinstance(device, (Camera, Chime, Light, Sensor, Viewer))
-    ):
-        run(ctx, public_device(ctx).set_name(name))
+    if name is None or isinstance(ctx.obj.device, NVR):
+        require_device_id(ctx)
+        obj: NVR | ProtectAdoptableDeviceModel = ctx.obj.device
+        run(ctx, obj.set_name(name))
         return
-    run(ctx, device.set_name(name))
+    require_device_id(ctx, public_ok=True)
+    public = public_device(ctx, PublicDeviceModel)
+    if not isinstance(public, _RENAMABLE):
+        raise TypeError(f"{type(public).__name__} cannot be renamed")
+    run(ctx, public.set_name(name))
 
 
 def update(ctx: typer.Context, data: str) -> None:

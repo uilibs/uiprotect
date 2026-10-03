@@ -76,7 +76,7 @@ def camera(ctx: typer.Context, camera_id: str | None = typer.Argument(None)) -> 
 def set_status_light(ctx: typer.Context, enabled: bool) -> None:
     """Sets status light for light device."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicLight = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicLight)
 
     base.run(ctx, obj.set_status_light(enabled))
 
@@ -88,7 +88,7 @@ def set_led_level(
 ) -> None:
     """Sets brightness of LED on light."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicLight = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicLight)
 
     base.run(ctx, obj.set_led_level(led_level))
 
@@ -100,7 +100,7 @@ def set_sensitivity(
 ) -> None:
     """Sets motion sensitivity for the light."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicLight = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicLight)
 
     base.run(ctx, obj.set_sensitivity(sensitivity))
 
@@ -112,7 +112,7 @@ def set_duration(
 ) -> None:
     """Sets timeout duration (in seconds) for light."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicLight = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicLight)
 
     base.run(ctx, obj.set_duration(timedelta(seconds=duration)))
 
@@ -121,6 +121,6 @@ def set_duration(
 def set_flood_light(ctx: typer.Context, enabled: bool) -> None:
     """Sets flood light (force on) for light device."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicLight = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicLight)
 
     base.run(ctx, obj.set_flood_light(enabled))
