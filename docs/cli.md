@@ -87,9 +87,10 @@ prompt: without an API key they fail with an "API key is required" error.
 In hybrid mode, the device commands that also work on the API key alone
 (`set-name NAME`, the public setters, the sensor reads other than
 `is-alarm-detected` and `is-alarm-enabled`, `chimes set-volume` and
-`set-repeat-times` with `--camera`, `cameras save-snapshot --package`) fetch
-the device from the public API and act on it there, as in public-only mode, so
-they need an API key.
+`set-repeat-times` with `--camera`) fetch the device from the public API and
+act on it there, as in public-only mode, so they need an API key.
+`cameras save-snapshot --package` reads the camera from the private bootstrap
+but requests the snapshot from the public API, so it needs an API key too.
 
 ## Timezones
 
