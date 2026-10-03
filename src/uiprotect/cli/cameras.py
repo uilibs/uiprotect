@@ -367,7 +367,7 @@ def set_ir_led_mode(ctx: typer.Context, mode: d.IRLEDMode) -> None:
 def set_status_light(ctx: typer.Context, enabled: bool) -> None:
     """Sets status indicicator light on camera"""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicCamera = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicCamera)
 
     base.run(ctx, obj.set_status_light(enabled))
 
@@ -376,7 +376,7 @@ def set_status_light(ctx: typer.Context, enabled: bool) -> None:
 def set_hdr(ctx: typer.Context, mode: d.PublicHdrMode) -> None:
     """Sets HDR (High Dynamic Range) mode on camera"""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicCamera = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicCamera)
 
     base.run(ctx, obj.set_hdr_mode(mode))
 
@@ -407,7 +407,7 @@ def set_person_track(ctx: typer.Context, enabled: bool) -> None:
 def set_video_mode(ctx: typer.Context, mode: d.VideoMode) -> None:
     """Sets video mode on camera"""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicCamera = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicCamera)
 
     base.run(ctx, obj.set_video_mode(mode))
 
@@ -443,7 +443,7 @@ def set_mic_volume(
 ) -> None:
     """Sets the mic sensitivity level on camera"""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicCamera = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicCamera)
 
     base.run(ctx, obj.set_mic_volume(level))
 
@@ -497,7 +497,7 @@ def set_system_sounds(ctx: typer.Context, enabled: bool) -> None:
 def set_osd_name(ctx: typer.Context, enabled: bool) -> None:
     """Sets whether camera name is in the On Screen Display"""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicCamera = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicCamera)
 
     base.run(ctx, obj.set_osd_name(enabled))
 
@@ -506,7 +506,7 @@ def set_osd_name(ctx: typer.Context, enabled: bool) -> None:
 def set_osd_date(ctx: typer.Context, enabled: bool) -> None:
     """Sets whether current date is in the On Screen Display"""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicCamera = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicCamera)
 
     base.run(ctx, obj.set_osd_date(enabled))
 
@@ -515,7 +515,7 @@ def set_osd_date(ctx: typer.Context, enabled: bool) -> None:
 def set_osd_logo(ctx: typer.Context, enabled: bool) -> None:
     """Sets whether the UniFi logo is in the On Screen Display"""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicCamera = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicCamera)
 
     base.run(ctx, obj.set_osd_logo(enabled))
 
@@ -524,7 +524,7 @@ def set_osd_logo(ctx: typer.Context, enabled: bool) -> None:
 def set_osd_bitrate(ctx: typer.Context, enabled: bool) -> None:
     """Sets whether camera bitrate is in the On Screen Display"""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicCamera = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicCamera)
 
     base.run(ctx, obj.set_osd_nerd_mode(enabled))
 
@@ -562,20 +562,14 @@ def set_lcd_text(
     """
     base.require_device_id(ctx, public_ok=True)
 
-    if text_type is None:
-        # The public setter rejects a reset time on a clear; say so here rather
-        # than dropping the option on the floor.
-        if reset_at is not None:
-            typer.secho(
-                "--reset-time does not apply when clearing the message", fg="red"
-            )
-            raise typer.Exit(1)
-        obj: PublicCamera = base.public_device(ctx)
-        base.run(ctx, obj.set_lcd_message(None))
-        return
+    # The public setter rejects a reset time on a clear; say so here rather
+    # than dropping the option on the floor.
+    if text_type is None and reset_at is not None:
+        typer.secho("--reset-time does not apply when clearing the message", fg="red")
+        raise typer.Exit(1)
 
     reset = _parse_reset_time(reset_at)
-    obj = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicCamera)
     base.run(ctx, obj.set_lcd_message(text_type, text, reset))
 
 

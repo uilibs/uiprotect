@@ -8,30 +8,10 @@ from typing import TYPE_CHECKING
 import pytest
 
 from tests.conftest import TEST_CAMERA_EXISTS, TEST_LIGHT_EXISTS
-from uiprotect.data.public_devices import (
-    PublicLight,
-    PublicLightDeviceSettings,
-    PublicLightModeSettings,
-)
+from uiprotect.data.public_devices import PublicLightDeviceSettings
 
 if TYPE_CHECKING:
     from uiprotect.data import Camera, Light
-
-
-def _public_light_response(
-    *,
-    is_light_force_enabled: bool = False,
-    light_device_settings: PublicLightDeviceSettings | None = None,
-    light_mode_settings: PublicLightModeSettings | None = None,
-    name: str | None = None,
-) -> PublicLight:
-    """Build a minimal ``PublicLight`` for mocking ``update_light_public`` returns."""
-    return PublicLight.model_construct(
-        is_light_force_enabled=is_light_force_enabled,
-        light_device_settings=light_device_settings,
-        light_mode_settings=light_mode_settings,
-        name=name,
-    )
 
 
 @pytest.mark.skipif(not TEST_LIGHT_EXISTS, reason="Missing testdata")

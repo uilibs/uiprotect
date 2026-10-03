@@ -143,7 +143,7 @@ def set_volume(
         if camera is None:
             typer.secho(f"Invalid camera ID: {camera_id}", fg="red")
             raise typer.Exit(1)
-        public: PublicChime = base.public_device(ctx)
+        public = base.public_device(ctx, PublicChime)
         base.run(ctx, public.set_volume_for_camera(camera.id, value))
 
 
@@ -193,7 +193,7 @@ def set_repeat_times(
         if camera is None:
             typer.secho(f"Invalid camera ID: {camera_id}", fg="red")
             raise typer.Exit(1)
-        public: PublicChime = base.public_device(ctx)
+        public = base.public_device(ctx, PublicChime)
         base.run(ctx, public.set_repeat_times_for_camera(camera.id, value))
 
 

@@ -994,7 +994,7 @@ _SETTER_CASES = [
         cameras_cli.set_lcd_text,
         call(None, None, None),
         "set_lcd_message",
-        call(None),
+        call(None, None, DEFAULT),
     ),
     (*_LIGHT, lights_cli.set_status_light, call(True), "set_status_light", None),
     (*_LIGHT, lights_cli.set_led_level, call(4), "set_led_level", None),
@@ -2323,3 +2323,54 @@ def test_removed_commands_are_gone(group, command) -> None:
     """Commands dropped with their private-API members are no longer registered."""
     group_command = typer.main.get_command(app).commands[group]
     assert command not in group_command.commands
+
+
+def _hybrid_camera_bootstrap() -> MagicMock:
+    return _private_bootstrap_with("cameras", _private_device(Camera))
+
+
+def test_hybrid_public_fetch_without_api_key_exits_cleanly() -> None:
+    """A hybrid public setter with no API key exits 1 with the error, no traceback."""
+    result = _invoke_hybrid(
+        _hybrid_camera_bootstrap(), "cameras", "dev-1", "set-status-light", "true"
+    )
+
+    assert result.exit_code == 1, result.output
+    assert isinstance(result.exception, SystemExit)
+    assert "API key is required" in result.output
+
+
+def test_hybrid_public_fetch_not_found_exits_cleanly() -> None:
+    """A hybrid public fetch answered with a 404 exits 1 with the error."""
+    response = MagicMock(status=404, url="https://192.0.2.10/cameras/dev-1")
+    with (
+        patch.object(ProtectApiClient, "request", AsyncMock(return_value=response)),
+        patch("uiprotect.api.get_response_reason", AsyncMock(return_value="Not Found")),
+    ):
+        result = _invoke_hybrid(
+            _hybrid_camera_bootstrap(),
+            "--api-key",
+            "k",
+            "cameras",
+            "dev-1",
+            "set-status-light",
+            "true",
+        )
+
+    assert result.exit_code == 1, result.output
+    assert isinstance(result.exception, SystemExit)
+    assert "Status: 404" in result.output
+
+
+def test_public_device_rejects_a_device_of_another_kind() -> None:
+    """``public_device`` raises when the selected device is not the asked-for kind."""
+    ctx, _light, _protect = _device_ctx(PublicLight)
+    with pytest.raises(TypeError, match="is not a PublicCamera"):
+        base_cli.public_device(ctx, PublicCamera)
+
+
+def test_set_name_rejects_a_public_device_without_a_name_setter() -> None:
+    """``set-name`` refuses a public device kind that cannot be renamed."""
+    ctx, _device, _protect = _device_ctx(PublicDeviceModel)
+    with pytest.raises(TypeError, match="cannot be renamed"):
+        base_cli.set_name(ctx, "New name")

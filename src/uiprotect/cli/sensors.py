@@ -75,7 +75,7 @@ def camera(ctx: typer.Context, camera_id: str | None = typer.Argument(None)) -> 
 def is_tampering_detected(ctx: typer.Context) -> None:
     """Returns if tampering is detected for sensor"""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
     base.json_output(obj.is_tampering_detected)
 
 
@@ -91,7 +91,7 @@ def is_alarm_detected(ctx: typer.Context) -> None:
 def is_contact_enabled(ctx: typer.Context) -> None:
     """Returns if contact sensor is enabled for sensor"""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
     base.json_output(obj.is_contact_sensor_enabled)
 
 
@@ -99,7 +99,7 @@ def is_contact_enabled(ctx: typer.Context) -> None:
 def is_motion_enabled(ctx: typer.Context) -> None:
     """Returns if motion sensor is enabled for sensor"""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
     base.json_output(obj.is_motion_sensor_enabled)
 
 
@@ -115,7 +115,7 @@ def is_alarm_enabled(ctx: typer.Context) -> None:
 def is_light_enabled(ctx: typer.Context) -> None:
     """Returns if light sensor is enabled for sensor"""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
     base.json_output(obj.is_light_sensor_enabled)
 
 
@@ -123,7 +123,7 @@ def is_light_enabled(ctx: typer.Context) -> None:
 def is_temperature_enabled(ctx: typer.Context) -> None:
     """Returns if temperature sensor is enabled for sensor"""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
     base.json_output(obj.is_temperature_sensor_enabled)
 
 
@@ -131,7 +131,7 @@ def is_temperature_enabled(ctx: typer.Context) -> None:
 def is_humidity_enabled(ctx: typer.Context) -> None:
     """Returns if humidity sensor is enabled for sensor"""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
     base.json_output(obj.is_humidity_sensor_enabled)
 
 
@@ -157,7 +157,7 @@ def set_mount_type(ctx: typer.Context, mount_type: MountType) -> None:
 def set_motion(ctx: typer.Context, enabled: bool) -> None:
     """Sets motion sensor status for sensor device."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
 
     base.run(ctx, obj.set_motion_status(enabled))
 
@@ -166,7 +166,7 @@ def set_motion(ctx: typer.Context, enabled: bool) -> None:
 def set_temperature(ctx: typer.Context, enabled: bool) -> None:
     """Sets temperature sensor status for sensor device."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
 
     base.run(ctx, obj.set_temperature_status(enabled))
 
@@ -175,7 +175,7 @@ def set_temperature(ctx: typer.Context, enabled: bool) -> None:
 def set_humidity(ctx: typer.Context, enabled: bool) -> None:
     """Sets humidity sensor status for sensor device."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
 
     base.run(ctx, obj.set_humidity_status(enabled))
 
@@ -184,7 +184,7 @@ def set_humidity(ctx: typer.Context, enabled: bool) -> None:
 def set_light(ctx: typer.Context, enabled: bool) -> None:
     """Sets light sensor status for sensor device."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
 
     base.run(ctx, obj.set_light_status(enabled))
 
@@ -193,7 +193,7 @@ def set_light(ctx: typer.Context, enabled: bool) -> None:
 def set_alarm(ctx: typer.Context, enabled: bool) -> None:
     """Sets alarm sensor status for sensor device."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
 
     base.run(ctx, obj.set_alarm(enabled))
 
@@ -205,7 +205,7 @@ def set_motion_sensitivity(
 ) -> None:
     """Sets motion sensitivity for the sensor."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
 
     base.run(ctx, obj.set_motion_sensitivity(sensitivity))
 
@@ -219,7 +219,7 @@ def set_temperature_range(
     """Sets temperature safe range (in °C). Anything out side of range will trigger event."""
     base.require_device_id(ctx, public_ok=True)
     _require_ordered_range(low, high)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
     base.run(
         ctx,
         obj.set_temperature_settings(low_threshold=low, high_threshold=high),
@@ -235,7 +235,7 @@ def set_humidity_range(
     """Sets humidity safe range (in relative % humidity). Anything out side of range will trigger event."""
     base.require_device_id(ctx, public_ok=True)
     _require_ordered_range(low, high)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
     base.run(
         ctx,
         obj.set_humidity_settings(low_threshold=low, high_threshold=high),
@@ -251,7 +251,7 @@ def set_light_range(
     """Sets light safe range (in lux). Anything out side of range will trigger event."""
     base.require_device_id(ctx, public_ok=True)
     _require_ordered_range(low, high)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
     base.run(
         ctx,
         obj.set_light_settings(low_threshold=low, high_threshold=high),
@@ -268,7 +268,7 @@ def set_temperature_settings_public(
 ) -> None:
     """Updates temperature alert settings via the public API."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
 
     base.run(
         ctx,
@@ -291,7 +291,7 @@ def set_humidity_settings_public(
 ) -> None:
     """Updates humidity alert settings via the public API."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
 
     base.run(
         ctx,
@@ -314,7 +314,7 @@ def set_light_settings_public(
 ) -> None:
     """Updates light (lux) alert settings via the public API."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
 
     base.run(
         ctx,
@@ -336,7 +336,7 @@ def set_motion_settings_public(
 ) -> None:
     """Updates motion detection settings via the public API."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
 
     base.run(
         ctx,
@@ -357,7 +357,7 @@ def set_glass_break_settings_public(
 ) -> None:
     """Updates glass-break detection settings via the public API."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
 
     base.run(
         ctx,
@@ -373,7 +373,7 @@ def set_glass_break_settings_public(
 def set_glass_break_public(ctx: typer.Context, enabled: bool) -> None:
     """Toggles glass-break detection via the public API."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
 
     base.run(ctx, obj.set_glass_break_status(enabled))
 
@@ -382,7 +382,7 @@ def set_glass_break_public(ctx: typer.Context, enabled: bool) -> None:
 def set_schedule_mode_public(ctx: typer.Context, mode: SensorScheduleMode) -> None:
     """Sets the arm-schedule mode via the public API."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
 
     base.run(ctx, obj.set_schedule_mode(mode))
 
@@ -391,7 +391,7 @@ def set_schedule_mode_public(ctx: typer.Context, mode: SensorScheduleMode) -> No
 def set_arm_profiles_public(ctx: typer.Context, arm_profile_ids: list[str]) -> None:
     """Sets the arm-profile ids via the public API."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
 
     base.run(ctx, obj.set_arm_profile_ids(arm_profile_ids))
 
@@ -400,7 +400,7 @@ def set_arm_profiles_public(ctx: typer.Context, arm_profile_ids: list[str]) -> N
 def set_custom_sensitivity_public(ctx: typer.Context, enabled: bool) -> None:
     """Toggles custom armed sensitivity via the public API."""
     base.require_device_id(ctx, public_ok=True)
-    obj: PublicSensor = base.public_device(ctx)
+    obj = base.public_device(ctx, PublicSensor)
 
     base.run(ctx, obj.set_custom_sensitivity_when_armed(enabled))
 

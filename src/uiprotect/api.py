@@ -217,7 +217,7 @@ TOKEN_COOKIE_MAX_EXP_SECONDS = 60
 DEVICE_UPDATE_INTERVAL = 900
 # Seconds within which every websocket-less public store is refetched once
 PUBLIC_REFRESH_INTERVAL = 900.0
-# retry timeout for thumbnails/heatmaps
+# retry timeout for event thumbnails
 RETRY_TIMEOUT = 10
 
 RETRY_DEFAULT_ATTEMPTS = 3
@@ -3612,9 +3612,9 @@ class ProtectApiClient(BaseApiClient):
         **kwargs: Any,
     ) -> bytes | None:
         """
-        Retries image request until it returns or timesout. Used for event images like thumbnails and heatmaps.
+        Retries image request until it returns or timesout. Used for event images like thumbnails.
 
-        Note: thumbnails / heatmaps do not generate _until after the event ends_. Events that last longer then
+        Note: thumbnails do not generate _until after the event ends_. Events that last longer then
         your retry timeout will always return None.
         """
         now = time.monotonic()
@@ -3640,7 +3640,7 @@ class ProtectApiClient(BaseApiClient):
 
         Thumbnail response is a JPEG image.
 
-        Note: thumbnails / heatmaps do not generate _until after the event ends_. Events that last longer then
+        Note: thumbnails do not generate _until after the event ends_. Events that last longer then
         your retry timeout will always return 404.
         """
         params: dict[str, Any] = {}
@@ -3673,7 +3673,7 @@ class ProtectApiClient(BaseApiClient):
 
         Animated thumbnail response is a GIF image.
 
-        Note: thumbnails / do not generate _until after the event ends_. Events that last longer then
+        Note: thumbnails do not generate _until after the event ends_. Events that last longer then
         your retry timeout will always return 404.
         """
         params: dict[str, Any] = {
