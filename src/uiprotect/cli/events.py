@@ -196,27 +196,6 @@ def save_animated_thumbnail(
 
 
 @app.command()
-def save_heatmap(
-    ctx: typer.Context,
-    output_path: Path = typer.Argument(..., help="PNG format"),
-) -> None:
-    """
-    Saves heatmap for event.
-
-    Only motion events have heatmaps.
-    """
-    require_event_id(ctx)
-    event: d.Event = ctx.obj.event
-
-    heatmap = base.run(ctx, event.get_heatmap())
-    if heatmap is None:
-        typer.secho("Could not get heatmap", fg="red")
-        raise typer.Exit(1)
-
-    Path(output_path).write_bytes(heatmap)
-
-
-@app.command()
 def save_video(
     ctx: typer.Context,
     output_path: Path = typer.Argument(..., help="MP4 format"),

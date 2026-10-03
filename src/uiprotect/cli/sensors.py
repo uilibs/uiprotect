@@ -259,33 +259,6 @@ def set_light_range(
 
 
 @app.command()
-def remove_temperature_range(ctx: typer.Context) -> None:
-    """Removes temperature safe ranges so events will no longer fire."""
-    base.require_device_id(ctx)
-    obj: Sensor = ctx.obj.device
-
-    base.run(ctx, obj.remove_temperature_safe_range())
-
-
-@app.command()
-def remove_humidity_range(ctx: typer.Context) -> None:
-    """Removes humidity safe ranges so events will no longer fire."""
-    base.require_device_id(ctx)
-    obj: Sensor = ctx.obj.device
-
-    base.run(ctx, obj.remove_humidity_safe_range())
-
-
-@app.command()
-def remove_light_range(ctx: typer.Context) -> None:
-    """Removes light safe ranges so events will no longer fire."""
-    base.require_device_id(ctx)
-    obj: Sensor = ctx.obj.device
-
-    base.run(ctx, obj.remove_light_safe_range())
-
-
-@app.command()
 def set_temperature_settings_public(
     ctx: typer.Context,
     is_enabled: bool | None = typer.Option(None),

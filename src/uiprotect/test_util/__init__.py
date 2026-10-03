@@ -440,7 +440,7 @@ class SampleDataGenerator:
         motion_event: dict[str, Any] | None,
     ) -> None:
         if motion_event is None:
-            self.log("No motion event, skipping thumbnail and heatmap generation...")
+            self.log("No motion event, skipping thumbnail generation...")
             return
 
         # event thumbnail
@@ -454,18 +454,6 @@ class SampleDataGenerator:
             img = await self.client.get_event_thumbnail(thumbnail_id)
             await self.write_image_file(filename, img)
         self.constants["camera_thumbnail"] = thumbnail_id
-
-        # event heatmap
-        filename = "sample_camera_heatmap"
-        heatmap_id = motion_event["heatmap"]
-        if self.anonymize:
-            self.log(f"Writing {filename}...")
-            placeholder_image(self.output_folder / f"{filename}.png", 640, 360)
-            heatmap_id = anonymize_prefixed_event_id(heatmap_id)
-        else:
-            img = await self.client.get_event_heatmap(heatmap_id)
-            await self.write_image_file(filename, img)
-        self.constants["camera_heatmap"] = heatmap_id
 
         # event video
         filename = "sample_camera_video"

@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import cast
 
 import typer
 from rich.progress import Progress
@@ -69,17 +68,6 @@ def main(ctx: typer.Context, device_id: str | None = ARG_DEVICE_ID) -> None:
 
 
 @app.command()
-def timelapse_url(ctx: typer.Context) -> None:
-    """Returns UniFi Protect timelapse URL."""
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
-    if ctx.obj.output_format == base.OutputFormatEnum.JSON:
-        base.json_output(obj.timelapse_url)
-    else:
-        typer.echo(obj.timelapse_url)
-
-
-@app.command()
 def privacy_mode(
     ctx: typer.Context,
     enabled: bool | None = typer.Argument(None),
@@ -115,30 +103,6 @@ def chime_type(ctx: typer.Context, value: d.ChimeType | None = None) -> None:
         return
 
     base.run(ctx, obj.set_chime_type(value))
-
-
-@app.command()
-def stream_urls(ctx: typer.Context) -> None:
-    """Returns all of the enabled RTSP(S) URLs."""
-    base.require_device_id(ctx)
-    obj: d.Camera = ctx.obj.device
-    data: list[tuple[str, str]] = []
-    for channel in obj.channels:
-        if channel.is_rtsp_enabled:
-            rtsp_url = cast("str", channel.rtsp_url)
-            rtsps_url = cast("str", channel.rtsps_url)
-            data.extend(
-                (
-                    (f"{channel.name} RTSP", rtsp_url),
-                    (f"{channel.name} RTSPS", rtsps_url),
-                ),
-            )
-
-    if ctx.obj.output_format == base.OutputFormatEnum.JSON:
-        base.json_output(data)
-    else:
-        for name, url in data:
-            typer.echo(f"{name:20}\t{url}")
 
 
 @app.command()

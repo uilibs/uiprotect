@@ -342,27 +342,6 @@ def protect_url(ctx: typer.Context) -> None:
         typer.echo(obj.protect_url)
 
 
-def is_wired(ctx: typer.Context) -> None:
-    """Returns if the device is wired or not."""
-    require_device_id(ctx)
-    obj: ProtectAdoptableDeviceModel = ctx.obj.device
-    json_output(obj.is_wired)
-
-
-def is_wifi(ctx: typer.Context) -> None:
-    """Returns if the device has WiFi or not."""
-    require_device_id(ctx)
-    obj: ProtectAdoptableDeviceModel = ctx.obj.device
-    json_output(obj.is_wifi)
-
-
-def is_bluetooth(ctx: typer.Context) -> None:
-    """Returns if the device has Bluetooth or not."""
-    require_device_id(ctx)
-    obj: ProtectAdoptableDeviceModel = ctx.obj.device
-    json_output(obj.is_bluetooth)
-
-
 def bridge(ctx: typer.Context) -> None:
     """Returns bridge device if connected via Bluetooth."""
     require_device_id(ctx)
@@ -447,9 +426,6 @@ def init_common_commands(
     device_commands: dict[str, Callable[..., Any]] = {}
 
     deviceless_commands["list-ids"] = app.command()(list_ids)
-    device_commands["is-wired"] = app.command()(is_wired)
-    device_commands["is-wifi"] = app.command()(is_wifi)
-    device_commands["is-bluetooth"] = app.command()(is_bluetooth)
     device_commands["bridge"] = app.command()(bridge)
     device_commands["set-ssh"] = app.command()(set_ssh)
     device_commands["set-name"] = app.command()(set_name)

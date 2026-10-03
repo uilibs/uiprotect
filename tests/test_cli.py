@@ -1369,7 +1369,7 @@ def test_sensor_set_range_rejects_inverted_bounds(command, setter) -> None:
         lambda ctx: base_cli.set_ssh(ctx, True),
         lambda ctx: base_cli.reboot(ctx, force=True),
         lambda ctx: base_cli.adopt(ctx, None),
-        base_cli.is_wired,
+        base_cli.bridge,
         lambda ctx: cameras_cli.set_recording_mode(ctx, RecordingMode.ALWAYS),
         lambda ctx: cameras_cli.set_camera_zoom(ctx, 10),
     ],
@@ -2119,7 +2119,6 @@ def test_key_only_camera_save_snapshot_without_package_exits(tmp_path) -> None:
     "command",
     [
         sensors_cli.is_alarm_detected,
-        sensors_cli.remove_temperature_range,
         lambda ctx: sensors_cli.set_mount_type(ctx, MagicMock()),
         lambda ctx: sensors_cli.set_status_light(ctx, True),
         lambda ctx: sensors_cli.camera(ctx, None),
@@ -2297,3 +2296,28 @@ def test_hybrid_viewer_liveview_clear() -> None:
     ctx, _viewer, protect = _make_viewer_ctx(liveview_ids=[])
     liveview(ctx, "NULL")
     protect.update_viewer_public.assert_awaited_once_with("viewer-1", liveview=None)
+
+
+@pytest.mark.parametrize(
+    ("group", "command"),
+    [
+        ("sensors", "remove-temperature-range"),
+        ("sensors", "remove-humidity-range"),
+        ("sensors", "remove-light-range"),
+        ("nvr", "set-smart-detections"),
+        ("nvr", "set-face-recognition"),
+        ("nvr", "set-license-plate-recognition"),
+        ("nvr", "set-default-reset-timeout"),
+        ("nvr", "set-default-doorbell-message"),
+        ("cameras", "timelapse-url"),
+        ("cameras", "stream-urls"),
+        ("cameras", "is-wired"),
+        ("lights", "is-wifi"),
+        ("sensors", "is-bluetooth"),
+        ("events", "save-heatmap"),
+    ],
+)
+def test_removed_commands_are_gone(group, command) -> None:
+    """Commands dropped with their private-API members are no longer registered."""
+    group_command = typer.main.get_command(app).commands[group]
+    assert command not in group_command.commands
