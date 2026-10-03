@@ -616,17 +616,15 @@ def _make_chime_ctx(
     cameras_map: dict[str, MagicMock] | None = None,
 ):
     """Build a typer context double wired to mocked chime + client."""
-    chime = MagicMock()
+    chime = MagicMock(spec=Chime)
     chime.id = "chime-1"
     chime.ring_settings = ring_settings if ring_settings is not None else []
     chime.camera_ids = camera_ids if camera_ids is not None else []
     chime.cameras = []
-    chime.set_volume_for_camera_public = AsyncMock()
-    chime.set_ring_settings_public = AsyncMock()
-    chime.set_repeat_times_for_camera_public = AsyncMock()
 
     protect = MagicMock(is_public_only=False)
     protect.update_chime_public = AsyncMock()
+    _serve_public(protect, PublicChime, id="chime-1")
     protect.close_session = AsyncMock()
     protect.close_public_api_session = AsyncMock()
     protect.bootstrap.cameras = cameras_map if cameras_map is not None else {}
@@ -772,25 +770,27 @@ def test_chime_set_volume_whole_device_uses_ring_settings() -> None:
 
 
 def test_chime_set_volume_per_camera_uses_public_wrapper() -> None:
-    """Per-camera volume uses set_volume_for_camera_public."""
+    """Per-camera volume goes through the public chime."""
     camera = _doorbell_camera("cam-1")
-    ctx, chime, protect = _make_chime_ctx(cameras_map={"cam-1": camera})
+    ctx, _chime, protect = _make_chime_ctx(cameras_map={"cam-1": camera})
 
     set_volume(ctx, value=55, camera_id="cam-1")
 
-    chime.set_volume_for_camera_public.assert_awaited_once_with(camera, 55)
+    public = protect.get_chime_public.return_value
+    public.set_volume_for_camera.assert_awaited_once_with("cam-1", 55)
+    protect.get_chime_public.assert_awaited_once_with("chime-1")
     protect.update_chime_public.assert_not_called()
 
 
 def test_chime_set_volume_per_camera_invalid_id_rejected() -> None:
     """Per-camera volume with unknown camera exits 1."""
-    ctx, chime, _protect = _make_chime_ctx(cameras_map={})
+    ctx, _chime, protect = _make_chime_ctx(cameras_map={})
 
     with pytest.raises(typer.Exit) as exc:
         set_volume(ctx, value=55, camera_id="nope")
 
     assert exc.value.exit_code == 1
-    chime.set_volume_for_camera_public.assert_not_called()
+    protect.get_chime_public.return_value.set_volume_for_camera.assert_not_called()
 
 
 def test_chime_set_repeat_times_whole_device_uses_ring_settings() -> None:
@@ -841,25 +841,27 @@ def test_chime_whole_device_without_ringtone_reports_error(
 
 
 def test_chime_set_repeat_times_per_camera_uses_public_wrapper() -> None:
-    """Per-camera repeat delegates to set_repeat_times_for_camera_public."""
+    """Per-camera repeat goes through the public chime."""
     camera = _doorbell_camera("cam-1")
-    ctx, chime, protect = _make_chime_ctx(cameras_map={"cam-1": camera})
+    ctx, _chime, protect = _make_chime_ctx(cameras_map={"cam-1": camera})
 
     set_repeat_times(ctx, value=5, camera_id="cam-1")
 
-    chime.set_repeat_times_for_camera_public.assert_awaited_once_with(camera, 5)
+    public = protect.get_chime_public.return_value
+    public.set_repeat_times_for_camera.assert_awaited_once_with("cam-1", 5)
+    protect.get_chime_public.assert_awaited_once_with("chime-1")
     protect.update_chime_public.assert_not_called()
 
 
 def test_chime_set_repeat_times_per_camera_invalid_id_rejected() -> None:
     """Per-camera repeat with unknown camera exits 1."""
-    ctx, chime, _protect = _make_chime_ctx(cameras_map={})
+    ctx, _chime, protect = _make_chime_ctx(cameras_map={})
 
     with pytest.raises(typer.Exit) as exc:
         set_repeat_times(ctx, value=5, camera_id="nope")
 
     assert exc.value.exit_code == 1
-    chime.set_repeat_times_for_camera_public.assert_not_called()
+    protect.get_chime_public.return_value.set_repeat_times_for_camera.assert_not_called()
 
 
 def _make_viewer_ctx(liveview_ids: list[str] | None = None):
@@ -921,6 +923,22 @@ def _device_ctx(model_class, **attrs):
     ctx.obj.protect = protect
     ctx.obj.output_format = base_cli.OutputFormatEnum.JSON
     return ctx, device, protect
+
+
+_PUBLIC_GETTERS = {
+    PublicCamera: "get_camera_public",
+    PublicChime: "get_chime_public",
+    PublicLight: "get_light_public",
+    PublicSensor: "get_sensor_public",
+    PublicViewer: "get_viewer_public",
+}
+
+
+def _serve_public(protect: MagicMock, public_class, **attrs) -> MagicMock:
+    """Serve the selected device's public model from its by-id getter."""
+    public = MagicMock(spec=public_class, **{"id": "device-1", **attrs})
+    setattr(protect, _PUBLIC_GETTERS[public_class], AsyncMock(return_value=public))
+    return public
 
 
 def test_sensor_help() -> None:
@@ -1106,13 +1124,17 @@ _SETTER_CASES = [
 def test_setter_commands_write_through_the_public_api(
     key_only, private_class, public_class, command, cli_args, setter, expected
 ) -> None:
-    """Each setter command lands on the model's Public Integration API setter."""
-    ctx, device, _protect = _device_ctx(public_class if key_only else private_class)
+    """Each setter command lands on the public model's setter."""
+    ctx, device, protect = _device_ctx(public_class if key_only else private_class)
+    if not key_only:
+        device = _serve_public(protect, public_class)
     command(ctx, *cli_args.args, **cli_args.kwargs)
-    method = getattr(device, setter if key_only else f"{setter}_public")
-    method.assert_awaited_once_with(
+    getattr(device, setter).assert_awaited_once_with(
         *(expected or cli_args).args, **(expected or cli_args).kwargs
     )
+    if not key_only:
+        getter = getattr(protect, _PUBLIC_GETTERS[public_class])
+        getter.assert_awaited_once_with("device-1")
 
 
 def test_camera_set_hdr_rejects_unknown_mode() -> None:
@@ -1129,9 +1151,10 @@ def test_camera_set_hdr_rejects_unknown_mode() -> None:
 
 def test_camera_set_mic_volume_allows_zero() -> None:
     """``set-mic-volume 0`` (mute) passes typer's ``min=0`` validator."""
-    ctx, camera, _protect = _device_ctx(Camera)
+    ctx, _camera, protect = _device_ctx(Camera)
+    camera = _serve_public(protect, PublicCamera)
     cameras_cli.set_mic_volume(ctx, 0)
-    camera.set_mic_volume_public.assert_awaited_once_with(0)
+    camera.set_mic_volume.assert_awaited_once_with(0)
 
     result = runner.invoke(
         cameras_app,
@@ -1146,8 +1169,9 @@ def _invoke_set_lcd_text(*args: str) -> MagicMock:
     """Drive ``cameras cam-1 set-lcd-text`` through typer, returning the camera."""
     obj = MagicMock()
     obj.protect.is_public_only = False
-    camera = obj.protect.bootstrap.cameras.get.return_value
-    with patch.object(base_cli, "run"):
+    obj.protect.bootstrap.cameras.get.return_value = MagicMock(spec=Camera, id="cam-1")
+    camera = MagicMock(spec=PublicCamera)
+    with patch.object(base_cli, "run", side_effect=[camera, None]):
         result = runner.invoke(cameras_app, ["cam-1", "set-lcd-text", *args], obj=obj)
     assert result.exit_code == 0, result.output
     return camera
@@ -1156,7 +1180,7 @@ def _invoke_set_lcd_text(*args: str) -> MagicMock:
 def test_camera_set_lcd_text_omitted_reset_time_uses_nvr_default() -> None:
     """A bare set-lcd-text asks the console for its default reset timeout."""
     camera = _invoke_set_lcd_text("DO_NOT_DISTURB")
-    assert camera.set_lcd_message_public.call_args.args == (
+    assert camera.set_lcd_message.call_args.args == (
         DoorbellMessageType.DO_NOT_DISTURB,
         None,
         DEFAULT,
@@ -1166,7 +1190,7 @@ def test_camera_set_lcd_text_omitted_reset_time_uses_nvr_default() -> None:
 def test_camera_set_lcd_text_reset_time_never_is_forever() -> None:
     """``--reset-time never`` keeps the message until something replaces it."""
     camera = _invoke_set_lcd_text("DO_NOT_DISTURB", "--reset-time", "never")
-    assert camera.set_lcd_message_public.call_args.args == (
+    assert camera.set_lcd_message.call_args.args == (
         DoorbellMessageType.DO_NOT_DISTURB,
         None,
         None,
@@ -1186,7 +1210,7 @@ def test_camera_set_lcd_text_reset_time_timestamp(
 ) -> None:
     """A timestamp is parsed and localised to the host timezone."""
     camera = _invoke_set_lcd_text("DO_NOT_DISTURB", "--reset-time", value)
-    reset_at = camera.set_lcd_message_public.call_args.args[2]
+    reset_at = camera.set_lcd_message.call_args.args[2]
     assert reset_at.tzinfo is not None
     assert reset_at.replace(tzinfo=None) == expected
 
@@ -1205,13 +1229,14 @@ def test_camera_set_lcd_text_rejects_unparsable_reset_time() -> None:
 
 def test_camera_set_lcd_text_clear_rejects_reset_time() -> None:
     """--reset-time is not silently dropped when clearing the message."""
-    ctx, camera, _protect = _device_ctx(Camera)
+    ctx, _camera, protect = _device_ctx(Camera)
+    camera = _serve_public(protect, PublicCamera)
 
     with pytest.raises(typer.Exit) as exc:
         cameras_cli.set_lcd_text(ctx, None, None, reset_at="2026-01-01T12:00:00")
 
     assert exc.value.exit_code == 1
-    camera.set_lcd_message_public.assert_not_called()
+    camera.set_lcd_message.assert_not_called()
 
 
 def test_sensor_set_status_light_stays_private() -> None:
@@ -1989,6 +2014,105 @@ def test_key_only_sensor_reads(command, attr) -> None:
     with patch.object(base_cli, "json_output") as out:
         command(ctx)
     out.assert_called_once_with(True)
+
+
+@pytest.mark.parametrize(
+    ("command", "attr"),
+    [
+        (sensors_cli.is_tampering_detected, "is_tampering_detected"),
+        (sensors_cli.is_contact_enabled, "is_contact_sensor_enabled"),
+        (sensors_cli.is_motion_enabled, "is_motion_sensor_enabled"),
+        (sensors_cli.is_light_enabled, "is_light_sensor_enabled"),
+        (sensors_cli.is_temperature_enabled, "is_temperature_sensor_enabled"),
+        (sensors_cli.is_humidity_enabled, "is_humidity_sensor_enabled"),
+    ],
+)
+def test_hybrid_sensor_reads_use_the_public_sensor(command, attr) -> None:
+    """In hybrid mode the sensor state reads answer from the public sensor."""
+    ctx, _sensor, protect = _device_ctx(Sensor)
+    _serve_public(protect, PublicSensor, **{attr: True})
+    with patch.object(base_cli, "json_output") as out:
+        command(ctx)
+    out.assert_called_once_with(True)
+    protect.get_sensor_public.assert_awaited_once_with("device-1")
+
+
+def _package_camera_ctx(model_class, *, has_package_camera: bool = True):
+    """A camera context whose console serves a package snapshot."""
+    ctx, camera, protect = _device_ctx(model_class)
+    if model_class is PublicCamera:
+        camera.has_package_camera = has_package_camera
+    else:
+        camera.feature_flags = MagicMock(has_package_camera=has_package_camera)
+    protect.get_public_api_camera_snapshot = AsyncMock(return_value=b"jpeg")
+    return ctx, protect
+
+
+@pytest.mark.parametrize("model_class", [Camera, PublicCamera])
+def test_camera_save_package_snapshot_uses_the_public_api(model_class, tmp_path):
+    """``save-snapshot --package`` fetches the package channel over the public API."""
+    ctx, protect = _package_camera_ctx(model_class)
+    output = tmp_path / "package.jpg"
+
+    cameras_cli.save_snapshot(ctx, output, None, None, None, package=True)
+
+    protect.get_public_api_camera_snapshot.assert_awaited_once_with(
+        "device-1", package=True
+    )
+    assert output.read_bytes() == b"jpeg"
+
+
+@pytest.mark.parametrize("model_class", [Camera, PublicCamera])
+def test_camera_save_package_snapshot_requires_a_package_camera(
+    model_class, tmp_path
+) -> None:
+    """A camera without a package lens exits 1 before any request."""
+    ctx, protect = _package_camera_ctx(model_class, has_package_camera=False)
+
+    with pytest.raises(typer.Exit) as exc:
+        cameras_cli.save_snapshot(ctx, tmp_path / "p.jpg", None, None, None, True)
+
+    assert exc.value.exit_code == 1
+    protect.get_public_api_camera_snapshot.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("width", "height", "dt"),
+    [(640, None, None), (None, 480, None), (None, None, datetime(2026, 1, 1))],
+)
+def test_camera_save_package_snapshot_rejects_size_and_time(
+    width, height, dt, tmp_path
+) -> None:
+    """The public package snapshot takes no size or time, so those options exit 1."""
+    ctx, protect = _package_camera_ctx(Camera)
+
+    with pytest.raises(typer.Exit) as exc:
+        cameras_cli.save_snapshot(ctx, tmp_path / "p.jpg", width, height, dt, True)
+
+    assert exc.value.exit_code == 1
+    protect.get_public_api_camera_snapshot.assert_not_called()
+
+
+def test_camera_save_snapshot_without_package_stays_private(tmp_path) -> None:
+    """A plain snapshot keeps the private camera's snapshot call."""
+    ctx, camera, _protect = _device_ctx(Camera)
+    camera.get_snapshot = AsyncMock(return_value=b"jpeg")
+    output = tmp_path / "snap.jpg"
+
+    cameras_cli.save_snapshot(ctx, output, 640, 360, None, package=False)
+
+    camera.get_snapshot.assert_awaited_once_with(640, 360, dt=None)
+    assert output.read_bytes() == b"jpeg"
+
+
+def test_key_only_camera_save_snapshot_without_package_exits(tmp_path) -> None:
+    """A plain snapshot needs the private API, so public-only mode exits 1."""
+    ctx, _camera, _protect = _device_ctx(PublicCamera)
+
+    with pytest.raises(typer.Exit) as exc:
+        cameras_cli.save_snapshot(ctx, tmp_path / "p.jpg", None, None, None, False)
+
+    assert exc.value.exit_code == 1
 
 
 @pytest.mark.parametrize(
