@@ -571,6 +571,18 @@ class PublicCamera(PublicDeviceModel):
     # captured by the events-WS diff stays a distinct object from the rebuild.
     _detection_state_cache: dict[str, bool] | None = PrivateAttr(default=None)
 
+    @classmethod
+    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
+        # A past ``resetAt`` is how the console marks a wiped message; the
+        # devices websocket still sends one right after a clear.
+        if (
+            isinstance(message := data.get("lcdMessage"), dict)
+            and (reset_at := message.get("resetAt")) is not None
+            and from_js_time(reset_at) < datetime.now(UTC)
+        ):
+            data["lcdMessage"] = None
+        return super().unifi_dict_to_dict(data)
+
     @property
     def has_mic(self) -> bool:
         """
