@@ -10,6 +10,7 @@ import re
 import socket
 import time
 import zoneinfo
+from base64 import urlsafe_b64decode
 from collections import Counter
 from collections.abc import Callable, Coroutine, Iterable
 from copy import deepcopy
@@ -25,7 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar, Union, get_args, overload
 from uuid import UUID
 
-import jwt
+import orjson
 
 from .data.types import (
     Color,
@@ -529,18 +530,16 @@ async def profile_ws(
 
 
 def decode_token_cookie(token_cookie: Morsel[str]) -> dict[str, Any] | None:
-    """Decode a token cookie if it is still valid."""
+    """Decode an unexpired token cookie's claims without verifying the signature."""
     try:
-        return jwt.decode(
-            token_cookie.value,
-            options={"verify_signature": False, "verify_exp": True},
-        )
-    except jwt.ExpiredSignatureError:
+        claims = _decode_jwt_claims(token_cookie.value)
+    except ValueError as ex:
+        _LOGGER.debug("Authentication token decode error: %s", ex)
+        return None
+    if "exp" in claims and claims["exp"] <= time.time():
         _LOGGER.debug("Authentication token has expired.")
         return None
-    except Exception as broad_ex:
-        _LOGGER.debug("Authentication token decode error: %s", broad_ex)
-        return None
+    return claims
 
 
 def format_duration(duration: timedelta) -> str:
@@ -739,3 +738,16 @@ def timedelta_total_seconds(td: timedelta) -> float:
 def pybool_to_json_bool(value: bool) -> str:
     """Convert a Python bool to a JSON boolean string ('true'/'false')."""
     return "true" if value else "false"
+
+
+def _decode_jwt_claims(token: str) -> dict[str, Any]:
+    segments = token.split(".")
+    if len(segments) != 3:
+        raise ValueError(f"Expected 3 token segments, got {len(segments)}")
+    payload = segments[1]
+    claims = orjson.loads(urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    if not isinstance(claims, dict):
+        raise ValueError("Token payload is not a JSON object")
+    if "exp" in claims and not isinstance(claims["exp"], int | float):
+        raise ValueError("Expiration Time claim (exp) must be a number")
+    return claims
