@@ -28,7 +28,6 @@ from .devices import (
     Chime,
     Light,
     ProtectAdoptableDeviceModel,
-    Ringtone,
     Sensor,
     Viewer,
 )
@@ -276,7 +275,6 @@ class ProtectDeviceRef(ProtectBaseObject):
 
 class Bootstrap(ProtectBaseObject):
     auth_user_id: str
-    access_key: str
     cameras: dict[str, Camera]
     users: dict[str, User]
     groups: dict[str, Group]
@@ -287,7 +285,6 @@ class Bootstrap(ProtectBaseObject):
     bridges: dict[str, Bridge] = {}
     sensors: dict[str, Sensor] = {}
     chimes: dict[str, Chime] = {}
-    ringtones: list[Ringtone]
     last_update_id: str
 
     # not directly from UniFi

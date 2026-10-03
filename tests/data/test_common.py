@@ -1092,6 +1092,8 @@ def test_bootstrap(bootstrap: dict[str, Any]):
     bootstrap.pop("agreements", None)
     bootstrap.pop("deviceGroups", None)
     bootstrap.pop("aiports", None)
+    bootstrap.pop("accessKey", None)
+    bootstrap.pop("ringtones", None)
 
     # Remove additional keys from obj_dict
     obj_dict.pop("keyrings", None)
@@ -1112,6 +1114,29 @@ def test_bootstrap(bootstrap: dict[str, Any]):
 
     assert bootstrap == obj_dict
     assert_equal_dump(obj, obj_construct)
+
+
+def test_bootstrap_parses_without_unread_keys(bootstrap: dict[str, Any]):
+    """The private bootstrap parses when keys no model reads are absent."""
+    data = deepcopy(bootstrap)
+    del data["accessKey"]
+    del data["ringtones"]
+    for key in ("hardwareId", "isStation", "timeFormat", "cameraUtilization"):
+        del data["nvr"][key]
+    del data["nvr"]["ports"]["ump"]
+    camera = data["cameras"][0]
+    for key in ("isDeleting", "hasWifi", "isManaged"):
+        del camera[key]
+    del camera["featureFlags"]["hasWifi"]
+    del camera["ispSettings"]["aeMode"]
+    del camera["recordingSettings"]["prePaddingSecs"]
+    del data["lights"][0]["isCameraPaired"]
+    del data["users"][0]["isOwner"]
+
+    obj = Bootstrap.from_unifi_dict(**data)
+
+    assert obj.nvr.id == bootstrap["nvr"]["id"]
+    assert camera["id"] in obj.cameras
 
 
 @pytest.mark.parametrize("has_aiports", [True, False])
@@ -1985,12 +2010,12 @@ def test_protect7_duplicate_snake_and_camel_case_keys():
 def test_event_metadata_collapse_keys_text_format():
     """Collapse keys with standard {"text": "value"} format are correctly unwrapped."""
     data: dict[str, Any] = {
-        "sensorType": {"text": "temperature"},
+        "lightName": {"text": "Porch"},
         "mountType": {"text": "door"},
         "status": {"text": "safe"},
     }
     result = EventMetadata.unifi_dict_to_dict(data)
-    assert result["sensor_type"] == "temperature"
+    assert result["light_name"] == "Porch"
     assert result["mount_type"] == "door"
     assert result["status"] == "safe"
 
@@ -1998,12 +2023,12 @@ def test_event_metadata_collapse_keys_text_format():
 def test_event_metadata_collapse_keys_unexpected_format():
     """Collapse keys with unexpected dict format (no 'text' key) are dropped gracefully."""
     data: dict[str, Any] = {
-        "sensorType": {"newFormat": "temperature", "extra": 123},
+        "lightName": {"newFormat": "Porch", "extra": 123},
         "sensorId": "abc123",
     }
     result = EventMetadata.unifi_dict_to_dict(data)
     # Malformed key should be dropped
-    assert "sensor_type" not in result
+    assert "light_name" not in result
     # Other keys should still be processed
     assert result["sensor_id"] == "abc123"
 
@@ -2011,11 +2036,11 @@ def test_event_metadata_collapse_keys_unexpected_format():
 def test_event_metadata_collapse_keys_non_dict_passthrough():
     """Collapse keys that are plain strings (not dicts) pass through unchanged."""
     data: dict[str, Any] = {
-        "sensorType": "temperature",
+        "lightName": "Porch",
         "type": "motion",
     }
     result = EventMetadata.unifi_dict_to_dict(data)
-    assert result["sensor_type"] == "temperature"
+    assert result["light_name"] == "Porch"
     assert result["type"] == "motion"
 
 
