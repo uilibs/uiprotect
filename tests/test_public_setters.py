@@ -613,6 +613,17 @@ async def test_public_light_set_led_level() -> None:
     assert sent.led_level == 4
 
 
+@pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+@pytest.mark.asyncio
+async def test_public_light_led_level_rejects_non_finite(bad: float) -> None:
+    api = MagicMock()
+    light = _light(api)
+    api.update_light_public = AsyncMock()
+    with pytest.raises(BadRequest, match="finite"):
+        await light.set_led_level(bad)
+    assert not api.update_light_public.called
+
+
 @pytest.mark.parametrize("bad", [0, 7])
 @pytest.mark.asyncio
 async def test_public_light_led_level_out_of_range(bad: int) -> None:

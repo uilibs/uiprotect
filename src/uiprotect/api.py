@@ -3493,40 +3493,6 @@ class ProtectApiClient(BaseApiClient):
                 )
         return success
 
-    async def get_package_camera_snapshot(
-        self,
-        camera_id: str,
-        width: int | None = None,
-        height: int | None = None,
-        dt: datetime | None = None,
-    ) -> bytes | None:
-        """
-        Gets snapshot from the package camera.
-
-        Datetime of screenshot is approximate. It may be +/- a few seconds.
-        """
-        params: dict[str, Any] = {}
-        if dt is not None:
-            path = "recording-snapshot"
-            params["ts"] = to_js_time(dt)
-            params["lens"] = 2
-        else:
-            path = "package-snapshot"
-            params["ts"] = int(time.time() * 1000)
-            params["force"] = "true"
-
-        if width is not None:
-            params["w"] = width
-
-        if height is not None:
-            params["h"] = height
-
-        return await self.api_request_raw(
-            f"cameras/{camera_id}/{path}",
-            params=params,
-            raise_exception=False,
-        )
-
     async def _stream_response(
         self,
         response: aiohttp.ClientResponse,
@@ -3726,26 +3692,6 @@ class ProtectApiClient(BaseApiClient):
         return await self._get_image_with_retry(
             f"events/{thumbnail_id}/animated-thumbnail",
             params=params,
-            retry_timeout=retry_timeout,
-        )
-
-    async def get_event_heatmap(
-        self,
-        heatmap_id: str,
-        retry_timeout: int = RETRY_TIMEOUT,
-    ) -> bytes | None:
-        """
-        Gets given heatmap from a given event.
-
-        Heatmap response is a PNG image.
-
-        Note: thumbnails / heatmaps do not generate _until after the event ends_. Events that last longer then
-        your retry timeout will always return None.
-        """
-        # old heatmap URL use heatmap ID, which is just `e-{event_id}`
-        heatmap_id = heatmap_id.removeprefix("e-")
-        return await self._get_image_with_retry(
-            f"events/{heatmap_id}/heatmap",
             retry_timeout=retry_timeout,
         )
 

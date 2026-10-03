@@ -1339,26 +1339,28 @@ def test_set_name_nvr_stays_private() -> None:
 
 def test_set_name_clear_stays_private() -> None:
     """Clearing a name is not expressible on the public API, so it stays private."""
-    ctx, device, _protect = _device_ctx(Camera)
+    ctx, device, protect = _device_ctx(Camera)
     base_cli.set_name(ctx, None)
     device.set_name.assert_awaited_once_with(None)
-    device.set_name_public.assert_not_called()
+    protect.get_camera_public.assert_not_called()
 
 
 @pytest.mark.parametrize(
     ("command", "setter"),
     [
-        (sensors_cli.set_temperature_range, "set_temperature_settings_public"),
-        (sensors_cli.set_humidity_range, "set_humidity_settings_public"),
-        (sensors_cli.set_light_range, "set_light_settings_public"),
+        (sensors_cli.set_temperature_range, "set_temperature_settings"),
+        (sensors_cli.set_humidity_range, "set_humidity_settings"),
+        (sensors_cli.set_light_range, "set_light_settings"),
     ],
 )
 def test_sensor_set_range_rejects_inverted_bounds(command, setter) -> None:
-    """An inverted safe range exits non-zero without a write."""
-    ctx, sensor, _protect = _device_ctx(Sensor)
+    """An inverted safe range exits non-zero without a fetch or a write."""
+    ctx, _sensor, protect = _device_ctx(Sensor)
+    sensor = _serve_public(protect, PublicSensor)
     with pytest.raises(typer.Exit) as exc:
         command(ctx, 30.0, 5.0)
     assert exc.value.exit_code == 1
+    protect.get_sensor_public.assert_not_called()
     getattr(sensor, setter).assert_not_awaited()
 
 

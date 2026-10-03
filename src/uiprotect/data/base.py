@@ -996,18 +996,6 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
         return self.name or self.market_name or self.type
 
     @property
-    def is_wired(self) -> bool:
-        return self.wired_connection_state is not None
-
-    @property
-    def is_wifi(self) -> bool:
-        return self.wifi_connection_state is not None
-
-    @property
-    def is_bluetooth(self) -> bool:
-        return self.bluetooth_connection_state is not None
-
-    @property
     def bridge(self) -> Bridge | None:
         if (bridge_id := self.bridge_id) is not None:
             return self._api.bootstrap.bridges[bridge_id]

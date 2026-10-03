@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -1087,127 +1087,6 @@ async def test_get_snapshot_with_dt_no_read_media(camera_obj: Camera | None):
         await camera_obj.get_snapshot(dt=datetime.now())
 
 
-@pytest.mark.asyncio
-async def test_get_package_snapshot_read_live_granted(camera_obj: Camera | None):
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-    camera_obj.feature_flags.has_package_camera = True
-
-    auth_user = camera_obj._api.bootstrap.auth_user
-
-    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
-        return permission == PermissionNode.READ_LIVE
-
-    with patch.object(auth_user, "can", side_effect=mock_can):
-        snapshot = await camera_obj.get_package_snapshot()
-        assert snapshot == b"snapshot_data"
-
-
-@pytest.mark.asyncio
-async def test_get_package_snapshot_read_media_granted(camera_obj: Camera | None):
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-    camera_obj.feature_flags.has_package_camera = True
-
-    auth_user = camera_obj._api.bootstrap.auth_user
-
-    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
-        return permission == PermissionNode.READ_MEDIA
-
-    with patch.object(auth_user, "can", side_effect=mock_can):
-        snapshot = await camera_obj.get_package_snapshot()
-        assert snapshot == b"snapshot_data"
-
-
-@pytest.mark.asyncio
-async def test_get_package_snapshot_no_permissions(camera_obj: Camera | None):
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-    camera_obj.feature_flags.has_package_camera = True
-
-    auth_user = camera_obj._api.bootstrap.auth_user
-
-    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
-        return False
-
-    with (
-        patch.object(auth_user, "can", side_effect=mock_can),
-        pytest.raises(
-            NotAuthorized,
-            match=f"Do not have permission to read live or media for camera: {camera_obj.id}",
-        ),
-    ):
-        await camera_obj.get_package_snapshot()
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing test data")
-@pytest.mark.asyncio
-async def test_get_package_snapshot_with_dt(camera_obj: Camera):
-    camera_obj.api.api_request.reset_mock()
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-    camera_obj.feature_flags.has_package_camera = True
-
-    now = datetime.now(tz=UTC)
-
-    snapshot = await camera_obj.get_package_snapshot(dt=now)
-
-    assert snapshot == b"snapshot_data"
-    camera_obj._api.get_package_camera_snapshot.assert_called_once_with(
-        camera_obj.id, None, None, dt=now
-    )
-
-
-@pytest.mark.asyncio
-async def test_get_package_snapshot_no_package_camera(camera_obj: Camera | None):
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-
-    # Simulate a device without a package camera
-    camera_obj.feature_flags.has_package_camera = False
-
-    with pytest.raises(
-        BadRequest,
-        match="Device does not have package camera",
-    ):
-        await camera_obj.get_package_snapshot()
-
-
-@pytest.mark.asyncio
-async def test_get_package_snapshot_dt_no_read_media(camera_obj: Camera | None):
-    camera_obj._api = MagicMock(spec=ProtectApiClient)
-    camera_obj._api.get_package_camera_snapshot = AsyncMock(
-        return_value=b"snapshot_data"
-    )
-    camera_obj.feature_flags.has_package_camera = True
-
-    auth_user = camera_obj._api.bootstrap.auth_user
-
-    def mock_can(model_type: str, permission: PermissionNode, camera: Camera) -> bool:
-        return (
-            permission != PermissionNode.READ_MEDIA
-        )  # Simulate missing READ_MEDIA permission
-
-    with (
-        patch.object(auth_user, "can", side_effect=mock_can),
-        pytest.raises(
-            NotAuthorized,
-            match=f"Do not have permission to read media for camera: {camera_obj.id}",
-        ),
-    ):
-        await camera_obj.get_package_snapshot(dt=datetime.now())
-
-
 def test_camera_zone_color_serialization() -> None:
     """Test that CameraZone color is serialized as hex string, not dict with RGB values."""
     zone = CameraZone.create_privacy_zone(0)
@@ -1386,3 +1265,41 @@ async def test_camera_can_detect(
     camera_obj.feature_flags.smart_detect_audio_types = smart_detect_audio_types
 
     assert camera_obj.can_detect(smart_type) is expected
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    ("flag", "hotplug", "expected"),
+    [(True, False, True), (False, True, True), (False, False, False)],
+)
+def test_camera_has_mic_counts_hotplug(
+    camera_obj: Camera | None, flag: bool, hotplug: bool, expected: bool
+) -> None:
+    """``has_mic`` is the mic flag or a hot-plugged audio module."""
+    assert camera_obj is not None
+    camera_obj.feature_flags.has_mic = flag
+    with patch.object(
+        type(camera_obj), "has_removable_speaker", new_callable=PropertyMock
+    ) as removable:
+        removable.return_value = hotplug
+        assert camera_obj.has_mic is expected
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.parametrize(
+    ("has_package_camera", "channel_count", "expected_index"),
+    [(True, 4, 3), (True, 3, None), (False, 4, None)],
+)
+def test_camera_package_camera_channel(
+    camera_obj: Camera | None,
+    has_package_camera: bool,
+    channel_count: int,
+    expected_index: int | None,
+) -> None:
+    """The package channel is the fourth one, on cameras with a package lens."""
+    assert camera_obj is not None
+    camera_obj.feature_flags.has_package_camera = has_package_camera
+    channels = [camera_obj.channels[0].model_copy() for _ in range(channel_count)]
+    camera_obj.channels = channels
+    expected = None if expected_index is None else channels[expected_index]
+    assert camera_obj.package_camera_channel is expected
