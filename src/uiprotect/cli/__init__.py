@@ -23,7 +23,6 @@ from .base import CliContext, OutputFormatEnum
 from .bridges import app as bridges_app
 from .cameras import app as camera_app
 from .chimes import app as chime_app
-from .events import app as event_app
 from .files_public import app as files_public_app
 from .fobs import app as fob_app
 from .lights import app as light_app
@@ -137,7 +136,6 @@ SLEEP_INTERVAL = 2
 
 app = typer.Typer(rich_markup_mode="rich")
 app.add_typer(nvr_app, name="nvr")
-app.add_typer(event_app, name="events")
 app.add_typer(liveview_app, name="liveviews")
 app.add_typer(camera_app, name="cameras")
 app.add_typer(chime_app, name="chimes")

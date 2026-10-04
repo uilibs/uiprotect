@@ -1502,14 +1502,12 @@ class ProtectApiClient(BaseApiClient):
         override_connection_host: Use `host` as your `connection_host` for the
             private RTSP(S) URLs and the public RTSPS URLs instead of using the
             one provided by UniFi Protect.
-        minimum_score: minimum score for events (default: `0`)
         subscribed_models: Model types you want to filter events for WS. You will need to manually check the bootstrap for updates for events that not subscibred.
         ignore_stats: Ignore storage, system, etc. stats/metrics from NVR and cameras (default: false)
         debug: Use full type validation (default: false)
 
     """
 
-    _minimum_score: int
     _subscribed_models: set[ModelType]
     # ``None`` means "inherit ``_subscribed_models``"; an explicit (possibly
     # empty) set overrides the global filter for that websocket. An empty set
@@ -1604,7 +1602,6 @@ class ProtectApiClient(BaseApiClient):
         config_dir: Path | None = None,
         store_sessions: bool = True,
         override_connection_host: bool = False,
-        minimum_score: int = 0,
         subscribed_models: set[ModelType] | None = None,
         events_ws_subscribed_models: set[ModelType] | None = None,
         devices_ws_subscribed_models: set[ModelType] | None = None,
@@ -1633,7 +1630,6 @@ class ProtectApiClient(BaseApiClient):
             public_refresh_interval=public_refresh_interval,
         )
 
-        self._minimum_score = minimum_score
         self._subscribed_models = subscribed_models or set()
         # Preserve ``None`` vs. empty-set distinction: ``None`` inherits from
         # ``_subscribed_models``; an explicit empty set means "allow all".
@@ -2289,83 +2285,6 @@ class ProtectApiClient(BaseApiClient):
             return events
 
         return await self.api_request_list("events", params=params)
-
-    async def get_events(
-        self,
-        start: datetime | None = None,
-        end: datetime | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        types: list[EventType] | None = None,
-        smart_detect_types: list[SmartDetectObjectType] | None = None,
-        sorting: Literal["asc", "desc"] = "asc",
-        descriptions: bool = True,
-        category: EventCategories | None = None,
-        # used for testing
-        _allow_manual_paginate: bool = True,
-    ) -> list[Event]:
-        """
-        Same as `get_events_raw`, except
-
-        * returns actual `Event` objects instead of raw Python dictionaries
-        * filers out non-device events
-        * filters out events with too low of a score
-
-        Args:
-        ----
-            start: start time for events
-            end: end time for events
-            limit: max number of events to return
-            offset: offset to start fetching events from
-            types: list of EventTypes to get events for
-            smart_detect_types: Filters the Smart detection types for the events
-            sorting: sort events by ascending or descending, defaults to ascending (chronologic order)
-            description: included additional event metadata
-            category: event category, will provide additional category/subcategory fields
-
-
-        If `limit`, `start` and `end` are not provided, it will default to all events in the last 24 hours.
-
-        If `start` is provided, then `end` or `limit` must be provided. If `end` is provided, then `start` or
-        `limit` must be provided. Otherwise, you will get a 400 error from UniFi Protect
-
-        """
-        response = await self.get_events_raw(
-            start=start,
-            end=end,
-            limit=limit,
-            offset=offset,
-            types=types,
-            smart_detect_types=smart_detect_types,
-            sorting=sorting,
-            descriptions=descriptions,
-            category=category,
-            _allow_manual_paginate=_allow_manual_paginate,
-        )
-        events = []
-
-        for event_dict in response:
-            # ignore unknown events
-            if (
-                "type" not in event_dict
-                or event_dict["type"] not in EventType.values_set()
-            ):
-                _LOGGER.debug("Unknown event type: %s", event_dict)
-                continue
-
-            event = create_from_unifi_dict(event_dict, api=self)
-
-            # should never happen
-            if not isinstance(event, Event):
-                continue
-
-            if (
-                event.type.value in EventType.device_events_set()
-                and event.score >= self._minimum_score
-            ):
-                events.append(event)
-
-        return events
 
     def subscribe_websocket(
         self,
@@ -3655,42 +3574,6 @@ class ProtectApiClient(BaseApiClient):
         thumbnail_id = thumbnail_id.removeprefix("e-")
         return await self._get_image_with_retry(
             f"events/{thumbnail_id}/thumbnail",
-            params=params,
-            retry_timeout=retry_timeout,
-        )
-
-    async def get_event_animated_thumbnail(
-        self,
-        thumbnail_id: str,
-        width: int | None = None,
-        height: int | None = None,
-        *,
-        speedup: int = 10,
-        retry_timeout: int = RETRY_TIMEOUT,
-    ) -> bytes | None:
-        """
-        Gets given animated thumbanil from a given event.
-
-        Animated thumbnail response is a GIF image.
-
-        Note: thumbnails do not generate _until after the event ends_. Events that last longer then
-        your retry timeout will always return 404.
-        """
-        params: dict[str, Any] = {
-            "keyFrameOnly": "true",
-            "speedup": speedup,
-        }
-
-        if width is not None:
-            params.update({"w": width})
-
-        if height is not None:
-            params.update({"h": height})
-
-        # old thumbnail URL use thumbnail ID, which is just `e-{event_id}`
-        thumbnail_id = thumbnail_id.removeprefix("e-")
-        return await self._get_image_with_retry(
-            f"events/{thumbnail_id}/animated-thumbnail",
             params=params,
             retry_timeout=retry_timeout,
         )

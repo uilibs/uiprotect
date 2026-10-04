@@ -9,7 +9,6 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, tzinfo
 from functools import cache
 from ipaddress import IPv4Address, IPv6Address
-from pathlib import Path
 from typing import Any, ClassVar, Literal
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
@@ -38,12 +37,10 @@ from .types import (
     DoorbellText,
     EventCategories,
     EventType,
-    IteratorCallback,
     ModelType,
     MountType,
     PercentFloat,
     PermissionNode,
-    ProgressCallback,
     RecordingMode,
     RecordingType,
     ResolutionStorageType,
@@ -365,7 +362,7 @@ class Event(ProtectModelWithId):
     user_id: str | None = None
     timestamp: datetime | None = None
     metadata: EventMetadata | None = None
-    # only appears if `get_events` is called with category
+    # only appears if `get_events_raw` is called with category
     category: EventCategories | None = None
 
     _smart_detect_track: SmartDetectTrack | None = PrivateAttr(None)
@@ -446,73 +443,6 @@ class Event(ProtectModelWithId):
                 f"Do not have permission to read media for camera: {self.id}",
             )
         return await self._api.get_event_thumbnail(self.thumbnail_id, width, height)
-
-    async def get_animated_thumbnail(
-        self,
-        width: int | None = None,
-        height: int | None = None,
-        *,
-        speedup: int = 10,
-    ) -> bytes | None:
-        """Gets animated thumbnail for event"""
-        if self.thumbnail_id is None:
-            return None
-        if not self._api.bootstrap.auth_user.can(
-            ModelType.CAMERA,
-            PermissionNode.READ_MEDIA,
-            self.camera,
-        ):
-            raise NotAuthorized(
-                f"Do not have permission to read media for camera: {self.id}",
-            )
-        return await self._api.get_event_animated_thumbnail(
-            self.thumbnail_id,
-            width,
-            height,
-            speedup=speedup,
-        )
-
-    async def get_video(
-        self,
-        channel_index: int = 0,
-        output_file: Path | None = None,
-        iterator_callback: IteratorCallback | None = None,
-        progress_callback: ProgressCallback | None = None,
-        chunk_size: int = 65536,
-    ) -> bytes | None:
-        """
-        Get the MP4 video clip for this given event
-
-        Args:
-        ----
-            channel_index: index of `CameraChannel` on the camera to use to retrieve video from
-
-        Will raise an exception if event does not have a camera, end time or the channel index is wrong.
-
-        """
-        if self.camera is None:
-            raise BadRequest("Event does not have a camera")
-        if self.end is None:
-            raise BadRequest("Event is ongoing")
-
-        if not self._api.bootstrap.auth_user.can(
-            ModelType.CAMERA,
-            PermissionNode.READ_MEDIA,
-            self.camera,
-        ):
-            raise NotAuthorized(
-                f"Do not have permission to read media for camera: {self.id}",
-            )
-        return await self._api.get_camera_video(
-            self.camera.id,
-            self.start,
-            self.end,
-            channel_index,
-            output_file=output_file,
-            iterator_callback=iterator_callback,
-            progress_callback=progress_callback,
-            chunk_size=chunk_size,
-        )
 
 
 class PortConfig(ProtectBaseObject):

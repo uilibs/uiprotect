@@ -1409,7 +1409,6 @@ def test_list_ids_flags_an_unreachable_public_device() -> None:
 
 _PRIVATE_COMMANDS = [
     ["nvr"],
-    ["events"],
     ["generate-sample-data"],
     ["profile-ws"],
     ["create-api-key", "n"],
@@ -2316,13 +2315,17 @@ def test_hybrid_viewer_liveview_clear() -> None:
         ("cameras", "is-wired"),
         ("lights", "is-wifi"),
         ("sensors", "is-bluetooth"),
-        ("events", "save-heatmap"),
     ],
 )
 def test_removed_commands_are_gone(group, command) -> None:
     """Commands dropped with their private-API members are no longer registered."""
     group_command = typer.main.get_command(app).commands[group]
     assert command not in group_command.commands
+
+
+def test_removed_groups_are_gone() -> None:
+    """Command groups dropped with their private-API members are no longer registered."""
+    assert "events" not in typer.main.get_command(app).commands
 
 
 def _hybrid_camera_bootstrap() -> MagicMock:

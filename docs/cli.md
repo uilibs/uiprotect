@@ -55,7 +55,7 @@ uiprotect cameras list-ids
 Commands that have no public equivalent exit with an error telling you to
 supply `--username`/`--password`. In this mode that covers:
 
-- whole groups: `nvr`, `events`;
+- whole groups: `nvr`;
 - top-level commands: `create-api-key`, `generate-sample-data`, `profile-ws`,
   `shell`;
 - on every device group: `adopt`, `bridge`, `reboot`, `set-ssh`, `unadopt`,
@@ -147,7 +147,6 @@ expose only the commands that have a public equivalent. `Private` groups are una
 | `chimes`               | Hybrid  | Chime device CLI.                                                |
 | `create-api-key`       | Private | Create a new API key for the current user.                       |
 | `decode-ws-msg`        | —       | Decodes a base64 encoded UniFi Protect Websocket binary message. |
-| `events`               | Private | Events CLI.                                                      |
 | `files-public`         | Public  | Device asset file commands.                                      |
 | `fobs`                 | Public  | Key fob commands.                                                |
 | `generate-sample-data` | Private | Generates sample data for UniFi Protect instance.                |
@@ -168,19 +167,19 @@ expose only the commands that have a public equivalent. `Private` groups are una
 
 #### Multiple Item CLI Commands
 
-All adoptable device CLIs and the event CLI work on the idea you have multiple cameras, multiple lights or multiple events. As such, they have four variations:
+All adoptable device CLIs work on the idea you have multiple cameras or multiple lights. As such, they have four variations:
 
 ```bash
-# list all devices (or events)
+# list all devices
 uiprotect cameras
 
-# list short list of all devices (or events)
+# list short list of all devices
 uiprotect cameras list-ids
 
-# list a specific device (or event)
+# list a specific device
 uiprotect cameras DEVICE_ID
 
-# run a command against a specific device (or event)
+# run a command against a specific device
 uiprotect cameras DEVICE_ID COMMAND
 ```
 

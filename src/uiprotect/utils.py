@@ -539,22 +539,6 @@ def decode_token_cookie(token_cookie: Morsel[str]) -> dict[str, Any] | None:
     return claims
 
 
-def format_duration(duration: timedelta) -> str:
-    """Formats a timedelta as a string."""
-    seconds = int(duration.total_seconds())
-    hours = seconds // 3600
-    seconds -= hours * 3600
-    minutes = seconds // 60
-    seconds -= minutes * 60
-
-    output = ""
-    if hours > 0:
-        output = f"{hours}h"
-    if minutes > 0:
-        output = f"{output}{minutes}m"
-    return f"{output}{seconds}s"
-
-
 def _set_timezone(tz: tzinfo | str) -> tzinfo:
     global TIMEZONE_GLOBAL  # noqa: PLW0603
 
@@ -598,17 +582,6 @@ def get_local_timezone() -> tzinfo:
                     timezone_name = fullname.relative_to(zoneinfo_root).as_posix()
 
     return _set_timezone(timezone_name)
-
-
-def local_datetime(dt: datetime | None = None) -> datetime:
-    """Returns datetime in local timezone"""
-    if dt is None:
-        dt = datetime.now(tz=UTC)
-
-    local_tz = get_local_timezone()
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=local_tz)
-    return dt.astimezone(local_tz)
 
 
 def log_event(event: Event) -> None:

@@ -454,9 +454,9 @@ class Bootstrap(ProtectBaseObject):
             and data.get("type") not in EventType.values_set()
         ):
             # Newer firmware can introduce event types this client doesn't model
-            # yet. Mirror the REST ``get_events`` guard (``api.py``) and skip the
-            # frame up front instead of routing a benign forward-compat case
-            # through the generic ``ValidationError`` backstop below.
+            # yet. Skip the frame up front instead of routing a benign
+            # forward-compat case through the generic ``ValidationError``
+            # backstop below.
             _LOGGER.debug("Unknown event type: %s", data)
             return None
 
