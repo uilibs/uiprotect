@@ -1,5 +1,13 @@
 # Changelog
 
+## v23.0.0 (2026-10-04)
+
+### Features
+
+
+- Remove the events cli and its private-only helpers ([`a7f8b88`](https://github.com/uilibs/uiprotect/commit/a7f8b8896508f9b086ca10dc0a870270510ac0e3))
+
+
 ## v22.0.0 (2026-10-04)
 
 ### Features
