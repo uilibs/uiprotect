@@ -13,6 +13,7 @@ from uiprotect.data.public_bootstrap import PublicBootstrap
 from uiprotect.data.public_devices import (
     PublicCamera,
     PublicChime,
+    PublicLcdMessage,
     PublicLight,
     PublicSensor,
     RTSPSStreams,
@@ -1297,3 +1298,87 @@ async def test_write_through_wrong_store_is_noop(protect_client_no_debug: Any) -
     # Not a camera/light/sensor/chime write-through path, but resolves a store;
     # applying to a same-typed cached twin is still a no-op change here.
     client._write_through_public_twin(siren)
+
+
+_DND_CLEARED = {"type": "DO_NOT_DISTURB", "resetAt": 0, "text": "DO NOT DISTURB"}
+
+
+def _js_offset(delta: timedelta) -> int:
+    return int((datetime.now(UTC) + delta).timestamp() * 1000)
+
+
+def test_public_camera_lcd_message_ws_expired_is_cleared() -> None:
+    api = MagicMock()
+    bootstrap = PublicBootstrap()
+    cam = _camera(api)
+    cam.lcd_message = None
+    bootstrap.cameras[cam.id] = cam
+
+    bootstrap.process_devices_ws_message(
+        api,
+        {
+            "type": "update",
+            "item": {"id": cam.id, "modelKey": "camera", "lcdMessage": _DND_CLEARED},
+        },
+    )
+
+    assert cam.lcd_message is None
+
+
+@pytest.mark.parametrize("reset_at", [None, timedelta(hours=1)])
+def test_public_camera_lcd_message_ws_active_is_kept(
+    reset_at: timedelta | None,
+) -> None:
+    api = MagicMock()
+    bootstrap = PublicBootstrap()
+    cam = _camera(api)
+    bootstrap.cameras[cam.id] = cam
+    raw_reset_at = None if reset_at is None else _js_offset(reset_at)
+
+    bootstrap.process_devices_ws_message(
+        api,
+        {
+            "type": "update",
+            "item": {
+                "id": cam.id,
+                "modelKey": "camera",
+                "lcdMessage": {**_DND_CLEARED, "resetAt": raw_reset_at},
+            },
+        },
+    )
+
+    assert cam.lcd_message is not None
+    assert cam.lcd_message.type is DoorbellMessageType.DO_NOT_DISTURB
+    assert cam.lcd_message.reset_at == raw_reset_at
+
+
+@pytest.mark.parametrize("debug", [True, False])
+def test_public_camera_lcd_message_fetch_expired_is_cleared(debug: bool) -> None:
+    with patch("uiprotect.data.base.is_debug", return_value=debug):
+        cam = PublicCamera.from_unifi_dict(
+            **{
+                **_camera(MagicMock()).unifi_dict(),
+                "lcdMessage": {
+                    **_DND_CLEARED,
+                    "resetAt": _js_offset(-timedelta(minutes=1)),
+                },
+            }
+        )
+
+    assert cam.lcd_message is None
+
+
+@pytest.mark.asyncio
+async def test_public_camera_lcd_message_response_expired_is_cleared(
+    protect_client_no_debug: Any,
+) -> None:
+    client = protect_client_no_debug
+    cam = _camera(client)
+    cam.lcd_message = PublicLcdMessage(type=DoorbellMessageType.DO_NOT_DISTURB)
+    client.api_request_obj = AsyncMock(
+        return_value={**cam.unifi_dict(), "lcdMessage": _DND_CLEARED}
+    )
+
+    await cam.set_lcd_message(DoorbellMessageType.DO_NOT_DISTURB)
+
+    assert cam.lcd_message is None
