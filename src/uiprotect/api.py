@@ -4626,10 +4626,14 @@ class ProtectApiClient(BaseApiClient):
         if self._public_bootstrap is None:
             return viewer
         cached, previous = self._cache_public_viewer(viewer)
+        changed_data: dict[str, Any] = {"modelKey": ModelType.VIEWPORT.value}
         if previous is None:
             action = WSAction.ADD
+            changed_data.update(data)
         elif previous.liveview_id != cached.liveview_id:
             action = WSAction.UPDATE
+            changed_data["id"] = cached.id
+            changed_data["liveview"] = cached.liveview_id
         else:
             return cached
         # Protect sends no devices-websocket frame when a viewer's liveview
@@ -4639,7 +4643,7 @@ class ProtectApiClient(BaseApiClient):
                 WSSubscriptionMessage(
                     action=action,
                     new_update_id=cached.id,
-                    changed_data={"modelKey": ModelType.VIEWPORT.value, **data},
+                    changed_data=changed_data,
                     new_obj=cached,
                     old_obj=previous,
                 )

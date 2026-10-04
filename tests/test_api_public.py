@@ -6310,8 +6310,32 @@ async def test_viewer_set_liveview_writes_through_and_announces(
     assert isinstance(msg.old_obj, PublicViewer)
     assert msg.old_obj is not viewer
     assert msg.old_obj.liveview_id == LIVEVIEW_ID
-    assert msg.changed_data["modelKey"] == "viewer"
-    assert msg.changed_data["liveview"] == "lv-new"
+    assert msg.changed_data == {
+        "modelKey": "viewer",
+        "id": VIEWER_ID,
+        "liveview": "lv-new",
+    }
+
+
+@pytest.mark.asyncio()
+async def test_viewer_set_liveview_typed_subscriber_changed_fields(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A typed subscriber sees only ``liveview_id`` as changed."""
+    _, viewer = _cached_viewer(protect_client)
+    protect_client.api_request_obj = AsyncMock(
+        return_value=_viewer_raw(liveview="lv-new")
+    )
+    changes: list[ProtectDeviceChange] = []
+    unsub = protect_client.subscribe_devices(changes.append)
+    try:
+        await viewer.set_liveview("lv-new")
+    finally:
+        unsub()
+
+    assert len(changes) == 1
+    assert changes[0].change is DeviceChange.UPDATED
+    assert changes[0].changed_fields == frozenset({"liveview_id"})
 
 
 @pytest.mark.asyncio()
@@ -6380,6 +6404,7 @@ async def test_update_viewer_public_inserts_uncached_and_announces_add(
     assert got[0].action is WSAction.ADD
     assert got[0].new_obj is result
     assert got[0].old_obj is None
+    assert got[0].changed_data == _viewer_raw()
 
 
 @pytest.mark.asyncio()

@@ -395,8 +395,12 @@ that cached object, so `protect.public_bootstrap.viewers[viewer_id]` stays the
 same object. It then emits a synthetic devices-WS message for the viewer:
 
 - `update` when `liveview_id` changed (`new_obj` is the cached viewer,
-  `old_obj` a copy from before the change). A name-only PATCH, or setting the
-  liveview the viewer already shows, emits nothing.
+  `old_obj` a copy from before the change). `changed_data` carries only
+  `modelKey`, `id` and `liveview`, like a partial websocket frame. A name-only
+  PATCH for an already-cached viewer, or setting the liveview the viewer
+  already shows, emits nothing.
+- `add` when the viewer was not cached yet; it is inserted and becomes
+  `new_obj`, with no `old_obj`, and `changed_data` is the full response.
 - `add` when the viewer was not cached yet; it is inserted and becomes
   `new_obj`, with no `old_obj`.
 
