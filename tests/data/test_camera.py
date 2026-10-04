@@ -1078,9 +1078,6 @@ def test_camera_zone_color_serialization() -> None:
     assert isinstance(zone_dict["color"], str)
     assert zone_dict["color"] == "#85BCEC"
 
-    # Verify it's not a dict with RGB values (which would cause Pydantic warnings)
-    assert not isinstance(zone_dict["color"], dict)
-
 
 def test_camera_zone_color_round_trips_unchanged() -> None:
     """CameraZone keeps the color string exactly as Protect sends it."""
@@ -1106,28 +1103,31 @@ def _zone_dict(zone_id: int, color: str) -> dict[str, Any]:
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_camera_get_changed_ignores_unchanged_zones(
+def test_camera_get_changed_keeps_other_zone_colors(
     camera_obj: Camera | None,
 ) -> None:
-    """get_changed reports no zone change when the zones are untouched."""
+    """Changing one zone leaves the other zone's color unchanged in get_changed."""
     if camera_obj is None:
         pytest.skip("No camera_obj obj found")
 
-    camera_obj.motion_zones = [MotionZone.from_unifi_dict(**_zone_dict(1, "#AABBCC"))]
-    camera_obj.privacy_zones = [CameraZone.from_unifi_dict(**_zone_dict(2, "#AABBCC"))]
+    camera_obj.motion_zones = [
+        MotionZone.from_unifi_dict(**_zone_dict(1, "#AABBCC")),
+        MotionZone.from_unifi_dict(**_zone_dict(2, "#AABBCC")),
+    ]
     before = camera_obj.dict_with_excludes()
 
-    camera_obj.mic_volume = 10 if camera_obj.mic_volume != 10 else 20
+    camera_obj.motion_zones[0].name = "Renamed"
     changed = camera_obj.get_changed(before)
 
-    assert "motion_zones" not in changed
-    assert "privacy_zones" not in changed
-    assert "mic_volume" in changed
+    zones = changed["motion_zones"]
+    assert zones[0]["name"] == "Renamed"
+    assert zones[1]["name"] == "Zone 2"
+    assert zones[1]["color"] == "#AABBCC"
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
-async def test_camera_remove_privacy_zone_keeps_other_zone_colors(
+async def test_camera_set_privacy_off_keeps_other_zone_colors(
     camera_obj: Camera | None,
 ) -> None:
     """Writing the privacy zone list sends the other zones' colors unchanged."""
