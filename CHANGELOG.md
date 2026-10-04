@@ -1,5 +1,13 @@
 # Changelog
 
+## v20.0.2 (2026-10-04)
+
+### Bug fixes
+
+
+- Treat an expired public lcd message as cleared ([`f38659e`](https://github.com/uilibs/uiprotect/commit/f38659e230bd1b80f2eccacffb1bd8ee0397dbe6))
+
+
 ## v20.0.1 (2026-10-03)
 
 ### Bug fixes
