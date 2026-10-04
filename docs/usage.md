@@ -386,6 +386,35 @@ The expiry is **inferred, not observed**: `activatedAt` is server time and the
 deadline is compared against the local clock, so clock skew between the console
 and the client shifts the announcement by the same amount.
 
+## Viewer liveview changes
+
+The console sends no devices-websocket frame when a viewer's liveview changes.
+`update_viewer_public` (and so `PublicViewer.set_liveview` / `set_name`)
+writes the PATCH response into the cached `PublicViewer` in place and returns
+that cached object, so `protect.public_bootstrap.viewers[viewer_id]` stays the
+same object. It then emits a synthetic devices-WS message for the viewer:
+
+- `update` when `liveview_id` changed (`new_obj` is the cached viewer,
+  `old_obj` a copy from before the change). `changed_data` carries
+  `modelKey`, `id` and every field that differs from `old_obj` (`liveview`,
+  plus `name` if the same PATCH renamed it), like a partial websocket frame.
+  A name-only
+  PATCH for an already-cached viewer, or setting the liveview the viewer
+  already shows, emits nothing.
+- `add` when the viewer was not cached yet; it is inserted and becomes
+  `new_obj`, with no `old_obj`, and `changed_data` is the full response.
+
+A failed PATCH emits nothing, and so does a client with no public bootstrap
+(the response is returned uncached). The `subscribed_models` filter of the
+devices websocket applies.
+
+`get_viewer_public`, like the other public GET helpers, returns the response
+without touching `public_bootstrap.viewers` and emits no event.
+
+A public refresh (`update_public`) that started before the PATCH can finish
+after it and overwrite the cached viewer with the old liveview. No websocket
+frame corrects that for viewers; the next refresh does.
+
 ## Public vs. private API
 
 `uiprotect` can talk to UniFi Protect two ways, and is actively migrating

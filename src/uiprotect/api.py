@@ -4581,10 +4581,7 @@ class ProtectApiClient(BaseApiClient):
         data = await self.api_request_obj(
             url=f"/v1/viewers/{viewer_id}", public_api=True
         )
-        viewer = PublicViewer.from_unifi_dict(**data, api=self)
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.viewers[viewer.id] = viewer
-        return viewer
+        return PublicViewer.from_unifi_dict(**data, api=self)
 
     async def update_viewer_public(
         self,
@@ -4610,9 +4607,41 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
         )
         viewer = PublicViewer.from_unifi_dict(**data, api=self)
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.viewers[viewer.id] = viewer
-        return viewer
+        pb = self._public_bootstrap
+        if pb is None:
+            return viewer
+        changed_data: dict[str, Any] = {"modelKey": ModelType.VIEWPORT.value}
+        previous: PublicViewer | None = None
+        if (cached := pb.viewers.get(viewer.id)) is None:
+            pb.viewers[viewer.id] = cached = viewer
+            action = WSAction.ADD
+            changed_data.update(data)
+        else:
+            previous = cached.model_copy()
+            cached._apply_from_response(viewer)
+            if previous.liveview_id == cached.liveview_id:
+                return cached
+            action = WSAction.UPDATE
+            before = previous.unifi_dict()
+            changed_data.update(
+                (key, value)
+                for key, value in cached.unifi_dict().items()
+                if before.get(key) != value
+            )
+            changed_data["id"] = cached.id
+        # Protect sends no devices-websocket frame when a viewer's liveview
+        # changes, so announce the PATCH like the private ``Viewer`` does.
+        if not self._devices_ws_filtered_out(ModelType.VIEWPORT):
+            self.emit_devices_message(
+                WSSubscriptionMessage(
+                    action=action,
+                    new_update_id=cached.id,
+                    changed_data=changed_data,
+                    new_obj=cached,
+                    old_obj=previous,
+                )
+            )
+        return cached
 
     async def get_liveviews_public(self) -> list[PublicLiveview]:
         """Get all liveviews using public API."""
