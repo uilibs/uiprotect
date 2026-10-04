@@ -429,6 +429,34 @@ async def test_public_camera_osd_overlay_location() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("method", "args", "expected_path"),
+    [
+        ("ptz_goto_preset", (2,), "/ptz/goto/2"),
+        ("ptz_patrol_start", (1,), "/ptz/patrol/start/1"),
+        ("ptz_patrol_stop", (), "/ptz/patrol/stop"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_public_camera_ptz_commands(
+    protect_client_no_debug: Any,
+    method: str,
+    args: tuple[int, ...],
+    expected_path: str,
+) -> None:
+    client = protect_client_no_debug
+    client.api_request_raw = AsyncMock(return_value=b"")
+    cam = _camera(client)
+
+    assert await getattr(cam, method)(*args) is None
+
+    client.api_request_raw.assert_awaited_once_with(
+        url=f"/v1/cameras/{cam.id}{expected_path}",
+        method="post",
+        public_api=True,
+    )
+
+
 _OBJECT_DETECTION = [
     ("set_person_detection", SmartDetectObjectType.PERSON),
     ("set_vehicle_detection", SmartDetectObjectType.VEHICLE),

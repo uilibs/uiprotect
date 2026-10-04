@@ -1005,6 +1005,18 @@ class PublicCamera(PublicDeviceModel):
         self._apply_from_response(updated)
         return self
 
+    async def ptz_goto_preset(self, slot: int) -> None:
+        """Move the PTZ camera to the preset in ``slot`` via the public API."""
+        await self._api.ptz_goto_preset_public(self.id, slot=slot)
+
+    async def ptz_patrol_start(self, slot: int) -> None:
+        """Start the PTZ patrol in ``slot`` via the public API."""
+        await self._api.ptz_patrol_start_public(self.id, slot=slot)
+
+    async def ptz_patrol_stop(self) -> None:
+        """Stop the active PTZ patrol via the public API."""
+        await self._api.ptz_patrol_stop_public(self.id)
+
     async def set_person_detection(self, enabled: bool) -> PublicCamera:
         """Toggle person smart detection via the public API."""
         return await self._set_smart_detect_object(
