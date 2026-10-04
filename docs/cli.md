@@ -55,7 +55,7 @@ uiprotect cameras list-ids
 Commands that have no public equivalent exit with an error telling you to
 supply `--username`/`--password`. In this mode that covers:
 
-- whole groups: `nvr`, `events`, `backup`;
+- whole groups: `nvr`, `events`;
 - top-level commands: `create-api-key`, `generate-sample-data`, `profile-ws`,
   `shell`;
 - on every device group: `adopt`, `bridge`, `reboot`, `set-ssh`, `unadopt`,
@@ -142,7 +142,6 @@ expose only the commands that have a public equivalent. `Private` groups are una
 | Command                | API     | Description                                                      |
 | ---------------------- | ------- | ---------------------------------------------------------------- |
 | `arm`                  | Public  | Arm profile and alarm commands.                                  |
-| `backup`               | Private | [Backup CLI](#backup-cli).                                       |
 | `bridges`              | Public  | Bridge commands.                                                 |
 | `cameras`              | Hybrid  | Camera device CLI.                                               |
 | `chimes`               | Hybrid  | Chime device CLI.                                                |
@@ -327,143 +326,6 @@ The top-level `uiprotect get-meta-info` command is also Public-API driven.
 `uiprotect create-api-key NAME` runs against the private, session-authenticated
 (username/password) surface — you must already have a private session to mint
 an API key.
-
-#### Backup CLI
-
-```bash
-$ uiprotect backup --help
-
- Usage: uiprotect backup [OPTIONS] COMMAND [ARGS]...
-
- Backup CLI.
- The backup CLI is still very WIP in progress and consider experimental and potentially unstable (interface may change in the future).
-```
-
-##### Backup Options
-
-|      | Option            | Env                 | Type     | Default                                                                                            | Description                                                                                            |
-| ---- | ----------------- | ------------------- | -------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `-s` | `--start`         | `UFP_BACKUP_START`  | datetime |                                                                                                    | Cutoff for start of backup. Defaults to start of recording for NVR.                                    |
-| `-e` | `--end`           | `UFP_BACKUP_END`    | datetime |                                                                                                    | Cutoff for end of backup. Defaults to now.                                                             |
-|      | `--output-folder` | `UFP_BACKUP_OUTPUT` | path     | `$PWD`                                                                                             | Base dir for creating files. Defaults to $PWD.                                                         |
-|      | `--thumb-format`  |                     | text     | `{year}/{month}/{day}/{hour}/{datetime}{sep}{mac}{sep}{camera_slug}{event_type}{sep}thumb.jpg`     | Filename format to save event thumbnails to. Set to empty string ("") to skip saving event thumbnails. |
-|      | `--gif-format`    |                     | text     | `{year}/{month}/{day}/{hour}/{datetime}{sep}{mac}{sep}{camera_slug}{event_type}{sep}animated.gif]` | Filename format to save event gifs to. Set to empty string ("") to skip saving event gif.              |
-|      | `--event-format`  |                     | text     | `{year}/{month}/{day}/{hour}/{datetime}{sep}{mac}{sep}{camera_slug}{event_type}.mp4`               | Filename format to save event gifs to. Set to empty string ("") to skip saving event videos.           |
-|      | `--title-format`  |                     | text     | `{time_sort_pretty_local} {sep} {camera_name} {sep} {event_type_pretty} {sep} {length_pretty}`     | Format to use to tag title for video metadata.                                                         |
-| `-v` | `--verbose`       |                     | boolean  | `False`                                                                                            | Debug logging.                                                                                         |
-| `-d` | `--max-download`  |                     | integer  | `5`                                                                                                | Max number of concurrent downloads. Adds additional loads to NVR.                                      |
-|      | `--page-size`     |                     | integer  | `1000`                                                                                             | Number of events fetched at once from local database. Increases memory usage.                          |
-|      | `--length-cutoff` |                     | integer  | `3600`                                                                                             | Event size cutoff for detecting abnormal events (in seconds).                                          |
-|      | `--sep`           |                     | boolean  | `-`                                                                                                | Separator used for formatting.                                                                         |
-|      | `--help`          |                     |          |                                                                                                    | Show help message and exit.                                                                            |
-
-##### File Name and Title Formatting
-
-There are [5 options](#backup-options) controlling output format for file names and metadata. This allows you to customize backups to your liking. All 5 options are a template string. Here are all of the available templating variables:
-
-| Variable                 | Description                                                                                                                             |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `year`                   | UTC year of start of export.                                                                                                            |
-| `month`                  | UTC month of start of export.                                                                                                           |
-| `day`                    | UTC day of start of export.                                                                                                             |
-| `hour`                   | UTC hour of start of export.                                                                                                            |
-| `minute`                 | UTC minute of start of export.                                                                                                          |
-| `datetime`               | [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) formatted UTC datetime of start of export. Uses `sep` between parts.                 |
-| `date`                   | [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) formatted UTC date of start of export. Uses `sep` between parts.                     |
-| `time`                   | UTC time of start of export. Uses `sep` between parts. 24 hour time.                                                                    |
-| `time_sort_pretty`       | UTC time of start of export. Uses `:` between parts. 24 hour time.                                                                      |
-| `time_pretty`            | UTC time of start of export. Uses `:` between parts. 12 hour time with AM/PM.                                                           |
-| `year_local`             | [Local](#timezones) year of start of export.                                                                                            |
-| `month_local`            | [Local](#timezones) month of start of export.                                                                                           |
-| `day_local`              | [Local](#timezones) day of start of export.                                                                                             |
-| `hour_local`             | [Local](#timezones) hour of start of export.                                                                                            |
-| `minute_local`           | [Local](#timezones) minute of start of export.                                                                                          |
-| `datetime_local`         | [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) formatted [Local](#timezones) datetime of start of export. Uses `sep` between parts. |
-| `date_local`             | [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) formatted [Local](#timezones) date of start of export. Uses `sep` between parts.     |
-| `time_local`             | [Local](#timezones) time of start of export. Uses `sep` between parts. 24 hour time.                                                    |
-| `time_sort_pretty_local` | [Local](#timezones) time of start of export. Uses `:` between parts. 24 hour time.                                                      |
-| `time_pretty_local`      | [Local](#timezones) time of start of export. Uses `:` between parts. 12 hour time with AM/PM.                                           |
-| `mac`                    | MAC address of camera.                                                                                                                  |
-| `camera_name`            | Name of camera.                                                                                                                         |
-| `camera_slug`            | Lowercased name of camera with spaces replaced with `sep`.                                                                              |
-| `event_type`             | Lowercased name of the event exported.                                                                                                  |
-| `event_type_pretty`      | More human readable name of event exported.                                                                                             |
-| `length_pretty`          | Human readable version of the length of the clip exported.                                                                              |
-| `sep`                    | Separator to use in many cases.                                                                                                         |
-
-###### Datetimes
-
-All datetimes for the Backup CLi can either be in [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format or can be a human readable format that the Python library [dateparse](https://github.com/scrapinghub/dateparser) can understand. This will allow relative datetimes to be passed, such as `"1 hour ago"` which will make backing up incremental for cron jobs.
-
-###### Formatting for Plex
-
-You are able to export your Camera events and then access them in [Plex](https://www.plex.tv/) relatively well. For setup in Plex, the following is recommended:
-
-- Enable the "Local Media Assets" Agent Source for the Movies Library Type (Settings -> Agents -> Movies). [Plex docs](https://support.plex.tv/articles/200265246-personal-media-movies/).
-- Create a "Other Videos" library pointing to the same folder as your [--output-folder](#backup-options) folder.
-  - Scanner: "Plex Video Files Scanner"
-  - Agent: "Personal Media"
-
-Recommended formats for the backup command:
-
-| Option           | Format                                                            |
-| ---------------- | ----------------------------------------------------------------- |
-| `--thumb-format` | `{year_local}/{month_local}/{day_local}/{hour_local}/{title}.jpg` |
-| `--gif-format`   | `{year_local}/{month_local}/{day_local}/{hour_local}/{title}.gif` |
-| `--event-format` | `{year_local}/{month_local}/{day_local}/{hour_local}/{title}.mp4` |
-| `--title-format` | `default` or whatever you want the title to be in Plex.           |
-
-##### Backing Up Camera Events
-
-```bash
-$ uiprotect backup events --help
-
- Usage: uiprotect backup events [OPTIONS]
-
- Backup thumbnails and video clips for camera events.
-```
-
-|      | Option         | Type                                | Default                             | Description                                                 |
-| ---- | -------------- | ----------------------------------- | ----------------------------------- | ----------------------------------------------------------- |
-| `-t` | `--event-type` | `motion`, `ring`, `smartDetectZone` | `motion`, `ring`, `smartDetectZone` | Events to export. Can be used multiple time.                |
-| `-m` | `--smart-type` | `person`, `vehicle`, `package`      | `person`, `vehicle`, `package`      | Smart Detection types to export. Can be used multiple time. |
-| `-p` | `--prune`      | boolean                             | `False`                             | Prune events older then start.                              |
-| `-f` | `--force`      | boolean                             | `False`                             | Force update all events and redownload all clips.           |
-| `-v` | `--verify`     | boolean                             | `False`                             | Verifies files on disk.                                     |
-|      | `--no-input`   | boolean                             | `False`                             | Disables confirmation prompt if `-p` and `-f` both passed.  |
-|      | `--help`       |                                     |                                     | Show help message and exit.                                 |
-
-The `backup events` command essentially mirrors all of the selected events from your UniFi Protect instance into a local sqlite database (`events.db` inside of the `--output-folder`). As a result, the initial run make take a _really long time_ to run if your UniFi Protect instance has a lot of events inside of it.
-
-As an example using a UniFi Protect instance with ~200k events and ~8 months of camera footage:
-
-- Building the database is in the range of hours
-- Doing the initial download of event thumbnails, gifs and video clips is in the range of tens of hours (potentially 1-2 days)
-- Incremental or targeted backups are much faster (<1 per event)
-
-!!! note "Cron Usage"
-
-    For incremental backups in crons, it is recommended you run the command with an absolute start first to build your events database and do an initial download of files. This will significantly speed up the incremental backup commands.
-
-##### Examples
-
-###### Backup All Events
-
-```bash
-uiprotect backup events
-```
-
-###### Backup All Smart Detections for the Past Hour
-
-```bash
-uiprotect backup --start "1 hour ago" events -t smartDetectZone
-```
-
-###### Backup All Person Smart Detections from December 31st at 10PM to January 1st at 5AM
-
-```bash
-uiprotect backup --start "2021-12-31T22:00:00" --end "2022-1-1T05:00:00" events -t smartDetectZone -m person
-```
 
 #### Camera CLI
 

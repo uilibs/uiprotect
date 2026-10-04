@@ -38,11 +38,6 @@ from .ulp_users_public import app as ulp_users_public_app
 from .users_public import app as users_public_app
 from .viewers import app as viewer_app
 
-try:
-    from .backup import app as backup_app
-except ImportError:
-    backup_app = None  # type: ignore[assignment]
-
 _LOGGER = logging.getLogger("uiprotect")
 
 try:
@@ -159,9 +154,6 @@ app.add_typer(users_public_app, name="users-public")
 app.add_typer(ulp_users_public_app, name="ulp-users-public")
 app.add_typer(files_public_app, name="files-public")
 app.add_typer(arm_app, name="arm")
-
-if backup_app is not None:
-    app.add_typer(backup_app, name="backup")
 
 
 @app.callback()

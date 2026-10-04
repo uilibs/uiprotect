@@ -12,7 +12,6 @@ dynamic = ["classifiers", "dependencies"]
 cli = [
     "typer>=0.27.2",
     "rich>=15.0.0",
-    "dateparser>=1.4.3",
     "pillow>=12.3.0",
 ]
 
@@ -44,7 +43,6 @@ rich = { version = ">=15.0.0", optional = true }
 aiofiles = ">=24"
 aiohttp = ">=3.14.3"
 av = ">=17.0.1"
-dateparser = { version = ">=1.4.3", optional = true }
 orjson = ">=3.11.9"
 packaging = ">=26.3"
 pillow = { version = ">=12.3.0", optional = true }
@@ -60,7 +58,6 @@ aiozoneinfo = ">=0.2.3"
 [tool.poetry.group.dev.dependencies]
 pytest = ">=9.1.1,<10"
 pytest-cov = ">=3,<8"
-aiosqlite = ">=0.20.0"
 pytest-asyncio = ">=1.4.0,<1.5.0"
 pytest-benchmark = ">=5.3.0,<6"
 pytest-codspeed = "^5.0.3"
@@ -68,11 +65,9 @@ pytest-sugar = "^1.1.1"
 pytest-timeout = "^2.4.0"
 pytest-xdist = "^3.7.0"
 types-aiofiles = ">=25.1.0.20260518,<26.0.0.0"
-types-dateparser = "^1.4.3.20260907"
 mypy = "^2.3.1"
 pre-commit = "^4.6.2"
 blockbuster = ">=1.5.28,<2.0.0"
-sqlalchemy = { version = ">=2.1.1", extras = ["asyncio"] }
 
 [tool.poetry.group.docs]
 optional = true
