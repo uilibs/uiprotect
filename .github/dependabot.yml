@@ -21,5 +21,10 @@ updates:
     schedule:
       interval: "weekly"
     groups:
+      cli-extras:
+        patterns:
+          - "typer"
+          - "rich"
+          - "pillow"
       development:
         dependency-type: "development"
