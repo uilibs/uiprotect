@@ -1116,6 +1116,8 @@ def test_camera_get_changed_keeps_other_zone_colors(
     ]
     before = camera_obj.dict_with_excludes()
 
+    assert "motion_zones" not in camera_obj.get_changed(before)
+
     camera_obj.motion_zones[0].name = "Renamed"
     changed = camera_obj.get_changed(before)
 
