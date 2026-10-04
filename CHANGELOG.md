@@ -1,5 +1,13 @@
 # Changelog
 
+## v20.1.0 (2026-10-04)
+
+### Features
+
+
+- Add ptz commands to publiccamera ([`2461f2a`](https://github.com/uilibs/uiprotect/commit/2461f2a8b5653643b64ec76a3785664673fe733f))
+
+
 ## v20.0.2 (2026-10-04)
 
 ### Bug fixes
