@@ -1502,14 +1502,12 @@ class ProtectApiClient(BaseApiClient):
         override_connection_host: Use `host` as your `connection_host` for the
             private RTSP(S) URLs and the public RTSPS URLs instead of using the
             one provided by UniFi Protect.
-        minimum_score: minimum score for events (default: `0`)
         subscribed_models: Model types you want to filter events for WS. You will need to manually check the bootstrap for updates for events that not subscibred.
         ignore_stats: Ignore storage, system, etc. stats/metrics from NVR and cameras (default: false)
         debug: Use full type validation (default: false)
 
     """
 
-    _minimum_score: int
     _subscribed_models: set[ModelType]
     # ``None`` means "inherit ``_subscribed_models``"; an explicit (possibly
     # empty) set overrides the global filter for that websocket. An empty set
@@ -1604,7 +1602,6 @@ class ProtectApiClient(BaseApiClient):
         config_dir: Path | None = None,
         store_sessions: bool = True,
         override_connection_host: bool = False,
-        minimum_score: int = 0,
         subscribed_models: set[ModelType] | None = None,
         events_ws_subscribed_models: set[ModelType] | None = None,
         devices_ws_subscribed_models: set[ModelType] | None = None,
@@ -1633,7 +1630,6 @@ class ProtectApiClient(BaseApiClient):
             public_refresh_interval=public_refresh_interval,
         )
 
-        self._minimum_score = minimum_score
         self._subscribed_models = subscribed_models or set()
         # Preserve ``None`` vs. empty-set distinction: ``None`` inherits from
         # ``_subscribed_models``; an explicit empty set means "allow all".
