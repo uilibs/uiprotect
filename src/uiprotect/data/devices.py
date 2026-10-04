@@ -51,7 +51,6 @@ from .types import (
     AudioCodecs,
     ChannelQuality,
     ChimeType,
-    Color,
     DoorbellMessageType,
     HDRMode,
     ICRCustomValue,
@@ -499,7 +498,7 @@ class CameraStats(ProtectBaseObject):
 class CameraZone(ProtectBaseObject):
     id: int
     name: str
-    color: Color
+    color: str
     points: list[tuple[Percent, Percent]]
 
     @classmethod
@@ -519,10 +518,6 @@ class CameraZone(ProtectBaseObject):
         if "points" in data:
             data["points"] = [serialize_point(p) for p in data["points"]]
 
-        if "color" in data and isinstance(data["color"], dict):
-            # Serialize Color object to hex string to avoid Pydantic serialization warnings
-            data["color"] = self.color.as_hex().upper()
-
         return data
 
     @staticmethod
@@ -530,7 +525,7 @@ class CameraZone(ProtectBaseObject):
         return CameraZone(
             id=zone_id,
             name=PRIVACY_ZONE_NAME,
-            color=Color("#85BCEC"),
+            color="#85BCEC",
             points=[[0, 0], [1, 0], [1, 1], [0, 1]],  # type: ignore[list-item]
         )
 

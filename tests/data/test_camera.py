@@ -32,6 +32,7 @@ from uiprotect.data.devices import (
     CameraZone,
     Hotplug,
     HotplugExtender,
+    MotionZone,
 )
 from uiprotect.data.nvr import GlobalRecordingSettings
 from uiprotect.data.types import PermissionNode, SmartDetectObjectType
@@ -1081,29 +1082,72 @@ def test_camera_zone_color_serialization() -> None:
     assert not isinstance(zone_dict["color"], dict)
 
 
-def test_camera_zone_color_serialization_from_dict() -> None:
-    """
-    Test that CameraZone.unifi_dict() converts color dict to hex string.
+def test_camera_zone_color_round_trips_unchanged() -> None:
+    """CameraZone keeps the color string exactly as Protect sends it."""
+    zone = CameraZone.from_unifi_dict(
+        id=1,
+        name="Zone",
+        color="#AABBCC",
+        points=[[0, 0], [1, 0], [1, 1], [0, 1]],
+    )
 
-    This simulates the case where Pydantic's serializer returns a dict
-    with RGB values instead of a hex string, which would cause warnings.
-    """
-    zone = CameraZone.create_privacy_zone(0)
+    assert zone.color == "#AABBCC"
+    assert zone.unifi_dict()["color"] == "#AABBCC"
 
-    # Create a dict with color as a dict (simulating Pydantic serialization issue)
-    zone_dict_with_color_dict: dict[str, Any] = {
-        "id": 0,
-        "name": "pyufp_privacy_zone",
-        "color": {"r": 133, "g": 188, "b": 236, "a": 1.0},  # Color as dict
+
+def _zone_dict(zone_id: int, color: str) -> dict[str, Any]:
+    return {
+        "id": zone_id,
+        "name": f"Zone {zone_id}",
+        "color": color,
         "points": [[0, 0], [1, 0], [1, 1], [0, 1]],
+        "sensitivity": 50,
     }
 
-    # Call unifi_dict with this data - it should convert color dict to hex string
-    result = zone.unifi_dict(data=zone_dict_with_color_dict)
 
-    # Verify the color was converted from dict to hex string
-    assert isinstance(result["color"], str)
-    assert result["color"] == "#85BCEC"
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_camera_get_changed_ignores_unchanged_zones(
+    camera_obj: Camera | None,
+) -> None:
+    """get_changed reports no zone change when the zones are untouched."""
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.motion_zones = [MotionZone.from_unifi_dict(**_zone_dict(1, "#AABBCC"))]
+    camera_obj.privacy_zones = [CameraZone.from_unifi_dict(**_zone_dict(2, "#AABBCC"))]
+    before = camera_obj.dict_with_excludes()
+
+    camera_obj.mic_volume = 10 if camera_obj.mic_volume != 10 else 20
+    changed = camera_obj.get_changed(before)
+
+    assert "motion_zones" not in changed
+    assert "privacy_zones" not in changed
+    assert "mic_volume" in changed
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_remove_privacy_zone_keeps_other_zone_colors(
+    camera_obj: Camera | None,
+) -> None:
+    """Writing the privacy zone list sends the other zones' colors unchanged."""
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.api.api_request.reset_mock()
+    camera_obj.feature_flags.has_privacy_mask = True
+    other = _zone_dict(5, "#AABBCC")
+    del other["sensitivity"]
+    camera_obj.privacy_zones = [CameraZone.from_unifi_dict(**other)]
+    camera_obj.add_privacy_zone()
+
+    await camera_obj.set_privacy(False)
+
+    camera_obj.api.api_request.assert_called_with(
+        f"cameras/{camera_obj.id}",
+        method="patch",
+        json={"privacyZones": [other]},
+    )
 
 
 # PTZ Public API Tests
