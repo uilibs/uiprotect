@@ -82,6 +82,13 @@ To use the command-line interface, install the `cli` extra (it pulls in `typer`)
 pip install "uiprotect[cli]"
 ```
 
+The `backup` command additionally needs the `backup` extra (SQLAlchemy and
+aiosqlite):
+
+```bash
+pip install "uiprotect[cli,backup]"
+```
+
 ### From GitHub
 
 ```bash

@@ -38,10 +38,11 @@ from .ulp_users_public import app as ulp_users_public_app
 from .users_public import app as users_public_app
 from .viewers import app as viewer_app
 
+_BACKUP_MISSING_MODULE: str | None = None
 try:
     from .backup import app as backup_app
-except ImportError:
-    backup_app = None  # type: ignore[assignment]
+except ImportError as err:
+    _BACKUP_MISSING_MODULE = err.name or str(err)
 
 _LOGGER = logging.getLogger("uiprotect")
 
@@ -160,8 +161,22 @@ app.add_typer(ulp_users_public_app, name="ulp-users-public")
 app.add_typer(files_public_app, name="files-public")
 app.add_typer(arm_app, name="arm")
 
-if backup_app is not None:
+if _BACKUP_MISSING_MODULE is None:
     app.add_typer(backup_app, name="backup")
+else:
+
+    @app.command(
+        name="backup",
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+        help="Unavailable: install the backup extra, uiprotect[cli,backup].",
+    )
+    def backup_unavailable() -> None:
+        typer.echo(
+            f"The backup command is unavailable ({_BACKUP_MISSING_MODULE} is not "
+            "installed). Install it with: pip install 'uiprotect[cli,backup]'",
+            err=True,
+        )
+        raise typer.Exit(1)
 
 
 @app.callback()

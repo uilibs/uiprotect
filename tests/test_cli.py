@@ -1,7 +1,9 @@
 import copy
+import importlib
 import os
 import re
 import ssl
+import sys
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -156,6 +158,44 @@ def test_root_help_shows_public_subcommands() -> None:
     assert "ulp-users-public" in result.stdout
     assert "files-public" in result.stdout
     assert "arm" in result.stdout
+
+
+def test_backup_help_when_dependencies_installed() -> None:
+    """The backup group is registered when its extra is installed."""
+    result = runner.invoke(app, ["--address", "192.0.2.10", "backup", "--help"])
+    assert result.exit_code == 0
+    assert "Backup CLI" in result.stdout
+
+
+def test_backup_without_extra_explains_how_to_install() -> None:
+    """A missing backup dependency surfaces an install hint, not a hidden command."""
+    cli_module = sys.modules["uiprotect.cli"]
+    try:
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setitem(sys.modules, "sqlalchemy", None)
+            mp.delitem(sys.modules, "uiprotect.cli.backup", raising=False)
+            reloaded = importlib.reload(cli_module)
+
+            help_result = runner.invoke(reloaded.app, ["--help"])
+            run_result = runner.invoke(
+                reloaded.app,
+                [
+                    "--address",
+                    "192.0.2.10",
+                    "backup",
+                    "--start",
+                    "1 hour ago",
+                    "events",
+                ],
+            )
+    finally:
+        importlib.reload(cli_module)
+
+    assert help_result.exit_code == 0
+    assert "backup" in _ANSI_ESCAPE_RE.sub("", help_result.stdout)
+    assert run_result.exit_code == 1
+    assert "sqlalchemy is not installed" in run_result.stderr
+    assert "pip install 'uiprotect[cli,backup]'" in run_result.stderr
 
 
 def test_sirens_help() -> None:

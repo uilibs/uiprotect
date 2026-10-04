@@ -330,6 +330,13 @@ an API key.
 
 #### Backup CLI
 
+The backup command needs the `backup` extra on top of `cli`. Without it,
+`uiprotect backup` prints an install hint and exits.
+
+```bash
+pip install "uiprotect[cli,backup]"
+```
+
 ```bash
 $ uiprotect backup --help
 
