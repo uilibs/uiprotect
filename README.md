@@ -154,7 +154,6 @@ uiprotect nvr
 **Device management commands:**
 
 - `uiprotect nvr` - NVR information and settings
-- `uiprotect events` - Event management and export
 - `uiprotect cameras` - Camera management
 - `uiprotect lights` - Light device management
 - `uiprotect sensors` - Sensor management

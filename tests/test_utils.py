@@ -40,7 +40,6 @@ from uiprotect.utils import (
     decode_token_cookie,
     dict_diff,
     format_datetime,
-    format_duration,
     format_host_for_url,
     from_js_time,
     get_local_timezone,
@@ -52,7 +51,6 @@ from uiprotect.utils import (
     is_debug,
     is_doorbell,
     is_online,
-    local_datetime,
     log_event,
     make_enabled_getter,
     make_required_getter,
@@ -365,20 +363,6 @@ def test_format_datetime(dt, default, expected):
 
 
 @pytest.mark.parametrize(
-    ("duration", "expected"),
-    [
-        (timedelta(seconds=30), "30s"),
-        (timedelta(minutes=5), "5m0s"),
-        (timedelta(hours=2), "2h0s"),
-        (timedelta(hours=1, minutes=30, seconds=45), "1h30m45s"),
-        (timedelta(days=1, hours=2), "26h0s"),
-    ],
-)
-def test_format_duration(duration, expected):
-    assert format_duration(duration) == expected
-
-
-@pytest.mark.parametrize(
     ("data", "expected"),
     [
         ({"state": "CONNECTED"}, True),
@@ -601,14 +585,6 @@ def test_decode_token_cookie_malformed(
     caplog.set_level("DEBUG", logger="uiprotect.utils")
     assert decode_token_cookie(_token_morsel(token)) is None
     assert "Authentication token decode error" in caplog.text
-
-
-def test_local_datetime():
-    assert local_datetime(None).tzinfo is not None
-    assert (
-        local_datetime(datetime(2024, 1, 15, 12, 0, 0, tzinfo=UTC)).tzinfo is not None
-    )
-    assert local_datetime(datetime(2024, 1, 15, 12, 0, 0)).tzinfo is not None
 
 
 def test_get_local_timezone(monkeypatch):

@@ -748,45 +748,6 @@ async def test_get_events_raw_types(protect_client: ProtectApiClient):
     )
 
 
-# test has a scaling "expected time to complete" based on the number of
-# events in the last 24 hours
-@pytest.mark.timeout(CONSTANTS["event_count"] * 0.1)  # type: ignore[misc]
-@pytest.mark.asyncio()
-async def test_get_events(protect_client: ProtectApiClient, raw_events):
-    expected_events = [
-        event
-        for event in raw_events
-        if event["score"] >= 50 and event["type"] in EventType.device_events()
-    ]
-
-    protect_client._minimum_score = 50
-
-    events = await protect_client.get_events(_allow_manual_paginate=False)
-
-    assert len(events) == len(expected_events)
-    for index, event in enumerate(events):
-        compare_objs(event.model.value, expected_events[index], event.unifi_dict())
-
-        if event.type.value in EventType.motion_events():
-            await check_motion_event(event)
-
-
-@pytest.mark.asyncio()
-async def test_get_events_not_event(protect_client: ProtectApiClient, camera):
-    protect_client.get_events_raw = AsyncMock(return_value=[camera])  # type: ignore[method-assign]
-
-    assert await protect_client.get_events() == []
-
-
-@pytest.mark.asyncio()
-async def test_get_events_not_event_with_type(protect_client: ProtectApiClient, camera):
-    camera["type"] = EventType.MOTION.value
-
-    protect_client.get_events_raw = AsyncMock(return_value=[camera])  # type: ignore[method-assign]
-
-    assert await protect_client.get_events() == []
-
-
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
 async def test_get_device_mismatch(protect_client: ProtectApiClient, camera):
@@ -1062,23 +1023,6 @@ async def test_get_event_thumbnail_uuid_with_e_dash(protect_client: ProtectApiCl
     protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
         f"events/{event_id}/thumbnail",
         params={},
-        raise_exception=False,
-    )
-
-
-@pytest.mark.skipif(not TEST_THUMBNAIL_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_get_event_animated_thumbnail_uuid_with_e_dash(
-    protect_client: ProtectApiClient,
-):
-    """Regression test for #810: event IDs containing 'e-' must not be corrupted."""
-    event_id = "4028adde-42c6-4873-a49e-94da9bd22190"
-    data = await protect_client.get_event_animated_thumbnail(event_id)
-    assert data is not None
-
-    protect_client.api_request_raw.assert_called_with(  # type: ignore[attr-defined]
-        f"events/{event_id}/animated-thumbnail",
-        params={"keyFrameOnly": "true", "speedup": 10},
         raise_exception=False,
     )
 
