@@ -11,7 +11,6 @@ from typing import Annotated, Any, Literal, TypeVar, Union, get_args, get_origin
 from packaging.version import Version as BaseVersion
 from pydantic import BaseModel, Field
 from pydantic.types import StringConstraints
-from pydantic_extra_types.color import Color  # noqa: F401
 
 from .._compat import cached_property
 

@@ -24,7 +24,6 @@ from tests.conftest import async_read_text, set_no_debug
 from uiprotect.data import EventType
 from uiprotect.data.bootstrap import WSStat
 from uiprotect.data.types import (
-    Color,
     ModelType,
     SmartDetectAudioType,
     SmartDetectObjectType,
@@ -450,10 +449,6 @@ def test_serialize_dict():
 )
 def test_serialize_unifi_obj(obj, expected):
     assert serialize_unifi_obj(obj) == expected
-
-
-def test_serialize_unifi_obj_color():
-    assert serialize_unifi_obj(Color("#FF0000")) in ("#FF0000", "#F00")
 
 
 def test_serialize_unifi_obj_with_unifi_dict():

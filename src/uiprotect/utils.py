@@ -29,7 +29,6 @@ from uuid import UUID
 import orjson
 
 from .data.types import (
-    Color,
     SmartDetectAudioType,
     SmartDetectObjectType,
     Version,
@@ -68,7 +67,7 @@ SNAKE_CASE_MATCH_3 = re.compile("([a-z0-9])([A-Z])")
 
 _LOGGER = logging.getLogger(__name__)
 
-_CREATE_TYPES = {UUID, Color, Decimal, Path, Version}
+_CREATE_TYPES = {UUID, Decimal, Path, Version}
 _BAD_UUID = "00000000-0000-00 0- 000-000000000000"
 
 # All IP-related types that need special handling via _cached_ip_address
@@ -298,8 +297,6 @@ def serialize_unifi_obj(value: Any, levels: int = -1) -> Any:  # noqa: PLR0911
         return to_js_time(value)
     if isinstance(value, timedelta):
         return to_ms(value)
-    if isinstance(value, Color):
-        return value.as_hex().upper()
 
     return value
 

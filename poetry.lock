@@ -2457,33 +2457,6 @@ files = [
 typing-extensions = ">=4.14.1"
 
 [[package]]
-name = "pydantic-extra-types"
-version = "2.11.2"
-description = "Extra Pydantic types."
-optional = false
-python-versions = ">=3.9"
-groups = ["main"]
-files = [
-    {file = "pydantic_extra_types-2.11.2-py3-none-any.whl", hash = "sha256:683b8943252543e49760f89733b1519bc62f31d1a287ebbdc5a7b7959fb4acfd"},
-    {file = "pydantic_extra_types-2.11.2.tar.gz", hash = "sha256:3a2b83b61fe920925688e7838b59caa90a45637d1dbba2b1364b8d1f7ff72a0a"},
-]
-
-[package.dependencies]
-pydantic = ">=2.5.2"
-typing-extensions = "*"
-
-[package.extras]
-all = ["cron-converter (>=1.2.2)", "jsonschema (>=4.0.0)", "pendulum (>=3.0.0,<4.0.0)", "phonenumbers (>=8,<10)", "pycountry (>=23)", "pymongo (>=4.0.0,<5.0.0)", "python-ulid (>=1,<2) ; python_version < \"3.9\"", "python-ulid (>=1,<4) ; python_version >= \"3.9\"", "pytz (>=2024.1)", "semver (>=3.0.2)", "semver (>=3.0.2,<3.1.0)", "tzdata (>=2024.1)", "uuid-utils (>=0.6.0) ; python_version < \"3.14\""]
-cron = ["cron-converter (>=1.2.2)"]
-jsonschema = ["jsonschema (>=4.0.0)"]
-pendulum = ["pendulum (>=3.0.0,<4.0.0)"]
-phonenumbers = ["phonenumbers (>=8,<10)"]
-pycountry = ["pycountry (>=23)"]
-python-ulid = ["python-ulid (>=1,<2) ; python_version < \"3.9\"", "python-ulid (>=1,<4) ; python_version >= \"3.9\""]
-semver = ["semver (>=3.0.2)"]
-uuid-utils = ["uuid-utils (>=0.6.0) ; python_version < \"3.14\""]
-
-[[package]]
 name = "pygments"
 version = "2.20.0"
 description = "Pygments is a syntax highlighting package written in Python."
@@ -3245,4 +3218,4 @@ cli = ["pillow", "rich", "typer"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "c89b3646a3a5ae3e5d82363fda055c5e8e41c23a5cf9724bce7216b5e8e6c691"
+content-hash = "3716cae2683c864f6f21f114b37ebdc70b9684af43f573867fb3c04a0922a94e"
