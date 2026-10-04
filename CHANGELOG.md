@@ -1603,6 +1603,12 @@
 
 
 
+### Bug fixes
+
+
+- Initialize config dictionary in _read_auth_config method ([`f63e1b3`](https://github.com/uilibs/uiprotect/commit/f63e1b3d8357e82e3f88c07c7c17164140a5aa36))
+
+
 ## v7.9.2 (2025-05-24)
 
 ### Bug fixes
@@ -1745,6 +1751,9 @@
 
 
 - Add set_light_is_led_force_on method ([`5488b1d`](https://github.com/uilibs/uiprotect/commit/5488b1d7accb3d0f3a3df05101b8bc87ef67f25b))
+
+
+- Chime ringtones ([`d0c93b5`](https://github.com/uilibs/uiprotect/commit/d0c93b5cf562d24acd90dea6e6a77c1ea56b00c1))
 
 
 ### Unknown
@@ -3697,6 +3706,9 @@
 
 
 ### Features
+
+
+- Add ptz auto tracking ([`a00de52`](https://github.com/uilibs/uiprotect/commit/a00de52bda63a822f2ffce53bd9188aa7a91def8))
 
 
 - Make chime duration adjustable ([`b4d13c1`](https://github.com/uilibs/uiprotect/commit/b4d13c146f292eae216109f747d3bee6608b0f28))
