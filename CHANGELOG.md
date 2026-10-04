@@ -1,5 +1,13 @@
 # Changelog
 
+## v22.0.0 (2026-10-04)
+
+### Features
+
+
+- Store zone colors as raw strings ([`f9b8374`](https://github.com/uilibs/uiprotect/commit/f9b83748ea3c3cd0eabeb14bfba6467bb5afcc3b))
+
+
 ## v21.0.0 (2026-10-04)
 
 ### Features
