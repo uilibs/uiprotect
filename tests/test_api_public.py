@@ -6339,6 +6339,37 @@ async def test_viewer_set_liveview_typed_subscriber_changed_fields(
 
 
 @pytest.mark.asyncio()
+async def test_viewer_update_name_and_liveview_reports_both_changed(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A PATCH changing name and liveview reports both as changed."""
+    _cached_viewer(protect_client)
+    protect_client.api_request_obj = AsyncMock(
+        return_value=_viewer_raw(name="Kitchen", liveview="lv-new")
+    )
+    changes: list[ProtectDeviceChange] = []
+    unsub = protect_client.subscribe_devices(changes.append)
+    try:
+        _, got = await _collect_devices_ws(
+            protect_client,
+            protect_client.update_viewer_public(
+                VIEWER_ID, name="Kitchen", liveview="lv-new"
+            ),
+        )
+    finally:
+        unsub()
+
+    assert got[0].changed_data == {
+        "modelKey": "viewer",
+        "id": VIEWER_ID,
+        "name": "Kitchen",
+        "liveview": "lv-new",
+    }
+    assert len(changes) == 1
+    assert changes[0].changed_fields == frozenset({"liveview_id", "name"})
+
+
+@pytest.mark.asyncio()
 async def test_viewer_set_liveview_none_announces_clear(
     protect_client: ProtectApiClient,
 ) -> None:

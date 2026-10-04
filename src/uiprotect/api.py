@@ -4632,8 +4632,13 @@ class ProtectApiClient(BaseApiClient):
             changed_data.update(data)
         elif previous.liveview_id != cached.liveview_id:
             action = WSAction.UPDATE
+            before = previous.unifi_dict()
+            changed_data.update(
+                (key, value)
+                for key, value in cached.unifi_dict().items()
+                if before.get(key) != value
+            )
             changed_data["id"] = cached.id
-            changed_data["liveview"] = cached.liveview_id
         else:
             return cached
         # Protect sends no devices-websocket frame when a viewer's liveview
