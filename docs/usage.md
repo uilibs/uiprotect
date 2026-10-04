@@ -401,8 +401,6 @@ same object. It then emits a synthetic devices-WS message for the viewer:
   already shows, emits nothing.
 - `add` when the viewer was not cached yet; it is inserted and becomes
   `new_obj`, with no `old_obj`, and `changed_data` is the full response.
-- `add` when the viewer was not cached yet; it is inserted and becomes
-  `new_obj`, with no `old_obj`.
 
 A failed PATCH emits nothing, and so does a client with no public bootstrap
 (the response is returned uncached). The `subscribed_models` filter of the
