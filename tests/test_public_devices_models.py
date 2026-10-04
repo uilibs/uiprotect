@@ -12,10 +12,12 @@ import pytest
 from tests.conftest import set_no_debug
 from uiprotect.api import RTSPSStreams
 from uiprotect.data import (
+    NVR,
     AlarmHubInput,
     AlarmHubInputContactType,
     AlarmHubInputStatus,
     Fob,
+    LCDMessage,
     LinkStation,
     NvrArmMode,
     NvrArmModeStatus,
@@ -25,6 +27,8 @@ from uiprotect.data import (
     PublicCamera,
     PublicChime,
     PublicDeviceModel,
+    PublicDoorbellMessage,
+    PublicDoorbellSettings,
     PublicLcdMessage,
     PublicLight,
     PublicNVR,
@@ -40,6 +44,7 @@ from uiprotect.data import (
 from uiprotect.data.public_bootstrap import PublicBootstrap
 from uiprotect.data.types import (
     ChannelQuality,
+    DoorbellMessageType,
     ModelType,
     SensorScheduleMode,
     SmartDetectObjectType,
@@ -540,6 +545,94 @@ def test_public_camera_hdr_mode_display(hdr_type: str, expected: str) -> None:
         api=Mock(), **{**CAMERA_PAYLOAD, "hdrType": hdr_type}
     )
     assert obj.hdr_mode_display == expected
+
+
+@pytest.mark.parametrize(
+    ("lcd_message", "expected"),
+    [
+        (None, None),
+        ({}, None),
+        ({"text": "Hello"}, "Hello"),
+        ({"type": "LEAVE_PACKAGE_AT_DOOR"}, "LEAVE PACKAGE AT DOOR"),
+        ({"type": "DO_NOT_DISTURB"}, "DO NOT DISTURB"),
+        ({"type": "CUSTOM_MESSAGE", "text": "Hello"}, "Hello"),
+        ({"type": "CUSTOM_MESSAGE"}, ""),
+        ({"type": "IMAGE", "text": "img1"}, "IMAGE"),
+    ],
+)
+def test_public_camera_lcd_message_text(
+    lcd_message: dict[str, Any] | None, expected: str | None
+) -> None:
+    """``lcd_message_text`` matches the private ``LCDMessage`` display text."""
+    obj = PublicCamera.from_unifi_dict(
+        api=Mock(), **{**CAMERA_PAYLOAD, "lcdMessage": lcd_message}
+    )
+    assert obj.lcd_message_text == expected
+
+
+_MISSING = object()
+
+
+@pytest.mark.parametrize("text", [_MISSING, "", "Hi"])
+@pytest.mark.parametrize("message_type", [*DoorbellMessageType, None])
+def test_public_camera_lcd_message_text_matches_private(
+    message_type: DoorbellMessageType | None, text: object
+) -> None:
+    """``lcd_message_text`` matches ``LCDMessage`` except for one documented case."""
+    lcd_message: dict[str, Any] = {}
+    if message_type is not None:
+        lcd_message["type"] = message_type.value
+    if text is not _MISSING:
+        lcd_message["text"] = text
+    obj = PublicCamera.from_unifi_dict(
+        api=Mock(), **{**CAMERA_PAYLOAD, "lcdMessage": lcd_message}
+    )
+    if message_type is None and text is _MISSING:
+        assert obj.lcd_message_text is None
+        return
+    private_text = LCDMessage.from_unifi_dict(**lcd_message).text
+    if (
+        text is _MISSING
+        and message_type is not None
+        and message_type is not DoorbellMessageType.CUSTOM_MESSAGE
+    ):
+        assert private_text == ""
+        assert obj.lcd_message_text == message_type.value.replace("_", " ")
+        return
+    assert obj.lcd_message_text == private_text
+
+
+@pytest.mark.parametrize(
+    ("custom_messages", "expected_custom"),
+    [([], []), (["Hello", "Back soon"], ["Hello", "Back soon"])],
+)
+def test_public_doorbell_settings_all_messages(
+    custom_messages: list[str], expected_custom: list[str]
+) -> None:
+    """``all_messages`` lists the built-in messages, then the custom ones."""
+    settings = PublicDoorbellSettings.from_unifi_dict(customMessages=custom_messages)
+    assert settings.all_messages == [
+        PublicDoorbellMessage(
+            DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR, "LEAVE PACKAGE AT DOOR"
+        ),
+        PublicDoorbellMessage(DoorbellMessageType.DO_NOT_DISTURB, "DO NOT DISTURB"),
+        *(
+            PublicDoorbellMessage(DoorbellMessageType.CUSTOM_MESSAGE, text)
+            for text in expected_custom
+        ),
+    ]
+
+
+def test_public_doorbell_settings_all_messages_matches_private() -> None:
+    """``all_messages`` mirrors the private ``NVR.update_all_messages``."""
+    nvr = Mock(doorbell_settings=Mock(custom_messages=["Hello", "Back soon"]))
+    NVR.update_all_messages(nvr)
+    settings = PublicDoorbellSettings.from_unifi_dict(
+        customMessages=["Hello", "Back soon"]
+    )
+    assert [(m.type, m.text) for m in settings.all_messages] == [
+        (m.type, m.text) for m in nvr.doorbell_settings.all_messages
+    ]
 
 
 def test_public_sensor_sub_models_typed() -> None:

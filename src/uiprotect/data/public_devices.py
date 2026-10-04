@@ -19,7 +19,16 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from functools import cache
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, NotRequired, Self, TypedDict
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Literal,
+    NamedTuple,
+    NotRequired,
+    Self,
+    TypedDict,
+)
 from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import Field
@@ -133,6 +142,13 @@ def _coerce_public_int(
 _LCD_TYPES_REQUIRING_TEXT: frozenset[DoorbellMessageType] = frozenset(
     {DoorbellMessageType.CUSTOM_MESSAGE, DoorbellMessageType.IMAGE}
 )
+
+
+def _lcd_display_text(text_type: DoorbellMessageType, text: str | None) -> str:
+    """Text the doorbell shows for a message of ``text_type``."""
+    if text_type is DoorbellMessageType.CUSTOM_MESSAGE:
+        return text or ""
+    return text_type.value.replace("_", " ")
 
 
 def _build_public_lcd_message(
@@ -796,6 +812,23 @@ class PublicCamera(PublicDeviceModel):
         if self.hdr_type is PublicHdrMode.ON:
             return "always"
         return "auto"
+
+    @property
+    def lcd_message_text(self) -> str | None:
+        """
+        Text the doorbell LCD shows, ``None`` without a message.
+
+        A message with text but no ``type`` reads as a custom message. A
+        non-custom type without text returns its display text, where the
+        private ``LCDMessage`` gives ``""``. A partial websocket frame that
+        omits ``text`` leaves the previous text in place, so a custom message
+        can read stale text until the next full update.
+        """
+        if (message := self.lcd_message) is None:
+            return None
+        if message.type is None:
+            return message.text
+        return _lcd_display_text(message.type, message.text)
 
     def _apply_detection_event(self, event: PublicEvent) -> None:
         """Add/remove a detection event from the active set based on its ``end``."""
@@ -2383,6 +2416,13 @@ class PublicDoorbellCustomImage(ProtectBaseObject):
     sprite: str
 
 
+class PublicDoorbellMessage(NamedTuple):
+    """A selectable doorbell message and the text the doorbell shows for it."""
+
+    type: DoorbellMessageType
+    text: str
+
+
 class PublicDoorbellSettings(ProtectBaseObject):
     """
     Doorbell settings exposed by the Public Integration API (``GET /v1/nvrs``).
@@ -2406,6 +2446,31 @@ class PublicDoorbellSettings(ProtectBaseObject):
     default_message_reset_timeout_ms: int = 0
     custom_messages: list[str] = Field(default_factory=list)
     custom_images: list[PublicDoorbellCustomImage] = Field(default_factory=list)
+
+    @property
+    def all_messages(self) -> list[PublicDoorbellMessage]:
+        """
+        Built-in messages followed by one ``CUSTOM_MESSAGE`` per custom message.
+
+        Read from ``PublicNVR.doorbell_settings``, which is ``None`` on firmware
+        without doorbell settings. Not de-duplicated: a custom message equal to
+        a built-in display text is listed twice.
+        """
+        return [
+            *(
+                PublicDoorbellMessage(
+                    message_type, _lcd_display_text(message_type, None)
+                )
+                for message_type in (
+                    DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR,
+                    DoorbellMessageType.DO_NOT_DISTURB,
+                )
+            ),
+            *(
+                PublicDoorbellMessage(DoorbellMessageType.CUSTOM_MESSAGE, text)
+                for text in self.custom_messages
+            ),
+        ]
 
 
 class PublicNVR(PublicIdentifiedModel):
