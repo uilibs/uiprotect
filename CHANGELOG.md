@@ -1,5 +1,13 @@
 # Changelog
 
+## v20.2.0 (2026-10-04)
+
+### Features
+
+
+- Expose the doorbell lcd text and message list on the public models ([`509a546`](https://github.com/uilibs/uiprotect/commit/509a546e55349069c782da227736616804305e15))
+
+
 ## v20.1.0 (2026-10-04)
 
 ### Features
