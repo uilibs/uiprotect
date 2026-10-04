@@ -1,5 +1,13 @@
 # Changelog
 
+## v20.2.1 (2026-10-04)
+
+### Bug fixes
+
+
+- Write through and announce viewer liveview changes ([`06a791d`](https://github.com/uilibs/uiprotect/commit/06a791db3303fb3d0b288d456558aba6f7cdc6d0))
+
+
 ## v20.2.0 (2026-10-04)
 
 ### Features
@@ -185,9 +193,6 @@
 - Include low-quality recordings in recording_start ([`72cb66a`](https://github.com/uilibs/uiprotect/commit/72cb66ab261c9f244286660a0d64120e026beb66))
 
 
-- Include low-quality recordings in bootstrap.recording_start ([`72cb66a`](https://github.com/uilibs/uiprotect/commit/72cb66ab261c9f244286660a0d64120e026beb66))
-
-
 ## v16.16.0 (2026-09-24)
 
 ### Features
@@ -351,9 +356,6 @@
 - Open the marker-bump pr with a user token ([`f2e65d4`](https://github.com/uilibs/uiprotect/commit/f2e65d40f304f95fd3aa7aecfd10c38e1d02c91a))
 
 
-- Normalise resolved protect version to a bare major.minor.patch ([`f2e65d4`](https://github.com/uilibs/uiprotect/commit/f2e65d40f304f95fd3aa7aecfd10c38e1d02c91a))
-
-
 ## v16.1.0 (2026-08-24)
 
 ### Bug fixes
@@ -394,9 +396,6 @@
 
 
 - Note public-api doorbell settings are read-only (spec gap) ([`8a8ead2`](https://github.com/uilibs/uiprotect/commit/8a8ead2bbe6a862d3e6b747c431ab2388d58a47d))
-
-
-- Record public-api doorbell settings are read-only ([`8a8ead2`](https://github.com/uilibs/uiprotect/commit/8a8ead2bbe6a862d3e6b747c431ab2388d58a47d))
 
 
 ## v15.14.2 (2026-07-15)
@@ -501,18 +500,6 @@
 - Unify device convenience setters on the public model tree ([`ceedc47`](https://github.com/uilibs/uiprotect/commit/ceedc47bcc2f58765ad1d63614fac4328f588960))
 
 
-### Testing
-
-
-- Cover public device convenience setters and write-through ([`ceedc47`](https://github.com/uilibs/uiprotect/commit/ceedc47bcc2f58765ad1d63614fac4328f588960))
-
-
-### Documentation
-
-
-- Document public-tree device convenience setters ([`ceedc47`](https://github.com/uilibs/uiprotect/commit/ceedc47bcc2f58765ad1d63614fac4328f588960))
-
-
 ## v15.8.0 (2026-07-11)
 
 ### Features
@@ -553,9 +540,6 @@
 - Expose derived detection/config properties on publiccamera ([`245407b`](https://github.com/uilibs/uiprotect/commit/245407ba755a6b07b8bc486a716cf2a364189128))
 
 
-- Expose derived detection/config properties on publiccamera ([`245407b`](https://github.com/uilibs/uiprotect/commit/245407ba755a6b07b8bc486a716cf2a364189128))
-
-
 ## v15.4.4 (2026-07-09)
 
 ### Documentation
@@ -565,9 +549,6 @@
 
 
 ### Bug fixes
-
-
-- Validate public numeric setters before the request ([`c3c3858`](https://github.com/uilibs/uiprotect/commit/c3c3858197a3f602beaac1a4d69417dd07fefebe))
 
 
 - Validate public numeric setters before the request ([`c3c3858`](https://github.com/uilibs/uiprotect/commit/c3c3858197a3f602beaac1a4d69417dd07fefebe))
@@ -592,9 +573,6 @@
 ## v15.4.1 (2026-07-03)
 
 ### Bug fixes
-
-
-- Bound and surface rtsps stream priming failures in update_public ([`b577028`](https://github.com/uilibs/uiprotect/commit/b577028fc90123833cf673cf7c0d79b49f75163e))
 
 
 - Bound and surface rtsps stream priming failures in update_public ([`b577028`](https://github.com/uilibs/uiprotect/commit/b577028fc90123833cf673cf7c0d79b49f75163e))
@@ -656,18 +634,6 @@
 - Add public-api sensor setters (patch /v1/sensors/{id}) ([`7e85c23`](https://github.com/uilibs/uiprotect/commit/7e85c23c729093d078ba328a09e5db8278258046))
 
 
-- Extend update_sensor_public with armed/glass-break fields ([`7e85c23`](https://github.com/uilibs/uiprotect/commit/7e85c23c729093d078ba328a09e5db8278258046))
-
-
-- Add public-api sensor setters on sensor ([`7e85c23`](https://github.com/uilibs/uiprotect/commit/7e85c23c729093d078ba328a09e5db8278258046))
-
-
-- Expose public-api sensor setters in the cli ([`7e85c23`](https://github.com/uilibs/uiprotect/commit/7e85c23c729093d078ba328a09e5db8278258046))
-
-
-- Add granular single-positional public sensor setters ([`7e85c23`](https://github.com/uilibs/uiprotect/commit/7e85c23c729093d078ba328a09e5db8278258046))
-
-
 ## v14.1.1 (2026-06-24)
 
 ### Bug fixes
@@ -683,12 +649,6 @@
 
 
 - Migrate chime cli to public-api setters ([`c2a5517`](https://github.com/uilibs/uiprotect/commit/c2a5517e77c34e125b038c047fd951870222b380))
-
-
-- Migrate chime cli to public-api setters ([`c2a5517`](https://github.com/uilibs/uiprotect/commit/c2a5517e77c34e125b038c047fd951870222b380))
-
-
-- Delegate per-camera chime repeat-times to model setter ([`c2a5517`](https://github.com/uilibs/uiprotect/commit/c2a5517e77c34e125b038c047fd951870222b380))
 
 
 ## v14.1.0 (2026-06-21)
@@ -715,9 +675,6 @@
 - Re-auth and retry once on private 401 ([`93201f4`](https://github.com/uilibs/uiprotect/commit/93201f4a45ac5cebc2c597b6b09035f91e892481))
 
 
-- Re-auth and retry once on private 401 ([`93201f4`](https://github.com/uilibs/uiprotect/commit/93201f4a45ac5cebc2c597b6b09035f91e892481))
-
-
 ## v13.5.0 (2026-06-20)
 
 ### Features
@@ -726,24 +683,15 @@
 - Decouple public events path onto a typed public event model ([`018c05e`](https://github.com/uilibs/uiprotect/commit/018c05e79cf8445282773938e4ba95d79e21bea7))
 
 
-- Add strongly-typed public event model and metadata enums ([`018c05e`](https://github.com/uilibs/uiprotect/commit/018c05e79cf8445282773938e4ba95d79e21bea7))
-
-
 ### Documentation
 
 
 - Refresh readme for the public-api direction and clean up ([`a9bc45d`](https://github.com/uilibs/uiprotect/commit/a9bc45d17e9a45407535f9a6794ca28d4415ea84))
 
 
-- Reorganize and de-duplicate the readme ([`a9bc45d`](https://github.com/uilibs/uiprotect/commit/a9bc45d17e9a45407535f9a6794ca28d4415ea84))
-
-
 ## v13.4.0 (2026-06-19)
 
 ### Features
-
-
-- Add device type/guid, sensor feature flags, and event alarm_type ([`7a60cf7`](https://github.com/uilibs/uiprotect/commit/7a60cf7e06fd952883f9be43d1211470ab4cd866))
 
 
 - Add device type/guid, sensor feature flags, and event alarm_type ([`7a60cf7`](https://github.com/uilibs/uiprotect/commit/7a60cf7e06fd952883f9be43d1211470ab4cd866))
@@ -769,21 +717,12 @@
 - Add camerachannel.rtsps_quality mapping ([`958ebdd`](https://github.com/uilibs/uiprotect/commit/958ebdd75a84c43871c05180d211765d8454084a))
 
 
-- Add camerachannel.rtsps_quality mapping ([`958ebdd`](https://github.com/uilibs/uiprotect/commit/958ebdd75a84c43871c05180d211765d8454084a))
-
-
 ## v13.2.0 (2026-06-18)
 
 ### Features
 
 
 - Add publicdevicemodel base for public mac/state ([`2e2e5ff`](https://github.com/uilibs/uiprotect/commit/2e2e5ffc8ab68a3f0a194a7000096e25e48a7cba))
-
-
-### Refactoring
-
-
-- Add publicdevicemodel base for public mac/state fields ([`2e2e5ff`](https://github.com/uilibs/uiprotect/commit/2e2e5ffc8ab68a3f0a194a7000096e25e48a7cba))
 
 
 ## v13.1.2 (2026-06-14)
@@ -810,13 +749,7 @@
 - Pace public path with in-house rate limiter (alt to #984) ([`45c721d`](https://github.com/uilibs/uiprotect/commit/45c721d5c636966f30bac48faf8bff858fc144c1))
 
 
-- Pace public path with in-house rate limiter seeded from ratelimit-policy ([`45c721d`](https://github.com/uilibs/uiprotect/commit/45c721d5c636966f30bac48faf8bff858fc144c1))
-
-
 ### Refactoring
-
-
-- Declarative decorators for uniform public-api endpoints ([`755cd5c`](https://github.com/uilibs/uiprotect/commit/755cd5c67cb2489ed29a2d70b57cd73e7283d84d))
 
 
 - Declarative decorators for uniform public-api endpoints ([`755cd5c`](https://github.com/uilibs/uiprotect/commit/755cd5c67cb2489ed29a2d70b57cd73e7283d84d))
@@ -838,15 +771,9 @@
 - Resolve console mac for public-only clients via /api/system ([`bb62fff`](https://github.com/uilibs/uiprotect/commit/bb62fffce4be9327d8fbb1dc0d580833d7e9872d))
 
 
-- Resolve console mac for public-only clients via /api/system ([`bb62fff`](https://github.com/uilibs/uiprotect/commit/bb62fffce4be9327d8fbb1dc0d580833d7e9872d))
-
-
 ## v12.0.0 (2026-06-08)
 
 ### Features
-
-
-- Own rtsps stream lifecycle on publiccamera ([`e05fff5`](https://github.com/uilibs/uiprotect/commit/e05fff58b9a0e0959438708f03377f0c82fd37d9))
 
 
 - Own rtsps stream lifecycle on publiccamera ([`e05fff5`](https://github.com/uilibs/uiprotect/commit/e05fff58b9a0e0959438708f03377f0c82fd37d9))
@@ -860,18 +787,9 @@
 - Keep the public rtsps cache never-empty via in-place refresh ([`c40b2d4`](https://github.com/uilibs/uiprotect/commit/c40b2d410d7f01417322cfa8b4c935af110ce87d))
 
 
-### Features
-
-
-- Refresh the public rtsps cache in place instead of emptying it ([`c40b2d4`](https://github.com/uilibs/uiprotect/commit/c40b2d410d7f01417322cfa8b4c935af110ce87d))
-
-
 ## v11.9.0 (2026-06-08)
 
 ### Features
-
-
-- Cache rtsps streams on the public bootstrap ([`bee1b85`](https://github.com/uilibs/uiprotect/commit/bee1b858526e1289d29fd7d2e64fcce326500d80))
 
 
 - Cache rtsps streams on the public bootstrap ([`bee1b85`](https://github.com/uilibs/uiprotect/commit/bee1b858526e1289d29fd7d2e64fcce326500d80))
@@ -883,15 +801,6 @@
 
 
 - Public-stream helpers for a thin ha integration ([`795df19`](https://github.com/uilibs/uiprotect/commit/795df194b44289f781ce77781af2832ecda56ed1))
-
-
-- Add public-stream helpers for thin ha integration ([`795df19`](https://github.com/uilibs/uiprotect/commit/795df194b44289f781ce77781af2832ecda56ed1))
-
-
-### Refactoring
-
-
-- Strip exact ?enablesrtp suffix in get_stream_url ([`795df19`](https://github.com/uilibs/uiprotect/commit/795df194b44289f781ce77781af2832ecda56ed1))
 
 
 ## v11.7.1 (2026-06-07)
@@ -910,9 +819,6 @@
 - Raise typed armedmodeerror when alarm is armed ([`5f0336c`](https://github.com/uilibs/uiprotect/commit/5f0336ccc7f54a28836f858479af34a70b9e3a3e))
 
 
-- Raise typed armedmodeerror when an operation is rejected because the alarm is armed ([`5f0336c`](https://github.com/uilibs/uiprotect/commit/5f0336ccc7f54a28836f858479af34a70b9e3a3e))
-
-
 ### Testing
 
 
@@ -927,19 +833,10 @@
 - Support public-only (api-key-only) client mode ([`72c4a7a`](https://github.com/uilibs/uiprotect/commit/72c4a7ae84dfadb746112b1f1dcbddd232273c23))
 
 
-- Support public-only (api-key-only) client mode ([`72c4a7a`](https://github.com/uilibs/uiprotect/commit/72c4a7ae84dfadb746112b1f1dcbddd232273c23))
-
-
 ### Testing
 
 
 - Clean up pytest hygiene warnings on python 3.14 ([`87fedca`](https://github.com/uilibs/uiprotect/commit/87fedcaff2172530e732e3b492f61c6f0009134b))
-
-
-- Silence pytest hygiene warnings on 3.14 ([`87fedca`](https://github.com/uilibs/uiprotect/commit/87fedcaff2172530e732e3b492f61c6f0009134b))
-
-
-- Drop benchmark scaffolding from ws subscription tests ([`87fedca`](https://github.com/uilibs/uiprotect/commit/87fedcaff2172530e732e3b492f61c6f0009134b))
 
 
 ### Build system
@@ -954,19 +851,7 @@
 - Require 100% patch coverage for every pr ([`a14fb24`](https://github.com/uilibs/uiprotect/commit/a14fb24f5310901c331a1908858d68473424f458))
 
 
-- Require 100% patch coverage for every pr ([`a14fb24`](https://github.com/uilibs/uiprotect/commit/a14fb24f5310901c331a1908858d68473424f458))
-
-
 - Audit and fix doc set against current codebase ([`526b027`](https://github.com/uilibs/uiprotect/commit/526b027e57c47c31807d2daf2f097c9053a50500))
-
-
-- Audit and fix doc set against current codebase ([`526b027`](https://github.com/uilibs/uiprotect/commit/526b027e57c47c31807d2daf2f097c9053a50500))
-
-
-- Clarify public-api cli group wording in usage.md ([`526b027`](https://github.com/uilibs/uiprotect/commit/526b027e57c47c31807d2daf2f097c9053a50500))
-
-
-- Fix create-api-key api class, websocket auth note, and tls defaults ([`526b027`](https://github.com/uilibs/uiprotect/commit/526b027e57c47c31807d2daf2f097c9053a50500))
 
 
 ## v11.5.0 (2026-06-05)
@@ -977,16 +862,10 @@
 - Add typed subscribe_devices() device-state lifecycle ([`4bd6ef7`](https://github.com/uilibs/uiprotect/commit/4bd6ef786486cde9a70e54fa82cb814d51914a2a))
 
 
-- Add typed subscribe_devices() device-state lifecycle ([`4bd6ef7`](https://github.com/uilibs/uiprotect/commit/4bd6ef786486cde9a70e54fa82cb814d51914a2a))
-
-
 ### Build system
 
 
 - Remove dead sphinx docs stack ([`b73d07b`](https://github.com/uilibs/uiprotect/commit/b73d07bb85c39293b0f0f94c1cd32f4a05957b90))
-
-
-- Remove dead sphinx stack, drop starlette/uvicorn transitives ([`b73d07b`](https://github.com/uilibs/uiprotect/commit/b73d07bb85c39293b0f0f94c1cd32f4a05957b90))
 
 
 ## v11.4.0 (2026-06-05)
@@ -1208,12 +1087,6 @@
 - Add script and agent instructions to fetch integration openapi spec ([`fe16ee0`](https://github.com/uilibs/uiprotect/commit/fe16ee02e8a48d001ee0374d1ac42ae1c15da2cb))
 
 
-- Document api migration strategy in agents.md ([`fe16ee0`](https://github.com/uilibs/uiprotect/commit/fe16ee02e8a48d001ee0374d1ac42ae1c15da2cb))
-
-
-- Add script and agent instructions to fetch integration openapi spec ([`fe16ee0`](https://github.com/uilibs/uiprotect/commit/fe16ee02e8a48d001ee0374d1ac42ae1c15da2cb))
-
-
 ### Testing
 
 
@@ -1299,40 +1172,7 @@
 - Keep sensor on when concurrent smart detect events overlap ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
 
 
-- Keep sensor on when concurrent smart detect events overlap ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
-
-
-- Prefer active event over ended when no tracking exists ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
-
-
-- Keep sensor on when concurrent smart detect events overlap ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
-
-
-- Overlap edge case ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
-
-
 - Bound bootstrap.events to prevent unbounded memory growth ([`386f806`](https://github.com/uilibs/uiprotect/commit/386f806944d23dfc508e6f703937168cd704265c))
-
-
-### Testing
-
-
-- Add coverage for current_id=none with active event branch ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
-
-
-- Cover stale event cleanup in active index ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
-
-
-- Decouple processing-order assertion from timestamp order ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
-
-
-- Assert sensor state during concurrent smart-detect overlap ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
-
-
-### Refactoring
-
-
-- Extract reset_smart_detect fixture to reduce duplication ([`78a17d6`](https://github.com/uilibs/uiprotect/commit/78a17d6826745d771b24a2ba6f68fd7d176f6a02))
 
 
 ## v10.2.4 (2026-04-10)
@@ -1351,22 +1191,7 @@
 - Handle unknown enum values and keyerror in ws processing ([`c9dadf7`](https://github.com/uilibs/uiprotect/commit/c9dadf75f081281e4d547873af7d957ce3ae5fdc))
 
 
-- Handle unknown enum values and keyerror in ws processing ([`c9dadf7`](https://github.com/uilibs/uiprotect/commit/c9dadf75f081281e4d547873af7d957ce3ae5fdc))
-
-
-- Improve resilience in ws error handling by checking for pending refresh tasks ([`c9dadf7`](https://github.com/uilibs/uiprotect/commit/c9dadf75f081281e4d547873af7d957ce3ae5fdc))
-
-
 - Resolve deadlock in talkbackstream.stop() during concurrent playback ([`0a27948`](https://github.com/uilibs/uiprotect/commit/0a2794817b0b79164e6fa00b5b1747f67ed80973))
-
-
-- Resolve deadlock in talkbackstream.stop() during concurrent playback ([`0a27948`](https://github.com/uilibs/uiprotect/commit/0a2794817b0b79164e6fa00b5b1747f67ed80973))
-
-
-- Prevent start() from clearing a pending stop signal in talkbackstream ([`0a27948`](https://github.com/uilibs/uiprotect/commit/0a2794817b0b79164e6fa00b5b1747f67ed80973))
-
-
-- Coverage, add restart test (not that we do, but latent bug if we start doing that) ([`0a27948`](https://github.com/uilibs/uiprotect/commit/0a2794817b0b79164e6fa00b5b1747f67ed80973))
 
 
 ## v10.2.2 (2026-02-26)
@@ -1415,27 +1240,6 @@
 
 
 - Migrate ptz control to public api ([`82ac7f8`](https://github.com/uilibs/uiprotect/commit/82ac7f8610eece008e76b636b1a80a2881eacf8e))
-
-
-- Migrate ptz control to public api ([`82ac7f8`](https://github.com/uilibs/uiprotect/commit/82ac7f8610eece008e76b636b1a80a2881eacf8e))
-
-
-- Add ptz preset and patrol retrieval tests ([`82ac7f8`](https://github.com/uilibs/uiprotect/commit/82ac7f8610eece008e76b636b1a80a2881eacf8e))
-
-
-### Testing
-
-
-- Add activepatrolslot field to sample data files ([`82ac7f8`](https://github.com/uilibs/uiprotect/commit/82ac7f8610eece008e76b636b1a80a2881eacf8e))
-
-
-### Bug fixes
-
-
-- Address pr review comments ([`82ac7f8`](https://github.com/uilibs/uiprotect/commit/82ac7f8610eece008e76b636b1a80a2881eacf8e))
-
-
-- Restore activepatrolslot in sample_aiport.json for consistency ([`82ac7f8`](https://github.com/uilibs/uiprotect/commit/82ac7f8610eece008e76b636b1a80a2881eacf8e))
 
 
 ## v9.0.0 (2026-01-20)
@@ -1709,18 +1513,12 @@
 - Add public api camera snapshot ([`baba0e3`](https://github.com/uilibs/uiprotect/commit/baba0e3ed72dde13fe7113960907b54b87eafcc9))
 
 
-- Add public api camera snapshot retrieval and related tests ([`baba0e3`](https://github.com/uilibs/uiprotect/commit/baba0e3ed72dde13fe7113960907b54b87eafcc9))
-
-
 ## v7.15.1 (2025-07-20)
 
 ### Bug fixes
 
 
 - Update create_api_key to use 'self' instead of userid ([`755a1b7`](https://github.com/uilibs/uiprotect/commit/755a1b7273d4a97434564f88dbb2502aef61c173))
-
-
-- Update create_api_key to use 'self' instead of userid and remove related tests ([`755a1b7`](https://github.com/uilibs/uiprotect/commit/755a1b7273d4a97434564f88dbb2502aef61c173))
 
 
 ## v7.15.0 (2025-07-19)
@@ -1785,9 +1583,6 @@
 - Add adaptive mode to recordingmode enum ([`4b4155a`](https://github.com/uilibs/uiprotect/commit/4b4155aec2f74076669648194231136774f27198))
 
 
-- Add adaptive mode to recordingmode enum and update sample_bootstrap.json ([`4b4155a`](https://github.com/uilibs/uiprotect/commit/4b4155aec2f74076669648194231136774f27198))
-
-
 ## v7.10.1 (2025-05-27)
 
 ### Bug fixes
@@ -1806,12 +1601,6 @@
 
 ### Unknown
 
-
-
-### Bug fixes
-
-
-- Initialize config dictionary in _read_auth_config method ([`f63e1b3`](https://github.com/uilibs/uiprotect/commit/f63e1b3d8357e82e3f88c07c7c17164140a5aa36))
 
 
 ## v7.9.2 (2025-05-24)
@@ -1910,18 +1699,9 @@
 - Support non-integer zoom levels ([`a4976cc`](https://github.com/uilibs/uiprotect/commit/a4976cc50784e246526faa2fe494b51e1f77d8d9))
 
 
-- Support non-integer zoom levels ([`a4976cc`](https://github.com/uilibs/uiprotect/commit/a4976cc50784e246526faa2fe494b51e1f77d8d9))
-
-
 ## v7.5.1 (2025-02-04)
 
 ### Bug fixes
-
-
-- Handle fps being none ([`c988946`](https://github.com/uilibs/uiprotect/commit/c98894640ca7d70830890a4200cd92df4bf4a029))
-
-
-- Handle fps being none ([`c988946`](https://github.com/uilibs/uiprotect/commit/c98894640ca7d70830890a4200cd92df4bf4a029))
 
 
 - Handle fps being none ([`c988946`](https://github.com/uilibs/uiprotect/commit/c98894640ca7d70830890a4200cd92df4bf4a029))
@@ -1933,12 +1713,6 @@
 
 
 - Update data models to allow none for optional fields to support access devices ([`c6102e4`](https://github.com/uilibs/uiprotect/commit/c6102e4c94899ceebe75d4daddc15981d2368cb3))
-
-
-- Update data models to allow none for optional fields ([`c6102e4`](https://github.com/uilibs/uiprotect/commit/c6102e4c94899ceebe75d4daddc15981d2368cb3))
-
-
-- Add new optional fields to recording and camera settings for intercom ([`c6102e4`](https://github.com/uilibs/uiprotect/commit/c6102e4c94899ceebe75d4daddc15981d2368cb3))
 
 
 ## v7.4.1 (2025-01-05)
@@ -1973,12 +1747,6 @@
 - Add set_light_is_led_force_on method ([`5488b1d`](https://github.com/uilibs/uiprotect/commit/5488b1d7accb3d0f3a3df05101b8bc87ef67f25b))
 
 
-- Add ringtone model and update related functionality ([`d0c93b5`](https://github.com/uilibs/uiprotect/commit/d0c93b5cf562d24acd90dea6e6a77c1ea56b00c1))
-
-
-- Add ringtone_id and track_no parameters to play chime tones ([`d0c93b5`](https://github.com/uilibs/uiprotect/commit/d0c93b5cf562d24acd90dea6e6a77c1ea56b00c1))
-
-
 ### Unknown
 
 
@@ -1986,9 +1754,6 @@
 ## v7.1.0 (2024-12-18)
 
 ### Features
-
-
-- Add aiport support ([`ba459ff`](https://github.com/uilibs/uiprotect/commit/ba459ff1619957123f71fcf48da7042e3e086ddd))
 
 
 - Add aiport support ([`ba459ff`](https://github.com/uilibs/uiprotect/commit/ba459ff1619957123f71fcf48da7042e3e086ddd))
@@ -2008,18 +1773,6 @@
 
 
 - Treat no access to keyrings/users as empty ([`c068aca`](https://github.com/uilibs/uiprotect/commit/c068aca46f37f71f52c077b1ab4821bb54d4b26e))
-
-
-- Treat no access to keyrings/users as empty ([`c068aca`](https://github.com/uilibs/uiprotect/commit/c068aca46f37f71f52c077b1ab4821bb54d4b26e))
-
-
-- Rushed logic ([`c068aca`](https://github.com/uilibs/uiprotect/commit/c068aca46f37f71f52c077b1ab4821bb54d4b26e))
-
-
-- Should be a 403 ([`c068aca`](https://github.com/uilibs/uiprotect/commit/c068aca46f37f71f52c077b1ab4821bb54d4b26e))
-
-
-- Use internal exception ([`c068aca`](https://github.com/uilibs/uiprotect/commit/c068aca46f37f71f52c077b1ab4821bb54d4b26e))
 
 
 ## v7.0.0 (2024-12-11)
@@ -2044,123 +1797,12 @@
 - Refactor keyrings and ulpusers to add internal indices ([`705df32`](https://github.com/uilibs/uiprotect/commit/705df32514254b754ebea1ebbc659f669b7ffa10))
 
 
-- Refactor keyrings and ulpusers ([`705df32`](https://github.com/uilibs/uiprotect/commit/705df32514254b754ebea1ebbc659f669b7ffa10))
-
-
 ## v6.7.0 (2024-12-07)
 
 ### Features
 
 
 - Add keyring and ulp-user ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Add sample data for testing purposes ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Add ulp-user and keyring integration ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Work in progress on adding keyrings functionality ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Add dict_from_unifi_list function and refactor keyrings and ulpusers retrieval ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Define nfc fingerprint support version as constant ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-### Refactoring
-
-
-- Streamline keyrings and ulpusers handling in protectapiclient ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Replace get_keyrings and get_ulpusers methods with direct dict_from_unifi_list calls ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Update dict_from_unifi_list to use any type for return dictionary ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Rename keyring and ulp_user update methods for clarity and improve message processing ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Improve bootstrap update pop after keyring ulpusr requests ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Remove to_snake_case from update_from_dict ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Typed dict_from_unifi_list ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Update dict_from_unifi_list to use protectmodelwithid type ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Consolidate keyring and ulp user message processing into a single method ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Update device key retrieval and add ulp user management tests ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Improve object removal and update handling in bootstrap class ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Streamline action handling in bootstrap class ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Remove unused user message processing method in bootstrap class ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Move dict_from_unifi_list function to convert module ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-### Bug fixes
-
-
-- Conditionally assign keyrings and ulp_users based on nvr version ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Convert keys to snake_case in protectbaseobject data processing ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Enhance type checking for model class in bootstrap and update return type in create_from_unifi_dict ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Improve type handling in bootstrap and convert functions for better type safety ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Enhance type safety by casting keyrings and ulp_users in protectapiclient ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Remove type check for protectmodelwithid and enhance mock data in tests ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Add debug logging for unexpected websocket actions and enhance tests for user removal and updates ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Initialize keyrings and ulp_users as empty dictionaries; update return type in dict_from_unifi_list ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-### Testing
-
-
-- Add websocket tests for keyring add, update, and remove actions ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Add websocket tests for keyring add actions with nfc and fingerprint ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Improve formatting in nfc keyring add test ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Add tests for force update with version checks ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Remove outdated nfc fingerprint support version tests ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
-
-
-- Remove additional keys from obj_dict in bootstrap test ([`c8a3f4c`](https://github.com/uilibs/uiprotect/commit/c8a3f4c728f888c575d5f3d232149513599e0b5c))
 
 
 ## v6.6.5 (2024-12-02)
@@ -2174,9 +1816,6 @@
 ## v6.6.4 (2024-11-29)
 
 ### Bug fixes
-
-
-- Update permission logic for get_snapshot method ([`207959b`](https://github.com/uilibs/uiprotect/commit/207959bf1598acd4ad9e1da1146058b8a18de99c))
 
 
 - Update permission logic for get_snapshot method ([`207959b`](https://github.com/uilibs/uiprotect/commit/207959bf1598acd4ad9e1da1146058b8a18de99c))
@@ -2202,24 +1841,6 @@
 
 
 - Allow get snapshot with liveonly permissions ([`b2cf95b`](https://github.com/uilibs/uiprotect/commit/b2cf95b45d3815a2c6c5fab962746e8d9d85388d))
-
-
-### Features
-
-
-- Allow snapshots with `read_live` permissions ([`b2cf95b`](https://github.com/uilibs/uiprotect/commit/b2cf95b45d3815a2c6c5fab962746e8d9d85388d))
-
-
-- Enable `read_live` permission for `get_package_snapshot` ([`b2cf95b`](https://github.com/uilibs/uiprotect/commit/b2cf95b45d3815a2c6c5fab962746e8d9d85388d))
-
-
-### Testing
-
-
-- Add test data for `read_live` permissions ([`b2cf95b`](https://github.com/uilibs/uiprotect/commit/b2cf95b45d3815a2c6c5fab962746e8d9d85388d))
-
-
-- Add unit tests for get_snapshot method ([`b2cf95b`](https://github.com/uilibs/uiprotect/commit/b2cf95b45d3815a2c6c5fab962746e8d9d85388d))
 
 
 ## v6.6.1 (2024-11-20)
@@ -2415,37 +2036,13 @@
 - Use id checks for type compares ([`0e54ac6`](https://github.com/uilibs/uiprotect/commit/0e54ac6d82e010a6553c7ee7d42d884e8ec0bbd3))
 
 
-- Use id checks for type compares ([`0e54ac6`](https://github.com/uilibs/uiprotect/commit/0e54ac6d82e010a6553c7ee7d42d884e8ec0bbd3))
-
-
-- Use id checks for type compares ([`0e54ac6`](https://github.com/uilibs/uiprotect/commit/0e54ac6d82e010a6553c7ee7d42d884e8ec0bbd3))
-
-
-- Use id checks for type compares ([`0e54ac6`](https://github.com/uilibs/uiprotect/commit/0e54ac6d82e010a6553c7ee7d42d884e8ec0bbd3))
-
-
-- Use id checks for type compares ([`0e54ac6`](https://github.com/uilibs/uiprotect/commit/0e54ac6d82e010a6553c7ee7d42d884e8ec0bbd3))
-
-
 - Do not swallow asyncio.cancellederror ([`09bc38b`](https://github.com/uilibs/uiprotect/commit/09bc38b419b26c00363b47c5ae8ce0e6a7280133))
-
-
-- Remove unreachable code ([`b70d071`](https://github.com/uilibs/uiprotect/commit/b70d071dc52fa179710134e023c34ac0c8caebbe))
-
-
-- Remove unreachable code ([`b70d071`](https://github.com/uilibs/uiprotect/commit/b70d071dc52fa179710134e023c34ac0c8caebbe))
 
 
 ### Features
 
 
 - Improve websocket error handling ([`b70d071`](https://github.com/uilibs/uiprotect/commit/b70d071dc52fa179710134e023c34ac0c8caebbe))
-
-
-- Pass existing data to _handle_ws_error instead of creating it again ([`b70d071`](https://github.com/uilibs/uiprotect/commit/b70d071dc52fa179710134e023c34ac0c8caebbe))
-
-
-- Cleanup duplicate code in _handle_ws_error ([`b70d071`](https://github.com/uilibs/uiprotect/commit/b70d071dc52fa179710134e023c34ac0c8caebbe))
 
 
 ## v3.7.0 (2024-06-25)
@@ -2805,12 +2402,6 @@
 - Make websocket dataclasses sloted ([`58e42f6`](https://github.com/uilibs/uiprotect/commit/58e42f69b7603ab77ffe170d091051febe22e48f))
 
 
-### Performance improvements
-
-
-- Make websocket dataclass sloted ([`58e42f6`](https://github.com/uilibs/uiprotect/commit/58e42f69b7603ab77ffe170d091051febe22e48f))
-
-
 ## v1.9.0 (2024-06-15)
 
 ### Features
@@ -2825,9 +2416,6 @@
 
 
 - Replace some attrs with cached methods ([`fc0fc57`](https://github.com/uilibs/uiprotect/commit/fc0fc5717a171eb705dce4f88dca79509bd889b4))
-
-
-- Replace some never used attrs with cached methods ([`fc0fc57`](https://github.com/uilibs/uiprotect/commit/fc0fc5717a171eb705dce4f88dca79509bd889b4))
 
 
 ### Refactoring
@@ -2863,16 +2451,7 @@
 - Add debug logging when saving device changes ([`1c57d00`](https://github.com/uilibs/uiprotect/commit/1c57d005f8f97c148b70401256929c262ba5a8a1))
 
 
-- Add debug logging when saving device changes ([`1c57d00`](https://github.com/uilibs/uiprotect/commit/1c57d005f8f97c148b70401256929c262ba5a8a1))
-
-
-- Add debug logging when saving device changes ([`1c57d00`](https://github.com/uilibs/uiprotect/commit/1c57d005f8f97c148b70401256929c262ba5a8a1))
-
-
 ### Refactoring
-
-
-- Cleanup duplicate doorbell text code ([`5e3fac8`](https://github.com/uilibs/uiprotect/commit/5e3fac8b862dfe7df83fe7b5b565578f494b8bf1))
 
 
 - Cleanup duplicate doorbell text code ([`5e3fac8`](https://github.com/uilibs/uiprotect/commit/5e3fac8b862dfe7df83fe7b5b565578f494b8bf1))
@@ -4109,18 +3688,6 @@
 
 
 
-
-
-### Testing
-
-
-- Add tests for set_person_track ([`a00de52`](https://github.com/uilibs/uiprotect/commit/a00de52bda63a822f2ffce53bd9188aa7a91def8))
-
-
-### Documentation
-
-
-- Add documentation for set_person_track command ([`a00de52`](https://github.com/uilibs/uiprotect/commit/a00de52bda63a822f2ffce53bd9188aa7a91def8))
 
 
 ### Bug fixes
