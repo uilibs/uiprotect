@@ -1,5 +1,13 @@
 # Changelog
 
+## v21.0.0 (2026-10-04)
+
+### Features
+
+
+- Remove the backup cli ([`f1812fe`](https://github.com/uilibs/uiprotect/commit/f1812fe35a4d980ba420f1b32537d2b31a4be14b))
+
+
 ## v20.2.1 (2026-10-04)
 
 ### Bug fixes
