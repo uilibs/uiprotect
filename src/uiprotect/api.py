@@ -4280,6 +4280,21 @@ class ProtectApiClient(BaseApiClient):
             return
         twin._apply_from_response(obj)
 
+    def _cache_public_viewer(
+        self, viewer: PublicViewer
+    ) -> tuple[PublicViewer, PublicViewer | None]:
+        """Cache ``viewer`` in place; return the cached viewer and its prior copy."""
+        pb = self._public_bootstrap
+        if pb is None:
+            return viewer, None
+        cached = pb.viewers.get(viewer.id)
+        if cached is None:
+            pb.viewers[viewer.id] = viewer
+            return viewer, None
+        previous = cached.model_copy()
+        cached._apply_from_response(viewer)
+        return cached, previous
+
     @public_get("/v1/sirens", items=Siren)
     async def get_sirens_public(self) -> list[Siren]:
         """Get all sirens using public API."""
@@ -4582,9 +4597,7 @@ class ProtectApiClient(BaseApiClient):
             url=f"/v1/viewers/{viewer_id}", public_api=True
         )
         viewer = PublicViewer.from_unifi_dict(**data, api=self)
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.viewers[viewer.id] = viewer
-        return viewer
+        return self._cache_public_viewer(viewer)[0]
 
     async def update_viewer_public(
         self,
@@ -4610,9 +4623,28 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
         )
         viewer = PublicViewer.from_unifi_dict(**data, api=self)
-        if self._public_bootstrap is not None:
-            self._public_bootstrap.viewers[viewer.id] = viewer
-        return viewer
+        if self._public_bootstrap is None:
+            return viewer
+        cached, previous = self._cache_public_viewer(viewer)
+        if previous is None:
+            action = WSAction.ADD
+        elif previous.liveview_id != cached.liveview_id:
+            action = WSAction.UPDATE
+        else:
+            return cached
+        # Protect sends no devices-websocket frame when a viewer's liveview
+        # changes, so announce the PATCH like the private ``Viewer`` does.
+        if not self._devices_ws_filtered_out(ModelType.VIEWPORT):
+            self.emit_devices_message(
+                WSSubscriptionMessage(
+                    action=action,
+                    new_update_id=cached.id,
+                    changed_data={"modelKey": ModelType.VIEWPORT.value, **data},
+                    new_obj=cached,
+                    old_obj=previous,
+                )
+            )
+        return cached
 
     async def get_liveviews_public(self) -> list[PublicLiveview]:
         """Get all liveviews using public API."""

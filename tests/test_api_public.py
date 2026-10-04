@@ -6262,3 +6262,195 @@ async def test_public_resync_reconnect_restarts_backoff(
     assert protect_client._public_resync_retry_timer is not None
     assert protect_client._public_resync_retries == 1
     await protect_client.close_session()
+
+
+def _cached_viewer(
+    protect_client: ProtectApiClient,
+) -> tuple[PublicBootstrap, PublicViewer]:
+    pb = protect_client._public_bootstrap = PublicBootstrap()
+    viewer = PublicViewer.from_unifi_dict(**_viewer_raw(), api=protect_client)
+    pb.viewers[VIEWER_ID] = viewer
+    return pb, viewer
+
+
+async def _collect_devices_ws(
+    protect_client: ProtectApiClient, coro: Any
+) -> tuple[Any, list[WSSubscriptionMessage]]:
+    got: list[WSSubscriptionMessage] = []
+    unsub = protect_client.subscribe_devices_websocket(got.append)
+    try:
+        result = await coro
+    finally:
+        unsub()
+    return result, got
+
+
+@pytest.mark.asyncio()
+async def test_viewer_set_liveview_writes_through_and_announces(
+    protect_client: ProtectApiClient,
+) -> None:
+    """``set_liveview`` updates the cached viewer in place and emits one update."""
+    pb, viewer = _cached_viewer(protect_client)
+    protect_client.api_request_obj = AsyncMock(
+        return_value=_viewer_raw(liveview="lv-new")
+    )
+
+    result, got = await _collect_devices_ws(
+        protect_client, viewer.set_liveview("lv-new")
+    )
+
+    assert result is viewer
+    assert pb.viewers[VIEWER_ID] is viewer
+    assert viewer.liveview_id == "lv-new"
+    assert len(got) == 1
+    msg = got[0]
+    assert msg.action is WSAction.UPDATE
+    assert msg.new_update_id == VIEWER_ID
+    assert msg.new_obj is viewer
+    assert isinstance(msg.old_obj, PublicViewer)
+    assert msg.old_obj is not viewer
+    assert msg.old_obj.liveview_id == LIVEVIEW_ID
+    assert msg.changed_data["modelKey"] == "viewer"
+    assert msg.changed_data["liveview"] == "lv-new"
+
+
+@pytest.mark.asyncio()
+async def test_viewer_set_liveview_none_announces_clear(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Clearing the liveview with ``None`` is announced as an update."""
+    _, viewer = _cached_viewer(protect_client)
+    protect_client.api_request_obj = AsyncMock(return_value=_viewer_raw(liveview=None))
+
+    _, got = await _collect_devices_ws(protect_client, viewer.set_liveview(None))
+
+    assert viewer.liveview_id is None
+    assert len(got) == 1
+    assert got[0].action is WSAction.UPDATE
+    assert got[0].new_obj is viewer
+    assert got[0].old_obj is not None
+    assert got[0].old_obj.liveview_id == LIVEVIEW_ID
+    assert got[0].changed_data["liveview"] is None
+
+
+@pytest.mark.asyncio()
+async def test_viewer_set_name_only_announces_nothing(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A name-only PATCH writes through but emits nothing."""
+    pb, viewer = _cached_viewer(protect_client)
+    protect_client.api_request_obj = AsyncMock(return_value=_viewer_raw(name="Kitchen"))
+
+    _, got = await _collect_devices_ws(
+        protect_client, protect_client.update_viewer_public(VIEWER_ID, name="Kitchen")
+    )
+
+    assert got == []
+    assert pb.viewers[VIEWER_ID] is viewer
+    assert viewer.name == "Kitchen"
+
+
+@pytest.mark.asyncio()
+async def test_viewer_set_same_liveview_announces_nothing(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Setting the liveview the viewer already shows emits nothing."""
+    _, viewer = _cached_viewer(protect_client)
+    protect_client.api_request_obj = AsyncMock(return_value=_viewer_raw())
+
+    _, got = await _collect_devices_ws(protect_client, viewer.set_liveview(LIVEVIEW_ID))
+
+    assert got == []
+    assert viewer.liveview_id == LIVEVIEW_ID
+
+
+@pytest.mark.asyncio()
+async def test_update_viewer_public_inserts_uncached_and_announces_add(
+    protect_client: ProtectApiClient,
+) -> None:
+    """An uncached viewer is inserted and announced as an ``add``."""
+    pb = protect_client._public_bootstrap = PublicBootstrap()
+    protect_client.api_request_obj = AsyncMock(return_value=_viewer_raw())
+    result, got = await _collect_devices_ws(
+        protect_client, protect_client.update_viewer_public(VIEWER_ID, name="x")
+    )
+
+    assert pb.viewers[VIEWER_ID] is result
+    assert len(got) == 1
+    assert got[0].action is WSAction.ADD
+    assert got[0].new_obj is result
+    assert got[0].old_obj is None
+
+
+@pytest.mark.asyncio()
+async def test_update_viewer_public_no_bootstrap_announces_nothing(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Without a public bootstrap the response is returned uncached and silent."""
+    protect_client._public_bootstrap = None
+    protect_client.api_request_obj = AsyncMock(
+        return_value=_viewer_raw(liveview="lv-new")
+    )
+    result, got = await _collect_devices_ws(
+        protect_client,
+        protect_client.update_viewer_public(VIEWER_ID, liveview="lv-new"),
+    )
+
+    assert got == []
+    assert result.liveview_id == "lv-new"
+    assert protect_client._public_bootstrap is None
+
+
+@pytest.mark.asyncio()
+async def test_update_viewer_public_failed_patch_announces_nothing(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A failed PATCH leaves the cached viewer untouched and emits nothing."""
+    _, viewer = _cached_viewer(protect_client)
+    protect_client.api_request_obj = AsyncMock(side_effect=NvrError("boom"))
+    got: list[WSSubscriptionMessage] = []
+    unsub = protect_client.subscribe_devices_websocket(got.append)
+    try:
+        with pytest.raises(NvrError):
+            await viewer.set_liveview("lv-new")
+    finally:
+        unsub()
+
+    assert got == []
+    assert viewer.liveview_id == LIVEVIEW_ID
+
+
+@pytest.mark.asyncio()
+async def test_update_viewer_public_respects_devices_ws_filter(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A devices-WS filter excluding viewers suppresses the announcement."""
+    _, viewer = _cached_viewer(protect_client)
+    protect_client._devices_ws_subscribed_models = {ModelType.CAMERA}
+    protect_client.api_request_obj = AsyncMock(
+        return_value=_viewer_raw(liveview="lv-new")
+    )
+
+    _, got = await _collect_devices_ws(protect_client, viewer.set_liveview("lv-new"))
+
+    assert got == []
+    assert viewer.liveview_id == "lv-new"
+
+
+@pytest.mark.asyncio()
+async def test_get_viewer_public_writes_through_cached_viewer(
+    protect_client: ProtectApiClient,
+) -> None:
+    """``get_viewer_public`` refreshes and returns the cached viewer silently."""
+    pb, viewer = _cached_viewer(protect_client)
+    protect_client.api_request_obj = AsyncMock(
+        return_value=_viewer_raw(liveview="lv-new")
+    )
+    result, got = await _collect_devices_ws(
+        protect_client, protect_client.get_viewer_public(VIEWER_ID)
+    )
+
+    assert got == []
+    assert result is viewer
+    assert pb.viewers[VIEWER_ID] is viewer
+    assert viewer.liveview_id == "lv-new"
