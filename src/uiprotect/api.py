@@ -4280,21 +4280,6 @@ class ProtectApiClient(BaseApiClient):
             return
         twin._apply_from_response(obj)
 
-    def _cache_public_viewer(
-        self, viewer: PublicViewer
-    ) -> tuple[PublicViewer, PublicViewer | None]:
-        """Cache ``viewer`` in place; return the cached viewer and its prior copy."""
-        pb = self._public_bootstrap
-        if pb is None:
-            return viewer, None
-        cached = pb.viewers.get(viewer.id)
-        if cached is None:
-            pb.viewers[viewer.id] = viewer
-            return viewer, None
-        previous = cached.model_copy()
-        cached._apply_from_response(viewer)
-        return cached, previous
-
     @public_get("/v1/sirens", items=Siren)
     async def get_sirens_public(self) -> list[Siren]:
         """Get all sirens using public API."""
@@ -4596,8 +4581,7 @@ class ProtectApiClient(BaseApiClient):
         data = await self.api_request_obj(
             url=f"/v1/viewers/{viewer_id}", public_api=True
         )
-        viewer = PublicViewer.from_unifi_dict(**data, api=self)
-        return self._cache_public_viewer(viewer)[0]
+        return PublicViewer.from_unifi_dict(**data, api=self)
 
     async def update_viewer_public(
         self,
@@ -4623,14 +4607,20 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
         )
         viewer = PublicViewer.from_unifi_dict(**data, api=self)
-        if self._public_bootstrap is None:
+        pb = self._public_bootstrap
+        if pb is None:
             return viewer
-        cached, previous = self._cache_public_viewer(viewer)
         changed_data: dict[str, Any] = {"modelKey": ModelType.VIEWPORT.value}
-        if previous is None:
+        previous: PublicViewer | None = None
+        if (cached := pb.viewers.get(viewer.id)) is None:
+            pb.viewers[viewer.id] = cached = viewer
             action = WSAction.ADD
             changed_data.update(data)
-        elif previous.liveview_id != cached.liveview_id:
+        else:
+            previous = cached.model_copy()
+            cached._apply_from_response(viewer)
+            if previous.liveview_id == cached.liveview_id:
+                return cached
             action = WSAction.UPDATE
             before = previous.unifi_dict()
             changed_data.update(
@@ -4639,8 +4629,6 @@ class ProtectApiClient(BaseApiClient):
                 if before.get(key) != value
             )
             changed_data["id"] = cached.id
-        else:
-            return cached
         # Protect sends no devices-websocket frame when a viewer's liveview
         # changes, so announce the PATCH like the private ``Viewer`` does.
         if not self._devices_ws_filtered_out(ModelType.VIEWPORT):

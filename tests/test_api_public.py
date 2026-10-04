@@ -5128,7 +5128,7 @@ async def test_get_viewer_public(
 
 @pytest.mark.asyncio()
 @patch("uiprotect.api.PublicViewer.from_unifi_dict")
-async def test_get_viewer_public_writes_pb(
+async def test_get_viewer_public_does_not_write_pb(
     mock_ctor: Mock,
     protect_client: ProtectApiClient,
 ) -> None:
@@ -5137,9 +5137,9 @@ async def test_get_viewer_public_writes_pb(
     protect_client.api_request_obj = AsyncMock(return_value={"id": VIEWER_ID})
     pb = protect_client._public_bootstrap = PublicBootstrap()
 
-    await protect_client.get_viewer_public(VIEWER_ID)
+    assert await protect_client.get_viewer_public(VIEWER_ID) is obj
 
-    assert pb.viewers[VIEWER_ID] is obj
+    assert pb.viewers == {}
 
 
 @pytest.mark.asyncio()
@@ -6494,10 +6494,10 @@ async def test_update_viewer_public_respects_devices_ws_filter(
 
 
 @pytest.mark.asyncio()
-async def test_get_viewer_public_writes_through_cached_viewer(
+async def test_get_viewer_public_leaves_cached_viewer_untouched(
     protect_client: ProtectApiClient,
 ) -> None:
-    """``get_viewer_public`` refreshes and returns the cached viewer silently."""
+    """``get_viewer_public`` returns the response and leaves the cache alone."""
     pb, viewer = _cached_viewer(protect_client)
     protect_client.api_request_obj = AsyncMock(
         return_value=_viewer_raw(liveview="lv-new")
@@ -6507,6 +6507,7 @@ async def test_get_viewer_public_writes_through_cached_viewer(
     )
 
     assert got == []
-    assert result is viewer
+    assert result is not viewer
+    assert result.liveview_id == "lv-new"
     assert pb.viewers[VIEWER_ID] is viewer
-    assert viewer.liveview_id == "lv-new"
+    assert viewer.liveview_id == LIVEVIEW_ID

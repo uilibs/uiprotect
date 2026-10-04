@@ -408,12 +408,12 @@ A failed PATCH emits nothing, and so does a client with no public bootstrap
 (the response is returned uncached). The `subscribed_models` filter of the
 devices websocket applies.
 
-`get_viewer_public` writes the response into the cache the same way and
-returns the cached viewer, but emits no event.
+`get_viewer_public`, like the other public GET helpers, returns the response
+without touching `public_bootstrap.viewers` and emits no event.
 
 A public refresh (`update_public`) that started before the PATCH can finish
 after it and overwrite the cached viewer with the old liveview. No websocket
-frame corrects that for viewers; the next refresh or `get_viewer_public` does.
+frame corrects that for viewers; the next refresh does.
 
 ## Public vs. private API
 
