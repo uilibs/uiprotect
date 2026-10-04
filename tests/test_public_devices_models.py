@@ -552,7 +552,7 @@ def test_public_camera_hdr_mode_display(hdr_type: str, expected: str) -> None:
     [
         (None, None),
         ({}, None),
-        ({"text": "Hello"}, None),
+        ({"text": "Hello"}, "Hello"),
         ({"type": "LEAVE_PACKAGE_AT_DOOR"}, "LEAVE PACKAGE AT DOOR"),
         ({"type": "DO_NOT_DISTURB"}, "DO NOT DISTURB"),
         ({"type": "CUSTOM_MESSAGE", "text": "Hello"}, "Hello"),
@@ -570,16 +570,36 @@ def test_public_camera_lcd_message_text(
     assert obj.lcd_message_text == expected
 
 
-@pytest.mark.parametrize("message_type", list(DoorbellMessageType))
+_MISSING = object()
+
+
+@pytest.mark.parametrize("text", [_MISSING, "", "Hi"])
+@pytest.mark.parametrize("message_type", [*DoorbellMessageType, None])
 def test_public_camera_lcd_message_text_matches_private(
-    message_type: DoorbellMessageType,
+    message_type: DoorbellMessageType | None, text: object
 ) -> None:
-    """Every ``DoorbellMessageType`` reads the same as the private ``LCDMessage``."""
+    """``lcd_message_text`` matches ``LCDMessage`` except for one documented case."""
+    lcd_message: dict[str, Any] = {}
+    if message_type is not None:
+        lcd_message["type"] = message_type.value
+    if text is not _MISSING:
+        lcd_message["text"] = text
     obj = PublicCamera.from_unifi_dict(
-        api=Mock(),
-        **{**CAMERA_PAYLOAD, "lcdMessage": {"type": message_type, "text": "Hi"}},
+        api=Mock(), **{**CAMERA_PAYLOAD, "lcdMessage": lcd_message}
     )
-    assert obj.lcd_message_text == LCDMessage._fix_text("Hi", message_type.value)
+    if message_type is None and text is _MISSING:
+        assert obj.lcd_message_text is None
+        return
+    private_text = LCDMessage.from_unifi_dict(**lcd_message).text
+    if (
+        text is _MISSING
+        and message_type is not None
+        and message_type is not DoorbellMessageType.CUSTOM_MESSAGE
+    ):
+        assert private_text == ""
+        assert obj.lcd_message_text == message_type.value.replace("_", " ")
+        return
+    assert obj.lcd_message_text == private_text
 
 
 @pytest.mark.parametrize(

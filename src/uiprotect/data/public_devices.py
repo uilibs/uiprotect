@@ -815,9 +815,19 @@ class PublicCamera(PublicDeviceModel):
 
     @property
     def lcd_message_text(self) -> str | None:
-        """Text the doorbell LCD shows, ``None`` without a message."""
-        if (message := self.lcd_message) is None or message.type is None:
+        """
+        Text the doorbell LCD shows, ``None`` without a message.
+
+        A message with text but no ``type`` reads as a custom message. A
+        non-custom type without text returns its display text, where the
+        private ``LCDMessage`` gives ``""``. A partial websocket frame that
+        omits ``text`` leaves the previous text in place, so a custom message
+        can read stale text until the next full update.
+        """
+        if (message := self.lcd_message) is None:
             return None
+        if message.type is None:
+            return message.text
         return _lcd_display_text(message.type, message.text)
 
     def _apply_detection_event(self, event: PublicEvent) -> None:
@@ -2439,7 +2449,13 @@ class PublicDoorbellSettings(ProtectBaseObject):
 
     @property
     def all_messages(self) -> list[PublicDoorbellMessage]:
-        """Built-in messages followed by one ``CUSTOM_MESSAGE`` per custom message."""
+        """
+        Built-in messages followed by one ``CUSTOM_MESSAGE`` per custom message.
+
+        Read from ``PublicNVR.doorbell_settings``, which is ``None`` on firmware
+        without doorbell settings. Not de-duplicated: a custom message equal to
+        a built-in display text is listed twice.
+        """
         return [
             *(
                 PublicDoorbellMessage(
