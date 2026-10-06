@@ -446,10 +446,7 @@ class Event(ProtectModelWithId):
 
 
 class PortConfig(ProtectBaseObject):
-    http: int
-    https: int
     rtsps: int
-    playback: int
 
 
 class CPUInfo(ProtectBaseObject):
@@ -463,20 +460,9 @@ class MemoryInfo(ProtectBaseObject):
     total: int | None = None
 
 
-class StorageDevice(ProtectBaseObject):
-    model: str | None = None
-    size: int | None = None
-    healthy: bool | str | None = None
-
-
 class StorageInfo(ProtectBaseObject):
-    available: int
-    size: int
     type: StorageType
     used: int
-    devices: list[StorageDevice]
-    # requires 2.8.14+
-    capability: str | None = None
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -705,8 +691,7 @@ class StorageStats(ProtectBaseObject):
 
 
 class NVRFeatureFlags(ProtectBaseObject):
-    beta: bool
-    dev: bool
+    pass
 
 
 class NVRSmartDetection(ProtectBaseObject):
@@ -729,7 +714,6 @@ class NVR(ProtectDeviceModel):
     system_info: SystemInfo
     doorbell_settings: DoorbellSettings
     storage_stats: StorageStats
-    network: str
     market_name: str | None = None
     is_insights_enabled: bool | None = None
     # requires 3.0.22+

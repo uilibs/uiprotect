@@ -32,7 +32,6 @@ from uiprotect.data.devices import (
     CameraZone,
     Hotplug,
     HotplugExtender,
-    MotionZone,
 )
 from uiprotect.data.nvr import GlobalRecordingSettings
 from uiprotect.data.types import PermissionNode, SmartDetectObjectType
@@ -1098,7 +1097,6 @@ def _zone_dict(zone_id: int, color: str) -> dict[str, Any]:
         "name": f"Zone {zone_id}",
         "color": color,
         "points": [[0, 0], [1, 0], [1, 1], [0, 1]],
-        "sensitivity": 50,
     }
 
 
@@ -1110,18 +1108,18 @@ def test_camera_get_changed_keeps_other_zone_colors(
     if camera_obj is None:
         pytest.skip("No camera_obj obj found")
 
-    camera_obj.motion_zones = [
-        MotionZone.from_unifi_dict(**_zone_dict(1, "#AABBCC")),
-        MotionZone.from_unifi_dict(**_zone_dict(2, "#AABBCC")),
+    camera_obj.privacy_zones = [
+        CameraZone.from_unifi_dict(**_zone_dict(1, "#AABBCC")),
+        CameraZone.from_unifi_dict(**_zone_dict(2, "#AABBCC")),
     ]
     before = camera_obj.dict_with_excludes()
 
-    assert "motion_zones" not in camera_obj.get_changed(before)
+    assert "privacy_zones" not in camera_obj.get_changed(before)
 
-    camera_obj.motion_zones[0].name = "Renamed"
+    camera_obj.privacy_zones[0].name = "Renamed"
     changed = camera_obj.get_changed(before)
 
-    zones = changed["motion_zones"]
+    zones = changed["privacy_zones"]
     assert zones[0]["name"] == "Renamed"
     assert zones[1]["name"] == "Zone 2"
     assert zones[1]["color"] == "#AABBCC"
@@ -1139,7 +1137,6 @@ async def test_camera_set_privacy_off_keeps_other_zone_colors(
     camera_obj.api.api_request.reset_mock()
     camera_obj.feature_flags.has_privacy_mask = True
     other = _zone_dict(5, "#AABBCC")
-    del other["sensitivity"]
     camera_obj.privacy_zones = [CameraZone.from_unifi_dict(**other)]
     camera_obj.add_privacy_zone()
 

@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from uiprotect.data.devices import (
-    LightDeviceSettings,
-    LightModeEnableType,
-    LightModeSettings,
-    LightModeType,
+from uiprotect.data.public_devices import (
+    PublicLightDeviceSettings,
+    PublicLightModeSettings,
 )
+from uiprotect.data.types import LightModeEnableType, LightModeType
 from uiprotect.exceptions import BadRequest
 
 if TYPE_CHECKING:
@@ -176,7 +174,7 @@ async def test_update_light_public_light_mode_settings(
     protect_client: ProtectApiClient,
 ) -> None:
     """Test updating light mode settings."""
-    light_mode_settings = LightModeSettings(
+    light_mode_settings = PublicLightModeSettings(
         mode=LightModeType.MOTION,
         enable_at=LightModeEnableType.DARK,
     )
@@ -219,10 +217,10 @@ async def test_update_light_public_light_device_settings(
     protect_client: ProtectApiClient,
 ) -> None:
     """Test updating light device settings."""
-    light_device_settings = LightDeviceSettings(
+    light_device_settings = PublicLightDeviceSettings(
         is_indicator_enabled=True,
         led_level=6,
-        pir_duration=timedelta(seconds=60),
+        pir_duration=60000,
         pir_sensitivity=80,
     )
 
@@ -268,14 +266,14 @@ async def test_update_light_public_all_parameters(
     protect_client: ProtectApiClient,
 ) -> None:
     """Test updating all parameters at once."""
-    light_mode_settings = LightModeSettings(
+    light_mode_settings = PublicLightModeSettings(
         mode=LightModeType.WHEN_DARK,
         enable_at=LightModeEnableType.DARK,
     )
-    light_device_settings = LightDeviceSettings(
+    light_device_settings = PublicLightDeviceSettings(
         is_indicator_enabled=True,
         led_level=6,
-        pir_duration=timedelta(seconds=60),
+        pir_duration=60000,
         pir_sensitivity=80,
     )
 
@@ -365,7 +363,7 @@ async def test_update_light_public_partial_update(
     protect_client: ProtectApiClient,
 ) -> None:
     """Test partial updates with subset of parameters."""
-    light_mode_settings = LightModeSettings(
+    light_mode_settings = PublicLightModeSettings(
         mode=LightModeType.MANUAL,
         enable_at=LightModeEnableType.ALWAYS,
     )

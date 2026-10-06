@@ -997,7 +997,6 @@ def test_camera_smart_audio_events(camera_obj: Camera):
     now = utc_now()
 
     camera_obj.last_smart_audio_detect_event_id = None
-    camera_obj.last_smart_audio_detect = None
     camera_obj.last_smart_audio_detect_event_ids = {}
     camera_obj.last_smart_audio_detects = {}
     events = [
@@ -1026,7 +1025,7 @@ def test_camera_smart_audio_events(camera_obj: Camera):
     for event in events:
         camera_obj.api.bootstrap.process_event(event)
 
-    assert camera_obj.last_smart_audio_detect == now - timedelta(seconds=5)
+    assert camera_obj.last_smart_audio_detect_event_id == "test_event_2"
     assert camera_obj.last_smart_audio_detects[
         SmartDetectAudioType.SMOKE
     ] == now - timedelta(seconds=10)
@@ -1844,7 +1843,6 @@ async def test_user_becomes_cloud_account_and_then_removed(user_obj: User):
                 "first_name": "Qpvfly",
                 "last_name": "Ikjzilt",
                 "email": "QhoFvCv@example.com",
-                "profile_img": None,
                 "user_id": "fe4c12ae2c1348edb7854e2f",
                 "id": "9efc4511-4539-4402-9581-51cee8b65cf5",
                 "cloud_id": "9efc4511-4539-4402-9581-51cee8b65cf5",
@@ -1904,7 +1902,6 @@ def test_unknown_smart(
         pytest.skip("No camera obj found")
 
     camera["featureFlags"]["smartDetectTypes"] = ["alrmSmoke3"]
-    camera["smartDetectZones"][0]["objectTypes"] = ["alrmSmoke3"]
     camera["smartDetectSettings"]["objectTypes"] = ["alrmSmoke3"]
     bootstrap["cameras"] = [camera]
 
@@ -1914,7 +1911,6 @@ def test_unknown_smart(
     )
     camera_obj = next(iter(obj.cameras.values()))
     assert camera_obj.feature_flags.smart_detect_types == []
-    assert camera_obj.smart_detect_zones[0].object_types == []
     assert camera_obj.smart_detect_settings.object_types == []
 
     set_no_debug()
@@ -1924,7 +1920,6 @@ def test_unknown_smart(
     )
     camera_obj = next(iter(obj.cameras.values()))
     assert camera_obj.feature_flags.smart_detect_types == []
-    assert camera_obj.smart_detect_zones[0].object_types == []
     assert camera_obj.smart_detect_settings.object_types == []
     set_debug()
 

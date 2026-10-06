@@ -24,7 +24,7 @@ from uiprotect import ProtectApiClient
 from uiprotect.data import NVR, Camera, ModelType
 from uiprotect.data.nvr import Event
 from uiprotect.data.types import EventType
-from uiprotect.utils import _BAD_UUID, DEBUG_ENV, is_debug, set_debug
+from uiprotect.utils import DEBUG_ENV, is_debug, set_debug
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -680,10 +680,7 @@ NEW_FIELDS = {
     # 2.7.15
     "featureFlags",  # added to chime
     # 2.8.14+
-    "nvrMac",
     "useGlobal",
-    # 2.8.22+
-    "guid",
     # 2.10.10+
     "isPtz",
     # 3.0.22+
@@ -707,8 +704,6 @@ NEW_CAMERA_FEATURE_FLAGS = {
     # 4.73.71+
     "supportNfc",
     "hasFingerprintSensor",
-    # 6.0.0+
-    "supportFullHdSnapshot",
 }
 
 NEW_ISP_SETTINGS = {
@@ -757,6 +752,8 @@ _DROPPED_DEVICE_KEYS: dict[tuple[str, ...], set[str]] = {
         "lastDisconnect",
         "anonymousDeviceId",
         "isDownloadingFW",
+        "nvrMac",
+        "guid",
     },
     ("bluetoothConnectionState",): {"experienceScore"},
     ("wifiConnectionState",): {
@@ -792,6 +789,10 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "audioSettings",
             "isPairedWithAiPort",
             "isAdoptedByAccessApp",
+            "isMicEnabled",
+            "lenses",
+            "motionZones",
+            "smartDetectZones",
         },
         ("ispSettings",): {
             "aeMode",
@@ -821,12 +822,27 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "mountPosition",
             "icrSwitchMode",
             "spotlightDuration",
+            "brightness",
         },
         ("osdSettings",): {"overlayLocation"},
         ("ledSettings",): {"blinkRate", "welcomeLed", "floodLed"},
         ("recordingSettings",): _DROPPED_RECORDING_SETTINGS_KEYS,
-        ("talkbackSettings",): {"typeIn", "bindAddr", "filterAddr", "filterPort"},
+        ("talkbackSettings",): {
+            "typeIn",
+            "bindAddr",
+            "filterAddr",
+            "filterPort",
+            "quality",
+        },
         ("stats",): {"wifi", "wifiQuality", "wifiStrength"},
+        ("stats", "video"): {
+            "recordingEnd",
+            "recordingEndLQ",
+            "timelapseStart",
+            "timelapseEnd",
+            "timelapseStartLQ",
+            "timelapseEndLQ",
+        },
         ("featureFlags",): {
             "canAdjustIrLedLevel",
             "canMagicZoom",
@@ -860,6 +876,10 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "hasVerticalFlip",
             "flashRange",
             "focus",
+            "supportFullHdSnapshot",
+            "pan",
+            "tilt",
+            "zoom",
         },
         ("featureFlags", "hotplug"): {"standaloneAdoption"},
         ("featureFlags", "hotplug", "extender"): {
@@ -868,13 +888,18 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "hasRadar",
             "flashRange",
         },
-        ("featureFlags", "pan"): {"steps", "degrees"},
-        ("featureFlags", "tilt"): {"steps", "degrees"},
-        ("featureFlags", "zoom"): {"steps", "degrees", "ratio"},
     },
     ModelType.LIGHT.value: {
         (): {"isLocating", "lightOnSettings", "isCameraPaired"},
-        ("lightDeviceSettings",): {"luxSensitivity"},
+        ("lightDeviceSettings",): {"luxSensitivity", "ledLevel", "pirDuration"},
+        ("lightModeSettings",): {"enableAt"},
+    },
+    ModelType.SENSOR.value: {
+        (): {"motionDetectedAt", "openStatusChangedAt"},
+        ("motionSettings",): {"sensitivityWhenArmed"},
+        ("humiditySettings",): {"margin", "lowThreshold", "highThreshold"},
+        ("lightSettings",): {"margin", "lowThreshold", "highThreshold"},
+        ("temperatureSettings",): {"margin", "lowThreshold", "highThreshold"},
     },
     ModelType.VIEWPORT.value: {(): {"streamLimit", "softwareVersion"}},
     ModelType.CHIME.value: {
@@ -953,8 +978,12 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "isUcoreUpdatable",
             "lastDeviceFWUpdatesCheckedAt",
             "isUCoreStacked",
+            "network",
         },
         ("ports",): {
+            "http",
+            "https",
+            "playback",
             "ump",
             "rtsp",
             "rtmp",
@@ -975,7 +1004,13 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "aiFeatureConsole",
         },
         ("systemInfo",): {"tmpfs"},
-        ("systemInfo", "storage"): {"isRecycling"},
+        ("systemInfo", "storage"): {
+            "isRecycling",
+            "available",
+            "size",
+            "devices",
+            "capability",
+        },
         ("systemInfo", "ustorage"): {"space"},
         ("doorbellSettings",): {"defaultMessageResetTimeoutMs"},
         ("storageStats",): {"remainingCapacity", "recordingSpace"},
@@ -985,6 +1020,8 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "ulpRoleManagement",
             "detectionLabels",
             "hasTwoWayAudioMediaStreams",
+            "beta",
+            "dev",
         },
         ("smartDetection",): {"faceRecognition", "licensePlateRecognition"},
         ("globalCameraSettings", "recordingSettings"): (
@@ -1000,11 +1037,12 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "hasAcceptedInvite",
             "scopes",
             "localUsername",
+            "location",
         },
-        ("location",): {"isAway", "latitude", "longitude"},
+        ("cloudAccount",): {"location", "profileImg"},
         ("featureFlags",): {"notificationsV2"},
     },
-    ModelType.KEYRING.value: {(): {"lastActivity"}},
+    ModelType.KEYRING.value: {(): {"lastActivity", "deviceType", "deviceId"}},
     ModelType.ULP_USER.value: {(): {"avatar"}},
 }
 _DEVICE_MODEL_TYPES = {
@@ -1060,13 +1098,9 @@ def compare_objs(obj_type, expected, actual):
         expected["featureFlags"].pop("hasBattery", None)
 
         # do not compare detect zones because float math sucks
-        assert len(expected["motionZones"]) == len(actual["motionZones"])
         assert len(expected["privacyZones"]) == len(actual["privacyZones"])
-        assert len(expected["smartDetectZones"]) == len(actual["smartDetectZones"])
 
-        expected["motionZones"] = actual["motionZones"] = []
         expected["privacyZones"] = actual["privacyZones"] = []
-        expected["smartDetectZones"] = actual["smartDetectZones"] = []
         if "isColorNightVisionEnabled" not in expected["ispSettings"]:
             actual["ispSettings"].pop("isColorNightVisionEnabled", None)
 
@@ -1160,9 +1194,6 @@ def compare_objs(obj_type, expected, actual):
         if expected["globalCameraSettings"]:
             expected["globalCameraSettings"].pop("recordingSchedulesV2", None)
 
-        if "capability" not in expected["systemInfo"]["storage"]:
-            actual["systemInfo"]["storage"].pop("capability", None)
-
         # float math...
         cpu_fields = ["averageLoad", "temperature"]
         for key in cpu_fields:
@@ -1196,14 +1227,6 @@ def compare_objs(obj_type, expected, actual):
     # sometimes uptime comes back as a str...
     if "uptime" in expected and expected["uptime"] is not None:
         expected["uptime"] = int(expected["uptime"])
-
-    # edge case with broken UUID from Protect
-    if (
-        "guid" in expected
-        and expected["guid"] == _BAD_UUID
-        and actual["guid"] == "00000000-0000-0000-0000-000000000000"
-    ):
-        actual["guid"] = expected["guid"]
 
     for key in NEW_FIELDS.intersection(actual.keys()):
         if key not in expected:

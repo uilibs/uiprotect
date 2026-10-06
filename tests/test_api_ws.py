@@ -374,10 +374,6 @@ async def test_ws_event_nfc_card_scanned(
     camera_before.last_nfc_card_scanned_event_id = None
     camera.last_nfc_card_scanned_event_id = None
 
-    assert camera.last_nfc_card_scanned == event.start
-    camera_before.last_nfc_card_scanned = None
-    camera.last_nfc_card_scanned = None
-
     assert camera.model_dump() == camera_before.model_dump()
     assert event.id == expected_event_id
     assert event.type == EventType.NFC_CARD_SCANNED
@@ -446,10 +442,6 @@ async def test_ws_event_fingerprint_identified(
     event = camera.last_fingerprint_identified_event
     camera_before.last_fingerprint_identified_event_id = None
     camera.last_fingerprint_identified_event_id = None
-
-    assert camera.last_fingerprint_identified == event.start
-    camera_before.last_fingerprint_identified = None
-    camera.last_fingerprint_identified = None
 
     assert camera.model_dump() == camera_before.model_dump()
     assert event.id == expected_event_id
@@ -552,7 +544,7 @@ async def test_ws_event_update(
         new_stats["rxBytes"] += 100
     if new_stats.get("txBytes") is not None:
         new_stats["txBytes"] += 100
-    new_stats["video"]["recordingEnd"] = to_js_time(now)
+    new_stats["video"]["recordingStart"] = to_js_time(now)
     new_stats_unifi = camera_before.unifi_dict(data={"stats": deepcopy(new_stats)})
 
     expected_updated_id = "0441ecc6-f0fa-4b19-b071-7987c143138a"
@@ -1053,8 +1045,6 @@ async def test_ws_keyring_update(
     keyring = Keyring(
         id=keyring_id,
         ulp_user=old_ulp_user,
-        device_type="test",
-        device_id="test",
         registry_type="test",
         registry_id="test",
         created_at=utc_now(),

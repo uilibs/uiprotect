@@ -97,8 +97,8 @@ async def check_camera(camera: Camera):
     if camera.last_smart_detect_event is not None:
         await check_motion_event(camera.last_smart_detect_event)
 
-    assert camera.last_nfc_card_scanned is None
-    assert camera.last_fingerprint_identified is None
+    assert camera.last_nfc_card_scanned_event_id is None
+    assert camera.last_fingerprint_identified_event_id is None
 
     for channel in camera.channels:
         assert channel._api is not None

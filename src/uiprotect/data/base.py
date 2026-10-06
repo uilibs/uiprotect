@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 from functools import cache
 from ipaddress import IPv4Address, IPv6Address
 from typing import TYPE_CHECKING, Any, NamedTuple, Protocol, runtime_checkable
-from uuid import UUID
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
 from pydantic import BaseModel, ConfigDict
@@ -899,10 +898,6 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     is_connected: bool
     # requires 1.21+
     market_name: str | None = None
-    # requires 2.8.14+
-    nvr_mac: str | None = None
-    # requires 2.8.22+
-    guid: UUID | None = None
 
     wired_connection_state: WiredConnectionState | None = None
     wifi_connection_state: WifiConnectionState | None = None
