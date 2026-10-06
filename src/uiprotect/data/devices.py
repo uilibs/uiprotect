@@ -57,9 +57,7 @@ from .types import (
     ICRLuxValue,
     IRLEDMode,
     IteratorCallback,
-    LEDLevel,
     LensType,
-    LightModeEnableType,
     LightModeType,
     ModelType,
     MountType,
@@ -99,23 +97,12 @@ _LOGGER = logging.getLogger(__name__)
 class LightDeviceSettings(ProtectBaseObject):
     # Status LED
     is_indicator_enabled: bool
-    # Brightness
-    led_level: LEDLevel
-    pir_duration: timedelta
     pir_sensitivity: PercentInt
-
-    @classmethod
-    @cache
-    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
-        return {
-            "pirDuration": lambda x: timedelta(milliseconds=x)
-        } | super().unifi_dict_conversions()
 
 
 class LightModeSettings(ProtectBaseObject):
     # main "Lighting" settings
     mode: LightModeType
-    enable_at: LightModeEnableType
 
 
 class Light(ProtectMotionDeviceModel):
@@ -248,7 +235,6 @@ class CameraChannel(ProtectBaseObject):
 class ISPSettings(ProtectBaseObject):
     ir_led_mode: IRLEDMode
     wdr: WDRLevel
-    brightness: int
     zoom_position: PercentInt
     # requires 2.8.14+
     is_color_night_vision_enabled: bool | None = None
@@ -388,18 +374,11 @@ class TalkbackSettings(ProtectBaseObject):
     channels: int  # 1 or 2
     sampling_rate: int  # 8000, 11025, 22050, 44100, 48000
     bits_per_sample: int
-    quality: PercentInt  # only for vorbis
 
 
 class VideoStats(ProtectBaseObject):
     recording_start: datetime | None = None
-    recording_end: datetime | None = None
     recording_start_lq: datetime | None = None
-    recording_end_lq: datetime | None = None
-    timelapse_start: datetime | None = None
-    timelapse_end: datetime | None = None
-    timelapse_start_lq: datetime | None = None
-    timelapse_end_lq: datetime | None = None
 
     @property
     def earliest_recording_start(self) -> datetime | None:
@@ -415,28 +394,13 @@ class VideoStats(ProtectBaseObject):
         return {
             **super()._get_unifi_remaps(),
             "recordingStartLQ": "recordingStartLq",
-            "recordingEndLQ": "recordingEndLq",
-            "timelapseStartLQ": "timelapseStartLq",
-            "timelapseEndLQ": "timelapseEndLq",
         }
 
     @classmethod
     @cache
     def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
         return (
-            dict.fromkeys(
-                (
-                    "recordingStart",
-                    "recordingEnd",
-                    "recordingStartLQ",
-                    "recordingEndLQ",
-                    "timelapseStart",
-                    "timelapseEnd",
-                    "timelapseStartLQ",
-                    "timelapseEndLQ",
-                ),
-                convert_to_datetime,
-            )
+            dict.fromkeys(("recordingStart", "recordingStartLQ"), convert_to_datetime)
             | super().unifi_dict_conversions()
         )
 
@@ -530,21 +494,6 @@ class CameraZone(ProtectBaseObject):
         )
 
 
-class MotionZone(CameraZone):
-    sensitivity: PercentInt
-
-
-class SmartMotionZone(MotionZone):
-    object_types: list[SmartDetectObjectType]
-
-    @classmethod
-    @cache
-    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
-        return {
-            "objectTypes": convert_smart_types,
-        } | super().unifi_dict_conversions()
-
-
 class HotplugExtender(ProtectBaseObject):
     is_attached: bool | None = None
 
@@ -553,14 +502,6 @@ class Hotplug(ProtectBaseObject):
     audio: bool | None = None
     video: bool | None = None
     extender: HotplugExtender | None = None
-
-
-class PTZRange(ProtectBaseObject):
-    pass
-
-
-class PTZZoomRange(PTZRange):
-    pass
 
 
 class CameraFeatureFlags(ProtectBaseObject):
@@ -588,12 +529,6 @@ class CameraFeatureFlags(ProtectBaseObject):
     # 4.73.71+
     support_nfc: bool | None = None
     has_fingerprint_sensor: bool | None = None
-    # 6.0.0+
-    support_full_hd_snapshot: bool | None = None
-
-    pan: PTZRange
-    tilt: PTZRange
-    zoom: PTZZoomRange
 
     @classmethod
     @cache
@@ -621,11 +556,6 @@ class CameraFeatureFlags(ProtectBaseObject):
         return not self.has_hdr
 
 
-class CameraLenses(ProtectBaseObject):
-    id: int
-    video: VideoStats
-
-
 @lru_cache
 def _chime_type_from_total_seconds(total_seconds: float) -> ChimeType:
     if total_seconds == 0.3:
@@ -638,7 +568,6 @@ def _chime_type_from_total_seconds(total_seconds: float) -> ChimeType:
 class Camera(ProtectMotionDeviceModel):
     # Microphone Sensitivity
     mic_volume: PercentInt
-    is_mic_enabled: bool
     is_recording: bool
     is_motion_detected: bool
     is_smart_detected: bool
@@ -656,13 +585,10 @@ class Camera(ProtectMotionDeviceModel):
     speaker_settings: SpeakerSettings
     recording_settings: RecordingSettings
     smart_detect_settings: SmartDetectSettings
-    motion_zones: list[MotionZone]
     privacy_zones: list[CameraZone]
-    smart_detect_zones: list[SmartMotionZone]
     stats: CameraStats
     feature_flags: CameraFeatureFlags
     lcd_message: LCDMessage | None = None
-    lenses: list[CameraLenses]
     platform: str | None = None
     has_speaker: bool
     voltage: float | None = None
@@ -677,11 +603,8 @@ class Camera(ProtectMotionDeviceModel):
     # not directly from UniFi
     last_ring_event_id: str | None = None
     last_nfc_card_scanned_event_id: str | None = None
-    last_nfc_card_scanned: datetime | None = None
     last_fingerprint_identified_event_id: str | None = None
-    last_fingerprint_identified: datetime | None = None
     last_smart_detect: datetime | None = None
-    last_smart_audio_detect: datetime | None = None
     last_smart_detect_event_id: str | None = None
     last_smart_audio_detect_event_id: str | None = None
     last_smart_detects: dict[SmartDetectObjectType, datetime] = {}
@@ -698,12 +621,9 @@ class Camera(ProtectMotionDeviceModel):
     def _get_excluded_changed_fields(cls) -> set[str]:
         return super()._get_excluded_changed_fields() | {
             "last_ring_event_id",
-            "last_nfc_card_scanned",
             "last_nfc_card_scanned_event_id",
-            "last_fingerprint_identified",
             "last_fingerprint_identified_event_id",
             "last_smart_detect",
-            "last_smart_audio_detect",
             "last_smart_detect_event_id",
             "last_smart_audio_detect_event_id",
             "last_smart_detects",
@@ -723,7 +643,6 @@ class Camera(ProtectMotionDeviceModel):
             "isSmartDetected",
             "phyRate",
             "lastRing",
-            "lenses",
             "featureFlags",
         }
 
@@ -753,32 +672,19 @@ class Camera(ProtectMotionDeviceModel):
         data: dict[str, Any] | None = None,
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
-        if data is not None:
-            if "motion_zones" in data:
-                data["motion_zones"] = [
-                    MotionZone(**z).unifi_dict() for z in data["motion_zones"]
-                ]
-            if "privacy_zones" in data:
-                data["privacy_zones"] = [
-                    CameraZone(**z).unifi_dict() for z in data["privacy_zones"]
-                ]
-            if "smart_detect_zones" in data:
-                data["smart_detect_zones"] = [
-                    SmartMotionZone(**z).unifi_dict()
-                    for z in data["smart_detect_zones"]
-                ]
+        if data is not None and "privacy_zones" in data:
+            data["privacy_zones"] = [
+                CameraZone(**z).unifi_dict() for z in data["privacy_zones"]
+            ]
 
         data = super().unifi_dict(data=data, exclude=exclude)
         pop_dict_tuple(
             data,
             (
-                "lastFingerprintIdentified",
                 "lastFingerprintIdentifiedEventId",
-                "lastNfcCardScanned",
                 "lastNfcCardScannedEventId",
                 "lastRingEventId",
                 "lastSmartDetect",
-                "lastSmartAudioDetect",
                 "lastSmartDetectEventId",
                 "lastSmartAudioDetectEventId",
                 "lastSmartDetects",
@@ -1705,27 +1611,11 @@ class SensorSettingsBase(ProtectBaseObject):
 
 
 class SensorThresholdSettings(SensorSettingsBase):
-    margin: float  # read only
-    # "safe" thresholds for alerting
-    # anything below/above will trigger alert
-    low_threshold: float | None = None
-    high_threshold: float | None = None
+    pass
 
 
 class SensorSensitivitySettings(SensorSettingsBase):
     sensitivity: PercentInt
-    # Armed-mode sensitivity override. Absent on older firmware / not carried by
-    # every console, so it is optional and dropped from the wire dict when unset.
-    sensitivity_when_armed: PercentInt | None = None
-
-    def unifi_dict(
-        self,
-        data: dict[str, Any] | None = None,
-        exclude: set[str] | None = None,
-    ) -> dict[str, Any]:
-        data = super().unifi_dict(data=data, exclude=exclude)
-        pop_dict_set_if_none(data, {"sensitivityWhenArmed"})
-        return data
 
 
 class SensorBatteryStatus(ProtectBaseObject):
@@ -1755,9 +1645,7 @@ class Sensor(ProtectAdoptableDeviceModel):
     leak_detected_at: datetime | None = None
     led_settings: LEDSettings
     light_settings: SensorThresholdSettings
-    motion_detected_at: datetime | None = None
     motion_settings: SensorSensitivitySettings
-    open_status_changed_at: datetime | None = None
     stats: SensorStats
     tampering_detected_at: datetime | None = None
     temperature_settings: SensorThresholdSettings
@@ -1786,9 +1674,7 @@ class Sensor(ProtectAdoptableDeviceModel):
             "leakDetectedAt",
             "tamperingDetectedAt",
             "isOpened",
-            "openStatusChangedAt",
             "alarmTriggeredAt",
-            "motionDetectedAt",
             "stats",
         }
 

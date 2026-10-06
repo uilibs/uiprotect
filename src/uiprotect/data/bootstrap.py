@@ -85,23 +85,14 @@ STATS_AND_IGNORE_DEVICE_KEYS_BY_MODEL_TYPE = {
 }
 
 
-CAMERA_EVENT_ATTR_MAP: dict[EventType, tuple[str, str]] = {
+CAMERA_EVENT_ATTR_MAP: dict[EventType, tuple[str | None, str]] = {
     EventType.MOTION: ("last_motion", "last_motion_event_id"),
     EventType.SMART_DETECT: ("last_smart_detect", "last_smart_detect_event_id"),
     EventType.SMART_DETECT_LINE: ("last_smart_detect", "last_smart_detect_event_id"),
-    EventType.SMART_AUDIO_DETECT: (
-        "last_smart_audio_detect",
-        "last_smart_audio_detect_event_id",
-    ),
+    EventType.SMART_AUDIO_DETECT: (None, "last_smart_audio_detect_event_id"),
     EventType.RING: ("last_ring", "last_ring_event_id"),
-    EventType.NFC_CARD_SCANNED: (
-        "last_nfc_card_scanned",
-        "last_nfc_card_scanned_event_id",
-    ),
-    EventType.FINGERPRINT_IDENTIFIED: (
-        "last_fingerprint_identified",
-        "last_fingerprint_identified_event_id",
-    ),
+    EventType.NFC_CARD_SCANNED: (None, "last_nfc_card_scanned_event_id"),
+    EventType.FINGERPRINT_IDENTIFIED: (None, "last_fingerprint_identified_event_id"),
 }
 
 
@@ -249,7 +240,8 @@ def _process_camera_event(event: Event, camera: Camera) -> None:
     event_start = event.start
 
     setattr(camera, event_attr, event_id)
-    setattr(camera, dt_attr, event_start)
+    if dt_attr is not None:
+        setattr(camera, dt_attr, event_start)
     if event_type is _CAMERA_SMART_AUDIO_EVENT:
         for smart_type in event.smart_detect_types:
             if (audio_type := smart_type.audio_type) is None:

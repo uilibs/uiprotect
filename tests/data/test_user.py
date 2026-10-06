@@ -40,15 +40,11 @@ def test_ulp_users_add_and_remove():
 def test_keyring_creation():
     keyring = Keyring(
         id="1",
-        device_type="type1",
-        device_id="device1",
         registry_type="reg_type1",
         registry_id="reg_id1",
         ulp_user="ulp1",
     )
     assert keyring.id == "1"
-    assert keyring.device_type == "type1"
-    assert keyring.device_id == "device1"
     assert keyring.registry_type == "reg_type1"
     assert keyring.registry_id == "reg_id1"
     assert keyring.ulp_user == "ulp1"
@@ -58,8 +54,6 @@ def test_keyrings_add_and_remove():
     keyrings = Keyrings()
     keyring = Keyring(
         id="1",
-        device_type="type1",
-        device_id="device1",
         registry_type="reg_type1",
         registry_id="reg_id1",
         ulp_user="ulp1",
@@ -79,16 +73,12 @@ def test_keyrings_equality():
     keyrings1 = Keyrings()
     keyring1 = Keyring(
         id="1",
-        device_type="type1",
-        device_id="device1",
         registry_type="reg_type1",
         registry_id="reg_id1",
         ulp_user="ulp1",
     )
     keyring2 = Keyring(
         id="2",
-        device_type="type2",
-        device_id="device2",
         registry_type="reg_type2",
         registry_id="reg_id2",
         ulp_user="ulp2",
@@ -105,8 +95,6 @@ def test_keyrings_equality():
     keyrings3 = Keyrings()
     keyring3 = Keyring(
         id="3",
-        device_type="type3",
-        device_id="device3",
         registry_type="reg_type3",
         registry_id="reg_id3",
         ulp_user="ulp3",
@@ -196,16 +184,12 @@ def test_ulp_users_as_list():
 def test_keyrings_from_list():
     keyring1 = Keyring(
         id="1",
-        device_type="type1",
-        device_id="device1",
         registry_type="reg_type1",
         registry_id="reg_id1",
         ulp_user="ulp1",
     )
     keyring2 = Keyring(
         id="2",
-        device_type="type2",
-        device_id="device2",
         registry_type="reg_type2",
         registry_id="reg_id2",
         ulp_user="ulp2",

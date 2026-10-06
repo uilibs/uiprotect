@@ -80,8 +80,6 @@ class CloudAccount(ProtectModelWithId):
     email: str
     user_id: str
     name: str
-    location: UserLocation | None = None
-    profile_img: str | None = None
 
     @classmethod
     @cache
@@ -98,8 +96,6 @@ class CloudAccount(ProtectModelWithId):
         # id and cloud ID are always the same
         if "id" in data:
             data["cloudId"] = data["id"]
-        if "location" in data and data["location"] is None:
-            del data["location"]
 
         return data
 
@@ -115,7 +111,6 @@ class UserFeatureFlags(ProtectBaseObject):
 class User(ProtectModelWithId):
     permissions: list[Permission]
     all_permissions: list[Permission]
-    location: UserLocation | None = None
     name: str
     first_name: str
     last_name: str
@@ -156,18 +151,6 @@ class User(ProtectModelWithId):
     @cache
     def _get_unifi_remaps(cls) -> dict[str, str]:
         return {**super()._get_unifi_remaps(), "groups": "groupIds"}
-
-    def unifi_dict(
-        self,
-        data: dict[str, Any] | None = None,
-        exclude: set[str] | None = None,
-    ) -> dict[str, Any]:
-        data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "location" in data and data["location"] is None:
-            del data["location"]
-
-        return data
 
     @property
     def groups(self) -> list[Group]:
@@ -265,8 +248,6 @@ class UlpUserKeyringBase(Generic[T]):
 
 
 class Keyring(ProtectModelWithId):
-    device_type: str
-    device_id: str
     registry_type: str
     registry_id: str
     ulp_user: str
