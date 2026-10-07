@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import threading
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, Mock, patch
 
 import av
 import pytest
+from aiohttp import web
+from aiohttp.test_utils import TestServer
 
 from uiprotect.data.types import AudioCodecs
 from uiprotect.exceptions import BadRequest, StreamError
@@ -24,7 +27,6 @@ from uiprotect.stream import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
-    from pathlib import Path
 
 
 @pytest.fixture
@@ -700,3 +702,63 @@ async def test_restart_after_stop(mock_camera: Mock, audio_file: str) -> None:
         assert stream.is_running
         await asyncio.wait_for(stream.stop(), timeout=5.0)
         assert not stream.is_running
+
+
+@pytest.mark.asyncio
+async def test_run_until_complete_chunked_http_source(
+    mock_camera: Mock, audio_file: str
+) -> None:
+    """A chunked HTTP source (no Content-Length) streams to EOF without error."""
+    audio = await asyncio.to_thread(Path(audio_file).read_bytes)
+
+    async def handler(request: web.Request) -> web.StreamResponse:
+        response = web.StreamResponse(headers={"Content-Type": "audio/wav"})
+        response.enable_chunked_encoding()
+        await response.prepare(request)
+        for i in range(0, len(audio), 1024):
+            await response.write(audio[i : i + 1024])
+        await response.write_eof()
+        return response
+
+    app = web.Application()
+    app.router.add_get("/audio.wav", handler)
+    async with TestServer(app, host="127.0.0.1") as server:
+        session = TalkbackSession(
+            url="rtp://127.0.0.1:7004", codec="opus", sampling_rate=24000
+        )
+        stream = TalkbackStream(
+            mock_camera, str(server.make_url("/audio.wav")), session
+        )
+        await asyncio.wait_for(stream.run_until_complete(), timeout=10.0)
+
+
+@pytest.mark.parametrize(
+    ("content_url", "expected_options"),
+    [
+        ("http://127.0.0.1/tts.mp3", {"multiple_requests": "1"}),
+        ("https://127.0.0.1/tts.mp3", {"multiple_requests": "1"}),
+        ("HTTPS://127.0.0.1/tts.mp3", {"multiple_requests": "1"}),
+        ("/path/to/audio.wav", None),
+        ("file:///path/to/audio.wav", None),
+        ("rtsp://127.0.0.1/stream", None),
+    ],
+)
+def test_stream_audio_sync_input_options(
+    mock_camera: Mock,
+    talkback_session: TalkbackSession,
+    content_url: str,
+    expected_options: dict[str, str] | None,
+) -> None:
+    """Input is opened with multiple_requests only for http(s) URLs."""
+    mock_input, mock_output, mock_resampler = _create_mock_av_containers()
+
+    with (
+        patch("uiprotect.stream.av.open") as mock_av_open,
+        patch("uiprotect.stream.av.AudioResampler", return_value=mock_resampler),
+    ):
+        mock_av_open.side_effect = [mock_input, mock_output]
+        TalkbackStream(mock_camera, content_url, talkback_session)._stream_audio_sync()
+
+    input_call = mock_av_open.call_args_list[0]
+    assert input_call.args[0] == content_url
+    assert input_call.kwargs["options"] == expected_options

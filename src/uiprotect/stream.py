@@ -227,9 +227,17 @@ class TalkbackStream:
             bits_per_sample,
         )
 
+        # FFmpeg 9 ends a chunked (no Content-Length) http response with EIO
+        # instead of EOF unless multiple_requests is on.
+        input_options = (
+            {"multiple_requests": "1"}
+            if urlparse(self.content_url).scheme in ("http", "https")
+            else None
+        )
         with av.open(
             self.content_url,
             timeout=(INPUT_TIMEOUT, INPUT_TIMEOUT),
+            options=input_options,
         ) as input_container:
             if not input_container.streams.audio:
                 self._error = StreamError("No audio stream found in input")
