@@ -1,5 +1,13 @@
 # Changelog
 
+## v23.0.1 (2026-10-07)
+
+### Bug fixes
+
+
+- Handle chunked http talkback sources on ffmpeg 9 ([`12a456e`](https://github.com/uilibs/uiprotect/commit/12a456e7eb77ccc0305221109cb86af85ce490c4))
+
+
 ## v23.0.0 (2026-10-04)
 
 ### Features
