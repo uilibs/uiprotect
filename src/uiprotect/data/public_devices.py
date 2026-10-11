@@ -1985,7 +1985,8 @@ class Relay(PublicDeviceModel):
     Public API relay device.
 
     Use :meth:`__getitem__` (``relay[output_id]``) for "fail loud" lookup or
-    :meth:`get_output` for the ``None``-returning variant.
+    :meth:`get_output` for the ``None``-returning variant. Use :meth:`get_input`
+    to look up an input by id.
     """
 
     model: ModelType | None = ModelType.RELAY
@@ -2009,6 +2010,13 @@ class Relay(PublicDeviceModel):
         for out in self.outputs:
             if out.id == output_id:
                 return out
+        return None
+
+    def get_input(self, input_id: int) -> PublicRelayInput | None:
+        """Return the input with the given id, or ``None`` if not found."""
+        for inp in self.inputs:
+            if inp.id == input_id:
+                return inp
         return None
 
     def __getitem__(self, output_id: int) -> PublicRelayOutput:
