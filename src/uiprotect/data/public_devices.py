@@ -2261,6 +2261,13 @@ class LinkStation(PublicDeviceModel):
         """Parse the ``lastEvent`` epoch-ms wire value into ``datetime``."""
         return {"lastEvent": convert_to_datetime} | super().unifi_dict_conversions()
 
+    @property
+    def model_name(self) -> str:
+        """Human model name, else "Alarm Hub" or "Link Station" by role."""
+        if self.device_type:
+            return self.device_type
+        return "Alarm Hub" if self.is_alarm_hub else "Link Station"
+
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
             "LinkStation mutations must go through the dedicated public API helpers "

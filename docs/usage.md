@@ -530,4 +530,5 @@ The protocol covers `id`, `mac`, `display_name`, `type`, and `model`; `mac` and
 families current firmware does not self-describe. A `Fob` is the case for both:
 it reports reachability through `away_state` rather than `state`, so its
 `is_reachable` is always `True`, and it names itself `"Key Fob"` because the
-console sends no `type` for it.
+console sends no `type` for it. A `LinkStation` with no `type` falls back by
+role, to `"Alarm Hub"` or `"Link Station"`.
