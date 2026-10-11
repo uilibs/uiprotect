@@ -41,14 +41,11 @@ class WSAction(enum.StrEnum):
 @dataclass(slots=True)
 class WSSubscriptionMessage:
     """
-    A subscription update whose ``changed_data`` keys depend on its source.
+    A subscription update.
 
-    Private WebSocket frames use model field names, such as
-    ``doorbell_settings``. Public events and devices frames retain server keys,
-    such as ``doorbellSettings``; they are not converted to model field names.
-    Library-generated public frames can also contain model-only fields such as
-    ``rtsps_streams`` or ``is_motion_detected``, alongside wire-format keys such
-    as ``modelKey``. Do not assume one key convention for all public updates.
+    ``changed_data`` keys depend on the source: private frames use model field
+    names (``doorbell_settings``), public frames keep the server keys
+    (``doorbellSettings``), and frames built by the library can mix both.
     """
 
     action: WSAction
