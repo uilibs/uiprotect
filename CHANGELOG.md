@@ -1,5 +1,13 @@
 # Changelog
 
+## v23.1.0 (2026-10-11)
+
+### Features
+
+
+- Add relay.get_input ([`d5af615`](https://github.com/uilibs/uiprotect/commit/d5af61546c1f08eb1e89864ee03cb42ae78aa66f))
+
+
 ## v23.0.1 (2026-10-07)
 
 ### Bug fixes
