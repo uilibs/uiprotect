@@ -1367,6 +1367,39 @@ SIREN_PAYLOAD: dict[str, Any] = {
     "connectionType": "lora",
 }
 
+RELAY_PAYLOAD: dict[str, Any] = {
+    "id": "relay1",
+    "modelKey": "relay",
+    "state": "CONNECTED",
+    "name": "Gate Relay",
+    "mac": "AABBCCDDEE04",
+    "ledSettings": {"isEnabled": True},
+    "outputs": [],
+    "inputs": [],
+}
+
+
+@pytest.mark.parametrize(
+    ("cls", "payload", "fallback", "reported"),
+    [
+        (Relay, RELAY_PAYLOAD, "Relay", "USL-Relay-EU"),
+        (Siren, SIREN_PAYLOAD, "Siren", "UP-Siren-PoE"),
+    ],
+)
+def test_model_name_falls_back_to_class_name(
+    cls: type, payload: dict[str, Any], fallback: str, reported: str
+) -> None:
+    """Relay and siren name themselves when ``type`` is absent or null."""
+    bare = cls.from_unifi_dict(api=Mock(), **dict(payload))
+    assert bare.device_type is None
+    assert bare.model_name == fallback
+
+    null = cls.from_unifi_dict(api=Mock(), **{**payload, "type": None})
+    assert null.model_name == fallback
+
+    typed = cls.from_unifi_dict(api=Mock(), **{**payload, "type": reported})
+    assert typed.model_name == reported
+
 
 def test_siren_add_arms_expiry_announcement() -> None:
     """A siren add frame arms the timer that announces its run ending."""
