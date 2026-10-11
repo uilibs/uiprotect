@@ -109,23 +109,6 @@ does not require an API key. The parallel `subscribe_events_websocket` drives
 the Public Integration API WebSocket and **does** require an API key. See the
 project README for the full notes on the typed event contract.
 
-### Keys in raw subscription updates
-
-`WSSubscriptionMessage.changed_data` does not have a single key format:
-
-- Private WebSocket updates use model field names, such as
-  `doorbell_settings`.
-- Public events and devices WebSocket updates retain the server payload's
-  keys, such as `doorbellSettings`, even when `new_obj` contains a parsed model.
-- Library-generated public updates use the fields relevant to that update.
-  Camera stream refreshes use `rtsps_streams` alongside `modelKey` and `id`;
-  derived camera detection updates use fields such as `is_motion_detected`.
-  Siren expiry updates retain `sirenStatus` and its wire-format keys.
-
-Read model attributes from `new_obj` when available. If you inspect
-`changed_data`, use the keys emitted by the specific source rather than
-assuming that every public update uses camelCase or snake_case.
-
 ### Detecting a revoked API key
 
 A revoked or invalid API key can't be re-authenticated from inside the client
