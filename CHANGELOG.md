@@ -1,5 +1,22 @@
 # Changelog
 
+## v23.1.1 (2026-10-11)
+
+### Bug fixes
+
+
+- Add a model name fallback for linkstation ([`8f88dc1`](https://github.com/uilibs/uiprotect/commit/8f88dc11edbe85f8c43f0f8f777ca42aa5556d41))
+
+
+### Documentation
+
+
+- Trim subscription update key format docs ([`bdbff8d`](https://github.com/uilibs/uiprotect/commit/bdbff8d9c5f8e7985eca0ae492e0552da6f5b265))
+
+
+- Explain subscription update key formats ([`1ae5d08`](https://github.com/uilibs/uiprotect/commit/1ae5d08b68ee28bb48a80335b9305b4545036a49))
+
+
 ## v23.1.0 (2026-10-11)
 
 ### Features
