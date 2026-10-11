@@ -1,5 +1,13 @@
 # Changelog
 
+## v23.1.2 (2026-10-11)
+
+### Bug fixes
+
+
+- Add model name fallbacks for relay and siren ([`3ba3e64`](https://github.com/uilibs/uiprotect/commit/3ba3e644a8d5f8f67871899686bfefdf73bfc2f0))
+
+
 ## v23.1.1 (2026-10-11)
 
 ### Bug fixes
