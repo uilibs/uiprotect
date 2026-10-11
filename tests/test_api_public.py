@@ -2064,6 +2064,28 @@ def test_relay_getitem_and_get_output() -> None:
         relay[99]
 
 
+def test_relay_get_input() -> None:
+    relay = Relay.from_unifi_dict(
+        id=RELAY_ID,
+        modelKey="relay",
+        state="CONNECTED",
+        name="R",
+        mac="AA",
+        ledSettings={"isEnabled": True},
+        outputs=[],
+        inputs=[
+            {"id": 0, "name": "In A", "state": "off"},
+            {"id": 1, "name": "In B", "state": "on"},
+        ],
+    )
+    inp = relay.get_input(1)
+    assert inp is not None
+    assert inp.id == 1
+    assert inp.name == "In B"
+    assert relay.get_input(0).name == "In A"
+    assert relay.get_input(99) is None
+
+
 def test_relay_output_unknown_state_does_not_raise() -> None:
     """Forward-compat: an unknown output state from newer firmware coerces to UNKNOWN."""
     relay = Relay.from_unifi_dict(
