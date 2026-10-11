@@ -982,6 +982,25 @@ def test_fob_7_3_settings(debug: bool, firmware: str) -> None:
         assert data[key] == value
 
 
+@pytest.mark.parametrize(
+    ("extra", "expected"),
+    [
+        ({"isAlarmHub": True}, "Alarm Hub"),
+        ({"isAlarmHub": False}, "Link Station"),
+        ({"isAlarmHub": True, "type": None}, "Alarm Hub"),
+        ({"isAlarmHub": True, "type": "UP-AlarmHub"}, "UP-AlarmHub"),
+        ({"isAlarmHub": False, "type": "UP-LinkStation"}, "UP-LinkStation"),
+    ],
+    ids=["alarm-hub", "link-station", "null-type", "alarm-hub-type", "type"],
+)
+def test_link_station_model_name(extra: dict[str, Any], expected: str) -> None:
+    """``model_name`` falls back by role when the console reports no ``type``."""
+    ls = LinkStation.from_unifi_dict(
+        api=Mock(), **deepcopy({**LINK_STATION_PAYLOAD, **extra})
+    )
+    assert ls.model_name == expected
+
+
 @pytest.mark.parametrize("debug", [True, False])
 @pytest.mark.parametrize(
     "thread_state",
