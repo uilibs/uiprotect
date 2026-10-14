@@ -823,8 +823,10 @@ def test_check_request_bodies_missing_field_warns() -> None:
     errors, warnings = check_request_bodies(spec)
     assert errors == []
     assert warnings == [
-        f"`PATCH {_SIREN_PATCH}` (`update_siren_public`): spec body field `tone` "
-        "is never sent by the client"
+        (
+            f"`PATCH {_SIREN_PATCH}` (`update_siren_public`): spec body field "
+            "`tone` is never sent by the client"
+        )
     ]
 
 
