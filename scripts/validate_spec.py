@@ -40,8 +40,17 @@ import inspect
 import pkgutil
 import re
 import sys
+import types
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, get_args
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+    is_typeddict,
+)
 
 import orjson
 
@@ -52,14 +61,18 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from uiprotect import data as uiprotect_data  # noqa: E402
-from uiprotect._public_api import _PLACEHOLDER_RE, _to_camel, registry  # noqa: E402
-from uiprotect.api import ProtectApiClient  # noqa: E402
+from uiprotect._public_api import _PLACEHOLDER_RE, _build_body, registry  # noqa: E402
+from uiprotect.api import (  # noqa: E402
+    CameraPublicApiLcdMessageRequest,
+    ProtectApiClient,
+)
 from uiprotect.data import (  # noqa: E402
     PUBLIC_EVENT_TYPES,
     ArmProfile,
     Fob,
     LinkStation,
     OsdOverlayLocation,
+    PublicArmScheduleDict,
     PublicBridge,
     PublicCamera,
     PublicChime,
@@ -69,9 +82,16 @@ from uiprotect.data import (  # noqa: E402
     PublicLightDeviceSettings,
     PublicLightModeSettings,
     PublicLiveview,
+    PublicLiveviewSlotDict,
     PublicNVR,
     PublicPosTransactionResponse,
     PublicSensor,
+    PublicSensorAlarmSettings,
+    PublicSensorGlassBreakSettingsWrite,
+    PublicSensorHumiditySettings,
+    PublicSensorLightSettings,
+    PublicSensorMotionSettings,
+    PublicSensorTemperatureSettings,
     PublicUlpUser,
     PublicUser,
     PublicViewer,
@@ -125,6 +145,36 @@ def _normalize_path(path: str) -> str:
     return _PATH_PARAM_RE.sub("{}", path).replace(_RECORD_SENTINEL, "{}")
 
 
+def _example_value(annotation: Any) -> Any:
+    """
+    A non-``None`` example of ``annotation`` with every ``TypedDict`` key filled.
+
+    ``X | None`` is unwrapped and ``list[TypedDict]`` becomes a one-item list,
+    so the body the client builds from it carries every wire key the library
+    types. Other lists are empty and other values are the record sentinel; both
+    count as one value.
+    """
+    if get_origin(annotation) in (Union, types.UnionType):
+        arms = [arm for arm in get_args(annotation) if arm is not type(None)]
+        return _example_value(next((arm for arm in arms if _is_typed(arm)), arms[0]))
+    if is_typeddict(annotation):
+        return {
+            key: _example_value(value)
+            for key, value in get_type_hints(annotation).items()
+        }
+    if get_origin(annotation) is list:
+        (item,) = get_args(annotation)
+        return [_example_value(item)] if _is_typed(item) else []
+    return _RECORD_SENTINEL
+
+
+def _is_typed(annotation: Any) -> bool:
+    """Whether ``annotation`` is a ``TypedDict`` or a ``list`` of one."""
+    if get_origin(annotation) is list:
+        return any(is_typeddict(arg) for arg in get_args(annotation))
+    return is_typeddict(annotation)
+
+
 # Public-API coroutines that issue requests but are neither decorated nor named
 # ``*_public`` (so the completeness scan would otherwise miss them).
 _EXTRA_PUBLIC_COROUTINES = frozenset(
@@ -141,10 +191,12 @@ _EXTRA_PUBLIC_COROUTINES = frozenset(
 # coroutine. Each is invoked against a throw-away client whose ``request`` is
 # spied on, so the call records its ``(verb, path)`` and ``json=`` body, then
 # short-circuits before any network I/O. Path parameters get
-# ``_RECORD_SENTINEL``. Every body parameter is set, so the recorded body is
-# the full set of wire fields ``check_request_bodies`` compares with the spec;
-# caller-shaped dicts and lists are passed empty and count as one value.
+# ``_RECORD_SENTINEL``. Every body parameter is set, ``TypedDict`` values via
+# ``_example_value``, so the recorded body is the full set of wire fields
+# ``check_request_bodies`` compares with the spec; untyped lists count as one
+# value.
 _S = _RECORD_SENTINEL
+_E = _example_value
 _EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
     "get_public_api_camera_snapshot": lambda c: c.get_public_api_camera_snapshot(_S),
     "create_camera_rtsps_streams": lambda c: c.create_camera_rtsps_streams(_S, "high"),
@@ -165,7 +217,7 @@ _EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
         mic_volume=1,
         smart_detect_object_types=[],
         smart_detect_audio_types=[],
-        lcd_message={},
+        lcd_message=_E(CameraPublicApiLcdMessageRequest),
         osd_name_enabled=True,
         osd_date_enabled=True,
         osd_logo_enabled=True,
@@ -182,12 +234,12 @@ _EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
     "update_sensor_public": lambda c: c.update_sensor_public(
         _S,
         name=_S,
-        light_settings={},
-        humidity_settings={},
-        temperature_settings={},
-        motion_settings={},
-        glass_break_settings={},
-        alarm_settings={},
+        light_settings=_E(PublicSensorLightSettings),
+        humidity_settings=_E(PublicSensorHumiditySettings),
+        temperature_settings=_E(PublicSensorTemperatureSettings),
+        motion_settings=_E(PublicSensorMotionSettings),
+        glass_break_settings=_E(PublicSensorGlassBreakSettingsWrite),
+        alarm_settings=_E(PublicSensorAlarmSettings),
         schedule_mode=_S,
         arm_profile_ids=[],
         has_custom_sensitivity_when_armed=True,
@@ -218,18 +270,23 @@ _EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
     "get_liveviews_public": lambda c: c.get_liveviews_public(),
     "get_liveview_public": lambda c: c.get_liveview_public(_S),
     "create_liveview_public": lambda c: c.create_liveview_public(
-        name=_S, is_default=False, is_global=False, owner=_S, layout=1, slots=[]
+        name=_S,
+        is_default=False,
+        is_global=False,
+        owner=_S,
+        layout=1,
+        slots=_E(list[PublicLiveviewSlotDict]),
     ),
     # Every field is passed so the call does not fetch the liveview first.
     "update_liveview_public": lambda c: c.update_liveview_public(
-        _S, name=_S, is_global=False, layout=1, slots=[]
+        _S, name=_S, is_global=False, layout=1, slots=_E(list[PublicLiveviewSlotDict])
     ),
     "send_alarm_webhook_public": lambda c: c.send_alarm_webhook_public(_S),
     "get_arm_profiles_public": lambda c: c.get_arm_profiles_public(),
     "create_arm_profile_public": lambda c: c.create_arm_profile_public(
         name=_S,
         automations=[],
-        schedules=[],
+        schedules=_E(list[PublicArmScheduleDict]),
         record_everything=False,
         activation_delay=0,
     ),
@@ -237,7 +294,7 @@ _EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
         _S,
         name=_S,
         automations=[],
-        schedules=[],
+        schedules=_E(list[PublicArmScheduleDict]),
         record_everything=False,
         activation_delay=0,
     ),
@@ -256,25 +313,28 @@ class _ShortCircuitError(Exception):
     """Raised by the request spy to abort an example call before network I/O."""
 
 
-async def _record_example_calls() -> dict[tuple[str, str], Any]:
-    """Run every example call against a spied client; map ``(verb, path)`` to its body."""
+async def _record_example_calls() -> dict[tuple[str, str], tuple[str, Any]]:
+    """Run every example call against a spied client; map ``(verb, path)`` to ``(method, body)``."""
     client = ProtectApiClient.public_only("127.0.0.1", 443, api_key="x")
-    recorded: dict[tuple[str, str], Any] = {}
+    recorded: dict[tuple[str, str], tuple[str, Any]] = {}
+    pending: dict[tuple[str, str], Any] = {}
     prefix = client.public_api_path
 
     async def _spy(
         method: str, url: str, *_args: Any, json: Any = None, **_kwargs: Any
     ) -> Any:
-        recorded[(method.upper(), _normalize_path(url.removeprefix(prefix)))] = json
+        pending[(method.upper(), _normalize_path(url.removeprefix(prefix)))] = json
         raise _ShortCircuitError
 
     client.request = _spy  # type: ignore[method-assign]
-    for call in _EXAMPLE_CALLS.values():
+    for name, call in _EXAMPLE_CALLS.items():
         # ``update_public`` gathers its fetches with ``return_exceptions=True``
         # and swallows the sentinel; the others propagate it. Either way the
         # spy has already recorded every path the call reached.
         with contextlib.suppress(_ShortCircuitError):
             await call(client)
+        recorded.update({key: (name, body) for key, body in pending.items()})
+        pending.clear()
     return recorded
 
 
@@ -297,8 +357,8 @@ def _subscribe_endpoints() -> set[tuple[str, str]]:
 
 
 @functools.cache
-def _recorded_calls() -> dict[tuple[str, str], Any]:
-    """Recorded ``(verb, path)`` → ``json=`` body of every example call, run once."""
+def _recorded_calls() -> dict[tuple[str, str], tuple[str, Any]]:
+    """Recorded ``(verb, path)`` → ``(method, json= body)`` of every example call."""
     return asyncio.run(_record_example_calls())
 
 
@@ -1036,78 +1096,112 @@ def check_event_types(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
 
 
 def _is_read_only(node: dict[str, Any], schemas: dict[str, Any]) -> bool:
-    """Whether a schema node, its ``$ref`` target or an ``allOf`` part is ``readOnly``."""
+    """Whether a node, its ``$ref`` target or an ``allOf``/``oneOf``/``anyOf`` part is ``readOnly``."""
     if node.get("readOnly") is True:
         return True
     if "$ref" in node:
         return _is_read_only(schemas.get(node["$ref"].split("/")[-1], {}), schemas)
-    return any(_is_read_only(sub, schemas) for sub in node.get("allOf", []))
+    return any(
+        _is_read_only(sub, schemas)
+        for union in ("allOf", "oneOf", "anyOf")
+        for sub in node.get(union, [])
+    )
+
+
+def _object_refs(node: dict[str, Any], schemas: dict[str, Any]) -> set[str]:
+    """Schema names ``_resolve_object_props`` passes through to resolve ``node``."""
+    refs: set[str] = set()
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        ref = current.get("$ref")
+        if isinstance(ref, str):
+            name = ref.split("/")[-1]
+            if name not in refs:
+                refs.add(name)
+                stack.append(schemas.get(name, {}))
+            continue
+        for union in ("allOf", "oneOf", "anyOf"):
+            stack.extend(current.get(union, []))
+        if current.get("type") == "array":
+            stack.append(current.get("items", {}))
+    return refs
 
 
 def _spec_body_paths(
-    node: dict[str, Any], schemas: dict[str, Any], prefix: str = ""
+    node: dict[str, Any],
+    schemas: dict[str, Any],
+    prefix: str = "",
+    seen: frozenset[str] = frozenset(),
 ) -> set[str]:
     """Dotted wire paths of a request schema, ``readOnly`` fields skipped."""
-    props = _resolve_object_props(node, schemas)
+    refs = _object_refs(node, schemas)
+    # A schema that nests itself is a leaf on its second visit along one path.
+    props = None if refs & seen else _resolve_object_props(node, schemas)
     if not props:
         return {prefix} if prefix else set()
     paths: set[str] = set()
     for key, sub in props.items():
         if not _is_read_only(sub, schemas):
-            paths |= _spec_body_paths(sub, schemas, f"{prefix}{key}.")
+            paths |= _spec_body_paths(sub, schemas, f"{prefix}{key}.", seen | refs)
     return {path.removesuffix(".") for path in paths}
 
 
 def _client_body_paths(body: Any, prefix: str = "") -> set[str]:
-    """Dotted wire paths of a sent body; a list or empty dict is one value."""
+    """Dotted wire paths of a sent body; an empty dict or list is one value."""
+    paths: set[str] = set()
     if isinstance(body, dict) and body:
-        paths: set[str] = set()
         for key, value in body.items():
             paths |= _client_body_paths(value, f"{prefix}{key}.")
-        return paths
-    return {prefix.removesuffix(".")} if prefix else set()
+    elif isinstance(body, list) and any(isinstance(item, dict) for item in body):
+        for item in body:
+            paths |= _client_body_paths(item, prefix)
+    else:
+        return {prefix.removesuffix(".")} if prefix else set()
+    return paths
 
 
-def _registry_bodies() -> dict[tuple[str, str], set[str]]:
-    """Body keys of every decorated PATCH/POST, derived as ``_build_body`` does."""
-    out: dict[tuple[str, str], set[str]] = {}
+def _registry_bodies() -> dict[tuple[str, str], tuple[str, Any]]:
+    """``(method, body)`` of every decorated PATCH/POST, built by ``_build_body``."""
+    out: dict[tuple[str, str], tuple[str, Any]] = {}
     for (verb, path), name in registry.for_class(ProtectApiClient.__name__).items():
         if verb not in _BODY_METHODS:
             continue
-        placeholders = set(_PLACEHOLDER_RE.findall(path))
-        params = inspect.signature(getattr(ProtectApiClient, name)).parameters
-        out[(verb.upper(), _normalize_path(path))] = {
-            _to_camel(param)
-            for param in params
-            if param != "self" and param not in placeholders
-        }
+        hints = get_type_hints(getattr(ProtectApiClient, name))
+        hints.pop("return", None)
+        arguments = {param: _example_value(hint) for param, hint in hints.items()}
+        placeholders = frozenset(_PLACEHOLDER_RE.findall(path))
+        out[(verb.upper(), _normalize_path(path))] = (
+            name,
+            _build_body(arguments, placeholders),
+        )
     return out
 
 
-def _client_bodies() -> dict[tuple[str, str], set[str]]:
-    """Wire paths the client sends per ``(VERB, path)``, decorated and recorded."""
+def _client_bodies() -> dict[tuple[str, str], tuple[str, set[str]]]:
+    """``(method, wire paths)`` the client sends per ``(VERB, path)``."""
     bodies = {
-        key: _client_body_paths(body)
-        for key, body in _recorded_calls().items()
+        key: call
+        for key, call in _recorded_calls().items()
         if key[0].lower() in _BODY_METHODS
     }
     bodies.update(_registry_bodies())
-    return bodies
+    return {
+        key: (name, _client_body_paths(body)) for key, (name, body) in bodies.items()
+    }
 
 
-def _spec_request_fields(
-    operation: dict[str, Any], schemas: dict[str, Any]
-) -> set[str] | str:
-    """Writable wire paths of an operation's JSON body, or an error if unresolvable."""
+def _request_media(
+    operation: dict[str, Any], request_bodies: dict[str, Any]
+) -> dict[str, Any]:
+    """Media-type map of an operation's ``requestBody``, ``$ref`` resolved."""
     request_body = operation.get("requestBody")
+    if isinstance(request_body, dict) and "$ref" in request_body:
+        request_body = request_bodies.get(request_body["$ref"].split("/")[-1])
     if not isinstance(request_body, dict):
-        return set()
-    if "$ref" in request_body:
-        return "`requestBody` is a `$ref`; reusable request bodies are not resolved"
-    media = request_body.get("content", {}).get("application/json")
-    if not isinstance(media, dict) or "schema" not in media:
-        return set()
-    return _spec_body_paths(media["schema"], schemas)
+        return {}
+    content = request_body.get("content")
+    return content if isinstance(content, dict) else {}
 
 
 def _covers(field: str, paths: set[str]) -> bool:
@@ -1120,14 +1214,16 @@ def check_request_bodies(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     Compare every spec PATCH/POST body with the body the client sends.
 
     A spec field the client never sends is a warning; a field the client sends
-    that the spec does not declare is an error, as the server rejects or
-    ignores it. A list or object the client passes as one value covers every
-    spec field nested under it. Endpoints the client does not cover at all are
-    left to ``check_endpoints``.
+    that the spec does not declare is an error. ``TypedDict`` values are
+    compared key by key; an untyped list or empty dict the client passes as one
+    value covers every spec field nested under it. Endpoints the client does
+    not cover at all are left to ``check_endpoints``.
     """
     errors: list[str] = []
     warnings: list[str] = []
-    schemas = spec.get("components", {}).get("schemas", {})
+    components = spec.get("components", {})
+    schemas = components.get("schemas", {})
+    request_bodies = components.get("requestBodies", {})
     client = _client_bodies()
     covered = covered_endpoints()
     for path, operations in spec.get("paths", {}).items():
@@ -1141,26 +1237,34 @@ def check_request_bodies(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
                 or key not in covered
             ):
                 continue
-            label = f"`{method.upper()} {path}`"
-            spec_fields = _spec_request_fields(operation, schemas)
-            if isinstance(spec_fields, str):
-                errors.append(f"{label}: {spec_fields}")
+            name, sent = client.get(key, ("", set()))
+            label = f"`{method.upper()} {path}` (`{name}`)"
+            media = _request_media(operation, request_bodies)
+            json_media = media.get("application/json")
+            if media and not isinstance(json_media, dict):
+                if sent:
+                    errors.append(
+                        f"{label}: client sends a JSON body but the spec only "
+                        f"accepts {', '.join(f'`{m}`' for m in sorted(media))}"
+                    )
                 continue
-            waived = {
+            spec_fields = (
+                _spec_body_paths(json_media["schema"], schemas)
+                if isinstance(json_media, dict) and "schema" in json_media
+                else set()
+            )
+            spec_fields -= {
                 field
                 for verb, waiver_path, field in _REQUEST_BODY_WAIVERS
                 if (verb, waiver_path) == key
             }
-            spec_fields -= waived
-            sent = client.get(key, set()) - waived
             warnings.extend(
                 f"{label}: spec body field `{field}` is never sent by the client"
                 for field in sorted(spec_fields)
                 if not _covers(field, sent)
             )
             errors.extend(
-                f"{label}: client sends body field `{field}` the spec does not "
-                f"declare (server rejects or ignores it)"
+                f"{label}: client sends body field `{field}` the spec does not declare"
                 for field in sorted(sent)
                 if not _covers(field, spec_fields)
                 and not any(

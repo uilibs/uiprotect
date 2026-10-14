@@ -365,20 +365,26 @@ covered when some library enum defines the value, and non-string consts —
 — are skipped. `check_event_types` pins the axis that membership alone leaves
 loose: `PUBLIC_EVENT_TYPES` must equal the `type` consts of the spec's `event`
 `oneOf`, both directions an error, because `EventType` has no `unknown` member
-and an unmodelled public event type is dropped on parse. `oneOf`/`allOf` nodes
-resolve to the _union_ of their object variants (a property the variants disagree
-on becomes a nested union, so per-event `metadata` blocks merge too), which is
-what lets the single all-optional `PublicEvent` model be field-checked against
-the 38-variant `event` union. Spec `required` vs. model `optional` is not checked — the library models every public-API field optional by design, so it
-would be guaranteed noise. `check_request_bodies` compares each PATCH/POST
-`requestBody` (flattened to dotted wire paths, `readOnly` skipped) with what the
-client sends — the `_build_body` signature for decorated endpoints, the recorded
-`json=` body of the `_EXAMPLE_CALLS` entry otherwise, so each example call must
-set every body parameter. A spec field never sent is a warning; a sent field the
-spec lacks is an error; a list or object passed as one value covers every field
-under it. Exceptions go in `_REQUEST_BODY_WAIVERS`, one reason per entry. It
-exits non-zero on any error and prints a markdown
-summary. Reproduce locally with:
+and an unmodelled public event type is dropped on parse. `oneOf`/`anyOf`/`allOf`
+nodes resolve to the _union_ of their object variants, for model and request-body
+checks alike (a property the variants disagree on becomes a nested union, so
+per-event `metadata` blocks merge too), which is what lets the single
+all-optional `PublicEvent` model be field-checked against the 38-variant `event`
+union. Spec `required` vs. model `optional` is not checked — the library models
+every public-API field optional by design, so it would be guaranteed noise.
+`check_request_bodies` compares each PATCH/POST `requestBody` (`$ref`s into
+`components.requestBodies` resolved, flattened to dotted wire paths, `readOnly`
+skipped, self-referencing schemas cut at the second visit) with what the client
+sends — the `_build_body` output for decorated endpoints, the recorded `json=`
+body of the `_EXAMPLE_CALLS` entry otherwise, so each example call must set
+every body parameter. `TypedDict` parameters are filled key by key from their
+type hints (`_example_value`, unwrapping `list[...]` and `| None`), so a wire-key
+rename on either side surfaces; only an untyped list or empty dict counts as one
+value covering every spec field under it. A spec field never sent is a warning;
+a sent field the spec lacks is an error, as is a JSON body sent to an operation
+whose spec accepts only other media types. Messages name the client method.
+Exceptions go in `_REQUEST_BODY_WAIVERS`, one reason per entry. It exits
+non-zero on any error and prints a markdown summary. Reproduce locally with:
 
 ```bash
 python scripts/fetch_openapi.py --version "$(cat openapi/.validated-version)"
