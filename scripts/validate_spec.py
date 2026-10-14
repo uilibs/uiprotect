@@ -155,8 +155,9 @@ def _example_value(annotation: Any) -> Any:
     count as one value.
     """
     if get_origin(annotation) in (Union, types.UnionType):
-        arms = [arm for arm in get_args(annotation) if arm is not type(None)]
-        return _example_value(next((arm for arm in arms if _is_typed(arm)), arms[0]))
+        return _example_value(
+            next(arm for arm in get_args(annotation) if arm is not type(None))
+        )
     if is_typeddict(annotation):
         return {
             key: _example_value(value)
@@ -164,15 +165,8 @@ def _example_value(annotation: Any) -> Any:
         }
     if get_origin(annotation) is list:
         (item,) = get_args(annotation)
-        return [_example_value(item)] if _is_typed(item) else []
+        return [_example_value(item)] if is_typeddict(item) else []
     return _RECORD_SENTINEL
-
-
-def _is_typed(annotation: Any) -> bool:
-    """Whether ``annotation`` is a ``TypedDict`` or a ``list`` of one."""
-    if get_origin(annotation) is list:
-        return any(is_typeddict(arg) for arg in get_args(annotation))
-    return is_typeddict(annotation)
 
 
 # Public-API coroutines that issue requests but are neither decorated nor named
@@ -196,7 +190,6 @@ _EXTRA_PUBLIC_COROUTINES = frozenset(
 # ``check_request_bodies`` compares with the spec; untyped lists count as one
 # value.
 _S = _RECORD_SENTINEL
-_E = _example_value
 _EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
     "get_public_api_camera_snapshot": lambda c: c.get_public_api_camera_snapshot(_S),
     "create_camera_rtsps_streams": lambda c: c.create_camera_rtsps_streams(_S, "high"),
@@ -217,7 +210,7 @@ _EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
         mic_volume=1,
         smart_detect_object_types=[],
         smart_detect_audio_types=[],
-        lcd_message=_E(CameraPublicApiLcdMessageRequest),
+        lcd_message=_example_value(CameraPublicApiLcdMessageRequest),
         osd_name_enabled=True,
         osd_date_enabled=True,
         osd_logo_enabled=True,
@@ -234,12 +227,12 @@ _EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
     "update_sensor_public": lambda c: c.update_sensor_public(
         _S,
         name=_S,
-        light_settings=_E(PublicSensorLightSettings),
-        humidity_settings=_E(PublicSensorHumiditySettings),
-        temperature_settings=_E(PublicSensorTemperatureSettings),
-        motion_settings=_E(PublicSensorMotionSettings),
-        glass_break_settings=_E(PublicSensorGlassBreakSettingsWrite),
-        alarm_settings=_E(PublicSensorAlarmSettings),
+        light_settings=_example_value(PublicSensorLightSettings),
+        humidity_settings=_example_value(PublicSensorHumiditySettings),
+        temperature_settings=_example_value(PublicSensorTemperatureSettings),
+        motion_settings=_example_value(PublicSensorMotionSettings),
+        glass_break_settings=_example_value(PublicSensorGlassBreakSettingsWrite),
+        alarm_settings=_example_value(PublicSensorAlarmSettings),
         schedule_mode=_S,
         arm_profile_ids=[],
         has_custom_sensitivity_when_armed=True,
@@ -275,18 +268,22 @@ _EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
         is_global=False,
         owner=_S,
         layout=1,
-        slots=_E(list[PublicLiveviewSlotDict]),
+        slots=_example_value(list[PublicLiveviewSlotDict]),
     ),
     # Every field is passed so the call does not fetch the liveview first.
     "update_liveview_public": lambda c: c.update_liveview_public(
-        _S, name=_S, is_global=False, layout=1, slots=_E(list[PublicLiveviewSlotDict])
+        _S,
+        name=_S,
+        is_global=False,
+        layout=1,
+        slots=_example_value(list[PublicLiveviewSlotDict]),
     ),
     "send_alarm_webhook_public": lambda c: c.send_alarm_webhook_public(_S),
     "get_arm_profiles_public": lambda c: c.get_arm_profiles_public(),
     "create_arm_profile_public": lambda c: c.create_arm_profile_public(
         name=_S,
         automations=[],
-        schedules=_E(list[PublicArmScheduleDict]),
+        schedules=_example_value(list[PublicArmScheduleDict]),
         record_everything=False,
         activation_delay=0,
     ),
@@ -294,7 +291,7 @@ _EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
         _S,
         name=_S,
         automations=[],
-        schedules=_E(list[PublicArmScheduleDict]),
+        schedules=_example_value(list[PublicArmScheduleDict]),
         record_everything=False,
         activation_delay=0,
     ),
@@ -1213,11 +1210,12 @@ def check_request_bodies(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     """
     Compare every spec PATCH/POST body with the body the client sends.
 
-    A spec field the client never sends is a warning; a field the client sends
-    that the spec does not declare is an error. ``TypedDict`` values are
-    compared key by key; an untyped list or empty dict the client passes as one
-    value covers every spec field nested under it. Endpoints the client does
-    not cover at all are left to ``check_endpoints``.
+    A spec field the client never sends, an object sent where the spec declares
+    a leaf, and a waiver whose field the spec no longer declares are warnings; a
+    field the client sends that the spec does not declare is an error.
+    ``TypedDict`` values are compared key by key; an untyped list or empty dict
+    the client passes as one value covers every spec field nested under it.
+    Endpoints the client does not cover at all are left to ``check_endpoints``.
     """
     errors: list[str] = []
     warnings: list[str] = []
@@ -1253,16 +1251,30 @@ def check_request_bodies(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
                 if isinstance(json_media, dict) and "schema" in json_media
                 else set()
             )
-            spec_fields -= {
+            waived = {
                 field
                 for verb, waiver_path, field in _REQUEST_BODY_WAIVERS
                 if (verb, waiver_path) == key
             }
             warnings.extend(
-                f"{label}: spec body field `{field}` is never sent by the client"
-                for field in sorted(spec_fields)
-                if not _covers(field, sent)
+                f"{label}: `_REQUEST_BODY_WAIVERS` waives `{field}`, which the "
+                f"spec body no longer declares"
+                for field in sorted(waived - spec_fields)
             )
+            spec_fields -= waived
+            for field in sorted(spec_fields):
+                if _covers(field, sent):
+                    continue
+                if any(path.startswith(f"{field}.") for path in sent):
+                    warnings.append(
+                        f"{label}: client sends an object for `{field}`, the spec "
+                        f"declares a leaf"
+                    )
+                else:
+                    warnings.append(
+                        f"{label}: spec body field `{field}` is never sent by the "
+                        f"client"
+                    )
             errors.extend(
                 f"{label}: client sends body field `{field}` the spec does not declare"
                 for field in sorted(sent)

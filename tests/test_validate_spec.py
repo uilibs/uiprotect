@@ -900,6 +900,7 @@ def test_check_request_bodies_value_passed_whole_covers_nested_fields(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """An empty dict or untyped list sent as one value covers spec fields under it."""
+    # Cache the real coverage before the patch so the fake recording stays out.
     covered_endpoints()
     sent = {"name": "x", "volume": 1, "ledSettings": {}, "tags": ["x"]}
     monkeypatch.setattr(
@@ -950,6 +951,57 @@ def test_check_request_bodies_waived_field(monkeypatch: pytest.MonkeyPatch) -> N
     assert len(warnings) == 2
     assert any("`id`" in w for w in warnings)
     assert any("`modelKey`" in w for w in warnings)
+
+
+def test_check_request_bodies_stale_waiver_warns() -> None:
+    """A waiver whose field the spec body no longer declares is reported."""
+    body = {
+        "type": "object",
+        "properties": {"name": {}, "isGlobal": {}, "layout": {}, "slots": {}},
+    }
+    spec = _body_spec("/v1/liveviews/{id}", body)
+    errors, warnings = check_request_bodies(spec)
+    assert errors == []
+    assert sorted(warnings) == sorted(
+        (
+            "`PATCH /v1/liveviews/{id}` (`update_liveview_public`): "
+            f"`_REQUEST_BODY_WAIVERS` waives `{field}`, which the spec body no "
+            "longer declares"
+        )
+        for field in ("id", "isDefault", "modelKey", "owner")
+    )
+
+
+def test_check_request_bodies_object_sent_for_spec_leaf_warns() -> None:
+    """Nested keys sent under a spec leaf report the shape drift, not a miss."""
+    body = {
+        "type": "object",
+        "properties": {
+            "id": {},
+            "modelKey": {},
+            "isDefault": {},
+            "owner": {},
+            "name": {},
+            "isGlobal": {},
+            "layout": {},
+            "slots": {"type": "array", "items": {"type": "string"}},
+        },
+    }
+    errors, warnings = check_request_bodies(_body_spec("/v1/liveviews/{id}", body))
+    assert errors == []
+    assert warnings == [
+        (
+            "`PATCH /v1/liveviews/{id}` (`update_liveview_public`): client sends "
+            "an object for `slots`, the spec declares a leaf"
+        )
+    ]
+
+
+def test_recorded_sensor_body_is_filled_key_by_key() -> None:
+    """Typed example-call arguments record their nested wire keys."""
+    recorded = validate_spec._recorded_calls()
+    assert "highThreshold" in recorded[("PATCH", "/v1/sensors/{}")][1]["lightSettings"]
+    assert "cycleMode" in recorded[("PATCH", "/v1/liveviews/{}")][1]["slots"][0]
 
 
 def test_request_body_waivers_carry_a_reason() -> None:

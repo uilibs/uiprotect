@@ -372,18 +372,19 @@ per-event `metadata` blocks merge too), which is what lets the single
 all-optional `PublicEvent` model be field-checked against the 38-variant `event`
 union. Spec `required` vs. model `optional` is not checked — the library models
 every public-API field optional by design, so it would be guaranteed noise.
-`check_request_bodies` compares each PATCH/POST `requestBody` (`$ref`s into
-`components.requestBodies` resolved, flattened to dotted wire paths, `readOnly`
-skipped, self-referencing schemas cut at the second visit) with what the client
-sends — the `_build_body` output for decorated endpoints, the recorded `json=`
-body of the `_EXAMPLE_CALLS` entry otherwise, so each example call must set
-every body parameter. `TypedDict` parameters are filled key by key from their
-type hints (`_example_value`, unwrapping `list[...]` and `| None`), so a wire-key
-rename on either side surfaces; only an untyped list or empty dict counts as one
-value covering every spec field under it. A spec field never sent is a warning;
-a sent field the spec lacks is an error, as is a JSON body sent to an operation
-whose spec accepts only other media types. Messages name the client method.
-Exceptions go in `_REQUEST_BODY_WAIVERS`, one reason per entry. It exits
+`check_request_bodies` compares each PATCH/POST `requestBody`, flattened to
+dotted wire paths with `readOnly` fields skipped, with what the client sends —
+the `_build_body` output for decorated endpoints, the recorded `json=` body of
+the `_EXAMPLE_CALLS` entry otherwise, so each example call must set every body
+parameter. `TypedDict` parameters are filled key by key from their type hints,
+so a wire-key rename on either side surfaces; only an untyped list or empty dict
+counts as one value covering every spec field under it. Decorated body
+parameters must therefore be annotated with names importable at runtime —
+`get_type_hints` raises `NameError` on a `TYPE_CHECKING`-only import. A spec
+field never sent, an object sent where the spec declares a leaf, and a stale
+waiver are warnings; a sent field the spec lacks is an error, as is a JSON body
+sent to an operation whose spec accepts only other media types. Exceptions go
+in `_REQUEST_BODY_WAIVERS`, one reason per entry. It exits
 non-zero on any error and prints a markdown summary. Reproduce locally with:
 
 ```bash
