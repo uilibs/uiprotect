@@ -957,7 +957,22 @@ def test_check_request_bodies_stale_waiver_warns() -> None:
     """A waiver whose field the spec body no longer declares is reported."""
     body = {
         "type": "object",
-        "properties": {"name": {}, "isGlobal": {}, "layout": {}, "slots": {}},
+        "properties": {
+            "name": {},
+            "isGlobal": {},
+            "layout": {},
+            "slots": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "cameras": {},
+                        "cycleMode": {},
+                        "cycleInterval": {},
+                    },
+                },
+            },
+        },
     }
     spec = _body_spec("/v1/liveviews/{id}", body)
     errors, warnings = check_request_bodies(spec)
