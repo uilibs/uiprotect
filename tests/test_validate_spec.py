@@ -7,6 +7,8 @@ spec, absent in CI) to one check function and pins its ``(errors, warnings)``.
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 from typing import Any
 
 import orjson
@@ -17,6 +19,7 @@ from validate_spec import (
     _ENUM_COVERAGE_WAIVERS,
     _EXAMPLE_CALLS,
     _MODELLED_AS_SUBSET,
+    _REQUEST_BODY_WAIVERS,
     _inbound_enum_ids,
     _iter_spec_consts,
     _iter_spec_enums,
@@ -34,6 +37,7 @@ from validate_spec import (
     check_enums,
     check_event_types,
     check_model_fields,
+    check_request_bodies,
     covered_endpoints,
     format_summary,
     main,
@@ -771,6 +775,242 @@ def test_check_model_fields_event_union_merges_variants() -> None:
     assert any("event: model field `metadata`" in e for e in errors)
 
 
+_SIREN_PATCH = "/v1/sirens/{id}"
+
+
+def _body_spec(
+    path: str,
+    schema: dict[str, Any],
+    *,
+    method: str = "patch",
+    schemas: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a spec with one JSON request body on ``method path``."""
+    return {
+        "paths": {
+            path: {
+                method: {
+                    "requestBody": {"content": {"application/json": {"schema": schema}}}
+                }
+            }
+        },
+        "components": {"schemas": schemas or {}},
+    }
+
+
+def _siren_body(**extra: dict[str, Any]) -> dict[str, Any]:
+    """The siren PATCH body the client sends in full, plus ``extra`` properties."""
+    return {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "volume": {"type": "integer"},
+            "ledSettings": {
+                "type": "object",
+                "properties": {"isEnabled": {"type": "boolean"}},
+            },
+            **extra,
+        },
+    }
+
+
+def test_check_request_bodies_green() -> None:
+    assert check_request_bodies(_body_spec(_SIREN_PATCH, _siren_body())) == ([], [])
+
+
+def test_check_request_bodies_missing_field_warns() -> None:
+    spec = _body_spec(_SIREN_PATCH, _siren_body(tone={"type": "string"}))
+    errors, warnings = check_request_bodies(spec)
+    assert errors == []
+    assert warnings == [
+        f"`PATCH {_SIREN_PATCH}`: spec body field `tone` is never sent by the client"
+    ]
+
+
+def test_check_request_bodies_extra_field_errors() -> None:
+    body = _siren_body()
+    body["properties"].pop("volume")
+    errors, warnings = check_request_bodies(_body_spec(_SIREN_PATCH, body))
+    assert warnings == []
+    assert len(errors) == 1
+    assert "client sends body field `volume`" in errors[0]
+
+
+def test_check_request_bodies_nested_object() -> None:
+    """A client-built nested object is compared field by field through a ``$ref``."""
+    schemas = {
+        "ledSettings": {
+            "type": "object",
+            "properties": {"isEnabled": {"type": "boolean"}, "color": {}},
+        }
+    }
+    body = _siren_body(ledSettings={"$ref": "#/components/schemas/ledSettings"})
+    errors, warnings = check_request_bodies(
+        _body_spec(_SIREN_PATCH, body, schemas=schemas)
+    )
+    assert errors == []
+    assert len(warnings) == 1
+    assert "`ledSettings.color`" in warnings[0]
+
+    schemas["ledSettings"]["properties"].pop("isEnabled")
+    errors, _warnings = check_request_bodies(
+        _body_spec(_SIREN_PATCH, body, schemas=schemas)
+    )
+    assert len(errors) == 1
+    assert "`ledSettings.isEnabled`" in errors[0]
+
+
+def test_check_request_bodies_value_passed_whole_covers_nested_fields() -> None:
+    """A list the client passes as one value covers every spec field under it."""
+    body = {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "cameraIds": {"type": "array", "items": {"type": "string"}},
+            "ringSettings": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {"cameraId": {}, "volume": {}, "ringtoneId": {}},
+                },
+            },
+        },
+    }
+    assert check_request_bodies(_body_spec("/v1/chimes/{id}", body)) == ([], [])
+
+
+def test_check_request_bodies_waived_field(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``id``/``modelKey`` from the reused liveview read schema are waived."""
+    schemas = {
+        "liveview": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "modelKey": {"type": "string", "const": "liveview"},
+                "name": {},
+                "isDefault": {},
+                "isGlobal": {},
+                "owner": {},
+                "layout": {},
+                "slots": {
+                    "type": "array",
+                    "items": {"type": "object", "properties": {"cameras": {}}},
+                },
+            },
+        }
+    }
+    body = {"allOf": [{"$ref": "#/components/schemas/liveview"}]}
+    spec = _body_spec("/v1/liveviews", body, method="post", schemas=schemas)
+    assert check_request_bodies(spec) == ([], [])
+
+    monkeypatch.setattr(validate_spec, "_REQUEST_BODY_WAIVERS", {})
+    _errors, warnings = check_request_bodies(spec)
+    assert len(warnings) == 2
+    assert any("`id`" in w for w in warnings)
+    assert any("`modelKey`" in w for w in warnings)
+
+
+def test_request_body_waivers_carry_a_reason() -> None:
+    assert all(reason for reason in _REQUEST_BODY_WAIVERS.values())
+
+
+def test_check_request_bodies_skips_read_only() -> None:
+    schemas = {"deviceId": {"type": "string", "readOnly": True}}
+    body = _siren_body(
+        id={"$ref": "#/components/schemas/deviceId"},
+        mac={"allOf": [{"type": "string", "readOnly": True}]},
+        state={"type": "string", "readOnly": True},
+    )
+    spec = _body_spec(_SIREN_PATCH, body, schemas=schemas)
+    assert check_request_bodies(spec) == ([], [])
+
+
+def test_check_request_bodies_resolves_any_of() -> None:
+    body = {"anyOf": [_siren_body(tone={}), {"type": "null"}]}
+    _errors, warnings = check_request_bodies(_body_spec(_SIREN_PATCH, body))
+    assert len(warnings) == 1
+    assert "`tone`" in warnings[0]
+
+
+def test_check_request_bodies_body_without_spec_body_errors() -> None:
+    """A body sent to an operation the spec gives no JSON body is all extra."""
+    spec = {"paths": {"/v1/sirens/{id}/play": {"post": {}}}}
+    errors, warnings = check_request_bodies(spec)
+    assert warnings == []
+    assert len(errors) == 1
+    assert "`duration`" in errors[0]
+
+
+def test_check_request_bodies_ignores_non_json_and_uncovered() -> None:
+    spec = {
+        "paths": {
+            "/v1/files/{fileType}": {
+                "post": {
+                    "requestBody": {"content": {"multipart/form-data": {"schema": {}}}}
+                }
+            },
+            "/v1/teleporter": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/json": {"schema": {"properties": {"x": {}}}}
+                        }
+                    }
+                }
+            },
+            "/v1/cameras": {"parameters": [], "get": {}},
+        }
+    }
+    assert check_request_bodies(spec) == ([], [])
+
+
+def test_check_request_bodies_ref_request_body_errors() -> None:
+    spec = {
+        "paths": {
+            _SIREN_PATCH: {
+                "patch": {"requestBody": {"$ref": "#/components/requestBodies/x"}}
+            }
+        }
+    }
+    errors, warnings = check_request_bodies(spec)
+    assert warnings == []
+    assert len(errors) == 1
+    assert "`$ref`" in errors[0]
+
+
+# ``update_liveview_public`` rejects these on update before any request.
+_UNSENT_PARAMS = {
+    ("update_liveview_public", "is_default"),
+    ("update_liveview_public", "owner"),
+}
+
+
+def test_example_calls_set_every_keyword_parameter() -> None:
+    """Each example call passes every keyword-only parameter, so its body is full."""
+
+    class _Recorder:
+        def __init__(self) -> None:
+            self.kwargs: dict[str, Any] = {}
+
+        def __getattr__(self, _name: str) -> Any:
+            async def _record(*_args: Any, **kwargs: Any) -> None:
+                self.kwargs = kwargs
+
+            return _record
+
+    for name, call in _EXAMPLE_CALLS.items():
+        recorder = _Recorder()
+        asyncio.run(call(recorder))
+        params = inspect.signature(getattr(ProtectApiClient, name)).parameters
+        keyword_only = {
+            param
+            for param, spec in params.items()
+            if spec.kind is inspect.Parameter.KEYWORD_ONLY
+            and (name, param) not in _UNSENT_PARAMS
+        }
+        assert keyword_only <= set(recorder.kwargs), name
+
+
 def test_every_check_is_wired_into_run_checks() -> None:
     """Every check function is reachable from ``run_checks``; nothing is orphaned."""
     wired = {
@@ -779,6 +1019,7 @@ def test_every_check_is_wired_into_run_checks() -> None:
         check_enums,
         check_enum_coverage,
         check_event_types,
+        check_request_bodies,
     }
     assert set(_CHECKS) == wired
     assert len(_CHECKS) == len(wired)
@@ -829,6 +1070,9 @@ def test_resolve_object_props_branches() -> None:
         {"oneOf": [{"type": "string"}, {"$ref": "#/c/thing"}]}, schemas
     ) == {"a": {"type": "string"}}
     assert _resolve_object_props({"oneOf": [{"type": "string"}]}, schemas) is None
+    assert _resolve_object_props(
+        {"anyOf": [{"type": "null"}, {"$ref": "#/c/thing"}]}, schemas
+    ) == {"a": {"type": "string"}}
     assert _resolve_object_props(
         {"type": "array", "items": {"$ref": "#/c/thing"}}, schemas
     ) == {"a": {"type": "string"}}

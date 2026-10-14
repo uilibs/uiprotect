@@ -370,7 +370,14 @@ resolve to the _union_ of their object variants (a property the variants disagre
 on becomes a nested union, so per-event `metadata` blocks merge too), which is
 what lets the single all-optional `PublicEvent` model be field-checked against
 the 38-variant `event` union. Spec `required` vs. model `optional` is not checked — the library models every public-API field optional by design, so it
-would be guaranteed noise. It exits non-zero on any error and prints a markdown
+would be guaranteed noise. `check_request_bodies` compares each PATCH/POST
+`requestBody` (flattened to dotted wire paths, `readOnly` skipped) with what the
+client sends — the `_build_body` signature for decorated endpoints, the recorded
+`json=` body of the `_EXAMPLE_CALLS` entry otherwise, so each example call must
+set every body parameter. A spec field never sent is a warning; a sent field the
+spec lacks is an error; a list or object passed as one value covers every field
+under it. Exceptions go in `_REQUEST_BODY_WAIVERS`, one reason per entry. It
+exits non-zero on any error and prints a markdown
 summary. Reproduce locally with:
 
 ```bash

@@ -15,7 +15,9 @@ between Ubiquiti's spec and the hand-maintained client surface:
 * inbound spec enums and ``const`` discriminators with no library counterpart
   (error),
 * spec ``event`` union types absent from ``PUBLIC_EVENT_TYPES``, or modelled
-  types the spec no longer declares (error).
+  types the spec no longer declares (error),
+* PATCH/POST request-body fields the client never sends (warning) and fields it
+  sends that the spec does not declare (error).
 
 The library deliberately models every public-API field optional (older firmware
 and partial/reference responses omit them), so spec ``required`` vs. model
@@ -50,18 +52,22 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from uiprotect import data as uiprotect_data  # noqa: E402
-from uiprotect._public_api import registry  # noqa: E402
+from uiprotect._public_api import _PLACEHOLDER_RE, _to_camel, registry  # noqa: E402
 from uiprotect.api import ProtectApiClient  # noqa: E402
 from uiprotect.data import (  # noqa: E402
     PUBLIC_EVENT_TYPES,
     ArmProfile,
     Fob,
     LinkStation,
+    OsdOverlayLocation,
     PublicBridge,
     PublicCamera,
     PublicChime,
     PublicEvent,
+    PublicHdrMode,
     PublicLight,
+    PublicLightDeviceSettings,
+    PublicLightModeSettings,
     PublicLiveview,
     PublicNVR,
     PublicPosTransactionResponse,
@@ -72,6 +78,7 @@ from uiprotect.data import (  # noqa: E402
     Relay,
     Siren,
     Speaker,
+    VideoMode,
 )
 from uiprotect.data.base import ProtectBaseObject  # noqa: E402
 from uiprotect.data.types import DeviceState  # noqa: E402
@@ -132,9 +139,11 @@ _EXTRA_PUBLIC_COROUTINES = frozenset(
 
 # One executable example call per hand-written (non-declarative) public-API
 # coroutine. Each is invoked against a throw-away client whose ``request`` is
-# spied on, so the call records its ``(verb, path)`` and then short-circuits
-# before any network I/O. Path parameters get ``_RECORD_SENTINEL``; PATCH bodies
-# get a single field so the "at least one parameter" guards pass.
+# spied on, so the call records its ``(verb, path)`` and ``json=`` body, then
+# short-circuits before any network I/O. Path parameters get
+# ``_RECORD_SENTINEL``. Every body parameter is set, so the recorded body is
+# the full set of wire fields ``check_request_bodies`` compares with the spec;
+# caller-shaped dicts and lists are passed empty and count as one value.
 _S = _RECORD_SENTINEL
 _EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
     "get_public_api_camera_snapshot": lambda c: c.get_public_api_camera_snapshot(_S),
@@ -145,24 +154,67 @@ _EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
     "disable_camera_mic_permanently_public": (
         lambda c: c.disable_camera_mic_permanently_public(_S)
     ),
-    "update_camera_public": lambda c: c.update_camera_public(_S, name=_S),
-    "update_light_public": lambda c: c.update_light_public(_S, name=_S),
-    "update_sensor_public": lambda c: c.update_sensor_public(_S, name=_S),
-    "update_siren_public": lambda c: c.update_siren_public(_S, name=_S),
-    "play_siren_public": lambda c: c.play_siren_public(_S),
-    "test_siren_sound_public": lambda c: c.test_siren_sound_public(_S),
-    "update_relay_public": lambda c: c.update_relay_public(_S, name=_S),
-    "activate_relay_output_public": (
-        lambda c: c.activate_relay_output_public(_S, _S, state="on")
+    "update_camera_public": lambda c: c.update_camera_public(
+        _S,
+        name=_S,
+        hdr_type=PublicHdrMode.AUTO,
+        video_mode=VideoMode.DEFAULT,
+        led_is_enabled=True,
+        led_welcome_led=True,
+        led_flood_led=True,
+        mic_volume=1,
+        smart_detect_object_types=[],
+        smart_detect_audio_types=[],
+        lcd_message={},
+        osd_name_enabled=True,
+        osd_date_enabled=True,
+        osd_logo_enabled=True,
+        osd_nerd_mode_enabled=True,
+        osd_overlay_location=OsdOverlayLocation.TOP_LEFT,
     ),
-    "test_speaker_sound_public": lambda c: c.test_speaker_sound_public(_S),
+    "update_light_public": lambda c: c.update_light_public(
+        _S,
+        name=_S,
+        is_light_force_enabled=True,
+        light_mode_settings=PublicLightModeSettings.from_unifi_dict(),
+        light_device_settings=PublicLightDeviceSettings.from_unifi_dict(),
+    ),
+    "update_sensor_public": lambda c: c.update_sensor_public(
+        _S,
+        name=_S,
+        light_settings={},
+        humidity_settings={},
+        temperature_settings={},
+        motion_settings={},
+        glass_break_settings={},
+        alarm_settings={},
+        schedule_mode=_S,
+        arm_profile_ids=[],
+        has_custom_sensitivity_when_armed=True,
+    ),
+    "update_siren_public": lambda c: c.update_siren_public(
+        _S, name=_S, volume=1, led_is_enabled=True
+    ),
+    "play_siren_public": lambda c: c.play_siren_public(_S, duration=5),
+    "test_siren_sound_public": lambda c: c.test_siren_sound_public(_S, volume=1),
+    "update_relay_public": lambda c: c.update_relay_public(
+        _S, name=_S, led_is_enabled=True
+    ),
+    "activate_relay_output_public": (
+        lambda c: c.activate_relay_output_public(
+            _S, _S, state="on", pulse_duration_ms=1
+        )
+    ),
+    "test_speaker_sound_public": lambda c: c.test_speaker_sound_public(_S, volume=1),
     "trigger_alarm_hub_output_public": (
-        lambda c: c.trigger_alarm_hub_output_public(_S, _S, enable=True)
+        lambda c: c.trigger_alarm_hub_output_public(
+            _S, _S, enable=True, delay=0, duration=0
+        )
     ),
     "get_bridge_public": lambda c: c.get_bridge_public(_S),
     "update_bridge_public": lambda c: c.update_bridge_public(_S, name=_S),
     "get_viewer_public": lambda c: c.get_viewer_public(_S),
-    "update_viewer_public": lambda c: c.update_viewer_public(_S, name=_S),
+    "update_viewer_public": lambda c: c.update_viewer_public(_S, name=_S, liveview=_S),
     "get_liveviews_public": lambda c: c.get_liveviews_public(),
     "get_liveview_public": lambda c: c.get_liveview_public(_S),
     "create_liveview_public": lambda c: c.create_liveview_public(
@@ -181,7 +233,14 @@ _EXAMPLE_CALLS: dict[str, Callable[[ProtectApiClient], Awaitable[Any]]] = {
         record_everything=False,
         activation_delay=0,
     ),
-    "update_arm_profile_public": lambda c: c.update_arm_profile_public(_S, name=_S),
+    "update_arm_profile_public": lambda c: c.update_arm_profile_public(
+        _S,
+        name=_S,
+        automations=[],
+        schedules=[],
+        record_everything=False,
+        activation_delay=0,
+    ),
     "delete_arm_profile_public": lambda c: c.delete_arm_profile_public(_S),
     "get_arm_manager_settings_public": lambda c: c.get_arm_manager_settings_public(),
     "set_current_arm_profile_public": lambda c: c.set_current_arm_profile_public(_S),
@@ -197,14 +256,16 @@ class _ShortCircuitError(Exception):
     """Raised by the request spy to abort an example call before network I/O."""
 
 
-async def _record_example_calls() -> set[tuple[str, str]]:
-    """Run every example call against a spied client; return recorded ``(verb, path)``."""
+async def _record_example_calls() -> dict[tuple[str, str], Any]:
+    """Run every example call against a spied client; map ``(verb, path)`` to its body."""
     client = ProtectApiClient.public_only("127.0.0.1", 443, api_key="x")
-    recorded: set[tuple[str, str]] = set()
+    recorded: dict[tuple[str, str], Any] = {}
     prefix = client.public_api_path
 
-    async def _spy(method: str, url: str, *_args: Any, **_kwargs: Any) -> Any:
-        recorded.add((method.upper(), _normalize_path(url.removeprefix(prefix))))
+    async def _spy(
+        method: str, url: str, *_args: Any, json: Any = None, **_kwargs: Any
+    ) -> Any:
+        recorded[(method.upper(), _normalize_path(url.removeprefix(prefix)))] = json
         raise _ShortCircuitError
 
     client.request = _spy  # type: ignore[method-assign]
@@ -236,10 +297,17 @@ def _subscribe_endpoints() -> set[tuple[str, str]]:
 
 
 @functools.cache
+def _recorded_calls() -> dict[tuple[str, str], Any]:
+    """Recorded ``(verb, path)`` → ``json=`` body of every example call, run once."""
+    return asyncio.run(_record_example_calls())
+
+
+@functools.cache
 def covered_endpoints() -> frozenset[tuple[str, str]]:
     """Derived union of declarative, recorded, and websocket-subscription endpoints."""
-    recorded = asyncio.run(_record_example_calls())
-    return frozenset(_registry_endpoints() | recorded | _subscribe_endpoints())
+    return frozenset(
+        _registry_endpoints() | set(_recorded_calls()) | _subscribe_endpoints()
+    )
 
 
 # (model class, spec schema name) pairs validated field-for-field.
@@ -381,6 +449,17 @@ _ENUM_COVERAGE_WAIVERS: dict[tuple[str, frozenset[str]], str] = {
     ): "alarm-hub auxiliaryPower status (deferred)",
 }
 
+# Request-body fields excluded from ``check_request_bodies``, keyed by
+# ``(VERB, normalized path, dotted wire path)``. Each entry carries its reason.
+_REQUEST_BODY_WAIVERS: dict[tuple[str, str, str], str] = {
+    ("POST", "/v1/liveviews", "id"): "spec reuses the read schema",
+    ("POST", "/v1/liveviews", "modelKey"): "spec reuses the read schema",
+    ("PATCH", "/v1/liveviews/{}", "id"): "spec reuses the read schema",
+    ("PATCH", "/v1/liveviews/{}", "modelKey"): "spec reuses the read schema",
+    ("PATCH", "/v1/liveviews/{}", "isDefault"): "console rejects it on update",
+    ("PATCH", "/v1/liveviews/{}", "owner"): "console rejects it on update",
+}
+
 # Library-owned fields populated out-of-band, absent from the spec schema.
 # Fields the library owns that no spec revision lists (computed convenience).
 _LIBRARY_OWNED_FIELDS: dict[str, set[str]] = {
@@ -407,6 +486,7 @@ _EXTRA_MODEL_FIELDS: dict[str, set[str]] = {
 }
 
 _HTTP_METHODS = ("get", "post", "put", "patch", "delete")
+_BODY_METHODS = ("patch", "post")
 
 
 def _merge_variants(
@@ -440,8 +520,9 @@ def _resolve_object_props(
         return _resolve_object_props(schemas[node["$ref"].split("/")[-1]], schemas)
     if "allOf" in node:
         return _merge_variants(node["allOf"], schemas)
-    if "oneOf" in node:
-        return _merge_variants(node["oneOf"], schemas)
+    for union in ("oneOf", "anyOf"):
+        if union in node:
+            return _merge_variants(node[union], schemas)
     if node.get("type") == "array":
         return _resolve_object_props(node.get("items", {}), schemas)
     if "properties" in node:
@@ -954,12 +1035,148 @@ def check_event_types(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     return errors, []
 
 
+def _is_read_only(node: dict[str, Any], schemas: dict[str, Any]) -> bool:
+    """Whether a schema node, its ``$ref`` target or an ``allOf`` part is ``readOnly``."""
+    if node.get("readOnly") is True:
+        return True
+    if "$ref" in node:
+        return _is_read_only(schemas.get(node["$ref"].split("/")[-1], {}), schemas)
+    return any(_is_read_only(sub, schemas) for sub in node.get("allOf", []))
+
+
+def _spec_body_paths(
+    node: dict[str, Any], schemas: dict[str, Any], prefix: str = ""
+) -> set[str]:
+    """Dotted wire paths of a request schema, ``readOnly`` fields skipped."""
+    props = _resolve_object_props(node, schemas)
+    if not props:
+        return {prefix} if prefix else set()
+    paths: set[str] = set()
+    for key, sub in props.items():
+        if not _is_read_only(sub, schemas):
+            paths |= _spec_body_paths(sub, schemas, f"{prefix}{key}.")
+    return {path.removesuffix(".") for path in paths}
+
+
+def _client_body_paths(body: Any, prefix: str = "") -> set[str]:
+    """Dotted wire paths of a sent body; a list or empty dict is one value."""
+    if isinstance(body, dict) and body:
+        paths: set[str] = set()
+        for key, value in body.items():
+            paths |= _client_body_paths(value, f"{prefix}{key}.")
+        return paths
+    return {prefix.removesuffix(".")} if prefix else set()
+
+
+def _registry_bodies() -> dict[tuple[str, str], set[str]]:
+    """Body keys of every decorated PATCH/POST, derived as ``_build_body`` does."""
+    out: dict[tuple[str, str], set[str]] = {}
+    for (verb, path), name in registry.for_class(ProtectApiClient.__name__).items():
+        if verb not in _BODY_METHODS:
+            continue
+        placeholders = set(_PLACEHOLDER_RE.findall(path))
+        params = inspect.signature(getattr(ProtectApiClient, name)).parameters
+        out[(verb.upper(), _normalize_path(path))] = {
+            _to_camel(param)
+            for param in params
+            if param != "self" and param not in placeholders
+        }
+    return out
+
+
+def _client_bodies() -> dict[tuple[str, str], set[str]]:
+    """Wire paths the client sends per ``(VERB, path)``, decorated and recorded."""
+    bodies = {
+        key: _client_body_paths(body)
+        for key, body in _recorded_calls().items()
+        if key[0].lower() in _BODY_METHODS
+    }
+    bodies.update(_registry_bodies())
+    return bodies
+
+
+def _spec_request_fields(
+    operation: dict[str, Any], schemas: dict[str, Any]
+) -> set[str] | str:
+    """Writable wire paths of an operation's JSON body, or an error if unresolvable."""
+    request_body = operation.get("requestBody")
+    if not isinstance(request_body, dict):
+        return set()
+    if "$ref" in request_body:
+        return "`requestBody` is a `$ref`; reusable request bodies are not resolved"
+    media = request_body.get("content", {}).get("application/json")
+    if not isinstance(media, dict) or "schema" not in media:
+        return set()
+    return _spec_body_paths(media["schema"], schemas)
+
+
+def _covers(field: str, paths: set[str]) -> bool:
+    """Whether ``field`` is in ``paths`` or nested under one of them."""
+    return any(field == path or field.startswith(f"{path}.") for path in paths)
+
+
+def check_request_bodies(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """
+    Compare every spec PATCH/POST body with the body the client sends.
+
+    A spec field the client never sends is a warning; a field the client sends
+    that the spec does not declare is an error, as the server rejects or
+    ignores it. A list or object the client passes as one value covers every
+    spec field nested under it. Endpoints the client does not cover at all are
+    left to ``check_endpoints``.
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+    schemas = spec.get("components", {}).get("schemas", {})
+    client = _client_bodies()
+    covered = covered_endpoints()
+    for path, operations in spec.get("paths", {}).items():
+        if not isinstance(operations, dict):
+            continue
+        for method, operation in operations.items():
+            key = (method.upper(), _normalize_path(path))
+            if (
+                method not in _BODY_METHODS
+                or not isinstance(operation, dict)
+                or key not in covered
+            ):
+                continue
+            label = f"`{method.upper()} {path}`"
+            spec_fields = _spec_request_fields(operation, schemas)
+            if isinstance(spec_fields, str):
+                errors.append(f"{label}: {spec_fields}")
+                continue
+            waived = {
+                field
+                for verb, waiver_path, field in _REQUEST_BODY_WAIVERS
+                if (verb, waiver_path) == key
+            }
+            spec_fields -= waived
+            sent = client.get(key, set()) - waived
+            warnings.extend(
+                f"{label}: spec body field `{field}` is never sent by the client"
+                for field in sorted(spec_fields)
+                if not _covers(field, sent)
+            )
+            errors.extend(
+                f"{label}: client sends body field `{field}` the spec does not "
+                f"declare (server rejects or ignores it)"
+                for field in sorted(sent)
+                if not _covers(field, spec_fields)
+                and not any(
+                    spec_field.startswith(f"{field}.") for spec_field in spec_fields
+                )
+            )
+    return errors, warnings
+
+
 _CHECKS = (
     check_endpoints,
     check_model_fields,
     check_enums,
     check_enum_coverage,
     check_event_types,
+    check_request_bodies,
 )
 
 
