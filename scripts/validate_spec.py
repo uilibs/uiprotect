@@ -58,7 +58,7 @@ from typing import (
 
 import orjson
 from jsonschema import Draft202012Validator
-from jsonschema.exceptions import best_match
+from jsonschema.exceptions import ValidationError, best_match
 
 # ``scripts/`` is not an importable package, so make ``src/`` importable when
 # this file is run directly or imported by the test via a sys.path insert.
@@ -152,8 +152,7 @@ _EXTRA_PUBLIC_COROUTINES = frozenset(
 # given as its positional path arguments; every remaining parameter gets a
 # type-correct value from ``_example_value``. Each call runs against a throw-away
 # client whose ``request`` is spied on, so it records its ``(verb, path)`` and
-# JSON body, then short-circuits before any network I/O. Passing every
-# parameter also keeps ``update_liveview_public`` from fetching the liveview.
+# JSON body, then short-circuits before any network I/O.
 _S = _RECORD_SENTINEL
 _EXAMPLE_CALLS: dict[str, tuple[Any, ...]] = {
     "get_public_api_camera_snapshot": (_S,),
@@ -276,12 +275,16 @@ def _example_params(name: str) -> list[str]:
     return [p for p in inspect.signature(func).parameters if p != "self"]
 
 
-def _example_kwargs(name: str, skip: int) -> dict[str, Any]:
-    """Example kwargs for client method ``name`` past its first ``skip`` arguments."""
+def _example_kwargs(
+    name: str, skip: int, placeholders: Iterable[str] = ()
+) -> dict[str, Any]:
+    """Example kwargs for ``name`` past ``skip`` args; ``placeholders`` get ``_S``."""
     hints = _type_hints(getattr(ProtectApiClient, name))
     params = _example_params(name)[skip:]
-    kwargs: dict[str, Any] = {}
+    kwargs: dict[str, Any] = dict.fromkeys(placeholders, _S)
     for param in params:
+        if param in kwargs:
+            continue
         try:
             kwargs[param] = _example_value(hints[param])
         except TypeError as err:
@@ -330,22 +333,27 @@ _Endpoint = tuple[str, str]
 _ExampleCall = tuple[str, tuple[Any, ...], dict[str, Any]]
 
 
-def _example_call_plan() -> list[_ExampleCall]:
-    """``(method, args, kwargs)`` per example call and decorated body endpoint."""
-    calls = [
-        (name, args, _example_kwargs(name, len(args)))
-        for name, args in _EXAMPLE_CALLS.items()
+def _example_call_plan() -> tuple[list[_ExampleCall], list[str]]:
+    """``(method, args, kwargs)`` per buildable call, and an error per other one."""
+    specs: list[tuple[str, tuple[Any, ...], Iterable[str]]] = [
+        (name, args, ()) for name, args in _EXAMPLE_CALLS.items()
     ]
-    for (verb, path), name in registry.for_class(ProtectApiClient.__name__).items():
-        if verb in ("patch", "post"):
-            kwargs = _example_kwargs(name, 0)
-            kwargs.update(dict.fromkeys(_PLACEHOLDER_NAME_RE.findall(path), _S))
-            calls.append((name, (), kwargs))
+    specs.extend(
+        (name, (), _PLACEHOLDER_NAME_RE.findall(path))
+        for (verb, path), name in registry.for_class(ProtectApiClient.__name__).items()
+        if verb in ("patch", "post")
+    )
     plan: list[_ExampleCall] = []
-    for name, args, kwargs in calls:
+    errors: list[str] = []
+    for name, args, placeholders in specs:
+        try:
+            kwargs = _example_kwargs(name, len(args), placeholders)
+        except TypeError as err:
+            errors.append(f"cannot build example call: {err}")
+            continue
         plan.append((name, args, kwargs))
         plan.extend((name, args, other) for other in _defaults_only(name, kwargs))
-    return plan
+    return plan, errors
 
 
 class _ShortCircuitError(Exception):
@@ -378,11 +386,15 @@ async def _record_example_calls(
     return recorded, bodies
 
 
+_RecordedCalls = tuple[frozenset[_Endpoint], dict[_Endpoint, list[Any]], list[str]]
+
+
 @functools.cache
-def _recorded_calls() -> tuple[frozenset[_Endpoint], dict[_Endpoint, list[Any]]]:
-    """Cached ``_record_example_calls`` result: recorded paths and JSON bodies."""
-    recorded, bodies = asyncio.run(_record_example_calls(_example_call_plan()))
-    return frozenset(recorded), bodies
+def _recorded_calls() -> _RecordedCalls:
+    """Cached recorded paths, JSON bodies, and example-call build errors."""
+    plan, errors = _example_call_plan()
+    recorded, bodies = asyncio.run(_record_example_calls(plan))
+    return frozenset(recorded), bodies, errors
 
 
 def _registry_endpoints() -> set[tuple[str, str]]:
@@ -405,7 +417,7 @@ def _subscribe_endpoints() -> set[tuple[str, str]]:
 
 def covered_endpoints() -> frozenset[tuple[str, str]]:
     """Derived union of declarative, recorded, and websocket-subscription endpoints."""
-    recorded, _bodies = _recorded_calls()
+    recorded, _bodies, _errors = _recorded_calls()
     return frozenset(_registry_endpoints() | recorded | _subscribe_endpoints())
 
 
@@ -1124,7 +1136,6 @@ def check_event_types(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
 _VALUE_RANGE_KEYWORDS = frozenset(
     {
         "pattern",
-        "format",
         "minLength",
         "maxLength",
         "minimum",
@@ -1138,6 +1149,8 @@ _VALUE_RANGE_KEYWORDS = frozenset(
 )
 # Keywords whose value is instance data, not a subschema; never walked.
 _DATA_KEYWORDS = frozenset({"const", "default", "enum", "example", "examples"})
+# Keywords that never change what a schema accepts.
+_ANNOTATION_KEYWORDS = frozenset({"description", "title", "examples"})
 
 
 def _is_numeric_const(key: str, value: Any) -> bool:
@@ -1167,34 +1180,92 @@ _REQUEST_BODY_WAIVERS: dict[tuple[str, str, str, str], str] = {
 }
 
 
-def _merge_member(out: dict[str, Any], member: dict[str, Any]) -> None:
+def _without_annotations(schema: Any) -> Any:
+    """``schema`` minus the keywords that do not affect validation."""
+    if not isinstance(schema, dict):
+        return schema
+    return {k: v for k, v in schema.items() if k not in _ANNOTATION_KEYWORDS}
+
+
+def _merge_schemas(a: Any, b: Any, deref: Callable[[Any], Any]) -> Any:
+    """One schema a value must satisfy to match both ``a`` and ``b``."""
+    if _without_annotations(a) == _without_annotations(b):
+        return a
+    left, right = deref(a), deref(b)
+    if not (
+        isinstance(left, dict)
+        and isinstance(right, dict)
+        and "properties" in left
+        and "properties" in right
+    ):
+        return {"allOf": [a, b]}
+    out = {**left, **right, "properties": dict(left["properties"])}
+    out.pop("required", None)
+    _merge_member(out, right, deref)
+    required = [*left.get("required", []), *out.get("required", [])]
+    if required:
+        out["required"] = list(dict.fromkeys(required))
+    _close_object(out, deref)
+    return out
+
+
+def _merge_member(
+    out: dict[str, Any], member: dict[str, Any], deref: Callable[[Any], Any]
+) -> None:
     """Merge an object ``allOf`` member's properties and ``required`` into ``out``."""
     out.setdefault("type", "object")
     props = out.setdefault("properties", {})
     for name, sub in member["properties"].items():
-        if name not in props:
-            props[name] = sub
-        elif props[name] != sub:
-            props[name] = {"allOf": [props[name], sub]}
+        props[name] = _merge_schemas(props[name], sub, deref) if name in props else sub
     required = [*out.get("required", []), *member.get("required", [])]
     if required:
         out["required"] = list(dict.fromkeys(required))
 
 
+def _is_read_only(
+    schema: Any, deref: Callable[[Any], Any], seen: frozenset[int] = frozenset()
+) -> bool:
+    """Whether ``schema`` is ``readOnly`` directly, via ``$ref`` or via ``allOf``."""
+    if not isinstance(schema, dict) or id(schema) in seen:
+        return False
+    seen |= {id(schema)}
+    target = deref(schema)
+    return bool(
+        schema.get("readOnly")
+        or _is_read_only(target, deref, seen)
+        or any(_is_read_only(m, deref, seen) for m in schema.get("allOf", []))
+    )
+
+
+def _with_parent_properties(
+    variant: Any, props: dict[str, Any], deref: Callable[[Any], Any]
+) -> Any:
+    """``variant`` also declaring its union parent's ``props``."""
+    target = deref(variant)
+    if not isinstance(target, dict) or "properties" not in target:
+        return variant
+    return {**target, "properties": {**props, **target["properties"]}}
+
+
 def _close_object(out: dict[str, Any], deref: Callable[[Any], Any]) -> None:
     """Drop ``readOnly`` properties from ``out`` and close it to undeclared keys."""
     props = out["properties"]
-    read_only = {
-        name
-        for name, sub in props.items()
-        if sub.get("readOnly") or deref(sub).get("readOnly")
-    }
+    read_only = {name for name, sub in props.items() if _is_read_only(sub, deref)}
     if read_only:
         out["properties"] = {k: v for k, v in props.items() if k not in read_only}
         out["required"] = [k for k in out.get("required", []) if k not in read_only]
-    # A free-form map declares no properties and a union closes its variants.
-    if out["properties"] and "oneOf" not in out and "anyOf" not in out:
+    unions = [key for key in ("oneOf", "anyOf") if key in out]
+    # A free-form map declares no properties; a union parent stays open and its
+    # closed variants also accept the parent's properties.
+    if not props:
+        return
+    if not unions:
         out.setdefault("additionalProperties", False)
+    for key in unions:
+        out[key] = [
+            _with_parent_properties(variant, out["properties"], deref)
+            for variant in out[key]
+        ]
 
 
 def _prepare_spec(spec: dict[str, Any]) -> dict[str, Any]:
@@ -1225,7 +1296,7 @@ def _prepare_spec(spec: dict[str, Any]) -> dict[str, Any]:
             if not isinstance(target, dict) or "properties" not in target:
                 kept.append(member)
                 continue
-            _merge_member(out, target)
+            _merge_member(out, target, _deref)
         if kept:
             out["allOf"] = kept
             if "properties" not in out and out.get("additionalProperties") is False:
@@ -1279,7 +1350,7 @@ def _field_path(parts: Iterable[Any]) -> str:
 def _body_errors(
     validator: Draft202012Validator, body: Any
 ) -> set[tuple[str, str, str]]:
-    """``(field, validator keyword, message)`` for every way ``body`` breaks the schema."""
+    """``(field, validator keyword, message)`` per way ``body`` breaks the schema."""
     found: set[tuple[str, str, str]] = set()
     for error in validator.iter_errors(body):
         base = _field_path(error.absolute_path)
@@ -1299,10 +1370,23 @@ def _body_errors(
             )
         else:
             message = error.message
-            if (cause := best_match(error.context)) is not None:
+            if (cause := _union_cause(error)) is not None:
                 message = f"{message} ({cause.message})"
             found.add((base or "<body>", keyword, message))
     return found
+
+
+def _union_cause(error: ValidationError) -> ValidationError | None:
+    """Best sub-error, from the variants whose discriminator ``const`` matches."""
+    mismatched = {
+        sub.relative_schema_path[0]
+        for sub in error.context
+        if sub.validator == "const" and len(sub.relative_path) == 1
+    }
+    matching = [
+        sub for sub in error.context if sub.relative_schema_path[0] not in mismatched
+    ]
+    return best_match(matching or error.context)
 
 
 def _unsent_fields(
@@ -1329,14 +1413,16 @@ def _unsent_fields(
 
 def check_request_bodies(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     """Validate every JSON body the client sends against the spec's ``requestBody``."""
-    errors: set[str] = set()
-    warnings: set[str] = set()
-    prepared = _prepare_spec(spec)
+    try:
+        prepared = _prepare_spec(spec)
+    except ValueError as err:
+        return [f"cannot prepare the spec for request-body validation: {err}"], []
     components = prepared["components"]
-    _recorded, bodies = _recorded_calls()
+    _recorded, bodies, build_errors = _recorded_calls()
+    errors: set[str] = set(build_errors)
+    warnings: set[str] = set()
     declared: set[_Endpoint] = set()
     triggered: set[tuple[str, str, str, str]] = set()
-    waived = {waiver[:3] for waiver in _REQUEST_BODY_WAIVERS}
     for path, operations in prepared.get("paths", {}).items():
         for method, operation in operations.items():
             if method not in _HTTP_METHODS:
@@ -1375,7 +1461,6 @@ def check_request_bodies(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
             warnings.update(
                 f"`{verb} {path}`: spec body field `{field}` is never sent"
                 for field in unsent - failed
-                if (verb, path, field) not in waived
             )
     errors.update(
         f"`{verb} {path}`: client sends a body to an endpoint the spec omits"

@@ -372,24 +372,15 @@ what lets the single all-optional `PublicEvent` model be field-checked against
 the 38-variant `event` union. `check_request_bodies` validates every JSON
 body the client sends on PATCH/POST against the spec's `requestBody` with a
 Draft 2020-12 `jsonschema` validator, after preprocessing the spec once:
-`allOf` object members are hoisted into their parent (a property two members
-define differently must satisfy both), value-range keywords and numeric `const`
-choices are dropped (a dropped `const` still requires a number), `readOnly`
-properties leave the body, and every object schema that declares properties
-but no `additionalProperties` is closed unless it also carries a `oneOf` or
-`anyOf`, whose variants are closed instead. Bodies come from the same request
-spy: each `_EXAMPLE_CALLS` entry carries only path arguments, decorated
-endpoints get the record sentinel for their path placeholders, every other
-parameter gets a type-correct value from `_example_value` (or
-`_EXAMPLE_KWARG_OVERRIDES` where the signature cannot express a valid value),
-and every model-typed parameter is sent a second time left at its defaults.
-Any validator error is an error unless waived in `_REQUEST_BODY_WAIVERS`, keyed
-by `(VERB, path, field, validator keyword)`; so is a body sent to an operation
-or path the spec does not declare. A spec body field no recorded body sends, a
-JSON request body the client never sends, a stale waiver, and a stale override
-are warnings. For response models, spec `required` vs. model `optional` is not
-checked — the library models every public-API field optional by design, so it
-would be guaranteed noise. It exits non-zero on any error and prints a markdown
+`allOf` object members are hoisted into their parent, value-range keywords and
+numeric `const` choices are dropped, `readOnly` properties leave the body, and
+object schemas that declare properties are closed. Bodies come from the same
+request spy, with a type-correct value from `_example_value` for every
+parameter, and a second call per model parameter whose model has no required
+fields, left at its defaults. Findings can be waived in `_REQUEST_BODY_WAIVERS`,
+keyed by `(VERB, path, field, validator keyword)`. For response models, spec
+`required` vs. model `optional` is not checked — the library models every
+public-API field optional by design, so it would be guaranteed noise. It exits non-zero on any error and prints a markdown
 summary. Reproduce locally with:
 
 ```bash
