@@ -3827,9 +3827,13 @@ class ProtectApiClient(BaseApiClient):
         if is_light_force_enabled is not None:
             data["isLightForceEnabled"] = is_light_force_enabled
         if light_mode_settings is not None:
-            data["lightModeSettings"] = light_mode_settings.unifi_dict()
+            data["lightModeSettings"] = self._filter_none(
+                tuple(light_mode_settings.unifi_dict().items())
+            )
         if light_device_settings is not None:
-            data["lightDeviceSettings"] = light_device_settings.unifi_dict()
+            data["lightDeviceSettings"] = self._filter_none(
+                tuple(light_device_settings.unifi_dict().items())
+            )
 
         if not data:
             raise BadRequest("At least one parameter must be provided")
