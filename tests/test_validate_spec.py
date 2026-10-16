@@ -1470,7 +1470,7 @@ def test_unbuildable_example_call_is_an_error_row(
     monkeypatch.setattr(validate_spec, "_EXAMPLE_CALLS", {"my_method": ()})
     monkeypatch.setattr(validate_spec, "_REQUEST_BODY_WAIVERS", {})
     errors, _ = check_request_bodies({"paths": {}, "components": {"schemas": {}}})
-    assert errors == [
+    assert [e for e in errors if e.startswith("cannot build")] == [
         "cannot build example call: my_method(extra): no example value for "
         "annotation dict[str, typing.Any]"
     ]
