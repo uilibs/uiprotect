@@ -14,6 +14,10 @@ from uiprotect.data.devices import (
     LightModeSettings,
     LightModeType,
 )
+from uiprotect.data.public_devices import (
+    PublicLightDeviceSettings,
+    PublicLightModeSettings,
+)
 from uiprotect.exceptions import BadRequest
 
 if TYPE_CHECKING:
@@ -414,3 +418,46 @@ async def test_update_light_public_returns_light_object(
     assert result.id == LIGHT_ID
     assert result.name == "Test Light"
     mock_create.assert_called_once_with(**mock_light_data, api=protect_client)
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [
+        (
+            {
+                "light_mode_settings": PublicLightModeSettings(
+                    mode=LightModeType.WHEN_DARK
+                )
+            },
+            {"lightModeSettings": {"mode": "always"}},
+        ),
+        (
+            {
+                "light_device_settings": PublicLightDeviceSettings(
+                    is_indicator_enabled=True, led_level=3
+                )
+            },
+            {"lightDeviceSettings": {"isIndicatorEnabled": True, "ledLevel": 3}},
+        ),
+    ],
+)
+@patch("uiprotect.data.public_devices.PublicLight.from_unifi_dict")
+async def test_update_light_public_partial_settings_drop_unset(
+    mock_create: Mock,
+    protect_client: ProtectApiClient,
+    kwargs: dict[str, Any],
+    expected: dict[str, Any],
+) -> None:
+    """Partial settings objects send only their set keys."""
+    mock_create.return_value = Mock(id=LIGHT_ID)
+    protect_client.api_request_obj = AsyncMock(return_value={"id": LIGHT_ID})  # type: ignore[method-assign]
+
+    await protect_client.update_light_public(LIGHT_ID, **kwargs)
+
+    protect_client.api_request_obj.assert_called_once_with(  # type: ignore[attr-defined]
+        url=f"/v1/lights/{LIGHT_ID}",
+        method="patch",
+        json=expected,
+        public_api=True,
+    )
