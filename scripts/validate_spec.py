@@ -1187,12 +1187,18 @@ def _without_annotations(schema: Any) -> Any:
     return {k: v for k, v in schema.items() if k not in _ANNOTATION_KEYWORDS}
 
 
-def _merge_schemas(a: Any, b: Any, deref: Callable[[Any], Any]) -> Any:
+def _merge_schemas(
+    a: Any,
+    b: Any,
+    deref: Callable[[Any], Any],
+    seen: frozenset[tuple[int, int]] = frozenset(),
+) -> Any:
     """One schema a value must satisfy to match both ``a`` and ``b``."""
     if _without_annotations(a) == _without_annotations(b):
         return a
     left, right = deref(a), deref(b)
-    if not (
+    pair = (id(left), id(right))
+    if pair in seen or not (
         isinstance(left, dict)
         and isinstance(right, dict)
         and "properties" in left
@@ -1201,7 +1207,7 @@ def _merge_schemas(a: Any, b: Any, deref: Callable[[Any], Any]) -> Any:
         return {"allOf": [a, b]}
     out = {**left, **right, "properties": dict(left["properties"])}
     out.pop("required", None)
-    _merge_member(out, right, deref)
+    _merge_member(out, right, deref, seen | {pair})
     required = [*left.get("required", []), *out.get("required", [])]
     if required:
         out["required"] = list(dict.fromkeys(required))
@@ -1210,13 +1216,18 @@ def _merge_schemas(a: Any, b: Any, deref: Callable[[Any], Any]) -> Any:
 
 
 def _merge_member(
-    out: dict[str, Any], member: dict[str, Any], deref: Callable[[Any], Any]
+    out: dict[str, Any],
+    member: dict[str, Any],
+    deref: Callable[[Any], Any],
+    seen: frozenset[tuple[int, int]] = frozenset(),
 ) -> None:
     """Merge an object ``allOf`` member's properties and ``required`` into ``out``."""
     out.setdefault("type", "object")
     props = out.setdefault("properties", {})
     for name, sub in member["properties"].items():
-        props[name] = _merge_schemas(props[name], sub, deref) if name in props else sub
+        props[name] = (
+            _merge_schemas(props[name], sub, deref, seen) if name in props else sub
+        )
     required = [*out.get("required", []), *member.get("required", [])]
     if required:
         out["required"] = list(dict.fromkeys(required))

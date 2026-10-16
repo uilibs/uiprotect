@@ -374,11 +374,17 @@ body the client sends on PATCH/POST against the spec's `requestBody` with a
 Draft 2020-12 `jsonschema` validator, after preprocessing the spec once:
 `allOf` object members are hoisted into their parent, value-range keywords and
 numeric `const` choices are dropped, `readOnly` properties leave the body, and
-object schemas that declare properties are closed. Bodies come from the same
-request spy, with a type-correct value from `_example_value` for every
-parameter, and a second call per model parameter whose model has no required
-fields, left at its defaults. Findings can be waived in `_REQUEST_BODY_WAIVERS`,
-keyed by `(VERB, path, field, validator keyword)`. For response models, spec
+object schemas that declare properties are closed, except union parents, which
+stay open while their closed variants accept the parent's properties. Bodies
+come from the same request spy: every parameter gets a type-correct value from
+`_example_value`, except path placeholders (a sentinel) and
+`_EXAMPLE_KWARG_OVERRIDES`, plus a second call per model parameter whose model
+has no required fields, left at its defaults. Errors are validator errors, a
+body sent to an operation or path the spec omits, a dangling `$ref`, and an
+unbuildable example call; warnings are a spec field or JSON body the client
+never sends, a stale waiver, and a stale override. Findings can be waived in
+`_REQUEST_BODY_WAIVERS`, keyed by `(VERB, path, field, validator keyword)`.
+For response models, spec
 `required` vs. model `optional` is not checked — the library models every
 public-API field optional by design, so it would be guaranteed noise. It exits non-zero on any error and prints a markdown
 summary. Reproduce locally with:

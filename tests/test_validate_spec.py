@@ -1407,6 +1407,25 @@ def test_prepare_spec_self_reference_terminates() -> None:
     }
 
 
+def test_prepare_spec_mutually_recursive_merge_terminates() -> None:
+    schemas = {
+        "a": _props(x={"$ref": "#/components/schemas/a"}, p={"type": "string"}),
+        "b": _props(x={"$ref": "#/components/schemas/b"}, q={"type": "string"}),
+    }
+    spec = _body_spec(
+        {"allOf": [{"$ref": f"#/components/schemas/{name}"} for name in ("a", "b")]},
+        schemas,
+    )
+    schema = _prepare_spec(spec)["paths"][_THING_PATH]["patch"]["requestBody"]
+    x = schema["content"]["application/json"]["schema"]["properties"]["x"]
+    assert x["properties"]["x"] == {
+        "allOf": [
+            {"$ref": "#/components/schemas/a"},
+            {"$ref": "#/components/schemas/b"},
+        ]
+    }
+
+
 class _WithUnknown(enum.Enum):
     UNKNOWN = "unknown"
     FIRST = "first"
