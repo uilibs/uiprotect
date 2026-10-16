@@ -1,5 +1,19 @@
 # Changelog
 
+## v23.1.3 (2026-10-16)
+
+### Bug fixes
+
+
+- Drop unset fields from update_light_public nested settings ([`58fe62b`](https://github.com/uilibs/uiprotect/commit/58fe62b12e68e4a8913cc5c3c9a1848cec4bcd52))
+
+
+### Refactoring
+
+
+- Type lcd message request type as doorbellmessagetype | str ([`f55c076`](https://github.com/uilibs/uiprotect/commit/f55c076f68ec6a7a943a27e9f41904718e3b61f4))
+
+
 ## v23.1.2 (2026-10-11)
 
 ### Bug fixes
