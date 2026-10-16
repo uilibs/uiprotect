@@ -94,6 +94,7 @@ from .data import (
 )
 from .data.types import (
     AssetFileType,
+    DoorbellMessageType,
     IteratorCallback,
     PosTransactionType,
     ProgressCallback,
@@ -206,7 +207,7 @@ class CameraPublicApiLcdMessageRequest(TypedDict, total=False):
     message.
     """
 
-    type: str
+    type: DoorbellMessageType | str
     text: str
     resetAt: int | None
 
