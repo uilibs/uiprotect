@@ -369,7 +369,19 @@ and an unmodelled public event type is dropped on parse. `oneOf`/`allOf` nodes
 resolve to the _union_ of their object variants (a property the variants disagree
 on becomes a nested union, so per-event `metadata` blocks merge too), which is
 what lets the single all-optional `PublicEvent` model be field-checked against
-the 38-variant `event` union. Spec `required` vs. model `optional` is not checked — the library models every public-API field optional by design, so it
+the 38-variant `event` union. `check_request_bodies` validates every JSON
+body the client sends on PATCH/POST against the spec's `requestBody` with a
+Draft 2020-12 `jsonschema` validator, after preprocessing the spec once:
+`allOf` object members are hoisted into their parent, value-range keywords and
+numeric `const` choices are dropped (the client's types cannot express
+them), `readOnly` properties leave the body, and every object schema that declares
+properties but no `additionalProperties` is closed. Bodies come from the same request spy: each
+`_EXAMPLE_CALLS` entry carries only path arguments and every other parameter
+gets a type-correct value from `_example_value`, while decorated endpoints are
+called with example values for every parameter. Any validator error is an
+error unless waived in `_REQUEST_BODY_WAIVERS`, keyed by `(VERB, path, field)`;
+a stale waiver or a spec body field the client never sends is a warning.
+Spec `required` vs. model `optional` is not checked — the library models every public-API field optional by design, so it
 would be guaranteed noise. It exits non-zero on any error and prints a markdown
 summary. Reproduce locally with:
 
