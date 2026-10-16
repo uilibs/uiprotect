@@ -33,7 +33,6 @@ spec locally runs the full validation for free.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import enum
 import functools
 import importlib
@@ -362,8 +361,8 @@ class _ShortCircuitError(Exception):
 
 async def _record_example_calls(
     plan: list[_ExampleCall],
-) -> tuple[set[_Endpoint], dict[_Endpoint, list[Any]]]:
-    """Run ``plan`` against a spied client; return recorded paths and JSON bodies."""
+) -> tuple[set[_Endpoint], dict[_Endpoint, list[Any]], list[str]]:
+    """Run ``plan`` against a spied client; return paths, JSON bodies, call errors."""
     client = ProtectApiClient.public_only("127.0.0.1", 443, api_key="x")
     recorded: set[_Endpoint] = set()
     bodies: dict[_Endpoint, list[Any]] = {}
@@ -377,13 +376,18 @@ async def _record_example_calls(
         raise _ShortCircuitError
 
     client.request = _spy  # type: ignore[method-assign]
+    errors: list[str] = []
     for name, args, kwargs in plan:
         # ``update_public`` gathers its fetches with ``return_exceptions=True``
         # and swallows the sentinel; the others propagate it. Either way the
         # spy has already recorded every path the call reached.
-        with contextlib.suppress(_ShortCircuitError):
+        try:
             await getattr(client, name)(*args, **kwargs)
-    return recorded, bodies
+        except _ShortCircuitError:
+            pass
+        except Exception as err:
+            errors.append(f"example call {name} raised {type(err).__name__}: {err}")
+    return recorded, bodies, errors
 
 
 _RecordedCalls = tuple[frozenset[_Endpoint], dict[_Endpoint, list[Any]], list[str]]
@@ -391,10 +395,10 @@ _RecordedCalls = tuple[frozenset[_Endpoint], dict[_Endpoint, list[Any]], list[st
 
 @functools.cache
 def _recorded_calls() -> _RecordedCalls:
-    """Cached recorded paths, JSON bodies, and example-call build errors."""
+    """Cached recorded paths, JSON bodies, and example-call errors."""
     plan, errors = _example_call_plan()
-    recorded, bodies = asyncio.run(_record_example_calls(plan))
-    return frozenset(recorded), bodies, errors
+    recorded, bodies, call_errors = asyncio.run(_record_example_calls(plan))
+    return frozenset(recorded), bodies, [*errors, *call_errors]
 
 
 def _registry_endpoints() -> set[tuple[str, str]]:

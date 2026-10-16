@@ -1499,6 +1499,26 @@ def test_unbuildable_example_call_is_an_error_row(
     ]
 
 
+def test_raising_example_call_is_an_error_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def method(self: Any) -> None:
+        raise ValueError("rejected")
+
+    monkeypatch.setattr(ProtectApiClient, "my_method", method, raising=False)
+    monkeypatch.setattr(
+        validate_spec,
+        "_EXAMPLE_CALLS",
+        {"my_method": (), "get_bridge_public": (validate_spec._S,)},
+    )
+    monkeypatch.setattr(validate_spec, "_REQUEST_BODY_WAIVERS", {})
+    errors, _ = check_request_bodies({"paths": {}, "components": {"schemas": {}}})
+    assert [e for e in errors if e.startswith("example call")] == [
+        "example call my_method raised ValueError: rejected"
+    ]
+    assert ("GET", "/v1/bridges/{}") in covered_endpoints()
+
+
 def test_recorded_paths_use_sentinel_for_decorated_placeholders() -> None:
     recorded, _bodies, _errors = _recorded_calls()
     assert ("POST", "/v1/cameras/{}/ptz/goto/{}") in recorded
