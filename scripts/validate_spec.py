@@ -21,8 +21,8 @@ between Ubiquiti's spec and the hand-maintained client surface:
   client never sends (warning).
 
 The library deliberately models every public-API field optional (older firmware
-and partial/reference responses omit them), so spec ``required`` vs. model
-``optional`` is not checked — it would be guaranteed noise on every run.
+and partial/reference responses omit them), so spec ``required`` vs. response
+model ``optional`` is not checked — it would be guaranteed noise on every run.
 
 Exits non-zero on any error and prints a markdown summary the spec-validation
 workflow embeds in a drift issue. The check functions are also imported by
@@ -58,6 +58,7 @@ from typing import (
 
 import orjson
 from jsonschema import Draft202012Validator
+from jsonschema.exceptions import best_match
 
 # ``scripts/`` is not an importable package, so make ``src/`` importable when
 # this file is run directly or imported by the test via a sys.path insert.
@@ -126,6 +127,7 @@ SPEC_PATH = Path(__file__).resolve().parents[1] / "openapi" / "integration.json"
 # placeholder and the sentinel to a bare ``{}`` lets the three sources compare
 # equal regardless of the parameter name.
 _PATH_PARAM_RE = re.compile(r"\{[^/{}]+\}")
+_PLACEHOLDER_NAME_RE = re.compile(r"\{(\w+)\}")
 _RECORD_SENTINEL = "__spec_param__"
 
 
@@ -210,7 +212,7 @@ _EXAMPLE_KWARG_OVERRIDES: dict[str, dict[str, Any]] = {
 _SCALAR_EXAMPLES: dict[Any, Any] = {
     bool: True,
     int: 1,
-    float: 1.0,
+    float: 1.5,
     str: _S,
     bytes: b"x",
     timedelta: timedelta(seconds=1),
@@ -268,14 +270,60 @@ def _example_value(annotation: Any) -> Any:  # noqa: PLR0911
     raise TypeError(f"no example value for annotation {annotation!r}")
 
 
+def _example_params(name: str) -> list[str]:
+    """Parameter names of client method ``name``, ``self`` excluded."""
+    func = getattr(ProtectApiClient, name)
+    return [p for p in inspect.signature(func).parameters if p != "self"]
+
+
 def _example_kwargs(name: str, skip: int) -> dict[str, Any]:
     """Example kwargs for client method ``name`` past its first ``skip`` arguments."""
-    func = getattr(ProtectApiClient, name)
-    hints = _type_hints(func)
-    params = [p for p in inspect.signature(func).parameters if p != "self"][skip:]
-    kwargs = {param: _example_value(hints[param]) for param in params}
-    kwargs.update(_EXAMPLE_KWARG_OVERRIDES.get(name, {}))
+    hints = _type_hints(getattr(ProtectApiClient, name))
+    params = _example_params(name)[skip:]
+    kwargs: dict[str, Any] = {}
+    for param in params:
+        try:
+            kwargs[param] = _example_value(hints[param])
+        except TypeError as err:
+            raise TypeError(f"{name}({param}): {err}") from err
+    overrides = _EXAMPLE_KWARG_OVERRIDES.get(name, {})
+    kwargs.update({k: v for k, v in overrides.items() if k in params})
     return kwargs
+
+
+def _model_arms(annotation: Any) -> list[type[ProtectBaseObject]]:
+    """Model types in ``annotation`` constructible without arguments."""
+    arms = get_args(annotation) if get_origin(annotation) in (Union, UnionType) else ()
+    return [
+        arm
+        for arm in arms or (annotation,)
+        if isinstance(arm, type)
+        and issubclass(arm, ProtectBaseObject)
+        and not any(field.is_required() for field in arm.model_fields.values())
+    ]
+
+
+def _defaults_only(name: str, kwargs: dict[str, Any]) -> list[dict[str, Any]]:
+    """``kwargs`` once per model-typed parameter, with that model left at defaults."""
+    hints = _type_hints(getattr(ProtectApiClient, name))
+    return [
+        {**kwargs, param: arm()}
+        for param in kwargs
+        for arm in _model_arms(hints[param])
+    ]
+
+
+def _stale_kwarg_overrides() -> list[str]:
+    """``method(parameter)`` for every override that matches no example parameter."""
+    planned = set(_EXAMPLE_CALLS) | set(
+        registry.for_class(ProtectApiClient.__name__).values()
+    )
+    return [
+        f"{name}({param})"
+        for name, overrides in _EXAMPLE_KWARG_OVERRIDES.items()
+        for param in overrides
+        if name not in planned or param not in _example_params(name)
+    ]
 
 
 _Endpoint = tuple[str, str]
@@ -284,13 +332,19 @@ _ExampleCall = tuple[str, tuple[Any, ...], dict[str, Any]]
 
 def _example_call_plan() -> list[_ExampleCall]:
     """``(method, args, kwargs)`` per example call and decorated body endpoint."""
-    plan = [
+    calls = [
         (name, args, _example_kwargs(name, len(args)))
         for name, args in _EXAMPLE_CALLS.items()
     ]
-    for (verb, _path), name in registry.for_class(ProtectApiClient.__name__).items():
+    for (verb, path), name in registry.for_class(ProtectApiClient.__name__).items():
         if verb in ("patch", "post"):
-            plan.append((name, (), _example_kwargs(name, 0)))
+            kwargs = _example_kwargs(name, 0)
+            kwargs.update(dict.fromkeys(_PLACEHOLDER_NAME_RE.findall(path), _S))
+            calls.append((name, (), kwargs))
+    plan: list[_ExampleCall] = []
+    for name, args, kwargs in calls:
+        plan.append((name, args, kwargs))
+        plan.extend((name, args, other) for other in _defaults_only(name, kwargs))
     return plan
 
 
@@ -1067,8 +1121,6 @@ def check_event_types(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     return errors, []
 
 
-# Value-range keywords the client's types cannot express; a body the server
-# would reject for range alone is not type drift, so they are dropped.
 _VALUE_RANGE_KEYWORDS = frozenset(
     {
         "pattern",
@@ -1088,9 +1140,6 @@ _VALUE_RANGE_KEYWORDS = frozenset(
 _DATA_KEYWORDS = frozenset({"const", "default", "enum", "example", "examples"})
 
 
-# ``sirenDuration`` and ``activationDelay`` list their allowed numbers as
-# ``const`` alternatives the client types as plain ``int``; like a range, that
-# is not type drift.
 def _is_numeric_const(key: str, value: Any) -> bool:
     """Whether ``key: value`` is a numeric ``const``."""
     return (
@@ -1103,10 +1152,10 @@ def _is_numeric_const(key: str, value: Any) -> bool:
 _JSON_MEDIA_TYPE = "application/json"
 
 # Request-body findings the spec raises against a correct client, keyed by
-# ``(VERB, spec path, body field)``. A waiver the spec no longer triggers is
-# reported as a warning so the table cannot rot.
-_REQUEST_BODY_WAIVERS: dict[tuple[str, str, str], str] = {
-    (verb, path, field): (
+# ``(VERB, spec path, body field, validator keyword)``. A waiver the spec no
+# longer triggers is reported as a warning so the table cannot rot.
+_REQUEST_BODY_WAIVERS: dict[tuple[str, str, str, str], str] = {
+    (verb, path, field, "required"): (
         "the spec reuses the read `liveview` schema for writes; the console "
         "rejects or ignores this field"
     )
@@ -1118,16 +1167,48 @@ _REQUEST_BODY_WAIVERS: dict[tuple[str, str, str], str] = {
 }
 
 
+def _merge_member(out: dict[str, Any], member: dict[str, Any]) -> None:
+    """Merge an object ``allOf`` member's properties and ``required`` into ``out``."""
+    out.setdefault("type", "object")
+    props = out.setdefault("properties", {})
+    for name, sub in member["properties"].items():
+        if name not in props:
+            props[name] = sub
+        elif props[name] != sub:
+            props[name] = {"allOf": [props[name], sub]}
+    required = [*out.get("required", []), *member.get("required", [])]
+    if required:
+        out["required"] = list(dict.fromkeys(required))
+
+
+def _close_object(out: dict[str, Any], deref: Callable[[Any], Any]) -> None:
+    """Drop ``readOnly`` properties from ``out`` and close it to undeclared keys."""
+    props = out["properties"]
+    read_only = {
+        name
+        for name, sub in props.items()
+        if sub.get("readOnly") or deref(sub).get("readOnly")
+    }
+    if read_only:
+        out["properties"] = {k: v for k, v in props.items() if k not in read_only}
+        out["required"] = [k for k in out.get("required", []) if k not in read_only]
+    # A free-form map declares no properties and a union closes its variants.
+    if out["properties"] and "oneOf" not in out and "anyOf" not in out:
+        out.setdefault("additionalProperties", False)
+
+
 def _prepare_spec(spec: dict[str, Any]) -> dict[str, Any]:
     """Copy of ``spec`` prepared for strict Draft 2020-12 request-body validation."""
     raw = spec.get("components", {}).get("schemas", {})
     prepared: dict[str, Any] = {}
 
     def _component(name: str) -> dict[str, Any]:
+        if name not in raw:
+            raise ValueError(f"dangling $ref to component schema {name!r}")
         if name not in prepared:
             # Placeholder first so a schema that reaches itself terminates.
             prepared[name] = {}
-            prepared[name] = _prepare(raw.get(name, {}))
+            prepared[name] = _prepare(raw[name])
         return prepared[name]
 
     def _deref(node: Any) -> Any:
@@ -1136,7 +1217,7 @@ def _prepare_spec(spec: dict[str, Any]) -> dict[str, Any]:
 
     # The spec writes bodies as ``{"allOf": [{"$ref": ...}],
     # "additionalProperties": false}``, which strict JSON Schema reads as "no
-    # properties allowed"; hoisting the member's properties restores the intent.
+    # properties allowed".
     def _hoist(out: dict[str, Any]) -> None:
         kept: list[Any] = []
         for member in out.pop("allOf"):
@@ -1144,27 +1225,11 @@ def _prepare_spec(spec: dict[str, Any]) -> dict[str, Any]:
             if not isinstance(target, dict) or "properties" not in target:
                 kept.append(member)
                 continue
-            out.setdefault("type", "object")
-            out["properties"] = {**target["properties"], **out.get("properties", {})}
-            required = [*out.get("required", []), *target.get("required", [])]
-            if required:
-                out["required"] = list(dict.fromkeys(required))
+            _merge_member(out, target)
         if kept:
             out["allOf"] = kept
-
-    def _close_object(out: dict[str, Any]) -> None:
-        props = out.get("properties", {})
-        read_only = {
-            name
-            for name, sub in props.items()
-            if sub.get("readOnly") or _deref(sub).get("readOnly")
-        }
-        if read_only:
-            out["properties"] = {k: v for k, v in props.items() if k not in read_only}
-            out["required"] = [k for k in out.get("required", []) if k not in read_only]
-        # A free-form map declares no properties and a union closes its variants.
-        if out.get("properties") and "oneOf" not in out and "anyOf" not in out:
-            out.setdefault("additionalProperties", False)
+            if "properties" not in out and out.get("additionalProperties") is False:
+                del out["additionalProperties"]
 
     def _prepare(node: Any) -> Any:
         if isinstance(node, list):
@@ -1172,24 +1237,24 @@ def _prepare_spec(spec: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(node, dict):
             return node
         out: dict[str, Any] = {}
+        dropped_const = False
         for key, value in node.items():
-            if key in _VALUE_RANGE_KEYWORDS or _is_numeric_const(key, value):
+            if _is_numeric_const(key, value):
+                dropped_const = True
+            elif key in _VALUE_RANGE_KEYWORDS:
                 continue
-            if key in _DATA_KEYWORDS:
+            elif key in _DATA_KEYWORDS:
                 out[key] = value
             elif key == "properties" and isinstance(value, dict):
                 out[key] = {name: _prepare(sub) for name, sub in value.items()}
             else:
                 out[key] = _prepare(value)
+        if dropped_const and "type" not in out:
+            out["type"] = "number"
         if isinstance(out.get("allOf"), list):
             _hoist(out)
-        node_type = out.get("type")
-        if (
-            node_type == "object"
-            or (isinstance(node_type, list) and "object" in node_type)
-            or "properties" in out
-        ):
-            _close_object(out)
+        if "properties" in out:
+            _close_object(out, _deref)
         return out
 
     components = {**spec.get("components", {}), "schemas": prepared}
@@ -1211,26 +1276,32 @@ def _field_path(parts: Iterable[Any]) -> str:
     return out
 
 
-def _body_errors(validator: Draft202012Validator, body: Any) -> set[tuple[str, str]]:
-    """``(field, message)`` for every way ``body`` breaks the schema."""
-    found: set[tuple[str, str]] = set()
+def _body_errors(
+    validator: Draft202012Validator, body: Any
+) -> set[tuple[str, str, str]]:
+    """``(field, validator keyword, message)`` for every way ``body`` breaks the schema."""
+    found: set[tuple[str, str, str]] = set()
     for error in validator.iter_errors(body):
         base = _field_path(error.absolute_path)
-        if error.validator == "required":
+        keyword = str(error.validator)
+        if keyword == "required":
             found.update(
-                (_join_field(base, name), "required by the spec but not sent")
+                (_join_field(base, name), keyword, "required by the spec but not sent")
                 for name in error.validator_value
                 if name not in error.instance
             )
-        elif error.validator == "additionalProperties":
+        elif keyword == "additionalProperties":
             declared = error.schema.get("properties", {})
             found.update(
-                (_join_field(base, name), "not declared by the spec")
+                (_join_field(base, name), keyword, "not declared by the spec")
                 for name in error.instance
                 if name not in declared
             )
         else:
-            found.add((base or "<body>", error.message))
+            message = error.message
+            if (cause := best_match(error.context)) is not None:
+                message = f"{message} ({cause.message})"
+            found.add((base or "<body>", keyword, message))
     return found
 
 
@@ -1257,26 +1328,23 @@ def _unsent_fields(
 
 
 def check_request_bodies(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
-    """
-    Validate every JSON body the client sends against the spec's ``requestBody``.
-
-    Any validator error (undeclared key, wrong type, enum or const mismatch,
-    ``null`` where not allowed, no matching ``oneOf`` variant, missing
-    ``required``) is an error unless waived in ``_REQUEST_BODY_WAIVERS``; a spec
-    field the client never sends is a warning. Non-JSON media types are skipped.
-    """
+    """Validate every JSON body the client sends against the spec's ``requestBody``."""
     errors: set[str] = set()
     warnings: set[str] = set()
     prepared = _prepare_spec(spec)
     components = prepared["components"]
     _recorded, bodies = _recorded_calls()
-    triggered: set[tuple[str, str, str]] = set()
+    declared: set[_Endpoint] = set()
+    triggered: set[tuple[str, str, str, str]] = set()
+    waived = {waiver[:3] for waiver in _REQUEST_BODY_WAIVERS}
     for path, operations in prepared.get("paths", {}).items():
         for method, operation in operations.items():
             if method not in _HTTP_METHODS:
                 continue
             verb = method.upper()
-            sent = bodies.get((verb, _normalize_path(path)), [])
+            endpoint = (verb, _normalize_path(path))
+            declared.add(endpoint)
+            sent = bodies.get(endpoint, [])
             request_body = operation.get("requestBody")
             if request_body is None:
                 if sent:
@@ -1290,24 +1358,38 @@ def check_request_bodies(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
                 continue
             schema = media.get("schema", {})
             validator = Draft202012Validator({**schema, "components": components})
-            for body in sent:
-                # aiohttp's default ``json_serialize`` is ``json.dumps``.
-                wire = json.loads(json.dumps(body))
-                for field, message in _body_errors(validator, wire):
-                    waiver = (verb, path, field)
+            # aiohttp's default ``json_serialize`` is ``json.dumps``.
+            wires = [json.loads(json.dumps(body)) for body in sent]
+            failed: set[str] = set()
+            for wire in wires:
+                for field, keyword, message in _body_errors(validator, wire):
+                    failed.add(field)
+                    waiver = (verb, path, field, keyword)
                     if waiver in _REQUEST_BODY_WAIVERS:
                         triggered.add(waiver)
                     else:
                         errors.add(f"`{verb} {path}` body `{field}`: {message}")
-                warnings.update(
-                    f"`{verb} {path}`: spec body field `{field}` is never sent"
-                    for field in _unsent_fields(schema, wire, components["schemas"])
-                    if (verb, path, field) not in _REQUEST_BODY_WAIVERS
-                )
+            unsent = set.intersection(
+                *(_unsent_fields(schema, wire, components["schemas"]) for wire in wires)
+            )
+            warnings.update(
+                f"`{verb} {path}`: spec body field `{field}` is never sent"
+                for field in unsent - failed
+                if (verb, path, field) not in waived
+            )
+    errors.update(
+        f"`{verb} {path}`: client sends a body to an endpoint the spec omits"
+        for verb, path in set(bodies) - declared
+    )
     warnings.update(
-        f"request-body waiver `{verb} {path}` `{field}` no longer triggers "
-        f"(remove it from `_REQUEST_BODY_WAIVERS`)"
-        for verb, path, field in set(_REQUEST_BODY_WAIVERS) - triggered
+        f"request-body waiver `{verb} {path}` `{field}` ({keyword}) no longer "
+        f"triggers (remove it from `_REQUEST_BODY_WAIVERS`)"
+        for verb, path, field, keyword in set(_REQUEST_BODY_WAIVERS) - triggered
+    )
+    warnings.update(
+        f"example kwarg override `{override}` matches no example parameter "
+        f"(remove it from `_EXAMPLE_KWARG_OVERRIDES`)"
+        for override in _stale_kwarg_overrides()
     )
     return sorted(errors), sorted(warnings)
 

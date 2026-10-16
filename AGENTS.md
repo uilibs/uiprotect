@@ -372,16 +372,23 @@ what lets the single all-optional `PublicEvent` model be field-checked against
 the 38-variant `event` union. `check_request_bodies` validates every JSON
 body the client sends on PATCH/POST against the spec's `requestBody` with a
 Draft 2020-12 `jsonschema` validator, after preprocessing the spec once:
-`allOf` object members are hoisted into their parent, value-range keywords and
-numeric `const` choices are dropped (the client's types cannot express
-them), `readOnly` properties leave the body, and every object schema that declares
-properties but no `additionalProperties` is closed. Bodies come from the same request spy: each
-`_EXAMPLE_CALLS` entry carries only path arguments and every other parameter
-gets a type-correct value from `_example_value`, while decorated endpoints are
-called with example values for every parameter. Any validator error is an
-error unless waived in `_REQUEST_BODY_WAIVERS`, keyed by `(VERB, path, field)`;
-a stale waiver or a spec body field the client never sends is a warning.
-Spec `required` vs. model `optional` is not checked — the library models every public-API field optional by design, so it
+`allOf` object members are hoisted into their parent (a property two members
+define differently must satisfy both), value-range keywords and numeric `const`
+choices are dropped (a dropped `const` still requires a number), `readOnly`
+properties leave the body, and every object schema that declares properties
+but no `additionalProperties` is closed unless it also carries a `oneOf` or
+`anyOf`, whose variants are closed instead. Bodies come from the same request
+spy: each `_EXAMPLE_CALLS` entry carries only path arguments, decorated
+endpoints get the record sentinel for their path placeholders, every other
+parameter gets a type-correct value from `_example_value` (or
+`_EXAMPLE_KWARG_OVERRIDES` where the signature cannot express a valid value),
+and every model-typed parameter is sent a second time left at its defaults.
+Any validator error is an error unless waived in `_REQUEST_BODY_WAIVERS`, keyed
+by `(VERB, path, field, validator keyword)`; so is a body sent to an operation
+or path the spec does not declare. A spec body field no recorded body sends, a
+JSON request body the client never sends, a stale waiver, and a stale override
+are warnings. For response models, spec `required` vs. model `optional` is not
+checked — the library models every public-API field optional by design, so it
 would be guaranteed noise. It exits non-zero on any error and prints a markdown
 summary. Reproduce locally with:
 
@@ -404,7 +411,8 @@ marker is current or a drift issue is already open. Endpoint coverage is **deriv
 maintained**: the declarative `@public_*` decorator registry
 (`uiprotect._public_api.registry`) covers every uniform endpoint, and the
 hand-written exception methods are covered by one recorded example call each
-(`_EXAMPLE_CALLS` — a request spy captures `(verb, path)` then short-circuits).
+(`_EXAMPLE_CALLS` — a request spy captures `(verb, path)` and the JSON body,
+then short-circuits).
 `check_completeness` asserts every public-API coroutine is accounted for, so a
 new method that nobody wired up fails the suite instead of silently leaving its
 endpoint uncovered.
