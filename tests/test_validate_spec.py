@@ -1390,8 +1390,10 @@ def test_request_body_dangling_ref_is_an_error_row(
     spec["components"]["schemas"]["a"] = {"allOf": [{"$ref": "#/c/missing"}]}
     assert _check_body(monkeypatch, spec, {"name": "x"}) == (
         [
-            "cannot prepare the spec for request-body validation: dangling $ref "
-            "to component schema 'missing'"
+            (
+                "cannot prepare the spec for request-body validation: dangling $ref "
+                "to component schema 'missing'"
+            )
         ],
         [],
     )
@@ -1471,8 +1473,10 @@ def test_unbuildable_example_call_is_an_error_row(
     monkeypatch.setattr(validate_spec, "_REQUEST_BODY_WAIVERS", {})
     errors, _ = check_request_bodies({"paths": {}, "components": {"schemas": {}}})
     assert [e for e in errors if e.startswith("cannot build")] == [
-        "cannot build example call: my_method(extra): no example value for "
-        "annotation dict[str, typing.Any]"
+        (
+            "cannot build example call: my_method(extra): no example value for "
+            "annotation dict[str, typing.Any]"
+        )
     ]
 
 
