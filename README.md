@@ -134,7 +134,7 @@ function uiprotect() {
 - Update with `docker pull ghcr.io/uilibs/uiprotect:latest`.
 - `$PWD` is mounted to `/data`. Files written anywhere else are lost when the container exits.
 - Images exist for `linux/amd64` and `linux/arm64`, so Docker Desktop on macOS and Windows works.
-- `TZ` is the [time zone name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) of your Protect console. The [command line docs](https://uiprotect.readthedocs.io/en/latest/cli/) list the other environment variables.
+- `TZ` sets the time zone the CLI uses for local times. Use the [time zone name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) your Protect console uses. The [command line docs](https://uiprotect.readthedocs.io/en/latest/cli/) list the other environment variables.
 
 ## Authentication
 

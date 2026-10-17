@@ -117,10 +117,12 @@ Notes on the typed event stream:
   console deleted an event that had not ended. An event that is already closed
   on first sight, and an instantaneous one such as `lightMotion`, arrives as
   `STARTED` immediately followed by `ENDED`.
-- The library also sends `ENDED` itself: for an event still open after 30
-  minutes (checked every 15 minutes), for any event open longer than an hour
-  when the events or devices WebSocket reconnects, and for every detection when the events
-  WebSocket reconnects (see below).
+- The library also sends `ENDED` itself for open events that belong to a
+  device:
+  - after 30 minutes, checked every 15 minutes while a typed subscriber exists,
+  - after one hour when the events WebSocket reconnects, or when the devices
+    WebSocket reconnects while a typed subscriber exists,
+  - for every open detection when the events WebSocket reconnects (see below).
 - `event.metadata` holds the typed event metadata. `event.raw` is the cached
   `PublicEvent` for fields `ProtectEvent` does not surface. Both are live
   objects, updated in place, not snapshots, so `UPDATED` carries no diff.
