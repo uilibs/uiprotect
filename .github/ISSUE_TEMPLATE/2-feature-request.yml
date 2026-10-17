@@ -27,6 +27,15 @@ body:
       label: Additional context
       description: Add any other context or screenshots about the feature request here.
       placeholder: Additional context
+  - type: textarea
+    id: public-api-output
+    attributes:
+      label: Public API output (optional)
+      description:
+        If you can, paste what the public API returns for the affected
+        device, see [Check the public API first](https://github.com/uilibs/uiprotect#check-the-public-api).
+        Remove MAC addresses, IP addresses and serial numbers first, and never include your API key.
+      render: json
   - type: checkboxes
     id: terms
     attributes:

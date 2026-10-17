@@ -31,13 +31,20 @@ body:
       description:
         If you can, paste what the public API returns for the affected
         device, see [Check the public API first](https://github.com/uilibs/uiprotect#check-the-public-api).
-        Remove MAC addresses, IP addresses and serial numbers first.
+        Remove MAC addresses, IP addresses and serial numbers first, and never include your API key.
       render: json
+  - type: input
+    id: protect-version
+    attributes:
+      label: UniFi Protect version and device model
+      placeholder: "Example: Protect 7.3.70, G6 Pro Entry"
+    validations:
+      required: true
   - type: input
     id: version
     attributes:
-      label: Version
-      description: The uiprotect version, or the Home Assistant version if you use it there.
+      label: uiprotect version
+      description: Run `pip show uiprotect`. In Home Assistant diagnostics it is under `integration_manifest` > `requirements`.
       placeholder: Version
     validations:
       required: true

@@ -43,11 +43,9 @@
 
 Unofficial Python API and CLI for UniFi Protect, for any UniFi OS console that runs Protect. It is the library behind the Home Assistant [UniFi Protect integration](https://www.home-assistant.io/integrations/unifiprotect) and can be used on its own. uiprotect is not affiliated with or endorsed by Ubiquiti.
 
-The library is moving to Ubiquiti's documented Public Integration API, which authenticates with an [API key](#api-key). Features the public API does not offer yet still use the undocumented private API, which can change between Protect releases. New features are built on the public API only.
+The library is moving to Ubiquiti's documented Public Integration API, which authenticates with an [API key](#api-key). Features the public API does not offer use the undocumented private API, which can change between Protect releases.
 
 ## Reporting issues and requesting features
-
-Problems you see in Home Assistant belong in the [Home Assistant issue tracker](https://github.com/home-assistant/core/issues) first. They are moved here if the cause is in this library.
 
 <a id="check-the-public-api"></a>
 
@@ -55,25 +53,25 @@ Problems you see in Home Assistant belong in the [Home Assistant issue tracker](
 
 The [Public Integration API documentation](https://developer.ui.com/protect/) lists every device field and control the library can support. If a field or control is not there, uiprotect cannot add it as a new feature.
 
-A field is not enough when only some models have the feature: there also has to be a feature flag or another field that tells which devices support it. Otherwise Home Assistant would offer controls that do nothing on the other models.
+A field is not enough when only some models have the feature: there also has to be a feature flag (under `featureFlags` in the output) or another field that tells which devices support it. Otherwise Home Assistant would offer controls that do nothing on the other models.
 
-To see what your console returns, query it with curl and an [API key](#api-key). `HOST` is the IP address or hostname of your console.
+To see what your console returns, query it with curl and an [API key](#api-key). `HOST` is the IP address or hostname of your console. The command saves the answer to `cameras.json`.
 
 Linux and macOS:
 
 ```bash
-curl -k -H "X-API-KEY: API_KEY" https://HOST/proxy/protect/integration/v1/cameras
+curl -k -H "X-API-KEY: API_KEY" -o cameras.json https://HOST/proxy/protect/integration/v1/cameras
 ```
 
 Windows:
 
 ```powershell
-curl.exe -k -H "X-API-KEY: API_KEY" https://HOST/proxy/protect/integration/v1/cameras
+curl.exe -k -H "X-API-KEY: API_KEY" -o cameras.json https://HOST/proxy/protect/integration/v1/cameras
 ```
 
-Any endpoint from the documentation works the same way, for example `/v1/cameras/CAMERA_ID` for a single camera. `-k` skips certificate verification, which the console's default self-signed certificate needs.
+For other devices, replace `cameras` at the end of the URL with another endpoint from the documentation, such as `lights`, `sensors` or `cameras/CAMERA_ID` for a single camera. Doorbells are cameras. `-k` skips certificate verification. It is needed while the console uses its default self-signed certificate.
 
-Never post your API key. Remove MAC addresses and IP addresses from the output before you post it.
+Open the file in a text editor and remove MAC addresses, IP addresses and serial numbers before you post it. Never post the command itself, it contains your API key.
 
 Home Assistant diagnostics are no substitute. Their `public_bootstrap` section only contains fields uiprotect already reads, so a field the library does not know yet is missing there. The `bootstrap` section is the private API.
 
@@ -144,14 +142,14 @@ function uiprotect() {
 
 ### API key
 
-Create an API key on the console under **Settings > Control Plane > Integrations** with an administrator account. Ubiquiti's [Getting Started guide](https://developer.ui.com/protect/) describes it under "Obtaining an API Key". Treat the key like a password.
+Create an API key on the console under **Settings > Control Plane > Integrations** with an administrator account. Ubiquiti's [Getting Started guide](https://developer.ui.com/protect/) describes it under "Obtaining an API Key". There is no read-only key, so treat it like a password.
 
 ### Local user
 
-Features the public API does not offer yet also need a local user with access to Protect.
+Features the public API does not offer also need a local user with access to Protect.
 
 > [!WARNING]
-> Ubiquiti SSO accounts and MFA are not supported. Use a local-access user, not the owner account.
+> UI Account (cloud) logins and MFA are not supported. Use a local-access user, not the owner account.
 
 ## Quickstart
 
@@ -166,7 +164,9 @@ export UFP_SSL_VERIFY=false
 uiprotect cameras list-ids
 ```
 
-With only an API key, the CLI uses the public API. Commands that need the private API, such as `uiprotect nvr`, also need the local user:
+In Windows PowerShell, set the variables with `$env:UFP_API_KEY = "YOUR_API_KEY"` and so on.
+
+With only an API key, the CLI runs in public-only mode, and commands without a public equivalent, such as `uiprotect nvr`, stop with an error. With a local user set as well, the CLI logs in and the device commands also read the private API:
 
 ```bash
 export UFP_USERNAME=YOUR_USERNAME
@@ -194,12 +194,12 @@ async def main() -> None:
         "YOUR_CONSOLE_IP", 443, "YOUR_API_KEY", verify_ssl=False
     )
     try:
-        unsubscribe = await protect.subscribe_devices_and_prime(on_device)
+        await protect.subscribe_devices_and_prime(on_device)
         for camera in protect.public_bootstrap.cameras.values():
             print(camera.id, camera.name)
         await asyncio.sleep(60)
-        unsubscribe()
     finally:
+        await protect.async_disconnect_ws()
         await protect.close_session()
 
 
@@ -212,13 +212,18 @@ For features that still need the private API, pass the local user as well and ca
 
 ```python
 protect = ProtectApiClient(
-    "YOUR_CONSOLE_IP", 443, "YOUR_USERNAME", "YOUR_PASSWORD", api_key="YOUR_API_KEY"
+    "YOUR_CONSOLE_IP",
+    443,
+    "YOUR_USERNAME",
+    "YOUR_PASSWORD",
+    api_key="YOUR_API_KEY",
+    verify_ssl=False,
 )
 ```
 
 ### Subscriptions
 
-`subscribe_events` delivers typed `(ProtectEvent, EventChange)` pairs for detection, sensor, alarm hub and access events. `subscribe_devices` delivers a `ProtectDeviceChange` for each added, updated or removed device. Both need a prior `update_public()`. `subscribe_events_and_prime()` and `subscribe_devices_and_prime()` do both in the right order.
+`subscribe_events` delivers typed `(ProtectEvent, EventChange)` pairs for detection, sensor, alarm hub and access events. `subscribe_devices` delivers a `ProtectDeviceChange` for each added, updated or removed device. Devices that already exist are not announced, read them from `public_bootstrap` after priming. Both need a prior `update_public()`. `subscribe_events_and_prime()` and `subscribe_devices_and_prime()` do both in the right order.
 
 Callbacks are plain functions called on the event loop. They must not block and must not be `async def`. Exceptions in a callback are logged and swallowed.
 

@@ -78,25 +78,23 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def main() -> None:
-    protect = ProtectApiClient(
-        host="10.0.0.1",
-        port=443,
-        username="YOUR_USERNAME",
-        password="YOUR_PASSWORD",
-        api_key="YOUR_API_KEY",
+    protect = ProtectApiClient.public_only(
+        "10.0.0.1",
+        443,
+        "YOUR_API_KEY",
         verify_ssl=True,  # set False only for a self-signed certificate
     )
-    await protect.update_public()
 
     def on_event(event: ProtectEvent, change: EventChange) -> None:
         if change is EventChange.STARTED:
             _LOGGER.info("%s on %s", event.type, event.device_id)
 
-    unsubscribe = protect.subscribe_events(on_event)
     try:
+        await protect.update_public()
+        protect.subscribe_events(on_event)
         await asyncio.sleep(60)
     finally:
-        unsubscribe()
+        await protect.async_disconnect_ws()
         await protect.close_session()
 
 
@@ -118,11 +116,12 @@ Notes on the typed event stream:
   on first sight, and an instantaneous one such as `lightMotion`, arrives as
   `STARTED` immediately followed by `ENDED`.
 - The library also sends `ENDED` itself: for an event still open after 30
-  minutes (checked every 15 minutes), and for detections when the events WebSocket reconnects (see
-  below).
+  minutes (checked every 15 minutes), for any event open longer than an hour
+  when a WebSocket reconnects, and for every detection when the events
+  WebSocket reconnects (see below).
 - `event.metadata` holds the typed event metadata. `event.raw` is the cached
-  `PublicEvent` for fields `ProtectEvent` does not surface. It is the live
-  object, updated in place, not a snapshot, so `UPDATED` carries no diff.
+  `PublicEvent` for fields `ProtectEvent` does not surface. Both are live
+  objects, updated in place, not snapshots, so `UPDATED` carries no diff.
   License plate text and face names are not in the public API.
 - `protect.active_events(device_id=...)` returns the running events from the
   cache, for example to restore binary sensors after a reload. It works without
@@ -160,14 +159,15 @@ def on_device(change: ProtectDeviceChange) -> None:
 unsubscribe = await protect.subscribe_devices_and_prime(on_device)
 ```
 
-- `change.model` is the merged `Public*` model, `None` for `REMOVED`.
+- `change.model` is the live cached `Public*` model, not a snapshot, and
+  `None` for `REMOVED`.
 - `change.changed_fields` is set only for `UPDATED`. It holds the snake_case
   names of the fields in the update, not their old and new values.
 - Bulk WebSocket frames are split into one change per device.
 - Connection changes arrive as `UPDATED` with `state` in `changed_fields`.
-- Detection events come from `subscribe_events`. A camera's derived
-  `is_*_currently_detected` flags still arrive here as `UPDATED` when they
-  flip.
+- Detection events come from `subscribe_events`. While the events WebSocket
+  runs, a camera whose derived detection flags flip also arrives here as
+  `UPDATED`.
 - `change.device_mac` is `None` for a device that is not in the cache yet,
   until the next `update_public()` or reconnect.
 - Callbacks follow the same rules as for events.
@@ -227,8 +227,7 @@ case) closes it. On events-WS reconnect the client therefore **force-ends
 active detection events regardless of age** (a still-active detection
 re-asserts on its next frame) and flushes other channels past the 1 h
 staleness window. Both the typed `subscribe_events` stream (an `ENDED` change)
-and `subscribe_devices` (a camera update naming the flipped `is_*_detected`
-fields) see the drop immediately, and the derived camera flags read correct on
+and `subscribe_devices` (a camera update) see the drop immediately, and the derived camera flags read correct on
 the next synchronous access.
 
 A device added to (or removed from) the console while the devices WebSocket is
@@ -484,8 +483,7 @@ frame corrects that for viewers; the next refresh does.
 from the second to the first:
 
 - **Public Integration API** — Ubiquiti's officially documented REST API
-  under `/integration/v1/…`. It authenticates with an **API key** (create one
-  with `uiprotect create-api-key NAME`), is stable across firmware releases,
+  under `/integration/v1/…`. It authenticates with an **API key** (see [API key](index.md#api-key))
   and is the forward-looking path. The typed `subscribe_events` stream and the
   public-API CLI groups (`users-public`, `liveviews`, `sirens`, …) are
   driven by this API. Requests on this path are **auto-paced** to stay under
@@ -494,12 +492,12 @@ from the second to the first:
   shared-budget public WebSocket) and falls back to a conservative default
   until that header is seen, so a bootstrap fan-out no longer trips a `429`
   storm. Rotating the key via `set_api_key()` resets the pacing.
-- **Private API** — the reverse-engineered, undocumented endpoints under
+- **Private API** — the undocumented endpoints under
   `/api/…` plus the binary WebSocket update stream. It authenticates with
   username/password and powers most of the historical `bootstrap`-based
   surface. It is **not** documented by Ubiquiti, can shift between firmware
-  versions, and is being deprecated capability-by-capability as the public
-  API gains coverage.
+  versions, and uiprotect uses it only where the public API has no
+  equivalent.
 
 Prefer the public API for new code. Reach for the private API only for
 capabilities the public API does not yet expose; treat that as a temporary
