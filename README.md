@@ -41,9 +41,51 @@
 
 ## About
 
-Unofficial Python API and CLI for UniFi Protect on a UniFi OS console (Cloud Key Gen2 Plus, UNVR, UNVR Pro, Dream Machine Pro, SE or Pro Max). It is written for the Home Assistant [UniFi Protect integration](https://www.home-assistant.io/integrations/unifiprotect) but can be used on its own.
+Unofficial Python API and CLI for UniFi Protect, for any UniFi OS console that runs Protect. It is the library behind the Home Assistant [UniFi Protect integration](https://www.home-assistant.io/integrations/unifiprotect) and can be used on its own. uiprotect is not affiliated with or endorsed by Ubiquiti.
 
-The library is moving to Ubiquiti's official Public Integration API. Where a capability is not available there yet, it falls back to the undocumented private API, which can change between Protect releases.
+The library is moving to Ubiquiti's documented Public Integration API, which authenticates with an [API key](#api-key). Features the public API does not offer yet still use the undocumented private API, which can change between Protect releases. New features are built on the public API only.
+
+## Reporting issues and requesting features
+
+Problems you see in Home Assistant belong in the [Home Assistant issue tracker](https://github.com/home-assistant/core/issues) first. They are moved here if the cause is in this library.
+
+<a id="check-the-public-api"></a>
+
+### Check the public API first
+
+The [Public Integration API documentation](https://developer.ui.com/protect/) lists every device field and control the library can support. If a field or control is not there, uiprotect cannot add it as a new feature.
+
+A field is not enough when only some models have the feature: there also has to be a feature flag or another field that tells which devices support it. Otherwise Home Assistant would offer controls that do nothing on the other models.
+
+To see what your console returns, query it with curl and an [API key](#api-key). `HOST` is the IP address or hostname of your console.
+
+Linux and macOS:
+
+```bash
+curl -k -H "X-API-KEY: API_KEY" https://HOST/proxy/protect/integration/v1/cameras
+```
+
+Windows:
+
+```powershell
+curl.exe -k -H "X-API-KEY: API_KEY" https://HOST/proxy/protect/integration/v1/cameras
+```
+
+Any endpoint from the documentation works the same way, for example `/v1/cameras/CAMERA_ID` for a single camera. `-k` skips certificate verification, which the console's default self-signed certificate needs.
+
+Never post your API key. Remove MAC addresses and IP addresses from the output before you post it.
+
+Home Assistant diagnostics are no substitute. Their `public_bootstrap` section only contains fields uiprotect already reads, so a field the library does not know yet is missing there. The `bootstrap` section is the private API.
+
+<a id="no-new-private-api-features"></a>
+
+> [!IMPORTANT]
+> **This library does not accept new features built on the private API.**
+> uiprotect is migrating from the undocumented private API to Ubiquiti's official
+> Public Integration API. If a capability is missing from the public API, the right
+> path is to request it from Ubiquiti / wait for it to be exposed there — **not** to
+> add it on the private path. Issues or PRs that introduce new private-API
+> functionality will be closed.
 
 ## Requirements
 
@@ -57,13 +99,11 @@ Windows is not actively supported and not tested in CI, although it should work.
 
 ### From PyPI
 
-`uiprotect` is available on PyPI:
-
 ```bash
 pip install uiprotect
 ```
 
-To use the command-line interface, install the `cli` extra (it pulls in `typer`):
+To use the command-line interface, install the `cli` extra:
 
 ```bash
 pip install "uiprotect[cli]"
@@ -72,24 +112,23 @@ pip install "uiprotect[cli]"
 ### From GitHub
 
 ```bash
-pip install git+https://github.com/uilibs/uiprotect.git#egg=uiprotect
-# with the CLI:
 pip install "uiprotect[cli] @ git+https://github.com/uilibs/uiprotect.git"
 ```
 
 ### Using Docker Container
 
-The Docker container needs no local Python. Add this to your `.bashrc` or similar:
+The Docker container needs no local Python. Add this to your `.bashrc` or similar. It passes the [environment variables](#cli) from your shell into the container:
 
 ```bash
 function uiprotect() {
     docker run --rm -it \
-      -e UFP_USERNAME=YOUR_USERNAME_HERE \
-      -e UFP_PASSWORD=YOUR_PASSWORD_HERE \
-      -e UFP_ADDRESS=YOUR_IP_ADDRESS \
-      -e UFP_PORT=443 \
-      -e UFP_SSL_VERIFY=false \
-      -e TZ=America/New_York \
+      -e UFP_API_KEY \
+      -e UFP_USERNAME \
+      -e UFP_PASSWORD \
+      -e UFP_ADDRESS \
+      -e UFP_PORT \
+      -e UFP_SSL_VERIFY \
+      -e TZ \
       -v $PWD:/data ghcr.io/uilibs/uiprotect:latest "$@"
 }
 ```
@@ -99,235 +138,95 @@ function uiprotect() {
 - Images exist for `linux/amd64` and `linux/arm64`, so Docker Desktop on macOS and Windows works.
 - `TZ` is the [time zone name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) of your Protect console. The [command line docs](https://uiprotect.readthedocs.io/en/latest/cli/) list the other environment variables.
 
-## Quickstart
+## Authentication
 
-### CLI
+<a id="api-key"></a>
+
+### API key
+
+Create an API key on the console under **Settings > Control Plane > Integrations** with an administrator account. Ubiquiti's [Getting Started guide](https://developer.ui.com/protect/) describes it under "Obtaining an API Key". Treat the key like a password.
+
+### Local user
+
+Features the public API does not offer yet also need a local user with access to Protect.
 
 > [!WARNING]
 > Ubiquiti SSO accounts and MFA are not supported. Use a local-access user, not the owner account.
 
-> [!NOTE]
-> New features use the Public Integration API, which authenticates with an **API key**. The API key is expected to become the only supported login. See [Public-only mode](#public-only-mode).
+## Quickstart
+
+### CLI
 
 ```bash
-export UFP_USERNAME=YOUR_USERNAME_HERE
-export UFP_PASSWORD=YOUR_PASSWORD_HERE
-export UFP_ADDRESS=YOUR_IP_ADDRESS
-export UFP_PORT=443
-# set to true if you have a valid HTTPS certificate for your instance
+export UFP_ADDRESS=YOUR_CONSOLE_IP
+export UFP_API_KEY=YOUR_API_KEY
+# set to true if the console has a certificate your machine trusts
 export UFP_SSL_VERIFY=false
 
-# Alternatively, use an API key for authentication (required for public API operations)
-export UFP_API_KEY=YOUR_API_KEY_HERE
+uiprotect cameras list-ids
+```
 
-uiprotect --help
-uiprotect nvr
+With only an API key, the CLI uses the public API. Commands that need the private API, such as `uiprotect nvr`, also need the local user:
+
+```bash
+export UFP_USERNAME=YOUR_USERNAME
+export UFP_PASSWORD=YOUR_PASSWORD
 ```
 
 `uiprotect --help` lists all commands and `uiprotect <command> --help` their options. The [command line docs](https://uiprotect.readthedocs.io/en/latest/cli/) cover them in detail.
 
 ### Python
 
-The library is async. Its entry point is `uiprotect.ProtectApiClient`:
+The library is async. Its entry point is `uiprotect.ProtectApiClient`. A client with only an API key uses the public API:
 
 ```python
-from uiprotect import ProtectApiClient
+import asyncio
 
-# Initialize with username/password
-protect = ProtectApiClient(host, port, username, password, verify_ssl=True)
-
-# Or with API key (required for public API operations)
-protect = ProtectApiClient(host, port, username, password, api_key=api_key, verify_ssl=True)
-
-await protect.update() # this will initialize the protect .bootstrap and open a Websocket connection for updates
-
-# get names of your cameras
-for camera in protect.bootstrap.cameras.values():
-    print(camera.name)
-
-# subscribe to Websocket for updates to UFP
-def callback(msg: WSSubscriptionMessage):
-    # do stuff
-
-unsub = protect.subscribe_websocket(callback)
-
-# remove subscription
-unsub()
-
-```
-
-#### Public-only mode
-
-A client with only an API key does no private login. The private entry points
-(`update()`, `authenticate()`, `get_bootstrap()`) raise `PublicOnlyModeError`.
-Use `update_public()`, `subscribe_events()`, `subscribe_devices()`, the
-`get_*_public()` / `update_*_public()` methods and `get_meta_info()` instead. A
-revoked key raises `NotAuthorized`.
-
-```python
-from uiprotect import ProtectApiClient
-
-protect = ProtectApiClient.public_only(host, port, api_key=api_key, verify_ssl=True)
-await protect.update_public()
-
-# work with the public-API device snapshots
-for siren in await protect.get_sirens_public():
-    print(siren.name)
-
-# resolve the console identity; the mac comes straight off the public NVR.
-# For new code, prefer the public-API primary key (nvr.id) as the device
-# identity rather than the mac.
-console_mac = await protect.resolve_nvr_mac()
-```
-
-## Usage
-
-### Subscribing to events
-
-`subscribe_events` delivers typed `(ProtectEvent, EventChange)` pairs. The raw
-`subscribe_events_websocket` delivers `WSSubscriptionMessage` frames. Both use
-the Public Integration API and need an API key. `subscribe_events` also needs a
-prior `update_public()`, so `subscribe_events_and_prime()` does both in the
-right order.
-
-```python
-import logging
-
-from uiprotect import EventChange, ProtectApiClient, ProtectEvent
-
-_LOGGER = logging.getLogger(__name__)
-
-protect = ProtectApiClient(..., api_key="...")
-
-
-def on_event(event: ProtectEvent, change: EventChange) -> None:
-    if change is EventChange.STARTED:
-        _LOGGER.info("%s on %s: %s", event.type, event.device_id, event.identity)
-    elif change is EventChange.ENDED:
-        _LOGGER.info("%s ended after %s", event.type, event.end - event.start)
-
-
-# Order-independent: subscribes and primes in the correct order.
-unsubscribe = await protect.subscribe_events_and_prime(on_event)
-# ...
-unsubscribe()
-```
-
-Notes:
-
-- Only detection, sensor, alarm hub and access events are delivered.
-  Administrative events such as `provision`, `factoryReset` and `fwUpdate` are
-  dropped. Use `subscribe_events_websocket` for the unfiltered stream.
-- `event.metadata` holds the typed event metadata. `event.raw` is the cached
-  `PublicEvent` for fields `ProtectEvent` does not surface. License plate text
-  and face names are not in the public API.
-- `EventChange.UPDATED` can arrive without a change in the `ProtectEvent`
-  fields. The change is then only in `event.raw`.
-- `protect.active_events(device_id=...)` returns the running events from the
-  cache, for example to restore binary sensors after a reload. It works without
-  a subscription once `update_public()` has run.
-- Event state, identities (`public_bootstrap.ulp_users`) and `event.device_mac`
-  come from `public_bootstrap`. `update_public()` refreshes them, also on every
-  websocket reconnect. Until then a newly enrolled user resolves to
-  `UnknownIdentity(reason="ulp_user_not_cached")` and a new device has
-  `device_mac` `None`.
-
-### Subscribing to device state
-
-`subscribe_devices` delivers a typed `ProtectDeviceChange` for each `ADDED`,
-`UPDATED` or `REMOVED` device over the Public Integration API. It needs a prior
-`update_public()` and raises `RuntimeError` otherwise. `subscribe_devices_and_prime()`
-does both in one call and replays updates that arrive while priming, so none
-are missed.
-
-```python
-import logging
-
-from uiprotect import DeviceChange, ProtectApiClient, ProtectDeviceChange
-
-_LOGGER = logging.getLogger(__name__)
-
-protect = ProtectApiClient(..., api_key="...")
+from uiprotect import ProtectApiClient, ProtectDeviceChange
 
 
 def on_device(change: ProtectDeviceChange) -> None:
-    if change.change is DeviceChange.UPDATED and "state" in change.changed_fields:
-        _LOGGER.info("%s -> %s", change.device_id, change.model.state)
+    print(change.change, change.device_id, sorted(change.changed_fields))
 
 
-# Order-independent: subscribes and primes in the correct order.
-unsubscribe = await protect.subscribe_devices_and_prime(on_device)
-# ...or the explicit two-step form, which must prime before subscribing:
-# await protect.update_public()
-# unsubscribe = protect.subscribe_devices(on_device)
-unsubscribe()
+async def main() -> None:
+    protect = ProtectApiClient.public_only(
+        "YOUR_CONSOLE_IP", 443, "YOUR_API_KEY", verify_ssl=False
+    )
+    try:
+        unsubscribe = await protect.subscribe_devices_and_prime(on_device)
+        for camera in protect.public_bootstrap.cameras.values():
+            print(camera.id, camera.name)
+        await asyncio.sleep(60)
+        unsubscribe()
+    finally:
+        await protect.close_session()
+
+
+asyncio.run(main())
 ```
 
-Notes:
+In this mode the private entry points (`update()`, `authenticate()`, `get_bootstrap()`) raise `PublicOnlyModeError`. A rejected key raises `NotAuthorized` on HTTP calls and turns the websockets to `WebsocketState.AUTH_FAILED`.
 
-- `change.model` is the merged `Public*` model, `None` for `REMOVED`.
-  `change.changed_fields` is set only for `UPDATED`.
-- Bulk websocket frames are split into one change per device.
-- Connection changes arrive as `UPDATED` with `state` in `changed_fields`.
-- Exceptions in the callback are logged and swallowed.
-- `change.device_mac` is `None` for a device that is not in the cache yet,
-  until the next `update_public()` or reconnect.
-- Detections and motion are not part of this stream. Use `subscribe_events`.
+For features that still need the private API, pass the local user as well and call both `update()` and `update_public()`:
 
-## Roadmap & limitations
+```python
+protect = ProtectApiClient(
+    "YOUR_CONSOLE_IP", 443, "YOUR_USERNAME", "YOUR_PASSWORD", api_key="YOUR_API_KEY"
+)
+```
 
-The private API is being phased out. New work targets the public API and stays as close to its spec as possible.
+### Subscriptions
 
-Capabilities, device models and events live in this library, so the [Home Assistant integration](https://www.home-assistant.io/integrations/unifiprotect) carries as little logic of its own as possible.
+`subscribe_events` delivers typed `(ProtectEvent, EventChange)` pairs for detection, sensor, alarm hub and access events. `subscribe_devices` delivers a `ProtectDeviceChange` for each added, updated or removed device. Both need a prior `update_public()`. `subscribe_events_and_prime()` and `subscribe_devices_and_prime()` do both in the right order.
+
+Callbacks are plain functions called on the event loop. They must not block and must not be `async def`. Exceptions in a callback are logged and swallowed.
+
+The [usage docs](https://uiprotect.readthedocs.io/en/latest/usage/) describe events, device changes, reconnects and the other public API features in detail.
 
 ## Contributing
 
 Please **open an issue and agree on the approach before implementing** anything.
-
-<a id="check-the-public-api"></a>
-
-### Check the public API first
-
-The [Public Integration API documentation](https://developer.ui.com/protect/) lists
-every device field and control the library can support. If a field or control is
-not there, uiprotect cannot add it.
-
-A field is not enough when only some models have the feature: there also has to
-be a feature flag or another field that tells which devices support it. Otherwise
-Home Assistant would offer controls that do nothing on the other models.
-
-To see what your own console returns, look at the public API, not the private
-bootstrap:
-
-- **Home Assistant diagnostics**: look under `public_bootstrap` (present when an API
-  key is configured). The `bootstrap` section is the private API and contains fields
-  the public API does not have.
-- **curl** with an API key works with any endpoint from the documentation above,
-  prefixed with `https://HOST/proxy/protect/integration`, for example the list of
-  all cameras (`/v1/cameras`). `-k` skips the check of the console's self-signed
-  certificate.
-
-  Linux and macOS:
-
-  ```bash
-  curl -k -H "X-API-KEY: API_KEY" https://HOST/proxy/protect/integration/v1/cameras
-  ```
-
-  Windows:
-
-  ```powershell
-  curl.exe -k -H "X-API-KEY: API_KEY" https://HOST/proxy/protect/integration/v1/cameras
-  ```
-
-<a id="no-new-private-api-features"></a>
-
-> [!IMPORTANT]
-> **This library does not accept new features built on the private API.**
-> uiprotect is migrating from the reverse-engineered private API to UniFi's official
-> Public Integration API. If a capability is missing from the public API, the right
-> path is to request it from Ubiquiti / wait for it to be exposed there — **not** to
-> add it on the private path. Issues or PRs that introduce new private-API
-> functionality will be closed.
 
 <a id="ai-contributions"></a>
 

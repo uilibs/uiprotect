@@ -106,8 +106,71 @@ asyncio.run(main())
 The lower-level `subscribe_websocket` continues to deliver raw
 `WSSubscriptionMessage` frames for advanced callers over the private API and
 does not require an API key. The parallel `subscribe_events_websocket` drives
-the Public Integration API WebSocket and **does** require an API key. See the
-project README for the full notes on the typed event contract.
+the Public Integration API WebSocket and **does** require an API key.
+
+Notes on the typed event stream:
+
+- Only detection, sensor, alarm hub and access events are delivered.
+  Administrative events such as `provision`, `factoryReset` and `fwUpdate` are
+  dropped. Use `subscribe_events_websocket` for the unfiltered stream.
+- An event goes through `STARTED`, `UPDATED` and `ENDED`. `REMOVED` means the
+  console deleted an event that had not ended. An event that is already closed
+  on first sight, and an instantaneous one such as `lightMotion`, arrives as
+  `STARTED` immediately followed by `ENDED`.
+- The library also sends `ENDED` itself: for an event still open after 30
+  minutes (checked every 15 minutes), and for detections when the events WebSocket reconnects (see
+  below).
+- `event.metadata` holds the typed event metadata. `event.raw` is the cached
+  `PublicEvent` for fields `ProtectEvent` does not surface. It is the live
+  object, updated in place, not a snapshot, so `UPDATED` carries no diff.
+  License plate text and face names are not in the public API.
+- `protect.active_events(device_id=...)` returns the running events from the
+  cache, for example to restore binary sensors after a reload. It works without
+  a subscription once `update_public()` has run.
+- Identities (`public_bootstrap.ulp_users`) and `event.device_mac` come from
+  the cache. A newly enrolled user resolves to
+  `UnknownIdentity(reason="ulp_user_not_cached")` and a new device has
+  `device_mac` `None` until the next `update_public()`, reconnect or
+  [periodic refresh](#periodic-refresh-of-these-stores).
+- Callbacks are plain functions called on the event loop. They must not block
+  and must not be `async def`. An exception in a callback is logged and
+  swallowed, and the other subscribers still run.
+
+### Subscribing to device state
+
+`subscribe_devices` delivers a typed `ProtectDeviceChange` for each `ADDED`,
+`UPDATED` or `REMOVED` device over the Public Integration API. It needs a prior
+`update_public()` and raises `RuntimeError` otherwise.
+`subscribe_devices_and_prime()` does both in one call and replays updates that
+arrive while priming, so none are missed.
+
+```python
+import logging
+
+from uiprotect import DeviceChange, ProtectDeviceChange
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def on_device(change: ProtectDeviceChange) -> None:
+    if change.change is DeviceChange.UPDATED and "state" in change.changed_fields:
+        _LOGGER.info("%s changed state", change.device_id)
+
+
+unsubscribe = await protect.subscribe_devices_and_prime(on_device)
+```
+
+- `change.model` is the merged `Public*` model, `None` for `REMOVED`.
+- `change.changed_fields` is set only for `UPDATED`. It holds the snake_case
+  names of the fields in the update, not their old and new values.
+- Bulk WebSocket frames are split into one change per device.
+- Connection changes arrive as `UPDATED` with `state` in `changed_fields`.
+- Detection events come from `subscribe_events`. A camera's derived
+  `is_*_currently_detected` flags still arrive here as `UPDATED` when they
+  flip.
+- `change.device_mac` is `None` for a device that is not in the cache yet,
+  until the next `update_public()` or reconnect.
+- Callbacks follow the same rules as for events.
 
 ### Detecting a revoked API key
 
