@@ -7,7 +7,8 @@ spec, absent in CI) to one check function and pins its ``(errors, warnings)``.
 
 from __future__ import annotations
 
-from typing import Any
+import enum
+from typing import Any, Literal
 
 import orjson
 import pytest
@@ -17,13 +18,18 @@ from validate_spec import (
     _ENUM_COVERAGE_WAIVERS,
     _EXAMPLE_CALLS,
     _MODELLED_AS_SUBSET,
+    _VALUE_RANGE_KEYWORDS,
+    _example_kwargs,
+    _example_value,
     _inbound_enum_ids,
     _iter_spec_consts,
     _iter_spec_enums,
     _leaf_model,
     _library_enums_by_name,
     _normalize_path,
+    _prepare_spec,
     _public_api_coroutines,
+    _recorded_calls,
     _resolve_const,
     _resolve_object_props,
     _spec_field_name,
@@ -34,6 +40,7 @@ from validate_spec import (
     check_enums,
     check_event_types,
     check_model_fields,
+    check_request_bodies,
     covered_endpoints,
     format_summary,
     main,
@@ -43,7 +50,15 @@ from validate_spec import (
 from uiprotect._public_api import registry
 from uiprotect.api import ProtectApiClient
 from uiprotect.data import PUBLIC_EVENT_TYPES, PublicChime
-from uiprotect.data.public_devices import PublicRingSettings
+from uiprotect.data.public_devices import PublicArmScheduleDict, PublicRingSettings
+from uiprotect.data.types import DoorbellMessageType, PublicHdrMode
+
+
+@pytest.fixture(autouse=True)
+def _clear_recorded_calls() -> Any:
+    _recorded_calls.cache_clear()
+    yield
+    _recorded_calls.cache_clear()
 
 
 def _model_props(cls: Any, name: str) -> dict[str, dict[str, Any]]:
@@ -779,12 +794,19 @@ def test_every_check_is_wired_into_run_checks() -> None:
         check_enums,
         check_enum_coverage,
         check_event_types,
+        check_request_bodies,
     }
     assert set(_CHECKS) == wired
     assert len(_CHECKS) == len(wired)
 
 
-def test_run_checks_aggregates() -> None:
+def _no_bodies(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stub out recorded bodies, which a partial spec does not declare."""
+    monkeypatch.setattr(validate_spec, "_recorded_calls", lambda: (frozenset(), {}, []))
+
+
+def test_run_checks_aggregates(monkeypatch: pytest.MonkeyPatch) -> None:
+    _no_bodies(monkeypatch)
     spec = {
         "paths": {"/v1/teleporter": {"post": {}}},
         "components": {"schemas": _chime_spec()["components"]["schemas"]},
@@ -879,6 +901,7 @@ def test_main_missing_spec(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> No
 def test_main_green_spec(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Any, capsys: Any
 ) -> None:
+    _no_bodies(monkeypatch)
     spec = _chime_spec()
     spec["info"] = {"version": "7.1.77"}
     spec_file = tmp_path / "spec.json"
@@ -911,3 +934,613 @@ def test_main_reports_completeness_gap(
     monkeypatch.setattr(validate_spec, "SPEC_PATH", spec_file)
     assert main() == 1
     assert "update_camera_public" in capsys.readouterr().out
+
+
+_THING_PATH = "/v1/things/{id}"
+_THING_ENDPOINT = ("PATCH", "/v1/things/{}")
+
+
+def _body_spec(
+    schema: dict[str, Any],
+    schemas: dict[str, Any] | None = None,
+    media: str = "application/json",
+) -> dict[str, Any]:
+    return {
+        "paths": {
+            _THING_PATH: {
+                "parameters": [],
+                "patch": {"requestBody": {"content": {media: {"schema": schema}}}},
+            }
+        },
+        "components": {"schemas": schemas or {}},
+    }
+
+
+def _check_body(
+    monkeypatch: pytest.MonkeyPatch,
+    spec: dict[str, Any],
+    body: Any = None,
+    waivers: dict[tuple[str, str, str, str], str] | None = None,
+    endpoint: tuple[str, str] = _THING_ENDPOINT,
+) -> tuple[list[str], list[str]]:
+    bodies = {} if body is None else {endpoint: [body]}
+    monkeypatch.setattr(
+        validate_spec, "_recorded_calls", lambda: (frozenset(), bodies, [])
+    )
+    monkeypatch.setattr(validate_spec, "_REQUEST_BODY_WAIVERS", waivers or {})
+    return check_request_bodies(spec)
+
+
+def _props(**props: Any) -> dict[str, Any]:
+    return {"type": "object", "properties": props}
+
+
+def test_request_body_all_of_hoisted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An ``allOf`` member's properties and ``required`` move into the parent."""
+    schemas = {"thing": {**_props(name={"type": "string"}), "required": ["name"]}}
+    spec = _body_spec(
+        {
+            "allOf": [{"$ref": "#/components/schemas/thing"}],
+            "additionalProperties": False,
+        },
+        schemas,
+    )
+    assert _check_body(monkeypatch, spec, {"name": "x"}) == ([], [])
+    errors, _ = _check_body(monkeypatch, spec, {"name": "x", "bogus": 1})
+    assert errors == [f"`PATCH {_THING_PATH}` body `bogus`: not declared by the spec"]
+    errors, _ = _check_body(monkeypatch, spec, {})
+    assert errors == [
+        f"`PATCH {_THING_PATH}` body `name`: required by the spec but not sent"
+    ]
+
+
+def test_request_body_all_of_keeps_non_object_member(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A scalar ``allOf`` member still types the property."""
+    schemas = {"level": {"type": "integer"}}
+    spec = _body_spec(
+        _props(level={"allOf": [{"$ref": "#/components/schemas/level"}], "minimum": 5}),
+        schemas,
+    )
+    assert _check_body(monkeypatch, spec, {"level": 1}) == ([], [])
+    errors, _ = _check_body(monkeypatch, spec, {"level": "x"})
+    assert errors == [
+        f"`PATCH {_THING_PATH}` body `level`: 'x' is not of type 'integer'"
+    ]
+
+
+_RANGE_CASES = {
+    "pattern": ({"type": "string", "pattern": "^a$"}, "b"),
+    "minLength": ({"type": "string", "minLength": 5}, "b"),
+    "maxLength": ({"type": "string", "maxLength": 1}, "bcd"),
+    "minimum": ({"type": "integer", "minimum": 5}, 1),
+    "maximum": ({"type": "integer", "maximum": 0}, 1),
+    "exclusiveMinimum": ({"type": "integer", "exclusiveMinimum": 1}, 1),
+    "exclusiveMaximum": ({"type": "integer", "exclusiveMaximum": 1}, 1),
+    "multipleOf": ({"type": "integer", "multipleOf": 5}, 1),
+    "minItems": ({"type": "array", "minItems": 2}, [1]),
+    "maxItems": ({"type": "array", "maxItems": 0}, [1]),
+}
+
+
+def test_range_cases_cover_every_value_range_keyword() -> None:
+    assert set(_RANGE_CASES) == _VALUE_RANGE_KEYWORDS
+
+
+@pytest.mark.parametrize("keyword", sorted(_RANGE_CASES))
+def test_request_body_value_constraint_dropped(
+    monkeypatch: pytest.MonkeyPatch, keyword: str
+) -> None:
+    schema, value = _RANGE_CASES[keyword]
+    spec = _body_spec(_props(field=schema))
+    assert _check_body(monkeypatch, spec, {"field": value}) == ([], [])
+
+
+def test_request_body_numeric_const_becomes_number(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A dropped numeric ``const`` still requires a number."""
+    spec = _body_spec(_props(delay={"anyOf": [{"const": 5}, {"const": 10}]}))
+    assert _check_body(monkeypatch, spec, {"delay": 1}) == ([], [])
+    for bad in ("x", None):
+        errors, _ = _check_body(monkeypatch, spec, {"delay": bad})
+        assert len(errors) == 1
+        assert errors[0].startswith(f"`PATCH {_THING_PATH}` body `delay`: ")
+
+
+@pytest.mark.parametrize(("const", "bad"), [(True, False), ("ON", "OFF")])
+def test_request_body_non_numeric_const_kept(
+    monkeypatch: pytest.MonkeyPatch, const: Any, bad: Any
+) -> None:
+    spec = _body_spec(_props(mode={"const": const}))
+    assert _check_body(monkeypatch, spec, {"mode": const}) == ([], [])
+    errors, _ = _check_body(monkeypatch, spec, {"mode": bad})
+    assert errors == [f"`PATCH {_THING_PATH}` body `mode`: {const!r} was expected"]
+
+
+def test_request_body_all_of_conflicting_property_keeps_both(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A property two members define differently must satisfy both."""
+    schemas = {
+        "a": _props(level={"type": "integer"}),
+        "b": _props(level={"type": "string"}),
+    }
+    for order in (["a", "b"], ["b", "a"]):
+        spec = _body_spec(
+            {"allOf": [{"$ref": f"#/components/schemas/{name}"} for name in order]},
+            schemas,
+        )
+        errors, _ = _check_body(monkeypatch, spec, {"level": 1})
+        assert errors == [
+            f"`PATCH {_THING_PATH}` body `level`: 1 is not of type 'string'"
+        ]
+
+
+def test_request_body_all_of_union_member_stays_open(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An ``allOf`` with nothing to hoist drops the wrapper's closure."""
+    schemas = {
+        "mode": {"oneOf": [_props(type={"const": "A"}), _props(type={"const": "B"})]}
+    }
+    spec = _body_spec(
+        _props(
+            settings={
+                "allOf": [{"$ref": "#/components/schemas/mode"}],
+                "additionalProperties": False,
+            }
+        ),
+        schemas,
+    )
+    assert _check_body(monkeypatch, spec, {"settings": {"type": "A"}}) == ([], [])
+
+
+@pytest.mark.parametrize("union", ["oneOf", "anyOf"])
+def test_request_body_union_parent_with_properties_stays_open(
+    monkeypatch: pytest.MonkeyPatch, union: str
+) -> None:
+    """Variants of a union parent also accept the parent's properties."""
+    variant = _props(text={"type": "string"})
+    schema = {**_props(type={"type": "string"}), union: [variant]}
+    spec = _body_spec(schema)
+    assert _check_body(monkeypatch, spec, {"type": "A", "text": "x"}) == ([], [])
+    errors, _ = _check_body(monkeypatch, spec, {"type": "A", "bogus": 1})
+    assert len(errors) == 1
+    assert errors[0].startswith(f"`PATCH {_THING_PATH}` body `<body>`: ")
+
+
+def test_request_body_all_of_object_properties_merged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An object property two members define differently merges into one."""
+    schemas = {
+        "a": _props(x=_props(p={"type": "string"})),
+        "b": _props(x={**_props(q={"type": "string"}), "required": ["q"]}),
+    }
+    spec = _body_spec(
+        {"allOf": [{"$ref": f"#/components/schemas/{name}"} for name in ("a", "b")]},
+        schemas,
+    )
+    assert _check_body(monkeypatch, spec, {"x": {"p": "1", "q": "2"}}) == ([], [])
+    errors, _ = _check_body(monkeypatch, spec, {"x": {"p": "1", "r": "2"}})
+    assert errors == [
+        f"`PATCH {_THING_PATH}` body `x.q`: required by the spec but not sent",
+        f"`PATCH {_THING_PATH}` body `x.r`: not declared by the spec",
+    ]
+
+
+def test_request_body_all_of_annotation_only_difference_not_wrapped() -> None:
+    schemas = {
+        "a": _props(level={"type": "integer", "description": "a"}),
+        "b": _props(level={"type": "integer", "title": "b", "examples": [1]}),
+    }
+    spec = _body_spec(
+        {"allOf": [{"$ref": f"#/components/schemas/{name}"} for name in ("a", "b")]},
+        schemas,
+    )
+    schema = _prepare_spec(spec)["paths"][_THING_PATH]["patch"]["requestBody"]
+    level = schema["content"]["application/json"]["schema"]["properties"]["level"]
+    assert level == {"type": "integer", "description": "a"}
+
+
+def test_request_body_undeclared_nested_key_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An object schema without ``additionalProperties`` is closed."""
+    spec = _body_spec(_props(led=_props(isEnabled={"type": "boolean"})))
+    errors, _ = _check_body(monkeypatch, spec, {"led": {"isEnabled": True, "x": 1}})
+    assert errors == [f"`PATCH {_THING_PATH}` body `led.x`: not declared by the spec"]
+
+
+def test_request_body_free_form_object_stays_open(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spec = _body_spec(_props(meta={"type": "object"}))
+    assert _check_body(monkeypatch, spec, {"meta": {"any": 1}}) == ([], [])
+
+
+def test_request_body_wrong_type_and_null_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spec = _body_spec(_props(on={"type": "boolean"}, level={"type": "number"}))
+    errors, _ = _check_body(monkeypatch, spec, {"on": "yes", "level": None})
+    assert errors == [
+        f"`PATCH {_THING_PATH}` body `level`: None is not of type 'number'",
+        f"`PATCH {_THING_PATH}` body `on`: 'yes' is not of type 'boolean'",
+    ]
+
+
+def test_request_body_enum_mismatch_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = _body_spec(_props(mode={"type": "string", "enum": ["auto", "on"]}))
+    assert _check_body(monkeypatch, spec, {"mode": "on"}) == ([], [])
+    errors, _ = _check_body(monkeypatch, spec, {"mode": "weird"})
+    assert errors == [
+        f"`PATCH {_THING_PATH}` body `mode`: 'weird' is not one of ['auto', 'on']"
+    ]
+
+
+def test_request_body_one_of_names_discriminated_variant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A ``oneOf`` failure explains the variant whose discriminator matches."""
+    preset = _props(type={"const": "PRESET"})
+    custom = _props(type={"const": "CUSTOM"}, text={"type": "string"})
+    spec = _body_spec({"type": "object", "oneOf": [preset, custom]})
+    errors, _ = _check_body(monkeypatch, spec, {"type": "CUSTOM", "text": 5})
+    assert len(errors) == 1
+    assert errors[0].endswith("(5 is not of type 'string')")
+
+
+def test_request_body_one_of(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A ``oneOf`` body matches exactly one closed variant or errors at the root."""
+    preset = _props(type={"const": "PRESET"})
+    custom = _props(type={"const": "CUSTOM"}, text={"type": "string"})
+    spec = _body_spec({"type": "object", "oneOf": [preset, custom]})
+    assert _check_body(monkeypatch, spec, {"type": "CUSTOM", "text": "x"}) == ([], [])
+    errors, _ = _check_body(monkeypatch, spec, {"type": "PRESET", "text": "x"})
+    assert len(errors) == 1
+    assert errors[0].startswith(f"`PATCH {_THING_PATH}` body `<body>`: ")
+    assert "is not valid under any of the given schemas (" in errors[0]
+
+
+def test_request_body_array_item_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Array indices collapse to ``[]`` in errors and unsent-field warnings."""
+    slot = _props(mode={"enum": ["motion"]}, extra={"type": "string"})
+    spec = _body_spec(_props(slots={"type": "array", "items": slot}))
+    errors, warnings = _check_body(monkeypatch, spec, {"slots": [{"mode": "time"}]})
+    assert errors == [
+        f"`PATCH {_THING_PATH}` body `slots[].mode`: 'time' is not one of ['motion']"
+    ]
+    assert warnings == [
+        f"`PATCH {_THING_PATH}`: spec body field `slots[].extra` is never sent"
+    ]
+
+
+def test_request_body_read_only_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``readOnly`` properties leave the body and ``required``."""
+    schemas = {"thingId": {"type": "string", "readOnly": True}}
+    schema = _props(
+        id={"$ref": "#/components/schemas/thingId"},
+        ref={"allOf": [{"$ref": "#/components/schemas/thingId"}]},
+        key={"type": "string", "readOnly": True},
+        name={"type": "string"},
+    )
+    schema["required"] = ["id", "ref", "key", "name"]
+    spec = _body_spec(schema, schemas)
+    assert _check_body(monkeypatch, spec, {"name": "x"}) == ([], [])
+    errors, _ = _check_body(monkeypatch, spec, {"name": "x", "id": "y", "ref": "z"})
+    assert errors == [
+        f"`PATCH {_THING_PATH}` body `id`: not declared by the spec",
+        f"`PATCH {_THING_PATH}` body `ref`: not declared by the spec",
+    ]
+
+
+def test_request_body_all_read_only_object_stays_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spec = _body_spec(_props(id={"type": "string", "readOnly": True}))
+    errors, _ = _check_body(monkeypatch, spec, {"id": "y"})
+    assert errors == [f"`PATCH {_THING_PATH}` body `id`: not declared by the spec"]
+
+
+def test_request_body_waived_required_field(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A waived finding is neither an error nor an unsent-field warning."""
+    schema = _props(id={"type": "string"}, name={"type": "string"})
+    schema["required"] = ["id", "name"]
+    spec = _body_spec(schema)
+    assert _check_body(monkeypatch, spec, {"name": "x"}) == (
+        [f"`PATCH {_THING_PATH}` body `id`: required by the spec but not sent"],
+        [],
+    )
+    waivers = {("PATCH", _THING_PATH, "id", "required"): "read schema reused"}
+    assert _check_body(monkeypatch, spec, {"name": "x"}, waivers) == ([], [])
+
+
+def test_request_body_waiver_scoped_to_field(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    schema = _props(id={"type": "string"}, name={"type": "string"})
+    schema["required"] = ["id", "name"]
+    spec = _body_spec(schema)
+    waivers = {("PATCH", _THING_PATH, "id", "required"): "read schema reused"}
+    errors, _ = _check_body(monkeypatch, spec, {}, waivers)
+    assert errors == [
+        f"`PATCH {_THING_PATH}` body `name`: required by the spec but not sent"
+    ]
+
+
+def test_request_body_waiver_scoped_to_keyword(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A ``required`` waiver does not hide a type error on the same field."""
+    spec = _body_spec(_props(id={"type": "string"}))
+    waivers = {("PATCH", _THING_PATH, "id", "required"): "read schema reused"}
+    errors, _ = _check_body(monkeypatch, spec, {"id": 5}, waivers)
+    assert errors == [f"`PATCH {_THING_PATH}` body `id`: 5 is not of type 'string'"]
+
+
+def test_request_body_stale_waiver_warns(monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = _body_spec(_props(name={"type": "string"}))
+    waivers = {("PATCH", _THING_PATH, "name", "required"): "no longer needed"}
+    errors, warnings = _check_body(monkeypatch, spec, {"name": "x"}, waivers)
+    assert errors == []
+    assert warnings == [
+        (
+            f"request-body waiver `PATCH {_THING_PATH}` `name` (required) no "
+            "longer triggers (remove it from `_REQUEST_BODY_WAIVERS`)"
+        )
+    ]
+
+
+def test_request_body_stale_kwarg_override_warns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        validate_spec,
+        "_EXAMPLE_KWARG_OVERRIDES",
+        {"update_chime_public": {"bogus": 1}, "no_such_method": {"x": 1}},
+    )
+    spec = _body_spec(_props(name={"type": "string"}))
+    _, warnings = _check_body(monkeypatch, spec, {"name": "x"})
+    assert warnings == [
+        f"example kwarg override `{override}` matches no example parameter "
+        "(remove it from `_EXAMPLE_KWARG_OVERRIDES`)"
+        for override in ("no_such_method(x)", "update_chime_public(bogus)")
+    ]
+
+
+def test_request_body_unsent_field_warns(monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = _body_spec(
+        _props(name={"type": "string"}, led=_props(on={"type": "boolean"}))
+    )
+    errors, warnings = _check_body(monkeypatch, spec, {"led": {}})
+    assert errors == []
+    assert warnings == [
+        f"`PATCH {_THING_PATH}`: spec body field `led.on` is never sent",
+        f"`PATCH {_THING_PATH}`: spec body field `name` is never sent",
+    ]
+
+
+def test_request_body_non_json_media_type_skipped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spec = _body_spec(
+        {"type": "string", "format": "binary"}, media="multipart/form-data"
+    )
+    assert _check_body(monkeypatch, spec) == ([], [])
+
+
+def test_request_body_never_sent_warns(monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = _body_spec(_props(name={"type": "string"}))
+    assert _check_body(monkeypatch, spec) == (
+        [],
+        [f"`PATCH {_THING_PATH}`: client never sends a JSON body"],
+    )
+
+
+def test_request_body_undeclared_body_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = {"paths": {_THING_PATH: {"patch": {}}}, "components": {"schemas": {}}}
+    errors, _ = _check_body(monkeypatch, spec, {"name": "x"})
+    assert errors == [f"`PATCH {_THING_PATH}`: client sends a body the spec omits"]
+
+
+def test_request_body_to_undeclared_path_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spec = _body_spec(_props(name={"type": "string"}))
+    errors, _ = _check_body(
+        monkeypatch, spec, {"name": "x"}, endpoint=("POST", "/v1/other")
+    )
+    assert errors == [
+        "`POST /v1/other`: client sends a body to an endpoint the spec omits"
+    ]
+
+
+def test_request_body_unsent_across_bodies(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A field is unsent only when no recorded body carries it."""
+    spec = _body_spec(_props(a={"type": "string"}, b={"type": "string"}))
+    bodies = {_THING_ENDPOINT: [{"a": "x"}, {"b": "x"}]}
+    monkeypatch.setattr(
+        validate_spec, "_recorded_calls", lambda: (frozenset(), bodies, [])
+    )
+    monkeypatch.setattr(validate_spec, "_REQUEST_BODY_WAIVERS", {})
+    assert check_request_bodies(spec) == ([], [])
+
+
+def test_request_body_serialized_before_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A tuple goes over the wire as a JSON array."""
+    spec = _body_spec(_props(ids={"type": "array", "items": {"type": "string"}}))
+    assert _check_body(monkeypatch, spec, {"ids": ("a",)}) == ([], [])
+
+
+def test_prepare_spec_dangling_ref_raises() -> None:
+    spec = {"components": {"schemas": {"a": {"allOf": [{"$ref": "#/c/missing"}]}}}}
+    with pytest.raises(ValueError, match="dangling"):
+        _prepare_spec(spec)
+
+
+def test_request_body_dangling_ref_is_an_error_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spec = _body_spec(_props(name={"type": "string"}))
+    spec["components"]["schemas"]["a"] = {"allOf": [{"$ref": "#/c/missing"}]}
+    assert _check_body(monkeypatch, spec, {"name": "x"}) == (
+        [
+            (
+                "cannot prepare the spec for request-body validation: dangling $ref "
+                "to component schema 'missing'"
+            )
+        ],
+        [],
+    )
+
+
+def test_prepare_spec_self_reference_terminates() -> None:
+    spec = {"components": {"schemas": {"loop": {"allOf": [{"$ref": "#/c/loop"}]}}}}
+    prepared = _prepare_spec(spec)
+    assert prepared["components"]["schemas"]["loop"] == {
+        "allOf": [{"$ref": "#/c/loop"}]
+    }
+
+
+def test_prepare_spec_mutually_recursive_merge_terminates() -> None:
+    schemas = {
+        "a": _props(x={"$ref": "#/components/schemas/a"}, p={"type": "string"}),
+        "b": _props(x={"$ref": "#/components/schemas/b"}, q={"type": "string"}),
+    }
+    spec = _body_spec(
+        {"allOf": [{"$ref": f"#/components/schemas/{name}"} for name in ("a", "b")]},
+        schemas,
+    )
+    schema = _prepare_spec(spec)["paths"][_THING_PATH]["patch"]["requestBody"]
+    x = schema["content"]["application/json"]["schema"]["properties"]["x"]
+    assert x["properties"]["x"] == {
+        "allOf": [
+            {"$ref": "#/components/schemas/a"},
+            {"$ref": "#/components/schemas/b"},
+        ]
+    }
+
+
+class _WithUnknown(enum.Enum):
+    UNKNOWN = "unknown"
+    FIRST = "first"
+
+
+@pytest.mark.parametrize(
+    ("annotation", "expected"),
+    [
+        (bool, True),
+        (int, 1),
+        (float, 1.5),
+        (str, validate_spec._S),
+        (_WithUnknown, _WithUnknown.FIRST),
+        (Literal["on", "off"], "on"),
+        (Literal["on"] | None, "on"),
+        (list[int], [1]),
+        (str | PublicHdrMode | None, PublicHdrMode.AUTO),
+        (str | None, validate_spec._S),
+        (PublicArmScheduleDict, {"start": validate_spec._S, "end": validate_spec._S}),
+    ],
+)
+def test_example_value(annotation: Any, expected: Any) -> None:
+    assert _example_value(annotation) == expected
+
+
+def test_example_value_model_sets_every_field() -> None:
+    value = _example_value(PublicRingSettings)
+    assert isinstance(value, PublicRingSettings)
+    assert all(getattr(value, name) is not None for name in type(value).model_fields)
+
+
+def test_example_value_unsupported_raises() -> None:
+    with pytest.raises(TypeError, match="no example value"):
+        _example_value(dict[str, int])
+
+
+def test_example_kwargs_names_unsupported_parameter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def method(self: Any, extra: dict[str, Any] | None = None) -> None: ...
+
+    monkeypatch.setattr(ProtectApiClient, "my_method", method, raising=False)
+    with pytest.raises(TypeError, match=r"^my_method\(extra\): no example value"):
+        _example_kwargs("my_method", 0)
+
+
+def test_example_kwargs_skips_placeholders(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def method(self: Any, slot: Any, on: bool) -> None: ...
+
+    monkeypatch.setattr(ProtectApiClient, "my_method", method, raising=False)
+    assert _example_kwargs("my_method", 0, ["slot"]) == {
+        "slot": validate_spec._S,
+        "on": True,
+    }
+
+
+def test_unbuildable_example_call_is_an_error_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def method(self: Any, extra: dict[str, Any]) -> None: ...
+
+    monkeypatch.setattr(ProtectApiClient, "my_method", method, raising=False)
+    monkeypatch.setattr(validate_spec, "_EXAMPLE_CALLS", {"my_method": ()})
+    monkeypatch.setattr(validate_spec, "_REQUEST_BODY_WAIVERS", {})
+    errors, _ = check_request_bodies({"paths": {}, "components": {"schemas": {}}})
+    assert [e for e in errors if e.startswith("cannot build")] == [
+        (
+            "cannot build example call: my_method(extra): no example value for "
+            "annotation dict[str, typing.Any]"
+        )
+    ]
+
+
+def test_raising_example_call_is_an_error_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def method(self: Any) -> None:
+        raise ValueError("rejected")
+
+    monkeypatch.setattr(ProtectApiClient, "my_method", method, raising=False)
+    monkeypatch.setattr(
+        validate_spec,
+        "_EXAMPLE_CALLS",
+        {"my_method": (), "get_bridge_public": (validate_spec._S,)},
+    )
+    monkeypatch.setattr(validate_spec, "_REQUEST_BODY_WAIVERS", {})
+    errors, _ = check_request_bodies({"paths": {}, "components": {"schemas": {}}})
+    assert [e for e in errors if e.startswith("example call")] == [
+        "example call my_method raised ValueError: rejected"
+    ]
+    assert ("GET", "/v1/bridges/{}") in covered_endpoints()
+
+
+def test_recorded_paths_use_sentinel_for_decorated_placeholders() -> None:
+    recorded, _bodies, _errors = _recorded_calls()
+    assert ("POST", "/v1/cameras/{}/ptz/goto/{}") in recorded
+
+
+def test_recorded_bodies_include_defaults_only_model() -> None:
+    """A model-typed parameter is also sent with every optional field unset."""
+    _recorded, bodies, _errors = _recorded_calls()
+    lights = bodies[("PATCH", "/v1/lights/{}")]
+    assert {"isIndicatorEnabled": False} in [b["lightDeviceSettings"] for b in lights]
+    assert {} in [b["lightModeSettings"] for b in lights]
+
+
+def test_recorded_bodies_cover_hand_written_and_decorated() -> None:
+    """Bodies are captured from hand-written calls and decorated endpoints alike."""
+    _recorded, bodies, errors = _recorded_calls()
+    assert errors == []
+    chimes = bodies[("PATCH", "/v1/chimes/{}")]
+    assert {"name", "cameraIds", "ringSettings"} in [set(b) for b in chimes]
+    liveviews = bodies[("PATCH", "/v1/liveviews/{}")]
+    assert {"name", "isGlobal", "layout", "slots"} in [set(b) for b in liveviews]
+    cameras = bodies[("PATCH", "/v1/cameras/{}")]
+    assert DoorbellMessageType.CUSTOM_MESSAGE in [
+        b["lcdMessage"]["type"] for b in cameras if "lcdMessage" in b
+    ]

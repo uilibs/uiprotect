@@ -369,8 +369,24 @@ and an unmodelled public event type is dropped on parse. `oneOf`/`allOf` nodes
 resolve to the _union_ of their object variants (a property the variants disagree
 on becomes a nested union, so per-event `metadata` blocks merge too), which is
 what lets the single all-optional `PublicEvent` model be field-checked against
-the 38-variant `event` union. Spec `required` vs. model `optional` is not checked — the library models every public-API field optional by design, so it
-would be guaranteed noise. It exits non-zero on any error and prints a markdown
+the 38-variant `event` union. `check_request_bodies` validates every JSON
+body the client sends on PATCH/POST against the spec's `requestBody` with a
+Draft 2020-12 `jsonschema` validator, after preprocessing the spec once:
+`allOf` object members are hoisted into their parent, value-range keywords and
+numeric `const` choices are dropped, `readOnly` properties leave the body, and
+object schemas that declare properties are closed, except union parents, which
+stay open while their closed variants accept the parent's properties. Bodies
+come from the same request spy: every parameter gets a type-correct value from
+`_example_value`, except path placeholders (a sentinel) and
+`_EXAMPLE_KWARG_OVERRIDES`, plus a second call per model parameter whose model
+has no required fields, left at its defaults. Errors are validator errors, a
+body sent to an operation or path the spec omits, a dangling `$ref`, and an
+unbuildable example call; warnings are a spec field or JSON body the client
+never sends, a stale waiver, and a stale override. Findings can be waived in
+`_REQUEST_BODY_WAIVERS`, keyed by `(VERB, path, field, validator keyword)`.
+For response models, spec
+`required` vs. model `optional` is not checked — the library models every
+public-API field optional by design, so it would be guaranteed noise. It exits non-zero on any error and prints a markdown
 summary. Reproduce locally with:
 
 ```bash
@@ -392,7 +408,8 @@ marker is current or a drift issue is already open. Endpoint coverage is **deriv
 maintained**: the declarative `@public_*` decorator registry
 (`uiprotect._public_api.registry`) covers every uniform endpoint, and the
 hand-written exception methods are covered by one recorded example call each
-(`_EXAMPLE_CALLS` — a request spy captures `(verb, path)` then short-circuits).
+(`_EXAMPLE_CALLS` — a request spy captures `(verb, path)` and the JSON body,
+then short-circuits).
 `check_completeness` asserts every public-API coroutine is accounted for, so a
 new method that nobody wired up fails the suite instead of silently leaving its
 endpoint uncovered.
