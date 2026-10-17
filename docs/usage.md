@@ -47,11 +47,10 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-!!! warning "About Ubiquiti SSO accounts"
+!!! warning "About UI Account logins"
 
-    Ubiquiti SSO (cloud) accounts are not supported. Use a local-access user.
-    Driving the cloud owner account over the public Internet is a security
-    risk and there is no MFA support.
+    UI Account (cloud) logins and MFA are not supported. Use a local-access
+    user, not the owner account.
 
 ## Subscribing to events
 
@@ -91,8 +90,11 @@ async def main() -> None:
 
     try:
         await protect.update_public()
-        protect.subscribe_events(on_event)
-        await asyncio.sleep(60)
+        unsubscribe = protect.subscribe_events(on_event)
+        try:
+            await asyncio.sleep(60)
+        finally:
+            unsubscribe()  # also stops the event TTL sweep task
     finally:
         await protect.async_disconnect_ws()
         await protect.close_session()
@@ -117,7 +119,7 @@ Notes on the typed event stream:
   `STARTED` immediately followed by `ENDED`.
 - The library also sends `ENDED` itself: for an event still open after 30
   minutes (checked every 15 minutes), for any event open longer than an hour
-  when a WebSocket reconnects, and for every detection when the events
+  when the events or devices WebSocket reconnects, and for every detection when the events
   WebSocket reconnects (see below).
 - `event.metadata` holds the typed event metadata. `event.raw` is the cached
   `PublicEvent` for fields `ProtectEvent` does not surface. Both are live
@@ -227,8 +229,8 @@ case) closes it. On events-WS reconnect the client therefore **force-ends
 active detection events regardless of age** (a still-active detection
 re-asserts on its next frame) and flushes other channels past the 1 h
 staleness window. Both the typed `subscribe_events` stream (an `ENDED` change)
-and `subscribe_devices` (a camera update) see the drop immediately, and the derived camera flags read correct on
-the next synchronous access.
+and `subscribe_devices` (a camera update) see the drop immediately, and the
+derived camera flags read correct on the next synchronous access.
 
 A device added to (or removed from) the console while the devices WebSocket is
 down produces no wire frame either. Every successful `update_public()` — the
@@ -499,9 +501,9 @@ from the second to the first:
   versions, and uiprotect uses it only where the public API has no
   equivalent.
 
-Prefer the public API for new code. Reach for the private API only for
-capabilities the public API does not yet expose; treat that as a temporary
-escape hatch rather than the default path.
+Prefer the public API for new code. Use the private API only for capabilities
+the public API does not offer, and expect it to change between Protect
+releases.
 
 ## Device convenience setters (public API)
 

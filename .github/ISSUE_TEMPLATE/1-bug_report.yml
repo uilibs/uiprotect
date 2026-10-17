@@ -36,7 +36,8 @@ body:
   - type: input
     id: protect-version
     attributes:
-      label: UniFi Protect version and device model
+      label: UniFi Protect version and affected device model
+      description: Leave out the model if no device is involved.
       placeholder: "Example: Protect 7.3.70, G6 Pro Entry"
     validations:
       required: true
@@ -44,7 +45,7 @@ body:
     id: version
     attributes:
       label: uiprotect version
-      description: Run `pip show uiprotect`. In Home Assistant diagnostics it is under `integration_manifest` > `requirements`.
+      description: Run `pip show uiprotect`. In Home Assistant, download the diagnostics (Settings > Devices & services > UniFi Protect > ⋮ > Download diagnostics) and look under `integration_manifest` > `requirements`.
       placeholder: Version
     validations:
       required: true
@@ -53,7 +54,7 @@ body:
     attributes:
       label: Platform
       description: Platform where the bug was found.
-      placeholder: "Example: Windows 11 / macOS 12.0.1 / Ubuntu 20.04"
+      placeholder: "Example: Home Assistant OS 16.2 / Ubuntu 24.04"
     validations:
       required: true
   - type: checkboxes

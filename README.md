@@ -55,7 +55,7 @@ The [Public Integration API documentation](https://developer.ui.com/protect/) li
 
 A field is not enough when only some models have the feature: there also has to be a feature flag (under `featureFlags` in the output) or another field that tells which devices support it. Otherwise Home Assistant would offer controls that do nothing on the other models.
 
-To see what your console returns, query it with curl and an [API key](#api-key). `HOST` is the IP address or hostname of your console. The command saves the answer to `cameras.json`.
+To see what your console returns, query it with curl and an [API key](#api-key). Replace `HOST` with the IP address or hostname of your console and `API_KEY` with your key. The command saves the answer to `cameras.json` in the current folder.
 
 Linux and macOS:
 
@@ -69,9 +69,9 @@ Windows:
 curl.exe -k -H "X-API-KEY: API_KEY" -o cameras.json https://HOST/proxy/protect/integration/v1/cameras
 ```
 
-For other devices, replace `cameras` at the end of the URL with another endpoint from the documentation, such as `lights`, `sensors` or `cameras/CAMERA_ID` for a single camera. Doorbells are cameras. `-k` skips certificate verification. It is needed while the console uses its default self-signed certificate.
+For other devices, replace `cameras` at the end of the URL with another endpoint from the documentation, such as `lights`, `sensors` or `cameras/CAMERA_ID` for a single camera, using its `id` from `cameras.json`. Doorbells are cameras. `-k` skips certificate verification. It is needed while the console uses its default self-signed certificate.
 
-Open the file in a text editor and remove MAC addresses, IP addresses and serial numbers before you post it. Never post the command itself, it contains your API key.
+If the file only contains an error, check the key and `HOST`. Otherwise open it in a text editor and remove MAC addresses, IP addresses and serial numbers before you post it. Never post the command itself, it contains your API key.
 
 Home Assistant diagnostics are no substitute. Their `public_bootstrap` section only contains fields uiprotect already reads, so a field the library does not know yet is missing there. The `bootstrap` section is the private API.
 
@@ -166,7 +166,7 @@ uiprotect cameras list-ids
 
 In Windows PowerShell, set the variables with `$env:UFP_API_KEY = "YOUR_API_KEY"` and so on.
 
-With only an API key, the CLI runs in public-only mode, and commands without a public equivalent, such as `uiprotect nvr`, stop with an error. With a local user set as well, the CLI logs in and the device commands also read the private API:
+With only an API key, the CLI runs in public-only mode, and commands without a public equivalent, such as `uiprotect nvr`, stop with an error. With a local user set as well, the CLI logs in and the device commands read the private API instead:
 
 ```bash
 export UFP_USERNAME=YOUR_USERNAME
