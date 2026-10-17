@@ -359,6 +359,37 @@ An explicit architectural goal is to keep the library shaped so the [Home Assist
 Please **open an issue and agree on the approach before implementing** anything — it
 avoids wasted effort on changes that don't fit the project's direction.
 
+<a id="check-the-public-api"></a>
+
+### Check the public API first
+
+The [Public Integration API documentation](https://developer.ui.com/protect/) lists
+every device field and control the library can support. If a field or control is
+not there, uiprotect cannot add it.
+
+To see what your own console returns, look at the public API, not the private
+bootstrap:
+
+- **Home Assistant diagnostics**: look under `public_bootstrap` (present when an API
+  key is configured). The `bootstrap` section is the private API and contains fields
+  the public API does not have.
+- **curl** with an API key works with any endpoint from the documentation above,
+  prefixed with `https://HOST/proxy/protect/integration`, for example the list of
+  all cameras (`/v1/cameras`). `-k` skips the check of the console's self-signed
+  certificate.
+
+  Linux and macOS:
+
+  ```bash
+  curl -k -H "X-API-KEY: API_KEY" https://HOST/proxy/protect/integration/v1/cameras
+  ```
+
+  Windows:
+
+  ```powershell
+  curl.exe -k -H "X-API-KEY: API_KEY" https://HOST/proxy/protect/integration/v1/cameras
+  ```
+
 <a id="no-new-private-api-features"></a>
 
 > [!IMPORTANT]
