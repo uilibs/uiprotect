@@ -13,8 +13,10 @@ commands support JSON output so it works great with `jq` for complex scripting.
 Following traditional [twelve factor app design](https://12factor.net/), the preferred way to provided authentication
 credentials to provided environment variables, but CLI args are also supported.
 
-!!! warning "About Ubiquiti SSO accounts"
-Ubiquiti SSO accounts are not supported and actively discouraged from being used. There is no option to use MFA. You are expected to use local access user. `uiprotect` is not designed to allow you to use your owner account to access the your console or to be used over the public Internet as both pose a security risk.
+!!! warning "About UI Account logins"
+
+    UI Account (cloud) logins and MFA are not supported. Use a local-access
+    user, not the owner account.
 
 ### Environment Variables
 
@@ -128,7 +130,7 @@ UniFi Protect CLI
 
 For any subcommand you can use `uiprotect COMMAND --help`
 
-Commands are split between the reverse-engineered **private** API
+Commands are split between the undocumented **private** API
 (username/password auth) and Ubiquiti's documented **Public Integration API**
 (API-key auth — see [Public vs. private API](usage.md#public-vs-private-api)).
 The API column marks which is which.
@@ -295,7 +297,7 @@ full flag list.
 
 The following command groups are driven by Ubiquiti's documented
 [Public Integration API](usage.md#public-vs-private-api) and authenticate with
-an API key (set `UFP_API_KEY`, or create one with `uiprotect create-api-key`),
+an API key (set `UFP_API_KEY`, see [API key](index.md#api-key)),
 not username/password. Each exposes `list` and (where applicable) `show`
 subcommands plus group-specific actions; run `uiprotect <group> --help` for the
 full flag list.

@@ -31,13 +31,21 @@ body:
       description:
         If you can, paste what the public API returns for the affected
         device, see [Check the public API first](https://github.com/uilibs/uiprotect#check-the-public-api).
-        Remove MAC addresses, IP addresses and serial numbers first.
+        Remove MAC addresses, IP addresses and serial numbers first, and never include your API key.
       render: json
+  - type: input
+    id: protect-version
+    attributes:
+      label: UniFi Protect version and affected device model
+      description: Leave out the model if no device is involved.
+      placeholder: "Example: Protect 7.3.70, G6 Pro Entry"
+    validations:
+      required: true
   - type: input
     id: version
     attributes:
-      label: Version
-      description: Version of the project.
+      label: uiprotect version
+      description: Run `pip show uiprotect`. In Home Assistant, download the diagnostics (Settings > Devices & services > UniFi Protect > ⋮ > Download diagnostics) and look under `integration_manifest` > `requirements`.
       placeholder: Version
     validations:
       required: true
@@ -46,7 +54,7 @@ body:
     attributes:
       label: Platform
       description: Platform where the bug was found.
-      placeholder: "Example: Windows 11 / macOS 12.0.1 / Ubuntu 20.04"
+      placeholder: "Example: Home Assistant OS 16.2 / Ubuntu 24.04"
     validations:
       required: true
   - type: checkboxes
