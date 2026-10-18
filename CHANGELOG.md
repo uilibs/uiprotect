@@ -1,5 +1,28 @@
 # Changelog
 
+## v23.2.0 (2026-10-18)
+
+### Features
+
+
+- Expose sensor alarm and event types implied by feature flags ([`3b96bc6`](https://github.com/uilibs/uiprotect/commit/3b96bc6aef8d432253c05cfe35b2e01d9bfd1a7c))
+
+
+### Documentation
+
+
+- Restructure the readme around the public api ([`ab8f080`](https://github.com/uilibs/uiprotect/commit/ab8f080261724cfe84074ccf1d19f26653e629a1))
+
+
+- Point issue reporters to the public api documentation ([`5eaeda4`](https://github.com/uilibs/uiprotect/commit/5eaeda46eb4661852f1745939c4a16810fe79fc1))
+
+
+### Testing
+
+
+- Validate request bodies against the spec with json schema ([`8c25332`](https://github.com/uilibs/uiprotect/commit/8c2533259cf725c83d5af120d0701d1c2eac5f50))
+
+
 ## v23.1.3 (2026-10-16)
 
 ### Bug fixes
