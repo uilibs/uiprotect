@@ -1,5 +1,13 @@
 # Changelog
 
+## v23.3.0 (2026-10-18)
+
+### Features
+
+
+- Add publicchime.set_camera_ids ([`7ca6d41`](https://github.com/uilibs/uiprotect/commit/7ca6d41fae4cff283f0a220ef1f87d25f399fb2a))
+
+
 ## v23.2.2 (2026-10-18)
 
 ### Bug fixes
