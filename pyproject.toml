@@ -46,7 +46,7 @@ av = [
     { version = ">=17.0.1", python = "<3.12" },
     { version = ">=19.0.0", python = ">=3.12" },
 ]
-orjson = ">=3.11.9"
+orjson = ">=3.13.0"
 packaging = ">=26.3"
 pillow = { version = ">=12.3.0", optional = true }
 platformdirs = ">=4.12.3"
