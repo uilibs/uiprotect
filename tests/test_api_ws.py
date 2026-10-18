@@ -33,7 +33,7 @@ from uiprotect.data.websocket import (
     WSSubscriptionMessage,
 )
 from uiprotect.exceptions import DataDecodeError
-from uiprotect.utils import print_ws_stat_summary, to_js_time, utc_now
+from uiprotect.utils import normalize_mac, print_ws_stat_summary, to_js_time, utc_now
 from uiprotect.websocket import Websocket, WebsocketState
 
 if TYPE_CHECKING:
@@ -1847,3 +1847,217 @@ async def test_refresh_device_catches_data_decode_error(
 
     # Should not raise — DataDecodeError is caught and logged as warning
     await protect_client.bootstrap.refresh_device(ModelType.SCHEDULE, "some-id")
+
+
+_MODELS_WITHOUT_MAC = pytest.mark.parametrize(
+    ("model_type", "devices_key"),
+    [
+        (ModelType.LIVEVIEW, "liveviews"),
+        (ModelType.USER, "users"),
+        (ModelType.GROUP, "groups"),
+    ],
+)
+
+
+@pytest.mark.asyncio()
+@_MODELS_WITHOUT_MAC
+async def test_ws_remove_model_without_mac(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+    model_type: ModelType,
+    devices_key: str,
+):
+    """Remove frames for bootstrap models without a MAC are emitted."""
+    bootstrap = protect_client_no_debug.bootstrap
+    obj = next(iter(getattr(bootstrap, devices_key).values()))
+    assert not hasattr(obj, "mac")
+    mac_lookup_before = dict(bootstrap.mac_lookup)
+
+    messages = _send_ws_packet(
+        protect_client_no_debug,
+        WSPacket(packet.pack_frames()),
+        "remove",
+        model_type.value,
+        obj.id,
+        {},
+    )
+
+    assert len(messages) == 1
+    assert messages[0].action is WSAction.REMOVE
+    assert messages[0].old_obj is obj
+    assert obj.id not in getattr(bootstrap, devices_key)
+    assert obj.id not in bootstrap.id_lookup
+    assert bootstrap.mac_lookup == mac_lookup_before
+
+
+@pytest.mark.asyncio()
+@_MODELS_WITHOUT_MAC
+async def test_ws_add_model_without_mac(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+    model_type: ModelType,
+    devices_key: str,
+):
+    """Add frames for bootstrap models without a MAC are emitted."""
+    bootstrap = protect_client_no_debug.bootstrap
+    devices = getattr(bootstrap, devices_key)
+    obj = devices.pop(next(iter(devices)))
+    assert not hasattr(obj, "mac")
+    del bootstrap.id_lookup[obj.id]
+    mac_lookup_before = dict(bootstrap.mac_lookup)
+
+    messages = _send_ws_packet(
+        protect_client_no_debug,
+        WSPacket(packet.pack_frames()),
+        "add",
+        model_type.value,
+        obj.id,
+        obj.unifi_dict(),
+    )
+
+    assert len(messages) == 1
+    assert messages[0].action is WSAction.ADD
+    assert messages[0].new_obj is devices[obj.id]
+    assert bootstrap.id_lookup[obj.id].model is model_type
+    assert bootstrap.mac_lookup == mac_lookup_before
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize(
+    ("ignore_unadopted", "is_adopted", "is_adopted_by_other", "stored"),
+    [
+        (True, False, False, False),
+        (True, True, True, False),
+        (True, True, False, True),
+        (False, False, False, True),
+    ],
+)
+async def test_ws_add_device_adoption_gate(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+    ignore_unadopted: bool,
+    is_adopted: bool,
+    is_adopted_by_other: bool,
+    stored: bool,
+):
+    """Add frames store a device only when it passes the adoption gate."""
+    protect_client_no_debug.ignore_unadopted = ignore_unadopted
+    bootstrap = protect_client_no_debug.bootstrap
+    raw = next(iter(bootstrap.cameras.values())).unifi_dict()
+    camera_id = "663d0aa400918803e4006999"
+    mac = "AABBCCDDEEFF"
+    raw.update(
+        id=camera_id,
+        mac=mac,
+        isAdopted=is_adopted,
+        isAdoptedByOther=is_adopted_by_other,
+    )
+
+    _send_ws_packet(
+        protect_client_no_debug,
+        WSPacket(packet.pack_frames()),
+        "add",
+        "camera",
+        camera_id,
+        raw,
+    )
+
+    assert (camera_id in bootstrap.cameras) is stored
+    assert (camera_id in bootstrap.id_lookup) is stored
+    assert (normalize_mac(mac) in bootstrap.mac_lookup) is stored
+
+
+@pytest.mark.asyncio()
+async def test_ws_remove_and_add_event(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+    now: datetime,
+    camera: dict[str, Any],
+):
+    """Remove and add frames for an event are emitted."""
+    bootstrap = protect_client_no_debug.bootstrap
+    event_id = "bf9a241afe74821ceffffd05"
+    event_data = {
+        "id": event_id,
+        "type": "motion",
+        "start": to_js_time(now - timedelta(seconds=1)),
+        "end": to_js_time(now),
+        "score": 0,
+        "smartDetectTypes": [],
+        "smartDetectEvents": [],
+        "camera": camera["id"],
+        "partition": None,
+        "user": None,
+        "metadata": {},
+        "thumbnail": f"e-{event_id}",
+        "heatmap": f"e-{event_id}",
+        "modelKey": "event",
+    }
+    mac_lookup_before = dict(bootstrap.mac_lookup)
+
+    messages = _send_ws_packet(
+        protect_client_no_debug,
+        WSPacket(packet.pack_frames()),
+        "add",
+        "event",
+        event_id,
+        event_data,
+    )
+
+    assert len(messages) == 1
+    assert messages[0].action is WSAction.ADD
+    event = bootstrap.events[event_id]
+    assert messages[0].new_obj is event
+
+    messages = _send_ws_packet(
+        protect_client_no_debug,
+        WSPacket(packet.pack_frames()),
+        "remove",
+        "event",
+        event_id,
+        {},
+    )
+
+    assert len(messages) == 1
+    assert messages[0].action is WSAction.REMOVE
+    assert messages[0].old_obj is event
+    assert event_id not in bootstrap.events
+    assert bootstrap.mac_lookup == mac_lookup_before
+
+
+@pytest.mark.asyncio()
+async def test_ws_remove_and_add_device_updates_mac_lookup(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+):
+    """Remove and add frames for a device keep ``mac_lookup`` in sync."""
+    bootstrap = protect_client_no_debug.bootstrap
+    camera = next(iter(bootstrap.cameras.values()))
+    raw = camera.unifi_dict()
+    mac = normalize_mac(camera.mac)
+    assert mac in bootstrap.mac_lookup
+
+    messages = _send_ws_packet(
+        protect_client_no_debug,
+        WSPacket(packet.pack_frames()),
+        "remove",
+        "camera",
+        camera.id,
+        {},
+    )
+
+    assert len(messages) == 1
+    assert messages[0].old_obj is camera
+    assert mac not in bootstrap.mac_lookup
+
+    messages = _send_ws_packet(
+        protect_client_no_debug,
+        WSPacket(packet.pack_frames()),
+        "add",
+        "camera",
+        camera.id,
+        raw,
+    )
+
+    assert len(messages) == 1
+    assert bootstrap.mac_lookup[mac].id == camera.id
