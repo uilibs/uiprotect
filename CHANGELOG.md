@@ -1,5 +1,13 @@
 # Changelog
 
+## v23.2.2 (2026-10-18)
+
+### Bug fixes
+
+
+- Fetch feature flags for newly paired sensors ([`5540146`](https://github.com/uilibs/uiprotect/commit/55401465da7e175a5f58523f7493f7790d5d6b92))
+
+
 ## v23.2.1 (2026-10-18)
 
 ### Bug fixes
