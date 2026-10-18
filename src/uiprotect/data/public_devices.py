@@ -1839,6 +1839,13 @@ class PublicChime(PublicDeviceModel):
     camera_ids: list[str] = Field(default_factory=list)
     ring_settings: list[PublicRingSettings] = Field(default_factory=list)
 
+    def get_ring_setting(self, camera_id: str) -> PublicRingSettings | None:
+        """Return the ring setting for the given camera, or ``None`` if not paired."""
+        for rs in self.ring_settings:
+            if rs.camera_id == camera_id:
+                return rs
+        return None
+
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
             "Chime mutations must go through the dedicated public API helpers "
@@ -1904,7 +1911,7 @@ class PublicChime(PublicDeviceModel):
         repeat_times: int | None = None,
     ) -> list[PublicApiChimeRingSettingRequest]:
         """Build a full ring-settings PATCH body overriding one camera's entry."""
-        if not any(rs.camera_id == camera_id for rs in self.ring_settings):
+        if self.get_ring_setting(camera_id) is None:
             raise BadRequest(f"Camera {camera_id} is not paired with chime")
         body: list[PublicApiChimeRingSettingRequest] = []
         for rs in self.ring_settings:

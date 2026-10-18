@@ -1253,6 +1253,30 @@ async def test_public_chime_unpaired_camera() -> None:
 
 
 @pytest.mark.asyncio
+async def test_public_chime_repeat_times_unpaired_camera() -> None:
+    api = MagicMock()
+    chime = _chime(api)
+    api.update_chime_public = AsyncMock()
+    with pytest.raises(BadRequest, match="Camera nope is not paired with chime"):
+        await chime.set_repeat_times_for_camera("nope", 2)
+    assert not api.update_chime_public.called
+
+
+def test_public_chime_get_ring_setting() -> None:
+    chime = _chime(MagicMock())
+    rs = chime.get_ring_setting("cam-b")
+    assert rs is chime.ring_settings[1]
+    assert rs.volume == 60
+    assert chime.get_ring_setting("nope") is None
+
+
+def test_public_chime_get_ring_setting_empty() -> None:
+    chime = _chime(MagicMock())
+    chime.ring_settings = []
+    assert chime.get_ring_setting("cam-a") is None
+
+
+@pytest.mark.asyncio
 async def test_public_chime_volume_out_of_range() -> None:
     api = MagicMock()
     chime = _chime(api)
