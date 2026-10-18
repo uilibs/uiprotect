@@ -651,16 +651,17 @@ def test_chime_help() -> None:
     assert "set-repeat-times" in result.stdout
 
 
-def test_chime_cameras_set_uses_update_chime_public() -> None:
-    """Setting cameras patches via the public API, not save_device."""
+def test_chime_cameras_set_uses_public_setter() -> None:
+    """Setting cameras goes through the public chime's setter."""
     camera = _doorbell_camera("cam-1")
     ctx, _chime, protect = _make_chime_ctx(cameras_map={"cam-1": camera})
 
     cameras(ctx, camera_ids=["cam-1"], add=False, remove=False)
 
-    protect.update_chime_public.assert_awaited_once_with(
-        "chime-1", camera_ids=["cam-1"]
-    )
+    public = protect.get_chime_public.return_value
+    public.set_camera_ids.assert_awaited_once_with(["cam-1"])
+    protect.get_chime_public.assert_awaited_once_with("chime-1")
+    protect.update_chime_public.assert_not_called()
 
 
 def test_chime_cameras_empty_clears_list() -> None:
@@ -669,7 +670,7 @@ def test_chime_cameras_empty_clears_list() -> None:
 
     cameras(ctx, camera_ids=["[]"], add=False, remove=False)
 
-    protect.update_chime_public.assert_awaited_once_with("chime-1", camera_ids=[])
+    protect.get_chime_public.return_value.set_camera_ids.assert_awaited_once_with([])
 
 
 def test_chime_cameras_add_merges_existing() -> None:
@@ -681,8 +682,9 @@ def test_chime_cameras_add_merges_existing() -> None:
 
     cameras(ctx, camera_ids=["cam-2"], add=True, remove=False)
 
-    protect.update_chime_public.assert_awaited_once()
-    sent = protect.update_chime_public.await_args.kwargs["camera_ids"]
+    set_camera_ids = protect.get_chime_public.return_value.set_camera_ids
+    set_camera_ids.assert_awaited_once()
+    (sent,) = set_camera_ids.await_args.args
     assert set(sent) == {"cam-1", "cam-2"}
 
 
@@ -695,8 +697,9 @@ def test_chime_cameras_remove_subtracts() -> None:
 
     cameras(ctx, camera_ids=["cam-1"], add=False, remove=True)
 
-    protect.update_chime_public.assert_awaited_once()
-    sent = protect.update_chime_public.await_args.kwargs["camera_ids"]
+    set_camera_ids = protect.get_chime_public.return_value.set_camera_ids
+    set_camera_ids.assert_awaited_once()
+    (sent,) = set_camera_ids.await_args.args
     assert set(sent) == {"cam-2"}
 
 
@@ -2231,16 +2234,16 @@ def test_key_only_chime_cameras_lists_paired_cameras() -> None:
 
 
 def test_key_only_chime_cameras_sets_pairing() -> None:
-    """Pairing a public chime patches its camera ids over the public API."""
-    ctx, _chime, protect = _device_ctx(PublicChime, camera_ids=["cam-1"])
+    """Pairing a public chime goes through its own camera-ids setter."""
+    ctx, chime, protect = _device_ctx(PublicChime, camera_ids=["cam-1"])
     protect.get_cameras_public = AsyncMock(
         return_value=[MagicMock(spec=PublicCamera, id="cam-2")]
     )
-    protect.update_chime_public = AsyncMock()
     chimes_cli.cameras(ctx, camera_ids=["cam-2"], add=True, remove=False)
-    sent = protect.update_chime_public.await_args
-    assert sent.args == ("device-1",)
-    assert set(sent.kwargs["camera_ids"]) == {"cam-1", "cam-2"}
+    chime.set_camera_ids.assert_awaited_once()
+    (sent,) = chime.set_camera_ids.await_args.args
+    assert set(sent) == {"cam-1", "cam-2"}
+    protect.get_chime_public.assert_not_called()
 
 
 @pytest.mark.parametrize(

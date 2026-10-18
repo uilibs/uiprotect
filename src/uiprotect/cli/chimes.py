@@ -95,8 +95,6 @@ def cameras(
         )
         return
 
-    protect: ProtectApiClient = ctx.obj.protect
-
     if len(camera_ids) == 1 and camera_ids[0] == "[]":
         camera_ids = []
 
@@ -116,7 +114,8 @@ def cameras(
     elif remove:
         camera_ids = list(set(obj.camera_ids) - set(camera_ids))
 
-    base.run(ctx, protect.update_chime_public(obj.id, camera_ids=camera_ids))
+    public = base.public_device(ctx, PublicChime)
+    base.run(ctx, public.set_camera_ids(camera_ids))
 
 
 @app.command()

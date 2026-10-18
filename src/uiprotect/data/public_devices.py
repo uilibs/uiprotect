@@ -1851,6 +1851,17 @@ class PublicChime(PublicDeviceModel):
         self._apply_from_response(updated)
         return self
 
+    async def set_camera_ids(self, camera_ids: list[str]) -> PublicChime:
+        """Set the paired doorbells via the public API."""
+        # Held so a concurrent ring-settings setter cannot build its body from
+        # the pre-pairing ``ring_settings``.
+        async with self._update_sync.lock:
+            updated = await self._api.update_chime_public(
+                self.id, camera_ids=camera_ids
+            )
+            self._apply_from_response(updated)
+        return self
+
     async def set_ring_settings(
         self,
         ring_settings: list[PublicApiChimeRingSettingRequest],
