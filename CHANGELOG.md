@@ -1,5 +1,13 @@
 # Changelog
 
+## v23.2.1 (2026-10-18)
+
+### Bug fixes
+
+
+- Handle websocket add/remove for models without a mac ([`285bacb`](https://github.com/uilibs/uiprotect/commit/285bacb72c47c8740686aff198b0c0c8f2067a33))
+
+
 ## v23.2.0 (2026-10-18)
 
 ### Features
