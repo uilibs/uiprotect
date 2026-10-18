@@ -19,7 +19,6 @@ from .exceptions import (
     GlobalAlarmManagerError,
     Invalid,
     NotAuthorized,
-    NotFound,
     NvrError,
     PublicOnlyModeError,
 )
@@ -42,7 +41,6 @@ __all__ = [
     "GlobalAlarmManagerError",
     "Invalid",
     "NotAuthorized",
-    "NotFound",
     "NvrError",
     "ProtectApiClient",
     "ProtectDeviceChange",

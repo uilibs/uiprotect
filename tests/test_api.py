@@ -63,7 +63,6 @@ from uiprotect.exceptions import (
     BadRequest,
     GlobalAlarmManagerError,
     NotAuthorized,
-    NotFound,
     NvrError,
 )
 from uiprotect.stream import TalkbackSession
@@ -3606,7 +3605,7 @@ async def test_raise_for_status_status_codes():
         (400, BadRequest),
         (401, NotAuthorized),
         (403, NotAuthorized),
-        (404, NotFound),
+        (404, BadRequest),
         (429, NvrError),
         (500, NvrError),
     ]

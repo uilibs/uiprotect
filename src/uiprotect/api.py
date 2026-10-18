@@ -110,7 +110,6 @@ from .exceptions import (
     ClientError,
     GlobalAlarmManagerError,
     NotAuthorized,
-    NotFound,
     NvrError,
     PublicOnlyModeError,
 )
@@ -295,6 +294,11 @@ def _log_or_raise(
         raise exc
 
 
+def _sensor_flags_wire(sensor: PublicSensor) -> dict[str, Any]:
+    """Return a sensor's ``featureFlags`` with only the present keys, as REST sends."""
+    return {k: v for k, v in sensor.feature_flags.unifi_dict().items() if v is not None}
+
+
 class _PublicRefreshJob(NamedTuple):
     store: PublicStoreName
     fetch: str
@@ -323,9 +327,8 @@ PUBLIC_RESYNC_MIN_INTERVAL = 10.0
 # last step the resync waits for the next reconnect.
 PUBLIC_RESYNC_RETRY_DELAYS = (10.0, 30.0, 60.0)
 
-# Backoff (seconds) between retries of a sensor fetch that 404s: a newly
-# adopted sensor reaches ``GET /v1/sensors/{id}`` a moment after its
-# CONNECTED frame.
+# REST lags the devices WS: a sensor reports CONNECTED with its flags a moment
+# after its CONNECTED frame.
 SENSOR_FETCH_RETRY_DELAYS = (1.0, 2.0, 4.0)
 
 # WebSocket heartbeat (seconds) for the public integration WS connections. The
@@ -542,13 +545,10 @@ class BaseApiClient:
         # Per-instance for the same reason as above; cancelled in
         # :meth:`close_session` and on a devices-websocket disconnect.
         self._siren_off_tasks: dict[str, asyncio.Task[None]] = {}
-        # Per-sensor background fetches completing what the devices WS leaves
-        # out (``featureFlags``, or the whole sensor after a missed ``add``),
-        # keyed by sensor id and paired with the ``state`` they were started
-        # for. Per-instance; cancelled on ``remove`` and on teardown.
+        # Sensor fetches filling in what the devices WS leaves out, with the
+        # ``state`` each was started for.
         self._sensor_fetch_tasks: dict[str, tuple[asyncio.Task[None], str | None]] = {}
-        # Sensor ids whose last fetch failed, mapped to the ``state`` it was
-        # started for: no refetch until a frame reports another state.
+        # Failed fetches by sensor id and ``state``: no refetch until it changes.
         self._sensor_fetch_failed: dict[str, str | None] = {}
         # Proactive per-API-key pacer for the public path. Per-instance so
         # several consoles in one process never share a budget.
@@ -759,6 +759,7 @@ class BaseApiClient:
         """Closing and deletes public API client session."""
         await self._cancel_public_resync_task()
         await self._cancel_public_refresh()
+        await self._cancel_sensor_fetch_tasks()
         if self._public_api_session is not None:
             await self._public_api_session.close()
             self._public_api_session = None
@@ -1107,8 +1108,6 @@ class BaseApiClient:
                 if _ARM_ALARM_ARMED_REASON in reason.lower():
                     raise ArmedModeError(msg % (url, status, reason))
                 raise BadRequest(msg % (url, status, reason))
-            if status == HTTPStatus.NOT_FOUND.value:
-                raise NotFound(msg % (url, status, reason))
             # Other 4xx client errors also raise BadRequest
             if (
                 status > HTTPStatus.BAD_REQUEST.value
@@ -3182,8 +3181,6 @@ class ProtectApiClient(BaseApiClient):
         """Track a sensor's reported ``state``; with ``fetch``, fetch it in the background."""
         failed = self._sensor_fetch_failed
         pending = self._sensor_fetch_tasks.get(sensor_id)
-        # A fetch or failure belongs to the state it was started for; a frame
-        # reporting another state supersedes it.
         if state is not None:
             if failed.get(sensor_id, state) != state:
                 del failed[sensor_id]
@@ -3196,8 +3193,7 @@ class ProtectApiClient(BaseApiClient):
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            # ``process_devices_ws_message`` is synchronous and may be driven
-            # from outside the loop.
+            # ``process_devices_ws_message`` may be driven from outside the loop.
             _LOGGER.debug("No running event loop, sensor %s not fetched", sensor_id)
             return
         self._sensor_fetch_tasks[sensor_id] = (
@@ -3214,8 +3210,9 @@ class ProtectApiClient(BaseApiClient):
             sensor = await self._get_sensor_public_retrying(
                 sensor_id, retry=state == DeviceState.CONNECTED
             )
-        except NotFound:
-            _LOGGER.debug("Sensor %s not found", sensor_id)
+        except BadRequest as err:
+            # A 404 (an id REST does not know) surfaces as ``BadRequest``.
+            _LOGGER.debug("Sensor %s not fetched: %s", sensor_id, err)
             self._sensor_fetch_failed[sensor_id] = state
         except Exception as err:
             _LOGGER.warning("Failed to fetch sensor %s: %s", sensor_id, err)
@@ -3231,12 +3228,12 @@ class ProtectApiClient(BaseApiClient):
     async def _get_sensor_public_retrying(
         self, sensor_id: str, *, retry: bool
     ) -> PublicSensor:
-        """Get a sensor; with ``retry``, retry a 404 per :data:`SENSOR_FETCH_RETRY_DELAYS`."""
+        """Get a sensor; with ``retry``, retry until it is CONNECTED with flags."""
         for delay in SENSOR_FETCH_RETRY_DELAYS if retry else ():
-            try:
-                return await self.get_sensor_public(sensor_id)
-            except NotFound:
-                await asyncio.sleep(delay)
+            sensor = await self.get_sensor_public(sensor_id)
+            if sensor.state is DeviceState.CONNECTED and sensor._has_feature_flags():
+                return sensor
+            await asyncio.sleep(delay)
         return await self.get_sensor_public(sensor_id)
 
     def _apply_fetched_sensor(
@@ -3249,22 +3246,18 @@ class ProtectApiClient(BaseApiClient):
         """Write a fetched sensor back to the cache and announce the change."""
         current = pb.sensors.get(sensor_id)
         if current is None:
-            # ``cached`` set: the sensor was removed while the fetch was in
-            # flight, so adding it would resurrect it. A snapshot being applied
-            # may predate the sensor and would remove it again; the next frame
-            # for it fetches it anew.
+            # Don't resurrect a sensor removed mid-fetch, or add one a snapshot
+            # being applied may not know.
             if cached is None and self._prime_ws_buffer is None:
                 pb.sensors[sensor_id] = sensor
                 self._emit_public_membership_frame(pb, WSAction.ADD, sensor, set())
             return
-        # Only the flags are merged: the frames applied while the fetch was in
-        # flight are newer than the rest of the response. A replacement from a
-        # fresh snapshot keeps the flags it carries.
-        if current is not cached and current._has_feature_flags():
+        if cached is not None and current is not cached:
             return
-        flags = sensor.feature_flags.unifi_dict()
-        if flags == current.feature_flags.unifi_dict():
+        flags = _sensor_flags_wire(sensor)
+        if flags == _sensor_flags_wire(current):
             return
+        # Only the flags: frames applied mid-fetch are newer than the response.
         current.feature_flags = sensor.feature_flags
         if not self._devices_ws_filtered_out(ModelType.SENSOR):
             self.emit_devices_message(self._build_sensor_flags_update(current, flags))

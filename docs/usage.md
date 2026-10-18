@@ -452,32 +452,6 @@ The expiry is **inferred, not observed**: `activatedAt` is server time and the
 deadline is compared against the local clock, so clock skew between the console
 and the client shifts the announcement by the same amount.
 
-## Newly paired sensors
-
-The devices websocket does not carry `featureFlags` for a sensor being paired:
-its `add` arrives while it is still unadopted, and the `update` frames that
-move it to `CONNECTED` leave the flags out. The client fills them in from
-`GET /v1/sensors/{id}` in the background, so `supports()`,
-`supported_alarm_types` and `supported_event_types` work without waiting for
-the next `update_public()`:
-
-- When an `update` moves a cached sensor to `CONNECTED` while it advertises no
-  capabilities, only its `featureFlags` are merged into the cached object. If
-  they changed, the client emits a synthetic devices-WS `update` with
-  `changed_data` `{"modelKey", "id", "featureFlags"}` and the sensor as
-  `new_obj`. A sensor that reports no flags at all (the UP Air Quality) is
-  fetched once per transition to `CONNECTED`.
-- When an `update` arrives for a sensor id that is not cached (its `add` was
-  missed), the sensor is fetched, added to the cache, and announced with a
-  synthetic `add`.
-
-Fetches are coalesced per sensor, and a 404 for a `CONNECTED` sensor is
-retried briefly, since an adopted sensor shows up in REST a moment after its
-`CONNECTED` frame. After a failed fetch the sensor is not fetched again until a
-frame reports a different `state`, so an unadopted sensor does not trigger a
-fetch on every frame. A frame reporting a different `state`, a `remove` frame,
-`async_disconnect_ws()` and `close_session()` cancel pending fetches. A 404 from the REST API raises `NotFound`, a `BadRequest` subclass.
-
 ## Viewer liveview changes
 
 The console sends no devices-websocket frame when a viewer's liveview changes.
