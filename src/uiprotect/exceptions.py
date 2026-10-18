@@ -63,5 +63,9 @@ class ArmedModeError(BadRequest):
     """Operation not available while the arm alarm is armed."""
 
 
+class NotFound(BadRequest):
+    """Requested resource does not exist (HTTP 404)."""
+
+
 class NvrError(ClientError):
     """Other error."""

@@ -462,7 +462,7 @@ class PublicBootstrap:
         # Snapshot the pre-apply camera state: ``update`` merges in place, so
         # the ``old`` returned by ``_apply_action`` is the same (now mutated)
         # instance as ``new`` and can't be compared against it afterwards.
-        prev_state = self._camera_state_before_apply(model_type, item)
+        prev_state = self._state_before_apply(model_type, item)
 
         custom_slot = self._custom_slot_for(model_type)
         if custom_slot is not None:
@@ -471,6 +471,7 @@ class PublicBootstrap:
             )
             self._refresh_rtsps_on_reconnect(api, model_type, new, prev_state)
             self._evict_rtsps_on_remove(api, model_type, action_type, item)
+            self._track_sensor_fetch(api, model_type, action_type, item, prev_state)
             return DeviceWSResult(model_type, new, old, item)
 
         store = self.store_for(model_type)
@@ -486,13 +487,17 @@ class PublicBootstrap:
         self._track_siren_expiry(api, model_type, action_type, item)
         return DeviceWSResult(model_type, new, old, item)
 
-    def _camera_state_before_apply(
+    def _state_before_apply(
         self, model_type: ModelType, item: dict[str, Any]
     ) -> DeviceState | None:
-        """Return the cached camera's ``state`` prior to applying this frame."""
-        if model_type is not ModelType.CAMERA:
+        """Return the cached camera's or sensor's ``state`` before this frame."""
+        cached: PublicCamera | PublicSensor | None
+        if model_type is ModelType.CAMERA:
+            cached = self.cameras.get(item["id"])
+        elif model_type is ModelType.SENSOR:
+            cached = self.sensors.get(item["id"])
+        else:
             return None
-        cached = self.cameras.get(item["id"])
         return cached.state if cached is not None else None
 
     def _refresh_rtsps_on_reconnect(
@@ -533,6 +538,33 @@ class PublicBootstrap:
         """
         if model_type is ModelType.CAMERA and action_type == "remove":
             api._cancel_rtsps_refresh(item["id"])
+
+    def _track_sensor_fetch(
+        self,
+        api: ProtectApiClient,
+        model_type: ModelType,
+        action_type: str,
+        item: dict[str, Any],
+        prev_state: DeviceState | None,
+    ) -> None:
+        """Fetch a connecting sensor without flags, or an unknown one, via REST."""
+        if model_type is not ModelType.SENSOR:
+            return
+        sensor_id = item["id"]
+        if action_type == "remove":
+            api._cancel_sensor_fetch(sensor_id)
+            return
+        sensor = self.sensors.get(sensor_id)
+        if sensor is None:
+            if action_type == "update":
+                api._sync_sensor_fetch(self, sensor_id, item.get("state"), fetch=True)
+            return
+        fetch = (
+            sensor.state is DeviceState.CONNECTED
+            and prev_state is not DeviceState.CONNECTED
+            and not sensor._has_feature_flags()
+        )
+        api._sync_sensor_fetch(self, sensor_id, sensor.state, fetch=fetch)
 
     def _track_siren_expiry(
         self,
