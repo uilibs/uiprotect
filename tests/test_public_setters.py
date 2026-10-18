@@ -15,6 +15,7 @@ from uiprotect.data.public_devices import (
     PublicChime,
     PublicLcdMessage,
     PublicLight,
+    PublicRingSettings,
     PublicSensor,
     RTSPSStreams,
     Siren,
@@ -1082,6 +1083,94 @@ async def test_public_chime_set_name() -> None:
     assert result is chime
     assert chime.name == "Hallway"
     api.update_chime_public.assert_awaited_once_with(chime.id, name="Hallway")
+
+
+@pytest.mark.asyncio
+async def test_public_chime_set_camera_ids() -> None:
+    api = MagicMock()
+    chime = _chime(api)
+    paired = [
+        *chime.ring_settings,
+        PublicRingSettings(
+            camera_id="cam-c", volume=80, repeat_times=1, ringtone_id="rt-c"
+        ),
+    ]
+    api.update_chime_public = AsyncMock(
+        return_value=chime.model_copy(
+            update={"camera_ids": ["cam-a", "cam-b", "cam-c"], "ring_settings": paired}
+        )
+    )
+
+    result = await chime.set_camera_ids(["cam-a", "cam-b", "cam-c"])
+
+    assert result is chime
+    api.update_chime_public.assert_awaited_once_with(
+        chime.id, camera_ids=["cam-a", "cam-b", "cam-c"]
+    )
+    assert chime.camera_ids == ["cam-a", "cam-b", "cam-c"]
+    assert [rs.camera_id for rs in chime.ring_settings] == ["cam-a", "cam-b", "cam-c"]
+
+
+@pytest.mark.asyncio
+async def test_public_chime_set_camera_ids_empty_clears() -> None:
+    api = MagicMock()
+    chime = _chime(api)
+    api.update_chime_public = AsyncMock(
+        return_value=chime.model_copy(update={"camera_ids": [], "ring_settings": []})
+    )
+
+    await chime.set_camera_ids([])
+
+    api.update_chime_public.assert_awaited_once_with(chime.id, camera_ids=[])
+    assert chime.camera_ids == []
+    assert chime.ring_settings == []
+
+
+@pytest.mark.asyncio
+async def test_public_chime_set_camera_ids_serialised_with_ring_settings() -> None:
+    api = MagicMock()
+    chime = _chime(api)
+
+    async def fake_update(
+        cid: str,
+        *,
+        camera_ids: list[str] | None = None,
+        ring_settings: list[Any] | None = None,
+    ) -> PublicChime:
+        await asyncio.sleep(0)
+        if camera_ids is not None:
+            return chime.model_copy(
+                update={
+                    "camera_ids": camera_ids,
+                    "ring_settings": [
+                        r for r in chime.ring_settings if r.camera_id in camera_ids
+                    ],
+                }
+            )
+        assert ring_settings is not None
+        return chime.model_copy(
+            update={
+                "ring_settings": [
+                    PublicRingSettings(
+                        camera_id=rs["cameraId"],
+                        volume=rs["volume"],
+                        repeat_times=rs["repeatTimes"],
+                        ringtone_id=rs["ringtoneId"],
+                    )
+                    for rs in ring_settings
+                ]
+            }
+        )
+
+    api.update_chime_public = AsyncMock(side_effect=fake_update)
+
+    await asyncio.gather(
+        chime.set_camera_ids(["cam-a"]),
+        chime.set_volume_for_camera("cam-a", 10),
+    )
+
+    assert chime.camera_ids == ["cam-a"]
+    assert [(rs.camera_id, rs.volume) for rs in chime.ring_settings] == [("cam-a", 10)]
 
 
 @pytest.mark.asyncio
