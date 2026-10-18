@@ -450,10 +450,10 @@ async def test_fetch_for_unknown_sensor_merges_into_late_add() -> None:
 async def test_flagless_fetch_keeps_late_instance_flags() -> None:
     """A response without flags leaves a sensor cached mid-fetch with flags alone."""
     client = _client()
-    messages = _capture(client)
     release, _get = _blocking_get(client, _sensor(client))
     _update(client, state="CONNECTED")
     await asyncio.sleep(0)
+    messages = _capture(client)
 
     late = _sensor(client, flags=SMOKE_FLAGS)
     client._public_bootstrap.sensors[SENSOR_ID] = late
