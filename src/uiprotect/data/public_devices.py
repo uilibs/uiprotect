@@ -1526,6 +1526,9 @@ class PublicSensor(PublicDeviceModel):
         """Whether the sensor advertises ``capability``."""
         return getattr(self.feature_flags, capability.value, None) is not None
 
+    def _has_feature_flags(self) -> bool:
+        return any(self.supports(c) for c in SensorFeatureCapability)
+
     @property
     def supported_alarm_types(self) -> frozenset[SensorAlarmType]:
         """``sensorAlarm`` alarm types the sensor's feature flags imply."""
