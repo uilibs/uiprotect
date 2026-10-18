@@ -33,6 +33,7 @@ from uiprotect.data import (
     PublicLight,
     PublicNVR,
     PublicSensor,
+    PublicSensorFeatureCapability,
     PublicSensorFeatureFlags,
     PublicSirenStatus,
     PublicViewer,
@@ -45,7 +46,9 @@ from uiprotect.data.public_bootstrap import PublicBootstrap
 from uiprotect.data.types import (
     ChannelQuality,
     DoorbellMessageType,
+    EventType,
     ModelType,
+    SensorAlarmType,
     SensorScheduleMode,
     SmartDetectObjectType,
     ThreadNetworkRole,
@@ -691,6 +694,41 @@ def test_public_sensor_feature_flags_capabilities() -> None:
     assert sensor.supports(SensorFeatureCapability.MOTION) is True
     # An absent capability key means "not supported".
     assert sensor.supports(SensorFeatureCapability.SMOKE) is False
+    assert sensor.supported_alarm_types == frozenset()
+    assert sensor.supported_event_types == frozenset()
+
+
+def test_public_sensor_smoke_flag_implies_alarm_and_event_types() -> None:
+    """``smoke`` implies the smoke/CO alarm types and the smoke/CO events."""
+    data = dict(SENSOR_PAYLOAD)
+    data["featureFlags"] = {"smoke": {"channelCount": 1}, "tamper": {}}
+    sensor = PublicSensor.from_unifi_dict(api=Mock(), **data)
+    assert sensor.supported_alarm_types == {SensorAlarmType.SMOKE, SensorAlarmType.CO}
+    assert sensor.supported_event_types == {
+        EventType.SENSOR_ALARM,
+        EventType.SENSOR_SMOKE_TEST,
+        EventType.SENSOR_SMOKE_BATTERY_LOW,
+        EventType.SENSOR_SMOKE_NEEDS_CLEANING,
+        EventType.SENSOR_SMOKE_FAULT,
+        EventType.SENSOR_CO_FAULT,
+        EventType.SENSOR_SMOKE_END_OF_LIFE,
+    }
+    assert isinstance(sensor.supported_alarm_types, frozenset)
+    assert isinstance(sensor.supported_event_types, frozenset)
+
+
+def test_public_sensor_supported_types_follow_feature_flag_changes() -> None:
+    """The supported types track ``feature_flags`` replaced after construction."""
+    sensor = PublicSensor.from_unifi_dict(api=Mock(), **dict(SENSOR_PAYLOAD))
+    assert sensor.supported_alarm_types == frozenset()
+    sensor.feature_flags = PublicSensorFeatureFlags(
+        smoke=PublicSensorFeatureCapability()
+    )
+    assert SensorAlarmType.CO in sensor.supported_alarm_types
+    assert EventType.SENSOR_CO_FAULT in sensor.supported_event_types
+    sensor.feature_flags = PublicSensorFeatureFlags()
+    assert sensor.supported_alarm_types == frozenset()
+    assert sensor.supported_event_types == frozenset()
 
 
 @pytest.mark.parametrize(
@@ -803,6 +841,8 @@ def test_public_sensor_missing_feature_flags_is_empty_map(
     sensor = PublicSensor.from_unifi_dict(api=Mock(), **data)
     assert sensor.feature_flags.model_dump() == PublicSensorFeatureFlags().model_dump()
     assert not any(sensor.supports(c) for c in SensorFeatureCapability)
+    assert sensor.supported_alarm_types == frozenset()
+    assert sensor.supported_event_types == frozenset()
     assert sensor.unifi_dict()["id"] == SENSOR_PAYLOAD["id"]
 
 
