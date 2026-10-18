@@ -78,6 +78,7 @@ from .types import (
     RelayOutputRebootState,
     RelayOutputState,
     RelayOutputType,
+    SensorAlarmType,
     SensorScheduleMode,
     SensorStatusType,
     SirenConnectionType,
@@ -1422,6 +1423,30 @@ class PublicSensorFeatureFlags(ProtectBaseObject):
     smoke: PublicSensorFeatureCapability | None = None
 
 
+class _SensorCapabilityTypes(NamedTuple):
+    alarm_types: frozenset[SensorAlarmType]
+    event_types: frozenset[EventType]
+
+
+# Capabilities absent here imply no alarm or event types.
+_SENSOR_CAPABILITY_TYPES: dict[SensorFeatureCapability, _SensorCapabilityTypes] = {
+    SensorFeatureCapability.SMOKE: _SensorCapabilityTypes(
+        alarm_types=frozenset({SensorAlarmType.SMOKE, SensorAlarmType.CO}),
+        event_types=frozenset(
+            {
+                EventType.SENSOR_ALARM,
+                EventType.SENSOR_SMOKE_TEST,
+                EventType.SENSOR_SMOKE_BATTERY_LOW,
+                EventType.SENSOR_SMOKE_NEEDS_CLEANING,
+                EventType.SENSOR_SMOKE_FAULT,
+                EventType.SENSOR_CO_FAULT,
+                EventType.SENSOR_SMOKE_END_OF_LIFE,
+            }
+        ),
+    ),
+}
+
+
 class PublicSensor(PublicDeviceModel):
     """Public API sensor device (``GET /v1/sensors``)."""
 
@@ -1500,6 +1525,28 @@ class PublicSensor(PublicDeviceModel):
     def supports(self, capability: SensorFeatureCapability) -> bool:
         """Whether the sensor advertises ``capability``."""
         return getattr(self.feature_flags, capability.value, None) is not None
+
+    @property
+    def supported_alarm_types(self) -> frozenset[SensorAlarmType]:
+        """``sensorAlarm`` alarm types the sensor's feature flags imply."""
+        return frozenset().union(
+            *(
+                types.alarm_types
+                for capability, types in _SENSOR_CAPABILITY_TYPES.items()
+                if self.supports(capability)
+            )
+        )
+
+    @property
+    def supported_event_types(self) -> frozenset[EventType]:
+        """Public event types the sensor's feature flags imply."""
+        return frozenset().union(
+            *(
+                types.event_types
+                for capability, types in _SENSOR_CAPABILITY_TYPES.items()
+                if self.supports(capability)
+            )
+        )
 
     @property
     def is_leak_detected(self) -> bool:
