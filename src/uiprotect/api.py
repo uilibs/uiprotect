@@ -3255,7 +3255,7 @@ class ProtectApiClient(BaseApiClient):
         if cached is not None and current is not cached:
             return
         flags = _sensor_flags_wire(sensor)
-        if flags == _sensor_flags_wire(current):
+        if not flags or flags == _sensor_flags_wire(current):
             return
         # Only the flags: frames applied mid-fetch are newer than the response.
         current.feature_flags = sensor.feature_flags

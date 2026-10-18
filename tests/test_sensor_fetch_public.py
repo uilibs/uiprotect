@@ -93,44 +93,14 @@ def _blocking_get(
 
 
 @pytest.mark.asyncio()
-async def test_pairing_sensor_gets_feature_flags_on_connected() -> None:
-    """A sensor paired over the WS gets its flags merged once it is CONNECTED."""
-    client = _client()
-    messages = _capture(client)
-    fetched = _sensor(client, flags=SMOKE_FLAGS)
-    fetched.name = "REST name"
-    client.get_sensor_public = AsyncMock(return_value=fetched)  # type: ignore[method-assign]
-
-    _frame(client, "add", _payload(state="DISCONNECTED"))
-    _update(client, state="CONNECTING", name="Pairing")
-    assert client._sensor_fetch_tasks == {}
-    _update(client, state="CONNECTED")
-    await _drain(client)
-
-    sensor = client._public_bootstrap.sensors[SENSOR_ID]
-    client.get_sensor_public.assert_awaited_once_with(SENSOR_ID)
-    assert sensor.supported_alarm_types == {SensorAlarmType.SMOKE, SensorAlarmType.CO}
-    assert sensor.name == "Pairing"
-    assert _flag_frames(messages) == [
-        {"modelKey": "sensor", "id": SENSOR_ID, "featureFlags": SMOKE_FLAGS}
-    ]
-    msg = messages[-1]
-    assert msg.action is WSAction.UPDATE
-    assert msg.new_update_id == SENSOR_ID
-    assert msg.new_obj is sensor
-    assert msg.old_obj is None
-
-
-@pytest.mark.asyncio()
 async def test_pairing_frame_sequence_from_console() -> None:
-    """The console's pairing frames, flapping before CONNECTED, yield one flags frame."""
+    """The console's pairing frames, flapping before CONNECTED, merge flags once."""
     client = _client()
     messages = _capture(client)
+    fetched = _sensor(client, state="CONNECTED", flags=SMOKE_FLAGS)
+    fetched.name = "REST name"
     client.get_sensor_public = AsyncMock(  # type: ignore[method-assign]
-        side_effect=[
-            _sensor(client, state="CONNECTING"),
-            _sensor(client, state="CONNECTED", flags=SMOKE_FLAGS),
-        ]
+        side_effect=[_sensor(client, state="CONNECTING"), fetched]
     )
 
     _frame(client, "add", _payload(state="DISCONNECTED"))
@@ -149,6 +119,11 @@ async def test_pairing_frame_sequence_from_console() -> None:
     assert _flag_frames(messages) == [
         {"modelKey": "sensor", "id": SENSOR_ID, "featureFlags": SMOKE_FLAGS}
     ]
+    msg = messages[-1]
+    assert msg.action is WSAction.UPDATE
+    assert msg.new_update_id == SENSOR_ID
+    assert msg.new_obj is sensor
+    assert msg.old_obj is None
 
 
 @pytest.mark.asyncio()
@@ -370,8 +345,9 @@ async def test_fetch_does_not_resurrect_dropped_sensor() -> None:
 
 
 @pytest.mark.asyncio()
-async def test_fetch_skips_replaced_sensor() -> None:
-    """A sensor replaced mid-fetch keeps the replacement's flags."""
+@pytest.mark.parametrize("flags", [{"motion": {"channelCount": 1}}, None])
+async def test_fetch_skips_replaced_sensor(flags: dict[str, Any] | None) -> None:
+    """A sensor replaced mid-fetch is left alone."""
     client = _client()
     messages = _capture(client)
     release, _get = _blocking_get(client, _sensor(client, flags=SMOKE_FLAGS))
@@ -379,28 +355,7 @@ async def test_fetch_skips_replaced_sensor() -> None:
     _update(client, state="CONNECTED")
     await asyncio.sleep(0)
 
-    replacement = _sensor(client, flags={"motion": {"channelCount": 1}})
-    client._public_bootstrap.sensors[SENSOR_ID] = replacement
-    count = len(messages)
-    release.set()
-    await _drain(client)
-
-    assert client._public_bootstrap.sensors[SENSOR_ID] is replacement
-    assert not replacement.supported_alarm_types
-    assert len(messages) == count
-
-
-@pytest.mark.asyncio()
-async def test_fetch_skips_replaced_sensor_without_flags() -> None:
-    """A sensor replaced mid-fetch by one without flags is left alone."""
-    client = _client()
-    messages = _capture(client)
-    release, _get = _blocking_get(client, _sensor(client, flags=SMOKE_FLAGS))
-    _frame(client, "add", _payload(state="DISCONNECTED"))
-    _update(client, state="CONNECTED")
-    await asyncio.sleep(0)
-
-    replacement = _sensor(client)
+    replacement = _sensor(client, flags=flags)
     client._public_bootstrap.sensors[SENSOR_ID] = replacement
     count = len(messages)
     release.set()
@@ -492,6 +447,25 @@ async def test_fetch_for_unknown_sensor_merges_into_late_add() -> None:
 
 
 @pytest.mark.asyncio()
+async def test_flagless_fetch_keeps_late_instance_flags() -> None:
+    """A response without flags leaves a sensor cached mid-fetch with flags alone."""
+    client = _client()
+    messages = _capture(client)
+    release, _get = _blocking_get(client, _sensor(client))
+    _update(client, state="CONNECTED")
+    await asyncio.sleep(0)
+
+    late = _sensor(client, flags=SMOKE_FLAGS)
+    client._public_bootstrap.sensors[SENSOR_ID] = late
+    release.set()
+    await _drain(client)
+
+    assert client._public_bootstrap.sensors[SENSOR_ID] is late
+    assert late.supported_alarm_types == {SensorAlarmType.SMOKE, SensorAlarmType.CO}
+    assert messages == []
+
+
+@pytest.mark.asyncio()
 async def test_fetch_skips_replaced_bootstrap() -> None:
     """A fetch started against a discarded bootstrap writes nothing back."""
     client = _client()
@@ -519,26 +493,10 @@ def test_fetch_needs_running_loop() -> None:
 @pytest.mark.parametrize(
     "teardown", ["async_disconnect_ws", "close_session", "close_public_api_session"]
 )
-async def test_teardown_cancels_fetches(teardown: str) -> None:
-    """Disconnecting the websockets or closing the client cancels pending fetches."""
-    client = _client()
-    _release, _get = _blocking_get(client, _sensor(client))
-    _update(client, state="CONNECTED")
-    task, _state = client._sensor_fetch_tasks[SENSOR_ID]
-    client._sensor_fetch_failed["other"] = None
-
-    await getattr(client, teardown)()
-
-    assert task.cancelled()
-    assert client._sensor_fetch_tasks == {}
-    assert client._sensor_fetch_failed == {}
-
-
-@pytest.mark.asyncio()
-async def test_close_public_api_session_cancels_retrying_fetch(
-    monkeypatch: pytest.MonkeyPatch,
+async def test_teardown_cancels_fetches(
+    teardown: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A fetch sleeping between retries is cancelled and opens no new session."""
+    """Teardown cancels a fetch sleeping between retries; it opens no session."""
     monkeypatch.setattr("uiprotect.api.SENSOR_FETCH_RETRY_DELAYS", (3600.0,))
     client = _client()
     client.get_sensor_public = AsyncMock(  # type: ignore[method-assign]
@@ -546,12 +504,15 @@ async def test_close_public_api_session_cancels_retrying_fetch(
     )
     _update(client, state="CONNECTED")
     task, _state = client._sensor_fetch_tasks[SENSOR_ID]
+    client._sensor_fetch_failed["other"] = None
     await asyncio.sleep(0)
     assert client.get_sensor_public.await_count == 1
 
-    await client.close_public_api_session()
+    await getattr(client, teardown)()
     await asyncio.sleep(0)
 
     assert task.cancelled()
     assert client.get_sensor_public.await_count == 1
+    assert client._sensor_fetch_tasks == {}
+    assert client._sensor_fetch_failed == {}
     assert client._public_api_session is None
