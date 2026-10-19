@@ -1,5 +1,13 @@
 # Changelog
 
+## v23.5.0 (2026-10-19)
+
+### Features
+
+
+- Add publicbootstrap.get_device_from_mac ([`7f0dffe`](https://github.com/uilibs/uiprotect/commit/7f0dffe17d63f1c2defe4aedf8169e38d18dd22f))
+
+
 ## v23.4.0 (2026-10-19)
 
 ### Features
