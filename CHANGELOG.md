@@ -1,5 +1,19 @@
 # Changelog
 
+## v23.6.0 (2026-10-19)
+
+### Bug fixes
+
+
+- Wrap request-phase timeouterror in nvrerror ([`f59f71c`](https://github.com/uilibs/uiprotect/commit/f59f71ce3fc42a2366a5f88e4883bfe9de3e3370))
+
+
+### Features
+
+
+- Add linkstation.get_alarm_hub_input and get_alarm_hub_output ([`a8e8b0f`](https://github.com/uilibs/uiprotect/commit/a8e8b0fafd24867ba5bf38a98ac9bf0dd592e643))
+
+
 ## v23.5.0 (2026-10-19)
 
 ### Features
