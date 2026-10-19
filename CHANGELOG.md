@@ -1,5 +1,13 @@
 # Changelog
 
+## v23.7.1 (2026-10-19)
+
+### Bug fixes
+
+
+- Move anonymizer out of test_util and map id reference keys ([`d677203`](https://github.com/uilibs/uiprotect/commit/d677203b07d724d444ba65c444a2ddc886862b87))
+
+
 ## v23.7.0 (2026-10-19)
 
 ### Features
