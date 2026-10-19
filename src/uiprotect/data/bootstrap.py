@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
-from aiohttp.client_exceptions import ServerDisconnectedError
 from convertertools import pop_dict_set, pop_dict_tuple
 from pydantic import PrivateAttr, ValidationError
 
@@ -789,13 +788,7 @@ class Bootstrap(ProtectBaseObject):
                 device: ProtectModelWithId = await self._api.get_nvr()
             else:
                 device = await self._api.get_device(model_type, device_id)
-        except (
-            DataDecodeError,
-            ValidationError,
-            TimeoutError,
-            ClientError,
-            ServerDisconnectedError,
-        ):
+        except (DataDecodeError, ValidationError, ClientError):
             _LOGGER.warning("Failed to refresh model: %s %s", model_type, device_id)
             return
 

@@ -647,7 +647,6 @@ def _fail_then_recover(
     ("exc", "traceback"),
     [
         (NvrError("down"), False),
-        (TimeoutError(), False),
         (NotAuthorized("revoked"), False),
         (ValueError("bad payload"), True),
     ],
