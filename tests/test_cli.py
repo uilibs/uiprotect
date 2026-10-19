@@ -73,6 +73,7 @@ from uiprotect.data.public_devices import PublicDeviceModel
 from uiprotect.data.types import (
     DEFAULT,
     DoorbellMessageType,
+    LightModePreset,
     PublicHdrMode,
     RecordingMode,
     SensorScheduleMode,
@@ -981,6 +982,13 @@ _SETTER_CASES = [
         call(timedelta(seconds=60)),
     ),
     (*_LIGHT, lights_cli.set_flood_light, call(False), "set_flood_light", None),
+    (
+        *_LIGHT,
+        lights_cli.set_light_mode_preset,
+        call(LightModePreset.MOTION_DARK),
+        "set_light_mode_preset",
+        None,
+    ),
     (*_SENSOR, sensors_cli.set_motion, call(True), "set_motion_status", None),
     (
         *_SENSOR,

@@ -64,6 +64,7 @@ from .types import (
     FobButton,
     FobButtonLabels,
     LightModeEnableType,
+    LightModePreset,
     LightModeType,
     LiveviewCycleMode,
     ModelType,
@@ -1179,6 +1180,16 @@ class PublicLightDeviceSettings(ProtectBaseObject):
         return None if self.pir_duration is None else round(self.pir_duration / 1000)
 
 
+_LIGHT_MODE_PRESET_SETTINGS: dict[
+    LightModePreset, tuple[LightModeType, LightModeEnableType | None]
+] = {
+    LightModePreset.MOTION: (LightModeType.MOTION, LightModeEnableType.ALWAYS),
+    LightModePreset.MOTION_DARK: (LightModeType.MOTION, LightModeEnableType.DARK),
+    LightModePreset.WHEN_DARK: (LightModeType.WHEN_DARK, LightModeEnableType.DARK),
+    LightModePreset.OFF: (LightModeType.MANUAL, None),
+}
+
+
 class PublicLight(PublicDeviceModel):
     """Public API light device (``GET /v1/lights``)."""
 
@@ -1199,6 +1210,21 @@ class PublicLight(PublicDeviceModel):
     def last_motion_dt(self) -> datetime | None:
         """``last_motion`` as a timezone-aware UTC ``datetime``."""
         return convert_to_datetime(self.last_motion)
+
+    @property
+    def light_mode_preset(self) -> LightModePreset | None:
+        """Trigger as shown in the Protect app, ``None`` for unmapped settings."""
+        settings = self.light_mode_settings
+        if settings.mode is LightModeType.MANUAL:
+            return LightModePreset.OFF
+        if settings.mode is LightModeType.WHEN_DARK:
+            return LightModePreset.WHEN_DARK
+        if settings.mode is LightModeType.MOTION:
+            if settings.enable_at is LightModeEnableType.DARK:
+                return LightModePreset.MOTION_DARK
+            if settings.enable_at in (LightModeEnableType.ALWAYS, None):
+                return LightModePreset.MOTION
+        return None
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
@@ -1308,6 +1334,11 @@ class PublicLight(PublicDeviceModel):
             )
             self._apply_from_response(updated)
         return self
+
+    async def set_light_mode_preset(self, preset: LightModePreset) -> PublicLight:
+        """Set the Protect app trigger preset; ``OFF`` keeps ``enable_at``."""
+        mode, enable_at = _LIGHT_MODE_PRESET_SETTINGS[LightModePreset(preset)]
+        return await self.set_light_mode(mode, enable_at)
 
     async def set_light_settings(
         self,
