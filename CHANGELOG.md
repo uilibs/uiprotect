@@ -1,5 +1,13 @@
 # Changelog
 
+## v23.7.0 (2026-10-19)
+
+### Features
+
+
+- Add publicchime all-camera ring volume and repeat setters ([`e5dc161`](https://github.com/uilibs/uiprotect/commit/e5dc161786de884499a72bb8d0b9280c46f3f26b))
+
+
 ## v23.6.0 (2026-10-19)
 
 ### Bug fixes
