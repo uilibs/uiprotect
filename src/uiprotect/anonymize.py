@@ -185,7 +185,7 @@ def anonymize_list(items: list[Any], name: str | None = None) -> list[Any]:
                 items[index] = anonymize_ip(items[index])
             elif name == "rtspsStreams":
                 items[index] = anonymize_rstp_url(value)
-            elif name in _OBJECT_ID_LIST_KEYS:
+            else:
                 items[index] = anonymize_object_id(value)
 
         if not handled:
