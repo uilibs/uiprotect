@@ -2433,6 +2433,27 @@ class LinkStation(PublicDeviceModel):
             if isinstance(key, str) and key.isdigit() and isinstance(value, dict)
         }
 
+    def get_alarm_hub_input(self, input_id: int) -> AlarmHubInput | None:
+        """Return the input zone with the given id, or ``None`` if not found."""
+        if (raw := self._alarm_hub_zone("input", input_id)) is None:
+            return None
+        return AlarmHubInput.from_unifi_dict(**raw)
+
+    def get_alarm_hub_output(self, output_id: int) -> AlarmHubOutput | None:
+        """Return the output channel with the given id, or ``None`` if not found."""
+        if (raw := self._alarm_hub_zone("output", output_id)) is None:
+            return None
+        return AlarmHubOutput.from_unifi_dict(**raw)
+
+    def _alarm_hub_zone(self, section: str, zone_id: int) -> dict[str, Any] | None:
+        if not self.is_alarm_hub or self.alarm_hub is None:
+            return None
+        raw = self.alarm_hub.get(section)
+        if not isinstance(raw, dict):
+            return None
+        value = raw.get(str(zone_id))
+        return value if isinstance(value, dict) else None
+
 
 class PublicArmSchedule(ProtectBaseObject):
     start: str
