@@ -41,6 +41,7 @@ from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, cast
 
+from .. import anonymize  # noqa: F401
 from ..utils import normalize_mac
 from .base import ProtectModelWithId
 from .convert import create_from_unifi_dict

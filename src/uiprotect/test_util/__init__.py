@@ -15,12 +15,12 @@ import av
 import orjson
 from PIL import Image
 
-from ..data import EventType, WSJSONPacketFrame, WSPacket
-from ..exceptions import BadRequest
-from ..test_util.anonymize import (
+from ..anonymize import (
     anonymize_data,
     anonymize_prefixed_event_id,
 )
+from ..data import EventType, WSJSONPacketFrame, WSPacket
+from ..exceptions import BadRequest
 from ..utils import from_js_time, is_online, run_async, write_json
 
 if TYPE_CHECKING:
