@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
@@ -85,14 +87,20 @@ def test_rtsps_streams_preserves_non_string_values() -> None:
 
 def test_import_skips_optional_test_util_dependencies() -> None:
     code = (
-        "import sys, uiprotect.anonymize; "
-        "print('PIL' in sys.modules, 'uiprotect.test_util' in sys.modules)"
+        "import sys, uiprotect; "
+        "loaded = 'uiprotect.anonymize' in sys.modules; "
+        "import uiprotect.anonymize; "
+        "print(loaded, 'PIL' in sys.modules, 'uiprotect.test_util' in sys.modules)"
     )
     result = subprocess.run(
-        [sys.executable, "-c", code], capture_output=True, text=True, check=True
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, "PYTHONPATH": str(Path(anonymize.__file__).parents[1])},
     )
 
-    assert result.stdout.split() == ["False", "False"]
+    assert result.stdout.split() == ["True", "False", "False"]
 
 
 def test_legacy_import_path_is_same_module() -> None:
