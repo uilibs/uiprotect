@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import cast
 
 import typer
 
-from ..api import ProtectApiClient
 from ..cli import base
 from ..data import Camera, Chime
 from ..data.public_devices import PublicChime
@@ -130,13 +128,10 @@ def set_volume(
     ),
 ) -> None:
     """Set volume level for chime rings."""
-    # Without a camera the whole ring-settings list is rewritten, which only
-    # the private model can build a request body for.
-    base.require_device_id(ctx, public_ok=camera_id is not None)
-    obj: Chime | PublicChime = ctx.obj.device
-    protect: ProtectApiClient = ctx.obj.protect
+    base.require_device_id(ctx, public_ok=True)
     if camera_id is None:
-        base.run(ctx, _update_ring_settings(protect, cast("Chime", obj), volume=value))
+        public = base.public_device(ctx, PublicChime)
+        base.run(ctx, public.set_volume_for_all_cameras(value))
     else:
         camera = base.device_map(ctx, "cameras").get(camera_id)
         if camera is None:
@@ -178,15 +173,10 @@ def set_repeat_times(
     ),
 ) -> None:
     """Set number of times for a chime to repeat when doorbell is rang."""
-    # Without a camera the whole ring-settings list is rewritten, which only
-    # the private model can build a request body for.
-    base.require_device_id(ctx, public_ok=camera_id is not None)
-    obj: Chime | PublicChime = ctx.obj.device
-    protect: ProtectApiClient = ctx.obj.protect
+    base.require_device_id(ctx, public_ok=True)
     if camera_id is None:
-        base.run(
-            ctx, _update_ring_settings(protect, cast("Chime", obj), repeat_times=value)
-        )
+        public = base.public_device(ctx, PublicChime)
+        base.run(ctx, public.set_repeat_times_for_all_cameras(value))
     else:
         camera = base.device_map(ctx, "cameras").get(camera_id)
         if camera is None:
@@ -194,13 +184,3 @@ def set_repeat_times(
             raise typer.Exit(1)
         public = base.public_device(ctx, PublicChime)
         base.run(ctx, public.set_repeat_times_for_camera(camera.id, value))
-
-
-async def _update_ring_settings(
-    protect: ProtectApiClient, chime: Chime, **changes: int
-) -> None:
-    # Built inside the coroutine so ChimeRingtoneNotSetError reaches base.run.
-    await protect.update_chime_public(
-        chime.id,
-        ring_settings=[s.to_api_dict(**changes) for s in chime.ring_settings],
-    )
