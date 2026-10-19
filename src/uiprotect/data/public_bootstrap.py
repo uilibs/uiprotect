@@ -41,6 +41,7 @@ from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, cast
 
+from ..utils import normalize_mac
 from .base import ProtectModelWithId
 from .convert import create_from_unifi_dict
 from .public_devices import (
@@ -51,6 +52,7 @@ from .public_devices import (
     PublicBridge,
     PublicCamera,
     PublicChime,
+    PublicDeviceModel,
     PublicLight,
     PublicLiveview,
     PublicNVR,
@@ -301,6 +303,22 @@ class PublicBootstrap:
             obj = getattr(self, store_attr).get(device_id)
             if obj is not None:
                 return getattr(obj, "mac", None)
+        return None
+
+    def get_device_from_mac(
+        self, mac: str, model_type: ModelType | None = None
+    ) -> PublicDeviceModel | None:
+        """Find a cached device by mac in any format, optionally in one store."""
+        if model_type is None:
+            candidates: Iterable[ProtectModelWithId] = self.all_devices()
+        elif (store := self.store_for(model_type)) is not None:
+            candidates = store.values()
+        else:
+            return None
+        target = normalize_mac(mac)
+        for obj in candidates:
+            if isinstance(obj, PublicDeviceModel) and normalize_mac(obj.mac) == target:
+                return obj
         return None
 
     def all_devices(self, *, include_nvr: bool = False) -> Iterator[ProtectModelWithId]:
