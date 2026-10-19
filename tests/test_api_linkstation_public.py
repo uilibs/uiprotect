@@ -219,3 +219,60 @@ def test_alarm_hub_accessors_when_section_absent() -> None:
     assert ls.alarm_hub_cover is None
     assert ls.alarm_hub_inputs == {}
     assert ls.alarm_hub_outputs == {}
+
+
+def test_get_alarm_hub_input_matches_property() -> None:
+    ls = LinkStation.from_unifi_dict(**_load_alarm_hub_fixture())
+    for input_id, zone in ls.alarm_hub_inputs.items():
+        assert ls.get_alarm_hub_input(input_id) == zone
+    assert ls.get_alarm_hub_input(99) is None
+
+
+def test_get_alarm_hub_output_matches_property() -> None:
+    ls = LinkStation.from_unifi_dict(**_load_alarm_hub_fixture())
+    for output_id, channel in ls.alarm_hub_outputs.items():
+        assert ls.get_alarm_hub_output(output_id) == channel
+    assert ls.get_alarm_hub_output(99) is None
+
+
+def test_get_alarm_hub_zone_reads_live_dict() -> None:
+    ls = LinkStation.from_unifi_dict(**_load_alarm_hub_fixture())
+    assert ls.alarm_hub is not None
+    first_input = ls.get_alarm_hub_input(0)
+    first_output = ls.get_alarm_hub_output(0)
+    assert first_input is not None
+    assert first_output is not None
+    assert first_input.status is AlarmHubInputStatus.NORMAL
+    assert first_output.status is AlarmHubOutputStatus.DRY
+
+    ls.alarm_hub["input"]["0"]["status"] = "alarm"
+    ls.alarm_hub["output"]["0"]["status"] = "wet"
+
+    updated_input = ls.get_alarm_hub_input(0)
+    updated_output = ls.get_alarm_hub_output(0)
+    assert updated_input is not None
+    assert updated_output is not None
+    assert updated_input.status is AlarmHubInputStatus.ALARM
+    assert updated_output.status is AlarmHubOutputStatus.WET
+
+
+def test_get_alarm_hub_zone_without_alarm_hub_returns_none() -> None:
+    ls = LinkStation.from_unifi_dict(**_load_link_station_only_fixture())
+    assert ls.get_alarm_hub_input(0) is None
+    assert ls.get_alarm_hub_output(0) is None
+
+
+def test_get_alarm_hub_zone_missing_or_malformed_returns_none() -> None:
+    data = _load_alarm_hub_fixture()
+    data["alarmHub"]["input"] = ["not", "a", "dict"]
+    del data["alarmHub"]["output"]
+    ls = LinkStation.from_unifi_dict(**data)
+    assert ls.get_alarm_hub_input(0) is None
+    assert ls.get_alarm_hub_output(0) is None
+
+    data = _load_alarm_hub_fixture()
+    data["alarmHub"]["input"]["0"] = "offline"
+    data["alarmHub"]["output"]["0"] = None
+    ls = LinkStation.from_unifi_dict(**data)
+    assert ls.get_alarm_hub_input(0) is None
+    assert ls.get_alarm_hub_output(0) is None
