@@ -1442,22 +1442,33 @@ async def test_public_chime_all_cameras_no_ring_settings(
 
 
 @pytest.mark.asyncio
-async def test_public_chime_all_cameras_serialised_with_per_camera() -> None:
+@pytest.mark.parametrize(
+    ("per_camera", "all_cameras", "expected"),
+    [
+        (
+            lambda chime: chime.set_volume_for_camera("cam-a", 10),
+            lambda chime: chime.set_repeat_times_for_all_cameras(5),
+            [(10, 5), (60, 5)],
+        ),
+        (
+            lambda chime: chime.set_repeat_times_for_camera("cam-a", 4),
+            lambda chime: chime.set_volume_for_all_cameras(15),
+            [(15, 4), (15, 2)],
+        ),
+    ],
+)
+async def test_public_chime_all_cameras_serialised_with_per_camera(
+    per_camera: Any, all_cameras: Any, expected: list[tuple[int, int]]
+) -> None:
     api = MagicMock()
     chime = _chime(api)
     api.update_chime_public = _echo_ring_settings(chime)
 
-    await asyncio.gather(
-        chime.set_volume_for_camera("cam-a", 10),
-        chime.set_repeat_times_for_all_cameras(5),
-    )
+    await asyncio.gather(per_camera(chime), all_cameras(chime))
 
     second = api.update_chime_public.await_args_list[1].kwargs["ring_settings"]
-    assert [(rs["volume"], rs["repeatTimes"]) for rs in second] == [(10, 5), (60, 5)]
-    assert [(rs.volume, rs.repeat_times) for rs in chime.ring_settings] == [
-        (10, 5),
-        (60, 5),
-    ]
+    assert [(rs["volume"], rs["repeatTimes"]) for rs in second] == expected
+    assert [(rs.volume, rs.repeat_times) for rs in chime.ring_settings] == expected
 
 
 @pytest.mark.asyncio
