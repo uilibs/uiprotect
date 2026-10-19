@@ -236,11 +236,13 @@ async def test_resolve_nvr_mac_returns_none_when_public_errors() -> None:
 
 @pytest.mark.asyncio()
 async def test_resolve_nvr_mac_returns_none_when_public_times_out() -> None:
-    """A hung /v1/nvrs raising bare TimeoutError resolves to None."""
+    """A transport timeout on /v1/nvrs resolves to None."""
     client = _public_only_client()
     assert client._public_bootstrap is None
+    req_context = Mock(__aenter__=AsyncMock(side_effect=TimeoutError))
+    session = Mock(request=Mock(return_value=req_context))
     with patch.object(
-        client, "get_nvr_public", new=AsyncMock(side_effect=TimeoutError)
+        client, "get_public_api_session", new=AsyncMock(return_value=session)
     ):
         assert await client.resolve_nvr_mac() is None
 

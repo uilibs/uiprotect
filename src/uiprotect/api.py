@@ -918,6 +918,13 @@ class BaseApiClient:
                 raise NvrError(
                     f"Error requesting data from {self._host}: {err}",
                 ) from err
+            except TimeoutError as err:
+                # aiohttp raises a bare TimeoutError, not a ClientError, when
+                # ClientTimeout expires before the response headers arrive.
+                # Not retried: a hang would cost twice the timeout.
+                raise NvrError(
+                    f"Error requesting data from {self._host}: timeout",
+                ) from err
             else:
                 return response
 
@@ -938,7 +945,8 @@ class BaseApiClient:
         Make a request to UniFi Protect with automatic retry on transient errors.
 
         Automatically retries requests that receive 408, 429, 500, 502, 503,
-        or 504 status codes using exponential backoff.
+        or 504 status codes using exponential backoff. Every transport failure,
+        including a timeout, surfaces as ``NvrError``.
         """
         if require_auth and not public_api:
             await self.ensure_authenticated()
@@ -1038,7 +1046,7 @@ class BaseApiClient:
         public_api: bool = False,
         **kwargs: Any,
     ) -> bytes | None:
-        """Make an API request; transport failures surface as ``NvrError``."""
+        """Make an API request; transport failures and timeouts raise ``NvrError``."""
         path = self.private_api_path
         if api_path is not None:
             path = api_path
@@ -3905,10 +3913,7 @@ class ProtectApiClient(BaseApiClient):
         else:
             try:
                 public_nvr = await self.get_nvr_public()
-            except (ClientError, TimeoutError):
-                # The public session carries no ClientTimeout, so a hung
-                # /v1/nvrs raises a bare TimeoutError that is never wrapped
-                # into ClientError; fall through to the private tier.
+            except ClientError:
                 public_nvr = None
             if public_nvr is not None and public_nvr.mac:
                 return normalize_mac(public_nvr.mac)
@@ -5218,7 +5223,7 @@ class ProtectApiClient(BaseApiClient):
             # Endpoint not exposed by this firmware, as in ``_log_or_raise``.
             _LOGGER.debug("%s endpoint unavailable: %s", job.label, err)
             return None
-        except (NvrError, TimeoutError) as err:
+        except NvrError as err:
             self._log_public_refresh_failure(job.label, err)
             return None
         except Exception as err:

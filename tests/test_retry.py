@@ -597,6 +597,67 @@ async def test_client_error_raises_nvr_error(
 
 
 @pytest.mark.asyncio()
+async def test_timeout_raises_nvr_error_without_retry(
+    do_request_client: ProtectApiClient,
+) -> None:
+    """A request-phase TimeoutError surfaces as NvrError and is not retried."""
+    mock_session = AsyncMock()
+    timeout = TimeoutError()
+    mock_ctx = _create_mock_request_context(side_effect=timeout)
+    mock_session.request = MagicMock(return_value=mock_ctx)
+
+    with pytest.raises(NvrError, match="Error requesting data") as exc_info:
+        await do_request_client._do_request(
+            mock_session, "GET", URL("http://test/api"), {}
+        )
+
+    assert exc_info.value.__cause__ is timeout
+    assert mock_ctx.calls == 1
+
+
+@pytest.mark.asyncio()
+async def test_cancelled_error_propagates(
+    do_request_client: ProtectApiClient,
+) -> None:
+    """CancelledError raised while sending the request is not wrapped."""
+    mock_session = AsyncMock()
+    mock_ctx = _create_mock_request_context(side_effect=asyncio.CancelledError())
+    mock_session.request = MagicMock(return_value=mock_ctx)
+
+    with pytest.raises(asyncio.CancelledError):
+        await do_request_client._do_request(
+            mock_session, "GET", URL("http://test/api"), {}
+        )
+
+    assert mock_ctx.calls == 1
+
+
+@pytest.mark.parametrize("public_api", [False, True])
+@pytest.mark.asyncio()
+async def test_api_request_raw_request_timeout_wrapped(
+    public_api: bool,
+) -> None:
+    """A request-phase timeout from api_request_raw surfaces as NvrError."""
+    client = ProtectApiClient(
+        "127.0.0.1", 0, "user", "pass", api_key="key", verify_ssl=False
+    )
+    timeout = TimeoutError()
+    mock_ctx = _create_mock_request_context(side_effect=timeout)
+    session = MagicMock()
+    session.request = MagicMock(return_value=mock_ctx)
+
+    with (
+        patch.object(client, "get_session", AsyncMock(return_value=session)),
+        patch.object(client, "get_public_api_session", AsyncMock(return_value=session)),
+        pytest.raises(NvrError, match="timeout") as exc_info,
+    ):
+        await client.api_request_raw("/test", require_auth=False, public_api=public_api)
+
+    assert exc_info.value.__cause__ is timeout
+    assert mock_ctx.calls == 1
+
+
+@pytest.mark.asyncio()
 async def test_update_token_cookie_failure_releases_response(
     do_request_client: ProtectApiClient,
 ) -> None:
