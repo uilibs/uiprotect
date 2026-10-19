@@ -1,5 +1,13 @@
 # Changelog
 
+## v23.8.0 (2026-10-19)
+
+### Features
+
+
+- Add publiclight.light_mode_preset and set_light_mode_preset ([`6943e53`](https://github.com/uilibs/uiprotect/commit/6943e53c0eaf4b69e2454bea5a6884e5b2301d60))
+
+
 ## v23.7.1 (2026-10-19)
 
 ### Bug fixes
