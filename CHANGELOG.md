@@ -1,5 +1,13 @@
 # Changelog
 
+## v23.9.0 (2026-10-19)
+
+### Features
+
+
+- Add publicbootstrap.to_diagnostics() anonymized dump ([`1148c54`](https://github.com/uilibs/uiprotect/commit/1148c545e5900ee9e9123e136de94f59b02ef5be))
+
+
 ## v23.8.0 (2026-10-19)
 
 ### Features
