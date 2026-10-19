@@ -1345,6 +1345,132 @@ async def test_public_chime_concurrent_volume_no_lost_update() -> None:
     assert volumes == {"cam-a": 10, "cam-b": 90}
 
 
+def _echo_ring_settings(chime: PublicChime) -> AsyncMock:
+    async def fake_update(cid: str, *, ring_settings: list[Any]) -> PublicChime:
+        await asyncio.sleep(0)
+        return chime.model_copy(
+            update={
+                "ring_settings": [
+                    PublicRingSettings(
+                        camera_id=rs["cameraId"],
+                        volume=rs["volume"],
+                        repeat_times=rs["repeatTimes"],
+                        ringtone_id=rs["ringtoneId"],
+                    )
+                    for rs in ring_settings
+                ]
+            }
+        )
+
+    return AsyncMock(side_effect=fake_update)
+
+
+@pytest.mark.asyncio
+async def test_public_chime_set_volume_for_all_cameras() -> None:
+    api = MagicMock()
+    chime = _chime(api)
+    api.update_chime_public = _echo_ring_settings(chime)
+
+    result = await chime.set_volume_for_all_cameras(15)
+
+    assert result is chime
+    api.update_chime_public.assert_awaited_once_with(
+        "chime-1",
+        ring_settings=[
+            {"cameraId": "cam-a", "ringtoneId": "rt-a", "volume": 15, "repeatTimes": 1},
+            {"cameraId": "cam-b", "ringtoneId": "rt-b", "volume": 15, "repeatTimes": 2},
+        ],
+    )
+    assert [(rs.camera_id, rs.volume) for rs in chime.ring_settings] == [
+        ("cam-a", 15),
+        ("cam-b", 15),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_public_chime_set_repeat_times_for_all_cameras() -> None:
+    api = MagicMock()
+    chime = _chime(api)
+    api.update_chime_public = _echo_ring_settings(chime)
+
+    result = await chime.set_repeat_times_for_all_cameras(4)
+
+    assert result is chime
+    api.update_chime_public.assert_awaited_once_with(
+        "chime-1",
+        ring_settings=[
+            {"cameraId": "cam-a", "ringtoneId": "rt-a", "volume": 50, "repeatTimes": 4},
+            {"cameraId": "cam-b", "ringtoneId": "rt-b", "volume": 60, "repeatTimes": 4},
+        ],
+    )
+    assert [rs.repeat_times for rs in chime.ring_settings] == [4, 4]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("setter", "value"),
+    [
+        ("set_volume_for_all_cameras", -1),
+        ("set_volume_for_all_cameras", 101),
+        ("set_repeat_times_for_all_cameras", 0),
+        ("set_repeat_times_for_all_cameras", 7),
+    ],
+)
+async def test_public_chime_all_cameras_out_of_range(setter: str, value: int) -> None:
+    api = MagicMock()
+    chime = _chime(api)
+    api.update_chime_public = AsyncMock()
+    with pytest.raises(BadRequest):
+        await getattr(chime, setter)(value)
+    api.update_chime_public.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("setter", "value"),
+    [("set_volume_for_all_cameras", 10), ("set_repeat_times_for_all_cameras", 3)],
+)
+async def test_public_chime_all_cameras_no_ring_settings(
+    setter: str, value: int
+) -> None:
+    api = MagicMock()
+    chime = _chime(api)
+    chime.ring_settings = []
+    api.update_chime_public = AsyncMock()
+    assert await getattr(chime, setter)(value) is chime
+    api.update_chime_public.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("per_camera", "all_cameras", "expected"),
+    [
+        (
+            lambda chime: chime.set_volume_for_camera("cam-a", 10),
+            lambda chime: chime.set_repeat_times_for_all_cameras(5),
+            [(10, 5), (60, 5)],
+        ),
+        (
+            lambda chime: chime.set_repeat_times_for_camera("cam-a", 4),
+            lambda chime: chime.set_volume_for_all_cameras(15),
+            [(15, 4), (15, 2)],
+        ),
+    ],
+)
+async def test_public_chime_all_cameras_serialised_with_per_camera(
+    per_camera: Any, all_cameras: Any, expected: list[tuple[int, int]]
+) -> None:
+    api = MagicMock()
+    chime = _chime(api)
+    api.update_chime_public = _echo_ring_settings(chime)
+
+    await asyncio.gather(per_camera(chime), all_cameras(chime))
+
+    second = api.update_chime_public.await_args_list[1].kwargs["ring_settings"]
+    assert [(rs["volume"], rs["repeatTimes"]) for rs in second] == expected
+    assert [(rs.volume, rs.repeat_times) for rs in chime.ring_settings] == expected
+
+
 @pytest.mark.asyncio
 async def test_public_light_concurrent_settings_no_lost_update() -> None:
     api = MagicMock()

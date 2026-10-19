@@ -307,6 +307,12 @@ _PUBLIC_CHIME_WRITERS = {
     "set_repeat_times_for_camera": lambda chime, cid: chime.set_repeat_times_for_camera(
         cid, 3
     ),
+    "set_volume_for_all_cameras": lambda chime, _cid: chime.set_volume_for_all_cameras(
+        30
+    ),
+    "set_repeat_times_for_all_cameras": lambda chime, _cid: (
+        chime.set_repeat_times_for_all_cameras(3)
+    ),
 }
 
 

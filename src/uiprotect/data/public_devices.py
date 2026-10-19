@@ -1903,21 +1903,43 @@ class PublicChime(PublicDeviceModel):
             self._apply_from_response(updated)
         return self
 
+    async def set_volume_for_all_cameras(self, level: int) -> PublicChime:
+        """Set the ring volume for every paired camera via the public API."""
+        level = _coerce_public_int("volume", level, _PUBLIC_RING_VOLUME_RANGE)
+        async with self._update_sync.lock:
+            if not self.ring_settings:
+                return self
+            body = self._ring_settings_body(None, volume=level)
+            updated = await self._api.update_chime_public(self.id, ring_settings=body)
+            self._apply_from_response(updated)
+        return self
+
+    async def set_repeat_times_for_all_cameras(self, value: int) -> PublicChime:
+        """Set the ring repeat count for every paired camera via the public API."""
+        value = _coerce_public_int("repeat_times", value, _PUBLIC_RING_REPEAT_RANGE)
+        async with self._update_sync.lock:
+            if not self.ring_settings:
+                return self
+            body = self._ring_settings_body(None, repeat_times=value)
+            updated = await self._api.update_chime_public(self.id, ring_settings=body)
+            self._apply_from_response(updated)
+        return self
+
     def _ring_settings_body(
         self,
-        camera_id: str,
+        camera_id: str | None,
         *,
         volume: int | None = None,
         repeat_times: int | None = None,
     ) -> list[PublicApiChimeRingSettingRequest]:
-        """Build a full ring-settings PATCH body overriding one camera's entry."""
-        if self.get_ring_setting(camera_id) is None:
+        """Build a full ring-settings PATCH body; ``None`` overrides every entry."""
+        if camera_id is not None and self.get_ring_setting(camera_id) is None:
             raise BadRequest(f"Camera {camera_id} is not paired with chime")
         body: list[PublicApiChimeRingSettingRequest] = []
         for rs in self.ring_settings:
             if not rs.ringtone_id:
                 raise ChimeRingtoneNotSetError(rs.camera_id or "")
-            override = rs.camera_id == camera_id
+            override = camera_id is None or rs.camera_id == camera_id
             entry: PublicApiChimeRingSettingRequest = {
                 "cameraId": rs.camera_id or "",
                 "ringtoneId": rs.ringtone_id,

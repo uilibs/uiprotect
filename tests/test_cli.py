@@ -80,7 +80,7 @@ from uiprotect.data.types import (
     SmartDetectObjectType,
     VideoMode,
 )
-from uiprotect.exceptions import NvrError
+from uiprotect.exceptions import ChimeRingtoneNotSetError, NvrError
 
 runner = CliRunner()
 
@@ -747,29 +747,23 @@ def test_chime_cameras_non_doorbell_rejected() -> None:
     protect.update_chime_public.assert_not_called()
 
 
-def test_chime_set_volume_whole_device_uses_ring_settings() -> None:
-    """Whole-device volume routes through update_chime_public(ring_settings=...)."""
-    ring = RingSetting(
-        camera_id="cam-1",
-        repeat_times=2,  # type: ignore[arg-type]
-        ringtone_id="rt-1",
-        volume=20,
-    )
-    ctx, _chime, protect = _make_chime_ctx(ring_settings=[ring])
+@pytest.mark.parametrize(
+    ("command", "setter", "value"),
+    [
+        (set_volume, "set_volume_for_all_cameras", 80),
+        (set_repeat_times, "set_repeat_times_for_all_cameras", 4),
+    ],
+)
+def test_chime_whole_device_uses_public_setter(command, setter, value) -> None:
+    """Whole-device ring settings go through the public chime's all-camera setter."""
+    ctx, _chime, protect = _make_chime_ctx()
 
-    set_volume(ctx, value=80, camera_id=None)
+    command(ctx, value=value, camera_id=None)
 
-    protect.update_chime_public.assert_awaited_once_with(
-        "chime-1",
-        ring_settings=[
-            {
-                "cameraId": "cam-1",
-                "volume": 80,
-                "repeatTimes": 2,
-                "ringtoneId": "rt-1",
-            }
-        ],
-    )
+    public = protect.get_chime_public.return_value
+    getattr(public, setter).assert_awaited_once_with(value)
+    protect.get_chime_public.assert_awaited_once_with("chime-1")
+    protect.update_chime_public.assert_not_called()
 
 
 def test_chime_set_volume_per_camera_uses_public_wrapper() -> None:
@@ -796,51 +790,28 @@ def test_chime_set_volume_per_camera_invalid_id_rejected() -> None:
     protect.get_chime_public.return_value.set_volume_for_camera.assert_not_called()
 
 
-def test_chime_set_repeat_times_whole_device_uses_ring_settings() -> None:
-    """Whole-device repeat routes through update_chime_public(ring_settings=...)."""
-    ring = RingSetting(
-        camera_id="cam-1",
-        repeat_times=1,  # type: ignore[arg-type]
-        ringtone_id="rt-1",
-        volume=20,
-    )
-    ctx, _chime, protect = _make_chime_ctx(ring_settings=[ring])
-
-    set_repeat_times(ctx, value=4, camera_id=None)
-
-    protect.update_chime_public.assert_awaited_once_with(
-        "chime-1",
-        ring_settings=[
-            {
-                "cameraId": "cam-1",
-                "volume": 20,
-                "repeatTimes": 4,
-                "ringtoneId": "rt-1",
-            }
-        ],
-    )
-
-
-@pytest.mark.parametrize("command", [set_volume, set_repeat_times])
+@pytest.mark.parametrize(
+    ("command", "setter"),
+    [
+        (set_volume, "set_volume_for_all_cameras"),
+        (set_repeat_times, "set_repeat_times_for_all_cameras"),
+    ],
+)
 def test_chime_whole_device_without_ringtone_reports_error(
-    command, capsys: pytest.CaptureFixture[str]
+    command, setter, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Whole-device set without a ringtone prints the error and closes the client."""
-    ring = RingSetting(
-        camera_id="cam-1",
-        repeat_times=1,  # type: ignore[arg-type]
-        ringtone_id=None,
-        volume=20,
-    )
-    ctx, _chime, protect = _make_chime_ctx(ring_settings=[ring])
+    ctx, _chime, protect = _make_chime_ctx()
+    getattr(
+        protect.get_chime_public.return_value, setter
+    ).side_effect = ChimeRingtoneNotSetError("cam-1")
 
     with pytest.raises(typer.Exit) as exc:
         command(ctx, value=3, camera_id=None)
 
     assert exc.value.exit_code == 1
     assert "no ringtone set for camera cam-1" in capsys.readouterr().out
-    protect.update_chime_public.assert_not_called()
-    protect.close_session.assert_awaited_once()
+    protect.close_session.assert_awaited()
 
 
 def test_chime_set_repeat_times_per_camera_uses_public_wrapper() -> None:
@@ -2261,15 +2232,19 @@ def test_key_only_chime_per_camera_settings(command, setter, value) -> None:
     getattr(chime, setter).assert_awaited_once_with("cam-1", value)
 
 
-@pytest.mark.parametrize("command", [set_volume, set_repeat_times])
-def test_key_only_chime_whole_device_settings_exit(command) -> None:
-    """Without --camera the chime settings need the private model and exit 1."""
-    ctx, _chime, protect = _device_ctx(PublicChime)
-    protect.update_chime_public = AsyncMock()
-    with pytest.raises(typer.Exit) as exc:
-        command(ctx, value=3, camera_id=None)
-    assert exc.value.exit_code == 1
-    protect.update_chime_public.assert_not_called()
+@pytest.mark.parametrize(
+    ("command", "setter", "value"),
+    [
+        (set_volume, "set_volume_for_all_cameras", 55),
+        (set_repeat_times, "set_repeat_times_for_all_cameras", 3),
+    ],
+)
+def test_key_only_chime_whole_device_settings(command, setter, value) -> None:
+    """Without --camera the public chime's all-camera setters are used."""
+    ctx, chime, protect = _device_ctx(PublicChime, **{setter: AsyncMock()})
+    command(ctx, value=value, camera_id=None)
+    getattr(chime, setter).assert_awaited_once_with(value)
+    protect.get_chime_public.assert_not_called()
 
 
 @pytest.mark.parametrize("command", [chimes_cli.play, chimes_cli.play_buzzer])
