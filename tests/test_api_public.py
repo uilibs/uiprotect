@@ -3349,6 +3349,36 @@ def test_public_bootstrap_to_diagnostics_anonymizes_rtsps_streams() -> None:
     assert camera.rtsps_streams.high == "rtsps://192.168.1.1:7441/secretAlias"
 
 
+def test_public_bootstrap_to_diagnostics_anonymizes_bridge_clients() -> None:
+    """Bridge client MACs are mapped like ``mac``."""
+    pb = PublicBootstrap()
+    bridge = PublicBridge.from_unifi_dict(**_bridge_raw())
+    pb.bridges[bridge.id] = bridge
+
+    (dumped,) = pb.to_diagnostics()["bridges"]
+
+    (client,) = dumped["clients"]
+    assert client == anonymize.object_id_mapping["112233445566"]
+    assert client != "112233445566"
+    assert dumped["mac"] != "AABBCCDDEEFF"
+    assert bridge.clients == ["112233445566"]
+
+
+def test_public_bootstrap_to_diagnostics_anonymizes_custom_messages(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Custom doorbell messages never leak into the NVR dump."""
+    pb = PublicBootstrap()
+    pb.nvr = _make_public_nvr(protect_client)
+    pb.nvr.doorbell_settings.custom_messages = ["Secret Gate Code"]
+
+    dumped = pb.to_diagnostics()["nvr"]
+
+    (message,) = dumped["doorbellSettings"]["customMessages"]
+    assert message != "Secret Gate Code"
+    assert pb.nvr.doorbell_settings.custom_messages == ["Secret Gate Code"]
+
+
 def test_public_bootstrap_to_diagnostics_ids_match_private_dump(
     protect_client: ProtectApiClient,
     monkeypatch: pytest.MonkeyPatch,

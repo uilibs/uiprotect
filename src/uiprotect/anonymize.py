@@ -178,6 +178,8 @@ def anonymize_list(items: list[Any], name: str | None = None) -> list[Any]:
         if isinstance(value, str) and name in {
             "hosts",
             "rtspsStreams",
+            "clients",
+            "customMessages",
             *_OBJECT_ID_LIST_KEYS,
         }:
             handled = True
@@ -185,6 +187,10 @@ def anonymize_list(items: list[Any], name: str | None = None) -> list[Any]:
                 items[index] = anonymize_ip(items[index])
             elif name == "rtspsStreams":
                 items[index] = anonymize_rstp_url(value)
+            elif name == "clients":
+                items[index] = anonymize_peristent_string(value, random_hex(12).upper())
+            elif name == "customMessages":
+                items[index] = f"{random_word()} {random_word()}".title()
             else:
                 items[index] = anonymize_object_id(value)
 
