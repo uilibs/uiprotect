@@ -42,7 +42,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, cast
 
 # Loaded with uiprotect so diagnostics dumps never import it on the event loop.
-from .. import anonymize  # noqa: F401
+from .. import anonymize
 from ..utils import normalize_mac
 from .base import ProtectModelWithId
 from .convert import create_from_unifi_dict
@@ -343,6 +343,31 @@ class PublicBootstrap:
             if model_type is ModelType.LIVEVIEW:
                 continue
             yield from getattr(self, store_attr).values()
+
+    def to_diagnostics(self) -> dict[str, Any]:
+        """
+        Return an anonymized dump of the NVR and every registry store.
+
+        Keys are ``"nvr"`` plus each store attribute in :data:`_PUBLIC_STORES`
+        and :data:`_DEDICATED_SLOT_STORE_ATTRS`. Ids share the process-wide
+        anonymizer mapping, so they match an ``anonymize_data`` dump of the
+        private bootstrap taken in the same process.
+        """
+        result: dict[str, Any] = {
+            "nvr": (
+                anonymize.anonymize_data(self.nvr.unifi_dict())
+                if self.nvr is not None
+                else None
+            )
+        }
+        store_attrs = [attr for attr, _cls in _PUBLIC_STORES.values()]
+        store_attrs.extend(_DEDICATED_SLOT_STORE_ATTRS.values())
+        for store_attr in store_attrs:
+            result[store_attr] = [
+                anonymize.anonymize_data(obj.unifi_dict())
+                for obj in getattr(self, store_attr).values()
+            ]
+        return result
 
     def apply_fetch_result(
         self, attr: str, objs: list[ProtectModelWithId]

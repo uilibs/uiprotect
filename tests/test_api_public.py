@@ -15,6 +15,7 @@ import pytest
 from pydantic import ValidationError
 
 from tests.conftest import set_no_debug
+from uiprotect import anonymize
 from uiprotect import api as api_module
 from uiprotect.api import _UNSET, RTSPSStreams, _UnsetType
 from uiprotect.data import (
@@ -54,6 +55,7 @@ from uiprotect.data import (
     SpeakerStatus,
     Viewer,
 )
+from uiprotect.data import public_bootstrap as public_bootstrap_module
 from uiprotect.data.convert import MODEL_TO_CLASS, create_from_unifi_dict
 from uiprotect.data.types import (
     EventType,
@@ -3264,6 +3266,108 @@ def test_public_bootstrap_all_devices(
         id(siren),
         id(viewer),
     }
+
+
+def _registry_store_attrs() -> list[str]:
+    stores = [attr for attr, _cls in public_bootstrap_module._PUBLIC_STORES.values()]
+    stores.extend(public_bootstrap_module._DEDICATED_SLOT_STORE_ATTRS.values())
+    return stores
+
+
+def test_public_bootstrap_to_diagnostics_empty() -> None:
+    """An empty cache dumps ``nvr: None`` and an empty list per registry store."""
+    diag = PublicBootstrap().to_diagnostics()
+    assert diag == {"nvr": None, **{attr: [] for attr in _registry_store_attrs()}}
+
+
+def test_public_bootstrap_to_diagnostics_every_store(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Every registry store, liveviews included, and the NVR are dumped anonymized."""
+    siren = _build_siren(protect_client)
+    pb = protect_client.public_bootstrap
+    pb.process_devices_ws_message(
+        protect_client, {"type": "add", "item": _viewer_raw()}
+    )
+    pb.process_devices_ws_message(
+        protect_client, {"type": "add", "item": _liveview_raw()}
+    )
+    pb.nvr = _make_public_nvr(protect_client)
+
+    diag = pb.to_diagnostics()
+
+    assert set(diag) == {"nvr", *_registry_store_attrs()}
+    assert diag["nvr"]["id"] == anonymize.object_id_mapping[pb.nvr.id]
+    assert diag["nvr"]["id"] != pb.nvr.id
+    for attr, raw_id, model_key in (
+        ("sirens", SIREN_ID, "siren"),
+        ("viewers", VIEWER_ID, "viewer"),
+        ("liveviews", LIVEVIEW_ID, "liveview"),
+    ):
+        (dumped,) = diag[attr]
+        assert dumped["modelKey"] == model_key
+        assert dumped["id"] == anonymize.object_id_mapping[raw_id]
+        assert dumped["id"] != raw_id
+    assert diag["sirens"][0]["mac"] != siren.mac
+    assert siren.id == SIREN_ID
+
+
+def test_public_bootstrap_to_diagnostics_new_registry_entry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A store added to a registry is dumped without other changes."""
+    monkeypatch.setitem(
+        public_bootstrap_module._PUBLIC_STORES, ModelType.UNKNOWN, ("widgets", None)
+    )
+    pb = PublicBootstrap()
+    camera = PublicCamera.from_unifi_dict(**deepcopy(CAMERA_PAYLOAD))
+    pb.widgets = {camera.id: camera}  # type: ignore[attr-defined]
+
+    (dumped,) = pb.to_diagnostics()["widgets"]
+
+    assert dumped["id"] == anonymize.object_id_mapping[camera.id]
+
+
+def test_public_bootstrap_to_diagnostics_anonymizes_rtsps_streams() -> None:
+    """RTSPS stream URLs never leak the console host or stream alias."""
+    pb = PublicBootstrap()
+    camera = PublicCamera.from_unifi_dict(**deepcopy(CAMERA_PAYLOAD))
+    camera.rtsps_streams = RTSPSStreams(
+        high="rtsps://192.168.1.1:7441/secretAlias",
+        low="rtsps://192.168.1.1:7441/otherAlias",
+    )
+    pb.cameras[camera.id] = camera
+
+    (dumped,) = pb.to_diagnostics()["cameras"]
+
+    streams = dumped["rtspsStreams"]
+    assert set(streams) == {"high", "low"}
+    for url in streams.values():
+        assert url.startswith("rtsps://")
+        assert "192.168.1.1" not in url
+        assert "Alias" not in url
+    assert camera.rtsps_streams.high == "rtsps://192.168.1.1:7441/secretAlias"
+
+
+def test_public_bootstrap_to_diagnostics_ids_match_private_dump(
+    protect_client: ProtectApiClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ids match an ``anonymize_data`` dump of the private bootstrap."""
+    monkeypatch.setattr(anonymize, "object_id_mapping", {})
+    private_camera = next(iter(protect_client.bootstrap.cameras.values()))
+    pb = PublicBootstrap()
+    camera = PublicCamera.from_unifi_dict(
+        **{**deepcopy(CAMERA_PAYLOAD), "id": private_camera.id}
+    )
+    pb.cameras[camera.id] = camera
+
+    private_dump = anonymize.anonymize_data(protect_client.bootstrap.unifi_dict())
+    (dumped,) = pb.to_diagnostics()["cameras"]
+
+    private_ids = {cam["id"] for cam in private_dump["cameras"]}
+    assert dumped["id"] in private_ids
+    assert dumped["id"] != private_camera.id
 
 
 def test_apply_fetch_result_removes_stale_entries(
