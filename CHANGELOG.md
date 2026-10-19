@@ -1,5 +1,13 @@
 # Changelog
 
+## v23.4.0 (2026-10-19)
+
+### Features
+
+
+- Add publicchime.get_ring_setting ([`45fa16b`](https://github.com/uilibs/uiprotect/commit/45fa16bad07816b0a1e65f2355580f1b42cec05b))
+
+
 ## v23.3.0 (2026-10-18)
 
 ### Features
