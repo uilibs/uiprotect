@@ -31,6 +31,7 @@ from uiprotect.data import (
     PublicDoorbellSettings,
     PublicLcdMessage,
     PublicLight,
+    PublicLiveview,
     PublicNVR,
     PublicSensor,
     PublicSensorFeatureCapability,
@@ -1179,6 +1180,64 @@ def test_get_device_mac_resolves_public_devices() -> None:
     pb = PublicBootstrap()
     pb.process_devices_ws_message(Mock(), {"type": "add", "item": dict(SENSOR_PAYLOAD)})
     assert pb.get_device_mac("sensor1") == "AABBCCDDEE02"
+
+
+def _bootstrap_with_devices() -> PublicBootstrap:
+    pb = PublicBootstrap()
+    for payload in (CAMERA_PAYLOAD, SENSOR_PAYLOAD, CHIME_PAYLOAD):
+        pb.process_devices_ws_message(Mock(), {"type": "add", "item": dict(payload)})
+    return pb
+
+
+@pytest.mark.parametrize(
+    "mac", ["AABBCCDDEE02", "aabbccddee02", "aa:bb:cc:dd:ee:02", "AA-BB-CC-DD-EE-02"]
+)
+def test_get_device_from_mac_normalizes_formats(mac: str) -> None:
+    """A mac in any common format resolves to the cached device."""
+    pb = _bootstrap_with_devices()
+    device = pb.get_device_from_mac(mac)
+    assert device is pb.sensors["sensor1"]
+    assert pb.get_device_from_mac(mac, ModelType.SENSOR) is device
+
+
+def test_get_device_from_mac_model_type_limits_search() -> None:
+    """A mac from another store is not found when model_type is given."""
+    pb = _bootstrap_with_devices()
+    assert pb.get_device_from_mac(CHIME_PAYLOAD["mac"], ModelType.SENSOR) is None
+    assert (
+        pb.get_device_from_mac(CHIME_PAYLOAD["mac"], ModelType.CHIME)
+        is pb.chimes[CHIME_PAYLOAD["id"]]
+    )
+
+
+def test_get_device_from_mac_covers_dedicated_slot_stores() -> None:
+    """Bridges and viewers resolve by mac, with or without model_type."""
+    pb = PublicBootstrap()
+    bridge = PublicBridge.model_construct(id="b1", mac="AABBCCDDEE10")
+    viewer = PublicViewer.model_construct(id="v1", mac="AABBCCDDEE11")
+    pb.bridges[bridge.id] = bridge
+    pb.viewers[viewer.id] = viewer
+    assert pb.get_device_from_mac("aa:bb:cc:dd:ee:10") is bridge
+    assert pb.get_device_from_mac("aa:bb:cc:dd:ee:11", ModelType.VIEWPORT) is viewer
+    assert pb.get_device_from_mac("aa:bb:cc:dd:ee:10", ModelType.VIEWPORT) is None
+
+
+@pytest.mark.parametrize(
+    ("mac", "model_type"),
+    [
+        ("00:11:22:33:44:55", None),
+        ("00:11:22:33:44:55", ModelType.CAMERA),
+        (SENSOR_PAYLOAD["mac"], ModelType.NVR),
+        (SENSOR_PAYLOAD["mac"], ModelType.LIVEVIEW),
+    ],
+)
+def test_get_device_from_mac_returns_none(
+    mac: str, model_type: ModelType | None
+) -> None:
+    """An unknown mac, unsupported type or mac-less store returns None."""
+    pb = _bootstrap_with_devices()
+    pb.liveviews["lv1"] = PublicLiveview.model_construct(id="lv1")
+    assert pb.get_device_from_mac(mac, model_type) is None
 
 
 @pytest.mark.parametrize("cls", [PublicCamera, PublicLight, PublicSensor, PublicChime])
