@@ -15,6 +15,7 @@ from uiprotect.data.public_devices import (
     PublicChime,
     PublicLcdMessage,
     PublicLight,
+    PublicLightModeSettings,
     PublicRingSettings,
     PublicSensor,
     RTSPSStreams,
@@ -23,6 +24,7 @@ from uiprotect.data.public_devices import (
 from uiprotect.data.types import (
     DoorbellMessageType,
     LightModeEnableType,
+    LightModePreset,
     LightModeType,
     OsdOverlayLocation,
     PublicHdrMode,
@@ -795,6 +797,80 @@ async def test_public_light_set_light_mode() -> None:
     api.update_light_public = AsyncMock(return_value=light)
 
     await light.set_light_mode(LightModeType.MANUAL, LightModeEnableType.DARK)
+
+    sent = api.update_light_public.call_args.kwargs["light_mode_settings"]
+    assert sent.mode is LightModeType.MANUAL
+    assert sent.enable_at is LightModeEnableType.DARK
+
+
+@pytest.mark.parametrize(
+    ("settings", "expected"),
+    [
+        ({"mode": "off", "enableAt": "dark"}, LightModePreset.OFF),
+        ({"mode": "off"}, LightModePreset.OFF),
+        ({"mode": "always", "enableAt": "dark"}, LightModePreset.WHEN_DARK),
+        ({"mode": "always", "enableAt": "fulltime"}, LightModePreset.WHEN_DARK),
+        ({"mode": "motion", "enableAt": "dark"}, LightModePreset.MOTION_DARK),
+        ({"mode": "motion", "enableAt": "fulltime"}, LightModePreset.MOTION),
+        ({"mode": "motion"}, LightModePreset.MOTION),
+        ({"mode": "motion", "enableAt": "night"}, None),
+        ({"mode": "schedule", "enableAt": "dark"}, None),
+        ({"enableAt": "dark"}, None),
+        ({}, None),
+    ],
+)
+def test_public_light_mode_preset(
+    settings: dict[str, str], expected: LightModePreset | None
+) -> None:
+    light = _light(MagicMock())
+    light.light_mode_settings = PublicLightModeSettings.from_unifi_dict(**settings)
+
+    assert light.light_mode_preset is expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("preset", "mode", "enable_at"),
+    [
+        (LightModePreset.MOTION, LightModeType.MOTION, LightModeEnableType.ALWAYS),
+        (LightModePreset.MOTION_DARK, LightModeType.MOTION, LightModeEnableType.DARK),
+        (LightModePreset.WHEN_DARK, LightModeType.WHEN_DARK, LightModeEnableType.DARK),
+        (LightModePreset.OFF, LightModeType.MANUAL, LightModeEnableType.ALWAYS),
+        ("motion_dark", LightModeType.MOTION, LightModeEnableType.DARK),
+    ],
+)
+async def test_public_light_set_light_mode_preset(
+    preset: LightModePreset | str,
+    mode: LightModeType,
+    enable_at: LightModeEnableType,
+) -> None:
+    api = MagicMock()
+    light = _light(api)
+    updated = light.model_copy(
+        update={
+            "light_mode_settings": light.light_mode_settings.model_copy(
+                update={"mode": mode, "enable_at": enable_at}
+            )
+        }
+    )
+    api.update_light_public = AsyncMock(return_value=updated)
+
+    assert await light.set_light_mode_preset(preset) is light
+
+    sent = api.update_light_public.call_args.kwargs["light_mode_settings"]
+    assert sent.unifi_dict() == {"mode": mode.value, "enableAt": enable_at.value}
+    assert light.light_mode_settings.mode is mode
+    assert light.light_mode_settings.enable_at is enable_at
+
+
+@pytest.mark.asyncio
+async def test_public_light_set_light_mode_preset_off_keeps_enable_at() -> None:
+    api = MagicMock()
+    light = _light(api)
+    light.light_mode_settings.enable_at = LightModeEnableType.DARK
+    api.update_light_public = AsyncMock(return_value=light)
+
+    await light.set_light_mode_preset(LightModePreset.OFF)
 
     sent = api.update_light_public.call_args.kwargs["light_mode_settings"]
     assert sent.mode is LightModeType.MANUAL

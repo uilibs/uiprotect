@@ -19,14 +19,21 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, patch
+
 import orjson
 import pytest
+from jsonschema import Draft202012Validator
 from validate_spec import (  # local import via conftest sys.path insert
     SPEC_PATH,
+    _prepare_spec,
     check_completeness,
     check_enum_coverage,
     run_checks,
 )
+
+from uiprotect import ProtectApiClient
+from uiprotect.data import LightModePreset, PublicLight
 
 _SPEC_PATH = SPEC_PATH
 
@@ -51,3 +58,40 @@ def test_every_public_coroutine_is_covered() -> None:
     """No public-API coroutine is left out of the derived coverage set (spec-free)."""
     gaps = check_completeness()
     assert not gaps, "uncovered public-API coroutines:\n" + "\n".join(gaps)
+
+
+@pytest.fixture(scope="module")
+def light_patch_validator() -> Draft202012Validator:
+    spec = _prepare_spec(orjson.loads(_SPEC_PATH.read_bytes()))
+    operation = spec["paths"]["/v1/lights/{id}"]["patch"]
+    schema = operation["requestBody"]["content"]["application/json"]["schema"]
+    return Draft202012Validator({**schema, "components": spec["components"]})
+
+
+@pytest.mark.skipif(not _SPEC_PATH.exists(), reason="openapi/integration.json absent")
+@pytest.mark.asyncio
+@pytest.mark.parametrize("preset", list(LightModePreset))
+async def test_light_mode_preset_body_matches_spec(
+    light_patch_validator: Draft202012Validator, preset: LightModePreset
+) -> None:
+    """Each light mode preset PATCHes a body the spec accepts."""
+    client = ProtectApiClient.public_only("127.0.0.1", 443, api_key="key")
+    raw = {
+        "id": "light-1",
+        "modelKey": "light",
+        "state": "CONNECTED",
+        "mac": "AABBCCDDEE01",
+        "lightModeSettings": {"mode": "motion", "enableAt": "fulltime"},
+        "lightDeviceSettings": {"isIndicatorEnabled": True},
+        "isDark": True,
+        "isLightOn": False,
+        "isLightForceEnabled": False,
+        "isPirMotionDetected": False,
+    }
+    light = PublicLight.from_unifi_dict(**raw, api=client)
+    request = AsyncMock(return_value=raw)
+    with patch.object(client, "api_request_obj", request):
+        await light.set_light_mode_preset(preset)
+
+    body = orjson.loads(orjson.dumps(request.call_args.kwargs["json"]))
+    assert list(light_patch_validator.iter_errors(body)) == []

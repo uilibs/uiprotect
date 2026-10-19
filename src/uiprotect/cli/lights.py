@@ -6,7 +6,7 @@ from datetime import timedelta
 import typer
 
 from ..cli import base
-from ..data import Light
+from ..data import Light, LightModePreset
 from ..data.public_devices import PublicLight
 
 app = typer.Typer(rich_markup_mode="rich")
@@ -124,3 +124,12 @@ def set_flood_light(ctx: typer.Context, enabled: bool) -> None:
     obj = base.public_device(ctx, PublicLight)
 
     base.run(ctx, obj.set_flood_light(enabled))
+
+
+@app.command()
+def set_light_mode_preset(ctx: typer.Context, preset: LightModePreset) -> None:
+    """Sets the light trigger preset shown in the Protect app."""
+    base.require_device_id(ctx, public_ok=True)
+    obj = base.public_device(ctx, PublicLight)
+
+    base.run(ctx, obj.set_light_mode_preset(preset))

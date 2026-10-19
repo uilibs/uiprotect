@@ -454,6 +454,16 @@ class LightModeType(ValuesEnumMixin, enum.StrEnum):
 
 
 @enum.unique
+class LightModePreset(ValuesEnumMixin, enum.StrEnum):
+    """Light trigger as shown in the Protect app (``mode`` plus ``enableAt``)."""
+
+    MOTION = "motion"
+    MOTION_DARK = "motion_dark"
+    WHEN_DARK = "always"
+    OFF = "off"
+
+
+@enum.unique
 class VideoMode(UnknownValuesEnumMixin, enum.StrEnum):
     """Camera video pipeline mode; unknown wire values coerce to ``UNKNOWN``."""
 
