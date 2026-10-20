@@ -1387,6 +1387,16 @@ class Camera(ProtectMotionDeviceModel):
 
         await self.queue_update(callback)
 
+    async def set_ringtone(self, ringtone_id: str) -> None:
+        """Sets the ringtone played by the doorbell. Requires camera to be a doorbell"""
+        if not self.feature_flags.is_doorbell:
+            raise BadRequest("Camera is not a doorbell")
+
+        def callback() -> None:
+            self.speaker_settings.ringtone_id = ringtone_id
+
+        await self.queue_update(callback)
+
     async def set_chime_type(self, chime_type: ChimeType) -> None:
         """Sets chime type for doorbell. Requires camera to be a doorbell"""
         await self.set_chime_duration(timedelta(milliseconds=chime_type.value))

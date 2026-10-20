@@ -515,6 +515,42 @@ async def test_camera_set_ring_volume(camera_obj: Camera | None, level: int):
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
+async def test_camera_set_ringtone_no_doorbell(camera_obj: Camera | None):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.api.api_request.reset_mock()
+
+    camera_obj.feature_flags.is_doorbell = False
+
+    with pytest.raises(BadRequest):
+        await camera_obj.set_ringtone("681fa6f2030adf03e40003fa")
+
+    assert not camera_obj.api.api_request.called
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_set_ringtone(camera_obj: Camera | None):
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.api.api_request.reset_mock()
+
+    camera_obj.feature_flags.is_doorbell = True
+    camera_obj.speaker_settings.ringtone_id = "681fa6f20306df03e40003f9"
+
+    await camera_obj.set_ringtone("681fa6f2030adf03e40003fa")
+
+    camera_obj.api.api_request.assert_called_with(
+        f"cameras/{camera_obj.id}",
+        method="patch",
+        json={"speakerSettings": {"ringtoneId": "681fa6f2030adf03e40003fa"}},
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
 async def test_camera_set_chime_duration_no_chime(camera_obj: Camera | None):
     if camera_obj is None:
         pytest.skip("No camera_obj obj found")
