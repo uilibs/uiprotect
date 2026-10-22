@@ -1,5 +1,7 @@
 # Contributing
 
+Before you open a pull request, read the [Contributing section of the README](https://github.com/uilibs/uiprotect/blob/main/README.md#contributing). Pull requests are closed if the approach was not agreed in an issue first, or if they add [new features built on the private API](https://github.com/uilibs/uiprotect/blob/main/README.md#no-new-private-api-features).
+
 Contributions are welcome, and they are greatly appreciated! Every little helps, and credit will always be given.
 
 You can contribute in many ways:

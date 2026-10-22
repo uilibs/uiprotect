@@ -34,7 +34,7 @@
 -->
 
 - [ ] Code is up-to-date with the `main` branch
-- [ ] This pull request follows the [contributing guidelines](https://github.com/uilibs/uiprotect/blob/main/CONTRIBUTING.md).
+- [ ] This pull request follows the [contributing guidelines](https://github.com/uilibs/uiprotect/blob/main/README.md#contributing): the approach was agreed in an issue first, and it adds [no new private API features](https://github.com/uilibs/uiprotect/blob/main/README.md#no-new-private-api-features).
 - [ ] This pull request links relevant issues as `Fixes #0000`
 - [ ] There are new or updated unit tests validating the change
 - [ ] Documentation has been updated to reflect this change
