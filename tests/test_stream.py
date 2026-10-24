@@ -43,14 +43,6 @@ def mock_camera() -> Mock:
 
 
 @pytest.fixture
-def mock_camera_no_speaker() -> Mock:
-    """Create a mock camera without speaker support."""
-    camera = Mock()
-    camera.feature_flags.has_speaker = False
-    return camera
-
-
-@pytest.fixture
 def talkback_session() -> TalkbackSession:
     """Create a test talkback session."""
     return TalkbackSession(
@@ -220,9 +212,15 @@ def test_talkback_stream_init_no_session(mock_camera: Mock):
     assert stream.session is None
 
 
-def test_talkback_stream_init_no_speaker_raises(mock_camera_no_speaker: Mock):
-    with pytest.raises(BadRequest, match="does not have a speaker"):
-        TalkbackStream(mock_camera_no_speaker, "/path/to/audio.wav")
+def test_talkback_stream_init_session_only(talkback_session: TalkbackSession):
+    stream = TalkbackStream(None, "/path/to/audio.wav", talkback_session)
+    assert stream.camera is None
+    assert stream.session is talkback_session
+
+
+def test_talkback_stream_init_no_session_no_camera_raises():
+    with pytest.raises(BadRequest, match="needs a session or a camera"):
+        TalkbackStream(None, "/path/to/audio.wav")
 
 
 def _blocking_mock(stop_event: threading.Event) -> Callable[[], None]:

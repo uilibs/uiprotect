@@ -34,7 +34,8 @@ from urllib.parse import urlsplit, urlunsplit
 from pydantic import Field
 from pydantic.fields import PrivateAttr
 
-from ..exceptions import BadRequest, ChimeRingtoneNotSetError
+from ..exceptions import BadRequest, ChimeRingtoneNotSetError, StreamError
+from ..stream import TalkbackStream
 from ..utils import (
     convert_smart_audio_types,
     convert_smart_types,
@@ -589,6 +590,8 @@ class PublicCamera(PublicDeviceModel):
     # captured by the events-WS diff stays a distinct object from the rebuild.
     _detection_state_cache: dict[str, bool] | None = PrivateAttr(default=None)
 
+    _talkback_stream: TalkbackStream | None = PrivateAttr(default=None)
+
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
         # A past ``resetAt`` is how the console marks a wiped message; the
@@ -610,6 +613,16 @@ class PublicCamera(PublicDeviceModel):
         hot-plugged audio module, which the public camera payload does not carry.
         """
         return self.feature_flags.has_mic
+
+    @property
+    def has_speaker(self) -> bool:
+        """Does the camera have a speaker for talkback."""
+        return self.feature_flags.has_speaker
+
+    @property
+    def talkback_stream(self) -> TalkbackStream | None:
+        """The stream created by the last ``create_talkback_stream`` call."""
+        return self._talkback_stream
 
     def hardware_stream_qualities(self) -> list[ChannelQuality]:
         """Stream qualities the camera hardware supports (not the server's ``available`` list)."""
@@ -1051,6 +1064,37 @@ class PublicCamera(PublicDeviceModel):
     async def ptz_patrol_stop(self) -> None:
         """Stop the active PTZ patrol via the public API."""
         await self._api.ptz_patrol_stop_public(self.id)
+
+    async def create_talkback_stream(self, content_url: str) -> TalkbackStream:
+        """Create a stream that plays ``content_url`` (URL or file path) on the speaker."""
+        if not self.has_speaker:
+            raise BadRequest("Camera does not have a speaker for talkback")
+        if self._talkback_stream is not None and self._talkback_stream.is_running:
+            raise BadRequest("Camera is already playing audio")
+
+        session = await self._api.create_talkback_session_public(self.id)
+        self._talkback_stream = TalkbackStream(None, content_url, session)
+        return self._talkback_stream
+
+    async def play_audio(self, content_url: str, blocking: bool = True) -> None:
+        """Play ``content_url`` on the speaker, awaiting completion if ``blocking``."""
+        stream = await self.create_talkback_stream(content_url)
+        await stream.start()
+
+        if blocking:
+            await self.wait_until_audio_completes()
+
+    async def wait_until_audio_completes(self) -> None:
+        """Await completion of the playing audio."""
+        if (stream := self._talkback_stream) is None:
+            raise StreamError("No audio playing to wait for")
+        await stream.run_until_complete()
+
+    async def stop_audio(self) -> None:
+        """Stop the playing audio."""
+        if (stream := self._talkback_stream) is None:
+            raise StreamError("No audio playing to stop")
+        await stream.stop()
 
     async def set_person_detection(self, enabled: bool) -> PublicCamera:
         """Toggle person smart detection via the public API."""

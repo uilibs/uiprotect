@@ -33,7 +33,7 @@ from uiprotect.data.types import (
     SmartDetectObjectType,
     VideoMode,
 )
-from uiprotect.exceptions import BadRequest
+from uiprotect.exceptions import BadRequest, StreamError
 
 
 def _camera(api: Any) -> PublicCamera:
@@ -1725,3 +1725,100 @@ async def test_public_camera_lcd_message_response_expired_is_cleared(
     await cam.set_lcd_message(DoorbellMessageType.DO_NOT_DISTURB)
 
     assert cam.lcd_message is None
+
+
+def _talkback_camera(*, has_speaker: bool = True) -> tuple[PublicCamera, MagicMock]:
+    api = MagicMock()
+    api.create_talkback_session_public = AsyncMock(return_value=MagicMock())
+    camera = _camera(api)
+    camera.feature_flags.has_speaker = has_speaker
+    return camera, api
+
+
+def _mock_stream() -> MagicMock:
+    stream = MagicMock(is_running=False)
+    stream.start = AsyncMock()
+    stream.stop = AsyncMock()
+    stream.run_until_complete = AsyncMock()
+    return stream
+
+
+def test_public_camera_has_speaker() -> None:
+    camera, _ = _talkback_camera(has_speaker=False)
+    assert camera.has_speaker is False
+    camera.feature_flags.has_speaker = True
+    assert camera.has_speaker is True
+    assert camera.talkback_stream is None
+
+
+@pytest.mark.asyncio
+async def test_public_camera_create_talkback_stream() -> None:
+    camera, api = _talkback_camera()
+
+    stream = await camera.create_talkback_stream("/audio.wav")
+
+    api.create_talkback_session_public.assert_awaited_once_with("cam-1")
+    assert camera.talkback_stream is stream
+    assert stream.camera is None
+    assert stream.content_url == "/audio.wav"
+    assert stream.session is api.create_talkback_session_public.return_value
+    assert "talkbackStream" not in camera.unifi_dict()
+
+
+@pytest.mark.asyncio
+async def test_public_camera_create_talkback_stream_no_speaker() -> None:
+    camera, api = _talkback_camera(has_speaker=False)
+
+    with pytest.raises(BadRequest, match="does not have a speaker"):
+        await camera.play_audio("/audio.wav")
+    api.create_talkback_session_public.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_public_camera_create_talkback_stream_already_playing() -> None:
+    camera, api = _talkback_camera()
+    camera._talkback_stream = MagicMock(is_running=True)
+
+    with pytest.raises(BadRequest, match="already playing"):
+        await camera.create_talkback_stream("/audio.wav")
+    api.create_talkback_session_public.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("blocking", [True, False])
+async def test_public_camera_play_audio(blocking: bool) -> None:
+    camera, _ = _talkback_camera()
+    stream = _mock_stream()
+
+    with patch(
+        "uiprotect.data.public_devices.TalkbackStream", return_value=stream
+    ) as stream_cls:
+        await camera.play_audio("/audio.wav", blocking)
+
+    stream_cls.assert_called_once()
+    stream.start.assert_awaited_once()
+    assert stream.run_until_complete.await_count == int(blocking)
+
+
+@pytest.mark.asyncio
+async def test_public_camera_wait_and_stop_audio() -> None:
+    camera, _ = _talkback_camera()
+    stream = _mock_stream()
+
+    with patch("uiprotect.data.public_devices.TalkbackStream", return_value=stream):
+        await camera.play_audio("/audio.wav", blocking=False)
+    await camera.wait_until_audio_completes()
+    await camera.stop_audio()
+
+    stream.run_until_complete.assert_awaited_once()
+    stream.stop.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_public_camera_audio_without_stream_raises() -> None:
+    camera, _ = _talkback_camera()
+
+    with pytest.raises(StreamError, match="wait for"):
+        await camera.wait_until_audio_completes()
+    with pytest.raises(StreamError, match="stop"):
+        await camera.stop_audio()

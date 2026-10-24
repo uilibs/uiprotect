@@ -1493,6 +1493,8 @@ class Camera(ProtectMotionDeviceModel):
             _LOGGER.warning(
                 "ffmpeg_path is deprecated and ignored, PyAV is used instead"
             )
+        if not self.feature_flags.has_speaker:
+            raise BadRequest("Camera does not have a speaker for talkback")
         if self.talkback_stream is not None and self.talkback_stream.is_running:
             raise BadRequest("Camera is already playing audio")
 
