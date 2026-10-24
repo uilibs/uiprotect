@@ -623,6 +623,29 @@ async def test_start_does_not_clobber_pending_stop(mock_camera: Mock, audio_file
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("stop", [False, True])
+async def test_run_until_complete_after_finished_does_not_restart(
+    mock_camera: Mock, audio_file: str, stop: bool
+) -> None:
+    """run_until_complete never replays a stream that already ran."""
+    runs = 0
+
+    def count_run(self: TalkbackStream) -> None:
+        nonlocal runs
+        runs += 1
+
+    with patch.object(TalkbackStream, "_stream_audio_sync", count_run):
+        stream = TalkbackStream(mock_camera, audio_file)
+        await stream.start()
+        if stop:
+            await stream.stop()
+        await stream.run_until_complete()
+        await stream.run_until_complete()
+
+    assert runs == 1
+
+
+@pytest.mark.asyncio
 async def test_concurrent_start_during_stop_does_not_deadlock(
     mock_camera: Mock, audio_file: str
 ) -> None:

@@ -6667,3 +6667,19 @@ async def test_get_viewer_public_leaves_cached_viewer_untouched(
     assert result.liveview_id == "lv-new"
     assert pb.viewers[VIEWER_ID] is viewer
     assert viewer.liveview_id == LIVEVIEW_ID
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("close", ["close_session", "close_public_api_session"])
+async def test_close_stops_talkback_streams(
+    protect_client: ProtectApiClient, close: str
+) -> None:
+    """Closing the client stops and forgets every public talkback stream."""
+    stream = Mock()
+    stream.stop = AsyncMock()
+    protect_client._talkback_streams["cam-1"] = stream
+
+    await getattr(protect_client, close)()
+
+    stream.stop.assert_awaited_once()
+    assert protect_client._talkback_streams == {}

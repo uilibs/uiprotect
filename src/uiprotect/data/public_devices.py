@@ -14,6 +14,7 @@ are ``Optional``.
 
 from __future__ import annotations
 
+import asyncio
 import math
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -1067,12 +1068,14 @@ class PublicCamera(PublicDeviceModel):
         """Create a stream that plays ``content_url`` (URL or file path) on the speaker."""
         if not self.has_speaker:
             raise BadRequest("Camera does not have a speaker for talkback")
-        if (stream := self.talkback_stream) is not None and stream.is_running:
-            raise BadRequest("Camera is already playing audio")
+        lock = self._api._talkback_locks.setdefault(self.id, asyncio.Lock())
+        async with lock:
+            if (stream := self.talkback_stream) is not None and stream.is_running:
+                raise BadRequest("Camera is already playing audio")
 
-        session = await self._api.create_talkback_session_public(self.id)
-        stream = TalkbackStream(None, content_url, session)
-        self._api._talkback_streams[self.id] = stream
+            session = await self._api.create_talkback_session_public(self.id)
+            stream = TalkbackStream(None, content_url, session)
+            self._api._talkback_streams[self.id] = stream
         return stream
 
     async def play_audio(self, content_url: str, blocking: bool = True) -> None:

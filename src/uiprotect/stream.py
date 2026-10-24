@@ -143,6 +143,7 @@ class TalkbackStream:
     __slots__ = (
         "_error",
         "_lock",
+        "_started",
         "_stop_event",
         "_thread",
         "camera",
@@ -178,6 +179,7 @@ class TalkbackStream:
         self._thread: threading.Thread | None = None
         self._lock = asyncio.Lock()
         self._error: BaseException | None = None
+        self._started = False
 
     async def __aenter__(self) -> Self:
         """Start streaming when entering async context."""
@@ -316,6 +318,7 @@ class TalkbackStream:
             daemon=True,
         )
         self._thread.start()
+        self._started = True
 
     async def _wait_for_thread(self) -> None:
         """Wait for the thread to complete without blocking the event loop."""
@@ -342,9 +345,10 @@ class TalkbackStream:
             self._stop_event.clear()
 
     async def run_until_complete(self) -> None:
-        """Run the stream until it completes naturally."""
+        """Run the stream until it completes, starting it only if never started."""
         async with self._lock:
-            self._start_thread_if_needed(raise_if_running=False)
+            if not self._started:
+                self._start_thread_if_needed(raise_if_running=False)
             await self._wait_for_thread()
 
             if self._error is not None:
