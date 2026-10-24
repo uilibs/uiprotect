@@ -131,6 +131,7 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
     CAMERA = "camera"
     CLOUD_IDENTITY = "cloudIdentity"
     EVENT = "event"
+    GROUP = "group"
     LIGHT = "light"
     LIVEVIEW = "liveview"
     NVR = "nvr"

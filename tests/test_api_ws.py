@@ -2081,22 +2081,24 @@ async def test_ws_update_for_unknown_device_is_ignored(
 
 @pytest.mark.asyncio()
 @pytest.mark.parametrize("action", ["add", "update", "remove"])
-async def test_ws_private_bridge_frames_are_ignored(
+@pytest.mark.parametrize("model_key", ["bridge", "group"])
+async def test_ws_unmodelled_private_frames_are_ignored(
     protect_client_no_debug: ProtectApiClient,
     packet: WSPacket,
     action: str,
+    model_key: str,
 ):
-    """Private bridge frames are dropped without a refresh."""
+    """Private bridge and group frames are dropped without a refresh."""
     bootstrap = protect_client_no_debug.bootstrap
     action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
     action_frame.data = {
         "action": action,
         "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
-        "modelKey": "bridge",
-        "id": "bridge-1",
+        "modelKey": model_key,
+        "id": "obj-1",
     }
     data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
-    data_frame.data = {"id": "bridge-1", "modelKey": "bridge", "name": "Bridge"}
+    data_frame.data = {"id": "obj-1", "modelKey": model_key, "name": "Obj"}
 
     assert bootstrap.process_ws_packet(WSPacket(packet.pack_frames())) is None
     assert not bootstrap._refresh_tasks

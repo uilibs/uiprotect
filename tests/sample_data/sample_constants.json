@@ -9,12 +9,10 @@
     "counts": {
         "camera": 11,
         "user": 7,
-        "group": 2,
         "liveview": 5,
         "viewer": 1,
         "display": 0,
         "light": 1,
-        "bridge": 2,
         "sensor": 4,
         "chime": 0,
         "schedule": 0

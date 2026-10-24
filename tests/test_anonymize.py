@@ -515,6 +515,27 @@ def test_user_without_names_anonymizes_cloud_account() -> None:
     assert cloud_account["id"] == cloud_account["cloudId"] != cloud_id
 
 
+def test_cloud_account_names_anonymized_without_user_names() -> None:
+    """Cloud account names are anonymized when the user carries none."""
+    user = {
+        "modelKey": "user",
+        "id": "anon-user-3",
+        "cloudAccount": {
+            "firstName": "Jane",
+            "lastName": "Doe",
+            "name": "Jane Doe",
+            "email": "jane@real.test",
+        },
+    }
+
+    cloud_account = anonymize_data(user)["cloudAccount"]
+
+    assert cloud_account["firstName"] != "Jane"
+    assert cloud_account["lastName"] != "Doe"
+    assert cloud_account["name"] != "Jane Doe"
+    assert cloud_account["email"].endswith("@example.com")
+
+
 @pytest.mark.asyncio
 async def test_private_bootstrap_dump_anonymizes(
     protect_client: ProtectApiClient,

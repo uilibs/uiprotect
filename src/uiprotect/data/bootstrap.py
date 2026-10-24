@@ -57,7 +57,9 @@ STATS_KEYS = {
 }
 
 IGNORE_DEVICE_KEYS = {"nvrMac", "guid"}
-_UNMODELLED_PRIVATE_MODEL_TYPES = frozenset({ModelType.AIPORT, ModelType.BRIDGE})
+_UNMODELLED_PRIVATE_MODEL_TYPES = frozenset(
+    {ModelType.AIPORT, ModelType.BRIDGE, ModelType.GROUP}
+)
 STATS_AND_IGNORE_DEVICE_KEYS = STATS_KEYS | IGNORE_DEVICE_KEYS
 
 _IGNORE_KEYS_BY_MODEL_TYPE = {
@@ -718,8 +720,8 @@ class Bootstrap(ProtectBaseObject):
             _LOGGER.debug("Unknown model type: %s", model_key)
             return None
 
-        # The private API still sends AiPorts and bridges, which are no longer
-        # modelled on the private bootstrap.
+        # The private API still sends AiPorts, bridges and groups, which are no
+        # longer modelled on the private bootstrap.
         if model_type in _UNMODELLED_PRIVATE_MODEL_TYPES:
             return None
 

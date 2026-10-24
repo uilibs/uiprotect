@@ -59,14 +59,7 @@ def anonymize_user(user_dict: dict[str, Any]) -> dict[str, Any]:
         user_dict["email"] = f"{user_dict['localUsername']}@example.com"
 
     if (cloud_account := user_dict.get("cloudAccount")) is not None:
-        for key in ("firstName", "lastName", "name", "email"):
-            if key in user_dict:
-                cloud_account[key] = user_dict[key]
-        if "user" in cloud_account:
-            cloud_account["user"] = anonymize_object_id(cloud_account["user"])
-        for key in ("id", "cloudId"):
-            if key in cloud_account:
-                cloud_account[key] = anonymize_uuid(cloud_account[key])
+        _anonymize_cloud_account(cloud_account, user_dict)
 
     camera_order = (user_dict.get("settings") or {}).get("cameraOrder")
     if camera_order is not None:
@@ -286,3 +279,20 @@ def random_ip(input_ip: str) -> str:
 
 def random_identifier() -> str:
     return str(uuid.uuid4())
+
+
+def _anonymize_cloud_account(
+    cloud_account: dict[str, Any], user_dict: dict[str, Any]
+) -> None:
+    for key in ("firstName", "lastName", "name", "email"):
+        if key in user_dict:
+            cloud_account[key] = user_dict[key]
+        elif key == "email" and key in cloud_account:
+            cloud_account[key] = f"{random_word()}@example.com"
+        elif key in cloud_account:
+            cloud_account[key] = random_word().title()
+    if "user" in cloud_account:
+        cloud_account["user"] = anonymize_object_id(cloud_account["user"])
+    for key in ("id", "cloudId"):
+        if key in cloud_account:
+            cloud_account[key] = anonymize_uuid(cloud_account[key])
