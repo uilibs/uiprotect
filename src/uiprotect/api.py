@@ -113,7 +113,7 @@ from .exceptions import (
     NvrError,
     PublicOnlyModeError,
 )
-from .stream import TalkbackSession
+from .stream import TalkbackSession, TalkbackStream
 
 if TYPE_CHECKING:
     from .devices.dispatcher import DeviceDispatcher
@@ -560,6 +560,9 @@ class BaseApiClient:
         # for the same store join them.
         self._public_refresh_pending: dict[PublicStoreName, asyncio.Task[None]] = {}
         self._liveview_update_locks: dict[str, asyncio.Lock] = {}
+        # Public-camera talkback streams by camera id, kept here so a running
+        # stream survives the camera object being replaced on a resync.
+        self._talkback_streams: dict[str, TalkbackStream] = {}
 
         self.config_dir = config_dir or (Path(user_config_dir()) / "ufp")
         self.cache_dir = cache_dir or (Path(user_cache_dir()) / "ufp_cache")
