@@ -2566,45 +2566,6 @@ def test_is_public_live_follows_devices_websocket(
 
 
 @pytest.mark.asyncio()
-async def test_camera_motion_start_partial_ws_update(
-    protect_client: ProtectApiClient,
-) -> None:
-    """
-    A minimal ``isMotionDetected=true`` diff flips the cached camera.
-
-    This is the exact shape HA's motion entity relies on.
-    """
-    # Seed the public cache with the private-bootstrap cameras (same model
-    # class, same ids — realistic because the Public API returns Camera
-    # instances identical in shape to the private one).
-    pb = PublicBootstrap()
-    camera = next(iter(protect_client.bootstrap.cameras.values()))
-    pb.cameras[camera.id] = camera
-    protect_client._public_bootstrap = pb
-
-    assert camera.is_motion_detected is False
-
-    _, new, old = pb.process_devices_ws_message(
-        protect_client,
-        {
-            "type": "update",
-            "item": {
-                "id": camera.id,
-                "modelKey": "camera",
-                "isMotionDetected": True,
-                "lastMotion": 1643055781132,
-            },
-        },
-    )
-
-    assert old is camera
-    assert new is camera
-    assert new is not None and new.is_motion_detected is True  # type: ignore[attr-defined]
-    # Cache now holds the same object, updated in place.
-    assert pb.cameras[camera.id].is_motion_detected is True
-
-
-@pytest.mark.asyncio()
 async def test_doorbell_ring_partial_ws_update(
     protect_client: ProtectApiClient,
 ) -> None:

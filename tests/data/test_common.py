@@ -1034,8 +1034,6 @@ def test_camera_smart_audio_events(camera_obj: Camera):
         SmartDetectAudioType.CMONX
     ] == now - timedelta(seconds=5)
 
-    assert camera_obj.last_smart_audio_detect_event is not None
-    assert camera_obj.last_smart_audio_detect_event.id == "test_event_2"
     event = camera_obj.get_last_smart_audio_detect_event(SmartDetectAudioType.SMOKE)
     assert event is not None
     assert event.id == "test_event_1"
@@ -1904,7 +1902,6 @@ def test_unknown_smart(
         pytest.skip("No camera obj found")
 
     camera["featureFlags"]["smartDetectTypes"] = ["alrmSmoke3"]
-    camera["smartDetectZones"][0]["objectTypes"] = ["alrmSmoke3"]
     camera["smartDetectSettings"]["objectTypes"] = ["alrmSmoke3"]
     bootstrap["cameras"] = [camera]
 
@@ -1914,7 +1911,6 @@ def test_unknown_smart(
     )
     camera_obj = next(iter(obj.cameras.values()))
     assert camera_obj.feature_flags.smart_detect_types == []
-    assert camera_obj.smart_detect_zones[0].object_types == []
     assert camera_obj.smart_detect_settings.object_types == []
 
     set_no_debug()
@@ -1924,7 +1920,6 @@ def test_unknown_smart(
     )
     camera_obj = next(iter(obj.cameras.values()))
     assert camera_obj.feature_flags.smart_detect_types == []
-    assert camera_obj.smart_detect_zones[0].object_types == []
     assert camera_obj.smart_detect_settings.object_types == []
     set_debug()
 

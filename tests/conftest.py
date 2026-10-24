@@ -463,7 +463,6 @@ async def ptz_camera(protect_client: ProtectApiClient):
 
     camera = next(iter(protect_client.bootstrap.cameras.values()))
     # G4 PTZ
-    camera.is_ptz = True
     camera.feature_flags.is_ptz = True
 
     protect_client.bootstrap.cameras[camera.id] = camera
@@ -696,7 +695,6 @@ NEW_FIELDS = {
 }
 
 NEW_CAMERA_FEATURE_FLAGS = {
-    "audio",
     "hotplug",
     "smartDetectAudioTypes",
     "lensType",
@@ -707,13 +705,10 @@ NEW_CAMERA_FEATURE_FLAGS = {
     # 4.73.71+
     "supportNfc",
     "hasFingerprintSensor",
-    # 6.0.0+
-    "supportFullHdSnapshot",
 }
 
 NEW_ISP_SETTINGS = {
     # 3.0.22+
-    "hdrMode",
     "icrCustomValue",
 }
 
@@ -792,8 +787,43 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "audioSettings",
             "isPairedWithAiPort",
             "isAdoptedByAccessApp",
+            "isMicEnabled",
+            "isMotionDetected",
+            "phyRate",
+            "motionZones",
+            "smartDetectZones",
+            "lenses",
+            "platform",
+            "isPtz",
+            "activePatrolSlot",
+        },
+        ("channels",): {
+            "videoId",
+            "name",
+            "enabled",
+            "isRtspEnabled",
+            "rtspAlias",
+            "minBitrate",
+            "maxBitrate",
+            "minClientAdaptiveBitRate",
+            "minMotionAdaptiveBitRate",
+            "fpsValues",
+            "idrInterval",
+            "autoBitrate",
+            "autoFps",
+        },
+        ("speakerSettings",): {"isEnabled", "ringtoneId", "repeatTimes"},
+        ("stats", "video"): {
+            "recordingEnd",
+            "recordingEndLQ",
+            "timelapseStart",
+            "timelapseEnd",
+            "timelapseStartLQ",
+            "timelapseEndLQ",
         },
         ("ispSettings",): {
+            "brightness",
+            "hdrMode",
             "aeMode",
             "irLedLevel",
             "icrSensitivity",
@@ -860,6 +890,12 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "hasVerticalFlip",
             "flashRange",
             "focus",
+            "audio",
+            "hasPackageCamera",
+            "pan",
+            "tilt",
+            "zoom",
+            "supportFullHdSnapshot",
         },
         ("featureFlags", "hotplug"): {"standaloneAdoption"},
         ("featureFlags", "hotplug", "extender"): {
@@ -868,9 +904,6 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "hasRadar",
             "flashRange",
         },
-        ("featureFlags", "pan"): {"steps", "degrees"},
-        ("featureFlags", "tilt"): {"steps", "degrees"},
-        ("featureFlags", "zoom"): {"steps", "degrees", "ratio"},
     },
     ModelType.LIGHT.value: {
         (): {"isLocating", "lightOnSettings", "isCameraPaired"},
@@ -885,8 +918,11 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "userConfiguredAp",
             "hasHttpsClientOTA",
             "speakerTrackList",
+            "cameraIds",
+            "featureFlags",
+            "platform",
         },
-        ("featureFlags",): {"hasWifi", "hasHttpsClientOTA"},
+        ("ringSettings",): {"trackNo"},
     },
     ModelType.EVENT.value: {
         (): {
@@ -1026,12 +1062,18 @@ def strip_dropped_keys(obj_type: str, data: dict[str, Any]) -> None:
     elif obj_type == ModelType.NVR.value:
         paths[()] = paths[()] | {"lastSeen", "hardwareRevision", "anonymousDeviceId"}
     for path, keys in paths.items():
-        node: Any = data
+        nodes: list[Any] = [data]
         for part in path:
-            node = node.get(part) if isinstance(node, dict) else None
-        if isinstance(node, dict):
-            for key in keys:
-                node.pop(key, None)
+            children = [n.get(part) for n in nodes if isinstance(n, dict)]
+            nodes = [
+                item
+                for child in children
+                for item in (child if isinstance(child, list) else [child])
+            ]
+        for node in nodes:
+            if isinstance(node, dict):
+                for key in keys:
+                    node.pop(key, None)
 
 
 pytest.register_assert_rewrite("tests.common")
@@ -1060,13 +1102,8 @@ def compare_objs(obj_type, expected, actual):
         expected["featureFlags"].pop("hasBattery", None)
 
         # do not compare detect zones because float math sucks
-        assert len(expected["motionZones"]) == len(actual["motionZones"])
         assert len(expected["privacyZones"]) == len(actual["privacyZones"])
-        assert len(expected["smartDetectZones"]) == len(actual["smartDetectZones"])
-
-        expected["motionZones"] = actual["motionZones"] = []
         expected["privacyZones"] = actual["privacyZones"] = []
-        expected["smartDetectZones"] = actual["smartDetectZones"] = []
         if "isColorNightVisionEnabled" not in expected["ispSettings"]:
             actual["ispSettings"].pop("isColorNightVisionEnabled", None)
 
@@ -1093,21 +1130,9 @@ def compare_objs(obj_type, expected, actual):
             if setting not in expected["ispSettings"]:
                 del actual["ispSettings"][setting]
 
-        # ignore changes to motion for live tests
-        assert isinstance(actual["isMotionDetected"], bool)
-        expected["isMotionDetected"] = actual["isMotionDetected"]
-
         for index, channel in enumerate(expected["channels"]):
             if "bitrate" not in channel:
                 actual["channels"][index].pop("bitrate", None)
-            if "minBitrate" not in channel:
-                actual["channels"][index].pop("minBitrate", None)
-            if "maxBitrate" not in channel:
-                actual["channels"][index].pop("maxBitrate", None)
-            if "autoBitrate" not in channel:
-                actual["channels"][index].pop("autoBitrate", None)
-            if "autoFps" not in channel:
-                actual["channels"][index].pop("autoFps", None)
 
     elif obj_type == ModelType.USER.value:
         expected.pop("settings", None)

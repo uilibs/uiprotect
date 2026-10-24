@@ -21,6 +21,7 @@ from uiprotect.anonymize import (
     anonymize_uuid,
     random_ip,
 )
+from uiprotect.data import RingSetting
 from uiprotect.data.public_devices import (
     AlarmHubInput,
     Fob,
@@ -255,19 +256,21 @@ def test_action_output_id_follows_output_id() -> None:
 
 
 @pytest.mark.asyncio
-async def test_private_chime_camera_ids_follow_camera_id(
+async def test_private_chime_ring_setting_camera_follows_camera_id(
     protect_client: ProtectApiClient, chime_obj: Chime | None
 ) -> None:
     if chime_obj is None:
         pytest.skip("No chime obj found")
     camera = next(iter(protect_client.bootstrap.cameras.values()))
-    chime_obj.camera_ids = [camera.id]
+    chime_obj.ring_settings = [
+        RingSetting(camera_id=camera.id, repeat_times=1, volume=50)
+    ]
 
     result = anonymize_data(chime_obj.unifi_dict())
     anonymized_camera = anonymize_data(camera.unifi_dict())
 
-    assert result["cameraIds"] == [anonymized_camera["id"]]
-    assert camera.id not in result["cameraIds"]
+    assert result["ringSettings"][0]["camera"] == anonymized_camera["id"]
+    assert result["ringSettings"][0]["camera"] != camera.id
 
 
 def test_user_fields_anonymized() -> None:

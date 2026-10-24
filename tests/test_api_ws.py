@@ -552,7 +552,7 @@ async def test_ws_event_update(
         new_stats["rxBytes"] += 100
     if new_stats.get("txBytes") is not None:
         new_stats["txBytes"] += 100
-    new_stats["video"]["recordingEnd"] = to_js_time(now)
+    new_stats["video"]["recordingStart"] = to_js_time(now)
     new_stats_unifi = camera_before.unifi_dict(data={"stats": deepcopy(new_stats)})
 
     expected_updated_id = "0441ecc6-f0fa-4b19-b071-7987c143138a"
@@ -1003,7 +1003,7 @@ async def test_ws_ignores_nvr_mac_and_guid(
     }
 
     data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
-    data_frame.data = {"nvrMac": "any", "guid": "any", "isMotionDetected": True}
+    data_frame.data = {"nvrMac": "any", "guid": "any", "isRecording": False}
 
     msg = MagicMock()
     msg.data = packet.pack_frames()

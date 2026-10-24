@@ -620,12 +620,15 @@ def _make_chime_ctx(
     chime = MagicMock(spec=Chime)
     chime.id = "chime-1"
     chime.ring_settings = ring_settings if ring_settings is not None else []
-    chime.camera_ids = camera_ids if camera_ids is not None else []
-    chime.cameras = []
 
     protect = MagicMock(is_public_only=False)
     protect.update_chime_public = AsyncMock()
-    _serve_public(protect, PublicChime, id="chime-1")
+    _serve_public(
+        protect,
+        PublicChime,
+        id="chime-1",
+        camera_ids=camera_ids if camera_ids is not None else [],
+    )
     protect.close_session = AsyncMock()
     protect.close_public_api_session = AsyncMock()
     protect.bootstrap.cameras = cameras_map if cameras_map is not None else {}
@@ -1921,13 +1924,16 @@ def test_key_only_chime_cameras_without_ids_via_the_cli() -> None:
 def test_hybrid_chime_cameras_lists_paired_cameras() -> None:
     """``chimes <id> cameras`` with no IDs lists the paired cameras over a login."""
     chime = _private_device(Chime)
-    chime.camera_ids = ["cam-1"]
+    public = MagicMock(spec=PublicChime, id="dev-1", camera_ids=["cam-1"])
     camera = _private_device(Camera)
     camera.id = "cam-1"
     camera.unifi_dict.return_value = {"id": "cam-1"}
     bootstrap = _private_bootstrap_with("chimes", chime)
     bootstrap.cameras = {"cam-1": camera}
-    result = _invoke_hybrid(bootstrap, "chimes", "dev-1", "cameras")
+    with patch.object(
+        ProtectApiClient, "get_chime_public", AsyncMock(return_value=public)
+    ):
+        result = _invoke_hybrid(bootstrap, "chimes", "dev-1", "cameras")
 
     assert result.exit_code == 0, result.output
     assert '"id": "cam-1"' in result.stdout
@@ -2026,7 +2032,7 @@ def _package_camera_ctx(model_class, *, has_package_camera: bool = True):
     if model_class is PublicCamera:
         camera.has_package_camera = has_package_camera
     else:
-        camera.feature_flags = MagicMock(has_package_camera=has_package_camera)
+        _serve_public(protect, PublicCamera, has_package_camera=has_package_camera)
     protect.get_public_api_camera_snapshot = AsyncMock(return_value=b"jpeg")
     return ctx, protect
 

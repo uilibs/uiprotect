@@ -8,13 +8,11 @@ import warnings
 from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
 from functools import cache, lru_cache
-from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
-from pydantic import model_validator
 from pydantic.fields import PrivateAttr
 
 from ..exceptions import (
@@ -29,7 +27,6 @@ from ..utils import (
     convert_smart_types,
     convert_to_datetime,
     convert_video_modes,
-    format_host_for_url,
     from_js_time,
     serialize_point,
     timedelta_total_seconds,
@@ -42,17 +39,11 @@ from .base import (
     ProtectBaseObject,
     ProtectMotionDeviceModel,
 )
-from .public_devices import (
-    _build_public_lcd_message,
-)
 from .types import (
-    DEFAULT,
-    DEFAULT_TYPE,
     AudioCodecs,
     ChannelQuality,
     ChimeType,
     DoorbellMessageType,
-    HDRMode,
     ICRCustomValue,
     ICRLuxValue,
     IRLEDMode,
@@ -69,7 +60,6 @@ from .types import (
     ProgressCallback,
     PTZPatrol,
     PTZPreset,
-    PublicHdrMode,
     RecordingMode,
     RepeatTimes,
     SensorStatusType,
@@ -184,76 +174,19 @@ def channel_id_for_quality(quality: ChannelQuality) -> int | None:
 
 class CameraChannel(ProtectBaseObject):
     id: int  # read only
-    video_id: str  # read only
-    name: str  # read only
-    enabled: bool  # read only
-    is_rtsp_enabled: bool
-    rtsp_alias: str | None = None  # read only
     width: int
     height: int
     fps: int | None = None  # read only
     bitrate: int
-    min_bitrate: int | None = None  # read only
-    max_bitrate: int | None = None  # read only
-    min_client_adaptive_bit_rate: int | None = None  # read only
-    min_motion_adaptive_bit_rate: int | None = None  # read only
-    fps_values: list[int]  # read only
-    idr_interval: int
-    # 3.0.22+
-    auto_bitrate: bool | None = None
-    auto_fps: bool | None = None
-
-    _parent: Camera | None = PrivateAttr(None)
-    _rtsps_url: str | None = PrivateAttr(None)
-    _rtsps_no_srtp_url: str | None = PrivateAttr(None)
-
-    def _get_connection_host(self) -> IPv4Address | IPv6Address | str:
-        """Get connection host (camera's for stacked NVR, otherwise NVR's)."""
-        if self._parent is not None and self._parent.connection_host is not None:
-            return self._parent.connection_host
-        return self._api.connection_host
-
-    @property
-    def rtsps_url(self) -> str | None:
-        if not self.is_rtsp_enabled or self.rtsp_alias is None:
-            return None
-
-        if self._rtsps_url is not None:
-            return self._rtsps_url
-
-        host = format_host_for_url(self._get_connection_host())
-        self._rtsps_url = f"rtsps://{host}:{self._api.bootstrap.nvr.ports.rtsps}/{self.rtsp_alias}?enableSrtp"
-        return self._rtsps_url
-
-    @property
-    def rtsps_no_srtp_url(self) -> str | None:
-        if not self.is_rtsp_enabled or self.rtsp_alias is None:
-            return None
-
-        if self._rtsps_no_srtp_url is not None:
-            return self._rtsps_no_srtp_url
-
-        host = format_host_for_url(self._get_connection_host())
-        self._rtsps_no_srtp_url = (
-            f"rtsps://{host}:{self._api.bootstrap.nvr.ports.rtsps}/{self.rtsp_alias}"
-        )
-        return self._rtsps_no_srtp_url
-
-    @property
-    def rtsps_quality(self) -> ChannelQuality | None:
-        """RTSPS quality tier for this channel (id 0→HIGH, 1→MEDIUM, 2→LOW, 3→PACKAGE)."""
-        return quality_for_channel_id(self.id)
 
 
 class ISPSettings(ProtectBaseObject):
     ir_led_mode: IRLEDMode
     wdr: WDRLevel
-    brightness: int
     zoom_position: PercentInt
     # requires 2.8.14+
     is_color_night_vision_enabled: bool | None = None
     # 3.0.22+
-    hdr_mode: HDRMode | None = None
     icr_custom_value: ICRCustomValue | None = None
 
 
@@ -269,14 +202,11 @@ class LEDSettings(ProtectBaseObject):
 
 
 class SpeakerSettings(ProtectBaseObject):
-    is_enabled: bool
     # Status Sounds
     are_system_sounds_enabled: bool
     volume: PercentInt
     # Doorbell ring volume (for doorbells)
     ring_volume: PercentInt | None = None
-    ringtone_id: str | None = None
-    repeat_times: int | None = None
     # Actual speaker output volume (for cameras with speakers)
     speaker_volume: PercentInt | None = None
 
@@ -286,9 +216,7 @@ class SpeakerSettings(ProtectBaseObject):
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
         data = super().unifi_dict(data=data, exclude=exclude)
-        pop_dict_set_if_none(
-            data, {"ringVolume", "ringtoneId", "repeatTimes", "speakerVolume"}
-        )
+        pop_dict_set_if_none(data, {"ringVolume", "speakerVolume"})
         return data
 
 
@@ -393,13 +321,7 @@ class TalkbackSettings(ProtectBaseObject):
 
 class VideoStats(ProtectBaseObject):
     recording_start: datetime | None = None
-    recording_end: datetime | None = None
     recording_start_lq: datetime | None = None
-    recording_end_lq: datetime | None = None
-    timelapse_start: datetime | None = None
-    timelapse_end: datetime | None = None
-    timelapse_start_lq: datetime | None = None
-    timelapse_end_lq: datetime | None = None
 
     @property
     def earliest_recording_start(self) -> datetime | None:
@@ -415,28 +337,13 @@ class VideoStats(ProtectBaseObject):
         return {
             **super()._get_unifi_remaps(),
             "recordingStartLQ": "recordingStartLq",
-            "recordingEndLQ": "recordingEndLq",
-            "timelapseStartLQ": "timelapseStartLq",
-            "timelapseEndLQ": "timelapseEndLq",
         }
 
     @classmethod
     @cache
     def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
         return (
-            dict.fromkeys(
-                (
-                    "recordingStart",
-                    "recordingEnd",
-                    "recordingStartLQ",
-                    "recordingEndLQ",
-                    "timelapseStart",
-                    "timelapseEnd",
-                    "timelapseStartLQ",
-                    "timelapseEndLQ",
-                ),
-                convert_to_datetime,
-            )
+            dict.fromkeys(("recordingStart", "recordingStartLQ"), convert_to_datetime)
             | super().unifi_dict_conversions()
         )
 
@@ -530,21 +437,6 @@ class CameraZone(ProtectBaseObject):
         )
 
 
-class MotionZone(CameraZone):
-    sensitivity: PercentInt
-
-
-class SmartMotionZone(MotionZone):
-    object_types: list[SmartDetectObjectType]
-
-    @classmethod
-    @cache
-    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
-        return {
-            "objectTypes": convert_smart_types,
-        } | super().unifi_dict_conversions()
-
-
 class HotplugExtender(ProtectBaseObject):
     is_attached: bool | None = None
 
@@ -553,14 +445,6 @@ class Hotplug(ProtectBaseObject):
     audio: bool | None = None
     video: bool | None = None
     extender: HotplugExtender | None = None
-
-
-class PTZRange(ProtectBaseObject):
-    pass
-
-
-class PTZZoomRange(PTZRange):
-    pass
 
 
 class CameraFeatureFlags(ProtectBaseObject):
@@ -575,9 +459,7 @@ class CameraFeatureFlags(ProtectBaseObject):
     video_modes: list[VideoMode]
     has_lcd_screen: bool
     smart_detect_types: list[SmartDetectObjectType]
-    has_package_camera: bool
     has_smart_detect: bool
-    audio: list[str] = []
     lens_type: LensType | None = None
     hotplug: Hotplug | None = None
     smart_detect_audio_types: list[SmartDetectAudioType] | None = None
@@ -588,12 +470,6 @@ class CameraFeatureFlags(ProtectBaseObject):
     # 4.73.71+
     support_nfc: bool | None = None
     has_fingerprint_sensor: bool | None = None
-    # 6.0.0+
-    support_full_hd_snapshot: bool | None = None
-
-    pan: PTZRange
-    tilt: PTZRange
-    zoom: PTZZoomRange
 
     @classmethod
     @cache
@@ -621,11 +497,6 @@ class CameraFeatureFlags(ProtectBaseObject):
         return not self.has_hdr
 
 
-class CameraLenses(ProtectBaseObject):
-    id: int
-    video: VideoStats
-
-
 @lru_cache
 def _chime_type_from_total_seconds(total_seconds: float) -> ChimeType:
     if total_seconds == 0.3:
@@ -638,11 +509,8 @@ def _chime_type_from_total_seconds(total_seconds: float) -> ChimeType:
 class Camera(ProtectMotionDeviceModel):
     # Microphone Sensitivity
     mic_volume: PercentInt
-    is_mic_enabled: bool
     is_recording: bool
-    is_motion_detected: bool
     is_smart_detected: bool
-    phy_rate: float | None = None
     hdr_mode: bool
     # Recording Quality -> High Frame
     video_mode: VideoMode
@@ -656,21 +524,14 @@ class Camera(ProtectMotionDeviceModel):
     speaker_settings: SpeakerSettings
     recording_settings: RecordingSettings
     smart_detect_settings: SmartDetectSettings
-    motion_zones: list[MotionZone]
     privacy_zones: list[CameraZone]
-    smart_detect_zones: list[SmartMotionZone]
     stats: CameraStats
     feature_flags: CameraFeatureFlags
     lcd_message: LCDMessage | None = None
-    lenses: list[CameraLenses]
-    platform: str | None = None
     has_speaker: bool
     voltage: float | None = None
     # requires 2.8.14+
     use_global: bool | None = None
-    # requires 2.10.10+
-    is_ptz: bool | None = None
-    active_patrol_slot: int | None = None
     # requires 5.0.33+
     is_third_party_camera: bool | None = None
 
@@ -719,11 +580,8 @@ class Camera(ProtectMotionDeviceModel):
         return super()._get_read_only_fields() | {
             "stats",
             "isRecording",
-            "isMotionDetected",
             "isSmartDetected",
-            "phyRate",
             "lastRing",
-            "lenses",
             "featureFlags",
         }
 
@@ -733,13 +591,6 @@ class Camera(ProtectMotionDeviceModel):
         return {
             "chimeDuration": lambda x: timedelta(milliseconds=x),
         } | super().unifi_dict_conversions()
-
-    @model_validator(mode="after")
-    def _set_channel_parents(self) -> Camera:
-        """Set parent camera reference in channels after initialization."""
-        for channel in getattr(self, "channels", ()):
-            channel._parent = self
-        return self
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -753,20 +604,10 @@ class Camera(ProtectMotionDeviceModel):
         data: dict[str, Any] | None = None,
         exclude: set[str] | None = None,
     ) -> dict[str, Any]:
-        if data is not None:
-            if "motion_zones" in data:
-                data["motion_zones"] = [
-                    MotionZone(**z).unifi_dict() for z in data["motion_zones"]
-                ]
-            if "privacy_zones" in data:
-                data["privacy_zones"] = [
-                    CameraZone(**z).unifi_dict() for z in data["privacy_zones"]
-                ]
-            if "smart_detect_zones" in data:
-                data["smart_detect_zones"] = [
-                    SmartMotionZone(**z).unifi_dict()
-                    for z in data["smart_detect_zones"]
-                ]
+        if data is not None and "privacy_zones" in data:
+            data["privacy_zones"] = [
+                CameraZone(**z).unifi_dict() for z in data["privacy_zones"]
+            ]
 
         data = super().unifi_dict(data=data, exclude=exclude)
         pop_dict_tuple(
@@ -861,15 +702,6 @@ class Camera(ProtectMotionDeviceModel):
         return self._api.bootstrap.events.get(last_fingerprint_identified_event_id)
 
     @property
-    def hdr_mode_display(self) -> Literal["auto", "off", "always"]:
-        """Get HDR mode similar to how Protect interface works."""
-        if not self.hdr_mode:
-            return "off"
-        if self.isp_settings.hdr_mode == HDRMode.NORMAL:
-            return "auto"
-        return "always"
-
-    @property
     def icr_lux_display(self) -> int | None:
         """Get ICR Custom Lux value similar to how the Protect interface works."""
         if self.isp_settings.icr_custom_value is None:
@@ -890,15 +722,6 @@ class Camera(ProtectMotionDeviceModel):
         if active and (event := active.get(event_id)):
             return event
         return self._api.bootstrap.events.get(event_id)
-
-    @property
-    def last_smart_audio_detect_event(self) -> Event | None:
-        """Get the last smart audio detect event id."""
-        if (
-            last_smart_audio_detect_event_id := self.last_smart_audio_detect_event_id
-        ) is None:
-            return None
-        return self._api.bootstrap.events.get(last_smart_audio_detect_event_id)
 
     def get_last_smart_audio_detect_event(
         self,
@@ -925,13 +748,6 @@ class Camera(ProtectMotionDeviceModel):
         if self.use_global:
             return self._api.bootstrap.nvr.is_global_recording_enabled
         return self.recording_settings.mode is not RecordingMode.NEVER
-
-    @property
-    def active_recording_settings(self) -> RecordingSettings:
-        """Get active recording settings."""
-        if self.use_global and self._api.bootstrap.nvr.global_camera_settings:
-            return self._api.bootstrap.nvr.global_camera_settings.recording_settings
-        return self.recording_settings
 
     @property
     def active_smart_detect_settings(self) -> SmartDetectSettings:
@@ -1140,12 +956,6 @@ class Camera(ProtectMotionDeviceModel):
     def high_camera_channel(self) -> CameraChannel | None:
         if len(self.channels) >= 3:
             return self.channels[0]
-        return None
-
-    @property
-    def package_camera_channel(self) -> CameraChannel | None:
-        if self.feature_flags.has_package_camera and len(self.channels) == 4:
-            return self.channels[3]
         return None
 
     @property
@@ -1571,91 +1381,6 @@ class Camera(ProtectMotionDeviceModel):
 
         return await self._api.get_patrols_ptz_camera(self.id)
 
-    def _check_ptz_public_api(self) -> None:
-        """Check prerequisites for PTZ public API calls."""
-        if not self.feature_flags.is_ptz:
-            raise BadRequest("Camera does not support PTZ features.")
-
-    async def ptz_goto_preset_public(self, *, slot: int) -> None:
-        """Move PTZ camera to preset position using public API."""
-        self._check_ptz_public_api()
-        await self._api.ptz_goto_preset_public(self.id, slot=slot)
-
-    async def ptz_patrol_start_public(self, *, slot: int) -> None:
-        """Start a PTZ patrol using public API."""
-        self._check_ptz_public_api()
-        await self._api.ptz_patrol_start_public(self.id, slot=slot)
-
-    async def ptz_patrol_stop_public(self) -> None:
-        """Stop the active PTZ patrol using public API."""
-        self._check_ptz_public_api()
-        await self._api.ptz_patrol_stop_public(self.id)
-
-    async def set_hdr_mode_public(self, mode: PublicHdrMode) -> None:
-        """Set HDR mode via public API."""
-        if not self.feature_flags.has_hdr:
-            raise BadRequest("Camera does not have HDR")
-        await self._api.update_camera_public(self.id, hdr_type=mode)
-        # The public API response uses 'hdrType', not 'hdrMode'/'ispSettings',
-        # so we derive the local state update directly from the mode we sent.
-        hdr_on = mode != PublicHdrMode.OFF
-        if hasattr(self, "hdr_mode"):
-            self.hdr_mode = hdr_on
-        isp = getattr(self, "isp_settings", None)
-        if isp is not None:
-            isp_hdr = getattr(isp, "hdr_mode", None)
-            if isp_hdr is not None:
-                isp.hdr_mode = (
-                    HDRMode.ALWAYS_ON if mode == PublicHdrMode.ON else HDRMode.NORMAL
-                )
-
-    async def set_lcd_message_public(
-        self,
-        text_type: DoorbellMessageType | None,
-        text: str | None = None,
-        reset_at: datetime | DEFAULT_TYPE | None = DEFAULT,
-    ) -> None:
-        """
-        Set doorbell LCD message via public API.
-
-        Pass ``None`` for ``text_type`` to clear the message, with ``text`` and
-        ``reset_at`` omitted.  ``text`` is required for CUSTOM_MESSAGE and
-        IMAGE, and must be omitted for DO_NOT_DISTURB and
-        LEAVE_PACKAGE_AT_DOOR.  ``reset_at`` controls when the message is
-        cleared: omit for the NVR default, pass ``None`` for "forever", or pass
-        a specific datetime.
-        """
-        if not self.feature_flags.has_lcd_screen:
-            raise BadRequest("Camera does not have an LCD screen")
-        message = _build_public_lcd_message(text_type, text, reset_at)
-        updated = await self._api.update_camera_public(self.id, lcd_message=message)
-        if text_type is None:
-            # The response is not read back: the console only runs its sweep for
-            # a provisioned, connected camera, so an offline one echoes the
-            # request straight back and would rebuild the message just cleared.
-            # The faked frame below only reaches an instance the bootstrap owns,
-            # so set the local state here.
-            self.lcd_message = None
-            # UniFi Protect bug: clearing the LCD message does _not_ emit a WS
-            # message, so fake one. A reset time in the past is how the console
-            # signals a wiped message.
-            reset = to_js_time(utc_now() - timedelta(seconds=10))
-            await self.emit_message({"lcdMessage": {"resetAt": reset}})
-            return
-        pub = updated.lcd_message
-        # The public response carries a ``PublicLcdMessage``; rebuild the private
-        # ``LCDMessage`` from it (``None`` when the message was cleared).
-        self.lcd_message = (
-            None
-            if pub is None or pub.type is None
-            else LCDMessage.from_unifi_dict(
-                type=pub.type,
-                text=pub.text or "",
-                resetAt=pub.reset_at,
-                api=self._api,
-            )
-        )
-
 
 class Viewer(ProtectAdoptableDeviceModel):
     liveview_id: str
@@ -1887,17 +1612,12 @@ class Sensor(ProtectAdoptableDeviceModel):
         await self._api.clear_tamper_sensor(self.id)
 
 
-class ChimeFeatureFlags(ProtectBaseObject):
-    pass
-
-
 class RingSetting(ProtectBaseObject):
     """Ring settings for a paired doorbell camera."""
 
     camera_id: str
     repeat_times: RepeatTimes
     ringtone_id: str | None = None
-    track_no: int | None = None  # deprecated: use ringtone_id
     volume: int
 
     @classmethod
@@ -1937,23 +1657,10 @@ class RingSetting(ProtectBaseObject):
             else self.repeat_times,
         }
 
-    @property
-    def camera(self) -> Camera | None:
-        """Paired Camera will always be none if no camera is paired."""
-        if self.camera_id is None:
-            return None  # type: ignore[unreachable]
-
-        return self._api.bootstrap.cameras[self.camera_id]
-
 
 class Chime(ProtectAdoptableDeviceModel):
     volume: PercentInt
     last_ring: datetime | None = None
-    camera_ids: list[str]
-    # requires 2.7.15+
-    feature_flags: ChimeFeatureFlags | None = None
-    # requires 3.0.22+
-    platform: str | None = None
     repeat_times: RepeatTimes | None = None
     ring_settings: list[RingSetting] = []
 
@@ -1961,13 +1668,6 @@ class Chime(ProtectAdoptableDeviceModel):
     @cache
     def _get_read_only_fields(cls) -> set[str]:
         return super()._get_read_only_fields() | {"lastRing"}
-
-    @property
-    def cameras(self) -> list[Camera]:
-        """Paired Cameras for chime"""
-        if len(self.camera_ids) == 0:
-            return []
-        return [self._api.bootstrap.cameras[c] for c in self.camera_ids]
 
     async def play(
         self,
@@ -2060,52 +1760,3 @@ class Chime(ProtectAdoptableDeviceModel):
             and rs.repeat_times is not None
             and rs.volume is not None
         ]
-
-    async def set_volume_for_camera_public(
-        self,
-        camera: Camera,
-        level: int,
-    ) -> None:
-        """
-        Set the ring volume for a specific camera using public API.
-
-        This is the preferred method to change ring volume as it uses
-        the official public API and properly updates the doorbell ring volume.
-
-        Args:
-        ----
-            camera: The doorbell camera to set volume for
-            level: Volume level (0-100)
-
-        Raises:
-        ------
-            BadRequest: If the camera is not paired with this chime
-            ValidationError: If level is not in range 0-100
-
-        """
-        # Validate level using PercentInt (raises ValidationError if invalid)
-        PercentInt(level)
-
-        # Hold the lock across the whole read-modify-write: two concurrent
-        # callers must not each read the pre-mutation list and clobber each
-        # other's change (last PATCH wins).
-        async with self._update_sync.lock:
-            # Find the current ring setting for this camera
-            ring_setting = None
-            for setting in self.ring_settings:
-                if setting.camera_id == camera.id:
-                    ring_setting = setting
-                    break
-
-            if ring_setting is None:
-                raise BadRequest(f"Camera {camera.id} is not paired with chime")
-
-            # Build the update payload preserving original order
-            ring_settings_update: list[PublicApiChimeRingSettingRequest] = [
-                setting.to_api_dict(volume=level)
-                if setting.camera_id == camera.id
-                else setting.to_api_dict()
-                for setting in self.ring_settings
-            ]
-
-            await self.set_ring_settings_public(ring_settings_update)
