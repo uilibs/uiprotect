@@ -60,8 +60,8 @@ supply `--username`/`--password`. In this mode that covers:
 - whole groups: `nvr`;
 - top-level commands: `create-api-key`, `generate-sample-data`, `profile-ws`,
   `shell`;
-- on every device group: `adopt`, `bridge`, `reboot`, `set-ssh`, `unadopt`,
-  `update`, and `set-name` with no argument (clearing a name);
+- on every device group: `adopt`, `reboot`, `set-ssh`, `unadopt`, `update`,
+  and `set-name` with no argument (clearing a name);
 - `cameras`: `chime-type`, `play-audio`, `privacy-mode`, `save-snapshot`
   without `--package`, `save-video`, `set-camera-zoom`,
   `set-color-night-vision`, `set-ir-led-mode`, `set-motion-detection`,
@@ -245,13 +245,12 @@ $ uiprotect cameras 61ddb66b018e2703e7008c19 save-snapshot output.jpg
 
 Adoptable devices (Cameras, Chimes, Lights, Sensors, Viewers) all have some commands in common.
 
-| Command   | Description                                       |
-| --------- | ------------------------------------------------- |
-| `adopt`   | Adopts a device.                                  |
-| `bridge`  | Returns bridge device if connected via Bluetooth. |
-| `reboot`  | Reboots the device.                               |
-| `unadopt` | Unadopt/Unmanage adopted device.                  |
-| `update`  | Updates the device.                               |
+| Command   | Description                      |
+| --------- | -------------------------------- |
+| `adopt`   | Adopts a device.                 |
+| `reboot`  | Reboots the device.              |
+| `unadopt` | Unadopt/Unmanage adopted device. |
+| `update`  | Updates the device.              |
 
 Most of these are unavailable in public-only mode; see the list under
 [Public-only mode](#public-only-mode).
