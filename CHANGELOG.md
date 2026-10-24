@@ -1,5 +1,13 @@
 # Changelog
 
+## v24.0.0 (2026-10-24)
+
+### Features
+
+
+- Drop private model members home assistant no longer uses ([`5261ac9`](https://github.com/uilibs/uiprotect/commit/5261ac92be03b1b0a07cc216b5c1ba07b596a54d))
+
+
 ## v23.10.0 (2026-10-24)
 
 ### Features
