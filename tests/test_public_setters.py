@@ -1867,3 +1867,34 @@ async def test_public_camera_create_talkback_stream_serialized() -> None:
             await second
 
     api.create_talkback_session_public.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_public_camera_play_audio_serialized() -> None:
+    camera, api = _talkback_camera()
+    release = asyncio.Event()
+
+    async def _session(_camera_id: str) -> MagicMock:
+        await release.wait()
+        return MagicMock()
+
+    api.create_talkback_session_public = AsyncMock(side_effect=_session)
+    stream = _mock_stream()
+
+    async def _start() -> None:
+        await asyncio.sleep(0)
+        stream.is_running = True
+
+    stream.start = AsyncMock(side_effect=_start)
+
+    with patch("uiprotect.data.public_devices.TalkbackStream", return_value=stream):
+        first = asyncio.create_task(camera.play_audio("/a.wav", blocking=False))
+        second = asyncio.create_task(camera.play_audio("/b.wav", blocking=False))
+        await asyncio.sleep(0)
+        release.set()
+        await first
+        with pytest.raises(BadRequest, match="already playing"):
+            await second
+
+    api.create_talkback_session_public.assert_awaited_once()
+    stream.start.assert_awaited_once()

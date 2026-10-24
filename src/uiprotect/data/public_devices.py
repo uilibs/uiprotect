@@ -1066,22 +1066,14 @@ class PublicCamera(PublicDeviceModel):
 
     async def create_talkback_stream(self, content_url: str) -> TalkbackStream:
         """Create a stream that plays ``content_url`` (URL or file path) on the speaker."""
-        if not self.has_speaker:
-            raise BadRequest("Camera does not have a speaker for talkback")
-        lock = self._api._talkback_locks.setdefault(self.id, asyncio.Lock())
-        async with lock:
-            if (stream := self.talkback_stream) is not None and stream.is_running:
-                raise BadRequest("Camera is already playing audio")
-
-            session = await self._api.create_talkback_session_public(self.id)
-            stream = TalkbackStream(None, content_url, session)
-            self._api._talkback_streams[self.id] = stream
-        return stream
+        async with self._talkback_lock():
+            return await self._new_talkback_stream(content_url)
 
     async def play_audio(self, content_url: str, blocking: bool = True) -> None:
         """Play ``content_url`` on the speaker, awaiting completion if ``blocking``."""
-        stream = await self.create_talkback_stream(content_url)
-        await stream.start()
+        async with self._talkback_lock():
+            stream = await self._new_talkback_stream(content_url)
+            await stream.start()
 
         if blocking:
             await self.wait_until_audio_completes()
@@ -1207,6 +1199,21 @@ class PublicCamera(PublicDeviceModel):
             )
             self._apply_from_response(updated)
         return self
+
+    def _talkback_lock(self) -> asyncio.Lock:
+        return self._api._talkback_locks.setdefault(self.id, asyncio.Lock())
+
+    async def _new_talkback_stream(self, content_url: str) -> TalkbackStream:
+        """Create and register a stream; the caller must hold ``_talkback_lock``."""
+        if not self.has_speaker:
+            raise BadRequest("Camera does not have a speaker for talkback")
+        if (stream := self.talkback_stream) is not None and stream.is_running:
+            raise BadRequest("Camera is already playing audio")
+
+        session = await self._api.create_talkback_session_public(self.id)
+        stream = TalkbackStream(None, content_url, session)
+        self._api._talkback_streams[self.id] = stream
+        return stream
 
 
 class PublicLightModeSettings(ProtectBaseObject):
