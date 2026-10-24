@@ -833,10 +833,9 @@ class PublicCamera(PublicDeviceModel):
         Text the doorbell LCD shows, ``None`` without a message.
 
         A message with text but no ``type`` reads as a custom message. A
-        non-custom type without text returns its display text, where the
-        private ``LCDMessage`` gives ``""``. A partial websocket frame that
-        omits ``text`` leaves the previous text in place, so a custom message
-        can read stale text until the next full update.
+        non-custom type without text returns its display text. A partial
+        websocket frame that omits ``text`` leaves the previous text in place,
+        so a custom message can read stale text until the next full update.
         """
         if (message := self.lcd_message) is None:
             return None

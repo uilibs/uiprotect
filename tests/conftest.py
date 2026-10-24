@@ -645,7 +645,6 @@ NEW_FIELDS = {
     "useGlobal",
     # 3.0.22+
     "repeatTimes",
-    "ringSettings",
     # 5.0.33+
     "isThirdPartyCamera",
 }
@@ -763,6 +762,10 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "platform",
             "isPtz",
             "activePatrolSlot",
+            "hdrMode",
+            "videoMode",
+            "osdSettings",
+            "lcdMessage",
         },
         ("channels",): {
             "videoId",
@@ -819,7 +822,6 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "brightness",
             "hdrMode",
         },
-        ("osdSettings",): {"overlayLocation"},
         ("ledSettings",): {"blinkRate", "welcomeLed", "floodLed"},
         ("recordingSettings",): _DROPPED_RECORDING_SETTINGS_KEYS,
         ("talkbackSettings",): {"typeIn", "bindAddr", "filterAddr", "filterPort"},
@@ -914,8 +916,8 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "cameraIds",
             "featureFlags",
             "platform",
+            "ringSettings",
         },
-        ("ringSettings",): {"trackNo"},
     },
     ModelType.EVENT.value: {
         (): {

@@ -534,7 +534,7 @@ under a per-object lock.
 touched by a setter.
 
 The private-API `Device.set_*_public` shims have been removed in favour of these
-public setters; the only one left is `Chime.set_ring_settings_public`.
+public setters.
 
 ## POS transaction overlay (public API)
 

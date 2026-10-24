@@ -17,7 +17,6 @@ from uiprotect.data import (
     AlarmHubInputContactType,
     AlarmHubInputStatus,
     Fob,
-    LCDMessage,
     LinkStation,
     NvrArmMode,
     NvrArmModeStatus,
@@ -567,7 +566,7 @@ def test_public_camera_hdr_mode_display(hdr_type: str, expected: str) -> None:
 def test_public_camera_lcd_message_text(
     lcd_message: dict[str, Any] | None, expected: str | None
 ) -> None:
-    """``lcd_message_text`` matches the private ``LCDMessage`` display text."""
+    """``lcd_message_text`` is the text the doorbell LCD shows."""
     obj = PublicCamera.from_unifi_dict(
         api=Mock(), **{**CAMERA_PAYLOAD, "lcdMessage": lcd_message}
     )
@@ -579,10 +578,10 @@ _MISSING = object()
 
 @pytest.mark.parametrize("text", [_MISSING, "", "Hi"])
 @pytest.mark.parametrize("message_type", [*DoorbellMessageType, None])
-def test_public_camera_lcd_message_text_matches_private(
+def test_public_camera_lcd_message_text_all_types(
     message_type: DoorbellMessageType | None, text: object
 ) -> None:
-    """``lcd_message_text`` matches ``LCDMessage`` except for one documented case."""
+    """``lcd_message_text`` shows custom text, else the type's display text."""
     lcd_message: dict[str, Any] = {}
     if message_type is not None:
         lcd_message["type"] = message_type.value
@@ -591,19 +590,13 @@ def test_public_camera_lcd_message_text_matches_private(
     obj = PublicCamera.from_unifi_dict(
         api=Mock(), **{**CAMERA_PAYLOAD, "lcdMessage": lcd_message}
     )
-    if message_type is None and text is _MISSING:
-        assert obj.lcd_message_text is None
-        return
-    private_text = LCDMessage.from_unifi_dict(**lcd_message).text
-    if (
-        text is _MISSING
-        and message_type is not None
-        and message_type is not DoorbellMessageType.CUSTOM_MESSAGE
-    ):
-        assert private_text == ""
-        assert obj.lcd_message_text == message_type.value.replace("_", " ")
-        return
-    assert obj.lcd_message_text == private_text
+    if message_type is None:
+        expected = None if text is _MISSING else text
+    elif message_type is DoorbellMessageType.CUSTOM_MESSAGE:
+        expected = "" if text is _MISSING else text
+    else:
+        expected = message_type.value.replace("_", " ")
+    assert obj.lcd_message_text == expected
 
 
 @pytest.mark.parametrize(

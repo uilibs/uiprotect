@@ -27,7 +27,6 @@ from tests.sample_data.constants import CONSTANTS
 from uiprotect.data import (
     Bootstrap,
     Camera,
-    DoorbellMessageType,
     Event,
     EventType,
     FixSizeOrderedDict,
@@ -43,7 +42,7 @@ from uiprotect.data import (
     create_from_unifi_dict,
 )
 from uiprotect.data.bootstrap import MAX_EVENT_HISTORY_IN_STATE_MACHINE
-from uiprotect.data.devices import LCDMessage, VideoStats
+from uiprotect.data.devices import VideoStats
 from uiprotect.data.nvr import EventMetadata
 from uiprotect.data.types import RecordingType, ResolutionStorageType
 from uiprotect.data.user import CloudAccount
@@ -1452,13 +1451,6 @@ async def test_play_audio_error(mock_talkback, camera_obj: Camera):
 
     assert mock_talkback.called
     assert mock_instance.run_until_complete.called
-
-
-def test_doorbell_bad_state():
-    message = LCDMessage.from_unifi_dict(text="Test")
-
-    assert message.text == "Test"
-    assert message.type == DoorbellMessageType.CUSTOM_MESSAGE
 
 
 def test_camera_ip_host(camera):

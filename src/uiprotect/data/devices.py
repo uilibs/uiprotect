@@ -17,7 +17,6 @@ from pydantic.fields import PrivateAttr
 
 from ..exceptions import (
     BadRequest,
-    ChimeRingtoneNotSetError,
     NotAuthorized,
     StreamError,
 )
@@ -27,10 +26,8 @@ from ..utils import (
     convert_smart_types,
     convert_to_datetime,
     convert_video_modes,
-    from_js_time,
     serialize_point,
     timedelta_total_seconds,
-    to_js_time,
     utc_now,
 )
 from .base import (
@@ -43,7 +40,6 @@ from .types import (
     AudioCodecs,
     ChannelQuality,
     ChimeType,
-    DoorbellMessageType,
     ICRCustomValue,
     ICRLuxValue,
     IRLEDMode,
@@ -67,9 +63,6 @@ from .types import (
 from .user import User
 
 if TYPE_CHECKING:
-    from ..api import (
-        PublicApiChimeRingSettingRequest,
-    )
     from .nvr import Event, Liveview
 
 PRIVACY_ZONE_NAME = "pyufp_privacy_zone"
@@ -152,13 +145,6 @@ class ISPSettings(ProtectBaseObject):
     icr_custom_value: ICRCustomValue | None = None
 
 
-class OSDSettings(ProtectBaseObject):
-    is_name_enabled: bool
-    is_date_enabled: bool
-    is_logo_enabled: bool
-    is_debug_enabled: bool
-
-
 class LEDSettings(ProtectBaseObject):
     is_enabled: bool
 
@@ -214,61 +200,6 @@ class SmartDetectSettings(ProtectBaseObject):
             data["audioTypes"] = [
                 t for t in audio_types if t != SmartDetectAudioType.SMOKE_CMONX.value
             ]
-        return data
-
-
-class LCDMessage(ProtectBaseObject):
-    type: DoorbellMessageType
-    # Some doorbell firmwares send lcdMessage with a type but no text; a
-    # default keeps model_construct from producing a text-less instance.
-    text: str = ""
-    reset_at: datetime | None = None
-
-    @classmethod
-    @cache
-    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
-        return {
-            "resetAt": convert_to_datetime,
-        } | super().unifi_dict_conversions()
-
-    @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "text" in data:
-            # UniFi Protect bug: some times LCD messages can get into a bad state where message = DEFAULT MESSAGE, but no type
-            if "type" not in data:
-                data["type"] = DoorbellMessageType.CUSTOM_MESSAGE.value
-
-            data["text"] = cls._fix_text(data["text"], data["type"])
-
-        return super().unifi_dict_to_dict(data)
-
-    @classmethod
-    def _fix_text(cls, text: str, text_type: str | None) -> str:
-        if text_type is None:
-            text_type = cls.type.value
-
-        if text_type != DoorbellMessageType.CUSTOM_MESSAGE.value:
-            text = text_type.replace("_", " ")
-
-        return text
-
-    def unifi_dict(
-        self,
-        data: dict[str, Any] | None = None,
-        exclude: set[str] | None = None,
-    ) -> dict[str, Any]:
-        data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "text" in data:
-            try:
-                msg_type = self.type.value
-            except AttributeError:
-                msg_type = None
-
-            data["text"] = self._fix_text(data["text"], data.get("type", msg_type))
-        if "resetAt" in data:
-            data["resetAt"] = to_js_time(data["resetAt"])
-
         return data
 
 
@@ -476,15 +407,11 @@ class Camera(ProtectMotionDeviceModel):
     mic_volume: PercentInt
     is_recording: bool
     is_smart_detected: bool
-    hdr_mode: bool
-    # Recording Quality -> High Frame
-    video_mode: VideoMode
     chime_duration: timedelta
     last_ring: datetime | None = None
     channels: list[CameraChannel]
     isp_settings: ISPSettings
     talkback_settings: TalkbackSettings
-    osd_settings: OSDSettings
     led_settings: LEDSettings
     speaker_settings: SpeakerSettings
     recording_settings: RecordingSettings
@@ -492,7 +419,6 @@ class Camera(ProtectMotionDeviceModel):
     privacy_zones: list[CameraZone]
     stats: CameraStats
     feature_flags: CameraFeatureFlags
-    lcd_message: LCDMessage | None = None
     has_speaker: bool
     voltage: float | None = None
     # requires 2.8.14+
@@ -557,13 +483,6 @@ class Camera(ProtectMotionDeviceModel):
             "chimeDuration": lambda x: timedelta(milliseconds=x),
         } | super().unifi_dict_conversions()
 
-    @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        # LCD messages comes back as empty dict {}
-        if "lcdMessage" in data and len(data["lcdMessage"]) == 0:
-            del data["lcdMessage"]
-        return super().unifi_dict_to_dict(data)
-
     def unifi_dict(
         self,
         data: dict[str, Any] | None = None,
@@ -594,43 +513,7 @@ class Camera(ProtectMotionDeviceModel):
                 "talkbackStream",
             ),
         )
-        if "lcdMessage" in data and data["lcdMessage"] is None:
-            data["lcdMessage"] = {}
-
         return data
-
-    def get_changed(self, data_before_changes: dict[str, Any]) -> dict[str, Any]:
-        updated = super().get_changed(data_before_changes)
-
-        if "lcd_message" in updated:
-            lcd_message = updated["lcd_message"]
-            # to "clear" LCD message, set reset_at to a time in the past
-            if lcd_message is None:
-                updated["lcd_message"] = {"reset_at": utc_now() - timedelta(seconds=10)}
-            # otherwise, pass full LCD message to prevent issues
-            elif self.lcd_message is not None:
-                updated["lcd_message"] = self.lcd_message.model_dump()
-
-            # if reset_at is not passed in, it will default to reset in 1 minute
-            if lcd_message is not None and "reset_at" not in lcd_message:
-                if self.lcd_message is None:
-                    updated["lcd_message"]["reset_at"] = None
-                else:
-                    updated["lcd_message"]["reset_at"] = self.lcd_message.reset_at
-
-        return updated
-
-    def update_from_dict(self, data: dict[str, Any]) -> Camera:
-        # a message in the past is actually a signal to wipe the message
-        if (
-            reset_at := data.get("lcd_message", {}).get("reset_at")
-        ) is not None and utc_now() > from_js_time(reset_at):
-            # Important: Make a copy of the data before modifying it
-            # since unifi_dict_to_dict will otherwise report incorrect changes
-            data = data.copy()
-            data["lcd_message"] = None
-
-        return super().update_from_dict(data)
 
     @property
     def last_ring_event(self) -> Event | None:
@@ -721,26 +604,6 @@ class Camera(ProtectMotionDeviceModel):
             return self._api.bootstrap.nvr.global_camera_settings.smart_detect_settings
         return self.smart_detect_settings
 
-    @property
-    def active_smart_detect_types(self) -> set[SmartDetectObjectType]:
-        """Get active smart detection types."""
-        if self.use_global:
-            return set(self.smart_detect_settings.object_types).intersection(
-                self.feature_flags.smart_detect_types
-            )
-        return set(self.smart_detect_settings.object_types)
-
-    @property
-    def active_audio_detect_types(self) -> set[SmartDetectAudioType]:
-        """Get active audio detection types."""
-        if not (enabled_audio_types := self.smart_detect_settings.audio_types):
-            return set()
-        if self.use_global:
-            if not (feature_audio_types := self.feature_flags.smart_detect_audio_types):
-                return set()
-            return set(feature_audio_types).intersection(enabled_audio_types)
-        return set(enabled_audio_types)
-
     async def set_motion_detection(self, enabled: bool) -> None:
         """Sets motion detection on camera"""
         if self.use_global:
@@ -757,19 +620,6 @@ class Camera(ProtectMotionDeviceModel):
             return self._can_detect_audio(smart_type)
         return smart_type in self.feature_flags.smart_detect_types
 
-    def _is_smart_enabled(self, smart_type: SmartDetectObjectType) -> bool:
-        return (
-            self.is_recording_enabled and smart_type in self.active_smart_detect_types
-        )
-
-    @property
-    def is_person_detection_on(self) -> bool:
-        """
-        Is Person Detection available and enabled (camera will produce person smart
-        detection events)?
-        """
-        return self._is_smart_enabled(SmartDetectObjectType.PERSON)
-
     @property
     def is_person_tracking_enabled(self) -> bool:
         """Is person tracking enabled"""
@@ -778,38 +628,6 @@ class Camera(ProtectMotionDeviceModel):
             and SmartDetectObjectType.PERSON
             in self.active_smart_detect_settings.auto_tracking_object_types
         )
-
-    @property
-    def is_vehicle_detection_on(self) -> bool:
-        """
-        Is Vehicle Detection available and enabled (camera will produce vehicle smart
-        detection events)?
-        """
-        return self._is_smart_enabled(SmartDetectObjectType.VEHICLE)
-
-    @property
-    def is_license_plate_detection_on(self) -> bool:
-        """
-        Is License Plate Detection available and enabled (camera will produce face license
-        plate detection events)?
-        """
-        return self._is_smart_enabled(SmartDetectObjectType.LICENSE_PLATE)
-
-    @property
-    def is_package_detection_on(self) -> bool:
-        """
-        Is Package Detection available and enabled (camera will produce package smart
-        detection events)?
-        """
-        return self._is_smart_enabled(SmartDetectObjectType.PACKAGE)
-
-    @property
-    def is_animal_detection_on(self) -> bool:
-        """
-        Is Animal Detection available and enabled (camera will produce package smart
-        detection events)?
-        """
-        return self._is_smart_enabled(SmartDetectObjectType.ANIMAL)
 
     def _can_detect_audio(self, smart_type: SmartDetectObjectType) -> bool:
         audio_type = smart_type.audio_type
@@ -821,87 +639,6 @@ class Camera(ProtectMotionDeviceModel):
             is not None
             and audio_type in smart_detect_audio_types
         )
-
-    def _is_audio_enabled(self, smart_type: SmartDetectObjectType) -> bool:
-        audio_type = smart_type.audio_type
-        return (
-            audio_type is not None
-            and self.is_recording_enabled
-            and audio_type in self.active_audio_detect_types
-        )
-
-    @property
-    def is_smoke_detection_on(self) -> bool:
-        """
-        Is Smoke Alarm Detection available and enabled (camera will produce smoke
-        smart detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.SMOKE)
-
-    @property
-    def is_co_detection_on(self) -> bool:
-        """
-        Is CO Alarm Detection available and enabled (camera will produce smoke smart
-        detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.CMONX)
-
-    @property
-    def is_siren_detection_on(self) -> bool:
-        """
-        Is Siren Detection available and enabled (camera will produce siren smart
-        detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.SIREN)
-
-    @property
-    def is_baby_cry_detection_on(self) -> bool:
-        """
-        Is Baby Cry Detection available and enabled (camera will produce baby cry smart
-        detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.BABY_CRY)
-
-    @property
-    def is_speaking_detection_on(self) -> bool:
-        """
-        Is Speaking Detection available and enabled (camera will produce speaking smart
-        detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.SPEAK)
-
-    @property
-    def is_bark_detection_on(self) -> bool:
-        """
-        Is Bark Detection available and enabled (camera will produce barking smart
-        detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.BARK)
-
-    # SmartDetectObjectType.BURGLAR is "Car Alarm" in the Protect UI.
-    @property
-    def is_car_alarm_detection_on(self) -> bool:
-        """
-        Is Car Alarm Detection available and enabled (camera will produce car alarm smart
-        detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.BURGLAR)
-
-    @property
-    def is_car_horn_detection_on(self) -> bool:
-        """
-        Is Car Horn Detection available and enabled (camera will produce car horn smart
-        detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.CAR_HORN)
-
-    @property
-    def is_glass_break_detection_on(self) -> bool:
-        """
-        Is Glass Break available and enabled (camera will produce glass break smart
-        detection events)?
-        """
-        return self._is_audio_enabled(SmartDetectObjectType.GLASS_BREAK)
 
     @property
     def chime_type(self) -> ChimeType:
@@ -922,10 +659,6 @@ class Camera(ProtectMotionDeviceModel):
         if len(self.channels) >= 3:
             return self.channels[0]
         return None
-
-    @property
-    def is_high_fps_enabled(self) -> bool:
-        return self.video_mode is VideoMode.HIGH_FPS
 
     @property
     def is_video_ready(self) -> bool:
@@ -1502,58 +1235,11 @@ class Sensor(ProtectAdoptableDeviceModel):
         await self._api.clear_tamper_sensor(self.id)
 
 
-class RingSetting(ProtectBaseObject):
-    """Ring settings for a paired doorbell camera."""
-
-    camera_id: str
-    repeat_times: RepeatTimes
-    ringtone_id: str | None = None
-    volume: int
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {**super()._get_unifi_remaps(), "camera": "cameraId"}
-
-    def to_api_dict(
-        self, volume: int | None = None, repeat_times: int | None = None
-    ) -> PublicApiChimeRingSettingRequest:
-        """
-        Convert to API dict format for Public API requests.
-
-        Args:
-        ----
-            volume: Override volume value. If None, uses current volume.
-            repeat_times: Override repeat-times value. If None, uses current
-                repeat_times.
-
-        Returns:
-        -------
-            Dict with cameraId, volume, repeatTimes, and ringtoneId keys.
-
-        Raises:
-        ------
-            ChimeRingtoneNotSetError: If no ringtone is set for this camera.
-
-        """
-        if not self.ringtone_id:
-            raise ChimeRingtoneNotSetError(self.camera_id)
-        return {
-            "cameraId": self.camera_id,
-            "ringtoneId": self.ringtone_id,
-            "volume": volume if volume is not None else self.volume,
-            "repeatTimes": repeat_times
-            if repeat_times is not None
-            else self.repeat_times,
-        }
-
-
 class Chime(ProtectAdoptableDeviceModel):
     volume: PercentInt
     last_ring: datetime | None = None
     # requires 3.0.22+
     repeat_times: RepeatTimes | None = None
-    ring_settings: list[RingSetting] = []
 
     @classmethod
     @cache
@@ -1598,56 +1284,3 @@ class Chime(ProtectAdoptableDeviceModel):
     async def play_buzzer(self) -> None:
         """Plays chime buzzer"""
         await self._api.play_buzzer(self.id)
-
-    async def set_ring_settings_public(
-        self,
-        ring_settings: list[PublicApiChimeRingSettingRequest],
-    ) -> None:
-        """
-        Update ring settings using public API.
-
-        This is the preferred method to change ring volume per camera as it uses
-        the official public API.
-
-        Args:
-        ----
-            ring_settings: List of ring settings per camera. Each dict should contain:
-                - cameraId: The camera ID this setting applies to
-                - volume: Ring volume (0-100)
-                - repeatTimes: How many times to repeat (1-10)
-                - ringtoneId: The ringtone ID to use; Protect rejects entries
-                  without one
-
-        Raises:
-        ------
-            ChimeRingtoneNotSetError: If an entry has no ``ringtoneId``.
-
-        Example:
-        -------
-            >>> await chime.set_ring_settings_public([
-            ...     {
-            ...         "cameraId": "camera123",
-            ...         "volume": 80,
-            ...         "repeatTimes": 2,
-            ...         "ringtoneId": "ringtone456"
-            ...     }
-            ... ])
-
-        """
-        updated = await self._api.update_chime_public(
-            self.id,
-            ring_settings=ring_settings,
-        )
-        self._api._write_through_public_twin(updated)
-        # The public response carries ``PublicRingSettings`` (every field typed
-        # optional); rebuild the strict private ``RingSetting`` list from it,
-        # skipping entries the wire left incomplete so a partial response can't
-        # raise ``ValidationError`` (``RingSetting`` requires camera_id /
-        # repeat_times / volume).
-        self.ring_settings = [
-            RingSetting.from_unifi_dict(**rs.unifi_dict(), api=self._api)
-            for rs in updated.ring_settings
-            if rs.camera_id is not None
-            and rs.repeat_times is not None
-            and rs.volume is not None
-        ]
