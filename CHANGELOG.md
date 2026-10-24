@@ -1,5 +1,13 @@
 # Changelog
 
+## v23.10.0 (2026-10-24)
+
+### Features
+
+
+- Play audio on public cameras ([`d494700`](https://github.com/uilibs/uiprotect/commit/d49470099684dcf2b8cd31b04978feb3f191a73a))
+
+
 ## v23.9.0 (2026-10-19)
 
 ### Features
