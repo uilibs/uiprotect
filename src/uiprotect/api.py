@@ -26,7 +26,6 @@ import aiohttp
 import orjson
 from aiofiles import os as aos
 from aiohttp import ClientResponse, CookieJar, client_exceptions
-from aiozoneinfo import async_get_time_zone
 from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
@@ -153,20 +152,6 @@ if "partitioned" not in cookies.Morsel._reserved:  # type: ignore[attr-defined]
     # See: https://github.com/python/cpython/issues/112713
     cookies.Morsel._reserved["partitioned"] = "partitioned"  # type: ignore[attr-defined]
     cookies.Morsel._flags.add("partitioned")  # type: ignore[attr-defined]
-
-
-async def _async_warm_nvr_timezone(nvr_data: dict[str, Any]) -> None:
-    """
-    Warm zoneinfo's cache for ``nvr_data["timezone"]`` off the event loop.
-
-    ``NVR.unifi_dict_conversions`` constructs ``ZoneInfo(name)`` synchronously
-    during parse; first construction does an ``os.stat`` lookup that blocks
-    the loop. Awaiting :func:`async_get_time_zone` here primes ZoneInfo's
-    internal cache so the later sync construction is a free hit.
-    """
-    tz_name = nvr_data.get("timezone")
-    if isinstance(tz_name, str):
-        await async_get_time_zone(tz_name)
 
 
 class LightPatchRequest(TypedDict, total=False):
@@ -3339,7 +3324,6 @@ class ProtectApiClient(BaseApiClient):
                 "use update_public() instead"
             )
         data = await self.api_request_obj("bootstrap")
-        await _async_warm_nvr_timezone(data["nvr"])
         return Bootstrap.from_unifi_dict(**data, api=self)
 
     async def get_device_raw(
@@ -3380,7 +3364,6 @@ class ProtectApiClient(BaseApiClient):
         This is a great alternative if you need metadata about the NVR without connecting to the Websocket
         """
         data = await self.api_request_obj("nvr")
-        await _async_warm_nvr_timezone(data)
         return NVR.from_unifi_dict(**data, api=self)
 
     async def get_event(self, event_id: str) -> Event:

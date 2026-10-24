@@ -51,38 +51,24 @@ STATS_KEYS = {
     "phyRate",
     "wifiConnectionState",
     "upSince",
-    "uptime",
     "lastSeen",
     "recordingSchedules",
 }
 
-IGNORE_DEVICE_KEYS = {"nvrMac", "guid"}
 _UNMODELLED_PRIVATE_MODEL_TYPES = frozenset(
-    {ModelType.AIPORT, ModelType.BRIDGE, ModelType.GROUP}
+    {ModelType.AIPORT, ModelType.BRIDGE, ModelType.GROUP, ModelType.USER_LOCATION}
 )
-STATS_AND_IGNORE_DEVICE_KEYS = STATS_KEYS | IGNORE_DEVICE_KEYS
 
-_IGNORE_KEYS_BY_MODEL_TYPE = {
+IGNORE_DEVICE_KEYS_BY_MODEL_TYPE = {
     #
     # `lastMotion` from cameras update every 100 milliseconds when a motion event is active
     # this overrides the behavior to only update `lastMotion` when a new event starts
     #
     ModelType.CAMERA: {"lastMotion"},
-    #
-    # `cameraIds` is updated every 10s, but we don't need to process it since bootstrap
-    # is resynced every so often anyways.
-    #
-    ModelType.CHIME: {"cameraIds"},
-}
-
-
-IGNORE_DEVICE_KEYS_BY_MODEL_TYPE = {
-    model_type: IGNORE_DEVICE_KEYS | keys
-    for model_type, keys in _IGNORE_KEYS_BY_MODEL_TYPE.items()
 }
 STATS_AND_IGNORE_DEVICE_KEYS_BY_MODEL_TYPE = {
-    model_type: STATS_AND_IGNORE_DEVICE_KEYS | keys
-    for model_type, keys in _IGNORE_KEYS_BY_MODEL_TYPE.items()
+    model_type: STATS_KEYS | keys
+    for model_type, keys in IGNORE_DEVICE_KEYS_BY_MODEL_TYPE.items()
 }
 
 
@@ -617,12 +603,10 @@ class Bootstrap(ProtectBaseObject):
         """
         if ignore_stats:
             remove_keys = STATS_AND_IGNORE_DEVICE_KEYS_BY_MODEL_TYPE.get(
-                model_type, STATS_AND_IGNORE_DEVICE_KEYS
+                model_type, STATS_KEYS
             )
         else:
-            remove_keys = IGNORE_DEVICE_KEYS_BY_MODEL_TYPE.get(
-                model_type, IGNORE_DEVICE_KEYS
-            )
+            remove_keys = IGNORE_DEVICE_KEYS_BY_MODEL_TYPE.get(model_type, set())
 
         pop_dict_set(data, remove_keys)
 
@@ -720,8 +704,8 @@ class Bootstrap(ProtectBaseObject):
             _LOGGER.debug("Unknown model type: %s", model_key)
             return None
 
-        # The private API still sends AiPorts, bridges and groups, which are no
-        # longer modelled on the private bootstrap.
+        # The private API still sends AiPorts, bridges, groups and user
+        # locations, which are no longer modelled on the private bootstrap.
         if model_type in _UNMODELLED_PRIVATE_MODEL_TYPES:
             return None
 

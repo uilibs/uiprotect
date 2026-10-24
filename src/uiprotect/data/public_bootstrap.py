@@ -118,9 +118,9 @@ _PUBLIC_STORES: dict[ModelType, tuple[str, type[ProtectModelWithId] | None]] = {
     ModelType.LINK_STATION: ("link_stations", None),
 }
 
-# Collision-routed types that keep a dedicated ``_X_slot()`` factory (their
-# ``ModelType`` is owned by a private class in ``MODEL_TO_CLASS``). They carry
-# no ``mac`` and so are excluded from :data:`_PUBLIC_STORES`.
+# Types that keep a dedicated ``_X_slot()`` factory (liveviews and viewers
+# because their ``ModelType`` is owned by a private class in ``MODEL_TO_CLASS``).
+# They carry no ``mac`` and so are excluded from :data:`_PUBLIC_STORES`.
 _DEDICATED_SLOT_STORE_ATTRS: dict[ModelType, str] = {
     ModelType.LIVEVIEW: "liveviews",
     ModelType.BRIDGE: "bridges",
@@ -205,10 +205,9 @@ class PublicBootstrap:
     # filtered view.
     link_stations: dict[str, LinkStation] = field(default_factory=dict)
     # ``liveviews``, ``bridges`` and ``viewers`` are deliberately kept out of
-    # :data:`_DEVICE_STORES` because their ``ModelType`` values
-    # (``LIVEVIEW`` / ``BRIDGE`` / ``VIEWPORT``) are already owned by the
-    # private ``Liveview`` / ``Bridge`` / ``Viewer`` classes in
-    # ``MODEL_TO_CLASS``. The WS handler routes each to its own store via an
+    # :data:`_DEVICE_STORES`: ``LIVEVIEW`` / ``VIEWPORT`` are already owned by
+    # the private ``Liveview`` / ``Viewer`` classes in ``MODEL_TO_CLASS``, and
+    # bridges carry no ``mac``. The WS handler routes each to its own store via an
     # explicit branch with a public-API-aware factory. The devices websocket
     # sends no liveview frames on current firmware, so ``liveviews`` is also a
     # websocket-less store kept fresh by refetching.
@@ -500,10 +499,10 @@ class PublicBootstrap:
         model_key = item["modelKey"]
         model_type = ModelType.from_string(model_key)
 
-        # NVR is cached in a dedicated single-object slot; collision-routed
-        # types (Liveview / Bridge / Viewer share their ``ModelType`` with the
-        # private ``MODEL_TO_CLASS`` entries) get their own factory-equipped
-        # slot. Everything else routes through the generic ``store_for`` dict.
+        # NVR is cached in a dedicated single-object slot; Liveview / Bridge /
+        # Viewer get their own factory-equipped slot (Liveview / Viewer share
+        # their ``ModelType`` with private ``MODEL_TO_CLASS`` entries).
+        # Everything else routes through the generic ``store_for`` dict.
         # Snapshot the pre-apply camera state: ``update`` merges in place, so
         # the ``old`` returned by ``_apply_action`` is the same (now mutated)
         # instance as ``new`` and can't be compared against it afterwards.
@@ -633,7 +632,7 @@ class PublicBootstrap:
             api._schedule_siren_off(item["id"])
 
     def _custom_slot_for(self, model_type: ModelType) -> _Slot | None:
-        """Return the dedicated public-API slot for collision-routed types."""
+        """Return the dedicated public-API slot for types with a custom factory."""
         if model_type is ModelType.NVR:
             return self._nvr_slot()
         if model_type is ModelType.LIVEVIEW:

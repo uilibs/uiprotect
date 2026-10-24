@@ -536,6 +536,23 @@ def test_cloud_account_names_anonymized_without_user_names() -> None:
     assert cloud_account["email"].endswith("@example.com")
 
 
+def test_cloud_account_ignores_user_names_without_first_name() -> None:
+    """Un-anonymized user name/email are not copied into the cloud account."""
+    user = {
+        "modelKey": "user",
+        "id": "anon-user-4",
+        "name": "Jane Doe",
+        "email": "jane@real.test",
+        "cloudAccount": {"name": "Jane Doe", "email": "jane@real.test"},
+    }
+
+    cloud_account = anonymize_data(user)["cloudAccount"]
+
+    assert cloud_account["name"] != "Jane Doe"
+    assert cloud_account["email"] != "jane@real.test"
+    assert cloud_account["email"].endswith("@example.com")
+
+
 @pytest.mark.asyncio
 async def test_private_bootstrap_dump_anonymizes(
     protect_client: ProtectApiClient,

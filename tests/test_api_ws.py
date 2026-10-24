@@ -2081,14 +2081,14 @@ async def test_ws_update_for_unknown_device_is_ignored(
 
 @pytest.mark.asyncio()
 @pytest.mark.parametrize("action", ["add", "update", "remove"])
-@pytest.mark.parametrize("model_key", ["bridge", "group"])
+@pytest.mark.parametrize("model_key", ["bridge", "group", "userLocation"])
 async def test_ws_unmodelled_private_frames_are_ignored(
     protect_client_no_debug: ProtectApiClient,
     packet: WSPacket,
     action: str,
     model_key: str,
 ):
-    """Private bridge and group frames are dropped without a refresh."""
+    """Private bridge, group and user location frames are dropped unrefreshed."""
     bootstrap = protect_client_no_debug.bootstrap
     action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
     action_frame.data = {

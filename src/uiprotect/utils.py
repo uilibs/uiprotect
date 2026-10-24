@@ -52,13 +52,6 @@ T = TypeVar("T")
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 DEBUG_ENV = "UFP_DEBUG"
 PROGRESS_CALLABLE = Callable[[int, str], Coroutine[Any, Any, None]]
-SNAKE_CASE_KEYS = [
-    "life_span",
-    "bad_sector",
-    "total_bytes",
-    "used_bytes",
-    "space_type",
-]
 TIMEZONE_GLOBAL: tzinfo | None = None
 
 SNAKE_CASE_MATCH_1 = re.compile("(.)([A-Z0-9][a-z]+)")
@@ -304,10 +297,7 @@ def serialize_unifi_obj(value: Any, levels: int = -1) -> Any:  # noqa: PLR0911
 def serialize_dict(data: dict[str, Any], levels: int = -1) -> dict[str, Any]:
     """Serializes UFP data dict"""
     for key in list(data):
-        set_key = key
-        if set_key not in SNAKE_CASE_KEYS:
-            set_key = to_camel_case(set_key)
-        data[set_key] = serialize_unifi_obj(data.pop(key), levels=levels)
+        data[to_camel_case(key)] = serialize_unifi_obj(data.pop(key), levels=levels)
 
     return data
 

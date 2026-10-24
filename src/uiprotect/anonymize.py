@@ -284,8 +284,9 @@ def random_identifier() -> str:
 def _anonymize_cloud_account(
     cloud_account: dict[str, Any], user_dict: dict[str, Any]
 ) -> None:
+    has_names = "firstName" in user_dict
     for key in ("firstName", "lastName", "name", "email"):
-        if key in user_dict:
+        if has_names:
             cloud_account[key] = user_dict[key]
         elif key == "email" and key in cloud_account:
             cloud_account[key] = f"{random_word()}@example.com"
