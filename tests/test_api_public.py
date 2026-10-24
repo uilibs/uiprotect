@@ -20,7 +20,6 @@ from uiprotect import api as api_module
 from uiprotect.api import _UNSET, RTSPSStreams, _UnsetType
 from uiprotect.data import (
     ArmProfile,
-    Bridge,
     DeviceState,
     Fob,
     FobAwayState,
@@ -2566,45 +2565,6 @@ def test_is_public_live_follows_devices_websocket(
 
 
 @pytest.mark.asyncio()
-async def test_camera_motion_start_partial_ws_update(
-    protect_client: ProtectApiClient,
-) -> None:
-    """
-    A minimal ``isMotionDetected=true`` diff flips the cached camera.
-
-    This is the exact shape HA's motion entity relies on.
-    """
-    # Seed the public cache with the private-bootstrap cameras (same model
-    # class, same ids — realistic because the Public API returns Camera
-    # instances identical in shape to the private one).
-    pb = PublicBootstrap()
-    camera = next(iter(protect_client.bootstrap.cameras.values()))
-    pb.cameras[camera.id] = camera
-    protect_client._public_bootstrap = pb
-
-    assert camera.is_motion_detected is False
-
-    _, new, old = pb.process_devices_ws_message(
-        protect_client,
-        {
-            "type": "update",
-            "item": {
-                "id": camera.id,
-                "modelKey": "camera",
-                "isMotionDetected": True,
-                "lastMotion": 1643055781132,
-            },
-        },
-    )
-
-    assert old is camera
-    assert new is camera
-    assert new is not None and new.is_motion_detected is True  # type: ignore[attr-defined]
-    # Cache now holds the same object, updated in place.
-    assert pb.cameras[camera.id].is_motion_detected is True
-
-
-@pytest.mark.asyncio()
 async def test_doorbell_ring_partial_ws_update(
     protect_client: ProtectApiClient,
 ) -> None:
@@ -5001,14 +4961,11 @@ def test_bridge_model_from_unifi_dict() -> None:
     assert bridge.max_clients == 7
 
 
-def test_bridge_model_does_not_collide_with_private() -> None:
-    """``PublicBridge`` and private ``Bridge`` are distinct types."""
-    assert PublicBridge is not Bridge
+def test_bridge_model_stays_out_of_private_model_map() -> None:
+    """``PublicBridge`` is routed by ``PublicBootstrap``, not ``MODEL_TO_CLASS``."""
     public = PublicBridge.from_unifi_dict(**_bridge_raw())
     assert isinstance(public, PublicBridge)
-    # ``MODEL_TO_CLASS`` must still resolve ``bridge`` modelKey to the private
-    # ``Bridge`` class — the public-API path is opt-in via PublicBootstrap.
-    assert MODEL_TO_CLASS[ModelType.BRIDGE] is Bridge
+    assert ModelType.BRIDGE not in MODEL_TO_CLASS
     assert PublicBridge not in MODEL_TO_CLASS.values()
 
 
@@ -5126,7 +5083,6 @@ def test_public_bootstrap_applies_bridge_add_and_update(
     assert mt is ModelType.BRIDGE
     assert new is not None and new.id == BRIDGE_ID
     assert isinstance(new, PublicBridge)
-    assert not isinstance(new, Bridge)
     assert old is None
     assert BRIDGE_ID in pb.bridges
     # The public-API cache must not contaminate other stores.

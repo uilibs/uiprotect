@@ -26,7 +26,6 @@ import aiohttp
 import orjson
 from aiofiles import os as aos
 from aiohttp import ClientResponse, CookieJar, client_exceptions
-from aiozoneinfo import async_get_time_zone
 from platformdirs import user_cache_dir, user_config_dir
 from yarl import URL
 
@@ -134,7 +133,6 @@ from .websocket import Websocket, WebsocketState
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
-    from uiprotect.data.devices import LightDeviceSettings, LightModeSettings
     from uiprotect.data.public_devices import (
         PublicLightDeviceSettings,
         PublicLightModeSettings,
@@ -154,20 +152,6 @@ if "partitioned" not in cookies.Morsel._reserved:  # type: ignore[attr-defined]
     # See: https://github.com/python/cpython/issues/112713
     cookies.Morsel._reserved["partitioned"] = "partitioned"  # type: ignore[attr-defined]
     cookies.Morsel._flags.add("partitioned")  # type: ignore[attr-defined]
-
-
-async def _async_warm_nvr_timezone(nvr_data: dict[str, Any]) -> None:
-    """
-    Warm zoneinfo's cache for ``nvr_data["timezone"]`` off the event loop.
-
-    ``NVR.unifi_dict_conversions`` constructs ``ZoneInfo(name)`` synchronously
-    during parse; first construction does an ``os.stat`` lookup that blocks
-    the loop. Awaiting :func:`async_get_time_zone` here primes ZoneInfo's
-    internal cache so the later sync construction is a free hit.
-    """
-    tz_name = nvr_data.get("timezone")
-    if isinstance(tz_name, str):
-        await async_get_time_zone(tz_name)
 
 
 class LightPatchRequest(TypedDict, total=False):
@@ -3340,7 +3324,6 @@ class ProtectApiClient(BaseApiClient):
                 "use update_public() instead"
             )
         data = await self.api_request_obj("bootstrap")
-        await _async_warm_nvr_timezone(data["nvr"])
         return Bootstrap.from_unifi_dict(**data, api=self)
 
     async def get_device_raw(
@@ -3381,7 +3364,6 @@ class ProtectApiClient(BaseApiClient):
         This is a great alternative if you need metadata about the NVR without connecting to the Websocket
         """
         data = await self.api_request_obj("nvr")
-        await _async_warm_nvr_timezone(data)
         return NVR.from_unifi_dict(**data, api=self)
 
     async def get_event(self, event_id: str) -> Event:
@@ -3741,10 +3723,6 @@ class ProtectApiClient(BaseApiClient):
             retry_timeout=retry_timeout,
         )
 
-    async def get_event_smart_detect_track_raw(self, event_id: str) -> dict[str, Any]:
-        """Gets raw Smart Detect Track for a Smart Detection"""
-        return await self.api_request_obj(f"events/{event_id}/smartDetectTrack")
-
     async def update_device(
         self,
         model_type: ModelType,
@@ -3956,10 +3934,8 @@ class ProtectApiClient(BaseApiClient):
         *,
         name: str | None = None,
         is_light_force_enabled: bool | None = None,
-        light_mode_settings: LightModeSettings | PublicLightModeSettings | None = None,
-        light_device_settings: (
-            LightDeviceSettings | PublicLightDeviceSettings | None
-        ) = None,
+        light_mode_settings: PublicLightModeSettings | None = None,
+        light_device_settings: PublicLightDeviceSettings | None = None,
     ) -> PublicLight:
         """
         Update light settings using public API.

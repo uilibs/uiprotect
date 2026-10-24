@@ -411,7 +411,6 @@ def test_serialize_list():
 
 def test_serialize_dict():
     assert serialize_dict({"test_key": "v"})["testKey"] == "v"
-    assert "life_span" in serialize_dict({"life_span": 100})
 
 
 @pytest.mark.parametrize(

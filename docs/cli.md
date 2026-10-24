@@ -60,8 +60,8 @@ supply `--username`/`--password`. In this mode that covers:
 - whole groups: `nvr`;
 - top-level commands: `create-api-key`, `generate-sample-data`, `profile-ws`,
   `shell`;
-- on every device group: `adopt`, `bridge`, `reboot`, `set-ssh`, `unadopt`,
-  `update`, and `set-name` with no argument (clearing a name);
+- on every device group: `adopt`, `reboot`, `set-ssh`, `unadopt`, `update`,
+  and `set-name` with no argument (clearing a name);
 - `cameras`: `chime-type`, `play-audio`, `privacy-mode`, `save-snapshot`
   without `--package`, `save-video`, `set-camera-zoom`,
   `set-color-night-vision`, `set-ir-led-mode`, `set-motion-detection`,
@@ -87,11 +87,10 @@ prompt: without an API key they fail with an "API key is required" error.
 
 In hybrid mode, the device commands that also work on the API key alone
 (`set-name NAME`, the public setters, the sensor reads other than
-`is-alarm-detected` and `is-alarm-enabled`, `chimes set-volume` and
-`set-repeat-times`) fetch the device from the public API and
-act on it there, as in public-only mode, so they need an API key.
-`cameras save-snapshot --package` reads the camera from the private bootstrap
-but requests the snapshot from the public API, so it needs an API key too.
+`is-alarm-detected` and `is-alarm-enabled`, `chimes cameras`, `chimes
+set-volume`, `set-repeat-times` and `cameras save-snapshot --package`) fetch
+the device from the public API and act on it there, as in public-only mode, so
+they need an API key.
 
 ## Timezones
 
@@ -245,13 +244,12 @@ $ uiprotect cameras 61ddb66b018e2703e7008c19 save-snapshot output.jpg
 
 Adoptable devices (Cameras, Chimes, Lights, Sensors, Viewers) all have some commands in common.
 
-| Command   | Description                                       |
-| --------- | ------------------------------------------------- |
-| `adopt`   | Adopts a device.                                  |
-| `bridge`  | Returns bridge device if connected via Bluetooth. |
-| `reboot`  | Reboots the device.                               |
-| `unadopt` | Unadopt/Unmanage adopted device.                  |
-| `update`  | Updates the device.                               |
+| Command   | Description                      |
+| --------- | -------------------------------- |
+| `adopt`   | Adopts a device.                 |
+| `reboot`  | Reboots the device.              |
+| `unadopt` | Unadopt/Unmanage adopted device. |
+| `update`  | Updates the device.              |
 
 Most of these are unavailable in public-only mode; see the list under
 [Public-only mode](#public-only-mode).

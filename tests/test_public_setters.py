@@ -399,6 +399,74 @@ async def test_public_camera_lcd_message_rejects_text() -> None:
 
 
 @pytest.mark.parametrize(
+    ("text_type", "text", "expected_payload"),
+    [
+        (
+            DoorbellMessageType.CUSTOM_MESSAGE,
+            "Hi",
+            {"type": "CUSTOM_MESSAGE", "text": "Hi"},
+        ),
+        (
+            DoorbellMessageType.IMAGE,
+            "abc123.png",
+            {"type": "IMAGE", "text": "abc123.png"},
+        ),
+        (DoorbellMessageType.DO_NOT_DISTURB, None, {"type": "DO_NOT_DISTURB"}),
+        (
+            DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR,
+            None,
+            {"type": "LEAVE_PACKAGE_AT_DOOR"},
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_public_camera_lcd_message_payload(
+    text_type: DoorbellMessageType,
+    text: str | None,
+    expected_payload: dict[str, str],
+) -> None:
+    """Each type sends its exact payload, with no resetAt when reset_at is omitted."""
+    api = MagicMock()
+    cam = _camera(api)
+    api.update_camera_public = AsyncMock(return_value=cam)
+
+    await cam.set_lcd_message(text_type, text)
+
+    api.update_camera_public.assert_awaited_once_with(
+        cam.id, lcd_message=expected_payload
+    )
+
+
+@pytest.mark.asyncio
+async def test_public_camera_lcd_message_clear_rejects_reset_at_none() -> None:
+    api = MagicMock()
+    cam = _camera(api)
+    with pytest.raises(BadRequest, match="Clearing the LCD message"):
+        await cam.set_lcd_message(None, reset_at=None)
+
+
+@pytest.mark.parametrize(
+    ("text_type", "text", "match"),
+    [
+        (DoorbellMessageType.IMAGE, None, "IMAGE requires text"),
+        (
+            DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR,
+            "nope",
+            "LEAVE_PACKAGE_AT_DOOR does not accept text",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_public_camera_lcd_message_text_validation(
+    text_type: DoorbellMessageType, text: str | None, match: str
+) -> None:
+    api = MagicMock()
+    cam = _camera(api)
+    with pytest.raises(BadRequest, match=match):
+        await cam.set_lcd_message(text_type, text)
+
+
+@pytest.mark.parametrize(
     ("method", "kwarg"),
     [
         ("set_osd_name", "osd_name_enabled"),

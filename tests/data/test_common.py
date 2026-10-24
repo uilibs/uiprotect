@@ -15,11 +15,9 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from tests.conftest import (
-    TEST_BRIDGE_EXISTS,
     TEST_CAMERA_EXISTS,
     TEST_LIGHT_EXISTS,
     TEST_SENSOR_EXISTS,
-    TEST_SMART_TRACK_EXISTS,
     TEST_VIEWPORT_EXISTS,
     MockTalkback,
     compare_objs,
@@ -39,8 +37,6 @@ from uiprotect.data import (
     RecordingMode,
     SmartDetectAudioType,
     SmartDetectObjectType,
-    SmartDetectTrack,
-    StorageType,
     User,
     VideoMode,
     WSPacket,
@@ -162,11 +158,6 @@ def test_camera(camera):
 @pytest.mark.skipif(not TEST_SENSOR_EXISTS, reason="Missing testdata")
 def test_sensor(sensor):
     compare_devices(sensor)
-
-
-@pytest.mark.skipif(not TEST_BRIDGE_EXISTS, reason="Missing testdata")
-def test_bridge(bridge):
-    compare_devices(bridge)
 
 
 @pytest.mark.timeout(CONSTANTS["event_count"] * 0.1)
@@ -1009,7 +1000,6 @@ def test_camera_smart_audio_events(camera_obj: Camera):
             type=EventType.SMART_AUDIO_DETECT,
             score=100,
             smart_detect_types=[SmartDetectObjectType.SMOKE],
-            smart_detect_event_ids=[],
         ),
         Event(  # type: ignore[call-arg]
             api=camera_obj.api,
@@ -1019,7 +1009,6 @@ def test_camera_smart_audio_events(camera_obj: Camera):
             type=EventType.SMART_AUDIO_DETECT,
             score=100,
             smart_detect_types=[SmartDetectObjectType.CMONX],
-            smart_detect_event_ids=[],
         ),
     ]
 
@@ -1034,8 +1023,7 @@ def test_camera_smart_audio_events(camera_obj: Camera):
         SmartDetectAudioType.CMONX
     ] == now - timedelta(seconds=5)
 
-    assert camera_obj.last_smart_audio_detect_event is not None
-    assert camera_obj.last_smart_audio_detect_event.id == "test_event_2"
+    assert camera_obj.last_smart_audio_detect_event_id == "test_event_2"
     event = camera_obj.get_last_smart_audio_detect_event(SmartDetectAudioType.SMOKE)
     assert event is not None
     assert event.id == "test_event_1"
@@ -1094,6 +1082,8 @@ def test_bootstrap(bootstrap: dict[str, Any]):
     bootstrap.pop("aiports", None)
     bootstrap.pop("accessKey", None)
     bootstrap.pop("ringtones", None)
+    bootstrap.pop("groups", None)
+    bootstrap.pop("bridges", None)
 
     # Remove additional keys from obj_dict
     obj_dict.pop("keyrings", None)
@@ -1174,23 +1164,6 @@ def test_bootstrap_missing_key(
 
     assert obj.chimes == {}
     assert "Missing key in bootstrap: chimes" in caplog.text
-
-
-@pytest.mark.skipif(not TEST_SMART_TRACK_EXISTS, reason="Missing testdata")
-@pytest.mark.asyncio()
-async def test_smart_detect_track(
-    protect_client: ProtectApiClient, smart_track: dict[str, Any]
-):
-    track = SmartDetectTrack.from_unifi_dict(
-        **deepcopy(smart_track), api=protect_client
-    )
-    item = smart_track["payload"][0]
-
-    assert track.camera is protect_client.bootstrap.cameras[smart_track["camera"]]
-    assert track.event_id == smart_track["event"]
-    assert len(track.payload) == len(smart_track["payload"])
-    assert track.payload[0].zone_ids == item["zones"]
-    assert track.payload[0].duration == timedelta(milliseconds=item["duration"])
 
 
 def test_doorlock_modelkey_resolves_unknown():
@@ -1494,7 +1467,6 @@ def test_camera_ip_host(camera):
 
     camera_obj = Camera.from_unifi_dict(**camera)
     assert camera_obj.host == IPv4Address("1.1.1.1")
-    assert camera_obj.connection_host == IPv4Address("1.1.1.1")
 
 
 def test_camera_dns_host(camera):
@@ -1503,7 +1475,6 @@ def test_camera_dns_host(camera):
 
     camera_obj = Camera.from_unifi_dict(**camera)
     assert camera_obj.host == "se-gw.local"
-    assert camera_obj.connection_host == "se-gw.local"
 
 
 def test_bootstrap_ip_host(bootstrap):
@@ -1839,35 +1810,19 @@ async def test_user_becomes_cloud_account_and_then_removed(user_obj: User):
     user_obj.update_from_dict(
         {
             "id": "test_id_1",
-            "name": "Test",
             "cloud_account": {
-                "first_name": "Qpvfly",
-                "last_name": "Ikjzilt",
-                "email": "QhoFvCv@example.com",
-                "profile_img": None,
-                "user_id": "fe4c12ae2c1348edb7854e2f",
                 "id": "9efc4511-4539-4402-9581-51cee8b65cf5",
-                "cloud_id": "9efc4511-4539-4402-9581-51cee8b65cf5",
-                "name": "Qpvfly Ikjzilt",
                 "model_key": "cloudIdentity",
             },
         }
     )
 
-    assert user_obj.name == "Test"
     assert user_obj.cloud_account
     assert isinstance(user_obj.cloud_account, CloudAccount)
-    assert user_obj.cloud_account.first_name == "Qpvfly"
+    assert user_obj.cloud_account.id == "9efc4511-4539-4402-9581-51cee8b65cf5"
 
-    user_obj.update_from_dict(
-        {
-            "id": "test_id_1",
-            "name": "Test",
-            "cloud_account": None,
-        }
-    )
+    user_obj.update_from_dict({"id": "test_id_1", "cloud_account": None})
 
-    assert user_obj.name == "Test"
     assert user_obj.cloud_account is None
 
 
@@ -1904,7 +1859,6 @@ def test_unknown_smart(
         pytest.skip("No camera obj found")
 
     camera["featureFlags"]["smartDetectTypes"] = ["alrmSmoke3"]
-    camera["smartDetectZones"][0]["objectTypes"] = ["alrmSmoke3"]
     camera["smartDetectSettings"]["objectTypes"] = ["alrmSmoke3"]
     bootstrap["cameras"] = [camera]
 
@@ -1914,7 +1868,6 @@ def test_unknown_smart(
     )
     camera_obj = next(iter(obj.cameras.values()))
     assert camera_obj.feature_flags.smart_detect_types == []
-    assert camera_obj.smart_detect_zones[0].object_types == []
     assert camera_obj.smart_detect_settings.object_types == []
 
     set_no_debug()
@@ -1924,7 +1877,6 @@ def test_unknown_smart(
     )
     camera_obj = next(iter(obj.cameras.values()))
     assert camera_obj.feature_flags.smart_detect_types == []
-    assert camera_obj.smart_detect_zones[0].object_types == []
     assert camera_obj.smart_detect_settings.object_types == []
     set_debug()
 
@@ -1958,27 +1910,6 @@ def test_unknown_video(
     set_debug()
 
 
-def test_unknown_storage_type(
-    bootstrap: dict[str, Any],
-    protect_client: ProtectApiClient,
-):
-    bootstrap["nvr"]["systemInfo"]["storage"]["type"] = "test"
-
-    obj: Bootstrap = Bootstrap.from_unifi_dict(
-        **deepcopy(bootstrap),
-        api=protect_client,
-    )
-    assert obj.nvr.system_info.storage.type == StorageType.UNKNOWN
-
-    set_no_debug()
-    obj: Bootstrap = Bootstrap.from_unifi_dict(
-        **deepcopy(bootstrap),
-        api=protect_client,
-    )
-    assert obj.nvr.system_info.storage.type == StorageType.UNKNOWN
-    set_debug()
-
-
 def test_protect7_duplicate_snake_and_camel_case_keys():
     """
     Protect 7.x firmware sends both camelCase and snake_case variants of the
@@ -1997,38 +1928,36 @@ def test_protect7_duplicate_snake_and_camel_case_keys():
         "sensorId": "abc123",
         "hallwayMode": None,
         "hallway_mode": "disabled",
-        "type": "motion",
     }
 
     # Must not raise KeyError
     result = EventMetadata.unifi_dict_to_dict(data)
 
     assert result["sensor_id"] == "abc123"
-    assert result["type"] == "motion"
 
 
 def test_event_metadata_collapse_keys_text_format():
     """Collapse keys with standard {"text": "value"} format are correctly unwrapped."""
     data: dict[str, Any] = {
-        "lightName": {"text": "Porch"},
-        "mountType": {"text": "door"},
-        "status": {"text": "safe"},
+        "lightId": {"text": "light1"},
+        "sensorId": {"text": "sensor1"},
+        "deviceId": {"text": "device1"},
     }
     result = EventMetadata.unifi_dict_to_dict(data)
-    assert result["light_name"] == "Porch"
-    assert result["mount_type"] == "door"
-    assert result["status"] == "safe"
+    assert result["light_id"] == "light1"
+    assert result["sensor_id"] == "sensor1"
+    assert result["device_id"] == "device1"
 
 
 def test_event_metadata_collapse_keys_unexpected_format():
     """Collapse keys with unexpected dict format (no 'text' key) are dropped gracefully."""
     data: dict[str, Any] = {
-        "lightName": {"newFormat": "Porch", "extra": 123},
+        "lightId": {"newFormat": "light1", "extra": 123},
         "sensorId": "abc123",
     }
     result = EventMetadata.unifi_dict_to_dict(data)
     # Malformed key should be dropped
-    assert "light_name" not in result
+    assert "light_id" not in result
     # Other keys should still be processed
     assert result["sensor_id"] == "abc123"
 
@@ -2036,12 +1965,12 @@ def test_event_metadata_collapse_keys_unexpected_format():
 def test_event_metadata_collapse_keys_non_dict_passthrough():
     """Collapse keys that are plain strings (not dicts) pass through unchanged."""
     data: dict[str, Any] = {
-        "lightName": "Porch",
-        "type": "motion",
+        "lightId": "light1",
+        "sensorId": "sensor1",
     }
     result = EventMetadata.unifi_dict_to_dict(data)
-    assert result["light_name"] == "Porch"
-    assert result["type"] == "motion"
+    assert result["light_id"] == "light1"
+    assert result["sensor_id"] == "sensor1"
 
 
 def test_handle_ws_error_event_model(

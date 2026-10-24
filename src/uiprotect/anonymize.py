@@ -51,27 +51,13 @@ def anonymize_user(user_dict: dict[str, Any]) -> dict[str, Any]:
 
     user_dict["id"] = anonymize_object_id(user_dict["id"])
 
-    if "firstName" in user_dict:
-        user_dict["firstName"] = random_word().title()
-        user_dict["lastName"] = random_word().title()
-        user_dict["name"] = f"{user_dict['firstName']} {user_dict['lastName']}"
-        user_dict["localUsername"] = random_word()
-        user_dict["email"] = f"{user_dict['localUsername']}@example.com"
+    identity = _random_identity()
+    for key, value in identity.items():
+        if key in user_dict:
+            user_dict[key] = value
 
-    if "cloudAccount" in user_dict and user_dict["cloudAccount"] is not None:
-        user_dict["cloudAccount"]["firstName"] = user_dict["firstName"]
-        user_dict["cloudAccount"]["lastName"] = user_dict["lastName"]
-        user_dict["cloudAccount"]["name"] = user_dict["name"]
-        user_dict["cloudAccount"]["email"] = user_dict["email"]
-        user_dict["cloudAccount"]["user"] = anonymize_object_id(
-            user_dict["cloudAccount"]["user"],
-        )
-        user_dict["cloudAccount"]["id"] = anonymize_uuid(
-            user_dict["cloudAccount"]["id"],
-        )
-        user_dict["cloudAccount"]["cloudId"] = anonymize_uuid(
-            user_dict["cloudAccount"]["cloudId"],
-        )
+    if (cloud_account := user_dict.get("cloudAccount")) is not None:
+        _anonymize_cloud_account(cloud_account, identity)
 
     camera_order = (user_dict.get("settings") or {}).get("cameraOrder")
     if camera_order is not None:
@@ -291,3 +277,29 @@ def random_ip(input_ip: str) -> str:
 
 def random_identifier() -> str:
     return str(uuid.uuid4())
+
+
+def _random_identity() -> dict[str, str]:
+    first_name = random_word().title()
+    last_name = random_word().title()
+    local_username = random_word()
+    return {
+        "firstName": first_name,
+        "lastName": last_name,
+        "name": f"{first_name} {last_name}",
+        "localUsername": local_username,
+        "email": f"{local_username}@example.com",
+    }
+
+
+def _anonymize_cloud_account(
+    cloud_account: dict[str, Any], identity: dict[str, str]
+) -> None:
+    for key in ("firstName", "lastName", "name", "email"):
+        if key in cloud_account:
+            cloud_account[key] = identity[key]
+    if "user" in cloud_account:
+        cloud_account["user"] = anonymize_object_id(cloud_account["user"])
+    for key in ("id", "cloudId"):
+        if key in cloud_account:
+            cloud_account[key] = anonymize_uuid(cloud_account[key])

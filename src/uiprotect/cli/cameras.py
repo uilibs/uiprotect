@@ -181,10 +181,6 @@ def save_video(
     start = start.replace(tzinfo=local_tz)
     end = end.replace(tzinfo=local_tz)
 
-    if channel == 4 and not obj.feature_flags.has_package_camera:
-        typer.secho("Camera does not have package camera", fg="red")
-        raise typer.Exit(1)
-
     with Progress() as pb:
         task_id = pb.add_task("(1/2) Exporting", total=100)
 
@@ -729,12 +725,8 @@ def _get_package_snapshot(
             "--width, --height and --timestamp do not apply to --package", fg="red"
         )
         raise typer.Exit(1)
-    obj: d.Camera | PublicCamera = ctx.obj.device
-    if isinstance(obj, PublicCamera):
-        has_package_camera = obj.has_package_camera
-    else:
-        has_package_camera = obj.feature_flags.has_package_camera
-    if not has_package_camera:
+    obj = base.public_device(ctx, PublicCamera)
+    if not obj.has_package_camera:
         typer.secho("Camera does not have package camera", fg="red")
         raise typer.Exit(1)
     protect: ProtectApiClient = ctx.obj.protect

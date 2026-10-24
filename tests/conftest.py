@@ -24,7 +24,7 @@ from uiprotect import ProtectApiClient
 from uiprotect.data import NVR, Camera, ModelType
 from uiprotect.data.nvr import Event
 from uiprotect.data.types import EventType
-from uiprotect.utils import _BAD_UUID, DEBUG_ENV, is_debug, set_debug
+from uiprotect.utils import DEBUG_ENV, is_debug, set_debug
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -93,13 +93,9 @@ TEST_VIDEO_EXISTS = (
     SAMPLE_DATA_DIRECTORY / "sample_camera_video.mp4"
 ).exists() or "camera_video_length" not in CONSTANTS
 TEST_THUMBNAIL_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_camera_thumbnail.png").exists()
-TEST_SMART_TRACK_EXISTS = (
-    SAMPLE_DATA_DIRECTORY / "sample_event_smart_track.json"
-).exists()
 TEST_LIGHT_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_light.json").exists()
 TEST_SENSOR_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_sensor.json").exists()
 TEST_VIEWPORT_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_viewport.json").exists()
-TEST_BRIDGE_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_bridge.json").exists()
 TEST_LIVEVIEW_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_liveview.json").exists()
 TEST_CHIME_EXISTS = (SAMPLE_DATA_DIRECTORY / "sample_chime.json").exists()
 
@@ -239,8 +235,6 @@ async def mock_api_request(url: str, *args, **kwargs):
         return [read_json_file("sample_sensor")]
     if url == "viewers":
         return [read_json_file("sample_viewport")]
-    if url == "bridges":
-        return [read_json_file("sample_bridge")]
     if url == "liveviews":
         return [read_json_file("sample_liveview")]
     if url == "chimes":
@@ -275,14 +269,10 @@ async def mock_api_request(url: str, *args, **kwargs):
         return read_json_file("sample_sensor")
     if url.startswith("viewers/"):
         return read_json_file("sample_viewport")
-    if url.startswith("bridges/"):
-        return read_json_file("sample_bridge")
     if url.startswith("liveviews/"):
         return read_json_file("sample_liveview")
     if url.startswith("chimes"):
         return read_json_file("sample_chime")
-    if "smartDetectTrack" in url:
-        return read_json_file("sample_event_smart_track")
 
     return {}
 
@@ -463,7 +453,6 @@ async def ptz_camera(protect_client: ProtectApiClient):
 
     camera = next(iter(protect_client.bootstrap.cameras.values()))
     # G4 PTZ
-    camera.is_ptz = True
     camera.feature_flags.is_ptz = True
 
     protect_client.bootstrap.cameras[camera.id] = camera
@@ -564,14 +553,6 @@ def chime():
 
 
 @pytest.fixture()
-def bridge():
-    if not TEST_BRIDGE_EXISTS:
-        return None
-
-    return read_json_file("sample_bridge")
-
-
-@pytest.fixture()
 def liveviews():
     if not TEST_LIVEVIEW_EXISTS:
         return []
@@ -620,14 +601,6 @@ def chimes():
 
 
 @pytest.fixture()
-def bridges():
-    if not TEST_BRIDGE_EXISTS:
-        return []
-
-    return [read_json_file("sample_bridge")]
-
-
-@pytest.fixture()
 def ws_messages():
     return read_json_file("sample_ws_messages")
 
@@ -648,14 +621,6 @@ def nvr():
 
 
 @pytest.fixture()
-def smart_track():
-    if not TEST_SMART_TRACK_EXISTS:
-        return None
-
-    return read_json_file("sample_event_smart_track")
-
-
-@pytest.fixture()
 def now():
     return get_now().replace(tzinfo=UTC)
 
@@ -673,22 +638,12 @@ NEW_FIELDS = {
     # 1.20.1
     "voltage",
     # 1.21.0-beta1
-    "timestamp",
     "marketName",
     # 2.2.1-beta2
     "isInsightsEnabled",
-    # 2.7.15
-    "featureFlags",  # added to chime
     # 2.8.14+
-    "nvrMac",
     "useGlobal",
-    # 2.8.22+
-    "guid",
-    # 2.10.10+
-    "isPtz",
     # 3.0.22+
-    "smartDetection",
-    "platform",
     "repeatTimes",
     "ringSettings",
     # 5.0.33+
@@ -696,7 +651,6 @@ NEW_FIELDS = {
 }
 
 NEW_CAMERA_FEATURE_FLAGS = {
-    "audio",
     "hotplug",
     "smartDetectAudioTypes",
     "lensType",
@@ -707,13 +661,10 @@ NEW_CAMERA_FEATURE_FLAGS = {
     # 4.73.71+
     "supportNfc",
     "hasFingerprintSensor",
-    # 6.0.0+
-    "supportFullHdSnapshot",
 }
 
 NEW_ISP_SETTINGS = {
     # 3.0.22+
-    "hdrMode",
     "icrCustomValue",
 }
 
@@ -757,9 +708,20 @@ _DROPPED_DEVICE_KEYS: dict[tuple[str, ...], set[str]] = {
         "lastDisconnect",
         "anonymousDeviceId",
         "isDownloadingFW",
+        "uptime",
+        "isUpdating",
+        "connectionHost",
+        "isAdopting",
+        "isRebooting",
+        "nvrMac",
+        "guid",
+        "bluetoothConnectionState",
+        "bridge",
     },
-    ("bluetoothConnectionState",): {"experienceScore"},
     ("wifiConnectionState",): {
+        "phyRate",
+        "channel",
+        "signalQuality",
         "frequency",
         "ssid",
         "bssid",
@@ -792,6 +754,39 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "audioSettings",
             "isPairedWithAiPort",
             "isAdoptedByAccessApp",
+            "isMicEnabled",
+            "isMotionDetected",
+            "phyRate",
+            "motionZones",
+            "smartDetectZones",
+            "lenses",
+            "platform",
+            "isPtz",
+            "activePatrolSlot",
+        },
+        ("channels",): {
+            "videoId",
+            "name",
+            "enabled",
+            "isRtspEnabled",
+            "rtspAlias",
+            "minBitrate",
+            "maxBitrate",
+            "minClientAdaptiveBitRate",
+            "minMotionAdaptiveBitRate",
+            "fpsValues",
+            "idrInterval",
+            "autoBitrate",
+            "autoFps",
+        },
+        ("speakerSettings",): {"isEnabled", "repeatTimes", "ringtoneId"},
+        ("stats", "video"): {
+            "recordingEnd",
+            "recordingEndLQ",
+            "timelapseStart",
+            "timelapseEnd",
+            "timelapseStartLQ",
+            "timelapseEndLQ",
         },
         ("ispSettings",): {
             "aeMode",
@@ -821,6 +816,8 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "mountPosition",
             "icrSwitchMode",
             "spotlightDuration",
+            "brightness",
+            "hdrMode",
         },
         ("osdSettings",): {"overlayLocation"},
         ("ledSettings",): {"blinkRate", "welcomeLed", "floodLed"},
@@ -860,6 +857,12 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "hasVerticalFlip",
             "flashRange",
             "focus",
+            "audio",
+            "hasPackageCamera",
+            "supportFullHdSnapshot",
+            "pan",
+            "tilt",
+            "zoom",
         },
         ("featureFlags", "hotplug"): {"standaloneAdoption"},
         ("featureFlags", "hotplug", "extender"): {
@@ -868,13 +871,36 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "hasRadar",
             "flashRange",
         },
-        ("featureFlags", "pan"): {"steps", "degrees"},
-        ("featureFlags", "tilt"): {"steps", "degrees"},
-        ("featureFlags", "zoom"): {"steps", "degrees", "ratio"},
     },
     ModelType.LIGHT.value: {
-        (): {"isLocating", "lightOnSettings", "isCameraPaired"},
-        ("lightDeviceSettings",): {"luxSensitivity"},
+        (): {
+            "isLocating",
+            "lightOnSettings",
+            "isCameraPaired",
+            "isPirMotionDetected",
+            "isLightOn",
+            "lightDeviceSettings",
+            "lightModeSettings",
+        },
+    },
+    ModelType.SENSOR.value: {
+        (): {
+            "batteryStatus",
+            "humiditySettings",
+            "isMotionDetected",
+            "isOpened",
+            "leakDetectedAt",
+            "lightSettings",
+            "motionDetectedAt",
+            "motionSettings",
+            "openStatusChangedAt",
+            "stats",
+            "tamperingDetectedAt",
+            "temperatureSettings",
+        },
+    },
+    ModelType.LIVEVIEW.value: {
+        (): {"isDefault", "isGlobal", "layout", "slots", "owner"},
     },
     ModelType.VIEWPORT.value: {(): {"streamLimit", "softwareVersion"}},
     ModelType.CHIME.value: {
@@ -885,8 +911,11 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "userConfiguredAp",
             "hasHttpsClientOTA",
             "speakerTrackList",
+            "cameraIds",
+            "featureFlags",
+            "platform",
         },
-        ("featureFlags",): {"hasWifi", "hasHttpsClientOTA"},
+        ("ringSettings",): {"trackNo"},
     },
     ModelType.EVENT.value: {
         (): {
@@ -896,8 +925,17 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "subCategory",
             "isFavorite",
             "favoriteObjectIds",
+            "category",
+            "device",
+            "smartDetectEvents",
+            "thumbnail",
+            "user",
+            "timestamp",
         },
         ("metadata",): {"clientPlatform", "appUpdate", "sensorName", "sensorType"},
+        ("metadata", "nfc"): {"userId", "ulpId"},
+        ("metadata", "detectedThumbnails"): {"croppedId", "coord", "objectId"},
+        ("metadata", "detectedThumbnails", "group"): {"id", "name", "confidence"},
     },
     ModelType.NVR.value: {
         (): {
@@ -953,40 +991,39 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "isUcoreUpdatable",
             "lastDeviceFWUpdatesCheckedAt",
             "isUCoreStacked",
+            "timezone",
+            "ports",
+            "featureFlags",
+            "network",
+            "smartDetection",
         },
-        ("ports",): {
-            "ump",
-            "rtsp",
-            "rtmp",
-            "devicesWss",
-            "cameraHttps",
-            "liveWs",
-            "liveWss",
-            "tcpStreams",
-            "emsCLI",
-            "emsLiveFLV",
-            "cameraEvents",
-            "tcpBridge",
-            "ucore",
-            "discoveryClient",
-            "piongw",
-            "emsJsonCLI",
-            "stacking",
-            "aiFeatureConsole",
-        },
-        ("systemInfo",): {"tmpfs"},
-        ("systemInfo", "storage"): {"isRecycling"},
+        ("systemInfo",): {"tmpfs", "storage"},
+        ("systemInfo", "memory"): {"free"},
         ("systemInfo", "ustorage"): {"space"},
-        ("doorbellSettings",): {"defaultMessageResetTimeoutMs"},
-        ("storageStats",): {"remainingCapacity", "recordingSpace"},
-        ("featureFlags",): {
-            "notificationsV2",
-            "homekitPaired",
-            "ulpRoleManagement",
-            "detectionLabels",
-            "hasTwoWayAudioMediaStreams",
+        ("systemInfo", "ustorage", "disks"): {
+            "action",
+            "ata",
+            "bad_sector",
+            "estimate",
+            "firmware",
+            "healthy",
+            "life_span",
+            "model",
+            "poweronhrs",
+            "progress",
+            "reason",
+            "rpm",
+            "sata",
+            "serial",
+            "size",
+            "temperature",
+            "threshold",
         },
-        ("smartDetection",): {"faceRecognition", "licensePlateRecognition"},
+        ("doorbellSettings",): {"defaultMessageResetTimeoutMs", "defaultMessageText"},
+        ("storageStats",): {"remainingCapacity", "recordingSpace"},
+        ("storageStats", "storageDistribution", "recordingTypeDistributions"): {"size"},
+        ("storageStats", "storageDistribution", "resolutionDistributions"): {"size"},
+        ("globalCameraSettings",): {"osdSettings"},
         ("globalCameraSettings", "recordingSettings"): (
             _DROPPED_RECORDING_SETTINGS_KEYS
         ),
@@ -1000,19 +1037,33 @@ DROPPED_KEYS: dict[str, dict[tuple[str, ...], set[str]]] = {
             "hasAcceptedInvite",
             "scopes",
             "localUsername",
+            "permissions",
+            "location",
+            "name",
+            "firstName",
+            "lastName",
+            "email",
+            "groups",
+            "featureFlags",
         },
-        ("location",): {"isAway", "latitude", "longitude"},
-        ("featureFlags",): {"notificationsV2"},
+        ("cloudAccount",): {
+            "firstName",
+            "lastName",
+            "email",
+            "user",
+            "name",
+            "location",
+            "profileImg",
+        },
     },
-    ModelType.KEYRING.value: {(): {"lastActivity"}},
-    ModelType.ULP_USER.value: {(): {"avatar"}},
+    ModelType.KEYRING.value: {(): {"lastActivity", "deviceType", "deviceId"}},
+    ModelType.ULP_USER.value: {(): {"avatar", "firstName", "lastName"}},
 }
 _DEVICE_MODEL_TYPES = {
     ModelType.CAMERA.value,
     ModelType.LIGHT.value,
     ModelType.VIEWPORT.value,
     ModelType.SENSOR.value,
-    ModelType.BRIDGE.value,
     ModelType.CHIME.value,
 }
 
@@ -1024,14 +1075,28 @@ def strip_dropped_keys(obj_type: str, data: dict[str, Any]) -> None:
         for path, keys in _DROPPED_DEVICE_KEYS.items():
             paths[path] = paths.get(path, set()) | keys
     elif obj_type == ModelType.NVR.value:
-        paths[()] = paths[()] | {"lastSeen", "hardwareRevision", "anonymousDeviceId"}
+        paths[()] = paths[()] | {
+            "lastSeen",
+            "hardwareRevision",
+            "anonymousDeviceId",
+            "isUpdating",
+            "uptime",
+        }
     for path, keys in paths.items():
-        node: Any = data
-        for part in path:
-            node = node.get(part) if isinstance(node, dict) else None
-        if isinstance(node, dict):
-            for key in keys:
-                node.pop(key, None)
+        _strip_path(data, path, keys)
+
+
+def _strip_path(node: Any, path: tuple[str, ...], keys: set[str]) -> None:
+    if isinstance(node, list):
+        for item in node:
+            _strip_path(item, path, keys)
+    elif not isinstance(node, dict):
+        return
+    elif path:
+        _strip_path(node.get(path[0]), path[1:], keys)
+    else:
+        for key in keys:
+            node.pop(key, None)
 
 
 pytest.register_assert_rewrite("tests.common")
@@ -1060,13 +1125,9 @@ def compare_objs(obj_type, expected, actual):
         expected["featureFlags"].pop("hasBattery", None)
 
         # do not compare detect zones because float math sucks
-        assert len(expected["motionZones"]) == len(actual["motionZones"])
         assert len(expected["privacyZones"]) == len(actual["privacyZones"])
-        assert len(expected["smartDetectZones"]) == len(actual["smartDetectZones"])
 
-        expected["motionZones"] = actual["motionZones"] = []
         expected["privacyZones"] = actual["privacyZones"] = []
-        expected["smartDetectZones"] = actual["smartDetectZones"] = []
         if "isColorNightVisionEnabled" not in expected["ispSettings"]:
             actual["ispSettings"].pop("isColorNightVisionEnabled", None)
 
@@ -1093,21 +1154,9 @@ def compare_objs(obj_type, expected, actual):
             if setting not in expected["ispSettings"]:
                 del actual["ispSettings"][setting]
 
-        # ignore changes to motion for live tests
-        assert isinstance(actual["isMotionDetected"], bool)
-        expected["isMotionDetected"] = actual["isMotionDetected"]
-
         for index, channel in enumerate(expected["channels"]):
             if "bitrate" not in channel:
                 actual["channels"][index].pop("bitrate", None)
-            if "minBitrate" not in channel:
-                actual["channels"][index].pop("minBitrate", None)
-            if "maxBitrate" not in channel:
-                actual["channels"][index].pop("maxBitrate", None)
-            if "autoBitrate" not in channel:
-                actual["channels"][index].pop("autoBitrate", None)
-            if "autoFps" not in channel:
-                actual["channels"][index].pop("autoFps", None)
 
     elif obj_type == ModelType.USER.value:
         expected.pop("settings", None)
@@ -1115,13 +1164,9 @@ def compare_objs(obj_type, expected, actual):
         del expected["alertRules"]
         del expected["notificationsV2"]
         expected.pop("notifications", None)
-        if "email" not in expected and "email" in actual and actual["email"] is None:
-            actual.pop("email", None)
     elif obj_type == ModelType.EVENT.value:
         expected.pop("partition", None)
         expected.pop("description", None)
-        if "category" in expected and expected["category"] is None:
-            expected.pop("category", None)
 
         exp_thumbnails = expected.get("metadata", {}).pop("detectedThumbnails", [])
         act_thumbnails = actual.get("metadata", {}).pop("detectedThumbnails", [])
@@ -1153,15 +1198,9 @@ def compare_objs(obj_type, expected, actual):
         expected.pop("portStatus", None)
         expected.pop("cameraCapacity", None)
         expected.pop("deviceFirmwareSettings", None)
-        # removed fields
-        expected["ports"].pop("cameraTcp", None)
-
         expected["globalCameraSettings"] = expected.get("globalCameraSettings")
         if expected["globalCameraSettings"]:
             expected["globalCameraSettings"].pop("recordingSchedulesV2", None)
-
-        if "capability" not in expected["systemInfo"]["storage"]:
-            actual["systemInfo"]["storage"].pop("capability", None)
 
         # float math...
         cpu_fields = ["averageLoad", "temperature"]
@@ -1174,36 +1213,7 @@ def compare_objs(obj_type, expected, actual):
                 expected["systemInfo"]["cpu"][key] = actual["systemInfo"]["cpu"][key]
 
         if expected["systemInfo"].get("ustorage") is not None:
-            actual_ustor = actual["systemInfo"]["ustorage"]
-            expected_ustor = expected["systemInfo"]["ustorage"]
-
-            expected_ustor.pop("sdcards", None)
-
-            for index, disk in enumerate(expected_ustor["disks"]):
-                actual_disk = actual_ustor["disks"][index]
-                estimate = disk.get("estimate")
-                actual_estimate = actual_disk.get("estimate")
-                if (
-                    estimate is not None
-                    and actual_estimate is not None
-                    and math.isclose(estimate, actual_estimate, rel_tol=0.01)
-                ):
-                    actual_ustor["disks"][index]["estimate"] = estimate
-
-    if "bridge" not in expected and "bridge" in actual and actual["bridge"] is None:
-        actual.pop("bridge", None)
-
-    # sometimes uptime comes back as a str...
-    if "uptime" in expected and expected["uptime"] is not None:
-        expected["uptime"] = int(expected["uptime"])
-
-    # edge case with broken UUID from Protect
-    if (
-        "guid" in expected
-        and expected["guid"] == _BAD_UUID
-        and actual["guid"] == "00000000-0000-0000-0000-000000000000"
-    ):
-        actual["guid"] = expected["guid"]
+            expected["systemInfo"]["ustorage"].pop("sdcards", None)
 
     for key in NEW_FIELDS.intersection(actual.keys()):
         if key not in expected:

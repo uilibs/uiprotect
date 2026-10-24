@@ -14,28 +14,9 @@ from uiprotect.data import (
     Event,
     EventType,
 )
-from uiprotect.data.nvr import StorageDevice
+from uiprotect.data.nvr import UOSDisk
 from uiprotect.data.types import SmartDetectObjectType
 from uiprotect.exceptions import BadRequest
-
-
-@pytest.mark.parametrize(
-    ("data", "expected"),
-    [
-        ({}, {"model": None, "size": None, "healthy": None}),  # empty slot
-        (
-            {"model": "ST4000VN008", "size": 4000787030016, "healthy": True},
-            {"model": "ST4000VN008", "size": 4000787030016, "healthy": True},
-        ),
-        ({"healthy": "OK"}, {"healthy": "OK"}),  # string healthy value
-        ({"model": "TestModel"}, {"model": "TestModel", "size": None}),  # partial
-    ],
-)
-def test_storage_device(data: dict, expected: dict):
-    """Test StorageDevice handles empty slots and various field types (Protect 6.x+)."""
-    device = StorageDevice.from_unifi_dict(**data)
-    for key, value in expected.items():
-        assert getattr(device, key) == value
 
 
 def test_event_unknown_smart_detect_type_dropped() -> None:
@@ -158,3 +139,11 @@ async def test_nvr_remove_custom_doorbell_message(nvr_obj: NVR, message: str):
                 text=DoorbellMessageType.DO_NOT_DISTURB.value.replace("_", " "),
             ),
         ]
+
+
+def test_uos_disk_nodisk_drops_type() -> None:
+    """An empty slot serializes without a ``type``."""
+    disk = UOSDisk.from_unifi_dict(slot=1, state="nodisk", type=None)
+
+    assert not disk.has_disk
+    assert disk.unifi_dict() == {"slot": 1, "state": "nodisk"}

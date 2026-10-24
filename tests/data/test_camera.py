@@ -18,7 +18,6 @@ from uiprotect.data import (
     ChannelQuality,
     ChimeType,
     DoorbellMessageType,
-    HDRMode,
     IRLEDMode,
     LCDMessage,
     PTZPatrol,
@@ -28,44 +27,14 @@ from uiprotect.data import (
     quality_for_channel_id,
 )
 from uiprotect.data.devices import (
-    CameraChannel,
     CameraZone,
     Hotplug,
     HotplugExtender,
-    MotionZone,
 )
 from uiprotect.data.nvr import GlobalRecordingSettings
 from uiprotect.data.types import PermissionNode, SmartDetectObjectType
 from uiprotect.exceptions import BadRequest, NotAuthorized
 from uiprotect.utils import to_js_time
-
-
-@pytest.mark.parametrize(
-    ("channel_id", "expected"),
-    [
-        (0, ChannelQuality.HIGH),
-        (1, ChannelQuality.MEDIUM),
-        (2, ChannelQuality.LOW),
-        (3, ChannelQuality.PACKAGE),
-        (4, None),
-    ],
-)
-def test_camera_channel_rtsps_quality(channel_id: int, expected: ChannelQuality | None):
-    """Test CameraChannel.rtsps_quality maps channel id to RTSPS quality tier."""
-    channel = CameraChannel.from_unifi_dict(
-        id=channel_id,
-        videoId="test",
-        name="test",
-        enabled=True,
-        isRtspEnabled=False,
-        width=1920,
-        height=1080,
-        fps=15,
-        bitrate=1000,
-        fpsValues=[],
-        idrInterval=1,
-    )
-    assert channel.rtsps_quality is expected
 
 
 @pytest.mark.parametrize(
@@ -215,29 +184,6 @@ async def test_camera_set_ir_led_model(camera_obj: Camera | None, mode: IRLEDMod
         method="patch",
         json={"ispSettings": {"irLedMode": mode.value}},
     )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize(
-    ("state", "expected"),
-    [
-        ((True, HDRMode.NORMAL), "auto"),
-        ((False, HDRMode.NORMAL), "off"),
-        ((False, HDRMode.ALWAYS_ON), "off"),
-        ((True, HDRMode.ALWAYS_ON), "always"),
-    ],
-)
-def test_camera_hdr_mode_display(
-    camera_obj: Camera | None,
-    state: tuple[bool, HDRMode],
-    expected: str,
-):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.hdr_mode, camera_obj.isp_settings.hdr_mode = state
-
-    assert camera_obj.hdr_mode_display == expected
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -1103,31 +1049,6 @@ def _zone_dict(zone_id: int, color: str) -> dict[str, Any]:
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_camera_get_changed_keeps_other_zone_colors(
-    camera_obj: Camera | None,
-) -> None:
-    """Changing one zone leaves the other zone's color unchanged in get_changed."""
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.motion_zones = [
-        MotionZone.from_unifi_dict(**_zone_dict(1, "#AABBCC")),
-        MotionZone.from_unifi_dict(**_zone_dict(2, "#AABBCC")),
-    ]
-    before = camera_obj.dict_with_excludes()
-
-    assert "motion_zones" not in camera_obj.get_changed(before)
-
-    camera_obj.motion_zones[0].name = "Renamed"
-    changed = camera_obj.get_changed(before)
-
-    zones = changed["motion_zones"]
-    assert zones[0]["name"] == "Renamed"
-    assert zones[1]["name"] == "Zone 2"
-    assert zones[1]["color"] == "#AABBCC"
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.asyncio()
 async def test_camera_set_privacy_off_keeps_other_zone_colors(
     camera_obj: Camera | None,
@@ -1153,33 +1074,6 @@ async def test_camera_set_privacy_off_keeps_other_zone_colors(
 
 
 # PTZ Public API Tests
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize(
-    ("method", "args"),
-    [
-        ("ptz_goto_preset_public", {"slot": 0}),
-        ("ptz_patrol_start_public", {"slot": 0}),
-        ("ptz_patrol_stop_public", {}),
-    ],
-)
-@pytest.mark.asyncio()
-async def test_camera_ptz_public_api_no_ptz(
-    camera_obj: Camera | None,
-    method: str,
-    args: dict,
-):
-    if camera_obj is None:
-        pytest.skip("No camera_obj obj found")
-
-    camera_obj.api.api_request_raw.reset_mock()
-    camera_obj.feature_flags.is_ptz = False
-
-    with pytest.raises(BadRequest, match="Camera does not support PTZ features"):
-        await getattr(camera_obj, method)(**args)
-
-    assert not camera_obj.api.api_request_raw.called
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
@@ -1233,36 +1127,6 @@ async def test_camera_get_ptz_patrols_no_ptz(camera_obj: Camera | None):
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
 @pytest.mark.parametrize(
-    ("method", "args", "expected_path"),
-    [
-        ("ptz_goto_preset_public", {"slot": 2}, "/ptz/goto/2"),
-        ("ptz_patrol_start_public", {"slot": 1}, "/ptz/patrol/start/1"),
-        ("ptz_patrol_stop_public", {}, "/ptz/patrol/stop"),
-    ],
-)
-@pytest.mark.asyncio()
-async def test_camera_ptz_public_api(
-    ptz_camera: Camera | None,
-    method: str,
-    args: dict,
-    expected_path: str,
-):
-    if ptz_camera is None:
-        pytest.skip("No ptz_camera obj found")
-
-    ptz_camera.api.api_request_raw = AsyncMock(return_value=b"")
-
-    await getattr(ptz_camera, method)(**args)
-
-    ptz_camera.api.api_request_raw.assert_called_with(
-        url=f"/v1/cameras/{ptz_camera.id}{expected_path}",
-        method="post",
-        public_api=True,
-    )
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize(
     ("smart_detect_types", "smart_detect_audio_types", "smart_type", "expected"),
     [
         ([SmartDetectObjectType.PERSON], [], SmartDetectObjectType.PERSON, True),
@@ -1312,20 +1176,34 @@ def test_camera_has_mic_counts_hotplug(
 
 
 @pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-@pytest.mark.parametrize(
-    ("has_package_camera", "channel_count", "expected_index"),
-    [(True, 4, 3), (True, 3, None), (False, 4, None)],
-)
-def test_camera_package_camera_channel(
+@pytest.mark.asyncio()
+async def test_camera_emit_message_past_reset_clears_lcd_message(
     camera_obj: Camera | None,
-    has_package_camera: bool,
-    channel_count: int,
-    expected_index: int | None,
 ) -> None:
-    """The package channel is the fourth one, on cameras with a package lens."""
-    assert camera_obj is not None
-    camera_obj.feature_flags.has_package_camera = has_package_camera
-    channels = [camera_obj.channels[0].model_copy() for _ in range(channel_count)]
-    camera_obj.channels = channels
-    expected = None if expected_index is None else channels[expected_index]
-    assert camera_obj.package_camera_channel is expected
+    """A faked frame whose LCD reset time is past clears the message."""
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.api.emit_message = Mock()  # type: ignore[method-assign]
+    camera_obj.lcd_message = LCDMessage(
+        type=DoorbellMessageType.CUSTOM_MESSAGE, text="Hi", reset_at=None
+    )
+    past = to_js_time(datetime.now(UTC) - timedelta(seconds=10))
+
+    await camera_obj.emit_message({"lcdMessage": {"resetAt": past}})
+
+    assert camera_obj.lcd_message is None
+    camera_obj.api.emit_message.assert_called_once()
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+def test_camera_high_camera_channel_needs_three_channels(
+    camera_obj: Camera | None,
+) -> None:
+    """``high_camera_channel`` is ``None`` with fewer than three channels."""
+    if camera_obj is None:
+        pytest.skip("No camera_obj obj found")
+
+    camera_obj.channels = camera_obj.channels[:2]
+
+    assert camera_obj.high_camera_channel is None

@@ -190,11 +190,9 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
         return (
             ModelType.CAMERA,
             ModelType.USER,
-            ModelType.GROUP,
             ModelType.LIVEVIEW,
             ModelType.VIEWPORT,
             ModelType.LIGHT,
-            ModelType.BRIDGE,
             ModelType.SENSOR,
             ModelType.CHIME,
         )

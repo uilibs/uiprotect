@@ -620,12 +620,15 @@ def _make_chime_ctx(
     chime = MagicMock(spec=Chime)
     chime.id = "chime-1"
     chime.ring_settings = ring_settings if ring_settings is not None else []
-    chime.camera_ids = camera_ids if camera_ids is not None else []
-    chime.cameras = []
 
     protect = MagicMock(is_public_only=False)
     protect.update_chime_public = AsyncMock()
-    _serve_public(protect, PublicChime, id="chime-1")
+    _serve_public(
+        protect,
+        PublicChime,
+        id="chime-1",
+        camera_ids=camera_ids if camera_ids is not None else [],
+    )
     protect.close_session = AsyncMock()
     protect.close_public_api_session = AsyncMock()
     protect.bootstrap.cameras = cameras_map if cameras_map is not None else {}
@@ -1353,7 +1356,6 @@ def test_sensor_set_range_rejects_inverted_bounds(command, setter) -> None:
         lambda ctx: base_cli.set_ssh(ctx, True),
         lambda ctx: base_cli.reboot(ctx, force=True),
         lambda ctx: base_cli.adopt(ctx, None),
-        base_cli.bridge,
         lambda ctx: cameras_cli.set_recording_mode(ctx, RecordingMode.ALWAYS),
         lambda ctx: cameras_cli.set_camera_zoom(ctx, 10),
     ],
@@ -1506,10 +1508,7 @@ def _private_device(model_class) -> MagicMock:
         id="dev-1",
         display_name="Dev",
         is_adopted_by_other=False,
-        is_adopting=False,
         can_adopt=False,
-        is_rebooting=False,
-        is_updating=False,
         is_connected=True,
     )
 
@@ -1920,17 +1919,20 @@ def test_key_only_chime_cameras_without_ids_via_the_cli() -> None:
 
 def test_hybrid_chime_cameras_lists_paired_cameras() -> None:
     """``chimes <id> cameras`` with no IDs lists the paired cameras over a login."""
-    chime = _private_device(Chime)
-    chime.camera_ids = ["cam-1"]
     camera = _private_device(Camera)
     camera.id = "cam-1"
     camera.unifi_dict.return_value = {"id": "cam-1"}
-    bootstrap = _private_bootstrap_with("chimes", chime)
+    bootstrap = _private_bootstrap_with("chimes", _private_device(Chime))
     bootstrap.cameras = {"cam-1": camera}
-    result = _invoke_hybrid(bootstrap, "chimes", "dev-1", "cameras")
+    public = MagicMock(spec=PublicChime, id="dev-1", camera_ids=["cam-1"])
+    with patch.object(
+        ProtectApiClient, "get_chime_public", AsyncMock(return_value=public)
+    ) as get_chime_public:
+        result = _invoke_hybrid(bootstrap, "chimes", "dev-1", "cameras")
 
     assert result.exit_code == 0, result.output
     assert '"id": "cam-1"' in result.stdout
+    get_chime_public.assert_awaited_once_with("dev-1")
 
 
 def test_key_only_viewer_liveview_fetches_viewers_and_liveviews() -> None:
@@ -2026,7 +2028,7 @@ def _package_camera_ctx(model_class, *, has_package_camera: bool = True):
     if model_class is PublicCamera:
         camera.has_package_camera = has_package_camera
     else:
-        camera.feature_flags = MagicMock(has_package_camera=has_package_camera)
+        _serve_public(protect, PublicCamera, has_package_camera=has_package_camera)
     protect.get_public_api_camera_snapshot = AsyncMock(return_value=b"jpeg")
     return ctx, protect
 

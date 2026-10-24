@@ -75,19 +75,19 @@ def cameras(
 ) -> None:
     """Returns or sets paired doorbells for the chime."""
     base.require_device_id(ctx, public_ok=True)
-    obj: Chime | PublicChime = ctx.obj.device
 
     if add and remove:
         typer.secho("Add and remove are mutually exclusive", fg="red")
         raise typer.Exit(1)
 
+    public = base.public_device(ctx, PublicChime)
     cameras_by_id = base.device_map(ctx, "cameras")
     # Typer passes ``None`` for an omitted variadic argument.
     if not camera_ids:
         base.json_output(
             [
                 base.camera_dict(cameras_by_id[i])
-                for i in obj.camera_ids
+                for i in public.camera_ids
                 if i in cameras_by_id
             ]
         )
@@ -108,11 +108,10 @@ def cameras(
             raise typer.Exit(1)
 
     if add:
-        camera_ids = list(set(obj.camera_ids) | set(camera_ids))
+        camera_ids = list(set(public.camera_ids) | set(camera_ids))
     elif remove:
-        camera_ids = list(set(obj.camera_ids) - set(camera_ids))
+        camera_ids = list(set(public.camera_ids) - set(camera_ids))
 
-    public = base.public_device(ctx, PublicChime)
     base.run(ctx, public.set_camera_ids(camera_ids))
 
 

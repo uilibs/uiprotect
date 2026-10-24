@@ -533,10 +533,8 @@ under a per-object lock.
 `PublicCamera.rtsps_streams` is owned out-of-band by the library and is never
 touched by a setter.
 
-The private-API `Device.set_*_public` methods remain and are unchanged; when a
-public bootstrap is loaded they keep the cached public twin fresh through the
-same `update_*_public` endpoints, so the Home Assistant integration and the CLI
-continue to work as before.
+The private-API `Device.set_*_public` shims have been removed in favour of these
+public setters; the only one left is `Chime.set_ring_settings_public`.
 
 ## POS transaction overlay (public API)
 

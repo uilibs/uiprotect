@@ -2763,9 +2763,9 @@ class PublicBridge(PublicDeviceModel):
     """
     Public API bridge device.
 
-    ``ModelType.BRIDGE`` is already owned by the private :class:`Bridge` class in
-    ``MODEL_TO_CLASS``; this public counterpart is routed via a dedicated factory
-    on :class:`~uiprotect.data.public_bootstrap.PublicBootstrap` instead.
+    Routed via a dedicated factory on
+    :class:`~uiprotect.data.public_bootstrap.PublicBootstrap` rather than the
+    generic device stores.
     """
 
     model: ModelType | None = ModelType.BRIDGE

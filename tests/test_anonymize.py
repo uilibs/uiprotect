@@ -29,12 +29,13 @@ from uiprotect.data.public_devices import (
     PublicSensor,
     Relay,
 )
+from uiprotect.data.user import CloudAccount
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from uiprotect.api import ProtectApiClient
-    from uiprotect.data import Chime
+    from uiprotect import ProtectApiClient
+
 
 _WIRELESS = {
     "signalState": {"signalQuality": 85, "signalStrength": -45},
@@ -252,22 +253,6 @@ def test_action_output_id_follows_output_id() -> None:
     assert anonymize_data({"actionOutputId": "out-1"})["actionOutputId"] == (
         anonymize_object_id("out-1")
     )
-
-
-@pytest.mark.asyncio
-async def test_private_chime_camera_ids_follow_camera_id(
-    protect_client: ProtectApiClient, chime_obj: Chime | None
-) -> None:
-    if chime_obj is None:
-        pytest.skip("No chime obj found")
-    camera = next(iter(protect_client.bootstrap.cameras.values()))
-    chime_obj.camera_ids = [camera.id]
-
-    result = anonymize_data(chime_obj.unifi_dict())
-    anonymized_camera = anonymize_data(camera.unifi_dict())
-
-    assert result["cameraIds"] == [anonymized_camera["id"]]
-    assert camera.id not in result["cameraIds"]
 
 
 def test_user_fields_anonymized() -> None:
@@ -512,3 +497,97 @@ def test_anonymize_list_branches() -> None:
     assert hosts == [anonymize_ip("192.168.60.1"), "127.0.0.1", 5]
     assert ids == [anonymize_object_id("anon-cam-list")]
     assert plain == [f"liveview:*:{anonymize_object_id('anon-lv-3')}", "keep"]
+
+
+def test_user_without_names_anonymizes_cloud_account() -> None:
+    """A user dumped without name fields still anonymizes its cloud account."""
+    cloud_id = "4a3c2b1e-0000-4000-8000-000000000001"
+    user = {
+        "modelKey": "user",
+        "id": "anon-user-2",
+        "cloudAccount": {"id": cloud_id, "cloudId": cloud_id},
+    }
+
+    result = anonymize_data(user)
+
+    cloud_account = result["cloudAccount"]
+    assert set(cloud_account) == {"id", "cloudId"}
+    assert cloud_account["id"] == cloud_account["cloudId"] != cloud_id
+
+
+def test_cloud_account_names_anonymized_without_user_names() -> None:
+    """Cloud account names are anonymized when the user carries none."""
+    user = {
+        "modelKey": "user",
+        "id": "anon-user-3",
+        "cloudAccount": {
+            "firstName": "Jane",
+            "lastName": "Doe",
+            "name": "Jane Doe",
+            "email": "jane@real.test",
+        },
+    }
+
+    cloud_account = anonymize_data(user)["cloudAccount"]
+
+    assert cloud_account["firstName"] != "Jane"
+    assert cloud_account["lastName"] != "Doe"
+    assert cloud_account["name"] != "Jane Doe"
+    assert cloud_account["email"].endswith("@example.com")
+
+
+@pytest.mark.parametrize(
+    "present",
+    [
+        ("name", "email"),
+        ("lastName",),
+        ("localUsername", "email"),
+        ("firstName", "lastName", "name", "localUsername", "email"),
+    ],
+)
+def test_user_identity_fields_anonymized_independently(
+    present: tuple[str, ...],
+) -> None:
+    """Each present user identity field is anonymized, in step with the cloud."""
+    original = {
+        "firstName": "Jane",
+        "lastName": "Doe",
+        "name": "Jane Doe",
+        "localUsername": "jane",
+        "email": "jane@real.test",
+    }
+    cloud_original = {k: v for k, v in original.items() if k != "localUsername"}
+    user = {
+        "modelKey": "user",
+        "id": "anon-user-4",
+        **{key: original[key] for key in present},
+        "cloudAccount": dict(cloud_original),
+    }
+
+    result = anonymize_data(user)
+
+    assert set(result) == {"modelKey", "id", "cloudAccount", *present}
+    cloud_account = result["cloudAccount"]
+    assert set(cloud_account) == set(cloud_original)
+    for value in (*(result[key] for key in present), *cloud_account.values()):
+        assert value not in original.values()
+    for key in present:
+        if key in cloud_account:
+            assert cloud_account[key] == result[key]
+    assert cloud_account["email"].endswith("@example.com")
+    assert cloud_account["name"] == (
+        f"{cloud_account['firstName']} {cloud_account['lastName']}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_private_bootstrap_dump_anonymizes(
+    protect_client: ProtectApiClient,
+) -> None:
+    """The private bootstrap dump anonymizes without raising."""
+    user = next(iter(protect_client.bootstrap.users.values()))
+    user.cloud_account = CloudAccount(id="4a3c2b1e-0000-4000-8000-000000000002")
+
+    result = anonymize_data(protect_client.bootstrap.unifi_dict())
+
+    assert {u["id"] for u in result["users"]}.isdisjoint(protect_client.bootstrap.users)
