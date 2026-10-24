@@ -536,21 +536,48 @@ def test_cloud_account_names_anonymized_without_user_names() -> None:
     assert cloud_account["email"].endswith("@example.com")
 
 
-def test_cloud_account_ignores_user_names_without_first_name() -> None:
-    """Un-anonymized user name/email are not copied into the cloud account."""
+@pytest.mark.parametrize(
+    "present",
+    [
+        ("name", "email"),
+        ("lastName",),
+        ("localUsername", "email"),
+        ("firstName", "lastName", "name", "localUsername", "email"),
+    ],
+)
+def test_user_identity_fields_anonymized_independently(
+    present: tuple[str, ...],
+) -> None:
+    """Each present user identity field is anonymized, in step with the cloud."""
+    original = {
+        "firstName": "Jane",
+        "lastName": "Doe",
+        "name": "Jane Doe",
+        "localUsername": "jane",
+        "email": "jane@real.test",
+    }
+    cloud_original = {k: v for k, v in original.items() if k != "localUsername"}
     user = {
         "modelKey": "user",
         "id": "anon-user-4",
-        "name": "Jane Doe",
-        "email": "jane@real.test",
-        "cloudAccount": {"name": "Jane Doe", "email": "jane@real.test"},
+        **{key: original[key] for key in present},
+        "cloudAccount": dict(cloud_original),
     }
 
-    cloud_account = anonymize_data(user)["cloudAccount"]
+    result = anonymize_data(user)
 
-    assert cloud_account["name"] != "Jane Doe"
-    assert cloud_account["email"] != "jane@real.test"
+    assert set(result) == {"modelKey", "id", "cloudAccount", *present}
+    cloud_account = result["cloudAccount"]
+    assert set(cloud_account) == set(cloud_original)
+    for value in (*(result[key] for key in present), *cloud_account.values()):
+        assert value not in original.values()
+    for key in present:
+        if key in cloud_account:
+            assert cloud_account[key] == result[key]
     assert cloud_account["email"].endswith("@example.com")
+    assert cloud_account["name"] == (
+        f"{cloud_account['firstName']} {cloud_account['lastName']}"
+    )
 
 
 @pytest.mark.asyncio
