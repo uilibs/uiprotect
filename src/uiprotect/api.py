@@ -113,7 +113,7 @@ from .exceptions import (
     NvrError,
     PublicOnlyModeError,
 )
-from .stream import TalkbackSession
+from .stream import TalkbackSession, TalkbackStream
 
 if TYPE_CHECKING:
     from .devices.dispatcher import DeviceDispatcher
@@ -560,6 +560,10 @@ class BaseApiClient:
         # for the same store join them.
         self._public_refresh_pending: dict[PublicStoreName, asyncio.Task[None]] = {}
         self._liveview_update_locks: dict[str, asyncio.Lock] = {}
+        # Public-camera talkback streams by camera id, kept here so a running
+        # stream survives the camera object being replaced on a resync.
+        self._talkback_streams: dict[str, TalkbackStream] = {}
+        self._talkback_locks: dict[str, asyncio.Lock] = {}
 
         self.config_dir = config_dir or (Path(user_config_dir()) / "ufp")
         self.cache_dir = cache_dir or (Path(user_cache_dir()) / "ufp_cache")
@@ -747,6 +751,7 @@ class BaseApiClient:
         await self._cancel_rtsps_refresh_tasks()
         await self._cancel_siren_off_tasks()
         await self._cancel_sensor_fetch_tasks()
+        await self._stop_talkback_streams()
         if self._session is not None:
             await self._session.close()
             self._session = None
@@ -760,9 +765,16 @@ class BaseApiClient:
         await self._cancel_public_resync_task()
         await self._cancel_public_refresh()
         await self._cancel_sensor_fetch_tasks()
+        await self._stop_talkback_streams()
         if self._public_api_session is not None:
             await self._public_api_session.close()
             self._public_api_session = None
+
+    async def _stop_talkback_streams(self) -> None:
+        streams = list(self._talkback_streams.values())
+        self._talkback_streams.clear()
+        for stream in streams:
+            await stream.stop()
 
     async def _cancel_update_task(self) -> None:
         if self._update_task:

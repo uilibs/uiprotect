@@ -134,7 +134,7 @@ class TalkbackStream:
 
     Example:
         ```python
-        stream = TalkbackStream(camera, "/path/to/audio.wav", session)
+        stream = TalkbackStream(None, "/path/to/audio.wav", session)
         await stream.run_until_complete()
         ```
 
@@ -143,6 +143,7 @@ class TalkbackStream:
     __slots__ = (
         "_error",
         "_lock",
+        "_started",
         "_stop_event",
         "_thread",
         "camera",
@@ -152,7 +153,7 @@ class TalkbackStream:
 
     def __init__(
         self,
-        camera: Camera,
+        camera: Camera | None,
         content_url: str,
         session: TalkbackSession | None = None,
     ) -> None:
@@ -160,16 +161,16 @@ class TalkbackStream:
         Initialize talkback stream.
 
         Args:
-            camera: Camera device to stream audio to.
+            camera: Private camera, only read for the UDP fallback without a session.
             content_url: URL or file path of audio source.
-            session: Optional talkback session from public API.
+            session: Talkback session from the public API.
 
         Raises:
-            BadRequest: If camera does not have a speaker.
+            BadRequest: If neither a session nor a camera is given.
 
         """
-        if not camera.feature_flags.has_speaker:
-            raise BadRequest("Camera does not have a speaker for talkback")
+        if session is None and camera is None:
+            raise BadRequest("Talkback needs a session or a camera")
 
         self.camera = camera
         self.content_url = content_url
@@ -178,6 +179,7 @@ class TalkbackStream:
         self._thread: threading.Thread | None = None
         self._lock = asyncio.Lock()
         self._error: BaseException | None = None
+        self._started = False
 
     async def __aenter__(self) -> Self:
         """Start streaming when entering async context."""
@@ -207,8 +209,9 @@ class TalkbackStream:
             sample_rate = self.session.sampling_rate
             bits_per_sample = self.session.bits_per_sample
         else:
-            ts = self.camera.talkback_settings
-            host = format_host_for_url(str(self.camera.host))
+            camera = cast("Camera", self.camera)
+            ts = camera.talkback_settings
+            host = format_host_for_url(str(camera.host))
             output_url = f"udp://{host}:{ts.bind_port}"
             codec = ts.type_fmt.value
             sample_rate = ts.sampling_rate
@@ -315,6 +318,7 @@ class TalkbackStream:
             daemon=True,
         )
         self._thread.start()
+        self._started = True
 
     async def _wait_for_thread(self) -> None:
         """Wait for the thread to complete without blocking the event loop."""
@@ -341,9 +345,10 @@ class TalkbackStream:
             self._stop_event.clear()
 
     async def run_until_complete(self) -> None:
-        """Run the stream until it completes naturally."""
+        """Run the stream until it completes, starting it only if never started."""
         async with self._lock:
-            self._start_thread_if_needed(raise_if_running=False)
+            if not self._started:
+                self._start_thread_if_needed(raise_if_running=False)
             await self._wait_for_thread()
 
             if self._error is not None:

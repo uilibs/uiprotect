@@ -43,14 +43,6 @@ def mock_camera() -> Mock:
 
 
 @pytest.fixture
-def mock_camera_no_speaker() -> Mock:
-    """Create a mock camera without speaker support."""
-    camera = Mock()
-    camera.feature_flags.has_speaker = False
-    return camera
-
-
-@pytest.fixture
 def talkback_session() -> TalkbackSession:
     """Create a test talkback session."""
     return TalkbackSession(
@@ -220,9 +212,15 @@ def test_talkback_stream_init_no_session(mock_camera: Mock):
     assert stream.session is None
 
 
-def test_talkback_stream_init_no_speaker_raises(mock_camera_no_speaker: Mock):
-    with pytest.raises(BadRequest, match="does not have a speaker"):
-        TalkbackStream(mock_camera_no_speaker, "/path/to/audio.wav")
+def test_talkback_stream_init_session_only(talkback_session: TalkbackSession):
+    stream = TalkbackStream(None, "/path/to/audio.wav", talkback_session)
+    assert stream.camera is None
+    assert stream.session is talkback_session
+
+
+def test_talkback_stream_init_no_session_no_camera_raises():
+    with pytest.raises(BadRequest, match="needs a session or a camera"):
+        TalkbackStream(None, "/path/to/audio.wav")
 
 
 def _blocking_mock(stop_event: threading.Event) -> Callable[[], None]:
@@ -622,6 +620,29 @@ async def test_start_does_not_clobber_pending_stop(mock_camera: Mock, audio_file
     await stream.start()
     assert not stream.is_running
     assert stream._stop_event.is_set()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stop", [False, True])
+async def test_run_until_complete_after_finished_does_not_restart(
+    mock_camera: Mock, audio_file: str, stop: bool
+) -> None:
+    """run_until_complete never replays a stream that already ran."""
+    runs = 0
+
+    def count_run(self: TalkbackStream) -> None:
+        nonlocal runs
+        runs += 1
+
+    with patch.object(TalkbackStream, "_stream_audio_sync", count_run):
+        stream = TalkbackStream(mock_camera, audio_file)
+        await stream.start()
+        if stop:
+            await stream.stop()
+        await stream.run_until_complete()
+        await stream.run_until_complete()
+
+    assert runs == 1
 
 
 @pytest.mark.asyncio
