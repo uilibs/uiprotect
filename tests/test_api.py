@@ -43,7 +43,6 @@ from uiprotect.api import ProtectApiClient, RTSPSStreams, get_user_hash
 from uiprotect.data import (
     Camera,
     ChannelQuality,
-    Event,
     EventType,
     Light,
     ModelType,
@@ -81,22 +80,7 @@ if TYPE_CHECKING:
     from uiprotect.data.bootstrap import Bootstrap
 
 
-async def check_motion_event(event: Event):
-    data = await event.get_thumbnail()
-    assert data is not None
-    img = Image.open(BytesIO(data))
-    assert img.format in {"PNG", "JPEG"}
-
-
 async def check_camera(camera: Camera):
-    if (
-        motion_event := camera.api.bootstrap.events.get(camera.last_motion_event_id)
-    ) is not None:
-        await check_motion_event(motion_event)
-
-    if camera.last_smart_detect_event is not None:
-        await check_motion_event(camera.last_smart_detect_event)
-
     assert camera.last_nfc_card_scanned is None
     assert camera.last_fingerprint_identified is None
 
@@ -111,18 +95,6 @@ async def check_camera(camera: Camera):
     camera.last_ring_event  # noqa: B018
 
     check_device(camera)
-
-    for channel in camera.channels:
-        if channel.is_rtsp_enabled:
-            for _ in range(2):
-                assert (
-                    channel.rtsps_url
-                    == f"rtsps://{camera.api.connection_host}:7441/{channel.rtsp_alias}?enableSrtp"
-                )
-                assert (
-                    channel.rtsps_no_srtp_url
-                    == f"rtsps://{camera.api.connection_host}:7441/{channel.rtsp_alias}"
-                )
 
     if VideoMode.HIGH_FPS in camera.feature_flags.video_modes:
         assert camera.feature_flags.has_highfps
@@ -161,31 +133,6 @@ async def check_bootstrap(bootstrap: Bootstrap):
 
     for sensor in bootstrap.sensors.values():
         check_device(sensor)
-
-    for liveview in bootstrap.liveviews.values():
-        liveview.owner  # noqa: B018
-        assert (
-            liveview.protect_url
-            == f"https://127.0.0.1:0/protect/liveview/{liveview.id}"
-        )
-
-        for slot in liveview.slots:
-            expected_ids = set(slot.camera_ids).intersection(
-                set(bootstrap.cameras.keys()),
-            )
-            assert len(expected_ids) == len(slot.cameras)
-
-    for user in bootstrap.users.values():
-        user.groups  # noqa: B018
-
-        if user.cloud_account is not None:
-            assert user.cloud_account.user == user
-
-    for event in bootstrap.events.values():
-        event.smart_detect_events  # noqa: B018
-
-        if event.type.value in EventType.motion_events() and event.camera is not None:
-            await check_motion_event(event)
 
 
 def test_base_url(protect_client: ProtectApiClient):
@@ -426,61 +373,6 @@ def test_connection_host_ipv6(protect_client: ProtectApiClient):
     protect_client._connection_host = None
     protect_client._host = "2001:db8::1"
     assert protect_client.connection_host == IPv6Address("2001:db8::1")
-
-
-def test_rtsp_urls_with_ipv6(protect_client: ProtectApiClient):
-    """Test that RTSP URLs are correctly formatted with IPv6 addresses (with brackets)."""
-    # Set an IPv6 address as connection_host
-    ipv6_addr = IPv6Address("fe80::1ff:fe23:4567:890a")
-    protect_client._connection_host = ipv6_addr
-
-    camera = next(iter(protect_client.bootstrap.cameras.values()))
-    # Set camera's connectionHost to None so it falls back to NVR's connection_host
-    camera.connection_host = None
-
-    for channel in camera.channels:
-        if channel.is_rtsp_enabled:
-            # IPv6 addresses should be wrapped in brackets in URLs
-            expected_host = "[fe80::1ff:fe23:4567:890a]"
-
-            assert (
-                channel.rtsps_url
-                == f"rtsps://{expected_host}:7441/{channel.rtsp_alias}?enableSrtp"
-            )
-            assert (
-                channel.rtsps_no_srtp_url
-                == f"rtsps://{expected_host}:7441/{channel.rtsp_alias}"
-            )
-            break
-
-
-@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
-def test_rtsp_urls_with_stacked_nvr(protect_client: ProtectApiClient, camera):
-    """Test that RTSP URLs use camera's connectionHost in stacked NVR scenario."""
-    # Simulate stacked NVR: NVR at 192.168.1.1, but camera connected via 192.168.2.100
-    protect_client._connection_host = IPv4Address("192.168.1.1")
-    camera["connectionHost"] = IPv4Address("192.168.2.100")
-
-    camera_obj = Camera.from_unifi_dict(api=protect_client, **camera)
-
-    # Verify setup
-    assert camera_obj.connection_host == IPv4Address("192.168.2.100")
-    assert protect_client.connection_host == IPv4Address("192.168.1.1")
-
-    # Test all RTSP-enabled channels use camera's connectionHost
-    rtsp_channels = [ch for ch in camera_obj.channels if ch.is_rtsp_enabled]
-    assert rtsp_channels, "No RTSP-enabled channels found"
-
-    for channel in rtsp_channels:
-        if channel.rtsp_alias:
-            assert (
-                channel.rtsps_url
-                == f"rtsps://192.168.2.100:7441/{channel.rtsp_alias}?enableSrtp"
-            )
-            assert (
-                channel.rtsps_no_srtp_url
-                == f"rtsps://192.168.2.100:7441/{channel.rtsp_alias}"
-            )
 
 
 def test_api_client_with_ipv6():

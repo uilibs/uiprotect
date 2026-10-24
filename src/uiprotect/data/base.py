@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 from functools import cache
 from ipaddress import IPv4Address, IPv6Address
 from typing import TYPE_CHECKING, Any, NamedTuple, Protocol, runtime_checkable
-from uuid import UUID
 
 from convertertools import pop_dict_set_if_none, pop_dict_tuple
 from pydantic import BaseModel, ConfigDict
@@ -44,7 +43,6 @@ if TYPE_CHECKING:
     from typing import Self  # requires Python 3.11+
 
     from ..api import ProtectApiClient
-    from ..data.devices import Bridge
     from ..data.user import User
 
 
@@ -825,9 +823,7 @@ class ProtectDeviceModel(ProtectModelWithId):
     mac: str
     host: IPv4Address | IPv6Address | str | None = None
     up_since: datetime | None = None
-    uptime: timedelta | None = None
     firmware_version: str | None = None
-    is_updating: bool
     is_ssh_enabled: bool
 
     _callback_ping: TimerHandle | None = PrivateAttr(None)
@@ -840,8 +836,6 @@ class ProtectDeviceModel(ProtectModelWithId):
             "host",
             "type",
             "upSince",
-            "uptime",
-            "isUpdating",
         }
 
     @classmethod
@@ -849,7 +843,6 @@ class ProtectDeviceModel(ProtectModelWithId):
     def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
         return {
             "upSince": convert_to_datetime,
-            "uptime": lambda x: timedelta(milliseconds=int(x)),
         } | super().unifi_dict_conversions()
 
     def _event_callback_ping(self) -> None:
@@ -875,56 +868,32 @@ class WiredConnectionState(ProtectBaseObject):
 
 
 class WirelessConnectionState(ProtectBaseObject):
-    signal_quality: int | None = None
     signal_strength: int | None = None
 
 
-class BluetoothConnectionState(WirelessConnectionState):
-    pass
-
-
 class WifiConnectionState(WirelessConnectionState):
-    phy_rate: float | None = None
-    channel: int | None = None
+    pass
 
 
 class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     state: StateType
-    connection_host: IPv4Address | IPv6Address | str | None = None
-    is_adopting: bool
     is_adopted: bool
     is_adopted_by_other: bool
-    is_rebooting: bool
     can_adopt: bool
     is_connected: bool
     # requires 1.21+
     market_name: str | None = None
-    # requires 2.8.14+
-    nvr_mac: str | None = None
-    # requires 2.8.22+
-    guid: UUID | None = None
 
     wired_connection_state: WiredConnectionState | None = None
     wifi_connection_state: WifiConnectionState | None = None
-    bluetooth_connection_state: BluetoothConnectionState | None = None
-    bridge_id: str | None = None
 
     @classmethod
     @cache
     def _get_read_only_fields(cls) -> set[str]:
         return super()._get_read_only_fields() | {
-            "connectionHost",
             "state",
-            "isAdopting",
-            "isRebooting",
             "canAdopt",
-            "bluetoothConnectionState",
         }
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {**super()._get_unifi_remaps(), "bridge": "bridgeId"}
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         if (model := self.model) is not None:
@@ -939,19 +908,13 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
         data = super().unifi_dict(data=data, exclude=exclude)
         pop_dict_set_if_none(
             data,
-            {"wiredConnectionState", "wifiConnectionState", "bluetoothConnectionState"},
+            {"wiredConnectionState", "wifiConnectionState"},
         )
         return data
 
     @property
     def display_name(self) -> str:
         return self.name or self.market_name or self.type
-
-    @property
-    def bridge(self) -> Bridge | None:
-        if (bridge_id := self.bridge_id) is not None:
-            return self._api.bootstrap.bridges[bridge_id]
-        return None
 
     @property
     def protect_url(self) -> str:

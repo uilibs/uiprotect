@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from functools import cache
 from typing import Any, Generic, Self, TypeVar
 
 from pydantic.fields import PrivateAttr
 
-from .base import ProtectBaseObject, ProtectModel, ProtectModelWithId
+from .base import ProtectBaseObject, ProtectModelWithId
 from .types import ModelType, PermissionNode
 
 
@@ -46,48 +45,8 @@ class Permission(ProtectBaseObject):
     ) -> str:
         return self.raw_permission
 
-    @property
-    def objs(self) -> list[ProtectModelWithId] | None:
-        if self.obj_ids == {"self"} or self.obj_ids is None:
-            return None
-
-        devices = getattr(self._api.bootstrap, self.model.devices_key)
-        return [devices[oid] for oid in self.obj_ids]
-
-
-class Group(ProtectModelWithId):
-    name: str
-    permissions: list[Permission]
-    type: str
-    is_default: bool
-
-    @classmethod
-    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "permissions" in data:
-            permissions = data.pop("permissions")
-            data["permissions"] = [{"rawPermission": p} for p in permissions]
-
-        return super().unifi_dict_to_dict(data)
-
-
-class UserLocation(ProtectModel):
-    pass
-
 
 class CloudAccount(ProtectModelWithId):
-    first_name: str
-    last_name: str
-    email: str
-    user_id: str
-    name: str
-    location: UserLocation | None = None
-    profile_img: str | None = None
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {**super()._get_unifi_remaps(), "user": "userId"}
-
     def unifi_dict(
         self,
         data: dict[str, Any] | None = None,
@@ -98,41 +57,17 @@ class CloudAccount(ProtectModelWithId):
         # id and cloud ID are always the same
         if "id" in data:
             data["cloudId"] = data["id"]
-        if "location" in data and data["location"] is None:
-            del data["location"]
 
         return data
 
-    @property
-    def user(self) -> User:
-        return self._api.bootstrap.users[self.user_id]
-
-
-class UserFeatureFlags(ProtectBaseObject):
-    pass
-
 
 class User(ProtectModelWithId):
-    permissions: list[Permission]
     all_permissions: list[Permission]
-    location: UserLocation | None = None
-    name: str
-    first_name: str
-    last_name: str
-    email: str | None = None
-    group_ids: list[str]
     cloud_account: CloudAccount | None = None
-    feature_flags: UserFeatureFlags
 
-    _groups: list[Group] | None = PrivateAttr(None)
     _perm_cache: dict[str, bool] = PrivateAttr({})
 
     def __init__(self, **data: Any) -> None:
-        if "permissions" in data:
-            permissions = data.pop("permissions")
-            data["permissions"] = [
-                {"raw_permission": p} if isinstance(p, str) else p for p in permissions
-            ]
         if "allPermissions" in data:
             permissions = data.pop("allPermissions")
             data["allPermissions"] = [
@@ -143,48 +78,11 @@ class User(ProtectModelWithId):
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "permissions" in data:
-            permissions = data.pop("permissions")
-            data["permissions"] = [{"rawPermission": p} for p in permissions]
         if "allPermissions" in data:
             permissions = data.pop("allPermissions")
             data["allPermissions"] = [{"rawPermission": p} for p in permissions]
 
         return super().unifi_dict_to_dict(data)
-
-    @classmethod
-    @cache
-    def _get_unifi_remaps(cls) -> dict[str, str]:
-        return {**super()._get_unifi_remaps(), "groups": "groupIds"}
-
-    def unifi_dict(
-        self,
-        data: dict[str, Any] | None = None,
-        exclude: set[str] | None = None,
-    ) -> dict[str, Any]:
-        data = super().unifi_dict(data=data, exclude=exclude)
-
-        if "location" in data and data["location"] is None:
-            del data["location"]
-
-        return data
-
-    @property
-    def groups(self) -> list[Group]:
-        """
-        Groups the user is in
-
-        Will always be empty if the user only has read only access.
-        """
-        if self._groups is not None:
-            return self._groups
-
-        self._groups = [
-            self._api.bootstrap.groups[g]
-            for g in self.group_ids
-            if g in self._api.bootstrap.groups
-        ]
-        return self._groups
 
     def can(
         self,
@@ -265,8 +163,6 @@ class UlpUserKeyringBase(Generic[T]):
 
 
 class Keyring(ProtectModelWithId):
-    device_type: str
-    device_id: str
     registry_type: str
     registry_id: str
     ulp_user: str
@@ -302,8 +198,6 @@ class Keyrings(UlpUserKeyringBase[Keyring]):
 
 class UlpUser(ProtectModelWithId):
     ulp_id: str
-    first_name: str
-    last_name: str
     full_name: str
     status: str
 

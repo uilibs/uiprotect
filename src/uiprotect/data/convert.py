@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, cast
 
 from ..exceptions import DataDecodeError
 from .devices import (
-    Bridge,
     Camera,
     Chime,
     Light,
@@ -16,7 +15,7 @@ from .devices import (
 from .nvr import NVR, Event, Liveview
 from .public_devices import Fob, LinkStation, Relay, Siren, Speaker
 from .types import ModelType
-from .user import CloudAccount, Group, Keyring, UlpUser, User, UserLocation
+from .user import CloudAccount, Keyring, UlpUser, User
 
 if TYPE_CHECKING:
     from ..api import ProtectApiClient
@@ -25,8 +24,6 @@ if TYPE_CHECKING:
 
 MODEL_TO_CLASS: dict[str, type[ProtectModel]] = {
     ModelType.EVENT: Event,
-    ModelType.GROUP: Group,
-    ModelType.USER_LOCATION: UserLocation,
     ModelType.CLOUD_IDENTITY: CloudAccount,
     ModelType.USER: User,
     ModelType.NVR: NVR,
@@ -34,7 +31,6 @@ MODEL_TO_CLASS: dict[str, type[ProtectModel]] = {
     ModelType.CAMERA: Camera,
     ModelType.LIVEVIEW: Liveview,
     ModelType.VIEWPORT: Viewer,
-    ModelType.BRIDGE: Bridge,
     ModelType.SENSOR: Sensor,
     ModelType.CHIME: Chime,
     ModelType.KEYRING: Keyring,

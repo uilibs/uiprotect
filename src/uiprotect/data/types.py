@@ -131,7 +131,6 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
     CAMERA = "camera"
     CLOUD_IDENTITY = "cloudIdentity"
     EVENT = "event"
-    GROUP = "group"
     LIGHT = "light"
     LIVEVIEW = "liveview"
     NVR = "nvr"
@@ -190,11 +189,9 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
         return (
             ModelType.CAMERA,
             ModelType.USER,
-            ModelType.GROUP,
             ModelType.LIVEVIEW,
             ModelType.VIEWPORT,
             ModelType.LIGHT,
-            ModelType.BRIDGE,
             ModelType.SENSOR,
             ModelType.CHIME,
         )

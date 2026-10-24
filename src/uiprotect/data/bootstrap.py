@@ -22,7 +22,6 @@ from .base import (
 )
 from .convert import MODEL_TO_CLASS, create_from_unifi_dict
 from .devices import (
-    Bridge,
     Camera,
     Chime,
     Light,
@@ -32,7 +31,7 @@ from .devices import (
 )
 from .nvr import MAX_EVENT_HISTORY_IN_STATE_MACHINE, NVR, Event, Liveview
 from .types import EventType, FixSizeOrderedDict, ModelType, SmartDetectObjectType
-from .user import Group, Keyrings, UlpUserKeyringBase, UlpUsers, User
+from .user import Keyrings, UlpUserKeyringBase, UlpUsers, User
 from .websocket import (
     WSAction,
     WSPacket,
@@ -58,6 +57,7 @@ STATS_KEYS = {
 }
 
 IGNORE_DEVICE_KEYS = {"nvrMac", "guid"}
+_UNMODELLED_PRIVATE_MODEL_TYPES = frozenset({ModelType.AIPORT, ModelType.BRIDGE})
 STATS_AND_IGNORE_DEVICE_KEYS = STATS_KEYS | IGNORE_DEVICE_KEYS
 
 _IGNORE_KEYS_BY_MODEL_TYPE = {
@@ -276,12 +276,10 @@ class Bootstrap(ProtectBaseObject):
     auth_user_id: str
     cameras: dict[str, Camera]
     users: dict[str, User]
-    groups: dict[str, Group]
     liveviews: dict[str, Liveview]
     nvr: NVR
     viewers: dict[str, Viewer]
     lights: dict[str, Light] = {}
-    bridges: dict[str, Bridge] = {}
     sensors: dict[str, Sensor] = {}
     chimes: dict[str, Chime] = {}
     last_update_id: str
@@ -720,8 +718,9 @@ class Bootstrap(ProtectBaseObject):
             _LOGGER.debug("Unknown model type: %s", model_key)
             return None
 
-        # The private API still sends AiPorts, which are no longer modelled.
-        if model_type is ModelType.AIPORT:
+        # The private API still sends AiPorts and bridges, which are no longer
+        # modelled on the private bootstrap.
+        if model_type in _UNMODELLED_PRIVATE_MODEL_TYPES:
             return None
 
         if models and model_type not in models:

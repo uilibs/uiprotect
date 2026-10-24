@@ -200,7 +200,6 @@ async def test_ws_event_ring(
     assert camera.model_dump() == camera_before.model_dump()
     assert event.id == expected_event_id
     assert event.type == EventType.RING
-    assert event.thumbnail_id == f"e-{expected_event_id}"
 
     for channel in camera.channels:
         assert channel._api is not None
@@ -263,7 +262,6 @@ async def test_ws_event_motion(
     assert camera.model_dump() == camera_before.model_dump()
     assert event.id == expected_event_id
     assert event.type == EventType.MOTION
-    assert event.thumbnail_id == f"e-{expected_event_id}"
     assert event.start == (now - timedelta(seconds=30))
 
     for channel in camera.channels:
@@ -382,8 +380,6 @@ async def test_ws_event_nfc_card_scanned(
     assert event.id == expected_event_id
     assert event.type == EventType.NFC_CARD_SCANNED
     assert event.metadata.nfc.nfc_id == expected_nfc_id
-    assert event.metadata.nfc.user_id == expected_user_id
-    assert event.thumbnail_id == f"e-{expected_event_id}"
     assert event.start == (now - timedelta(seconds=30))
     assert event.end == now
 
@@ -455,7 +451,6 @@ async def test_ws_event_fingerprint_identified(
     assert event.id == expected_event_id
     assert event.type == EventType.FINGERPRINT_IDENTIFIED
     assert event.metadata.fingerprint.ulp_id == expected_ulp_id
-    assert event.thumbnail_id == f"e-{expected_event_id}"
     assert event.start == (now - timedelta(seconds=30))
     assert event.end == now
 
@@ -522,7 +517,6 @@ async def test_ws_event_smart(
     assert camera.model_dump() == camera_before.model_dump()
     assert smart_event.id == expected_event_id
     assert smart_event.type == EventType.SMART_DETECT
-    assert smart_event.thumbnail_id == f"e-{expected_event_id}"
     assert smart_event.start == (now - timedelta(seconds=30))
     assert smart_event.end == now
 
@@ -552,7 +546,7 @@ async def test_ws_event_update(
         new_stats["rxBytes"] += 100
     if new_stats.get("txBytes") is not None:
         new_stats["txBytes"] += 100
-    new_stats["video"]["recordingEnd"] = to_js_time(now)
+    new_stats["video"]["recordingStart"] = to_js_time(now)
     new_stats_unifi = camera_before.unifi_dict(data={"stats": deepcopy(new_stats)})
 
     expected_updated_id = "0441ecc6-f0fa-4b19-b071-7987c143138a"
@@ -1003,7 +997,7 @@ async def test_ws_ignores_nvr_mac_and_guid(
     }
 
     data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
-    data_frame.data = {"nvrMac": "any", "guid": "any", "isMotionDetected": True}
+    data_frame.data = {"nvrMac": "any", "guid": "any", "isSmartDetected": False}
 
     msg = MagicMock()
     msg.data = packet.pack_frames()
@@ -1854,7 +1848,6 @@ _MODELS_WITHOUT_MAC = pytest.mark.parametrize(
     [
         (ModelType.LIVEVIEW, "liveviews"),
         (ModelType.USER, "users"),
-        (ModelType.GROUP, "groups"),
     ],
 )
 
@@ -2061,3 +2054,49 @@ async def test_ws_remove_and_add_device_updates_mac_lookup(
 
     assert len(messages) == 1
     assert bootstrap.mac_lookup[mac].id == camera.id
+
+
+@pytest.mark.asyncio()
+async def test_ws_update_for_unknown_device_is_ignored(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+    caplog: pytest.LogCaptureFixture,
+):
+    """An update frame for a device missing from the bootstrap is dropped."""
+    caplog.set_level(logging.DEBUG)
+    bootstrap = protect_client_no_debug.bootstrap
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": "update",
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": "camera",
+        "id": "not-a-camera",
+    }
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {"isRecording": True}
+
+    assert bootstrap.process_ws_packet(WSPacket(packet.pack_frames())) is None
+    assert "Unexpected camera: not-a-camera" in caplog.text
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("action", ["add", "update", "remove"])
+async def test_ws_private_bridge_frames_are_ignored(
+    protect_client_no_debug: ProtectApiClient,
+    packet: WSPacket,
+    action: str,
+):
+    """Private bridge frames are dropped without a refresh."""
+    bootstrap = protect_client_no_debug.bootstrap
+    action_frame: WSJSONPacketFrame = packet.action_frame  # type: ignore[assignment]
+    action_frame.data = {
+        "action": action,
+        "newUpdateId": "0441ecc6-f0fa-4b19-b071-7987c143138a",
+        "modelKey": "bridge",
+        "id": "bridge-1",
+    }
+    data_frame: WSJSONPacketFrame = packet.data_frame  # type: ignore[assignment]
+    data_frame.data = {"id": "bridge-1", "modelKey": "bridge", "name": "Bridge"}
+
+    assert bootstrap.process_ws_packet(WSPacket(packet.pack_frames())) is None
+    assert not bootstrap._refresh_tasks

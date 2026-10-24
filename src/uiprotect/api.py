@@ -134,7 +134,6 @@ from .websocket import Websocket, WebsocketState
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
-    from uiprotect.data.devices import LightDeviceSettings, LightModeSettings
     from uiprotect.data.public_devices import (
         PublicLightDeviceSettings,
         PublicLightModeSettings,
@@ -3741,10 +3740,6 @@ class ProtectApiClient(BaseApiClient):
             retry_timeout=retry_timeout,
         )
 
-    async def get_event_smart_detect_track_raw(self, event_id: str) -> dict[str, Any]:
-        """Gets raw Smart Detect Track for a Smart Detection"""
-        return await self.api_request_obj(f"events/{event_id}/smartDetectTrack")
-
     async def update_device(
         self,
         model_type: ModelType,
@@ -3956,10 +3951,8 @@ class ProtectApiClient(BaseApiClient):
         *,
         name: str | None = None,
         is_light_force_enabled: bool | None = None,
-        light_mode_settings: LightModeSettings | PublicLightModeSettings | None = None,
-        light_device_settings: (
-            LightDeviceSettings | PublicLightDeviceSettings | None
-        ) = None,
+        light_mode_settings: PublicLightModeSettings | None = None,
+        light_device_settings: PublicLightDeviceSettings | None = None,
     ) -> PublicLight:
         """
         Update light settings using public API.

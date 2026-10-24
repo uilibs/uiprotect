@@ -58,20 +58,15 @@ def anonymize_user(user_dict: dict[str, Any]) -> dict[str, Any]:
         user_dict["localUsername"] = random_word()
         user_dict["email"] = f"{user_dict['localUsername']}@example.com"
 
-    if "cloudAccount" in user_dict and user_dict["cloudAccount"] is not None:
-        user_dict["cloudAccount"]["firstName"] = user_dict["firstName"]
-        user_dict["cloudAccount"]["lastName"] = user_dict["lastName"]
-        user_dict["cloudAccount"]["name"] = user_dict["name"]
-        user_dict["cloudAccount"]["email"] = user_dict["email"]
-        user_dict["cloudAccount"]["user"] = anonymize_object_id(
-            user_dict["cloudAccount"]["user"],
-        )
-        user_dict["cloudAccount"]["id"] = anonymize_uuid(
-            user_dict["cloudAccount"]["id"],
-        )
-        user_dict["cloudAccount"]["cloudId"] = anonymize_uuid(
-            user_dict["cloudAccount"]["cloudId"],
-        )
+    if (cloud_account := user_dict.get("cloudAccount")) is not None:
+        for key in ("firstName", "lastName", "name", "email"):
+            if key in user_dict:
+                cloud_account[key] = user_dict[key]
+        if "user" in cloud_account:
+            cloud_account["user"] = anonymize_object_id(cloud_account["user"])
+        for key in ("id", "cloudId"):
+            if key in cloud_account:
+                cloud_account[key] = anonymize_uuid(cloud_account[key])
 
     camera_order = (user_dict.get("settings") or {}).get("cameraOrder")
     if camera_order is not None:

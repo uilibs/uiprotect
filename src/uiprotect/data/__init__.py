@@ -15,7 +15,6 @@ from .convert import create_from_unifi_dict
 from .devices import (
     CHANNEL_ID_BY_RTSPS_QUALITY,
     RTSPS_QUALITY_BY_CHANNEL_ID,
-    Bridge,
     Camera,
     CameraChannel,
     Chime,
@@ -32,8 +31,6 @@ from .nvr import (
     DoorbellMessage,
     Event,
     Liveview,
-    SmartDetectItem,
-    SmartDetectTrack,
 )
 from .public_bootstrap import PublicBootstrap, PublicStoreChange, PublicStoreName
 from .public_devices import (
@@ -192,7 +189,7 @@ from .types import (
     VideoMode,
     WDRLevel,
 )
-from .user import CloudAccount, Group, Permission, User, UserLocation
+from .user import CloudAccount, Permission, User
 from .websocket import (
     WS_HEADER_SIZE,
     WSAction,
@@ -228,7 +225,6 @@ __all__ = [
     "AssetFileType",
     "AudioStyle",
     "Bootstrap",
-    "Bridge",
     "Camera",
     "CameraChannel",
     "ChannelQuality",
@@ -248,7 +244,6 @@ __all__ = [
     "FobAwayState",
     "FobButton",
     "FobButtonLabels",
-    "Group",
     "HDRMode",
     "ICRCustomValue",
     "ICRLuxValue",
@@ -370,9 +365,7 @@ __all__ = [
     "SirenConnectionType",
     "SirenDuration",
     "SmartDetectAudioType",
-    "SmartDetectItem",
     "SmartDetectObjectType",
-    "SmartDetectTrack",
     "Speaker",
     "SpeakerMode",
     "SpeakerStatus",
@@ -382,7 +375,6 @@ __all__ = [
     "ThreadNetworkStatus",
     "UlpUserStatus",
     "User",
-    "UserLocation",
     "Version",
     "VideoMode",
     "Viewer",

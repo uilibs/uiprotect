@@ -320,14 +320,8 @@ def _list_name(obj: ProtectAdoptableDeviceModel | PublicDeviceModel) -> str:
 
     if obj.is_adopted_by_other:
         name = f"{name} [Managed by Another Console]"
-    elif obj.is_adopting:
-        name = f"{name} [Adopting]"
     elif obj.can_adopt:
         name = f"{name} [Unadopted]"
-    elif obj.is_rebooting:
-        name = f"{name} [Restarting]"
-    elif obj.is_updating:
-        name = f"{name} [Updating]"
     elif not obj.is_connected:
         name = f"{name} [Disconnected]"
     return name
@@ -356,13 +350,6 @@ def protect_url(ctx: typer.Context) -> None:
         json_output(obj.protect_url)
     else:
         typer.echo(obj.protect_url)
-
-
-def bridge(ctx: typer.Context) -> None:
-    """Returns bridge device if connected via Bluetooth."""
-    require_device_id(ctx)
-    obj: ProtectAdoptableDeviceModel = ctx.obj.device
-    print_unifi_obj(obj.bridge, ctx.obj.output_format)
 
 
 def set_ssh(ctx: typer.Context, enabled: bool) -> None:
@@ -444,7 +431,6 @@ def init_common_commands(
     device_commands: dict[str, Callable[..., Any]] = {}
 
     deviceless_commands["list-ids"] = app.command()(list_ids)
-    device_commands["bridge"] = app.command()(bridge)
     device_commands["set-ssh"] = app.command()(set_ssh)
     device_commands["set-name"] = app.command()(set_name)
     device_commands["update"] = app.command()(update)

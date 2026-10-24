@@ -20,7 +20,6 @@ from ..anonymize import (
     anonymize_prefixed_event_id,
 )
 from ..data import EventType, WSJSONPacketFrame, WSPacket
-from ..exceptions import BadRequest
 from ..utils import from_js_time, is_online, run_async, write_json
 
 if TYPE_CHECKING:
@@ -188,18 +187,16 @@ class SampleDataGenerator:
         self.constants["counts"] = {
             "camera": len(bootstrap["cameras"]),
             "user": len(bootstrap["users"]),
-            "group": len(bootstrap["groups"]),
             "liveview": len(bootstrap["liveviews"]),
             "viewer": len(bootstrap["viewers"]),
             "light": len(bootstrap.get("lights", [])),
-            "bridge": len(bootstrap.get("bridges", [])),
             "sensor": len(bootstrap.get("sensors", [])),
             "chime": len(bootstrap.get("chimes", [])),
         }
 
         self.log("Generating event data...")
-        motion_event, smart_detection = await self.generate_event_data()
-        await self.generate_device_data(motion_event, smart_detection)
+        motion_event = await self.generate_event_data()
+        await self.generate_device_data(motion_event)
         self.log("Recording websocket events...")
         await self.record_ws_events()
 
@@ -328,16 +325,13 @@ class SampleDataGenerator:
     async def write_image_file(self, name: str, raw: bytes | None) -> None:
         await self.write_binary_file(name, "png", raw)
 
-    async def generate_event_data(
-        self,
-    ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    async def generate_event_data(self) -> dict[str, Any] | None:
         data = await self.client.get_events_raw()
 
         self.constants["time"] = datetime.now(tz=UTC).isoformat()
         self.constants["event_count"] = len(data)
 
         motion_event: dict[str, Any] | None = None
-        smart_detection: dict[str, Any] | None = None
         for event_dict in reversed(data):
             if (
                 motion_event is None
@@ -348,37 +342,21 @@ class SampleDataGenerator:
             ):
                 motion_event = deepcopy(event_dict)
                 self.log(f"Using motion event: {motion_event['id']}...")
-            elif (
-                smart_detection is None
-                and event_dict["type"] == EventType.SMART_DETECT.value
-                and event_dict["camera"] is not None
-                and event_dict["end"] is not None
-            ):
-                smart_detection = deepcopy(event_dict)
-                self.log(f"Using smart detection event: {smart_detection['id']}...")
-
-            if motion_event is not None and smart_detection is not None:
                 break
 
         # anonymize data after pulling events
         data = await self.write_json_file("sample_raw_events", data)
 
-        return motion_event, smart_detection
+        return motion_event
 
-    async def generate_device_data(
-        self,
-        motion_event: dict[str, Any] | None,
-        smart_detection: dict[str, Any] | None,
-    ) -> None:
+    async def generate_device_data(self, motion_event: dict[str, Any] | None) -> None:
         await asyncio.gather(
             self.generate_camera_data(),
             self.generate_motion_data(motion_event),
-            self.generate_smart_detection_data(smart_detection),
             self.generate_light_data(),
             self.generate_viewport_data(),
             self.generate_sensor_data(),
             self.generate_chime_data(),
-            self.generate_bridge_data(),
             self.generate_liveview_data(),
         )
 
@@ -472,23 +450,6 @@ class SampleDataGenerator:
             await self.write_binary_file(filename, "mp4", video)
         self.constants["camera_video_length"] = length
 
-    async def generate_smart_detection_data(
-        self,
-        smart_detection: dict[str, Any] | None,
-    ) -> None:
-        if smart_detection is None:
-            self.log("No smart detection event, skipping smart detection data...")
-            return
-
-        try:
-            data = await self.client.get_event_smart_detect_track_raw(
-                smart_detection["id"],
-            )
-        except BadRequest:
-            self.log_warning("Event smart tracking missing")
-        else:
-            await self.write_json_file("sample_event_smart_track", data)
-
     async def generate_light_data(self) -> None:
         objs = await self.client.api_request_list("lights")
         device_id: str | None = None
@@ -548,21 +509,6 @@ class SampleDataGenerator:
 
         obj = await self.client.api_request_obj(f"chimes/{device_id}")
         await self.write_json_file("sample_chime", obj)
-
-    async def generate_bridge_data(self) -> None:
-        objs = await self.client.api_request_list("bridges")
-        device_id: str | None = None
-        for obj_dict in objs:
-            device_id = obj_dict["id"]
-            if is_online(obj_dict):
-                break
-
-        if device_id is None:
-            self.log("No bridge found. Skipping bridge endpoints...")
-            return
-
-        obj = await self.client.api_request_obj(f"bridges/{device_id}")
-        await self.write_json_file("sample_bridge", obj)
 
     async def generate_liveview_data(self) -> None:
         objs = await self.client.api_request_list("liveviews")
