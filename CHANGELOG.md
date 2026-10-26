@@ -1,5 +1,13 @@
 # Changelog
 
+## v25.0.0 (2026-10-26)
+
+### Features
+
+
+- Drop private camera setting and chime ring members ([`0425abe`](https://github.com/uilibs/uiprotect/commit/0425abec44c65d237aab795de088f82fea4823ca))
+
+
 ## v24.0.0 (2026-10-24)
 
 ### Features
