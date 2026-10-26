@@ -64,7 +64,6 @@ from uiprotect.data import (
     PublicLight,
     PublicSensor,
     PublicViewer,
-    RingSetting,
     RTSPSStreams,
     Sensor,
     Viewer,
@@ -612,14 +611,12 @@ def test_non_ssl_failure_still_exits_with_message() -> None:
 
 def _make_chime_ctx(
     *,
-    ring_settings: list[RingSetting] | None = None,
     camera_ids: list[str] | None = None,
     cameras_map: dict[str, MagicMock] | None = None,
 ):
     """Build a typer context double wired to mocked chime + client."""
     chime = MagicMock(spec=Chime)
     chime.id = "chime-1"
-    chime.ring_settings = ring_settings if ring_settings is not None else []
 
     protect = MagicMock(is_public_only=False)
     protect.update_chime_public = AsyncMock()
