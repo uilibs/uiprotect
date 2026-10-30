@@ -78,6 +78,15 @@ async def _drain(client: ProtectApiClient) -> None:
         await asyncio.gather(task, return_exceptions=True)
 
 
+def _seed(client: ProtectApiClient, **kwargs: Any) -> None:
+    """Cache a sensor already announced, as an ``update_public`` snapshot does."""
+    client._public_bootstrap.sensors[SENSOR_ID] = _sensor(client, **kwargs)
+
+
+def _adds(messages: list[WSSubscriptionMessage]) -> list[WSSubscriptionMessage]:
+    return [m for m in messages if m.action is WSAction.ADD]
+
+
 def _blocking_get(
     client: ProtectApiClient, result: PublicSensor
 ) -> tuple[asyncio.Event, AsyncMock]:
@@ -116,14 +125,14 @@ async def test_pairing_frame_sequence_from_console() -> None:
     assert client.get_sensor_public.await_count == 2
     assert sensor.supported_alarm_types == {SensorAlarmType.SMOKE, SensorAlarmType.CO}
     assert sensor.name == "Pairing"
-    assert _flag_frames(messages) == [
-        {"modelKey": "sensor", "id": SENSOR_ID, "featureFlags": SMOKE_FLAGS}
-    ]
+    assert _flag_frames(messages) == []
+    assert [m.action for m in messages] == [WSAction.UPDATE] * 7 + [WSAction.ADD]
     msg = messages[-1]
-    assert msg.action is WSAction.UPDATE
+    assert msg.changed_data == {"modelKey": "sensor", "id": SENSOR_ID}
     assert msg.new_update_id == SENSOR_ID
     assert msg.new_obj is sensor
     assert msg.old_obj is None
+    assert client._sensor_add_pending == set()
 
 
 @pytest.mark.asyncio()
@@ -139,7 +148,7 @@ async def test_fetch_retries_while_rest_lags() -> None:
             _sensor(client, state="CONNECTED", flags=SMOKE_FLAGS),
         ]
     )
-    _frame(client, "add", _payload(state="CONNECTING"))
+    _seed(client, state="CONNECTING")
 
     _update(client, state="CONNECTED")
     await _drain(client)
@@ -147,6 +156,9 @@ async def test_fetch_retries_while_rest_lags() -> None:
     assert client.get_sensor_public.await_count == 4
     assert client._public_bootstrap.sensors[SENSOR_ID].supported_alarm_types
     assert len(_flag_frames(messages)) == 1
+    assert messages[-1].action is WSAction.UPDATE
+    assert messages[-1].new_obj is client._public_bootstrap.sensors[SENSOR_ID]
+    assert messages[-1].old_obj is None
     assert client._sensor_fetch_failed == {}
 
 
@@ -351,7 +363,7 @@ async def test_fetch_skips_replaced_sensor(flags: dict[str, Any] | None) -> None
     client = _client()
     messages = _capture(client)
     release, _get = _blocking_get(client, _sensor(client, flags=SMOKE_FLAGS))
-    _frame(client, "add", _payload(state="DISCONNECTED"))
+    _seed(client, state="DISCONNECTED")
     _update(client, state="CONNECTED")
     await asyncio.sleep(0)
 
@@ -414,7 +426,7 @@ async def test_filtered_sensor_flags_merge_silently() -> None:
     client.get_sensor_public = AsyncMock(  # type: ignore[method-assign]
         return_value=_sensor(client, flags=SMOKE_FLAGS)
     )
-    _frame(client, "add", _payload(state="DISCONNECTED"))
+    _seed(client, state="DISCONNECTED")
     _update(client, state="CONNECTED")
     messages = _capture(client)
     client._devices_ws_subscribed_models = {ModelType.CAMERA}
@@ -441,9 +453,8 @@ async def test_fetch_for_unknown_sensor_merges_into_late_add() -> None:
 
     assert client._public_bootstrap.sensors[SENSOR_ID] is added
     assert added.supported_alarm_types
-    assert len(_flag_frames(messages)) == 1
-    assert messages[-1].action is WSAction.UPDATE
-    assert messages[-1].new_obj is added
+    assert _flag_frames(messages) == []
+    assert [m.new_obj for m in _adds(messages)] == [added]
 
 
 @pytest.mark.asyncio()
@@ -478,6 +489,417 @@ async def test_fetch_skips_replaced_bootstrap() -> None:
     await _drain(client)
 
     assert client._public_bootstrap.sensors == {}
+
+
+@pytest.mark.asyncio()
+async def test_add_with_flags_is_emitted_immediately() -> None:
+    """A sensor already carrying flags on ``add`` is announced at once."""
+    client = _client()
+    messages = _capture(client)
+
+    _frame(client, "add", _payload(state="DISCONNECTED", flags=SMOKE_FLAGS))
+
+    assert len(_adds(messages)) == 1
+    assert client._sensor_add_pending == set()
+
+
+@pytest.mark.asyncio()
+async def test_pending_sensor_is_cached_and_updates_are_emitted() -> None:
+    """A held sensor is in the cache and its ``update`` frames still go out."""
+    client = _client()
+    messages = _capture(client)
+
+    _frame(client, "add", _payload(state="DISCONNECTED"))
+    assert messages == []
+    assert SENSOR_ID in client._public_bootstrap.sensors
+    assert client._sensor_add_pending == {SENSOR_ID}
+
+    _update(client, name="Pairing")
+    assert [m.action for m in messages] == [WSAction.UPDATE]
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("flags", [None, {"smoke": None}])
+async def test_pending_sensor_with_empty_flags_is_added(flags: Any) -> None:
+    """A sensor REST never reports flags for is added once retries run out."""
+    client = _client()
+    messages = _capture(client)
+    client.get_sensor_public = AsyncMock(  # type: ignore[method-assign]
+        return_value=_sensor(client, flags=flags)
+    )
+    _frame(client, "add", _payload(state="DISCONNECTED"))
+
+    _update(client, state="CONNECTED")
+    await _drain(client)
+
+    assert client.get_sensor_public.await_count == 4
+    assert [m.new_obj for m in _adds(messages)] == [
+        client._public_bootstrap.sensors[SENSOR_ID]
+    ]
+    assert _flag_frames(messages) == []
+    assert client._sensor_add_pending == set()
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize(
+    "error", [NvrError("boom"), BadRequest("404")], ids=["nvr-error", "not-found"]
+)
+async def test_failed_fetch_while_connected_emits_add(error: Exception) -> None:
+    """A fetch failing for a CONNECTED pending sensor still announces it, once."""
+    client = _client()
+    messages = _capture(client)
+    client.get_sensor_public = AsyncMock(  # type: ignore[method-assign]
+        side_effect=error
+    )
+    _frame(client, "add", _payload(state="CONNECTED"))
+    assert _adds(messages) == []
+
+    await _drain(client)
+
+    assert len(_adds(messages)) == 1
+    assert client._sensor_add_pending == set()
+
+
+@pytest.mark.asyncio()
+async def test_add_after_failed_fetch_in_same_state_is_not_held() -> None:
+    """With no fetch left to wait for, a CONNECTED ``add`` goes out at once."""
+    client = _client()
+    messages = _capture(client)
+    client._sensor_fetch_failed[SENSOR_ID] = "CONNECTED"
+
+    _frame(client, "add", _payload(state="CONNECTED"))
+
+    assert len(_adds(messages)) == 1
+    assert client._sensor_add_pending == set()
+
+
+@pytest.mark.asyncio()
+async def test_failed_fetch_before_connected_keeps_sensor_pending() -> None:
+    """A late ``add`` whose fetch fails before CONNECTED stays unannounced."""
+    client = _client()
+    messages = _capture(client)
+    client.get_sensor_public = AsyncMock(  # type: ignore[method-assign]
+        side_effect=BadRequest("404")
+    )
+    _update(client, state="CONNECTING")
+    _frame(client, "add", _payload(state="CONNECTING"))
+
+    await _drain(client)
+
+    assert _adds(messages) == []
+    assert client._sensor_add_pending == {SENSOR_ID}
+
+
+@pytest.mark.asyncio()
+async def test_flagless_fetch_before_connected_keeps_sensor_pending() -> None:
+    """A fetch without flags for a sensor not yet CONNECTED does not announce it."""
+    client = _client()
+    messages = _capture(client)
+    client.get_sensor_public = AsyncMock(  # type: ignore[method-assign]
+        return_value=_sensor(client, state="CONNECTING")
+    )
+    _update(client, state="CONNECTING")
+    _frame(client, "add", _payload(state="CONNECTING"))
+
+    await _drain(client)
+
+    assert _adds(messages) == []
+    assert client._sensor_add_pending == {SENSOR_ID}
+
+
+@pytest.mark.asyncio()
+async def test_never_connecting_sensor_is_never_announced() -> None:
+    """An unadopted sensor flapping below CONNECTED is not fetched or announced."""
+    client = _client()
+    messages = _capture(client)
+    client.get_sensor_public = AsyncMock()  # type: ignore[method-assign]
+
+    _frame(client, "add", _payload(state="DISCONNECTED"))
+    _update(client, state="CONNECTING")
+    _update(client, state="DISCONNECTED")
+
+    client.get_sensor_public.assert_not_called()
+    assert _adds(messages) == []
+    assert client._sensor_add_pending == {SENSOR_ID}
+
+
+@pytest.mark.asyncio()
+async def test_leaving_connected_mid_fetch_keeps_add_held() -> None:
+    """A fetch cancelled by a state change defers the ``add`` to the next CONNECTED."""
+    client = _client()
+    messages = _capture(client)
+    release, _get = _blocking_get(client, _sensor(client, flags=SMOKE_FLAGS))
+    _frame(client, "add", _payload(state="CONNECTED"))
+    await asyncio.sleep(0)
+
+    _update(client, state="DISCONNECTED")
+    assert _adds(messages) == []
+
+    _update(client, state="CONNECTED")
+    release.set()
+    await _drain(client)
+    assert len(_adds(messages)) == 1
+
+
+@pytest.mark.asyncio()
+async def test_remove_while_pending_is_not_emitted() -> None:
+    """A ``remove`` for a held sensor clears it and stays silent."""
+    client = _client()
+    messages = _capture(client)
+    _release, _get = _blocking_get(client, _sensor(client))
+    _frame(client, "add", _payload(state="CONNECTED"))
+    task, _state = client._sensor_fetch_tasks[SENSOR_ID]
+
+    _frame(client, "remove", {"id": SENSOR_ID, "modelKey": "sensor"})
+    await asyncio.gather(task, return_exceptions=True)
+
+    assert messages == []
+    assert client._sensor_add_pending == set()
+    assert SENSOR_ID not in client._public_bootstrap.sensors
+
+
+@pytest.mark.asyncio()
+async def test_remove_of_announced_sensor_is_emitted() -> None:
+    """A ``remove`` for a sensor subscribers know about still goes out."""
+    client = _client()
+    _frame(client, "add", _payload(state="DISCONNECTED", flags=SMOKE_FLAGS))
+    messages = _capture(client)
+
+    _frame(client, "remove", {"id": SENSOR_ID, "modelKey": "sensor"})
+
+    assert [m.action for m in messages] == [WSAction.REMOVE]
+
+
+@pytest.mark.asyncio()
+async def test_repeated_add_while_pending_stays_held() -> None:
+    """A repeated ``add``, even one that cannot be parsed, keeps the sensor held."""
+    client = _client()
+    messages = _capture(client)
+    release, _get = _blocking_get(client, _sensor(client, flags=SMOKE_FLAGS))
+    _frame(client, "add", _payload(state="CONNECTED"))
+    await asyncio.sleep(0)
+
+    _frame(client, "add", _payload(state="CONNECTED"))
+    _frame(client, "add", {"id": SENSOR_ID, "modelKey": "sensor", "mac": None})
+    assert messages == []
+
+    current = client._public_bootstrap.sensors[SENSOR_ID]
+    release.set()
+    await _drain(client)
+
+    assert [m.new_obj for m in _adds(messages)] == [current]
+    assert current.supported_alarm_types
+
+
+@pytest.mark.asyncio()
+async def test_repeated_add_with_flags_releases_pending_sensor() -> None:
+    """A repeated ``add`` that carries flags is the sensor's one announcement."""
+    client = _client()
+    messages = _capture(client)
+    _frame(client, "add", _payload(state="DISCONNECTED"))
+
+    _frame(client, "add", _payload(state="DISCONNECTED", flags=SMOKE_FLAGS))
+
+    assert len(_adds(messages)) == 1
+    assert client._sensor_add_pending == set()
+
+
+@pytest.mark.asyncio()
+async def test_add_for_announced_sensor_without_flags_is_emitted() -> None:
+    """Only a newly appearing sensor is held."""
+    client = _client()
+    _seed(client, state="DISCONNECTED")
+    messages = _capture(client)
+
+    _frame(client, "add", _payload(state="DISCONNECTED"))
+
+    assert len(_adds(messages)) == 1
+    assert client._sensor_add_pending == set()
+
+
+@pytest.mark.asyncio()
+async def test_filtered_pending_sensor_is_dropped_silently() -> None:
+    """A filter set while a sensor is held suppresses its ``add``."""
+    client = _client()
+    client.get_sensor_public = AsyncMock(  # type: ignore[method-assign]
+        return_value=_sensor(client, flags=SMOKE_FLAGS)
+    )
+    _frame(client, "add", _payload(state="CONNECTED"))
+    messages = _capture(client)
+    client._devices_ws_subscribed_models = {ModelType.CAMERA}
+
+    await _drain(client)
+
+    assert messages == []
+    assert client._sensor_add_pending == set()
+
+
+@pytest.mark.asyncio()
+async def test_snapshot_replacing_instance_mid_fetch_still_announces() -> None:
+    """A pending sensor replaced mid-fetch is announced on the current instance."""
+    client = _client()
+    messages = _capture(client)
+    release, _get = _blocking_get(client, _sensor(client, flags=SMOKE_FLAGS))
+    _frame(client, "add", _payload(state="CONNECTED"))
+    await asyncio.sleep(0)
+
+    replacement = _sensor(client)
+    client._public_bootstrap.sensors[SENSOR_ID] = replacement
+    release.set()
+    await _drain(client)
+
+    assert [m.new_obj for m in _adds(messages)] == [replacement]
+    assert replacement.supported_alarm_types
+
+
+def _mock_resync(client: ProtectApiClient, sensors: list[PublicSensor]) -> None:
+    client.get_sensors_public = AsyncMock(  # type: ignore[method-assign]
+        return_value=sensors
+    )
+    for getter in (
+        "get_nvr_public",
+        "get_cameras_public",
+        "get_chimes_public",
+        "get_lights_public",
+        "get_sirens_public",
+        "get_relays_public",
+        "get_fobs_public",
+        "get_speakers_public",
+        "get_link_stations_public",
+        "_fetch_liveviews",
+        "get_bridges_public",
+        "get_viewers_public",
+        "get_ulp_users_public",
+        "_fetch_arm_profiles",
+    ):
+        setattr(client, getter, AsyncMock(side_effect=BadRequest("unavailable")))
+
+
+@pytest.mark.asyncio()
+async def test_resync_keeps_disconnected_pending_sensor_held() -> None:
+    """A resync seeing a pending sensor still offline emits nothing for it."""
+    client = _client()
+    messages = _capture(client)
+    _frame(client, "add", _payload(state="DISCONNECTED"))
+    _mock_resync(client, [_sensor(client, state="DISCONNECTED")])
+
+    await client.update_public()
+
+    assert messages == []
+    assert client._sensor_add_pending == {SENSOR_ID}
+
+
+@pytest.mark.asyncio()
+async def test_resync_with_flags_announces_pending_sensor_once() -> None:
+    """A snapshot completing a pending sensor yields exactly one ``add``."""
+    client = _client()
+    messages = _capture(client)
+    _frame(client, "add", _payload(state="DISCONNECTED"))
+    _mock_resync(client, [_sensor(client, state="CONNECTED", flags=SMOKE_FLAGS)])
+
+    await client.update_public()
+    await client.update_public()
+
+    assert [m.new_obj for m in _adds(messages)] == [
+        client._public_bootstrap.sensors[SENSOR_ID]
+    ]
+    assert client._sensor_add_pending == set()
+
+
+@pytest.mark.asyncio()
+async def test_resync_fetches_pending_sensor_that_connected_in_gap() -> None:
+    """A CONNECTED frame lost to the gap still gets the pending sensor announced."""
+    client = _client()
+    messages = _capture(client)
+    _frame(client, "add", _payload(state="DISCONNECTED"))
+    _mock_resync(client, [_sensor(client, state="CONNECTED")])
+    client.get_sensor_public = AsyncMock(  # type: ignore[method-assign]
+        return_value=_sensor(client, flags=SMOKE_FLAGS)
+    )
+
+    await client.update_public()
+    await _drain(client)
+
+    sensor = client._public_bootstrap.sensors[SENSOR_ID]
+    assert [m.new_obj for m in _adds(messages)] == [sensor]
+    assert sensor.supported_alarm_types
+
+
+@pytest.mark.asyncio()
+async def test_resync_dropping_pending_sensor_emits_no_remove() -> None:
+    """A pending sensor gone from the snapshot is forgotten without a ``remove``."""
+    client = _client()
+    messages = _capture(client)
+    _frame(client, "add", _payload(state="DISCONNECTED"))
+    _mock_resync(client, [])
+
+    await client.update_public()
+
+    assert messages == []
+    assert client._sensor_add_pending == set()
+
+
+@pytest.mark.asyncio()
+async def test_add_replayed_after_resync_is_held_once() -> None:
+    """An ``add`` buffered during a resync is held, not repeated by the fetch diff."""
+    client = _client()
+    messages = _capture(client)
+    _mock_resync(client, [])
+    release = asyncio.Event()
+
+    async def _sensors() -> list[PublicSensor]:
+        await release.wait()
+        return []
+
+    client.get_sensors_public = AsyncMock(  # type: ignore[method-assign]
+        side_effect=_sensors
+    )
+    resync = asyncio.create_task(client.update_public())
+    await asyncio.sleep(0)
+    _frame(client, "add", _payload(state="DISCONNECTED"))
+    release.set()
+    await resync
+
+    assert messages == []
+    assert client._sensor_add_pending == {SENSOR_ID}
+
+
+@pytest.mark.asyncio()
+async def test_missed_add_fetch_clears_pending_sensor() -> None:
+    """A fetch re-adding a held sensor dropped mid-fetch announces it only once."""
+    client = _client()
+    messages = _capture(client)
+    release, _get = _blocking_get(client, _sensor(client, flags=SMOKE_FLAGS))
+    _update(client, state="CONNECTED")
+    await asyncio.sleep(0)
+    _frame(client, "add", _payload(state="CONNECTED"))
+    del client._public_bootstrap.sensors[SENSOR_ID]
+
+    release.set()
+    await _drain(client)
+
+    assert len(_adds(messages)) == 1
+    assert client._sensor_add_pending == set()
+
+
+@pytest.mark.asyncio()
+async def test_resync_seeing_pending_sensor_offline_cancels_fetch() -> None:
+    """A snapshot moving a held sensor off CONNECTED ends the fetch and its state."""
+    client = _client()
+    messages = _capture(client)
+    _release, _get = _blocking_get(client, _sensor(client))
+    _frame(client, "add", _payload(state="CONNECTED"))
+    task, _state = client._sensor_fetch_tasks[SENSOR_ID]
+    await asyncio.sleep(0)
+    _mock_resync(client, [_sensor(client, state="DISCONNECTED")])
+
+    await client.update_public()
+    await asyncio.gather(task, return_exceptions=True)
+
+    assert task.cancelled()
+    assert client._sensor_fetch_tasks == {}
+    assert _adds(messages) == []
+    assert client._sensor_add_pending == {SENSOR_ID}
 
 
 def test_fetch_needs_running_loop() -> None:
