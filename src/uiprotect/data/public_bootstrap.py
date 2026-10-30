@@ -201,8 +201,8 @@ class PublicBootstrap:
     fobs: dict[str, Fob] = field(default_factory=dict)
     speakers: dict[str, Speaker] = field(default_factory=dict)
     # Link stations *and* alarm hubs share one schema (``modelKey: "linkstation"``),
-    # so a single store catches WS frames for both. Use :attr:`alarm_hubs` for the
-    # filtered view.
+    # so a single store catches WS frames for both and ``update_public`` merges
+    # both REST lists into it. Use :attr:`alarm_hubs` for the filtered view.
     link_stations: dict[str, LinkStation] = field(default_factory=dict)
     # ``liveviews``, ``bridges`` and ``viewers`` are deliberately kept out of
     # :data:`_DEVICE_STORES`: ``LIVEVIEW`` / ``VIEWPORT`` are already owned by

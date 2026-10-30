@@ -278,6 +278,17 @@ def _log_or_raise(
         raise exc
 
 
+def _merge_link_station_results(results: list[Any]) -> list[Any] | None:
+    """Merge classified fetches by id; ``None`` keeps the cached store."""
+    # A partial list would read as removals of the devices it left out.
+    if any(isinstance(result, NvrError) for result in results):
+        return None
+    fetched = [result for result in results if not isinstance(result, BaseException)]
+    if not fetched:
+        return None
+    return list({obj.id: obj for objs in fetched for obj in objs}.values())
+
+
 def _sensor_flags_wire(sensor: PublicSensor) -> dict[str, Any]:
     """Return a sensor's ``featureFlags`` with only the present keys, as REST sends."""
     return {k: v for k, v in sensor.feature_flags.unifi_dict().items() if v is not None}
@@ -5271,7 +5282,10 @@ class ProtectApiClient(BaseApiClient):
             (self.get_relays_public(), "relays", "relays"),
             (self.get_fobs_public(), "fobs", "fobs"),
             (self.get_speakers_public(), "speakers", "speakers"),
+            # Protect 7.3.70 lists adopted alarm hubs only under ``/v1/alarm-hubs``;
+            # both feed the shared store and are merged in the batch phase below.
             (self.get_link_stations_public(), "link-stations", "link_stations"),
+            (self.get_alarm_hubs_public(), "alarm-hubs", "link_stations"),
             (self._fetch_liveviews(), "liveviews", "liveviews"),
             (self.get_bridges_public(), "bridges", "bridges"),
             (self.get_viewers_public(), "viewers", "viewers"),
@@ -5377,7 +5391,11 @@ class ProtectApiClient(BaseApiClient):
         """Apply the classified ``update_public`` fetch results to ``pb``."""
         diffs: list[FetchDiff] = []
         store_changes: list[PublicStoreChange] = []
+        link_station_results: list[Any] = []
         for (_, _label, attr), result in zip(endpoints, results, strict=True):
+            if attr == "link_stations":
+                link_station_results.append(result)
+                continue
             if isinstance(result, BaseException):
                 continue
             if attr in ("arm_profiles", "liveviews", "ulp_users"):
@@ -5397,6 +5415,9 @@ class ProtectApiClient(BaseApiClient):
                 pb.nvr = result
             else:
                 diffs.append(pb.apply_fetch_result(attr, result))
+        merged = _merge_link_station_results(link_station_results)
+        if merged is not None:
+            diffs.append(pb.apply_fetch_result("link_stations", merged))
         return diffs, store_changes
 
     def _apply_public_store(
