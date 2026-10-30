@@ -3301,6 +3301,7 @@ class ProtectApiClient(BaseApiClient):
             # being applied may not know.
             if cached is None and self._prime_ws_buffer is None:
                 pb.sensors[sensor_id] = sensor
+                self._sensor_add_pending.discard(sensor_id)
                 self._emit_public_membership_frame(pb, WSAction.ADD, sensor, set())
             return
         is_pending = sensor_id in self._sensor_add_pending
@@ -3356,9 +3357,14 @@ class ProtectApiClient(BaseApiClient):
                 seen.add((ModelType.SENSOR, sensor_id))
             elif sensor._has_feature_flags():
                 self._announce_pending_sensor(pb, sensor)
-            elif sensor.state is DeviceState.CONNECTED:
-                # The CONNECTED frame may be lost to the gap, or the fetch cancelled.
-                self._sync_sensor_fetch(pb, sensor_id, sensor.state, fetch=True)
+            else:
+                # The state change may be lost to the gap, or the fetch cancelled.
+                self._sync_sensor_fetch(
+                    pb,
+                    sensor_id,
+                    sensor.state,
+                    fetch=sensor.state is DeviceState.CONNECTED,
+                )
 
     def _cancel_sensor_fetch(self, sensor_id: str) -> None:
         """Cancel a pending background fetch for a sensor and forget its failure."""

@@ -864,6 +864,44 @@ async def test_add_replayed_after_resync_is_held_once() -> None:
     assert client._sensor_add_pending == {SENSOR_ID}
 
 
+@pytest.mark.asyncio()
+async def test_missed_add_fetch_clears_pending_sensor() -> None:
+    """A fetch re-adding a held sensor dropped mid-fetch announces it only once."""
+    client = _client()
+    messages = _capture(client)
+    release, _get = _blocking_get(client, _sensor(client, flags=SMOKE_FLAGS))
+    _update(client, state="CONNECTED")
+    await asyncio.sleep(0)
+    _frame(client, "add", _payload(state="CONNECTED"))
+    del client._public_bootstrap.sensors[SENSOR_ID]
+
+    release.set()
+    await _drain(client)
+
+    assert len(_adds(messages)) == 1
+    assert client._sensor_add_pending == set()
+
+
+@pytest.mark.asyncio()
+async def test_resync_seeing_pending_sensor_offline_cancels_fetch() -> None:
+    """A snapshot moving a held sensor off CONNECTED ends the fetch and its state."""
+    client = _client()
+    messages = _capture(client)
+    _release, _get = _blocking_get(client, _sensor(client))
+    _frame(client, "add", _payload(state="CONNECTED"))
+    task, _state = client._sensor_fetch_tasks[SENSOR_ID]
+    await asyncio.sleep(0)
+    _mock_resync(client, [_sensor(client, state="DISCONNECTED")])
+
+    await client.update_public()
+    await asyncio.gather(task, return_exceptions=True)
+
+    assert task.cancelled()
+    assert client._sensor_fetch_tasks == {}
+    assert _adds(messages) == []
+    assert client._sensor_add_pending == {SENSOR_ID}
+
+
 def test_fetch_needs_running_loop() -> None:
     """Without a running event loop no fetch is scheduled."""
     client = _client()
