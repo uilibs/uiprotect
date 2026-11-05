@@ -826,6 +826,15 @@ class PublicBootstrap:
                     err,
                 )
                 return None, old
+            if (
+                model_type is ModelType.SENSOR
+                and old is not None
+                and item.get("featureFlags") is None
+            ):
+                # Public frames carry no ``featureFlags``; keep the cached ones.
+                cast("PublicSensor", new).feature_flags = cast(
+                    "PublicSensor", old
+                ).feature_flags
             slot.put(obj_id, new)
             return new, old
 

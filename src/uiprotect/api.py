@@ -555,6 +555,8 @@ class BaseApiClient:
         self._sensor_fetch_tasks: dict[str, tuple[asyncio.Task[None], str | None]] = {}
         # Failed fetches by sensor id and ``state``: no refetch until it changes.
         self._sensor_fetch_failed: dict[str, str | None] = {}
+        # Cached sensors whose devices-WS ``add`` is held until they are complete.
+        self._sensor_add_pending: set[str] = set()
         # Proactive per-API-key pacer for the public path. Per-instance so
         # several consoles in one process never share a budget.
         self._public_rate_limiter = PublicApiRateLimiter()
@@ -2112,6 +2114,8 @@ class ProtectApiClient(BaseApiClient):
                     )
                 for result in results:
                     self._note_membership_frame(action_type, result)
+                    if self._hold_sensor_frame(action_type, result):
+                        continue
                     self.emit_devices_message(
                         WSSubscriptionMessage(
                             action=WSAction(action_type),
@@ -2183,6 +2187,35 @@ class ProtectApiClient(BaseApiClient):
             action_type == "add" and result.new_obj is not None
         ):
             seen.add((result.model_type, str(result.item.get("id", ""))))
+
+    def _hold_sensor_frame(self, action_type: str, result: DeviceWSResult) -> bool:
+        """Return whether a sensor frame is withheld by the deferred ``add``."""
+        if result.model_type is not ModelType.SENSOR:
+            return False
+        sensor_id = str(result.item.get("id", ""))
+        if action_type == "remove":
+            was_pending = sensor_id in self._sensor_add_pending
+            self._sensor_add_pending.discard(sensor_id)
+            return was_pending
+        return action_type == "add" and self._hold_sensor_add(sensor_id, result)
+
+    def _hold_sensor_add(self, sensor_id: str, result: DeviceWSResult) -> bool:
+        """Mark a sensor added without feature flags pending; return if it is held."""
+        pending = self._sensor_add_pending
+        sensor = cast("PublicSensor | None", result.new_obj)
+        if sensor is None:
+            return sensor_id in pending
+        # CONNECTED without a fetch to wait for: nothing will complete it.
+        if sensor._has_feature_flags() or (
+            sensor.state is DeviceState.CONNECTED
+            and sensor_id not in self._sensor_fetch_tasks
+        ):
+            pending.discard(sensor_id)
+            return False
+        if sensor_id in pending or result.old_obj is None:
+            pending.add(sensor_id)
+            return True
+        return False
 
     async def _get_event_paginate(  # noqa: PLR0912
         self,
@@ -2589,6 +2622,7 @@ class ProtectApiClient(BaseApiClient):
         is announced too: every successful ``update_public()`` past the first
         prime (including the reconnect resync) delivers one ``ADDED`` per
         device new to the cache and one ``REMOVED`` per device that left it.
+        A new sensor without feature flags is announced once it is complete.
         See :meth:`update_public` for the exact guarantee.
 
         The callback must not raise: an exception is caught and logged but
@@ -3244,11 +3278,31 @@ class ProtectApiClient(BaseApiClient):
             self._sensor_fetch_failed[sensor_id] = state
         else:
             if pb is self._public_bootstrap:
-                self._apply_fetched_sensor(pb, sensor_id, cached, sensor)
+                self._apply_fetched_sensor(pb, sensor_id, cached, sensor, state)
         finally:
             pending = self._sensor_fetch_tasks.get(sensor_id)
             if pending is not None and pending[0] is asyncio.current_task():
                 del self._sensor_fetch_tasks[sensor_id]
+        if pb is self._public_bootstrap:
+            self._release_pending_sensor(pb, sensor_id, state)
+
+    def _release_pending_sensor(
+        self, pb: PublicBootstrap, sensor_id: str, state: str | None = None
+    ) -> None:
+        """
+        Announce a held sensor that is CONNECTED or flagged.
+
+        ``state`` is the wire state a finished fetch ran for. It counts even
+        when a lagging snapshot has since replaced the cached state.
+        """
+        sensor = pb.sensors.get(sensor_id)
+        if sensor_id not in self._sensor_add_pending or sensor is None:
+            return
+        if state == DeviceState.CONNECTED:
+            # Undo a lagging snapshot's state before announcing.
+            sensor.state = DeviceState.CONNECTED
+        if sensor.state is DeviceState.CONNECTED or sensor._has_feature_flags():
+            self._announce_pending_sensor(pb, sensor)
 
     async def _get_sensor_public_retrying(
         self, sensor_id: str, *, retry: bool
@@ -3267,6 +3321,7 @@ class ProtectApiClient(BaseApiClient):
         sensor_id: str,
         cached: PublicSensor | None,
         sensor: PublicSensor,
+        state: str | None,
     ) -> None:
         """Write a fetched sensor back to the cache and announce the change."""
         current = pb.sensors.get(sensor_id)
@@ -3274,17 +3329,25 @@ class ProtectApiClient(BaseApiClient):
             # Don't resurrect a sensor removed mid-fetch, or add one a snapshot
             # being applied may not know.
             if cached is None and self._prime_ws_buffer is None:
+                # The fetch would have been cancelled had the wire state
+                # changed, so the wire state is newer than REST's.
+                if state is not None:
+                    sensor.state = DeviceState(state)
+                # Held like a wire ``add``: announced once it is complete.
                 pb.sensors[sensor_id] = sensor
-                self._emit_public_membership_frame(pb, WSAction.ADD, sensor, set())
+                self._sensor_add_pending.add(sensor_id)
             return
-        if cached is not None and current is not cached:
+        is_pending = sensor_id in self._sensor_add_pending
+        # A pending sensor still takes the flags when a frame or snapshot
+        # replaced the instance mid-fetch, unless the replacement has its own.
+        if current is not cached and (not is_pending or current._has_feature_flags()):
             return
         flags = _sensor_flags_wire(sensor)
         if not flags or flags == _sensor_flags_wire(current):
             return
         # Only the flags: frames applied mid-fetch are newer than the response.
         current.feature_flags = sensor.feature_flags
-        if not self._devices_ws_filtered_out(ModelType.SENSOR):
+        if not is_pending and not self._devices_ws_filtered_out(ModelType.SENSOR):
             self.emit_devices_message(self._build_sensor_flags_update(current, flags))
 
     @staticmethod
@@ -3303,6 +3366,41 @@ class ProtectApiClient(BaseApiClient):
             new_obj=sensor,
             old_obj=None,
         )
+
+    def _announce_pending_sensor(
+        self, pb: PublicBootstrap, sensor: PublicSensor
+    ) -> None:
+        """Emit the held ``add`` for a pending sensor."""
+        self._sensor_add_pending.discard(sensor.id)
+        # Not the resync's ``seen``: it records the withheld wire ``add``.
+        self._emit_public_membership_frame(pb, WSAction.ADD, sensor, set())
+
+    def _settle_pending_sensors(
+        self, pb: PublicBootstrap, seen: set[tuple[ModelType, str]]
+    ) -> None:
+        """Resolve pending sensors against a snapshot the websocket may have missed."""
+        for sensor_id in list(self._sensor_add_pending):
+            sensor = pb.sensors.get(sensor_id)
+            if sensor is None:
+                # Never announced, so its removal must not be either.
+                self._sensor_add_pending.discard(sensor_id)
+                seen.add((ModelType.SENSOR, sensor_id))
+            elif sensor._has_feature_flags():
+                self._announce_pending_sensor(pb, sensor)
+            elif (fetch := self._sensor_fetch_tasks.get(sensor_id)) is not None and (
+                fetch[1] == DeviceState.CONNECTED
+            ):
+                # REST lags the wire: the CONNECTED fetch outranks the snapshot's
+                # state and releases the sensor when it finishes.
+                continue
+            else:
+                # The state change may be lost to the gap, or the fetch cancelled.
+                self._sync_sensor_fetch(
+                    pb,
+                    sensor_id,
+                    sensor.state,
+                    fetch=sensor.state is DeviceState.CONNECTED,
+                )
 
     def _cancel_sensor_fetch(self, sensor_id: str) -> None:
         """Cancel a pending background fetch for a sensor and forget its failure."""
@@ -4282,6 +4380,10 @@ class ProtectApiClient(BaseApiClient):
         )
         sensor = PublicSensor.from_unifi_dict(**result, api=self)
         self._write_through_public_twin(sensor)
+        pb = self._public_bootstrap
+        # A running fetch releases the sensor itself once it has the flags.
+        if pb is not None and sensor_id not in self._sensor_fetch_tasks:
+            self._release_pending_sensor(pb, sensor_id)
         return sensor
 
     @staticmethod
@@ -5096,7 +5198,11 @@ class ProtectApiClient(BaseApiClient):
         nothing (every device would look added), a change a live WS frame
         already announced during the prime is not repeated, and models
         excluded by the devices-WS ``subscribed_models`` filter are skipped.
-        A call that raises announces nothing, and devices whose endpoint was
+        A sensor added over the websocket without feature flags is held: its
+        ``add`` goes out once a fetch or snapshot completes it, or once it is
+        ``CONNECTED`` with no flags to report. One that never connects and
+        never gets flags is not announced, and neither is its removal. A call
+        that raises announces nothing, and devices whose endpoint was
         tolerated as missing keep their previous data, so they have no
         difference to announce. Liveviews, arm profiles and ULP users get no synthetic
         frames; their changes go to :meth:`subscribe_public_store_changes`.
@@ -5394,6 +5500,7 @@ class ProtectApiClient(BaseApiClient):
             self._emit_public_store_change(change)
         await self._prime_rtsps_streams(pb)
         if was_primed:
+            self._settle_pending_sensors(pb, seen)
             self._emit_public_fetch_diffs(pb, diffs, seen)
 
     def _apply_public_fetch_results(
