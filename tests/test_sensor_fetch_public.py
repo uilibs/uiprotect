@@ -797,6 +797,83 @@ async def test_snapshot_replacing_instance_mid_fetch_still_announces() -> None:
     assert replacement.supported_alarm_types
 
 
+@pytest.mark.asyncio()
+async def test_fetch_keeps_flags_of_replacement() -> None:
+    """A replacement carrying its own flags is announced with them, not the fetch's."""
+    client = _client()
+    messages = _capture(client)
+    release, _get = _blocking_get(client, _sensor(client, flags=SMOKE_FLAGS))
+    _frame(client, "add", _payload(state="CONNECTED"))
+    await asyncio.sleep(0)
+
+    replacement = _sensor(client, flags={"motion": {"channelCount": 1}})
+    client._public_bootstrap.sensors[SENSOR_ID] = replacement
+    release.set()
+    await _drain(client)
+
+    assert [m.new_obj for m in _adds(messages)] == [replacement]
+    assert (
+        replacement.supported_alarm_types
+        == _sensor(client, flags={"motion": {"channelCount": 1}}).supported_alarm_types
+    )
+
+
+@pytest.mark.asyncio()
+async def test_unknown_sensor_connected_on_wire_is_announced_despite_rest_lag() -> None:
+    """A CONNECTED frame wins over a REST state that still lags behind."""
+    client = _client()
+    messages = _capture(client)
+    client.get_sensor_public = AsyncMock(  # type: ignore[method-assign]
+        return_value=_sensor(client, state="CONNECTING")
+    )
+
+    _update(client, state="CONNECTED")
+    await _drain(client)
+
+    sensor = client._public_bootstrap.sensors[SENSOR_ID]
+    assert sensor.state == "CONNECTED"
+    assert [m.new_obj for m in _adds(messages)] == [sensor]
+    assert client._sensor_add_pending == set()
+
+
+@pytest.mark.asyncio()
+async def test_patch_response_releases_pending_sensor() -> None:
+    """A PATCH write-through completing a held sensor announces it."""
+    client = _client()
+    messages = _capture(client)
+    _frame(client, "add", _payload(state="DISCONNECTED"))
+    client.api_request_obj = AsyncMock(  # type: ignore[method-assign]
+        return_value=_payload(state="CONNECTED", flags=SMOKE_FLAGS)
+    )
+
+    await client.update_sensor_public(SENSOR_ID, name="Hall")
+
+    sensor = client._public_bootstrap.sensors[SENSOR_ID]
+    assert [m.new_obj for m in _adds(messages)] == [sensor]
+    assert client._sensor_add_pending == set()
+
+
+@pytest.mark.asyncio()
+async def test_patch_response_leaves_release_to_running_fetch() -> None:
+    """While a fetch runs, the PATCH does not announce; the fetch does, once."""
+    client = _client()
+    messages = _capture(client)
+    release, _get = _blocking_get(client, _sensor(client, flags=SMOKE_FLAGS))
+    _frame(client, "add", _payload(state="CONNECTED"))
+    await asyncio.sleep(0)
+    client.api_request_obj = AsyncMock(  # type: ignore[method-assign]
+        return_value=_payload(state="CONNECTED")
+    )
+
+    await client.update_sensor_public(SENSOR_ID, name="Hall")
+
+    assert _adds(messages) == []
+    release.set()
+    await _drain(client)
+    assert len(_adds(messages)) == 1
+    assert client._public_bootstrap.sensors[SENSOR_ID].supported_alarm_types
+
+
 def _mock_resync(client: ProtectApiClient, sensors: list[PublicSensor]) -> None:
     _mock_update_public_endpoints(
         client, get_sensors_public=AsyncMock(return_value=sensors)

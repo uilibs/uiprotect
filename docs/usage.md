@@ -250,8 +250,8 @@ it is complete, because public frames never carry `featureFlags`. The sensor is
 cached on its first frame, but its `add` is held until the background REST fetch has filled in the flags, so
 `supports()` is accurate when a consumer sees the `add`. A sensor with no flags
 to report (e.g. UP Air Quality), or whose fetch fails while it is `CONNECTED`, is
-announced anyway. One that never connects is never announced, and its `remove`
-is not emitted either. `update` frames for a held sensor are emitted as usual.
+announced anyway. One that never connects and never gets flags is never
+announced, and its `remove` is not emitted either. `update` frames for a held sensor are emitted as usual.
 Sensors first seen through `update_public()` are not held.
 
 The reconnect resync runs in the background, so `CONNECTED` reaches
