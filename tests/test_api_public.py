@@ -5519,6 +5519,33 @@ async def test_update_public_resync_emits_no_link_station_churn(
 
 
 @pytest.mark.asyncio()
+async def test_update_public_announces_hub_new_to_alarm_hubs(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A hub that only ``/v1/alarm-hubs`` starts listing is added and announced."""
+    client = protect_client
+    client._public_bootstrap = None
+    station, hub = _link_station_pair(client)
+    _mock_update_public_endpoints(
+        client,
+        get_link_stations_public=AsyncMock(return_value=[station]),
+        get_alarm_hubs_public=AsyncMock(return_value=[]),
+    )
+    await client.update_public()
+    captured: list[WSSubscriptionMessage] = []
+    client.subscribe_devices_websocket(captured.append)
+    client.get_alarm_hubs_public = AsyncMock(return_value=[hub])  # type: ignore[method-assign]
+
+    pb = await client.update_public()
+
+    assert set(pb.link_stations) == {LINK_STATION_ID, ALARM_HUB_ID}
+    assert set(pb.alarm_hubs) == {ALARM_HUB_ID}
+    assert [(m.action, m.new_update_id) for m in captured] == [
+        (WSAction.ADD, ALARM_HUB_ID)
+    ]
+
+
+@pytest.mark.asyncio()
 async def test_update_public_removes_hub_gone_from_alarm_hubs(
     protect_client: ProtectApiClient,
 ) -> None:
