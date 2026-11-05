@@ -3263,15 +3263,26 @@ class ProtectApiClient(BaseApiClient):
             if pending is not None and pending[0] is asyncio.current_task():
                 del self._sensor_fetch_tasks[sensor_id]
         if pb is self._public_bootstrap:
-            self._release_pending_sensor(pb, sensor_id)
+            self._release_pending_sensor(pb, sensor_id, state)
 
-    def _release_pending_sensor(self, pb: PublicBootstrap, sensor_id: str) -> None:
-        """After a finished fetch, announce a held sensor that is CONNECTED or flagged."""
+    def _release_pending_sensor(
+        self, pb: PublicBootstrap, sensor_id: str, state: str | None = None
+    ) -> None:
+        """
+        Announce a held sensor that is CONNECTED or flagged.
+
+        ``state`` is the wire state a finished fetch ran for. It counts even
+        when a lagging snapshot has since replaced the cached state.
+        """
         sensor = pb.sensors.get(sensor_id)
         if (
             sensor_id in self._sensor_add_pending
             and sensor is not None
-            and (sensor.state is DeviceState.CONNECTED or sensor._has_feature_flags())
+            and (
+                sensor.state is DeviceState.CONNECTED
+                or state == DeviceState.CONNECTED
+                or sensor._has_feature_flags()
+            )
         ):
             self._announce_pending_sensor(pb, sensor)
 
@@ -3301,9 +3312,9 @@ class ProtectApiClient(BaseApiClient):
             # being applied may not know.
             if cached is None and self._prime_ws_buffer is None:
                 # The fetch would have been cancelled had the wire state
-                # changed, so a CONNECTED frame is newer than a lagging REST.
-                if state == DeviceState.CONNECTED:
-                    sensor.state = DeviceState.CONNECTED
+                # changed, so the wire state is newer than REST's.
+                if state is not None:
+                    sensor.state = DeviceState(state)
                 # Held like a wire ``add``: announced once it is complete.
                 pb.sensors[sensor_id] = sensor
                 self._sensor_add_pending.add(sensor_id)
@@ -3362,6 +3373,12 @@ class ProtectApiClient(BaseApiClient):
                 seen.add((ModelType.SENSOR, sensor_id))
             elif sensor._has_feature_flags():
                 self._announce_pending_sensor(pb, sensor)
+            elif (fetch := self._sensor_fetch_tasks.get(sensor_id)) is not None and (
+                fetch[1] == DeviceState.CONNECTED
+            ):
+                # REST lags the wire: the CONNECTED fetch outranks the snapshot's
+                # state and releases the sensor when it finishes.
+                continue
             else:
                 # The state change may be lost to the gap, or the fetch cancelled.
                 self._sync_sensor_fetch(

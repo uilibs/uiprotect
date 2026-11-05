@@ -874,6 +874,32 @@ async def test_patch_response_leaves_release_to_running_fetch() -> None:
     assert client._public_bootstrap.sensors[SENSOR_ID].supported_alarm_types
 
 
+@pytest.mark.asyncio()
+async def test_unknown_sensor_keeps_wire_state_when_rest_is_ahead() -> None:
+    """REST reporting CONNECTED early must not skip the fetch the wire triggers."""
+    client = _client()
+    messages = _capture(client)
+    client.get_sensor_public = AsyncMock(  # type: ignore[method-assign]
+        return_value=_sensor(client, state="CONNECTED")
+    )
+
+    _update(client, state="CONNECTING")
+    await _drain(client)
+
+    assert client._public_bootstrap.sensors[SENSOR_ID].state == "CONNECTING"
+    assert _adds(messages) == []
+
+    client.get_sensor_public = AsyncMock(  # type: ignore[method-assign]
+        return_value=_sensor(client, flags=SMOKE_FLAGS)
+    )
+    _update(client, state="CONNECTED")
+    await _drain(client)
+
+    sensor = client._public_bootstrap.sensors[SENSOR_ID]
+    assert [m.new_obj for m in _adds(messages)] == [sensor]
+    assert sensor.supported_alarm_types
+
+
 def _mock_resync(client: ProtectApiClient, sensors: list[PublicSensor]) -> None:
     _mock_update_public_endpoints(
         client, get_sensors_public=AsyncMock(return_value=sensors)
@@ -1014,24 +1040,34 @@ async def test_missed_add_fetch_clears_pending_sensor() -> None:
     assert client._sensor_add_pending == set()
 
 
+@pytest.mark.parametrize("snapshot_state", ["CONNECTING", "DISCONNECTED"])
+@pytest.mark.parametrize(
+    "fetched_flags", [SMOKE_FLAGS, None], ids=["flags", "no-flags"]
+)
 @pytest.mark.asyncio()
-async def test_resync_seeing_pending_sensor_offline_cancels_fetch() -> None:
-    """A snapshot moving a held sensor off CONNECTED ends the fetch and its state."""
+async def test_resync_with_lagging_rest_keeps_connected_fetch(
+    snapshot_state: str, fetched_flags: dict[str, Any] | None
+) -> None:
+    """A snapshot lagging behind a CONNECTED frame neither cancels nor strands it."""
     client = _client()
     messages = _capture(client)
-    _release, _get = _blocking_get(client, _sensor(client))
+    release, _get = _blocking_get(client, _sensor(client, flags=fetched_flags))
     _frame(client, "add", _payload(state="CONNECTED"))
     task, _state = client._sensor_fetch_tasks[SENSOR_ID]
     await asyncio.sleep(0)
-    _mock_resync(client, [_sensor(client, state="DISCONNECTED")])
+    _mock_resync(client, [_sensor(client, state=snapshot_state)])
 
     await client.update_public()
-    await asyncio.gather(task, return_exceptions=True)
 
-    assert task.cancelled()
-    assert client._sensor_fetch_tasks == {}
+    assert not task.done()
     assert _adds(messages) == []
-    assert client._sensor_add_pending == {SENSOR_ID}
+    release.set()
+    await _drain(client)
+
+    sensor = client._public_bootstrap.sensors[SENSOR_ID]
+    assert [m.new_obj for m in _adds(messages)] == [sensor]
+    assert bool(sensor.supported_alarm_types) is (fetched_flags is not None)
+    assert client._sensor_add_pending == set()
 
 
 def test_fetch_needs_running_loop() -> None:
