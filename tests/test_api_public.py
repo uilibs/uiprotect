@@ -5545,15 +5545,15 @@ async def test_update_public_removes_hub_gone_from_alarm_hubs(
 
 
 @pytest.mark.parametrize(
-    ("failing", "label"),
+    ("failing", "label", "healthy"),
     [
-        ("get_alarm_hubs_public", "alarm-hubs"),
-        ("get_link_stations_public", "link-stations"),
+        ("get_alarm_hubs_public", "alarm-hubs", "get_link_stations_public"),
+        ("get_link_stations_public", "link-stations", "get_alarm_hubs_public"),
     ],
 )
 @pytest.mark.asyncio()
 async def test_update_public_transient_link_station_failure_keeps_store(
-    protect_client: ProtectApiClient, failing: str, label: str
+    protect_client: ProtectApiClient, failing: str, label: str, healthy: str
 ) -> None:
     """One failing source keeps the whole store and flags the resync for retry."""
     client = protect_client
@@ -5568,6 +5568,8 @@ async def test_update_public_transient_link_station_failure_keeps_store(
     captured: list[WSSubscriptionMessage] = []
     client.subscribe_devices_websocket(captured.append)
     setattr(client, failing, AsyncMock(side_effect=NvrError("503")))
+    # The healthy endpoint dropping its device must not be applied yet.
+    setattr(client, healthy, AsyncMock(return_value=[]))
 
     pb = await client.update_public()
 
@@ -5643,7 +5645,7 @@ async def test_update_public_missing_link_station_endpoint_applies_the_other(
 async def test_update_public_both_link_station_endpoints_missing_keeps_store(
     protect_client: ProtectApiClient,
 ) -> None:
-    """With neither source available there is nothing to diff against."""
+    """With neither source available, both kinds keep their cached devices."""
     client = protect_client
     client._public_bootstrap = None
     station, hub = _link_station_pair(client)

@@ -286,8 +286,6 @@ def _merge_link_station_results(
     # A partial list would read as removals of the devices it left out.
     if any(isinstance(result, NvrError) for result in results):
         return None
-    if all(isinstance(result, BaseException) for result in results):
-        return None
     merged: dict[str, LinkStation] = {}
     for is_alarm_hub, result in zip((False, True), results, strict=True):
         # A missing endpoint is a capability gap, not a removal of its kind.
