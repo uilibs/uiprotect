@@ -900,6 +900,29 @@ async def test_unknown_sensor_keeps_wire_state_when_rest_is_ahead() -> None:
     assert sensor.supported_alarm_types
 
 
+@pytest.mark.asyncio()
+async def test_unknown_sensor_fetch_keeps_flags_of_late_flagged_add() -> None:
+    """A flagged ``add`` landing mid-fetch keeps its flags; no stale flags ``update``."""
+    client = _client()
+    messages = _capture(client)
+    release, _get = _blocking_get(client, _sensor(client, flags=SMOKE_FLAGS))
+    _update(client, state="CONNECTED")
+    await asyncio.sleep(0)
+    motion = {"motion": {"channelCount": 1}}
+    _frame(client, "add", _payload(state="CONNECTED", flags=motion))
+
+    release.set()
+    await _drain(client)
+
+    sensor = client._public_bootstrap.sensors[SENSOR_ID]
+    assert len(_adds(messages)) == 1
+    assert _flag_frames([m for m in messages if m.action is WSAction.UPDATE]) == []
+    assert (
+        sensor.supported_alarm_types
+        == _sensor(client, flags=motion).supported_alarm_types
+    )
+
+
 def _mock_resync(client: ProtectApiClient, sensors: list[PublicSensor]) -> None:
     _mock_update_public_endpoints(
         client, get_sensors_public=AsyncMock(return_value=sensors)
@@ -1067,6 +1090,7 @@ async def test_resync_with_lagging_rest_keeps_connected_fetch(
     sensor = client._public_bootstrap.sensors[SENSOR_ID]
     assert [m.new_obj for m in _adds(messages)] == [sensor]
     assert bool(sensor.supported_alarm_types) is (fetched_flags is not None)
+    assert sensor.state == "CONNECTED"
     assert client._sensor_add_pending == set()
 
 

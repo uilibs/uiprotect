@@ -3275,15 +3275,12 @@ class ProtectApiClient(BaseApiClient):
         when a lagging snapshot has since replaced the cached state.
         """
         sensor = pb.sensors.get(sensor_id)
-        if (
-            sensor_id in self._sensor_add_pending
-            and sensor is not None
-            and (
-                sensor.state is DeviceState.CONNECTED
-                or state == DeviceState.CONNECTED
-                or sensor._has_feature_flags()
-            )
-        ):
+        if sensor_id not in self._sensor_add_pending or sensor is None:
+            return
+        if state == DeviceState.CONNECTED:
+            # Undo a lagging snapshot's state before announcing.
+            sensor.state = DeviceState.CONNECTED
+        if sensor.state is DeviceState.CONNECTED or sensor._has_feature_flags():
             self._announce_pending_sensor(pb, sensor)
 
     async def _get_sensor_public_retrying(
@@ -3322,11 +3319,7 @@ class ProtectApiClient(BaseApiClient):
         is_pending = sensor_id in self._sensor_add_pending
         # A pending sensor still takes the flags when a frame or snapshot
         # replaced the instance mid-fetch, unless the replacement has its own.
-        if (
-            cached is not None
-            and current is not cached
-            and (not is_pending or current._has_feature_flags())
-        ):
+        if current is not cached and (not is_pending or current._has_feature_flags()):
             return
         flags = _sensor_flags_wire(sensor)
         if not flags or flags == _sensor_flags_wire(current):
