@@ -1,5 +1,13 @@
 # Changelog
 
+## v25.0.1 (2026-11-05)
+
+### Bug fixes
+
+
+- Defer new sensor add until flags are fetched ([`8f4b5ec`](https://github.com/uilibs/uiprotect/commit/8f4b5eceb9c0d4780ac9d92ce29ff0961df21464))
+
+
 ## v25.0.0 (2026-10-26)
 
 ### Features
