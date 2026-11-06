@@ -1,5 +1,13 @@
 # Changelog
 
+## v25.0.2 (2026-11-06)
+
+### Bug fixes
+
+
+- Load alarm hubs listed only under /v1/alarm-hubs ([`0a31292`](https://github.com/uilibs/uiprotect/commit/0a3129278586f846ede4ec7edbc6d21baeae9eca))
+
+
 ## v25.0.1 (2026-11-05)
 
 ### Bug fixes
