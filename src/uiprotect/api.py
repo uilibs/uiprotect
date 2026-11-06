@@ -278,6 +278,27 @@ def _log_or_raise(
         raise exc
 
 
+def _merge_link_station_results(
+    results: list[list[LinkStation] | BaseException],
+    cached: Iterable[LinkStation],
+) -> list[LinkStation] | None:
+    """Merge ``[link-stations, alarm-hubs]`` by id; ``None`` keeps the store."""
+    # A partial list would read as removals of the devices it left out.
+    if any(isinstance(result, NvrError) for result in results):
+        return None
+    merged: dict[str, LinkStation] = {}
+    for is_alarm_hub, result in zip((False, True), results, strict=True):
+        # A missing endpoint is a capability gap, not a removal of its kind.
+        if isinstance(result, BaseException):
+            merged.update(
+                (obj.id, obj) for obj in cached if obj.is_alarm_hub is is_alarm_hub
+            )
+    for result in results:
+        if not isinstance(result, BaseException):
+            merged.update((obj.id, obj) for obj in result)
+    return list(merged.values())
+
+
 def _sensor_flags_wire(sensor: PublicSensor) -> dict[str, Any]:
     """Return a sensor's ``featureFlags`` with only the present keys, as REST sends."""
     return {k: v for k, v in sensor.feature_flags.unifi_dict().items() if v is not None}
@@ -5146,8 +5167,11 @@ class ProtectApiClient(BaseApiClient):
         Each endpoint is requested best-effort and a partial public bootstrap
         is returned: an endpoint the NVR doesn't (yet) expose (``BadRequest``)
         and one that fails transiently (``NvrError``: timeout, 429, 5xx) are
-        both logged at ``DEBUG`` and ignored. If an endpoint fails, its
-        previously cached data is left unchanged (not cleared). All results are classified before any are applied: an
+        both logged at ``DEBUG`` and ignored. If an endpoint fails, the devices
+        it serves keep their previously cached data (not cleared). Link stations
+        and alarm hubs share one store fed by two endpoints: a missing one keeps
+        the cached devices of its kind, a transient failure of either keeps the
+        whole store. All results are classified before any are applied: an
         unexpected exception (e.g. a validation error from a new server
         payload) propagates to the caller with the snapshot left untouched,
         never half-applied.
@@ -5177,9 +5201,10 @@ class ProtectApiClient(BaseApiClient):
         A sensor added over the websocket without feature flags is held: its
         ``add`` goes out once a fetch or snapshot completes it, or once it is
         ``CONNECTED`` with no flags to report. One that never connects and
-        never gets flags is not announced, and neither is its removal. A call that raises announces nothing, and a store whose endpoint was
-        tolerated as missing keeps its previous data, so it has no difference
-        to announce. Liveviews, arm profiles and ULP users get no synthetic
+        never gets flags is not announced, and neither is its removal. A call
+        that raises announces nothing, and devices whose endpoint was
+        tolerated as missing keep their previous data, so they have no
+        difference to announce. Liveviews, arm profiles and ULP users get no synthetic
         frames; their changes go to :meth:`subscribe_public_store_changes`.
 
         Concurrent calls are serialized: an overlapping prime could otherwise
@@ -5376,7 +5401,11 @@ class ProtectApiClient(BaseApiClient):
             (self.get_relays_public(), "relays", "relays"),
             (self.get_fobs_public(), "fobs", "fobs"),
             (self.get_speakers_public(), "speakers", "speakers"),
+            # The spec splits these: ``/v1/link-stations`` lists non-alarm-hub
+            # gateways, ``/v1/alarm-hubs`` the hubs. Both feed the shared store
+            # and are merged in the batch phase below, in this order.
             (self.get_link_stations_public(), "link-stations", "link_stations"),
+            (self.get_alarm_hubs_public(), "alarm-hubs", "link_stations"),
             (self._fetch_liveviews(), "liveviews", "liveviews"),
             (self.get_bridges_public(), "bridges", "bridges"),
             (self.get_viewers_public(), "viewers", "viewers"),
@@ -5441,7 +5470,8 @@ class ProtectApiClient(BaseApiClient):
 
             # Phase 2 — no unexpected error: apply the whole batch. No ``await``
             # between writes, so a concurrent public-WS frame cannot interleave
-            # a torn state. Tolerated-missing endpoints keep their prior data.
+            # a torn state. Tolerated-missing endpoints' devices keep their prior
+            # data.
             diffs, store_changes = self._apply_public_fetch_results(
                 pb, endpoints, results, store_writes
             )
@@ -5483,7 +5513,11 @@ class ProtectApiClient(BaseApiClient):
         """Apply the classified ``update_public`` fetch results to ``pb``."""
         diffs: list[FetchDiff] = []
         store_changes: list[PublicStoreChange] = []
+        link_station_results: list[list[LinkStation] | BaseException] = []
         for (_, _label, attr), result in zip(endpoints, results, strict=True):
+            if attr == "link_stations":
+                link_station_results.append(result)
+                continue
             if isinstance(result, BaseException):
                 continue
             if attr in ("arm_profiles", "liveviews", "ulp_users"):
@@ -5503,6 +5537,11 @@ class ProtectApiClient(BaseApiClient):
                 pb.nvr = result
             else:
                 diffs.append(pb.apply_fetch_result(attr, result))
+        merged = _merge_link_station_results(
+            link_station_results, pb.link_stations.values()
+        )
+        if merged is not None:
+            diffs.append(pb.apply_fetch_result("link_stations", merged))
         return diffs, store_changes
 
     def _apply_public_store(
