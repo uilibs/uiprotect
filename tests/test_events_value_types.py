@@ -49,6 +49,17 @@ def test_event_type_to_channel_buckets() -> None:
     assert EVENT_TYPE_TO_CHANNEL[EventType.REBOOT] is ProtectEventChannel.OTHER
 
 
+@pytest.mark.parametrize(
+    "event_type",
+    [et for et in EventType if et.name.startswith("ALARM_HUB_")],
+    ids=lambda et: et.value,
+)
+def test_every_alarm_hub_event_type_maps_to_alarm_hub_channel(
+    event_type: EventType,
+) -> None:
+    assert EVENT_TYPE_TO_CHANNEL[event_type] is ProtectEventChannel.ALARM_HUB
+
+
 def test_instantaneous_event_types_includes_light_motion() -> None:
     assert EventType.MOTION_LIGHT in INSTANTANEOUS_EVENT_TYPES
 
