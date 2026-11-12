@@ -254,6 +254,14 @@ announced anyway. One that never connects and never gets flags is never
 announced, and its `remove` is not emitted either. `update` frames for a held sensor are emitted as usual.
 Sensors first seen through `update_public()` are not held.
 
+Alarm hubs are opt-in for now: pass `alarm_hubs=True` to `ProtectApiClient`
+(or `ProtectApiClient.public_only`). While it is off (the default),
+`update_public()` does not fetch `/v1/alarm-hubs`, keeps hubs out of
+`link_stations`, and devices-websocket frames for a link station with
+`isAlarmHub` are ignored, so `public_bootstrap.alarm_hubs` stays empty and no
+hub is announced. The option is temporary and will be removed, with hubs
+always loaded.
+
 The reconnect resync runs in the background, so `CONNECTED` reaches
 `subscribe_devices_websocket_state` subscribers **before** the cache is
 refreshed. To learn when it is fresh again, use `subscribe_public_resync`: its
