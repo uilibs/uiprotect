@@ -62,6 +62,7 @@ from .types import (
     DeviceState,
     DoorbellMessageType,
     EventType,
+    ExternalArmProfileState,
     FobAwayState,
     FobButton,
     FobButtonLabels,
@@ -2586,6 +2587,77 @@ class ArmProfile(ProtectBaseObject):
     updated_at: datetime | None = None
 
 
+def _parse_iso_datetime(value: Any) -> datetime | None:
+    """Parse an ISO-8601 wire timestamp; sub-microsecond digits are truncated."""
+    if isinstance(value, datetime) or value is None:
+        return value
+    return datetime.fromisoformat(value)
+
+
+_EXTERNAL_ARM_PROFILE_TIMESTAMPS = (
+    "created_at",
+    "updated_at",
+    "state_set_at",
+    "state_promotion_due_at",
+)
+
+
+class ExternalArmProfile(ProtectBaseObject):
+    """
+    Public API arm profile of the global ("external") alarm manager.
+
+    Served by ``/v1/external/arm-profiles`` while
+    ``nvr.featureFlags.useExternalAlarmManager`` is true. Unlike the rest of
+    the public API the wire keys are snake_case.
+    """
+
+    id: str
+    title: str
+    alarm_ids: list[str]
+    state: ExternalArmProfileState
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    state_set_at: datetime | None = None
+    # When ``arming`` becomes ``armed`` (or ``breaching`` becomes ``breached``).
+    state_promotion_due_at: datetime | None = None
+    activation_delay: int | None = None
+    deactivation_delay: int | None = None
+    has_pin: bool = False
+    schedule: dict[str, Any] | None = None
+    created_by: str | None = None
+    updated_by: str | None = None
+    active_breach_id: int | None = None
+
+    @classmethod
+    @cache
+    def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
+        """Parse the ISO-8601 timestamp fields into ``datetime``."""
+        return (
+            dict.fromkeys(_EXTERNAL_ARM_PROFILE_TIMESTAMPS, _parse_iso_datetime)
+            | {"state": ExternalArmProfileState}
+            | super().unifi_dict_conversions()
+        )
+
+    @property
+    def is_armed(self) -> bool:
+        """Whether the profile is armed or past it (breaching / breached)."""
+        return self.state in (
+            ExternalArmProfileState.ARMED,
+            ExternalArmProfileState.BREACHING,
+            ExternalArmProfileState.BREACHED,
+        )
+
+    def merged(self, item: dict[str, Any]) -> ExternalArmProfile:
+        """Return a copy with a partial wire ``item`` applied."""
+        fields = type(self).model_fields
+        changes = {
+            key: value
+            for key, value in self.unifi_dict_to_dict(dict(item)).items()
+            if key in fields
+        }
+        return self.model_copy(update=changes)
+
+
 class NvrArmMode(ProtectBaseObject):
     """
     Current arm-manager state embedded in the NVR object (``armMode`` field).
@@ -2684,6 +2756,14 @@ class PublicDoorbellSettings(ProtectBaseObject):
         ]
 
 
+class PublicNvrFeatureFlags(ProtectBaseObject):
+    """NVR capability flags (``featureFlags`` on ``GET /v1/nvrs``, Protect 7.4+)."""
+
+    # True while the alarm manager runs in global mode: arm state then lives
+    # on the external arm profiles and ``armMode`` stays ``disabled``.
+    use_external_alarm_manager: bool | None = None
+
+
 class PublicNVR(PublicIdentifiedModel):
     """
     NVR device as exposed by the Public Integration API (``GET /v1/nvrs``).
@@ -2716,6 +2796,7 @@ class PublicNVR(PublicIdentifiedModel):
     mac: str | None = None
     doorbell_settings: PublicDoorbellSettings | None = None
     arm_mode: NvrArmMode | None = None
+    feature_flags: PublicNvrFeatureFlags | None = None
 
 
 class PublicLiveviewSlot(ProtectBaseObject):

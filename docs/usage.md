@@ -391,6 +391,39 @@ or started before it returns, does not start it again; a later
 `update_public()` does. Device stores are not
 refreshed on this timer: the devices websocket stays their change channel.
 
+### Global alarm manager (Protect 7.4+)
+
+A console whose alarm manager runs in global mode reports
+`public_bootstrap.uses_external_alarm_manager` (from
+`nvr.featureFlags.useExternalAlarmManager`). The local arm state then stays
+`disabled` and the arm state lives on the profiles in
+`public_bootstrap.external_arm_profiles`, each an `ExternalArmProfile` with a
+`state` of `disarmed`, `arming`, `armed`, `breaching` or `breached`.
+
+```python
+profiles = await protect.get_external_arm_profiles_public()
+await protect.arm_external_arm_profile_public(profiles[0].id)
+await protect.disarm_external_arm_profile_public(profiles[0].id)
+```
+
+Arming a profile with a trigger that is not ready (an open entry, an open
+tamper cover) raises `ConflictError`.
+
+`subscribe_external_arm_profiles` holds the `subscribe/updates` websocket open
+and calls back with a `PublicStoreChange` for the `"external_arm_profiles"`
+store whenever a profile is added, removed, renamed or changes state. The
+store is refetched after that websocket reconnects and shortly after a
+profile's `state_promotion_due_at`; it has no periodic refresh.
+
+```python
+def on_profiles(change: PublicStoreChange) -> None:
+    for profile_id in change.updated:
+        print(protect.public_bootstrap.external_arm_profiles[profile_id].state)
+
+
+unsub = protect.subscribe_external_arm_profiles(on_profiles)
+```
+
 ## Camera RTSPS streams
 
 RTSPS stream URLs live on the camera as `PublicCamera.rtsps_streams`. The

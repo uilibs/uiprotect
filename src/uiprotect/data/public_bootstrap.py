@@ -48,6 +48,7 @@ from .base import ProtectModelWithId
 from .convert import create_from_unifi_dict
 from .public_devices import (
     ArmProfile,
+    ExternalArmProfile,
     Fob,
     LinkStation,
     NvrArmMode,
@@ -149,7 +150,12 @@ class FetchDiff:
     removed: list[ProtectModelWithId]
 
 
-PublicStoreName = Literal["arm_profiles", "liveviews", "ulp_users"]
+PublicStoreName = Literal[
+    "arm_profiles", "external_arm_profiles", "liveviews", "ulp_users"
+]
+
+
+_StoreObject = ArmProfile | ExternalArmProfile | PublicLiveview | PublicUlpUser
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,6 +237,9 @@ class PublicBootstrap:
 
     # Arm manager state.
     arm_profiles: dict[str, ArmProfile] = field(default_factory=dict)
+    # Profiles of the global alarm manager; empty while the console runs the
+    # local one.
+    external_arm_profiles: dict[str, ExternalArmProfile] = field(default_factory=dict)
 
     # Per-instance one-shot warning dedupe for merge/add failures.
     # This must not be module-global because callers can have multiple
@@ -268,6 +277,12 @@ class PublicBootstrap:
         disabled there, so the status reads ``disabled``.
         """
         return self.nvr.arm_mode if self.nvr is not None else None
+
+    @property
+    def uses_external_alarm_manager(self) -> bool:
+        """Whether the console runs the global alarm manager (Protect 7.4+)."""
+        flags = self.nvr.feature_flags if self.nvr is not None else None
+        return flags is not None and flags.use_external_alarm_manager is True
 
     def __post_init__(self) -> None:
         """Validate cache bounds used by event eviction logic."""
@@ -401,7 +416,7 @@ class PublicBootstrap:
     def apply_store(
         self,
         store: PublicStoreName,
-        objs: Iterable[ArmProfile | PublicLiveview | PublicUlpUser],
+        objs: Iterable[_StoreObject],
         *,
         replace: bool = False,
         removed_ids: Iterable[str] = (),
@@ -414,7 +429,7 @@ class PublicBootstrap:
         store dict is mutated in place.
         """
         cache = cast(
-            "dict[str, ArmProfile | PublicLiveview | PublicUlpUser]",
+            "dict[str, _StoreObject]",
             getattr(self, store),
         )
         written = {obj.id: obj for obj in objs}

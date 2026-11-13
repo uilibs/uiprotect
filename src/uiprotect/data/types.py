@@ -155,6 +155,7 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
     FOB = "fob"
     SPEAKER = "speaker"
     LINK_STATION = "linkstation"
+    EXTERNAL_ARM_PROFILE = "externalArmProfile"
     AI_PROCESSOR = "aiprocessor"
     UNKNOWN = "unknown"
 
@@ -665,6 +666,27 @@ class NvrArmModeStatus(UnknownValuesEnumMixin, enum.StrEnum):
     ARMED = "armed"
     BREACH = "breach"
     DISABLED = "disabled"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class ExternalArmProfileState(UnknownValuesEnumMixin, enum.StrEnum):
+    """Arm state of a global alarm manager profile (``externalArmProfile.state``)."""
+
+    DISARMED = "disarmed"
+    ARMING = "arming"
+    ARMED = "armed"
+    BREACHING = "breaching"
+    BREACHED = "breached"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class ExternalArmScheduleType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Kind of a day entry in ``externalArmProfile.schedule`` (``<day>.type``)."""
+
+    INTERVALS = "intervals"
+    ALL_DAY = "all_day"
     UNKNOWN = "unknown"
 
 

@@ -59,6 +59,10 @@ class GlobalAlarmManagerError(BadRequest):
     """Operation not available when global alarm manager is enabled."""
 
 
+class ConflictError(BadRequest):
+    """The request conflicts with the target's current state (HTTP 409)."""
+
+
 class ArmedModeError(BadRequest):
     """Operation not available while the arm alarm is armed."""
 

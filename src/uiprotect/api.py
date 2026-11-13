@@ -45,6 +45,7 @@ from .data import (
     Event,
     EventCategories,
     EventType,
+    ExternalArmProfile,
     Fob,
     LinkStation,
     ModelType,
@@ -107,6 +108,7 @@ from .exceptions import (
     BadRequest,
     ChimeRingtoneNotSetError,
     ClientError,
+    ConflictError,
     GlobalAlarmManagerError,
     NotAuthorized,
     NvrError,
@@ -336,6 +338,10 @@ PUBLIC_RESYNC_RETRY_DELAYS = (10.0, 30.0, 60.0)
 # after its CONNECTED frame.
 SENSOR_FETCH_RETRY_DELAYS = (1.0, 2.0, 4.0)
 
+# Seconds past ``state_promotion_due_at`` before the profiles are refetched,
+# in case the promotion to ``armed`` / ``breached`` is not pushed.
+EXTERNAL_ARM_PROFILE_PROMOTION_GRACE = 2.0
+
 # WebSocket heartbeat (seconds) for the public integration WS connections. The
 # UniFi OS nginx reverse proxy closes an idle tunnel after ``proxy_read_timeout
 # 10m``; the quiet ``subscribe/devices`` channel only pushes on a ~10-minute
@@ -456,6 +462,7 @@ class BaseApiClient:
     _private_websocket: Websocket | None = None
     _events_websocket: Websocket | None = None
     _devices_websocket: Websocket | None = None
+    _updates_websocket: Websocket | None = None
     _public_resync_task: asyncio.Task[None] | None = None
     # Trailing resync deferred to the end of the debounce window.
     _public_resync_timer: asyncio.TimerHandle | None = None
@@ -482,6 +489,8 @@ class BaseApiClient:
     private_ws_path: str = "/proxy/protect/ws/updates"
     events_ws_path: str = "/proxy/protect/integration/v1/subscribe/events"
     devices_ws_path: str = "/proxy/protect/integration/v1/subscribe/devices"
+    # Protect 7.4+; the only channel that pushes external arm profile state.
+    updates_ws_path: str = "/proxy/protect/integration/v1/subscribe/updates"
 
     cache_dir: Path
     config_dir: Path
@@ -553,6 +562,10 @@ class BaseApiClient:
         # Sensor fetches filling in what the devices WS leaves out, with the
         # ``state`` each was started for.
         self._sensor_fetch_tasks: dict[str, tuple[asyncio.Task[None], str | None]] = {}
+        self._external_arm_profile_resync_task: asyncio.Task[None] | None = None
+        self._external_arm_profile_promotion_timer: asyncio.TimerHandle | None = None
+        self._external_arm_profile_subscribers = 0
+        self._updates_ws_has_been_connected = False
         # Failed fetches by sensor id and ``state``: no refetch until it changes.
         self._sensor_fetch_failed: dict[str, str | None] = {}
         # Cached sensors whose devices-WS ``add`` is held until they are complete.
@@ -603,6 +616,9 @@ class BaseApiClient:
             self._devices_ws_url = URL(
                 f"https://{formatted_host}:{self._port}{self.devices_ws_path}"
             )
+            updates_ws_url = URL(
+                f"https://{formatted_host}:{self._port}{self.updates_ws_path}"
+            )
         else:
             self._url = URL(f"https://{formatted_host}")
             self._ws_url = URL(f"wss://{formatted_host}{self.private_ws_path}")
@@ -610,6 +626,10 @@ class BaseApiClient:
             self._devices_ws_url = URL(
                 f"https://{formatted_host}{self.devices_ws_path}"
             )
+            updates_ws_url = URL(f"https://{formatted_host}{self.updates_ws_path}")
+        self._updates_ws_url = updates_ws_url.with_query(
+            modelKeys=ModelType.EXTERNAL_ARM_PROFILE.value
+        )
 
         self.base_url = str(self._url)
 
@@ -741,6 +761,23 @@ class BaseApiClient:
             )
         return self._devices_websocket
 
+    def _get_updates_websocket(self) -> Websocket:
+        """Gets or creates current Updates Websocket."""
+        if self._updates_websocket is None:
+            self._updates_websocket = Websocket(
+                lambda: self._updates_ws_url,
+                self._auth_public_api_websocket,
+                lambda: None,
+                self.get_public_api_session,
+                self._process_updates_ws_message,
+                self._on_updates_websocket_state_change,
+                verify=self._verify_ssl,
+                timeout=self._ws_timeout,
+                receive_timeout=self._ws_receive_timeout,
+                heartbeat=PUBLIC_WS_HEARTBEAT,
+            )
+        return self._updates_websocket
+
     def _update_bootstrap_soon(self) -> None:
         """Update bootstrap soon."""
         _LOGGER.debug("Updating bootstrap soon")
@@ -758,6 +795,7 @@ class BaseApiClient:
         await self._cancel_rtsps_refresh_tasks()
         await self._cancel_siren_off_tasks()
         await self._cancel_sensor_fetch_tasks()
+        await self._cancel_external_arm_profile_tasks()
         await self._stop_talkback_streams()
         if self._session is not None:
             await self._session.close()
@@ -772,6 +810,7 @@ class BaseApiClient:
         await self._cancel_public_resync_task()
         await self._cancel_public_refresh()
         await self._cancel_sensor_fetch_tasks()
+        await self._cancel_external_arm_profile_tasks()
         await self._stop_talkback_streams()
         if self._public_api_session is not None:
             await self._public_api_session.close()
@@ -872,6 +911,19 @@ class BaseApiClient:
         self._sensor_fetch_failed.clear()
         tasks = [task for task, _state in self._sensor_fetch_tasks.values()]
         self._sensor_fetch_tasks.clear()
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _cancel_external_arm_profile_tasks(self) -> None:
+        """Cancel and await the external arm profile timer and resync."""
+        tasks: list[asyncio.Task[None]] = []
+        if self._external_arm_profile_promotion_timer is not None:
+            self._external_arm_profile_promotion_timer.cancel()
+            self._external_arm_profile_promotion_timer = None
+        if self._external_arm_profile_resync_task is not None:
+            tasks.append(self._external_arm_profile_resync_task)
+            self._external_arm_profile_resync_task = None
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
@@ -1135,6 +1187,10 @@ class BaseApiClient:
                 if _ARM_ALARM_ARMED_REASON in reason.lower():
                     raise ArmedModeError(msg % (url, status, reason))
                 raise BadRequest(msg % (url, status, reason))
+            # A global alarm manager profile refuses to arm with 409 while one
+            # of its triggers is not ready (open entry, open tamper cover).
+            if status == HTTPStatus.CONFLICT.value:
+                raise ConflictError(msg % (url, status, reason))
             # Other 4xx client errors also raise BadRequest
             if (
                 status > HTTPStatus.BAD_REQUEST.value
@@ -1495,9 +1551,15 @@ class BaseApiClient:
             devices_websocket.stop()
             await devices_websocket.wait_closed()
             self._devices_websocket = None
+        if self._updates_websocket:
+            updates_websocket = self._get_updates_websocket()
+            updates_websocket.stop()
+            await updates_websocket.wait_closed()
+            self._updates_websocket = None
         await self._cancel_public_resync_task()
         await self._cancel_public_refresh()
         await self._cancel_sensor_fetch_tasks()
+        await self._cancel_external_arm_profile_tasks()
 
     def _process_ws_message(self, msg: aiohttp.WSMessage) -> None:
         raise NotImplementedError
@@ -1508,6 +1570,14 @@ class BaseApiClient:
 
     def _process_devices_ws_message(self, msg: aiohttp.WSMessage) -> None:
         """Process devices websocket message - to be implemented by subclass."""
+        raise NotImplementedError
+
+    def _process_updates_ws_message(self, msg: aiohttp.WSMessage) -> None:
+        """Process updates websocket message - to be implemented by subclass."""
+        raise NotImplementedError
+
+    def _on_updates_websocket_state_change(self, state: WebsocketState) -> None:
+        """Updates websocket state changed - to be implemented by subclass."""
         raise NotImplementedError
 
     def _get_last_update_id(self) -> str | None:
@@ -2159,6 +2229,110 @@ class ProtectApiClient(BaseApiClient):
                 )
             )
         return results
+
+    def _process_updates_ws_message(self, msg: aiohttp.WSMessage) -> None:
+        """Process updates websocket message (Public API - JSON format)."""
+        if msg.type != aiohttp.WSMsgType.TEXT:
+            _LOGGER.debug("Ignoring non-text websocket message: %s", msg.type)
+            return
+
+        if self._prime_ws_buffer is not None:
+            self._prime_ws_buffer.append((self._process_updates_ws_message, msg))
+            return
+
+        try:
+            data = orjson.loads(msg.data)
+            item = data.get("item") or {}
+            if item.get("modelKey") != ModelType.EXTERNAL_ARM_PROFILE.value:
+                return
+            self._apply_external_arm_profile_frame(data.get("type"), item)
+        except Exception:
+            _LOGGER.exception("Error processing public API updates websocket message")
+
+    def _apply_external_arm_profile_frame(
+        self, action: str | None, item: dict[str, Any]
+    ) -> None:
+        """Fold an ``externalArmProfile`` frame into the store and announce it."""
+        pb = self._public_bootstrap
+        if pb is None:
+            return
+        # A bulk envelope carries an ``id`` array sharing one payload.
+        raw_ids = item.get("id")
+        ids: list[str] = raw_ids if isinstance(raw_ids, list) else [str(raw_ids)]
+        if action == "remove":
+            self._emit_public_store_change(
+                self._apply_public_store("external_arm_profiles", [], removed_ids=ids)
+            )
+            return
+        profiles: list[ExternalArmProfile] = []
+        for profile_id in ids:
+            fields = {**item, "id": profile_id}
+            cached = pb.external_arm_profiles.get(profile_id)
+            if cached is not None:
+                profiles.append(cached.merged(fields))
+            elif action == "add":
+                del fields["modelKey"]
+                profiles.append(ExternalArmProfile.from_unifi_dict(**fields, api=self))
+            else:
+                # A partial for a profile the cache never saw cannot be built.
+                self._start_external_arm_profile_resync()
+        self._emit_public_store_change(
+            self._apply_public_store("external_arm_profiles", profiles)
+        )
+
+    def _on_updates_websocket_state_change(self, state: WebsocketState) -> None:
+        """Updates websocket state changed."""
+        if state is not WebsocketState.CONNECTED:
+            return
+        if not self._updates_ws_has_been_connected:
+            self._updates_ws_has_been_connected = True
+        elif self._public_bootstrap is not None:
+            # Frames pushed while the socket was down are lost.
+            self._start_external_arm_profile_resync()
+
+    def _schedule_external_arm_profile_promotion(self) -> None:
+        """Refetch once the next ``arming`` / ``breaching`` delay has run out."""
+        if self._external_arm_profile_promotion_timer is not None:
+            self._external_arm_profile_promotion_timer.cancel()
+            self._external_arm_profile_promotion_timer = None
+        pb = self._public_bootstrap
+        due = min(
+            (
+                profile.state_promotion_due_at
+                for profile in (pb.external_arm_profiles.values() if pb else ())
+                if profile.state_promotion_due_at is not None
+            ),
+            default=None,
+        )
+        if due is None:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        delay = (due - datetime.now(UTC)).total_seconds()
+        if delay < -EXTERNAL_ARM_PROFILE_PROMOTION_GRACE:
+            # Long overdue: a refetch already ran and did not clear it.
+            return
+        self._external_arm_profile_promotion_timer = loop.call_later(
+            max(delay, 0.0) + EXTERNAL_ARM_PROFILE_PROMOTION_GRACE,
+            self._start_external_arm_profile_resync,
+        )
+
+    def _start_external_arm_profile_resync(self) -> None:
+        """Refetch the external arm profiles in the background, once at a time."""
+        task = self._external_arm_profile_resync_task
+        if task is not None and not task.done():
+            return
+        self._external_arm_profile_resync_task = asyncio.get_running_loop().create_task(
+            self._resync_external_arm_profiles()
+        )
+
+    async def _resync_external_arm_profiles(self) -> None:
+        try:
+            await self.get_external_arm_profiles_public()
+        except (BadRequest, NvrError) as err:
+            _LOGGER.debug("External arm profiles not refetched: %s", err)
 
     def _devices_ws_filtered_out(self, model_type: ModelType) -> bool:
         """
@@ -2819,6 +2993,43 @@ class ProtectApiClient(BaseApiClient):
         """
         self._public_store_subscriptions.append(callback)
         return partial(self._public_store_subscriptions.remove, callback)
+
+    def subscribe_external_arm_profiles(
+        self,
+        callback: Callable[[PublicStoreChange], None],
+    ) -> Callable[[], None]:
+        """
+        Subscribe to pushed changes of the global alarm manager's arm profiles.
+
+        Holds the ``subscribe/updates`` websocket (Protect 7.4+) open while at
+        least one subscriber is registered. ``callback`` receives every
+        ``external_arm_profiles`` :class:`PublicStoreChange`, pushed or fetched;
+        read the profiles from ``public_bootstrap.external_arm_profiles``.
+
+        Returns a callback that will unsubscribe.
+        """
+
+        def _filtered(change: PublicStoreChange) -> None:
+            if change.store == "external_arm_profiles":
+                callback(change)
+
+        self._public_store_subscriptions.append(_filtered)
+        self._external_arm_profile_subscribers += 1
+        self._get_updates_websocket().start()
+        return partial(self._unsubscribe_external_arm_profiles, _filtered)
+
+    def _unsubscribe_external_arm_profiles(
+        self, callback: Callable[[PublicStoreChange], None]
+    ) -> None:
+        self._public_store_subscriptions.remove(callback)
+        self._external_arm_profile_subscribers -= 1
+        if not self._external_arm_profile_subscribers:
+            self._get_updates_websocket().stop()
+
+    @property
+    def updates_websocket_state(self) -> WebsocketState:
+        """Current state of the public updates websocket."""
+        return _websocket_state(self._updates_websocket)
 
     def _unsubscribe_websocket_state(
         self,
@@ -3996,7 +4207,11 @@ class ProtectApiClient(BaseApiClient):
         self._public_rate_limiter = PublicApiRateLimiter()
         # A revoked key parks the public websockets on the long auth-failed
         # backoff; a fresh key should recover them without waiting it out.
-        for websocket in (self._events_websocket, self._devices_websocket):
+        for websocket in (
+            self._events_websocket,
+            self._devices_websocket,
+            self._updates_websocket,
+        ):
             if websocket is not None:
                 websocket.reset_auth_failure()
 
@@ -4936,6 +5151,69 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
         )
 
+    async def get_external_arm_profiles_public(self) -> list[ExternalArmProfile]:
+        """Get the global alarm manager's arm profiles (Protect 7.4+)."""
+        writes = self._public_store_writes.get("external_arm_profiles")
+        profiles = await self._fetch_external_arm_profiles()
+        if self._public_store_writes.get("external_arm_profiles") == writes:
+            self._emit_public_store_change(
+                self._apply_public_store(
+                    "external_arm_profiles", profiles, replace=True
+                )
+            )
+        return profiles
+
+    async def _fetch_external_arm_profiles(self) -> list[ExternalArmProfile]:
+        """Fetch external arm profiles without mutating the cached bootstrap."""
+        data = await self.api_request_list(
+            url="/v1/external/arm-profiles", public_api=True
+        )
+        return [ExternalArmProfile.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_external_arm_profile_public(
+        self, profile_id: str
+    ) -> ExternalArmProfile:
+        """Get one global alarm manager arm profile."""
+        data = await self.api_request_obj(
+            url=f"/v1/external/arm-profiles/{profile_id}", public_api=True
+        )
+        return self._store_external_arm_profile(data)
+
+    async def arm_external_arm_profile_public(
+        self, profile_id: str
+    ) -> ExternalArmProfile:
+        """
+        Arm a global alarm manager arm profile.
+
+        Returns the profile as ``arming`` when it has an activation delay. A
+        profile without triggers is rejected with ``BadRequest``; one with a
+        trigger that is not ready with :class:`ConflictError`.
+        """
+        data = await self.api_request_obj(
+            url=f"/v1/external/arm-profiles/{profile_id}/actions/arm",
+            method="post",
+            public_api=True,
+        )
+        return self._store_external_arm_profile(data)
+
+    async def disarm_external_arm_profile_public(
+        self, profile_id: str
+    ) -> ExternalArmProfile:
+        """Disarm a global alarm manager arm profile."""
+        data = await self.api_request_obj(
+            url=f"/v1/external/arm-profiles/{profile_id}/actions/disarm",
+            method="post",
+            public_api=True,
+        )
+        return self._store_external_arm_profile(data)
+
+    def _store_external_arm_profile(self, data: dict[str, Any]) -> ExternalArmProfile:
+        profile = ExternalArmProfile.from_unifi_dict(**data, api=self)
+        self._emit_public_store_change(
+            self._apply_public_store("external_arm_profiles", [profile])
+        )
+        return profile
+
     async def get_arm_profiles_public(self) -> list[ArmProfile]:
         """Get all arm profiles."""
         writes = self._public_store_writes.get("arm_profiles")
@@ -5411,6 +5689,11 @@ class ProtectApiClient(BaseApiClient):
             (self.get_viewers_public(), "viewers", "viewers"),
             (self.get_ulp_users_public(), "ulp-users", "ulp_users"),
             (self._fetch_arm_profiles(), "arm-profiles", "arm_profiles"),
+            (
+                self._fetch_external_arm_profiles(),
+                "external-arm-profiles",
+                "external_arm_profiles",
+            ),
         ]
 
         # Capture any public-WS frame that lands while the snapshot is being
@@ -5520,7 +5803,12 @@ class ProtectApiClient(BaseApiClient):
                 continue
             if isinstance(result, BaseException):
                 continue
-            if attr in ("arm_profiles", "liveviews", "ulp_users"):
+            if attr in (
+                "arm_profiles",
+                "external_arm_profiles",
+                "liveviews",
+                "ulp_users",
+            ):
                 store = cast("PublicStoreName", attr)
                 # A setter wrote this store while the fetch was in flight; the
                 # fetched list may predate that write, so keep the cache.
@@ -5547,7 +5835,9 @@ class ProtectApiClient(BaseApiClient):
     def _apply_public_store(
         self,
         store: PublicStoreName,
-        objs: Iterable[ArmProfile | PublicLiveview | PublicUlpUser],
+        objs: Iterable[
+            ArmProfile | ExternalArmProfile | PublicLiveview | PublicUlpUser
+        ],
         *,
         replace: bool = False,
         removed_ids: Iterable[str] = (),
@@ -5562,6 +5852,8 @@ class ProtectApiClient(BaseApiClient):
     def _emit_public_store_change(self, change: PublicStoreChange | None) -> None:
         if change is None:
             return
+        if change.store == "external_arm_profiles":
+            self._schedule_external_arm_profile_promotion()
         for sub in self._public_store_subscriptions.copy():
             try:
                 sub(change)
