@@ -28,11 +28,13 @@
 <!--
   Please make sure to review and check all of the following to merge this PR.
 
-  Note that there is no problem if they are not checked when this PR is created.
+  The first item is required: pull requests without an agreed approach are closed.
+  The others may be unchecked when this PR is created.
 
   If an item is not applicable, you can add "N/A" to the end.
 -->
 
+- [ ] The approach was agreed with a maintainer in an issue: #0000
 - [ ] Code is up-to-date with the `main` branch
 - [ ] This pull request follows the [contributing guidelines](https://github.com/uilibs/uiprotect/blob/main/CONTRIBUTING.md).
 - [ ] This pull request links relevant issues as `Fixes #0000`
