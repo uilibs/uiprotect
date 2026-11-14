@@ -235,14 +235,15 @@ Please **open an issue and agree on the approach before implementing** anything.
 
 <a id="ai-contributions"></a>
 
-**Using AI is fine, but you have to drive it.** We use AI tools ourselves, so an
-unreviewed AI-generated PR or issue only moves the review work to us. AI-assisted
-contributions are welcome when you understand the architecture
-([`AGENTS.md`](https://github.com/uilibs/uiprotect/blob/main/AGENTS.md)) and the
-approach was agreed in an issue first. Anything else will be closed.
+A maintainer decides on the issue and usually has a bot implement it, then
+reviews the result. The bot works from the architecture notes in
+[`AGENTS.md`](https://github.com/uilibs/uiprotect/blob/main/AGENTS.md) and the
+test corpus. A pull request written without that context, by hand or with AI,
+usually costs more review than it saves, and every round waits on its author.
+Pull requests without an agreed approach are closed.
 
-What helps most is what AI cannot supply: tests on devices we do not own,
-sanitized payloads from them, and first-hand knowledge of how they behave.
+What helps most is what we cannot supply ourselves: tests on devices we do not
+own, sanitized payloads from them, and first-hand knowledge of how they behave.
 
 ### Developer Setup
 
