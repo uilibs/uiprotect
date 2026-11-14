@@ -3128,20 +3128,21 @@ tests = ["pytest", "pytest-cov"]
 
 [[package]]
 name = "typer"
-version = "0.27.3"
+version = "0.29.0"
 description = "Typer, build great CLIs. Easy to code. Based on Python type hints."
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
 markers = "extra == \"cli\""
 files = [
-    {file = "typer-0.27.3-py3-none-any.whl", hash = "sha256:e50022f28b82a86313e54501317a1db64bf8f8d036ff8cfe5ca7e47675454aff"},
-    {file = "typer-0.27.3.tar.gz", hash = "sha256:d0396f770a560ab1b0a8504e13b5f254b728cedb05c61cf0359e944e50ce8901"},
+    {file = "typer-0.29.0-py3-none-any.whl", hash = "sha256:b3c3de6e06a848274dc7bd56a433499e9cf25fa1d40aa3ba4eccfec4e1624c7b"},
+    {file = "typer-0.29.0.tar.gz", hash = "sha256:6871960a1603fba66af2ff751be48a6735af6480a67660afaf2fab2f7e008ed4"},
 ]
 
 [package.dependencies]
 annotated-doc = ">=0.0.2"
 colorama = {version = "*", markers = "platform_system == \"Windows\""}
+pydantic = ">=2.5.3"
 rich = ">=13.8.0"
 shellingham = ">=1.3.0"
 
@@ -3432,4 +3433,4 @@ cli = ["pillow", "rich", "typer"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "9cddd59cf0a07aaa65f50ab0b038269738e913621b57b57cc2bacb2f7299cf35"
+content-hash = "13911e7f3fd8032abd8d636393e116910a1b17517136cecce1c4eed0c90900df"
