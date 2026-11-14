@@ -67,6 +67,7 @@ _ALARM_HUB: frozenset[EventType] = frozenset(
         EventType.ALARM_HUB_SMOKE,
         EventType.ALARM_HUB_GLASS_BREAK,
         EventType.ALARM_HUB_TAMPER,
+        EventType.ALARM_HUB_DEVICE_TAMPER,
         EventType.ALARM_HUB_BATTERY_CONNECTED,
         EventType.ALARM_HUB_BATTERY_LOW,
     }
