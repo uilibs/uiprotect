@@ -5443,6 +5443,12 @@ def test_unset_sentinel_repr_and_singleton() -> None:
     assert repr(_UNSET) == "<UNSET>"
 
 
+@pytest.fixture
+def hub_client(protect_client: ProtectApiClient) -> ProtectApiClient:
+    protect_client._alarm_hubs = True
+    return protect_client
+
+
 def _link_station_pair(client: ProtectApiClient) -> tuple[LinkStation, LinkStation]:
     return (
         LinkStation.from_unifi_dict(api=client, **deepcopy(_LINK_STATION_FIXTURE)),
@@ -5452,7 +5458,7 @@ def _link_station_pair(client: ProtectApiClient) -> tuple[LinkStation, LinkStati
 
 @pytest.mark.asyncio()
 async def test_update_public_loads_hub_listed_only_under_alarm_hubs(
-    protect_client: ProtectApiClient,
+    hub_client: ProtectApiClient,
 ) -> None:
     """A hub absent from ``/v1/link-stations`` still reaches both views."""
     hub_payload = read_json_file("sample_link_station_alarm_hub")
@@ -5461,12 +5467,12 @@ async def test_update_public_loads_hub_listed_only_under_alarm_hubs(
     async def _list(url: str, **_kwargs: Any) -> list[dict[str, Any]]:
         return responses[url]
 
-    protect_client.api_request_list = _list  # type: ignore[assignment]
-    _mock_update_public_endpoints(protect_client)
-    del protect_client.get_link_stations_public
-    del protect_client.get_alarm_hubs_public
+    hub_client.api_request_list = _list  # type: ignore[assignment]
+    _mock_update_public_endpoints(hub_client)
+    del hub_client.get_link_stations_public
+    del hub_client.get_alarm_hubs_public
 
-    pb = await protect_client.update_public()
+    pb = await hub_client.update_public()
 
     assert set(pb.link_stations) == {hub_payload["id"]}
     assert set(pb.alarm_hubs) == {hub_payload["id"]}
@@ -5475,21 +5481,21 @@ async def test_update_public_loads_hub_listed_only_under_alarm_hubs(
 
 @pytest.mark.asyncio()
 async def test_update_public_merges_link_stations_and_alarm_hubs_by_id(
-    protect_client: ProtectApiClient,
+    hub_client: ProtectApiClient,
 ) -> None:
     """A hub listed by both endpoints is stored once, from ``/v1/alarm-hubs``."""
-    station, listed_hub = _link_station_pair(protect_client)
+    station, listed_hub = _link_station_pair(hub_client)
     hub = LinkStation.from_unifi_dict(
-        api=protect_client, **{**deepcopy(_ALARM_HUB_FIXTURE), "name": "Alarm hub"}
+        api=hub_client, **{**deepcopy(_ALARM_HUB_FIXTURE), "name": "Alarm hub"}
     )
     listed_hub.name = "Stale hub"
     _mock_update_public_endpoints(
-        protect_client,
+        hub_client,
         get_link_stations_public=AsyncMock(return_value=[station, listed_hub]),
         get_alarm_hubs_public=AsyncMock(return_value=[hub]),
     )
 
-    pb = await protect_client.update_public()
+    pb = await hub_client.update_public()
 
     assert set(pb.link_stations) == {LINK_STATION_ID, ALARM_HUB_ID}
     assert set(pb.alarm_hubs) == {ALARM_HUB_ID}
@@ -5498,10 +5504,10 @@ async def test_update_public_merges_link_stations_and_alarm_hubs_by_id(
 
 @pytest.mark.asyncio()
 async def test_update_public_resync_emits_no_link_station_churn(
-    protect_client: ProtectApiClient,
+    hub_client: ProtectApiClient,
 ) -> None:
     """Resyncing devices from both endpoints announces no membership change."""
-    client = protect_client
+    client = hub_client
     client._public_bootstrap = None
     station, hub = _link_station_pair(client)
     _mock_update_public_endpoints(
@@ -5520,10 +5526,10 @@ async def test_update_public_resync_emits_no_link_station_churn(
 
 @pytest.mark.asyncio()
 async def test_update_public_announces_hub_new_to_alarm_hubs(
-    protect_client: ProtectApiClient,
+    hub_client: ProtectApiClient,
 ) -> None:
     """A hub that only ``/v1/alarm-hubs`` starts listing is added and announced."""
-    client = protect_client
+    client = hub_client
     client._public_bootstrap = None
     station, hub = _link_station_pair(client)
     _mock_update_public_endpoints(
@@ -5547,10 +5553,10 @@ async def test_update_public_announces_hub_new_to_alarm_hubs(
 
 @pytest.mark.asyncio()
 async def test_update_public_removes_hub_gone_from_alarm_hubs(
-    protect_client: ProtectApiClient,
+    hub_client: ProtectApiClient,
 ) -> None:
     """A hub both endpoints stop listing is removed and announced."""
-    client = protect_client
+    client = hub_client
     client._public_bootstrap = None
     station, hub = _link_station_pair(client)
     _mock_update_public_endpoints(
@@ -5580,10 +5586,10 @@ async def test_update_public_removes_hub_gone_from_alarm_hubs(
 )
 @pytest.mark.asyncio()
 async def test_update_public_transient_link_station_failure_keeps_store(
-    protect_client: ProtectApiClient, failing: str, label: str, healthy: str
+    hub_client: ProtectApiClient, failing: str, label: str, healthy: str
 ) -> None:
     """One failing source keeps the whole store and flags the resync for retry."""
-    client = protect_client
+    client = hub_client
     client._public_bootstrap = None
     station, hub = _link_station_pair(client)
     _mock_update_public_endpoints(
@@ -5610,10 +5616,10 @@ async def test_update_public_transient_link_station_failure_keeps_store(
 )
 @pytest.mark.asyncio()
 async def test_update_public_missing_link_station_endpoint_keeps_its_kind(
-    protect_client: ProtectApiClient, missing: str
+    hub_client: ProtectApiClient, missing: str
 ) -> None:
     """A missing endpoint keeps its kind's cached devices and announces nothing."""
-    client = protect_client
+    client = hub_client
     client._public_bootstrap = None
     station, hub = _link_station_pair(client)
     _mock_update_public_endpoints(
@@ -5643,10 +5649,10 @@ async def test_update_public_missing_link_station_endpoint_keeps_its_kind(
 )
 @pytest.mark.asyncio()
 async def test_update_public_missing_link_station_endpoint_applies_the_other(
-    protect_client: ProtectApiClient, missing: str, listed: str, dropped: str
+    hub_client: ProtectApiClient, missing: str, listed: str, dropped: str
 ) -> None:
     """With one endpoint missing, the other still announces its own removals."""
-    client = protect_client
+    client = hub_client
     client._public_bootstrap = None
     station, hub = _link_station_pair(client)
     _mock_update_public_endpoints(
@@ -5670,10 +5676,10 @@ async def test_update_public_missing_link_station_endpoint_applies_the_other(
 
 @pytest.mark.asyncio()
 async def test_update_public_both_link_station_endpoints_missing_keeps_store(
-    protect_client: ProtectApiClient,
+    hub_client: ProtectApiClient,
 ) -> None:
     """With neither source available, both kinds keep their cached devices."""
-    client = protect_client
+    client = hub_client
     client._public_bootstrap = None
     station, hub = _link_station_pair(client)
     _mock_update_public_endpoints(
@@ -5692,16 +5698,93 @@ async def test_update_public_both_link_station_endpoints_missing_keeps_store(
 
 @pytest.mark.asyncio()
 async def test_update_public_alarm_hubs_not_authorized_aborts(
-    protect_client: ProtectApiClient,
+    hub_client: ProtectApiClient,
 ) -> None:
     """A rejected key on the alarm-hubs fetch aborts like every other endpoint."""
     _mock_update_public_endpoints(
-        protect_client,
+        hub_client,
         get_alarm_hubs_public=AsyncMock(side_effect=NotAuthorized("401")),
     )
 
     with pytest.raises(NotAuthorized):
-        await protect_client.update_public()
+        await hub_client.update_public()
+
+
+@pytest.mark.asyncio()
+async def test_update_public_skips_alarm_hubs_by_default(
+    protect_client: ProtectApiClient,
+) -> None:
+    """Without the opt-in, hubs are neither fetched nor kept from link-stations."""
+    station, hub = _link_station_pair(protect_client)
+    _mock_update_public_endpoints(
+        protect_client,
+        get_link_stations_public=AsyncMock(return_value=[station, hub]),
+    )
+
+    pb = await protect_client.update_public()
+
+    protect_client.get_alarm_hubs_public.assert_not_called()  # type: ignore[attr-defined]
+    assert set(pb.link_stations) == {LINK_STATION_ID}
+    assert pb.alarm_hubs == {}
+
+
+@pytest.mark.asyncio()
+async def test_public_only_alarm_hubs_opt_in_loads_hubs() -> None:
+    """``public_only(alarm_hubs=True)`` loads hubs from ``/v1/alarm-hubs``."""
+    client = api_module.ProtectApiClient.public_only(
+        "127.0.0.1", 0, "key", alarm_hubs=True
+    )
+    station, hub = _link_station_pair(client)
+    _mock_update_public_endpoints(
+        client,
+        get_link_stations_public=AsyncMock(return_value=[station]),
+        get_alarm_hubs_public=AsyncMock(return_value=[hub]),
+    )
+
+    pb = await client.update_public()
+
+    assert set(pb.alarm_hubs) == {ALARM_HUB_ID}
+
+
+@pytest.mark.parametrize("primed", [True, False])
+@pytest.mark.asyncio()
+async def test_devices_ws_ignores_alarm_hub_frames_by_default(
+    protect_client: ProtectApiClient, primed: bool
+) -> None:
+    """Without the opt-in, hub frames are dropped and other link stations pass."""
+    protect_client._public_bootstrap = PublicBootstrap() if primed else None
+    captured: list[WSSubscriptionMessage] = []
+    protect_client.subscribe_devices_websocket(captured.append)
+
+    for fixture in (_ALARM_HUB_FIXTURE, _LINK_STATION_FIXTURE):
+        protect_client._process_devices_ws_message(
+            _mock_text_ws_message({"type": "add", "item": deepcopy(fixture)})
+        )
+
+    assert [(m.action, m.new_update_id) for m in captured] == [
+        (WSAction.ADD, LINK_STATION_ID)
+    ]
+    if primed:
+        assert set(protect_client.public_bootstrap.link_stations) == {LINK_STATION_ID}
+
+
+@pytest.mark.asyncio()
+async def test_devices_ws_adds_alarm_hub_when_opted_in(
+    hub_client: ProtectApiClient,
+) -> None:
+    """With the opt-in, a hub ``add`` frame lands in the store and is announced."""
+    hub_client._public_bootstrap = PublicBootstrap()
+    captured: list[WSSubscriptionMessage] = []
+    hub_client.subscribe_devices_websocket(captured.append)
+
+    hub_client._process_devices_ws_message(
+        _mock_text_ws_message({"type": "add", "item": deepcopy(_ALARM_HUB_FIXTURE)})
+    )
+
+    assert [(m.action, m.new_update_id) for m in captured] == [
+        (WSAction.ADD, ALARM_HUB_ID)
+    ]
+    assert set(hub_client.public_bootstrap.alarm_hubs) == {ALARM_HUB_ID}
 
 
 def _other_siren_item(siren_id: str = "other-siren-id") -> dict[str, Any]:
