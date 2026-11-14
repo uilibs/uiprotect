@@ -1,5 +1,16 @@
 # Changelog
 
+## v25.0.3 (2026-11-14)
+
+### Bug fixes
+
+
+- Make loading alarm hubs opt-in ([`917a9c3`](https://github.com/uilibs/uiprotect/commit/917a9c373e9f12534bfa56a054f92b3cd0623155))
+
+
+- Route alarmhubdevicetamper events to the alarm hub channel ([`aa191a4`](https://github.com/uilibs/uiprotect/commit/aa191a45c0c22a745ceb7034a679400ba32a6b4c))
+
+
 ## v25.0.2 (2026-11-06)
 
 ### Bug fixes
