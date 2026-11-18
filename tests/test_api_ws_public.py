@@ -1389,6 +1389,36 @@ async def test_nvr_ws_update_arm_mode_merges_into_nvr(
 
 
 @pytest.mark.asyncio()
+async def test_nvr_ws_update_adds_feature_flags(
+    protect_client: ProtectApiClient,
+) -> None:
+    """An NVR update carrying ``featureFlags`` populates a cached NVR without them."""
+    protect_client._public_bootstrap = PublicBootstrap()
+    pb = protect_client.public_bootstrap
+    protect_client._process_devices_ws_message(
+        create_mock_ws_message(orjson.dumps(_NVR_ADD_PAYLOAD).decode())
+    )
+    assert pb.nvr.feature_flags is None
+    assert pb.uses_external_alarm_manager is None
+
+    update_payload = {
+        "type": "update",
+        "item": {
+            "id": _NVR_ID,
+            "modelKey": "nvr",
+            "featureFlags": {"useExternalAlarmManager": True},
+        },
+    }
+    protect_client._process_devices_ws_message(
+        create_mock_ws_message(orjson.dumps(update_payload).decode())
+    )
+
+    assert pb.nvr.feature_flags is not None
+    assert pb.uses_external_alarm_manager is True
+    assert pb.nvr.name == "Test NVR"
+
+
+@pytest.mark.asyncio()
 async def test_nvr_ws_update_without_arm_mode_leaves_existing_arm_mode(
     protect_client: ProtectApiClient,
 ) -> None:

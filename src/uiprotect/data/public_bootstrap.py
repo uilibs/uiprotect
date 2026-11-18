@@ -264,10 +264,22 @@ class PublicBootstrap:
 
         Returns ``None`` when the NVR cache hasn't been primed yet or when the
         firmware does not expose the alarm manager.  A console using the
-        global alarm manager still populates the field — the local manager is
-        disabled there, so the status reads ``disabled``.
+        external alarm manager still populates the field — the local manager
+        is disabled there, so the status reads ``disabled``.
         """
         return self.nvr.arm_mode if self.nvr is not None else None
+
+    @property
+    def uses_external_alarm_manager(self) -> bool | None:
+        """
+        Whether UniFi OS runs the external alarm manager instead of Protect.
+
+        Returns ``None`` when the NVR cache hasn't been primed yet or the
+        firmware does not report the mode (before Protect 7.4).
+        """
+        if self.nvr is None or self.nvr.feature_flags is None:
+            return None
+        return self.nvr.feature_flags.use_external_alarm_manager
 
     def __post_init__(self) -> None:
         """Validate cache bounds used by event eviction logic."""

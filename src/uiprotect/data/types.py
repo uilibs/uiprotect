@@ -472,6 +472,7 @@ class VideoMode(UnknownValuesEnumMixin, enum.StrEnum):
     SLOW_SHUTTER = "slowShutter"
     LPR_NONE_REFLEX = "lprNoneReflex"
     LPR_REFLEX = "lprReflex"
+    ANTI_FLICKER = "antiFlicker"
     UNKNOWN = "unknown"
 
 

@@ -299,18 +299,18 @@ not username/password. Each exposes `list` and (where applicable) `show`
 subcommands plus group-specific actions; run `uiprotect <group> --help` for the
 full flag list.
 
-| Group              | Common subcommands                                                            |
-| ------------------ | ----------------------------------------------------------------------------- |
-| `arm`              | `list`, `status`, `set-profile`, `enable-alarm`, `disable-alarm`, `trigger`   |
-| `bridges`          | `list`, `show`, `set-name`                                                    |
-| `fobs`             | `list`, `show`, `set-name`                                                    |
-| `files-public`     | `list`, `upload`                                                              |
-| `link-stations`    | `list`, `show`, `set-name`, `trigger-output`                                  |
-| `relays`           | `list`, `show`, `activate`, `set-name`, `set-status-light`                    |
-| `sirens`           | `list`, `show`, `play`, `stop`, `test-sound`, `set-volume`                    |
-| `speakers`         | `list`, `show`, `set-name`, `set-volume`, `set-mic-volume`, `set-mic-enabled` |
-| `users-public`     | `list`, `show`                                                                |
-| `ulp-users-public` | `list`, `show`                                                                |
+| Group              | Common subcommands                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------- |
+| `arm`              | `list`, `status`, `set-profile`, `enable-alarm`, `disable-alarm`, `trigger`                 |
+| `bridges`          | `list`, `show`, `set-name`                                                                  |
+| `fobs`             | `list`, `show`, `set-name`                                                                  |
+| `files-public`     | `list`, `upload`                                                                            |
+| `link-stations`    | `list`, `show`, `set-name`, `trigger-output`                                                |
+| `relays`           | `list`, `show`, `activate`, `set-name`, `set-status-light`                                  |
+| `sirens`           | `list`, `show`, `play`, `stop`, `test-sound`, `set-volume`                                  |
+| `speakers`         | `list`, `show`, `set-name`, `set-volume`, `set-mic-volume`, `set-mic-enabled`, `stop-siren` |
+| `users-public`     | `list`, `show`                                                                              |
+| `ulp-users-public` | `list`, `show`                                                                              |
 
 ```bash
 # list public-API sirens (API key auth)

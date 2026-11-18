@@ -473,7 +473,15 @@ _ENUM_SENTINEL = "unknown"
 # unmodelled warning.
 _MODELLED_AS_SUBSET: dict[frozenset[str], str] = {
     frozenset(
-        {"default", "highFps", "sport", "slowShutter", "lprReflex", "lprNoneReflex"}
+        {
+            "default",
+            "highFps",
+            "sport",
+            "slowShutter",
+            "lprReflex",
+            "lprNoneReflex",
+            "antiFlicker",
+        }
     ): "VideoMode",
     frozenset({"neutral", "low", "safe", "high"}): "SensorStatusType",
     frozenset(

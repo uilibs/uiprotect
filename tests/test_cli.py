@@ -50,6 +50,7 @@ from uiprotect.cli.sensors import (
 )
 from uiprotect.cli.sirens import app as siren_app
 from uiprotect.cli.speakers import app as speaker_app
+from uiprotect.cli.speakers import stop_siren as speaker_stop_siren
 from uiprotect.cli.ulp_users_public import app as ulp_users_public_app
 from uiprotect.cli.users_public import app as users_public_app
 from uiprotect.cli.viewers import app as viewer_app
@@ -191,6 +192,21 @@ def test_speakers_help() -> None:
     assert "set-mic-volume" in result.stdout
     assert "set-mic-enabled" in result.stdout
     assert "test-sound" in result.stdout
+    assert "stop-siren" in result.stdout
+
+
+def test_speakers_stop_siren() -> None:
+    """``stop-siren`` calls the public speaker endpoint."""
+    protect = MagicMock(is_public_only=True)
+    protect.stop_speaker_siren_public = AsyncMock()
+    protect.close_session = AsyncMock()
+    protect.close_public_api_session = AsyncMock()
+    ctx = MagicMock()
+    ctx.obj.protect = protect
+
+    speaker_stop_siren(ctx, speaker_id="speaker-1")
+
+    protect.stop_speaker_siren_public.assert_awaited_once_with("speaker-1")
 
 
 def test_arm_help() -> None:

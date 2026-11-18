@@ -45,6 +45,7 @@ async def test_model_type_from_string():
         (OsdOverlayLocation, "bottomRight", OsdOverlayLocation.BOTTOM_RIGHT),
         (VideoMode, "default", VideoMode.DEFAULT),
         (VideoMode, "lprReflex", VideoMode.LPR_REFLEX),
+        (VideoMode, "antiFlicker", VideoMode.ANTI_FLICKER),
     ],
 )
 def test_unknown_values_enum_known_value(enum_cls, known_value, known_member):
