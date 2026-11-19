@@ -45,6 +45,7 @@ from .data import (
     Event,
     EventCategories,
     EventType,
+    ExternalArmProfile,
     Fob,
     LinkStation,
     ModelType,
@@ -5118,6 +5119,34 @@ class ProtectApiClient(BaseApiClient):
         ):
             self._public_bootstrap.arm_mode.status = NvrArmModeStatus.DISABLED
 
+    async def get_external_arm_profiles_public(self) -> list[ExternalArmProfile]:
+        """Get all arm profiles of the external alarm manager (Protect 7.4+)."""
+        data = await self.api_request_list(
+            url="/v1/external/arm-profiles", public_api=True
+        )
+        return [ExternalArmProfile.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_external_arm_profile_public(
+        self, profile_id: str
+    ) -> ExternalArmProfile:
+        """Get one arm profile of the external alarm manager (Protect 7.4+)."""
+        data = await self.api_request_obj(
+            url=f"/v1/external/arm-profiles/{profile_id}", public_api=True
+        )
+        return ExternalArmProfile.from_unifi_dict(**data, api=self)
+
+    async def arm_external_arm_profile_public(
+        self, profile_id: str
+    ) -> ExternalArmProfile:
+        """Arm an external arm profile; returns the profile from the response."""
+        return await self._external_arm_profile_action(profile_id, "arm")
+
+    async def disarm_external_arm_profile_public(
+        self, profile_id: str
+    ) -> ExternalArmProfile:
+        """Disarm an external arm profile; returns the profile from the response."""
+        return await self._external_arm_profile_action(profile_id, "disarm")
+
     @public_get("/v1/users", items=PublicUser)
     async def get_users_public(self) -> list[PublicUser]:
         """Get all Protect users using public API."""
@@ -5733,3 +5762,13 @@ class ProtectApiClient(BaseApiClient):
                 len(failed),
                 ", ".join(failed),
             )
+
+    async def _external_arm_profile_action(
+        self, profile_id: str, action: str
+    ) -> ExternalArmProfile:
+        data = await self.api_request_obj(
+            url=f"/v1/external/arm-profiles/{profile_id}/actions/{action}",
+            method="post",
+            public_api=True,
+        )
+        return ExternalArmProfile.from_unifi_dict(**data, api=self)
