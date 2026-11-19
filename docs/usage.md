@@ -618,8 +618,8 @@ announced through `subscribe_public_store_changes` (see
 [Stores without a websocket channel](#stores-without-a-websocket-channel)).
 `update_public()` and the periodic refresh fill the store; the list getter
 replaces it, and the single getter, arm and disarm replace one entry with the
-response profile. The single getter skips the write if the store was written
-while its request ran. There are no live updates yet: a change made elsewhere,
+response profile. Both getters skip the write if the store was written while
+their request ran. There are no live updates yet: a change made elsewhere,
 or an `arming` profile turning `armed`, shows up with the next refresh.
 
 ## Shared identity interface

@@ -2847,9 +2847,9 @@ class ProtectApiClient(BaseApiClient):
         the next reconnect; ``NotAuthorized`` is never retried, and a reconnect
         or queued follow-up replaces a pending retry. Each of those fires the
         callback again. A failed fetch of the external arm profiles never fails
-        a resync, so ``True`` can leave that store stale until the next periodic
-        refresh, up to one ``public_refresh_interval`` later, or indefinitely
-        when the refresh timer is off.
+        a resync, so ``True`` can leave that store stale until a later fetch
+        succeeds, which the periodic refresh retries every
+        ``public_refresh_interval`` while the timer is on.
 
         Returns a callback that will unsubscribe.
         """
