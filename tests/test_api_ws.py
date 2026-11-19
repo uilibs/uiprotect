@@ -957,6 +957,241 @@ async def test_reset_auth_failure_wakes_backoff():
         await ws.wait_closed()
 
 
+class _CodeClosingWebsocket:
+    """WS that connects, then delivers one message of the given type."""
+
+    def __init__(
+        self,
+        msg_type: aiohttp.WSMsgType = aiohttp.WSMsgType.CLOSE,
+        data: Any = 4404,
+        *,
+        close_awaits: bool = False,
+    ) -> None:
+        self.msg_type = msg_type
+        self.data = data
+        self.close_awaits = close_awaits
+        self.is_closed = False
+
+    @property
+    def closed(self) -> bool:
+        return self.is_closed
+
+    async def close(self) -> None:
+        if self.close_awaits:
+            await asyncio.sleep(0.01)
+        self.is_closed = True
+
+    async def receive(self, timeout: float | None) -> Any:
+        return aiohttp.WSMessage(self.msg_type, self.data, None)
+
+
+async def _wait_until(predicate: Callable[[], bool]) -> None:
+    for _ in range(500):
+        if predicate():
+            return
+        await asyncio.sleep(0.01)
+    raise AssertionError("condition not reached")
+
+
+@pytest.mark.parametrize("code", [4404, 0])
+@pytest.mark.asyncio()
+async def test_ws_close_without_callback_reconnects(code: int) -> None:
+    """Without a close callback a close frame reconnects after the backoff."""
+    session = AsyncMock()
+    session.ws_connect = AsyncMock(
+        side_effect=lambda *a, **kw: _CodeClosingWebsocket(data=code)
+    )
+    ws, _ = _build_websocket(session, backoff=0)
+
+    ws.start()
+    try:
+        await _wait_until(lambda: session.ws_connect.call_count >= 2)
+    finally:
+        ws.stop()
+        await ws.wait_closed()
+
+
+@pytest.mark.parametrize(
+    "result",
+    [True, None, RuntimeError("boom")],
+    ids=["true", "none", "raises"],
+)
+@pytest.mark.asyncio()
+async def test_ws_close_callback_not_false_reconnects(
+    result: Any, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A close callback that does not return False reconnects."""
+    session = AsyncMock()
+    session.ws_connect = AsyncMock(
+        side_effect=lambda *a, **kw: _CodeClosingWebsocket(data=4500)
+    )
+    close_callback = Mock(
+        side_effect=result if isinstance(result, Exception) else None,
+        return_value=result,
+    )
+    ws, _ = _build_websocket(session, backoff=0, close_callback=close_callback)
+
+    with caplog.at_level(logging.ERROR, logger="uiprotect.websocket"):
+        ws.start()
+        try:
+            await _wait_until(lambda: session.ws_connect.call_count >= 2)
+        finally:
+            ws.stop()
+            await ws.wait_closed()
+
+    close_callback.assert_any_call(4500)
+    assert ("Error in websocket close callback" in caplog.text) is isinstance(
+        result, Exception
+    )
+
+
+@pytest.mark.asyncio()
+async def test_ws_close_callback_false_declines_reconnect() -> None:
+    """A close callback returning False stops the loop like a completed stop()."""
+    session = AsyncMock()
+    session.ws_connect = AsyncMock(
+        side_effect=[_CodeClosingWebsocket(data=4404), _QuietWebsocket()]
+    )
+    close_callback = Mock(return_value=False)
+    ws, states = _build_websocket(session, backoff=0, close_callback=close_callback)
+
+    ws.start()
+    loop_task = ws._websocket_loop_task
+    assert loop_task is not None
+    await asyncio.wait_for(loop_task, timeout=5)
+
+    close_callback.assert_called_once_with(4404)
+    assert session.ws_connect.call_count == 1
+    assert states == [WebsocketState.CONNECTED, WebsocketState.DISCONNECTED]
+    assert ws._running is False
+    assert ws._websocket_loop_task is None
+
+    ws.stop()
+    assert ws._stop_task is None
+    assert states == [WebsocketState.CONNECTED, WebsocketState.DISCONNECTED]
+
+    ws.start()
+    try:
+        await _wait_until(lambda: session.ws_connect.call_count == 2)
+        await _wait_until(lambda: ws.state is WebsocketState.CONNECTED)
+    finally:
+        ws.stop()
+        await ws.wait_closed()
+    assert states == [
+        WebsocketState.CONNECTED,
+        WebsocketState.DISCONNECTED,
+        WebsocketState.CONNECTED,
+        WebsocketState.DISCONNECTED,
+    ]
+
+
+@pytest.mark.parametrize("close_awaits", [False, True])
+@pytest.mark.asyncio()
+async def test_ws_start_from_state_callback_after_decline(close_awaits: bool) -> None:
+    """start() from the DISCONNECTED state callback after a decline reconnects."""
+    session = AsyncMock()
+    session.ws_connect = AsyncMock(
+        side_effect=[
+            _CodeClosingWebsocket(data=4422, close_awaits=close_awaits),
+            _QuietWebsocket(),
+        ]
+    )
+    ws, states = _build_websocket(
+        session, backoff=0, close_callback=Mock(return_value=False)
+    )
+
+    def _on_state(state: WebsocketState) -> None:
+        states.append(state)
+        if state is WebsocketState.DISCONNECTED and len(states) == 2:
+            ws.start()
+
+    ws._websocket_state = _on_state
+
+    ws.start()
+    try:
+        await _wait_until(lambda: len(states) == 3)
+        assert states == [
+            WebsocketState.CONNECTED,
+            WebsocketState.DISCONNECTED,
+            WebsocketState.CONNECTED,
+        ]
+        await asyncio.sleep(0.05)
+        assert session.ws_connect.call_count == 2
+        assert ws._running is True
+        assert ws._websocket_loop_task is not None
+        assert not ws._websocket_loop_task.done()
+    finally:
+        ws.stop()
+        await ws.wait_closed()
+
+
+@pytest.mark.parametrize(
+    "msg_type",
+    [aiohttp.WSMsgType.CLOSING, aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR],
+    ids=["closing", "closed", "error"],
+)
+@pytest.mark.asyncio()
+async def test_ws_close_callback_not_called_for_other_types(
+    msg_type: aiohttp.WSMsgType,
+) -> None:
+    """Only a CLOSE message reaches the close callback."""
+    session = AsyncMock()
+    session.ws_connect = AsyncMock(return_value=_CodeClosingWebsocket(msg_type, None))
+    close_callback = Mock(return_value=False)
+    ws, _ = _build_websocket(session, close_callback=close_callback)
+
+    await ws._run_inner_loop(URL("wss://test.example/ws"))
+
+    close_callback.assert_not_called()
+    assert ws._reconnect_declined is False
+
+
+class _TimingOutWebsocket(_QuietWebsocket):
+    async def receive(self, timeout: float | None) -> Any:
+        raise TimeoutError
+
+
+@pytest.mark.parametrize(
+    "connect",
+    [
+        AsyncMock(return_value=_TimingOutWebsocket()),
+        AsyncMock(side_effect=_handshake_401()),
+        AsyncMock(side_effect=aiohttp.ClientConnectionError()),
+    ],
+    ids=["timeout", "401", "network"],
+)
+@pytest.mark.asyncio()
+async def test_ws_close_callback_not_called_on_failures(connect: AsyncMock) -> None:
+    """A timeout, a 401 handshake or a network error skip the close callback."""
+    session = AsyncMock()
+    session.ws_connect = connect
+    close_callback = Mock(return_value=False)
+    ws, _ = _build_websocket(session, close_callback=close_callback)
+
+    await ws._run_inner_loop(URL("wss://test.example/ws"))
+
+    close_callback.assert_not_called()
+    assert ws._reconnect_declined is False
+
+
+@pytest.mark.asyncio()
+async def test_ws_declined_close_still_updates_bootstrap() -> None:
+    """A declined close without a prior frame still invalidates the bootstrap."""
+    session = AsyncMock()
+    session.ws_connect = AsyncMock(return_value=_CodeClosingWebsocket(data=4404))
+    ws, _ = _build_websocket(session, close_callback=Mock(return_value=False))
+    update_bootstrap = Mock()
+    ws._update_bootstrap = update_bootstrap
+
+    ws.start()
+    loop_task = ws._websocket_loop_task
+    assert loop_task is not None
+    await asyncio.wait_for(loop_task, timeout=5)
+
+    update_bootstrap.assert_called_once_with()
+    assert ws._running is False
+
+
 @pytest.mark.asyncio()
 async def test_check_ws_no_ws_initial(
     protect_client: ProtectApiClient,
