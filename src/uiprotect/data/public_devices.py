@@ -2666,6 +2666,14 @@ class ExternalArmProfile(_ExternalArmObject, ProtectModel):
     has_pin: bool | None = None
     model: ModelType | None = ModelType.EXTERNAL_ARM_PROFILE
 
+    async def arm(self) -> ExternalArmProfile:
+        """Arm this profile; returns the profile from the response."""
+        return await self._api.arm_external_arm_profile_public(self.id)
+
+    async def disarm(self) -> ExternalArmProfile:
+        """Disarm this profile; returns the profile from the response."""
+        return await self._api.disarm_external_arm_profile_public(self.id)
+
     def update_from_dict(self, data: dict[str, Any]) -> Self:
         """Merge a cleaned update; a ``schedule`` replaces the stored one whole."""
         if isinstance(schedule := data.get("schedule"), dict):

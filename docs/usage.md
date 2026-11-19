@@ -578,6 +578,30 @@ should be retried shortly. That de-duplication is in-memory and per-process, so
 it does not survive a Protect restart. Overlay capture is best-effort too — a
 200 confirms the event was recorded, not that footage exists for the window.
 
+## External alarm manager arm profiles (public API, Protect 7.4+)
+
+On a console that uses the external (global) alarm manager, `/v1/arm-profiles`
+answers 400 and `nvr.arm_mode.status` stays `disabled`. Read and change the arm
+state through the external arm-profile endpoints instead:
+
+```python
+profiles = await protect.get_external_arm_profiles_public()
+profile = await protect.get_external_arm_profile_public(profile_id)
+
+armed = await protect.arm_external_arm_profile_public(profile_id)
+disarmed = await protect.disarm_external_arm_profile_public(profile_id)
+
+# Or from the model; the profile it is called on is left unchanged.
+armed = await profile.arm()
+```
+
+Arm and disarm send no request body and return the profile from the response.
+With an `activation_delay` the profile comes back as `arming` with a
+`state_promotion_due_at` and turns `armed` on its own when the delay ends.
+Arming or disarming a profile already in that state returns it unchanged.
+A 400 (profile without alarms) and a 404 (Protect 7.3 and older, which lack the
+endpoints) raise `BadRequest`.
+
 ## Shared identity interface
 
 The public device models expose the same derived identity attributes as the

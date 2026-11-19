@@ -30,6 +30,7 @@ from uiprotect.cli.bridges import app as bridges_app
 from uiprotect.cli.cameras import app as cameras_app
 from uiprotect.cli.chimes import app as chime_app
 from uiprotect.cli.chimes import cameras, set_repeat_times, set_volume
+from uiprotect.cli.external_arm import app as external_arm_app
 from uiprotect.cli.files_public import app as files_public_app
 from uiprotect.cli.fobs import app as fob_app
 from uiprotect.cli.link_stations import app as link_station_app
@@ -81,7 +82,7 @@ from uiprotect.data.types import (
     SmartDetectObjectType,
     VideoMode,
 )
-from uiprotect.exceptions import ChimeRingtoneNotSetError, NvrError
+from uiprotect.exceptions import BadRequest, ChimeRingtoneNotSetError, NvrError
 
 runner = CliRunner()
 
@@ -214,6 +215,72 @@ def test_arm_help() -> None:
     result = runner.invoke(arm_app, ["--help"])
     assert result.exit_code == 0
     assert "list" in result.stdout
+
+
+def test_external_arm_help() -> None:
+    """``external-arm`` is registered and its ``--help`` lists its commands."""
+    assert "external-arm" in runner.invoke(app, ["--help"]).stdout
+    result = runner.invoke(external_arm_app, ["--help"])
+    assert result.exit_code == 0
+    assert "list" in result.stdout
+    assert "arm" in result.stdout
+    assert "disarm" in result.stdout
+
+
+def _external_arm_obj(**methods: AsyncMock) -> MagicMock:
+    protect = MagicMock(is_public_only=True, **methods)
+    protect.close_session = AsyncMock()
+    protect.close_public_api_session = AsyncMock()
+    return MagicMock(protect=protect, output_format=base_cli.OutputFormatEnum.JSON)
+
+
+def test_external_arm_list() -> None:
+    """``external-arm list`` prints every profile."""
+    profile = MagicMock()
+    profile.unifi_dict.return_value = {"id": "p1", "state": "disarmed"}
+    obj = _external_arm_obj(
+        get_external_arm_profiles_public=AsyncMock(return_value=[profile])
+    )
+
+    result = runner.invoke(external_arm_app, ["list"], obj=obj)
+
+    assert result.exit_code == 0
+    assert '"state": "disarmed"' in result.stdout
+    obj.protect.get_external_arm_profiles_public.assert_awaited_once_with()
+
+
+@pytest.mark.parametrize(
+    ("command", "method", "state"),
+    [
+        ("arm", "arm_external_arm_profile_public", "armed"),
+        ("disarm", "disarm_external_arm_profile_public", "disarmed"),
+    ],
+)
+def test_external_arm_actions(command: str, method: str, state: str) -> None:
+    """``external-arm arm``/``disarm`` print the profile from the response."""
+    profile = MagicMock()
+    profile.unifi_dict.return_value = {"id": "p1", "state": state}
+    obj = _external_arm_obj(**{method: AsyncMock(return_value=profile)})
+
+    result = runner.invoke(external_arm_app, [command, "p1"], obj=obj)
+
+    assert result.exit_code == 0
+    assert f'"state": "{state}"' in result.stdout
+    getattr(obj.protect, method).assert_awaited_once_with("p1")
+
+
+def test_external_arm_bad_request() -> None:
+    """A ``BadRequest`` from the console exits 1 with its message."""
+    obj = _external_arm_obj(
+        arm_external_arm_profile_public=AsyncMock(
+            side_effect=BadRequest("Invalid external arm profile request")
+        )
+    )
+
+    result = runner.invoke(external_arm_app, ["arm", "p1"], obj=obj)
+
+    assert result.exit_code == 1
+    assert "Invalid external arm profile request" in result.stdout
 
 
 def test_link_stations_help() -> None:
