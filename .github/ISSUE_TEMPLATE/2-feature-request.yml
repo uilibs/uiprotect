@@ -45,16 +45,6 @@ body:
       options:
         - label: I agree to follow this project's Code of Conduct
           required: true
-  - type: checkboxes
-    id: willing
-    attributes:
-      label: Are you willing to resolve this issue by submitting a Pull Request?
-      description: Remember that first-time contributors are welcome! 🙌
-      options:
-        - label: Yes, I have the time, and I know how to start.
-        - label: Yes, I have the time, but I don't know how to start. I would need guidance.
-        - label: No, I don't have the time, although I believe I could do it if I had the time...
-        - label: No, I don't have the time and I wouldn't even know how to start.
   - type: markdown
     attributes:
       value: 👋 Have a great day and thank you for the feature request!
