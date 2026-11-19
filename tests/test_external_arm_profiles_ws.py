@@ -334,6 +334,8 @@ _INVALID_FIELDS: list[tuple[str, Any]] = [
     ("title", None),
     ("title", 5),
     ("state", None),
+    ("state", 5),
+    ("state", True),
     ("created_at", "soon"),
     ("created_at", 1e308),
     ("schedule", {"mon": {"entries": []}}),

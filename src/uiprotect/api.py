@@ -5909,9 +5909,9 @@ class ProtectApiClient(BaseApiClient):
             self._write_pushed_external_arm_profile({**stored.unifi_dict(), **item})
 
     def _write_pushed_external_arm_profile(self, wire: dict[str, Any]) -> None:
-        # ``null`` would validate to UNKNOWN; ``from_unifi_dict`` skips
-        # validation outside debug mode, so validate explicitly here.
-        if wire.get("state") is None:
+        # ``null`` or a non-string would validate to UNKNOWN; ``from_unifi_dict``
+        # skips validation outside debug mode, so validate explicitly here.
+        if not isinstance(wire.get("state"), str):
             _LOGGER.debug("Ignoring external arm profile without state: %s", wire)
             return
         try:
