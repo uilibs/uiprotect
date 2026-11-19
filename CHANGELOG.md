@@ -1,5 +1,13 @@
 # Changelog
 
+## v25.7.0 (2026-11-19)
+
+### Features
+
+
+- Create, update and delete external arm profiles ([`3111200`](https://github.com/uilibs/uiprotect/commit/3111200ac8ab6f554e197392c939b2d90daa2e0e))
+
+
 ## v25.6.0 (2026-11-19)
 
 ### Features
