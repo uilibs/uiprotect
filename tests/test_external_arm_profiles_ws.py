@@ -335,6 +335,7 @@ _INVALID_FIELDS: list[tuple[str, Any]] = [
     ("title", 5),
     ("state", None),
     ("created_at", "soon"),
+    ("created_at", 1e308),
     ("schedule", {"mon": {"entries": []}}),
     ("updated_by", 5),
 ]
@@ -614,6 +615,24 @@ async def test_created_by_survives_arm_response(
     await protect_client.arm_external_arm_profile_public(PROFILE_ID)
 
     assert _store(protect_client)[PROFILE_ID].created_by == "user-1"
+
+
+@pytest.mark.asyncio()
+async def test_pushed_null_clears_created_by(
+    protect_client: ProtectApiClient, debug: bool
+) -> None:
+    """A pushed ``created_by: null`` wins over the stored one and survives REST."""
+    await _prime(protect_client, True)
+    protect_client._process_external_arm_ws_message(
+        _text({"type": "add", "item": {**_ADD_ITEM, "id": PROFILE_ID}})
+    )
+    assert _store(protect_client)[PROFILE_ID].created_by == "user-1"
+
+    protect_client._process_external_arm_ws_message(_frame("update", created_by=None))
+    assert _store(protect_client)[PROFILE_ID].created_by is None
+
+    await _rest_list(protect_client, _profile(protect_client))
+    assert _store(protect_client)[PROFILE_ID].created_by is None
 
 
 @pytest.mark.asyncio()

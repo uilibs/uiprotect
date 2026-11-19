@@ -5918,7 +5918,7 @@ class ProtectApiClient(BaseApiClient):
             profile = ExternalArmProfile(
                 **ExternalArmProfile.unifi_dict_to_dict({**wire, "api": self})
             )
-        except (ValueError, TypeError) as err:
+        except Exception as err:
             _LOGGER.debug("Ignoring invalid external arm profile %s: %s", wire, err)
             return
         self._write_external_arm_profile(profile)
