@@ -29,6 +29,7 @@ _LOGGER = logging.getLogger(__name__)
 AuthCallbackType = Callable[..., Coroutine[Any, Any, dict[str, str] | None]]
 GetSessionCallbackType = Callable[[], Awaitable[ClientSession]]
 UpdateBootstrapCallbackType = Callable[[], None]
+CloseCallbackType = Callable[[int | None], bool]
 _CLOSE_MESSAGE_TYPES = {WSMsgType.CLOSE, WSMsgType.CLOSING, WSMsgType.CLOSED}
 
 # Consecutive 401 handshakes before AUTH_FAILED is surfaced. One retry lets a
@@ -70,6 +71,7 @@ class Websocket:
         verify: bool = True,
         receive_timeout: float | None = None,
         heartbeat: float | None = None,
+        close_callback: CloseCallbackType | None = None,
     ) -> None:
         """Init Websocket."""
         self.get_url = get_url
@@ -83,6 +85,8 @@ class Websocket:
         self._auth = auth_callback
         self._update_bootstrap = update_bootstrap
         self._subscription = subscription
+        self._close_callback = close_callback
+        self._reconnect_declined = False
         self._seen_non_close_message = False
         self._websocket_state = state_callback
         self._current_state: WebsocketState = WebsocketState.DISCONNECTED
@@ -106,6 +110,17 @@ class Websocket:
         while True:
             url = self.get_url()
             auth_failed = await self._run_inner_loop(url)
+
+            if self._reconnect_declined:
+                # Leave the socket as after stop() before reporting, with no
+                # await in between, so a start() from the state callback runs.
+                # A stop()/start() from the close callback already handed the
+                # socket to a new loop, whose state must not be cleared.
+                if self._websocket_loop_task is asyncio.current_task():
+                    self._running = False
+                    self._websocket_loop_task = None
+                    self._state_changed(WebsocketState.DISCONNECTED)
+                break
 
             if (
                 auth_failed
@@ -170,6 +185,7 @@ class Websocket:
 
     async def _websocket_inner_loop(self, url: URL) -> None:
         _LOGGER.debug("Connecting WS to %s", url)
+        self._reconnect_declined = False
         await self._attempt_auth(False)
         msg: WSMessage | None = None
         self._seen_non_close_message = False
@@ -198,6 +214,8 @@ class Websocket:
                     break
                 if msg_type in _CLOSE_MESSAGE_TYPES:
                     _LOGGER.debug("Websocket closed: %s", msg)
+                    if msg_type is WSMsgType.CLOSE:
+                        self._reconnect_declined = self._close_declines(msg.data)
                     break
 
                 self._seen_non_close_message = True
@@ -222,6 +240,16 @@ class Websocket:
             if self._ws_connection is not None and not self._ws_connection.closed:
                 await self._ws_connection.close()
             self._ws_connection = None
+
+    def _close_declines(self, code: int | None) -> bool:
+        """Return whether the close callback declined the reconnect."""
+        if self._close_callback is None:
+            return False
+        try:
+            return self._close_callback(code) is False
+        except Exception:
+            _LOGGER.exception("Error in websocket close callback")
+            return False
 
     async def _attempt_auth(self, force: bool) -> None:
         """Attempt to authenticate."""
