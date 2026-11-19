@@ -112,7 +112,7 @@ SPEC_PATH = Path(__file__).resolve().parents[1] / "openapi" / "integration.json"
 #   alarm-hub URL aliases, file upload, ``update_public``, etc.) are covered by
 #   one executable example call each, recorded by spying on
 #   ``BaseApiClient.request`` (see ``_record_example_calls``).
-# * The two websocket subscriptions are not REST calls; their paths are read
+# * The websocket subscriptions are not REST calls; their paths are read
 #   straight off the client's ``*_ws_path`` attributes.
 #
 # A spec endpoint absent from this derived union reads as a new/uncovered
@@ -415,10 +415,10 @@ def _registry_endpoints() -> set[tuple[str, str]]:
 
 
 def _subscribe_endpoints() -> set[tuple[str, str]]:
-    """The two websocket subscription paths, read off the client's path attributes."""
+    """The websocket subscription paths, read off the client's path attributes."""
     prefix = ProtectApiClient.public_api_path
     endpoints: set[tuple[str, str]] = set()
-    for attr in ("events_ws_path", "devices_ws_path"):
+    for attr in ("events_ws_path", "devices_ws_path", "updates_ws_path"):
         path: str = getattr(ProtectApiClient, attr)
         endpoints.add(("GET", _normalize_path(path.removeprefix(prefix))))
     return endpoints

@@ -6,21 +6,44 @@ import asyncio
 import logging
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock, patch
 
+import aiohttp
 import pytest
 
 from tests.conftest import read_json_file
 from uiprotect.data import ExternalArmProfile, PublicNVR, PublicStoreChange
 from uiprotect.exceptions import BadRequest, NotAuthorized, NvrError
+from uiprotect.websocket import Websocket, WebsocketState
 
 from .test_api_public import _NVR_RAW_BASE, _mock_update_public_endpoints
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from uiprotect import ProtectApiClient
 
 PROFILE_ID = "6a1b2c3d4e5f60718293a4b5"
 STORE = "external_arm_profiles"
+
+
+@pytest.fixture(autouse=True)
+def no_ws_connect() -> Iterator[Mock]:
+    """Fail the test if any websocket tries a real connection."""
+    recorder = Mock(side_effect=aiohttp.ClientError("no real connection in tests"))
+    with patch.object(aiohttp.ClientSession, "ws_connect", recorder):
+        yield recorder
+    recorder.assert_not_called()
+
+
+def _mock_external_arm_websocket(client: ProtectApiClient) -> Mock:
+    websocket = Mock(
+        spec=Websocket,
+        state=WebsocketState.DISCONNECTED,
+        wait_closed=AsyncMock(),
+    )
+    client._external_arm_websocket = websocket
+    return websocket
 
 
 def _raw(**overrides: Any) -> dict[str, Any]:
@@ -53,8 +76,14 @@ def _change(
 
 
 async def _prime(
-    client: ProtectApiClient, flag: bool | None, *, profiles: bool = True
+    client: ProtectApiClient,
+    flag: bool | None,
+    *,
+    profiles: bool = True,
+    mock_websocket: bool = True,
 ) -> list[PublicStoreChange]:
+    if mock_websocket:
+        _mock_external_arm_websocket(client)
     _mock_update_public_endpoints(
         client,
         get_nvr_public=AsyncMock(return_value=_nvr(client, flag)),
