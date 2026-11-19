@@ -293,7 +293,8 @@ async def test_response_across_connect_is_not_written(
     """The single getter and arm write no response that spans a ``CONNECTED``."""
     websocket, _, calls = await _connected(protect_client)
     await _refetched(protect_client)
-    _fetch(protect_client, [_profile(protect_client, title="fresh")])
+    release, fresh = _gate([_profile(protect_client, title="fresh")])
+    _fetch(protect_client, fresh)
 
     async def _respond(**_: Any) -> dict[str, Any]:
         _drop(protect_client, websocket)
@@ -306,6 +307,11 @@ async def test_response_across_connect_is_not_written(
         await protect_client.arm_external_arm_profile_public(PROFILE_ID)
     else:
         await protect_client.get_external_arm_profile_public(PROFILE_ID)
+    await _settle()
+
+    stored = protect_client.public_bootstrap.external_arm_profiles[PROFILE_ID]
+    assert stored.title == "test"
+    release.set()
     await _refetched(protect_client)
 
     stored = protect_client.public_bootstrap.external_arm_profiles[PROFILE_ID]
@@ -421,6 +427,21 @@ async def test_no_retry_when_settled(
 
 
 @pytest.mark.asyncio()
+async def test_refetch_ends_after_applied_attempt(
+    protect_client: ProtectApiClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A refetch that applied a list ends without waiting for a retry."""
+    monkeypatch.setattr("uiprotect.api.PUBLIC_RESYNC_RETRY_DELAYS", (1000.0,))
+    _, fetch, calls = await _connected(protect_client)
+    (task,) = protect_client._external_arm_refetch_tasks
+    await _wait_until(lambda: fetch.await_count == 1)
+    await _settle()
+
+    assert task.done()
+    assert calls == [(True, True)]
+
+
+@pytest.mark.asyncio()
 async def test_no_retry_after_drop_during_wait(
     protect_client: ProtectApiClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -504,6 +525,36 @@ async def test_flag_turning_false_reports_nothing(
 
 
 @pytest.mark.asyncio()
+async def test_flag_turning_false_while_live(protect_client: ProtectApiClient) -> None:
+    """Losing the external alarm manager reads ``False`` before the socket stops."""
+    _real_websocket(protect_client, _QuietWebsocket())
+    calls = _record(protect_client)
+    await _update(protect_client)
+    seen: list[bool] = []
+    protect_client.subscribe_public_store_changes(
+        lambda _: seen.append(protect_client.is_external_arm_profiles_live)
+    )
+    await _wait_until(lambda: bool(calls))
+    seen.clear()
+    _mock_update_public_endpoints(
+        protect_client,
+        get_nvr_public=AsyncMock(return_value=_nvr(protect_client, False)),
+    )
+    _fetch(protect_client, [_profile(protect_client, title="changed")])
+    websocket = protect_client._external_arm_websocket
+    assert websocket is not None
+
+    await protect_client.update_public()
+
+    assert websocket.state is WebsocketState.CONNECTED
+    assert protect_client.is_external_arm_profiles_live is False
+    assert True not in seen
+    await _wait_until(lambda: len(calls) == 2)
+    assert calls == [(True, True), (False, False)]
+    await protect_client.async_disconnect_ws()
+
+
+@pytest.mark.asyncio()
 @pytest.mark.parametrize(
     "method", ["close_session", "close_public_api_session", "async_disconnect_ws"]
 )
@@ -538,7 +589,10 @@ async def test_subscribers(
         once.append(live)
         unsub_self()
 
-    def _raising(_: bool) -> None:
+    raised: list[bool] = []
+
+    def _raising(live: bool) -> None:
+        raised.append(live)
         raise ValueError("boom")
 
     unsub_self = protect_client.subscribe_external_arm_profiles_live(
@@ -558,6 +612,7 @@ async def test_subscribers(
 
     assert first == [True]
     assert once == [True]
+    assert raised == [True, False]
     assert last == [True, False]
     assert late == [False]
     assert "external arm live handler" in caplog.text

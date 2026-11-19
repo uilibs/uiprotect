@@ -659,9 +659,10 @@ announced through `subscribe_public_store_changes` (see
 `update_public()` and the periodic refresh fill the store; the list getter
 replaces it, and the single getter, arm, disarm, create and update replace one
 entry with the response profile. Both getters skip the write if the store was
-written, or the push socket (below) connected, while their request ran. Create and update write the response under the
-same rule as arm and disarm (below), while delete always removes the id once
-the console answers; a failed request leaves the store unchanged.
+written, or the push socket (below) connected, while their request ran. Create
+and update write the response under the same rule as arm and disarm (below),
+while delete always removes the id once the console answers; a failed request
+leaves the store unchanged.
 
 Changes are pushed live on Protect 7.4+: once `update_public()` succeeded, the
 client keeps a `GET /v1/subscribe/updates?modelKeys=externalArmProfile`
@@ -669,9 +670,9 @@ websocket open while `public_bootstrap.uses_external_alarm_manager` is `True`
 and `subscribe_public_store_changes` has at least one subscriber. A change made
 elsewhere, a breach, or an `arming` profile turning `armed` reaches the store
 and the subscribers within milliseconds. Every connect and reconnect refetches
-the store to close the gap, retrying a failed refetch after each step of
-`PUBLIC_RESYNC_RETRY_DELAYS`. A console without the external alarm manager
-(or Protect 7.3) sees no connection attempt; if the console rejects the socket
+the store to close the gap, retrying a refetch that failed or applied nothing
+after each step of `PUBLIC_RESYNC_RETRY_DELAYS`. A console without the external
+alarm manager (or Protect 7.3) sees no connection attempt; if the console rejects the socket
 (close code 4404, 4422 or 4500), the client logs one warning and falls back to
 the periodic refresh if one is configured, retrying on the next
 `update_public()`, `set_api_key()` or `external_arm_profiles` refresh turn. Of
@@ -697,11 +698,10 @@ from a loop callback or inside `async_disconnect_ws()`.
 
 While that socket is connected, arm, disarm, create and update still write the
 response, unless the store was written or the socket connected during their
-request; then they leave it
-to a refetch if one can start (not during a teardown), because the response and
-the push arrive in either order. The store can then lag
-the returned profile for a moment, and if that refetch fails, until the next
-push or refresh. Without a running socket they write the response as before.
+request; then they leave it to a refetch if one can start (not during a
+teardown), because the response and the push arrive in either order. The store
+can then lag the returned profile for a moment, and if that refetch and its
+retries fail, until the next push or refresh. Without a running socket they write the response as before.
 The push for a create or update usually lands a few milliseconds before the
 response, so while the socket is connected a create or update normally costs
 one extra `GET /v1/external/arm-profiles`.

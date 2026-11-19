@@ -2927,7 +2927,7 @@ class ProtectApiClient(BaseApiClient):
 
     @property
     def is_external_arm_profiles_live(self) -> bool:
-        """Whether pushes keep ``external_arm_profiles`` current since the last connect."""
+        """Whether a complete external arm profile list was applied since the push socket connected."""
         return self._external_arm_live_notified and self._external_arm_live_state()
 
     def subscribe_external_arm_profiles_live(
@@ -6164,8 +6164,12 @@ class ProtectApiClient(BaseApiClient):
         self._start_external_arm_refetch()
 
     def _external_arm_live_state(self) -> bool:
+        pb = self._public_bootstrap
         return (
-            _websocket_state(self._external_arm_websocket) is WebsocketState.CONNECTED
+            pb is not None
+            and pb.uses_external_alarm_manager is True
+            and _websocket_state(self._external_arm_websocket)
+            is WebsocketState.CONNECTED
             and self._external_arm_applied_connects == self._external_arm_connects
         )
 
