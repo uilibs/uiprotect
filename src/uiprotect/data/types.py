@@ -156,6 +156,7 @@ class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
     SPEAKER = "speaker"
     LINK_STATION = "linkstation"
     AI_PROCESSOR = "aiprocessor"
+    EXTERNAL_ARM_PROFILE = "externalArmProfile"
     UNKNOWN = "unknown"
 
     bootstrap_model_types: tuple[ModelType, ...]
@@ -665,6 +666,27 @@ class NvrArmModeStatus(UnknownValuesEnumMixin, enum.StrEnum):
     ARMED = "armed"
     BREACH = "breach"
     DISABLED = "disabled"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class ExternalArmProfileState(UnknownValuesEnumMixin, enum.StrEnum):
+    """State of an external (global) alarm-manager arm profile."""
+
+    DISARMED = "disarmed"
+    ARMING = "arming"
+    ARMED = "armed"
+    BREACHING = "breaching"
+    BREACHED = "breached"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class ExternalArmScheduleType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Kind of an external arm-profile schedule day."""
+
+    INTERVALS = "intervals"
+    ALL_DAY = "all_day"
     UNKNOWN = "unknown"
 
 
