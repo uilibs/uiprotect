@@ -71,6 +71,7 @@ from uiprotect.api import ProtectApiClient  # noqa: E402
 from uiprotect.data import (  # noqa: E402
     PUBLIC_EVENT_TYPES,
     ArmProfile,
+    ExternalArmProfile,
     Fob,
     LinkStation,
     PublicBridge,
@@ -443,6 +444,9 @@ _MODEL_SCHEMAS: list[tuple[type[ProtectBaseObject], str]] = [
     (PublicUser, "user"),
     (PublicUlpUser, "ulpUser"),
     (ArmProfile, "armProfile"),
+    # The REST ``externalArmProfile`` schema types its weekdays with ``anyOf``,
+    # which ``_resolve_object_props`` does not resolve; this one has every field.
+    (ExternalArmProfile, "integrationExternalArmProfile"),
     # ``event`` is a ``oneOf`` union; its variants are merged into one property
     # map, matching the single all-optional ``PublicEvent`` model.
     (PublicEvent, "event"),

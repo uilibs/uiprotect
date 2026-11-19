@@ -34,6 +34,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import Field
 from pydantic.fields import PrivateAttr
+from pydantic_core import to_jsonable_python
 
 from ..exceptions import BadRequest, ChimeRingtoneNotSetError, StreamError
 from ..stream import TalkbackStream
@@ -46,7 +47,7 @@ from ..utils import (
     from_js_time,
     to_js_time,
 )
-from .base import ProtectBaseObject, ProtectModelWithId
+from .base import ProtectBaseObject, ProtectModel, ProtectModelWithId
 from .types import (
     DEFAULT,
     DEFAULT_TYPE,
@@ -62,6 +63,8 @@ from .types import (
     DeviceState,
     DoorbellMessageType,
     EventType,
+    ExternalArmProfileState,
+    ExternalArmScheduleType,
     FobAwayState,
     FobButton,
     FobButtonLabels,
@@ -2584,6 +2587,83 @@ class ArmProfile(ProtectBaseObject):
     creator: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class _ExternalArmObject(ProtectBaseObject):
+    """Base for external arm-profile models: snake_case keys, ISO 8601 times."""
+
+    def unifi_dict(
+        self,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
+    ) -> dict[str, Any]:
+        """Return the wire dict; fields never set are omitted, as on the wire."""
+        if data is None:
+            data = self.model_dump(exclude=exclude, exclude_unset=True)
+        serialized: dict[str, Any] = to_jsonable_python(data)
+        remaps = self._get_to_unifi_remaps()
+        for key in set(serialized).intersection(remaps):
+            serialized[remaps[key]] = serialized.pop(key)
+        return serialized
+
+
+class ExternalArmScheduleTime(_ExternalArmObject):
+    hour: int
+    minute: int
+
+
+class ExternalArmScheduleInterval(_ExternalArmObject):
+    start: ExternalArmScheduleTime
+    end: ExternalArmScheduleTime
+
+
+class ExternalArmScheduleDay(_ExternalArmObject):
+    """One weekday of an external arm-profile schedule; ``entries`` for intervals."""
+
+    type: ExternalArmScheduleType
+    entries: list[ExternalArmScheduleInterval] | None = None
+
+
+class ExternalArmSchedule(_ExternalArmObject):
+    sun: ExternalArmScheduleDay | None = None
+    mon: ExternalArmScheduleDay | None = None
+    tue: ExternalArmScheduleDay | None = None
+    wed: ExternalArmScheduleDay | None = None
+    thu: ExternalArmScheduleDay | None = None
+    fri: ExternalArmScheduleDay | None = None
+    sat: ExternalArmScheduleDay | None = None
+
+
+class ExternalArmProfile(_ExternalArmObject, ProtectModel):
+    """
+    Arm profile of the external (global) alarm manager (Protect 7.4+).
+
+    REST responses omit unset optional fields and carry no ``modelKey``;
+    websocket items send them as explicit ``null``. Delays are in seconds.
+    """
+
+    id: str
+    title: str
+    alarm_ids: list[str]
+    created_at: datetime
+    state: ExternalArmProfileState
+    state_set_at: datetime | None = None
+    state_promotion_due_at: datetime | None = None
+    updated_at: datetime | None = None
+    activation_delay: int | None = None
+    deactivation_delay: int | None = None
+    schedule: ExternalArmSchedule | None = None
+    created_by: str | None = None
+    updated_by: str | None = None
+    active_breach_id: int | None = None
+    has_pin: bool | None = None
+    model: ModelType | None = ModelType.EXTERNAL_ARM_PROFILE
+
+    def update_from_dict(self, data: dict[str, Any]) -> Self:
+        """Merge a cleaned update; a ``schedule`` replaces the stored one whole."""
+        if isinstance(schedule := data.get("schedule"), dict):
+            data = {**data, "schedule": ExternalArmSchedule.model_validate(schedule)}
+        return super().update_from_dict(data)
 
 
 class NvrArmMode(ProtectBaseObject):
