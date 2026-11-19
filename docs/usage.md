@@ -599,8 +599,8 @@ Arm and disarm send no request body and return the profile from the response.
 With an `activation_delay` the profile comes back as `arming` with a
 `state_promotion_due_at` and turns `armed` on its own when the delay ends.
 Arming or disarming a profile already in that state returns it unchanged.
-Every 4xx raises `BadRequest`: 400 for a profile without alarms, 404 on Protect
-7.3 and older, which lack the endpoints.
+A 400 (profile without alarms) and a 404 (Protect 7.3 and older, which lack the
+endpoints) raise `BadRequest`.
 
 ## Shared identity interface
 
