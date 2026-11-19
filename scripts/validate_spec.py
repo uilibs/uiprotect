@@ -192,6 +192,9 @@ _EXAMPLE_CALLS: dict[str, tuple[Any, ...]] = {
     "get_external_arm_profile_public": (_S,),
     "arm_external_arm_profile_public": (_S,),
     "disarm_external_arm_profile_public": (_S,),
+    "create_external_arm_profile_public": (),
+    "update_external_arm_profile_public": (_S,),
+    "delete_external_arm_profile_public": (_S,),
     "get_files_public": (_S,),
     "upload_file_public": (_S,),
     "update_public": (),
@@ -210,6 +213,9 @@ _EXAMPLE_KWARG_OVERRIDES: dict[str, dict[str, Any]] = {
             "resetAt": 1,
         }
     },
+    # The generated string fails the client-side PIN check.
+    "create_external_arm_profile_public": {"pin_code": "1234"},
+    "update_external_arm_profile_public": {"pin_code": "1234"},
 }
 
 _SCALAR_EXAMPLES: dict[Any, Any] = {
