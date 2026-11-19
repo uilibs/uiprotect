@@ -1,5 +1,13 @@
 # Changelog
 
+## v25.4.0 (2026-11-19)
+
+### Features
+
+
+- Let the owner see the close code and decline reconnect ([`4ac1c14`](https://github.com/uilibs/uiprotect/commit/4ac1c149da89c5b338185015ad30fd2181bda705))
+
+
 ## v25.3.0 (2026-11-19)
 
 ### Features
