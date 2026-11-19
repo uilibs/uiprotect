@@ -1613,6 +1613,20 @@ def test_nvr_feature_flags(debug: bool, flag: bool | None) -> None:
     assert nvr.arm_mode.status is NvrArmModeStatus.DISABLED
 
 
+@pytest.mark.parametrize("debug", [True, False])
+def test_nvr_feature_flags_without_alarm_manager_key(debug: bool) -> None:
+    """An empty ``featureFlags`` object parses and the shortcut reads ``None``."""
+    if not debug:
+        set_no_debug()
+    data = deepcopy(_NVR_7_3_PAYLOAD)
+    data["featureFlags"] = {}
+    pb = PublicBootstrap()
+    pb.nvr = PublicNVR.from_unifi_dict(api=Mock(), **data)
+    assert pb.nvr.feature_flags is not None
+    assert pb.nvr.feature_flags.use_external_alarm_manager is None
+    assert pb.uses_external_alarm_manager is None
+
+
 @pytest.mark.parametrize(
     ("feature_flags", "expected"),
     [

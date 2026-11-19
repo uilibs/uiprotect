@@ -2694,7 +2694,7 @@ class PublicDoorbellSettings(ProtectBaseObject):
 class PublicNvrFeatureFlags(ProtectBaseObject):
     """Public API NVR feature flags (Protect 7.4+)."""
 
-    use_external_alarm_manager: bool
+    use_external_alarm_manager: bool | None = None
 
 
 class PublicNVR(PublicIdentifiedModel):
