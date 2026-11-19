@@ -1,5 +1,13 @@
 # Changelog
 
+## v25.6.0 (2026-11-19)
+
+### Features
+
+
+- Subscribe to external arm profile updates over subscribe/updates ([`05987de`](https://github.com/uilibs/uiprotect/commit/05987de2e7455b517dd0a2aabc0a214b747fae11))
+
+
 ## v25.5.0 (2026-11-19)
 
 ### Features
