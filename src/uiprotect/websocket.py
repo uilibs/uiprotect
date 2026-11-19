@@ -114,9 +114,12 @@ class Websocket:
             if self._reconnect_declined:
                 # Leave the socket as after stop() before reporting, with no
                 # await in between, so a start() from the state callback runs.
-                self._running = False
-                self._websocket_loop_task = None
-                self._state_changed(WebsocketState.DISCONNECTED)
+                # A stop()/start() from the close callback already handed the
+                # socket to a new loop, whose state must not be cleared.
+                if self._websocket_loop_task is asyncio.current_task():
+                    self._running = False
+                    self._websocket_loop_task = None
+                    self._state_changed(WebsocketState.DISCONNECTED)
                 break
 
             if (

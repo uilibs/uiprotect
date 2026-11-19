@@ -1125,6 +1125,43 @@ async def test_ws_start_from_state_callback_after_decline(close_awaits: bool) ->
         await ws.wait_closed()
 
 
+@pytest.mark.asyncio()
+async def test_ws_restart_from_close_callback_then_decline() -> None:
+    """stop() and start() from a declining close callback keep the new loop."""
+    session = AsyncMock()
+    session.ws_connect = AsyncMock(
+        side_effect=[_CodeClosingWebsocket(data=4404), _QuietWebsocket()]
+    )
+    ws, _ = _build_websocket(session, backoff=0)
+
+    def _restart(code: int | None) -> bool:
+        ws.stop()
+        ws.start()
+        return False
+
+    ws._close_callback = _restart
+
+    ws.start()
+    first_task = ws._websocket_loop_task
+    assert first_task is not None
+    try:
+        await _wait_until(lambda: session.ws_connect.call_count == 2)
+        await _wait_until(lambda: ws.state is WebsocketState.CONNECTED)
+        assert first_task.done()
+        new_task = ws._websocket_loop_task
+        assert ws._running is True
+        assert new_task is not None
+        assert new_task is not first_task
+        assert not new_task.done()
+    finally:
+        ws.stop()
+        await ws.wait_closed()
+
+    assert new_task.done()
+    assert ws._websocket_loop_task is None
+    assert ws._running is False
+
+
 @pytest.mark.parametrize(
     "msg_type",
     [aiohttp.WSMsgType.CLOSING, aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR],
