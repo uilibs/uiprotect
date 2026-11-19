@@ -27,6 +27,7 @@ from .test_public_external_arm_profiles_store import (
     _profile,
     _raw,
     _tick,
+    no_ws_connect,  # noqa: F401
 )
 
 if TYPE_CHECKING:

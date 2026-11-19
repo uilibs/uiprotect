@@ -158,7 +158,7 @@ PublicStoreObject = ArmProfile | ExternalArmProfile | PublicLiveview | PublicUlp
 
 @dataclass(frozen=True, slots=True)
 class PublicStoreChange:
-    """Ids one write added to, removed from, or changed in a websocket-less store."""
+    """Ids one write added, removed or changed in a periodically refreshed store."""
 
     store: PublicStoreName
     added: frozenset[str]

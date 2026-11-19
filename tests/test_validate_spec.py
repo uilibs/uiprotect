@@ -154,6 +154,7 @@ def test_check_endpoints_subscribe_paths_covered() -> None:
         "paths": {
             "/v1/subscribe/events": {"get": {}},
             "/v1/subscribe/devices": {"get": {}},
+            "/v1/subscribe/updates": {"get": {}},
         }
     }
     _errors, warnings = check_endpoints(spec)
@@ -176,6 +177,7 @@ def test_covered_endpoints_union_sources() -> None:
     assert ("GET", "/v1/alarm-hubs/{}") in covered  # get_alarm_hub_public (recorded)
     assert ("GET", "/v1/subscribe/events") in covered
     assert ("GET", "/v1/subscribe/devices") in covered
+    assert ("GET", "/v1/subscribe/updates") in covered
 
 
 def test_example_calls_match_nondeclarative_coroutines() -> None:

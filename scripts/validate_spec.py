@@ -415,10 +415,10 @@ def _registry_endpoints() -> set[tuple[str, str]]:
 
 
 def _subscribe_endpoints() -> set[tuple[str, str]]:
-    """The two websocket subscription paths, read off the client's path attributes."""
+    """The websocket subscription paths, read off the client's path attributes."""
     prefix = ProtectApiClient.public_api_path
     endpoints: set[tuple[str, str]] = set()
-    for attr in ("events_ws_path", "devices_ws_path"):
+    for attr in ("events_ws_path", "devices_ws_path", "updates_ws_path"):
         path: str = getattr(ProtectApiClient, attr)
         endpoints.add(("GET", _normalize_path(path.removeprefix(prefix))))
     return endpoints

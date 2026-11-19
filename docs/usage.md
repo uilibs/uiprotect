@@ -191,7 +191,7 @@ connectivity as `state is WebsocketState.CONNECTED` and one that only reacts to
 `DISCONNECTED` edges both observe the loss; `AUTH_FAILED` is the additional
 signal that the cause is a dead key rather than a transient drop. Subscribe to
 that channel to be notified, then install a fresh key with `set_api_key()` — it
-re-arms both public WebSockets immediately so recovery doesn't wait out the
+re-arms the public WebSockets immediately so recovery doesn't wait out the
 backoff:
 
 ```python
@@ -313,8 +313,9 @@ unsub = protect.subscribe_public_resync(on_resync)
 `public_bootstrap.arm_profiles`, `public_bootstrap.external_arm_profiles`,
 `public_bootstrap.liveviews` and `public_bootstrap.ulp_users` get no
 devices-websocket frame when they change (the console sends none for liveviews,
-arm profiles and ULP users have no `modelKey`, and the client does not handle
-external arm profile frames yet).
+arm profiles and ULP users have no `modelKey`, and external arm profiles are
+pushed on a separate `subscribe/updates` websocket, see
+[External alarm manager arm profiles](#external-alarm-manager-arm-profiles-public-api-protect-74)).
 Use `subscribe_public_store_changes` instead. Its callback receives a
 `PublicStoreChange(store, added, removed, updated)`: `store` is
 `"arm_profiles"`, `"external_arm_profiles"`, `"liveviews"` or `"ulp_users"`,
@@ -328,7 +329,7 @@ reconnect resync), the periodic refresh below, `refresh_public_store()`,
 `update_arm_profile_public()` / `delete_arm_profile_public()`,
 `arm_external_arm_profile_public()` / `disarm_external_arm_profile_public()`,
 or `create_liveview_public()` / `update_liveview_public()` change a store. Liveview frames from the devices
-websocket fire it too, and `update_public()` sends no synthetic devices-websocket
+websocket and pushed external arm profile items fire it too, and `update_public()` sends no synthetic devices-websocket
 `add`/`remove` frames for these stores. `updated` compares values per id,
 so a refetch that returns the same data fires nothing, and a resync after your
 own create or update does not announce it a second time. If an arm-profile
@@ -359,8 +360,9 @@ unsub = protect.subscribe_public_store_changes(on_store_change)
 
 ### Periodic refresh of these stores
 
-Without a websocket channel, an edit made on the console or by another client
-would stay invisible until the next reconnect. The client therefore refetches
+An edit made on the console or by another client gets no devices-websocket
+frame, and the external arm profile websocket may be off or rejected, so the
+change could stay invisible until the next reconnect. The client therefore refetches
 `arm_profiles`, `ulp_users`, `liveviews` and `external_arm_profiles` on a timer. The first successful
 `update_public()` starts it. Each store gets one turn per
 `public_refresh_interval` seconds (default `PUBLIC_REFRESH_INTERVAL`, 900); a
@@ -407,7 +409,8 @@ at debug level only. On consoles without UniFi Identity, `NotAuthorized` from
 `close_session()`, `close_public_api_session()` and `async_disconnect_ws()` all
 stop the timer. An `update_public()` still running when one of them is called,
 or started before it returns, does not start it again; a later
-`update_public()` does. Device stores are not
+`update_public()` does. The external arm profile websocket differs: of those
+three calls only `async_disconnect_ws()` stops it. Device stores are not
 refreshed on this timer: the devices websocket stays their change channel.
 
 ## Camera RTSPS streams
@@ -619,8 +622,28 @@ announced through `subscribe_public_store_changes` (see
 `update_public()` and the periodic refresh fill the store; the list getter
 replaces it, and the single getter, arm and disarm replace one entry with the
 response profile. Both getters skip the write if the store was written while
-their request ran. There are no live updates yet: a change made elsewhere,
-or an `arming` profile turning `armed`, shows up with the next refresh.
+their request ran.
+
+Changes are pushed live on Protect 7.4+: once `update_public()` succeeded, the
+client keeps a `GET /v1/subscribe/updates?modelKeys=externalArmProfile`
+websocket open while `public_bootstrap.uses_external_alarm_manager` is `True`
+and `subscribe_public_store_changes` has at least one subscriber. A change made
+elsewhere, a breach, or an `arming` profile turning `armed` reaches the store
+and the subscribers within milliseconds. Every connect and reconnect refetches
+the store once to close the gap. A console without the external alarm manager
+(or Protect 7.3) sees no connection attempt; if the console rejects the
+socket (close code 4404, 4422 or 4500), the client logs one warning and falls
+back to the periodic refresh, retrying on the next `update_public()`,
+`set_api_key()` or `external_arm_profiles` refresh turn. Only
+`async_disconnect_ws()` stops the socket; after it, only `update_public()`
+starts it again. Its state is internal: it reaches neither
+`subscribe_devices_websocket_state` nor `is_public_live`.
+
+While that socket is connected, arm and disarm leave the store write to the
+push, or to a refetch if the store was written during their request, because
+the response and the push arrive in either order. The store can then lag the
+returned profile for a moment, and if that refetch fails, until the next push
+or refresh. Without a running socket they write the response as before.
 
 ## Shared identity interface
 
