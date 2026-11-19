@@ -1,5 +1,22 @@
 # Changelog
 
+## v25.1.0 (2026-11-19)
+
+### Features
+
+
+- Model protect 7.4 anti-flicker, nvr flags and speaker stop-siren ([`c2afc6b`](https://github.com/uilibs/uiprotect/commit/c2afc6b71ecf5da100b3ee0bbbdf5f62b899365c))
+
+
+- Model external arm profiles (protect 7.4) ([`fc4af15`](https://github.com/uilibs/uiprotect/commit/fc4af1590cd9f0f0db4c5ef7a3b729896640faa4))
+
+
+### Documentation
+
+
+- Require issue-first approach in pull request template ([`86b00ae`](https://github.com/uilibs/uiprotect/commit/86b00ae7c93344c9468e77c19d39029af46ac049))
+
+
 ## v25.0.3 (2026-11-14)
 
 ### Bug fixes
