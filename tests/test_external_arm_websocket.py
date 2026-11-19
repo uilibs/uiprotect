@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from uiprotect.data import PublicStoreChange
 
 OTHER_ID = "6a1b2c3d4e5f60718293a4b6"
+NEW_ID = "6a1b2c3d4e5f60718293a4c0"
 
 
 class _FrameWebsocket(_QuietWebsocket):
@@ -777,6 +778,40 @@ async def test_action_while_not_connected_is_written(
 
     assert protect_client.public_bootstrap.external_arm_profiles[PROFILE_ID] is profile
     refresh.assert_not_called()
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("connected", [True, False])
+async def test_create_with_add_push_for_new_id(
+    protect_client: ProtectApiClient, connected: bool
+) -> None:
+    """An ``add`` push for the created id defers to a refetch only while connected."""
+    await _prime(protect_client, True)
+    websocket = protect_client._external_arm_websocket
+    assert isinstance(websocket, Mock)
+    if connected:
+        websocket.state = WebsocketState.CONNECTED
+    refresh = _refetch_mock(protect_client)
+
+    async def _respond(**_: Any) -> dict[str, Any]:
+        protect_client._process_external_arm_ws_message(
+            _frame("add", NEW_ID, **{**_raw(title="pushed"), "id": NEW_ID})
+        )
+        return {**_raw(title="response"), "id": NEW_ID}
+
+    protect_client.api_request_obj = AsyncMock(side_effect=_respond)  # type: ignore[method-assign]
+    profile = await protect_client.create_external_arm_profile_public(title="new")
+    await _settle()
+
+    assert profile.id == NEW_ID
+    stored = protect_client.public_bootstrap.external_arm_profiles[NEW_ID]
+    if connected:
+        assert stored is not profile
+        assert stored.title == "pushed"
+        refresh.assert_awaited_once_with(STORE)
+    else:
+        assert stored is profile
+        refresh.assert_not_called()
 
 
 @pytest.mark.asyncio()

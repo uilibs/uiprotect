@@ -639,16 +639,19 @@ A 400 (profile without alarms) and a 404 (Protect 7.3 and older, which lack the
 endpoints) raise `BadRequest`.
 
 Create sends only the keywords you pass; leaving one out, or passing `None`,
-omits it. Update sends only the keywords you pass too: an omitted keyword keeps
-the stored value, and `None` clears it (except `title`, which cannot be
-cleared). An update without any keyword raises `BadRequest`. `title` must be a
-non-empty string and `pin_code` 4 to 6 ASCII digits, checked before the
-request with a `BadRequest` that does not repeat the PIN; the library never
-logs it and responses only carry `has_pin`. A `schedule` replaces the stored
-one as a whole; weekdays left at `None` are not sent, and a schedule without
-any weekday counts as `None`. An interval may end at `{hour: 24, minute: 0}`.
-Delete answers 204 with no body; deleting a profile that is already gone raises
-`BadRequest` (404).
+omits it, except `title`, which is required. Update sends only the keywords you
+pass too: an omitted keyword keeps the stored value, and `None` clears it
+(except `title`, which cannot be `None`). An update without any keyword raises
+`BadRequest`. `title` must be a non-empty string and `pin_code` 4 to 6 ASCII
+digits, checked before the request with a `BadRequest` that does not repeat the
+PIN; the library puts it in no log line or message of its own; error text from
+the console is passed through unchanged. A `schedule` replaces the stored one
+as a whole; weekdays left at `None` are not sent, and a schedule without any
+weekday counts as `None`. An interval may end at `{hour: 24, minute: 0}`; the
+console returns that end as 23:59. The schedule and the delays are sent as
+given and not checked client-side. Delete answers 204 with no body. A failed
+delete raises (`BadRequest`, `NotAuthorized` for 401 and 403) and leaves the
+store unchanged.
 
 The profiles are also cached in `public_bootstrap.external_arm_profiles` and
 announced through `subscribe_public_store_changes` (see

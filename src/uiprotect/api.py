@@ -5289,7 +5289,11 @@ class ProtectApiClient(BaseApiClient):
         alarm_ids: list[str] | None = None,
         pin_code: str | None = None,
     ) -> ExternalArmProfile:
-        """Create an external arm profile (Protect 7.4+); ``None`` omits a field."""
+        """
+        Create an external arm profile (Protect 7.4+).
+
+        ``None`` omits a field, except ``title``, which is required.
+        """
         _check_external_arm_title(title)
         body: dict[str, Any] = {"title": title}
         if activation_delay is not None:
@@ -5328,8 +5332,8 @@ class ProtectApiClient(BaseApiClient):
         """
         Update an external arm profile (Protect 7.4+).
 
-        An omitted field keeps its value; ``None`` clears it. A ``schedule``
-        replaces the stored one as a whole.
+        An omitted field keeps its value; ``None`` clears it, except ``title``,
+        which cannot be ``None``. A ``schedule`` replaces the stored one as a whole.
         """
         body: dict[str, Any] = {}
         if not isinstance(title, _UnsetType):

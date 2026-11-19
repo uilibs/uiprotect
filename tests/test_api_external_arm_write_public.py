@@ -70,6 +70,7 @@ async def test_create_with_title_only(public_client: ProtectApiClient) -> None:
 
     assert _sent(request, "post", BASE) == {"title": "test"}
     assert profile.id == PROFILE_ID
+    assert profile.api is public_client
 
 
 @pytest.mark.asyncio()
@@ -87,7 +88,7 @@ async def test_create_with_every_field(public_client: ProtectApiClient) -> None:
     await public_client.create_external_arm_profile_public(
         title="night",
         activation_delay=0,
-        deactivation_delay=30,
+        deactivation_delay=0,
         schedule=schedule,
         alarm_ids=[],
         pin_code=PIN,
@@ -96,7 +97,7 @@ async def test_create_with_every_field(public_client: ProtectApiClient) -> None:
     assert _sent(request, "post", BASE) == {
         "title": "night",
         "activation_delay": 0,
-        "deactivation_delay": 30,
+        "deactivation_delay": 0,
         "schedule": {
             "mon": {
                 "type": "intervals",
@@ -158,6 +159,7 @@ async def test_update_sends_only_given_fields(
 
     assert _sent(request, "patch", f"{BASE}/{PROFILE_ID}") == expected
     assert profile.id == PROFILE_ID
+    assert profile.api is public_client
 
 
 @pytest.mark.asyncio()
