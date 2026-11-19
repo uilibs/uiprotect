@@ -222,7 +222,7 @@ FOB_PAYLOAD: dict[str, Any] = {
     [
         (PublicCamera, CAMERA_PAYLOAD, 19),
         (PublicLight, LIGHT_PAYLOAD, 15),
-        (PublicSensor, SENSOR_PAYLOAD, 30),
+        (PublicSensor, SENSOR_PAYLOAD, 31),
         (PublicChime, CHIME_PAYLOAD, 9),
     ],
 )
@@ -1558,3 +1558,91 @@ def test_non_siren_frame_leaves_expiry_announcement_alone() -> None:
 
     api._schedule_siren_off.assert_not_called()
     api._cancel_siren_off.assert_not_called()
+
+
+@pytest.mark.parametrize("debug", [True, False])
+@pytest.mark.parametrize(
+    ("extra", "expected"),
+    [({}, None), ({"isMountedIncorrectly": None}, None)]
+    + [({"isMountedIncorrectly": v}, v) for v in (True, False)],
+)
+def test_sensor_is_mounted_incorrectly(
+    debug: bool, extra: dict[str, Any], expected: bool | None
+) -> None:
+    """7.3 sensors omit ``isMountedIncorrectly``; 7.4 sensors report it or null."""
+    if not debug:
+        set_no_debug()
+    sensor = PublicSensor.from_unifi_dict(
+        api=Mock(), **deepcopy({**SENSOR_PAYLOAD, **extra})
+    )
+    assert sensor.is_mounted_incorrectly is expected
+
+
+_NVR_7_3_PAYLOAD: dict[str, Any] = {
+    "id": "nvr1",
+    "modelKey": "nvr",
+    "name": "NVR",
+    "mac": "AABBCCDDEEFF",
+    "doorbellSettings": {
+        "defaultMessageText": "WELCOME",
+        "defaultMessageResetTimeoutMs": 60000,
+        "customMessages": [],
+        "customImages": [],
+    },
+    "armMode": {"status": "disabled"},
+}
+
+
+@pytest.mark.parametrize("debug", [True, False])
+@pytest.mark.parametrize("flag", [None, True, False])
+def test_nvr_feature_flags(debug: bool, flag: bool | None) -> None:
+    """7.3 NVRs omit ``featureFlags``; 7.4 NVRs carry the alarm-manager flag."""
+    if not debug:
+        set_no_debug()
+    data = deepcopy(_NVR_7_3_PAYLOAD)
+    if flag is not None:
+        data["featureFlags"] = {"useExternalAlarmManager": flag}
+    nvr = PublicNVR.from_unifi_dict(api=Mock(), **data)
+    if flag is None:
+        assert nvr.feature_flags is None
+    else:
+        assert nvr.feature_flags is not None
+        assert nvr.feature_flags.use_external_alarm_manager is flag
+        assert nvr.unifi_dict()["featureFlags"] == {"useExternalAlarmManager": flag}
+    assert nvr.arm_mode is not None
+    assert nvr.arm_mode.status is NvrArmModeStatus.DISABLED
+
+
+@pytest.mark.parametrize("debug", [True, False])
+def test_nvr_feature_flags_without_alarm_manager_key(debug: bool) -> None:
+    """An empty ``featureFlags`` object parses and the shortcut reads ``None``."""
+    if not debug:
+        set_no_debug()
+    data = deepcopy(_NVR_7_3_PAYLOAD)
+    data["featureFlags"] = {}
+    pb = PublicBootstrap()
+    pb.nvr = PublicNVR.from_unifi_dict(api=Mock(), **data)
+    assert pb.nvr.feature_flags is not None
+    assert pb.nvr.feature_flags.use_external_alarm_manager is None
+    assert pb.uses_external_alarm_manager is None
+
+
+@pytest.mark.parametrize(
+    ("feature_flags", "expected"),
+    [
+        (None, None),
+        ({"useExternalAlarmManager": True}, True),
+        ({"useExternalAlarmManager": False}, False),
+    ],
+)
+def test_bootstrap_uses_external_alarm_manager(
+    feature_flags: dict[str, bool] | None, expected: bool | None
+) -> None:
+    """Shortcut reads the NVR flag, ``None`` when the console does not report it."""
+    pb = PublicBootstrap()
+    assert pb.uses_external_alarm_manager is None
+    data = deepcopy(_NVR_7_3_PAYLOAD)
+    if feature_flags is not None:
+        data["featureFlags"] = feature_flags
+    pb.nvr = PublicNVR.from_unifi_dict(api=Mock(), **data)
+    assert pb.uses_external_alarm_manager is expected

@@ -36,7 +36,7 @@ from uiprotect.data.types import (
 from uiprotect.exceptions import BadRequest, StreamError
 
 
-def _camera(api: Any) -> PublicCamera:
+def _camera(api: Any, video_modes: list[str] | None = None) -> PublicCamera:
     return PublicCamera.from_unifi_dict(
         api=api,
         id="cam-1",
@@ -64,7 +64,7 @@ def _camera(api: Any) -> PublicCamera:
             "hasMic": True,
             "hasLedStatus": True,
             "hasSpeaker": False,
-            "videoModes": ["default", "highFps"],
+            "videoModes": video_modes or ["default", "highFps"],
             "smartDetectTypes": ["person", "vehicle", "animal", "package", "face"],
             "smartDetectAudioTypes": ["alrmSmoke", "alrmCmonx", "alrmSiren"],
         },
@@ -309,6 +309,24 @@ async def test_public_camera_set_video_mode() -> None:
 
     assert result is cam
     assert cam.video_mode is VideoMode.HIGH_FPS
+
+
+@pytest.mark.asyncio
+async def test_public_camera_set_video_mode_anti_flicker() -> None:
+    """``antiFlicker`` parses from feature flags and is sent as-is."""
+    api = MagicMock()
+    cam = _camera(api, video_modes=["default", "antiFlicker"])
+    assert cam.feature_flags.video_modes == [VideoMode.DEFAULT, VideoMode.ANTI_FLICKER]
+    api.update_camera_public = AsyncMock(
+        return_value=cam.model_copy(update={"video_mode": VideoMode.ANTI_FLICKER})
+    )
+
+    await cam.set_video_mode(VideoMode.ANTI_FLICKER)
+
+    api.update_camera_public.assert_awaited_once_with(
+        "cam-1", video_mode=VideoMode.ANTI_FLICKER
+    )
+    assert cam.video_mode is VideoMode.ANTI_FLICKER
 
 
 @pytest.mark.asyncio

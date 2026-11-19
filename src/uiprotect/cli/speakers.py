@@ -100,3 +100,12 @@ def test_sound(
         ctx,
         ctx.obj.protect.test_speaker_sound_public(speaker_id, volume=volume),
     )
+
+
+@app.command()
+def stop_siren(
+    ctx: typer.Context,
+    speaker_id: str = ARG_SPEAKER_ID,
+) -> None:
+    """Stop the siren playing on a speaker."""
+    base.run(ctx, ctx.obj.protect.stop_speaker_siren_public(speaker_id))

@@ -525,6 +525,25 @@ async def test_test_speaker_sound_public_no_volume(
     assert kwargs["json"] == {}
 
 
+@pytest.mark.asyncio()
+async def test_stop_speaker_siren_public(protect_client: ProtectApiClient) -> None:
+    protect_client.api_request_raw = AsyncMock(return_value=None)
+    await protect_client.stop_speaker_siren_public(SPEAKER_ID)
+    _, kwargs = protect_client.api_request_raw.call_args
+    assert kwargs["url"] == f"/v1/speakers/{SPEAKER_ID}/stop-siren"
+    assert kwargs["method"] == "post"
+
+
+@pytest.mark.asyncio()
+async def test_stop_speaker_siren_public_unsupported_firmware(
+    protect_client: ProtectApiClient,
+) -> None:
+    """A console without the endpoint (Protect 7.3) surfaces ``BadRequest``."""
+    protect_client.api_request_raw = AsyncMock(side_effect=BadRequest("404"))
+    with pytest.raises(BadRequest):
+        await protect_client.stop_speaker_siren_public(SPEAKER_ID)
+
+
 _LINK_STATION_FIXTURE: dict[str, Any] = {
     "id": LINK_STATION_ID,
     "modelKey": "linkstation",
@@ -2348,6 +2367,29 @@ async def test_update_public_creates_cache(
 
 
 @pytest.mark.asyncio()
+@pytest.mark.parametrize("flag", [None, True])
+async def test_update_public_nvr_feature_flags(
+    protect_client: ProtectApiClient, flag: bool | None
+) -> None:
+    """``update_public`` exposes the 7.4 alarm-manager flag; 7.3 leaves ``None``."""
+    raw = deepcopy(_NVR_RAW_BASE)
+    if flag is not None:
+        raw["featureFlags"] = {"useExternalAlarmManager": flag}
+    protect_client.api_request_obj = AsyncMock()
+    protect_client.api_request_raw = AsyncMock()
+    _mock_update_public_endpoints(
+        protect_client,
+        get_nvr_public=AsyncMock(
+            return_value=PublicNVR.from_unifi_dict(**raw, api=protect_client)
+        ),
+    )
+    pb = await protect_client.update_public()
+    assert pb.uses_external_alarm_manager is flag
+    protect_client.api_request_obj.assert_not_called()
+    protect_client.api_request_raw.assert_not_called()
+
+
+@pytest.mark.asyncio()
 async def test_get_nvr_public_returns_none_arm_mode_when_absent(
     protect_client: ProtectApiClient,
 ) -> None:
@@ -3129,6 +3171,7 @@ async def test_speaker_device_action_helpers(
     speaker = _build_speaker(protect_client)
     protect_client.update_speaker_public = AsyncMock(return_value=speaker)
     protect_client.test_speaker_sound_public = AsyncMock()
+    protect_client.stop_speaker_siren_public = AsyncMock()
 
     assert await speaker.set_name("Lobby") is speaker
     protect_client.update_speaker_public.assert_awaited_with(SPEAKER_ID, name="Lobby")
@@ -3145,6 +3188,9 @@ async def test_speaker_device_action_helpers(
     protect_client.test_speaker_sound_public.assert_awaited_once_with(
         SPEAKER_ID, volume=55
     )
+
+    await speaker.stop_siren()
+    protect_client.stop_speaker_siren_public.assert_awaited_once_with(SPEAKER_ID)
 
 
 @pytest.mark.asyncio()

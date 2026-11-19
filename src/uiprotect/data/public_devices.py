@@ -1571,6 +1571,9 @@ class PublicSensor(PublicDeviceModel):
     )
     arm_profile_ids: list[str] | None = None
     has_custom_sensitivity_when_armed: bool = False
+    # Protect 7.4+; ``None`` when absent (7.3) or the sensor does not report its
+    # orientation.
+    is_mounted_incorrectly: bool | None = None
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -2318,6 +2321,10 @@ class Speaker(PublicDeviceModel):
         """Test the speaker sound at the given volume."""
         await self._api.test_speaker_sound_public(self.id, volume=volume)
 
+    async def stop_siren(self) -> None:
+        """Stop the siren playing on the speaker."""
+        await self._api.stop_speaker_siren_public(self.id)
+
 
 class AlarmHubBattery(ProtectBaseObject):
     """
@@ -2764,6 +2771,12 @@ class PublicDoorbellSettings(ProtectBaseObject):
         ]
 
 
+class PublicNvrFeatureFlags(ProtectBaseObject):
+    """Public API NVR feature flags (Protect 7.4+)."""
+
+    use_external_alarm_manager: bool | None = None
+
+
 class PublicNVR(PublicIdentifiedModel):
     """
     NVR device as exposed by the Public Integration API (``GET /v1/nvrs``).
@@ -2780,11 +2793,15 @@ class PublicNVR(PublicIdentifiedModel):
     expose the ``doorbellSettings`` key, and is absent from WS partial-update
     diffs (which only require ``id`` + ``modelKey``).
 
-    ``arm_mode`` reports the state of the **local** alarm manager, and is
-    ``None`` only when the firmware does not yet expose it (older releases).
-    A console whose alarm manager is set to global still returns a populated
-    ``armMode`` — the local manager is genuinely disabled there, so the
-    status reads ``disabled``; the global manager's own arm state is not
+    ``feature_flags`` is ``None`` on firmware before Protect 7.4, which does
+    not report it. ``feature_flags.use_external_alarm_manager`` is ``True``
+    when UniFi OS runs the external alarm manager instead of Protect.
+
+    ``arm_mode`` reports the state of the **local** (Protect) alarm manager,
+    and is ``None`` only when the firmware does not yet expose it (older
+    releases). A console using the external alarm manager still returns a
+    populated ``armMode`` — the local manager is genuinely disabled there, so
+    the status reads ``disabled``; the external manager's own arm state is not
     exposed by ``GET /v1/nvrs``.  WS device-update diffs that
     include ``armMode`` are handled automatically by
     :meth:`~uiprotect.data.base.ProtectBaseObject.update_from_dict` without
@@ -2794,6 +2811,7 @@ class PublicNVR(PublicIdentifiedModel):
     model: ModelType | None = ModelType.NVR
     name: str | None = None
     mac: str | None = None
+    feature_flags: PublicNvrFeatureFlags | None = None
     doorbell_settings: PublicDoorbellSettings | None = None
     arm_mode: NvrArmMode | None = None
 

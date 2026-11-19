@@ -4643,6 +4643,11 @@ class ProtectApiClient(BaseApiClient):
             json=body,
         )
 
+    @public_post("/v1/speakers/{speaker_id}/stop-siren")
+    async def stop_speaker_siren_public(self, speaker_id: str) -> None:
+        """Stop the siren playing on a speaker."""
+        raise NotImplementedError
+
     @public_get("/v1/link-stations", items=LinkStation)
     async def get_link_stations_public(self) -> list[LinkStation]:
         """Get all link stations using public API."""
