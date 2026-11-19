@@ -642,8 +642,9 @@ internal: it reaches neither `subscribe_devices_websocket_state` nor
 `is_public_live`.
 
 While that socket is connected, arm and disarm still write the response, unless
-the store was written during their request; then they leave it to a refetch,
-because the response and the push arrive in either order. The store can then lag
+the store was written during their request; then they leave it to a refetch if
+one can start (not during a teardown), because the response and the push arrive
+in either order. The store can then lag
 the returned profile for a moment, and if that refetch fails, until the next
 push or refresh. Without a running socket they write the response as before.
 
