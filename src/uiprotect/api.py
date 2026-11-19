@@ -5869,3 +5869,56 @@ class ProtectApiClient(BaseApiClient):
         self._emit_public_store_change(
             self._apply_public_store("external_arm_profiles", [profile])
         )
+
+    def _process_external_arm_ws_message(self, msg: aiohttp.WSMessage) -> None:
+        """Apply an ``externalArmProfile`` subscribe/updates frame to the store."""
+        if (pb := self._public_bootstrap) is None:
+            _LOGGER.debug("Ignoring external arm frame before update_public")
+            return
+        if msg.type != aiohttp.WSMsgType.TEXT:
+            _LOGGER.debug("Ignoring non-text external arm frame: %s", msg.type)
+            return
+        try:
+            data = orjson.loads(msg.data)
+        except orjson.JSONDecodeError:
+            _LOGGER.debug("Ignoring non-JSON external arm frame: %s", msg.data)
+            return
+        item = data.get("item") if isinstance(data, dict) else None
+        if (
+            not isinstance(item, dict)
+            or item.get("modelKey") != "externalArmProfile"
+            or not isinstance(profile_id := item.get("id"), str)
+        ):
+            _LOGGER.debug("Ignoring external arm frame: %s", data)
+            return
+        action = data.get("type")
+        if action == "remove":
+            self._emit_public_store_change(
+                self._apply_public_store(
+                    "external_arm_profiles", [], removed_ids=[profile_id]
+                )
+            )
+        elif action == "add":
+            self._write_pushed_external_arm_profile(item)
+        elif action != "update":
+            _LOGGER.debug("Ignoring external arm frame of type %s", action)
+        elif (stored := pb.external_arm_profiles.get(profile_id)) is None:
+            _LOGGER.debug("Ignoring update of unknown arm profile %s", profile_id)
+        else:
+            # Keys are flat: a pushed ``schedule`` replaces the stored one whole.
+            self._write_pushed_external_arm_profile({**stored.unifi_dict(), **item})
+
+    def _write_pushed_external_arm_profile(self, wire: dict[str, Any]) -> None:
+        # ``null`` would validate to UNKNOWN; ``from_unifi_dict`` skips
+        # validation outside debug mode, so validate explicitly here.
+        if wire.get("state") is None:
+            _LOGGER.debug("Ignoring external arm profile without state: %s", wire)
+            return
+        try:
+            profile = ExternalArmProfile(
+                **ExternalArmProfile.unifi_dict_to_dict({**wire, "api": self})
+            )
+        except (ValueError, TypeError) as err:
+            _LOGGER.debug("Ignoring invalid external arm profile %s: %s", wire, err)
+            return
+        self._write_external_arm_profile(profile)
