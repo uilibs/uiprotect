@@ -16,7 +16,12 @@ from uiprotect.exceptions import NvrError
 from uiprotect.websocket import Websocket, WebsocketState
 
 from .test_api_public import _mock_update_public_endpoints
-from .test_api_ws import _CodeClosingWebsocket, _QuietWebsocket, _wait_until
+from .test_api_ws import (
+    _CodeClosingWebsocket,
+    _handshake_401,
+    _QuietWebsocket,
+    _wait_until,
+)
 from .test_public_external_arm_profiles_store import (
     PROFILE_ID,
     STORE,
@@ -284,7 +289,9 @@ async def test_raising_update_public_leaves_socket_running(
 )
 def test_url_carries_model_key(port: int, expected: str) -> None:
     """The socket subscribes to ``externalArmProfile`` only."""
-    client = ProtectApiClient.public_only("127.0.0.1", port, api_key="key")
+    client = ProtectApiClient.public_only(
+        "127.0.0.1", port, api_key="key", ws_receive_timeout=5
+    )
 
     websocket = client._get_external_arm_websocket()
 
@@ -424,20 +431,54 @@ async def test_disconnect_with_update_public_in_flight(
     _assert_torn_down(protect_client)
 
 
+class _ReleasingWebsocket(_QuietWebsocket):
+    """WS whose close sets ``release`` and then takes several loop turns."""
+
+    def __init__(self) -> None:
+        self.release = asyncio.Event()
+
+    async def close(self) -> None:
+        self.release.set()
+        await asyncio.sleep(0.05)
+        await super().close()
+
+
+def _websocket_loop_tasks() -> list[asyncio.Task[Any]]:
+    return [
+        task
+        for task in asyncio.all_tasks()
+        if task.get_coro().__qualname__ == "Websocket._websocket_loop"  # type: ignore[union-attr]
+    ]
+
+
 @pytest.mark.asyncio()
-async def test_update_public_started_during_teardown_does_not_enable(
+async def test_disconnect_detaches_after_refresh_cancel(
     protect_client: ProtectApiClient,
 ) -> None:
-    """An ``update_public`` started while the refresh is cancelled stays off."""
-    await _prime(protect_client, True)
-    protect_client._public_refresh_closing = 1
+    """An ``update_public`` released while the socket closes leaves nothing running."""
+    connection = _ReleasingWebsocket()
+    _real_websocket(protect_client, connection)
+    _refetch_mock(protect_client)
+    await _prime(protect_client, True, mock_websocket=False)
+    websocket = protect_client._external_arm_websocket
+    assert websocket is not None
+    await _wait_until(lambda: websocket.state is WebsocketState.CONNECTED)
+
+    async def _nvr_later() -> Any:
+        await connection.release.wait()
+        return _nvr(protect_client, True)
+
+    protect_client.get_nvr_public = AsyncMock(side_effect=_nvr_later)  # type: ignore[method-assign]
     update = asyncio.create_task(protect_client.update_public())
     await _settle()
-    protect_client._public_refresh_closing = 0
-    protect_client._external_arm_ws_enabled = False
-    await update
 
-    assert protect_client._external_arm_ws_enabled is False
+    await protect_client.async_disconnect_ws()
+    await update
+    await _settle()
+
+    assert websocket._running is False
+    assert _websocket_loop_tasks() == []
+    _assert_torn_down(protect_client)
 
 
 @pytest.mark.asyncio()
@@ -477,6 +518,7 @@ async def test_disconnect_with_decision_pending(
     assert protect_client._external_arm_ws_decision is not None
 
     await protect_client.async_disconnect_ws()
+    assert protect_client._external_arm_ws_decision is None
     await _settle()
 
     websocket.start.assert_called_once()
@@ -521,6 +563,18 @@ async def test_close_keeps_socket_and_cancels_refetch(
     websocket.stop.assert_not_called()
 
 
+class _GatedClosingWebsocket(_QuietWebsocket):
+    """WS that blocks on receive until released, then delivers a CLOSE frame."""
+
+    def __init__(self) -> None:
+        self.release = asyncio.Event()
+
+    async def receive(self, timeout: float | None) -> Any:
+        await self.release.wait()
+        self.is_closed = True
+        return aiohttp.WSMessage(aiohttp.WSMsgType.CLOSE, 1000, None)
+
+
 @pytest.mark.asyncio()
 async def test_state_changes_stay_internal(protect_client: ProtectApiClient) -> None:
     """Its state reaches no public state channel and starts no resync."""
@@ -529,18 +583,27 @@ async def test_state_changes_stay_internal(protect_client: ProtectApiClient) -> 
     protect_client.subscribe_events_websocket_state(seen.append)
     resyncs: list[bool] = []
     protect_client.subscribe_public_resync(resyncs.append)
-    session = _real_websocket(protect_client, _QuietWebsocket())
+    first = _GatedClosingWebsocket()
+    session = _real_session(protect_client, first)
+    session.ws_connect = AsyncMock(
+        side_effect=[first, _handshake_401(), _handshake_401()]
+    )
+    protect_client._get_external_arm_websocket().backoff = 0
     refresh = _refetch_mock(protect_client)
     await _prime(protect_client, True, mock_websocket=False)
-    await _settle()
     websocket = protect_client._external_arm_websocket
     assert websocket is not None
     await _wait_until(lambda: websocket.state is WebsocketState.CONNECTED)
+    await _wait_until(lambda: refresh.await_count == 1)
+    assert protect_client.is_public_live is False
+
+    first.release.set()
+    await _wait_until(lambda: websocket.state is WebsocketState.AUTH_FAILED)
     assert protect_client.is_public_live is False
 
     await protect_client.async_disconnect_ws()
 
-    session.ws_connect.assert_awaited_once()
+    assert session.ws_connect.await_count == 3
     refresh.assert_awaited_once_with(STORE)
     assert seen == []
     assert resyncs == []

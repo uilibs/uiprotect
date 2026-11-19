@@ -112,7 +112,7 @@ SPEC_PATH = Path(__file__).resolve().parents[1] / "openapi" / "integration.json"
 #   alarm-hub URL aliases, file upload, ``update_public``, etc.) are covered by
 #   one executable example call each, recorded by spying on
 #   ``BaseApiClient.request`` (see ``_record_example_calls``).
-# * The two websocket subscriptions are not REST calls; their paths are read
+# * The websocket subscriptions are not REST calls; their paths are read
 #   straight off the client's ``*_ws_path`` attributes.
 #
 # A spec endpoint absent from this derived union reads as a new/uncovered

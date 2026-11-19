@@ -5388,7 +5388,6 @@ class ProtectApiClient(BaseApiClient):
         has a subscriber.
         """
         epoch = self._public_refresh_epoch
-        closing = self._public_refresh_closing
         async with self._public_update_lock:
             self._public_update_running = True
             try:
@@ -5396,7 +5395,7 @@ class ProtectApiClient(BaseApiClient):
             finally:
                 self._public_update_running = False
         if epoch == self._public_refresh_epoch:
-            if not closing and not self._public_refresh_closing:
+            if not self._public_refresh_closing:
                 self._external_arm_ws_enabled = True
             self._start_public_refresh()
         self._external_arm_ws_rejected = False
@@ -6003,8 +6002,7 @@ class ProtectApiClient(BaseApiClient):
         else:
             self._external_arm_ws_rejection_warned = True
             _LOGGER.warning(
-                "Console rejected the external arm profile websocket (close code"
-                " %s); external arm profiles fall back to the periodic refresh",
+                "Console rejected the external arm profile websocket (close code %s)",
                 code,
             )
         return False

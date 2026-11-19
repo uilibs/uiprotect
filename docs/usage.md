@@ -631,19 +631,21 @@ and `subscribe_public_store_changes` has at least one subscriber. A change made
 elsewhere, a breach, or an `arming` profile turning `armed` reaches the store
 and the subscribers within milliseconds. Every connect and reconnect refetches
 the store once to close the gap. A console without the external alarm manager
-(or Protect 7.3) sees no connection attempt; if the console rejects the
-socket (close code 4404, 4422 or 4500), the client logs one warning and falls
-back to the periodic refresh, retrying on the next `update_public()`,
-`set_api_key()` or `external_arm_profiles` refresh turn. Only
-`async_disconnect_ws()` stops the socket; after it, only `update_public()`
-starts it again. Its state is internal: it reaches neither
-`subscribe_devices_websocket_state` nor `is_public_live`.
+(or Protect 7.3) sees no connection attempt; if the console rejects the socket
+(close code 4404, 4422 or 4500), the client logs one warning and falls back to
+the periodic refresh if one is configured, retrying on the next
+`update_public()`, `set_api_key()` or `external_arm_profiles` refresh turn. Of
+`close_session()`, `close_public_api_session()` and `async_disconnect_ws()`,
+only the last stops the socket, so a consumer with a store subscriber has to
+call it; after it, only `update_public()` starts it again. Its state is
+internal: it reaches neither `subscribe_devices_websocket_state` nor
+`is_public_live`.
 
-While that socket is connected, arm and disarm leave the store write to the
-push, or to a refetch if the store was written during their request, because
-the response and the push arrive in either order. The store can then lag the
-returned profile for a moment, and if that refetch fails, until the next push
-or refresh. Without a running socket they write the response as before.
+While that socket is connected, arm and disarm still write the response, unless
+the store was written during their request; then they leave it to a refetch,
+because the response and the push arrive in either order. The store can then lag
+the returned profile for a moment, and if that refetch fails, until the next
+push or refresh. Without a running socket they write the response as before.
 
 ## Shared identity interface
 
