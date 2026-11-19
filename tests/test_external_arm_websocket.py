@@ -664,7 +664,17 @@ async def test_no_refetch_while_closing(protect_client: ProtectApiClient) -> Non
 _ACTIONS = [
     ("arm_external_arm_profile_public", "armed"),
     ("disarm_external_arm_profile_public", "disarmed"),
+    ("create_external_arm_profile_public", "disarmed"),
+    ("update_external_arm_profile_public", "armed"),
 ]
+
+
+async def _call(client: ProtectApiClient, method: str) -> Any:
+    if method == "create_external_arm_profile_public":
+        return await client.create_external_arm_profile_public(title="new")
+    if method == "update_external_arm_profile_public":
+        return await client.update_external_arm_profile_public(PROFILE_ID, title="new")
+    return await getattr(client, method)(PROFILE_ID)
 
 
 async def _action(
@@ -688,7 +698,7 @@ async def _action(
         return _raw(state=state, title="response")
 
     client.api_request_obj = AsyncMock(side_effect=_respond)  # type: ignore[method-assign]
-    profile = await getattr(client, method)(PROFILE_ID)
+    profile = await _call(client, method)
     await _settle()
     assert profile.state == state
     assert profile.title == "response"
@@ -747,7 +757,7 @@ async def test_action_while_closing_is_written(
         return _raw(state=state)
 
     protect_client.api_request_obj = AsyncMock(side_effect=_respond)  # type: ignore[method-assign]
-    profile = await getattr(protect_client, method)(PROFILE_ID)
+    profile = await _call(protect_client, method)
     protect_client._public_refresh_closing = 0
 
     assert protect_client.public_bootstrap.external_arm_profiles[PROFILE_ID] is profile

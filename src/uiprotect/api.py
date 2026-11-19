@@ -145,6 +145,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
     from uiprotect.data.public_devices import (
+        ExternalArmSchedule,
         PublicLightDeviceSettings,
         PublicLightModeSettings,
     )
@@ -252,6 +253,8 @@ class _UnsetType:
 
 _UNSET: _UnsetType = _UnsetType()
 
+_EXTERNAL_ARM_PIN_RE = re.compile(r"[0-9]{4,6}")
+
 
 # Substring present in the 400 error reason returned by the NVR when the
 # alarm-manager endpoint is *not local* (i.e. set to Global instead of Local).
@@ -296,6 +299,28 @@ def _log_external_arm_profiles_failure(exc: Exception) -> None:
         _LOGGER.debug("external-arm-profiles endpoint unavailable: %s", exc)
     else:
         _LOGGER.warning("external-arm-profiles fetch failed: %s", exc, exc_info=exc)
+
+
+def _check_external_arm_title(title: object) -> None:
+    if not isinstance(title, str) or not title:
+        raise BadRequest("title must be a non-empty string")
+
+
+def _check_external_arm_pin(pin_code: object) -> None:
+    # ``fullmatch`` with ``[0-9]``: ``re.match(r"^\d{4,6}$")`` would accept a
+    # trailing newline and non-ASCII digits. Never put the value in the message.
+    if not isinstance(pin_code, str) or not _EXTERNAL_ARM_PIN_RE.fullmatch(pin_code):
+        raise BadRequest("pin_code must be a string of 4 to 6 digits")
+
+
+def _external_arm_schedule_body(
+    schedule: ExternalArmSchedule | None,
+) -> dict[str, Any] | None:
+    """Return the wire schedule without null weekdays; ``None`` if none is left."""
+    if schedule is None:
+        return None
+    days = {k: v for k, v in schedule.unifi_dict().items() if v is not None}
+    return days or None
 
 
 def _merge_link_station_results(
@@ -5254,6 +5279,96 @@ class ProtectApiClient(BaseApiClient):
         """Disarm an external arm profile; returns the profile from the response."""
         return await self._external_arm_profile_action(profile_id, "disarm")
 
+    async def create_external_arm_profile_public(
+        self,
+        *,
+        title: str,
+        activation_delay: int | None = None,
+        deactivation_delay: int | None = None,
+        schedule: ExternalArmSchedule | None = None,
+        alarm_ids: list[str] | None = None,
+        pin_code: str | None = None,
+    ) -> ExternalArmProfile:
+        """Create an external arm profile (Protect 7.4+); ``None`` omits a field."""
+        _check_external_arm_title(title)
+        body: dict[str, Any] = {"title": title}
+        if activation_delay is not None:
+            body["activation_delay"] = activation_delay
+        if deactivation_delay is not None:
+            body["deactivation_delay"] = deactivation_delay
+        if (schedule_body := _external_arm_schedule_body(schedule)) is not None:
+            body["schedule"] = schedule_body
+        if alarm_ids is not None:
+            body["alarm_ids"] = alarm_ids
+        if pin_code is not None:
+            _check_external_arm_pin(pin_code)
+            body["pin_code"] = pin_code
+        writes = self._public_store_writes.get("external_arm_profiles")
+        data = await self.api_request_obj(
+            url="/v1/external/arm-profiles",
+            method="post",
+            json=body,
+            public_api=True,
+        )
+        profile = ExternalArmProfile.from_unifi_dict(**data, api=self)
+        self._write_external_arm_response(profile, writes)
+        return profile
+
+    async def update_external_arm_profile_public(
+        self,
+        profile_id: str,
+        *,
+        title: str | _UnsetType = _UNSET,
+        activation_delay: int | _UnsetType | None = _UNSET,
+        deactivation_delay: int | _UnsetType | None = _UNSET,
+        schedule: ExternalArmSchedule | _UnsetType | None = _UNSET,
+        alarm_ids: list[str] | _UnsetType | None = _UNSET,
+        pin_code: str | _UnsetType | None = _UNSET,
+    ) -> ExternalArmProfile:
+        """
+        Update an external arm profile (Protect 7.4+).
+
+        An omitted field keeps its value; ``None`` clears it. A ``schedule``
+        replaces the stored one as a whole.
+        """
+        body: dict[str, Any] = {}
+        if not isinstance(title, _UnsetType):
+            _check_external_arm_title(title)
+            body["title"] = title
+        if not isinstance(activation_delay, _UnsetType):
+            body["activation_delay"] = activation_delay
+        if not isinstance(deactivation_delay, _UnsetType):
+            body["deactivation_delay"] = deactivation_delay
+        if not isinstance(schedule, _UnsetType):
+            body["schedule"] = _external_arm_schedule_body(schedule)
+        if not isinstance(alarm_ids, _UnsetType):
+            body["alarm_ids"] = alarm_ids
+        if not isinstance(pin_code, _UnsetType):
+            if pin_code is not None:
+                _check_external_arm_pin(pin_code)
+            body["pin_code"] = pin_code
+        if not body:
+            raise BadRequest("At least one parameter must be provided")
+        writes = self._public_store_writes.get("external_arm_profiles")
+        data = await self.api_request_obj(
+            url=f"/v1/external/arm-profiles/{profile_id}",
+            method="patch",
+            json=body,
+            public_api=True,
+        )
+        profile = ExternalArmProfile.from_unifi_dict(**data, api=self)
+        self._write_external_arm_response(profile, writes)
+        return profile
+
+    async def delete_external_arm_profile_public(self, profile_id: str) -> None:
+        """Delete an external arm profile (Protect 7.4+)."""
+        await self.api_request_raw(
+            url=f"/v1/external/arm-profiles/{profile_id}",
+            method="delete",
+            public_api=True,
+        )
+        self._remove_external_arm_profile(profile_id)
+
     @public_get("/v1/users", items=PublicUser)
     async def get_users_public(self) -> list[PublicUser]:
         """Get all Protect users using public API."""
@@ -5928,6 +6043,12 @@ class ProtectApiClient(BaseApiClient):
             public_api=True,
         )
         profile = ExternalArmProfile.from_unifi_dict(**data, api=self)
+        self._write_external_arm_response(profile, writes)
+        return profile
+
+    def _write_external_arm_response(
+        self, profile: ExternalArmProfile, writes: int | None
+    ) -> None:
         # The push for this change may have landed before the response; the
         # refetch settles the order instead of a write that could roll it back.
         if not (
@@ -5936,11 +6057,17 @@ class ProtectApiClient(BaseApiClient):
             and self._start_external_arm_refetch()
         ):
             self._write_external_arm_profile(profile)
-        return profile
 
     def _write_external_arm_profile(self, profile: ExternalArmProfile) -> None:
         self._emit_public_store_change(
             self._apply_public_store("external_arm_profiles", [profile])
+        )
+
+    def _remove_external_arm_profile(self, profile_id: str) -> None:
+        self._emit_public_store_change(
+            self._apply_public_store(
+                "external_arm_profiles", [], removed_ids=[profile_id]
+            )
         )
 
     def _get_external_arm_websocket(self) -> Websocket:

@@ -328,6 +328,8 @@ reconnect resync), the periodic refresh below, `refresh_public_store()`,
 `get_liveview_public()`, `create_arm_profile_public()` /
 `update_arm_profile_public()` / `delete_arm_profile_public()`,
 `arm_external_arm_profile_public()` / `disarm_external_arm_profile_public()`,
+`create_external_arm_profile_public()` / `update_external_arm_profile_public()` /
+`delete_external_arm_profile_public()`,
 or `create_liveview_public()` / `update_liveview_public()` change a store. Liveview frames from the devices
 websocket and pushed external arm profile items fire it too, and `update_public()` sends no synthetic devices-websocket
 `add`/`remove` frames for these stores. `updated` compares values per id,
@@ -599,6 +601,12 @@ answers 400 and `nvr.arm_mode.status` stays `disabled`. Read and change the arm
 state through the external arm-profile endpoints instead:
 
 ```python
+from uiprotect.data import (
+    ExternalArmSchedule,
+    ExternalArmScheduleDay,
+    ExternalArmScheduleType,
+)
+
 profiles = await protect.get_external_arm_profiles_public()
 profile = await protect.get_external_arm_profile_public(profile_id)
 
@@ -607,6 +615,20 @@ disarmed = await protect.disarm_external_arm_profile_public(profile_id)
 
 # Or from the model; the profile it is called on is left unchanged.
 armed = await profile.arm()
+
+created = await protect.create_external_arm_profile_public(
+    title="Night",
+    activation_delay=30,
+    schedule=ExternalArmSchedule(
+        mon=ExternalArmScheduleDay(type=ExternalArmScheduleType.ALL_DAY)
+    ),
+    alarm_ids=[alarm_id],
+    pin_code="1234",
+)
+updated = await protect.update_external_arm_profile_public(
+    created.id, title="Late night", activation_delay=None
+)
+await protect.delete_external_arm_profile_public(created.id)
 ```
 
 Arm and disarm send no request body and return the profile from the response.
@@ -616,13 +638,27 @@ Arming or disarming a profile already in that state returns it unchanged.
 A 400 (profile without alarms) and a 404 (Protect 7.3 and older, which lack the
 endpoints) raise `BadRequest`.
 
+Create sends only the keywords you pass; leaving one out, or passing `None`,
+omits it. Update sends only the keywords you pass too: an omitted keyword keeps
+the stored value, and `None` clears it (except `title`, which cannot be
+cleared). An update without any keyword raises `BadRequest`. `title` must be a
+non-empty string and `pin_code` 4 to 6 ASCII digits, checked before the
+request with a `BadRequest` that does not repeat the PIN; the library never
+logs it and responses only carry `has_pin`. A `schedule` replaces the stored
+one as a whole; weekdays left at `None` are not sent, and a schedule without
+any weekday counts as `None`. An interval may end at `{hour: 24, minute: 0}`.
+Delete answers 204 with no body; deleting a profile that is already gone raises
+`BadRequest` (404).
+
 The profiles are also cached in `public_bootstrap.external_arm_profiles` and
 announced through `subscribe_public_store_changes` (see
 [Stores without a websocket channel](#stores-without-a-websocket-channel)).
 `update_public()` and the periodic refresh fill the store; the list getter
-replaces it, and the single getter, arm and disarm replace one entry with the
-response profile. Both getters skip the write if the store was written while
-their request ran.
+replaces it, and the single getter, arm, disarm, create and update replace one
+entry with the response profile. Both getters skip the write if the store was
+written while their request ran. Create and update write the response under the
+same rule as arm and disarm (below), while delete always removes the id once
+the console answers; a failed request leaves the store unchanged.
 
 Changes are pushed live on Protect 7.4+: once `update_public()` succeeded, the
 client keeps a `GET /v1/subscribe/updates?modelKeys=externalArmProfile`
@@ -641,12 +677,15 @@ call it; after it, only `update_public()` starts it again. Its state is
 internal: it reaches neither `subscribe_devices_websocket_state` nor
 `is_public_live`.
 
-While that socket is connected, arm and disarm still write the response, unless
-the store was written during their request; then they leave it to a refetch if
-one can start (not during a teardown), because the response and the push arrive
-in either order. The store can then lag
+While that socket is connected, arm, disarm, create and update still write the
+response, unless the store was written during their request; then they leave it
+to a refetch if one can start (not during a teardown), because the response and
+the push arrive in either order. The store can then lag
 the returned profile for a moment, and if that refetch fails, until the next
 push or refresh. Without a running socket they write the response as before.
+The push for a create or update usually lands a few milliseconds before the
+response, so while the socket is connected a create or update normally costs
+one extra `GET /v1/external/arm-profiles`.
 
 ## Shared identity interface
 
