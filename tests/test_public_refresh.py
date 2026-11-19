@@ -81,7 +81,7 @@ async def test_public_only_uses_default_interval() -> None:
     _mock_update_public_endpoints(client)
     try:
         await client.update_public()
-        assert _delay(client) == pytest.approx(PUBLIC_REFRESH_INTERVAL / 3, abs=0.5)
+        assert _delay(client) == pytest.approx(PUBLIC_REFRESH_INTERVAL / 4, abs=0.5)
     finally:
         await client.close_session()
 
@@ -110,7 +110,7 @@ async def test_real_timer_keeps_refreshing_every_store() -> None:
 
 
 @pytest.mark.asyncio()
-@pytest.mark.parametrize(("interval", "expected"), [(60.0, 20.0), (9.0, 3.0)])
+@pytest.mark.parametrize(("interval", "expected"), [(60.0, 15.0), (8.0, 2.0)])
 async def test_tick_spacing_scales_with_interval(
     interval: float, expected: float
 ) -> None:
@@ -133,7 +133,7 @@ async def test_private_constructor_passes_interval() -> None:
     _mock_update_public_endpoints(client)
     try:
         await client.update_public()
-        assert _delay(client) == pytest.approx(20.0, abs=0.5)
+        assert _delay(client) == pytest.approx(15.0, abs=0.5)
     finally:
         await client.close_session()
 
@@ -154,17 +154,20 @@ async def test_none_disables_refresh() -> None:
 @pytest.mark.asyncio()
 async def test_jobs_run_round_robin(client: ProtectApiClient) -> None:
     await client.update_public()
-    assert [await _tick(client) for _ in range(6)] == [
+    assert [await _tick(client) for _ in range(8)] == [
         "arm_profiles",
         "ulp_users",
         "liveviews",
+        None,
         "arm_profiles",
         "ulp_users",
         "liveviews",
+        None,
     ]
     assert client._fetch_arm_profiles.await_count == 3
     assert client.get_ulp_users_public.await_count == 3
     assert client._fetch_liveviews.await_count == 3
+    assert client._fetch_external_arm_profiles.await_count == 1
 
 
 @pytest.mark.asyncio()
@@ -427,6 +430,8 @@ async def test_running_job_skips_only_its_own_turn(client: ProtectApiClient) -> 
     await asyncio.sleep(0)
     assert await _tick(client) == "ulp_users"
     assert await _tick(client) == "liveviews"
+    assert await _tick(client) is None
+    assert client._public_refresh_next == 0
     assert await _tick(client) is None
     assert client._public_refresh_tasks["arm_profiles"] is running
     assert fetch.await_count == 1
