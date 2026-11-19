@@ -56,7 +56,13 @@ STATS_KEYS = {
 }
 
 _UNMODELLED_PRIVATE_MODEL_TYPES = frozenset(
-    {ModelType.AIPORT, ModelType.BRIDGE, ModelType.GROUP, ModelType.USER_LOCATION}
+    {
+        ModelType.AIPORT,
+        ModelType.BRIDGE,
+        ModelType.EXTERNAL_ARM_PROFILE,
+        ModelType.GROUP,
+        ModelType.USER_LOCATION,
+    }
 )
 
 IGNORE_DEVICE_KEYS_BY_MODEL_TYPE = {
@@ -706,6 +712,7 @@ class Bootstrap(ProtectBaseObject):
 
         # The private API still sends AiPorts, bridges, groups and user
         # locations, which are no longer modelled on the private bootstrap.
+        # External arm profiles are public-API only.
         if model_type in _UNMODELLED_PRIVATE_MODEL_TYPES:
             return None
 
