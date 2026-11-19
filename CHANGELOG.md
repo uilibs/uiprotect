@@ -1,5 +1,13 @@
 # Changelog
 
+## v25.3.0 (2026-11-19)
+
+### Features
+
+
+- Keep external arm profiles in the public bootstrap ([`2eec5ab`](https://github.com/uilibs/uiprotect/commit/2eec5ab786735f6661c86eb26973d9b978329248))
+
+
 ## v25.2.0 (2026-11-19)
 
 ### Features
