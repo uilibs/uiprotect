@@ -147,6 +147,7 @@ expose only the commands that have a public equivalent. `Private` groups are una
 | `chimes`               | Hybrid  | Chime device CLI.                                                |
 | `create-api-key`       | Private | Create a new API key for the current user.                       |
 | `decode-ws-msg`        | —       | Decodes a base64 encoded UniFi Protect Websocket binary message. |
+| `external-arm`         | Public  | External alarm manager arm profile commands (Protect 7.4+).      |
 | `files-public`         | Public  | Device asset file commands.                                      |
 | `fobs`                 | Public  | Key fob commands.                                                |
 | `generate-sample-data` | Private | Generates sample data for UniFi Protect instance.                |
@@ -303,6 +304,7 @@ full flag list.
 | ------------------ | ------------------------------------------------------------------------------------------- |
 | `arm`              | `list`, `status`, `set-profile`, `enable-alarm`, `disable-alarm`, `trigger`                 |
 | `bridges`          | `list`, `show`, `set-name`                                                                  |
+| `external-arm`     | `list`, `arm`, `disarm`                                                                     |
 | `fobs`             | `list`, `show`, `set-name`                                                                  |
 | `files-public`     | `list`, `upload`                                                                            |
 | `link-stations`    | `list`, `show`, `set-name`, `trigger-output`                                                |
