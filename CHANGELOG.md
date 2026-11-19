@@ -1,5 +1,13 @@
 # Changelog
 
+## v25.2.0 (2026-11-19)
+
+### Features
+
+
+- Read, arm and disarm external arm profiles ([`2ceb9c2`](https://github.com/uilibs/uiprotect/commit/2ceb9c2f7248c3ee1e9729ae672b36d455dee344))
+
+
 ## v25.1.0 (2026-11-19)
 
 ### Features
