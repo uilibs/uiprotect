@@ -1,5 +1,13 @@
 # Changelog
 
+## v25.5.0 (2026-11-19)
+
+### Features
+
+
+- Apply externalarmprofile websocket items to the store ([`8f50662`](https://github.com/uilibs/uiprotect/commit/8f506621978a3e8bec1ac4d3a09924dda18136cc))
+
+
 ## v25.4.0 (2026-11-19)
 
 ### Features
