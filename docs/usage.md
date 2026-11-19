@@ -310,20 +310,24 @@ unsub = protect.subscribe_public_resync(on_resync)
 
 ### Stores without a websocket channel
 
-`public_bootstrap.arm_profiles`, `public_bootstrap.liveviews` and
-`public_bootstrap.ulp_users` get no devices-websocket frame when they change
-(the console sends none for liveviews, and the other two have no `modelKey`).
+`public_bootstrap.arm_profiles`, `public_bootstrap.external_arm_profiles`,
+`public_bootstrap.liveviews` and `public_bootstrap.ulp_users` get no
+devices-websocket frame when they change (the console sends none for liveviews,
+arm profiles and ULP users have no `modelKey`, and the client does not handle
+external arm profile frames yet).
 Use `subscribe_public_store_changes` instead. Its callback receives a
 `PublicStoreChange(store, added, removed, updated)`: `store` is
-`"arm_profiles"`, `"liveviews"` or `"ulp_users"`, and the other three are
-frozensets of ids.
+`"arm_profiles"`, `"external_arm_profiles"`, `"liveviews"` or `"ulp_users"`,
+and the other three are frozensets of ids.
 
 It fires when `update_public()` (the first prime, your own calls, and the
 reconnect resync), the periodic refresh below, `refresh_public_store()`,
-`get_arm_profiles_public()`, `get_liveviews_public()`, `get_liveview_public()`,
-`create_arm_profile_public()` / `update_arm_profile_public()` /
-`delete_arm_profile_public()`, or `create_liveview_public()` /
-`update_liveview_public()` change a store. Liveview frames from the devices
+`get_arm_profiles_public()`, `get_external_arm_profiles_public()`,
+`get_external_arm_profile_public()`, `get_liveviews_public()`,
+`get_liveview_public()`, `create_arm_profile_public()` /
+`update_arm_profile_public()` / `delete_arm_profile_public()`,
+`arm_external_arm_profile_public()` / `disarm_external_arm_profile_public()`,
+or `create_liveview_public()` / `update_liveview_public()` change a store. Liveview frames from the devices
 websocket fire it too, and `update_public()` sends no synthetic devices-websocket
 `add`/`remove` frames for these stores. `updated` compares values per id,
 so a refetch that returns the same data fires nothing, and a resync after your
@@ -332,7 +336,12 @@ create, update, delete or `get_arm_profiles_public()` finishes while an
 `update_public()` fetch is in flight, that refresh leaves `arm_profiles` alone
 rather than roll the write back; the next refresh picks up anything it missed.
 An endpoint that fails during `update_public()` keeps its cached data and fires
-nothing. The first prime reports every id it caches as `added`. Callbacks run
+nothing, except external arm profiles: their store is kept only while the NVR
+reports the external alarm manager (`public_bootstrap.uses_external_alarm_manager`
+is `True`), and is emptied otherwise, announcing the removals. A failed fetch of
+external arm profiles never makes `update_public()` raise or a resync report
+failure, so after a resync that store can be stale until the next periodic
+refresh. The first prime reports every id it caches as `added`. Callbacks run
 synchronously, after the whole refresh has been applied. Device stores keep the
 devices websocket as their only change channel.
 
@@ -352,11 +361,13 @@ unsub = protect.subscribe_public_store_changes(on_store_change)
 
 Without a websocket channel, an edit made on the console or by another client
 would stay invisible until the next reconnect. The client therefore refetches
-`arm_profiles`, `ulp_users` and `liveviews` on a timer. The first successful
+`arm_profiles`, `ulp_users`, `liveviews` and `external_arm_profiles` on a timer. The first successful
 `update_public()` starts it. Each store gets one turn per
 `public_refresh_interval` seconds (default `PUBLIC_REFRESH_INTERVAL`, 900); a
-skipped or failed turn waits for the next one. The refreshes take turns, so one
-request goes out every `interval / 3` seconds.
+skipped or failed turn waits for the next one. The refreshes take turns, one
+every `interval / 4` seconds. The `external_arm_profiles` turn sends no request
+unless the cached NVR reports the external alarm manager; only `update_public()`
+empties that store when the console stops using it.
 Results go through the same apply path as above, so
 `subscribe_public_store_changes` fires only when the data actually changed.
 
@@ -601,6 +612,15 @@ With an `activation_delay` the profile comes back as `arming` with a
 Arming or disarming a profile already in that state returns it unchanged.
 A 400 (profile without alarms) and a 404 (Protect 7.3 and older, which lack the
 endpoints) raise `BadRequest`.
+
+The profiles are also cached in `public_bootstrap.external_arm_profiles` and
+announced through `subscribe_public_store_changes` (see
+[Stores without a websocket channel](#stores-without-a-websocket-channel)).
+`update_public()` and the periodic refresh fill the store; the list getter
+replaces it, and the single getter, arm and disarm replace one entry with the
+response profile. Both getters skip the write if the store was written while
+their request ran. There are no live updates yet: a change made elsewhere,
+or an `arming` profile turning `armed`, shows up with the next refresh.
 
 ## Shared identity interface
 

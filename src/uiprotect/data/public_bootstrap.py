@@ -48,6 +48,7 @@ from .base import ProtectModelWithId
 from .convert import create_from_unifi_dict
 from .public_devices import (
     ArmProfile,
+    ExternalArmProfile,
     Fob,
     LinkStation,
     NvrArmMode,
@@ -149,7 +150,10 @@ class FetchDiff:
     removed: list[ProtectModelWithId]
 
 
-PublicStoreName = Literal["arm_profiles", "liveviews", "ulp_users"]
+PublicStoreName = Literal[
+    "arm_profiles", "external_arm_profiles", "liveviews", "ulp_users"
+]
+PublicStoreObject = ArmProfile | ExternalArmProfile | PublicLiveview | PublicUlpUser
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,6 +235,8 @@ class PublicBootstrap:
 
     # Arm manager state.
     arm_profiles: dict[str, ArmProfile] = field(default_factory=dict)
+    # Profiles of the external (UniFi OS) alarm manager, Protect 7.4+.
+    external_arm_profiles: dict[str, ExternalArmProfile] = field(default_factory=dict)
 
     # Per-instance one-shot warning dedupe for merge/add failures.
     # This must not be module-global because callers can have multiple
@@ -413,7 +419,7 @@ class PublicBootstrap:
     def apply_store(
         self,
         store: PublicStoreName,
-        objs: Iterable[ArmProfile | PublicLiveview | PublicUlpUser],
+        objs: Iterable[PublicStoreObject],
         *,
         replace: bool = False,
         removed_ids: Iterable[str] = (),
@@ -426,7 +432,7 @@ class PublicBootstrap:
         store dict is mutated in place.
         """
         cache = cast(
-            "dict[str, ArmProfile | PublicLiveview | PublicUlpUser]",
+            "dict[str, PublicStoreObject]",
             getattr(self, store),
         )
         written = {obj.id: obj for obj in objs}

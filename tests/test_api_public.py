@@ -150,6 +150,7 @@ def _mock_update_public_endpoints(client: ProtectApiClient, **overrides: Any) ->
         "get_viewers_public": AsyncMock(return_value=[]),
         "get_ulp_users_public": AsyncMock(return_value=[]),
         "_fetch_arm_profiles": AsyncMock(return_value=[]),
+        "_fetch_external_arm_profiles": AsyncMock(return_value=[]),
     }
     defaults.update(overrides)
     for name, value in defaults.items():
