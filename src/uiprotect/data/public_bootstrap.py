@@ -445,10 +445,16 @@ class PublicBootstrap:
             old = cache.get(obj_id)
             if old is None:
                 added.add(obj_id)
-            # A refetch always builds new objects, so compare values; pydantic
-            # ``==`` would also compare private attributes.
-            elif old.model_dump() != obj.model_dump():
-                updated.add(obj_id)
+            else:
+                if store == "external_arm_profiles":
+                    _keep_pushed_authors(
+                        cast("ExternalArmProfile", old),
+                        cast("ExternalArmProfile", obj),
+                    )
+                # A refetch always builds new objects, so compare values;
+                # pydantic ``==`` would also compare private attributes.
+                if old.model_dump() != obj.model_dump():
+                    updated.add(obj_id)
             cache[obj_id] = obj
         if not (added or removed or updated):
             return None
@@ -1047,6 +1053,22 @@ def _dict_slot(
         _delete,
         factory=factory,
     )
+
+
+def _keep_pushed_authors(old: ExternalArmProfile, new: ExternalArmProfile) -> None:
+    # Only pushed items carry the authors (7.4.102); a REST response that
+    # omits them must not erase them. A different ``updated_at`` means an
+    # edit by someone the response does not name.
+    if "created_by" in old.model_fields_set and (
+        "created_by" not in new.model_fields_set
+    ):
+        new.created_by = old.created_by
+    if (
+        "updated_by" in old.model_fields_set
+        and "updated_by" not in new.model_fields_set
+        and old.updated_at == new.updated_at
+    ):
+        new.updated_by = old.updated_by
 
 
 def _parse_ws_envelope(
