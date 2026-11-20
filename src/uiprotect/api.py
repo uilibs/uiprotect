@@ -1696,6 +1696,12 @@ class ProtectApiClient(BaseApiClient):
     _external_arm_ws_rejected: bool = False
     # The first rejection warns; later ones log at debug level. Never reset.
     _external_arm_ws_rejection_warned: bool = False
+    # Bumped on every ``CONNECTED`` of the external arm websocket.
+    _external_arm_connects: int = 0
+    # The connection on which a complete profile list was last applied.
+    _external_arm_applied_connects: int = -1
+    # Last value of ``is_external_arm_profiles_live`` reported to subscribers.
+    _external_arm_live_notified: bool = False
     _last_update_dt: datetime | None = None
     _connection_host: IPv4Address | IPv6Address | str | None = None
     _override_connection_host: bool = False
@@ -1798,6 +1804,7 @@ class ProtectApiClient(BaseApiClient):
         self._devices_ws_state_subscriptions = []
         self._public_resync_subscriptions = []
         self._public_store_subscriptions = []
+        self._external_arm_live_subscriptions: list[Callable[[bool], None]] = []
         self._public_store_writes = {}
         # Labels of refresh jobs whose last attempt failed, so each outage
         # warns once and its recovery logs once.
@@ -2231,6 +2238,8 @@ class ProtectApiClient(BaseApiClient):
                             old_obj=result.old_obj,
                         )
                     )
+                if model_type is ModelType.NVR:
+                    self._report_external_arm_live_after_nvr()
                 return
 
             self.emit_devices_message(
@@ -2917,6 +2926,24 @@ class ProtectApiClient(BaseApiClient):
         """
         self._public_resync_subscriptions.append(callback)
         return partial(self._public_resync_subscriptions.remove, callback)
+
+    @property
+    def is_external_arm_profiles_live(self) -> bool:
+        """Whether a complete external arm profile list was applied since the push socket connected."""
+        return self._external_arm_live_notified and self._external_arm_live_state()
+
+    def subscribe_external_arm_profiles_live(
+        self,
+        callback: Callable[[bool], None],
+    ) -> Callable[[], None]:
+        """
+        Subscribe to changes of :attr:`is_external_arm_profiles_live`.
+
+        ``callback`` gets each new value, never on subscribing. Returns a
+        callback that will unsubscribe.
+        """
+        self._external_arm_live_subscriptions.append(callback)
+        return partial(self._external_arm_live_subscriptions.remove, callback)
 
     def subscribe_public_store_changes(
         self,
@@ -5883,7 +5910,10 @@ class ProtectApiClient(BaseApiClient):
         # Lets an in-flight periodic refresh of this store drop its
         # possibly older result.
         self._public_store_writes[store] = self._public_store_writes.get(store, 0) + 1
-        return pb.apply_store(store, result, replace=True)
+        change = pb.apply_store(store, result, replace=True)
+        if store == "external_arm_profiles":
+            self._mark_external_arm_profiles_applied()
+        return change
 
     def _apply_public_store(
         self,
@@ -5896,9 +5926,12 @@ class ProtectApiClient(BaseApiClient):
         if self._public_bootstrap is None:
             return None
         self._public_store_writes[store] = self._public_store_writes.get(store, 0) + 1
-        return self._public_bootstrap.apply_store(
+        change = self._public_bootstrap.apply_store(
             store, objs, replace=replace, removed_ids=removed_ids
         )
+        if replace and store == "external_arm_profiles":
+            self._mark_external_arm_profiles_applied()
+        return change
 
     def _emit_public_store_change(self, change: PublicStoreChange | None) -> None:
         if change is None:
@@ -6121,8 +6154,58 @@ class ProtectApiClient(BaseApiClient):
 
     def _on_external_arm_websocket_state_change(self, state: WebsocketState) -> None:
         _LOGGER.debug("External arm websocket state changed: %s", state)
-        if state is WebsocketState.CONNECTED:
-            self._start_external_arm_refetch()
+        if state is not WebsocketState.CONNECTED:
+            self._report_external_arm_live()
+            return
+        self._external_arm_connects += 1
+        # A list fetch in flight across the connect can miss changes from
+        # while the socket was down; this makes it drop its result.
+        self._public_store_writes["external_arm_profiles"] = (
+            self._public_store_writes.get("external_arm_profiles", 0) + 1
+        )
+        self._start_external_arm_refetch()
+
+    def _external_arm_live_state(self) -> bool:
+        pb = self._public_bootstrap
+        return (
+            pb is not None
+            and pb.uses_external_alarm_manager is True
+            and _websocket_state(self._external_arm_websocket)
+            is WebsocketState.CONNECTED
+            and self._external_arm_applied_connects == self._external_arm_connects
+        )
+
+    def _mark_external_arm_profiles_applied(self) -> None:
+        pb = self._public_bootstrap
+        if (
+            _websocket_state(self._external_arm_websocket)
+            is not WebsocketState.CONNECTED
+            or pb is None
+            or pb.uses_external_alarm_manager is not True
+        ):
+            return
+        self._external_arm_applied_connects = self._external_arm_connects
+        # Deferred so the store-change callbacks of this write run first.
+        asyncio.get_running_loop().call_soon(self._report_external_arm_live)
+
+    def _report_external_arm_live_after_nvr(self) -> None:
+        if not self._external_arm_live_state():
+            self._report_external_arm_live()
+        elif not self._external_arm_live_notified:
+            # A frame replayed by ``update_public`` runs before its store-change
+            # callbacks, which must still read ``False``.
+            asyncio.get_running_loop().call_soon(self._report_external_arm_live)
+
+    def _report_external_arm_live(self) -> None:
+        live = self._external_arm_live_state()
+        if live is self._external_arm_live_notified:
+            return
+        self._external_arm_live_notified = live
+        for sub in self._external_arm_live_subscriptions.copy():
+            try:
+                sub(live)
+            except Exception:
+                _LOGGER.exception("Exception while running external arm live handler")
 
     def _on_external_arm_websocket_close(self, code: int | None) -> bool:
         if code not in _EXTERNAL_ARM_WS_REJECT_CODES:
@@ -6141,16 +6224,32 @@ class ProtectApiClient(BaseApiClient):
     def _start_external_arm_refetch(self) -> bool:
         if not self._external_arm_ws_enabled or self._public_refresh_closing:
             return False
-        task = asyncio.create_task(self._refetch_external_arm_profiles())
+        task = asyncio.create_task(
+            self._refetch_external_arm_profiles(self._external_arm_connects)
+        )
         self._external_arm_refetch_tasks.add(task)
         task.add_done_callback(self._external_arm_refetch_tasks.discard)
         return True
 
-    async def _refetch_external_arm_profiles(self) -> None:
-        try:
-            await self.refresh_public_store("external_arm_profiles")
-        except Exception as err:
-            _LOGGER.debug("External arm profile refetch failed: %s", err)
+    async def _refetch_external_arm_profiles(self, connect: int) -> None:
+        for delay in (*PUBLIC_RESYNC_RETRY_DELAYS, None):
+            try:
+                await self.refresh_public_store("external_arm_profiles")
+            except Exception as err:
+                _LOGGER.debug("External arm profile refetch failed: %s", err)
+            if delay is None or self._external_arm_refetch_settled(connect):
+                return
+            await asyncio.sleep(delay)
+            if self._external_arm_refetch_settled(connect):
+                return
+
+    def _external_arm_refetch_settled(self, connect: int) -> bool:
+        return (
+            connect != self._external_arm_connects
+            or _websocket_state(self._external_arm_websocket)
+            is not WebsocketState.CONNECTED
+            or self._external_arm_applied_connects == connect
+        )
 
     def _process_external_arm_ws_message(self, msg: aiohttp.WSMessage) -> None:
         """Apply an ``externalArmProfile`` subscribe/updates frame to the store."""
