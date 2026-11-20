@@ -584,6 +584,46 @@ async def test_nvr_frame_turning_flag_false(protect_client: ProtectApiClient) ->
 
 
 @pytest.mark.asyncio()
+async def test_nvr_frame_during_update_public_reports_after_store(
+    protect_client: ProtectApiClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An NVR frame replayed by ``update_public`` reports ``True`` after the store."""
+    monkeypatch.setattr("uiprotect.api.PUBLIC_RESYNC_RETRY_DELAYS", _ZERO)
+    _, _, calls = await _connected(protect_client, NvrError("down"))
+    await _refetched(protect_client)
+    assert protect_client.is_external_arm_profiles_live is False
+    order: list[Any] = []
+    protect_client.subscribe_external_arm_profiles_live(
+        lambda live: order.append(("live", live))
+    )
+    protect_client.subscribe_public_store_changes(
+        lambda change: (
+            order.append(("store", protect_client.is_external_arm_profiles_live))
+            if change.store == STORE
+            else None
+        )
+    )
+    nvr = protect_client.public_bootstrap.nvr
+    assert nvr is not None
+    frame = {"type": "update", "item": {"id": nvr.id, "modelKey": "nvr"}}
+
+    async def _with_frame() -> Any:
+        protect_client._process_devices_ws_message(
+            aiohttp.WSMessage(
+                aiohttp.WSMsgType.TEXT, orjson.dumps(frame).decode(), None
+            )
+        )
+        return [_profile(protect_client, title="changed")]
+
+    _fetch(protect_client, _with_frame)
+    await protect_client.update_public()
+    await _settle()
+
+    assert order == [("store", False), ("live", True)]
+    assert calls == [(True, True)]
+
+
+@pytest.mark.asyncio()
 @pytest.mark.parametrize(
     "method", ["close_session", "close_public_api_session", "async_disconnect_ws"]
 )

@@ -2239,7 +2239,7 @@ class ProtectApiClient(BaseApiClient):
                         )
                     )
                 if model_type is ModelType.NVR:
-                    self._report_external_arm_live()
+                    self._report_external_arm_live_after_nvr()
                 return
 
             self.emit_devices_message(
@@ -6187,6 +6187,14 @@ class ProtectApiClient(BaseApiClient):
         self._external_arm_applied_connects = self._external_arm_connects
         # Deferred so the store-change callbacks of this write run first.
         asyncio.get_running_loop().call_soon(self._report_external_arm_live)
+
+    def _report_external_arm_live_after_nvr(self) -> None:
+        if not self._external_arm_live_state():
+            self._report_external_arm_live()
+        elif not self._external_arm_live_notified:
+            # A frame replayed by ``update_public`` runs before its store-change
+            # callbacks, which must still read ``False``.
+            asyncio.get_running_loop().call_soon(self._report_external_arm_live)
 
     def _report_external_arm_live(self) -> None:
         live = self._external_arm_live_state()
