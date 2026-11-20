@@ -1,5 +1,13 @@
 # Changelog
 
+## v25.8.0 (2026-11-20)
+
+### Features
+
+
+- Report when the external arm profile store is live ([`75366a0`](https://github.com/uilibs/uiprotect/commit/75366a0252f3ed3a0d2ea7ac926dbdcf1c504d27))
+
+
 ## v25.7.0 (2026-11-19)
 
 ### Features
