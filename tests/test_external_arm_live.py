@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock
 
 import aiohttp
+import orjson
 import pytest
 
 from uiprotect.data import ExternalArmProfileState
@@ -552,6 +553,34 @@ async def test_flag_turning_false_while_live(protect_client: ProtectApiClient) -
     await _wait_until(lambda: len(calls) == 2)
     assert calls == [(True, True), (False, False)]
     await protect_client.async_disconnect_ws()
+
+
+@pytest.mark.asyncio()
+async def test_nvr_frame_turning_flag_false(protect_client: ProtectApiClient) -> None:
+    """A devices websocket NVR frame dropping the flag reports ``False`` once."""
+    await _connected(protect_client)
+    await _refetched(protect_client)
+    calls = _record(protect_client)
+    assert protect_client.is_external_arm_profiles_live is True
+    nvr = protect_client.public_bootstrap.nvr
+    assert nvr is not None
+    frame = {
+        "type": "update",
+        "item": {
+            "id": nvr.id,
+            "modelKey": "nvr",
+            "featureFlags": {"useExternalAlarmManager": False},
+        },
+    }
+
+    for _ in range(2):
+        protect_client._process_devices_ws_message(
+            aiohttp.WSMessage(
+                aiohttp.WSMsgType.TEXT, orjson.dumps(frame).decode(), None
+            )
+        )
+
+    assert calls == [(False, False)]
 
 
 @pytest.mark.asyncio()

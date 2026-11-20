@@ -2238,6 +2238,8 @@ class ProtectApiClient(BaseApiClient):
                             old_obj=result.old_obj,
                         )
                     )
+                if model_type is ModelType.NVR:
+                    self._report_external_arm_live()
                 return
 
             self.emit_devices_message(

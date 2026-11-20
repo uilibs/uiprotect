@@ -700,11 +700,11 @@ While that socket is connected, arm, disarm, create and update still write the
 response, unless the store was written or the socket connected during their
 request; then they leave it to a refetch if one can start (not during a
 teardown), because the response and the push arrive in either order. The store
-can then lag the returned profile for a moment, and if that refetch and its
-retries fail, until the next push or refresh. Without a running socket they write the response as before.
-The push for a create or update usually lands a few milliseconds before the
-response, so while the socket is connected a create or update normally costs
-one extra `GET /v1/external/arm-profiles`.
+can then lag the returned profile for a moment, and if that refetch fails, until
+the next push or refresh. Without a running socket they write the response as
+before. The push for a create or update usually lands a few milliseconds before
+the response, so while the socket is connected a create or update normally
+costs one extra `GET /v1/external/arm-profiles`.
 
 ## Shared identity interface
 
