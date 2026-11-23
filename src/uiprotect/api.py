@@ -1764,14 +1764,7 @@ class ProtectApiClient(BaseApiClient):
         ws_receive_timeout: int | None = None,
         max_retries: int = RETRY_DEFAULT_ATTEMPTS,
         public_refresh_interval: float | None = PUBLIC_REFRESH_INTERVAL,
-        alarm_hubs: bool = False,
     ) -> None:
-        """
-        Create a client.
-
-        ``alarm_hubs`` is temporary: it opts into loading alarm hubs into the
-        public bootstrap and will be removed, with hubs always loaded.
-        """
         super().__init__(
             host=host,
             port=port,
@@ -1812,7 +1805,6 @@ class ProtectApiClient(BaseApiClient):
         self._event_dispatcher = None
         self._device_dispatcher = None
         self.ignore_unadopted = ignore_unadopted
-        self._alarm_hubs = alarm_hubs
         self._update_lock = asyncio.Lock()
 
         self._override_connection_host = override_connection_host
@@ -1840,7 +1832,6 @@ class ProtectApiClient(BaseApiClient):
         override_connection_host: bool = False,
         max_retries: int = RETRY_DEFAULT_ATTEMPTS,
         public_refresh_interval: float | None = PUBLIC_REFRESH_INTERVAL,
-        alarm_hubs: bool = False,
     ) -> Self:
         """
         Construct a client that operates entirely on the Public Integration API.
@@ -1853,7 +1844,6 @@ class ProtectApiClient(BaseApiClient):
         :meth:`get_meta_info` instead. A revoked or invalid key surfaces as
         :class:`NotAuthorized`. ``override_connection_host`` rewrites the host
         of the public RTSPS URLs to ``host``; it needs no private bootstrap.
-        ``alarm_hubs`` is the temporary opt-in described on the constructor.
         """
         return cls(
             host,
@@ -1870,7 +1860,6 @@ class ProtectApiClient(BaseApiClient):
             override_connection_host=override_connection_host,
             max_retries=max_retries,
             public_refresh_interval=public_refresh_interval,
-            alarm_hubs=alarm_hubs,
         )
 
     def _set_connection_host_from_bootstrap(self) -> None:
@@ -2203,9 +2192,7 @@ class ProtectApiClient(BaseApiClient):
                 _LOGGER.debug("Unknown model type in public API message: %s", model_key)
                 return
 
-            if self._devices_ws_filtered_out(model_type) or self._is_ignored_alarm_hub(
-                model_type, item
-            ):
+            if self._devices_ws_filtered_out(model_type):
                 return
 
             # Apply the change to the PublicBootstrap cache when it has been
@@ -2289,16 +2276,6 @@ class ProtectApiClient(BaseApiClient):
             else self._devices_ws_subscribed_models
         )
         return bool(model_filter) and model_type not in model_filter
-
-    def _is_ignored_alarm_hub(
-        self, model_type: ModelType, item: dict[str, Any]
-    ) -> bool:
-        """Whether a devices-WS item is an alarm hub left out without the opt-in."""
-        return (
-            model_type is ModelType.LINK_STATION
-            and not self._alarm_hubs
-            and item.get("isAlarmHub") is True
-        )
 
     def _note_membership_frame(self, action_type: str, result: DeviceWSResult) -> None:
         """Record a wire ``add``/``remove`` so the fetch diff does not repeat it."""
@@ -5733,8 +5710,9 @@ class ProtectApiClient(BaseApiClient):
             (self.get_speakers_public(), "speakers", "speakers"),
             # The spec splits these: ``/v1/link-stations`` lists non-alarm-hub
             # gateways, ``/v1/alarm-hubs`` the hubs. Both feed the shared store
-            # and are merged in the batch phase below, link stations first.
+            # and are merged in the batch phase below, in this order.
             (self.get_link_stations_public(), "link-stations", "link_stations"),
+            (self.get_alarm_hubs_public(), "alarm-hubs", "link_stations"),
             (self._fetch_liveviews(), "liveviews", "liveviews"),
             (self.get_bridges_public(), "bridges", "bridges"),
             (self.get_viewers_public(), "viewers", "viewers"),
@@ -5746,10 +5724,6 @@ class ProtectApiClient(BaseApiClient):
                 "external_arm_profiles",
             ),
         ]
-        if self._alarm_hubs:
-            endpoints.append(
-                (self.get_alarm_hubs_public(), "alarm-hubs", "link_stations")
-            )
 
         # Capture any public-WS frame that lands while the snapshot is being
         # fetched/applied so it can be replayed onto the fresh cache below,
@@ -5858,12 +5832,7 @@ class ProtectApiClient(BaseApiClient):
         link_station_results: list[list[LinkStation] | BaseException] = []
         for (_, _label, attr), result in zip(endpoints, results, strict=True):
             if attr == "link_stations":
-                if self._alarm_hubs or isinstance(result, BaseException):
-                    link_station_results.append(result)
-                else:
-                    link_station_results.append(
-                        [obj for obj in result if not obj.is_alarm_hub]
-                    )
+                link_station_results.append(result)
                 continue
             if attr in _PUBLIC_STORE_ATTRS:
                 if change := self._apply_fetched_public_store(
@@ -5876,8 +5845,6 @@ class ProtectApiClient(BaseApiClient):
                 pb.nvr = result
             else:
                 diffs.append(pb.apply_fetch_result(attr, result))
-        if not self._alarm_hubs:
-            link_station_results.append([])
         merged = _merge_link_station_results(
             link_station_results, pb.link_stations.values()
         )
