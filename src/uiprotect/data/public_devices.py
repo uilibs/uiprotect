@@ -1193,7 +1193,7 @@ class PublicCamera(PublicDeviceModel):
         async with self._update_sync.lock:
             # Cameras can report the legacy smoke_cmonx audio type, but the
             # PATCH schema rejects it with a 400.
-            types = [
+            types: list[SmartDetectAudioType] = [
                 t
                 for t in self.smart_detect_settings.audio_types
                 if t != SmartDetectAudioType.SMOKE_CMONX
