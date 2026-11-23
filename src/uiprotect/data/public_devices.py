@@ -1191,7 +1191,13 @@ class PublicCamera(PublicDeviceModel):
         if audio_type not in self.feature_flags.smart_detect_audio_types:
             raise BadRequest(f"Camera does not support {audio_type} detection")
         async with self._update_sync.lock:
-            types = list(self.smart_detect_settings.audio_types)
+            # Cameras can report the legacy smoke_cmonx audio type, but the
+            # PATCH schema rejects it with a 400.
+            types: list[SmartDetectAudioType] = [
+                t
+                for t in self.smart_detect_settings.audio_types
+                if t != SmartDetectAudioType.SMOKE_CMONX
+            ]
             if enabled and audio_type not in types:
                 types.append(audio_type)
             elif not enabled and audio_type in types:

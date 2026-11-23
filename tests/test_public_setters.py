@@ -1984,3 +1984,26 @@ async def test_public_camera_play_audio_serialized() -> None:
 
     api.create_talkback_session_public.assert_awaited_once()
     stream.start.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_public_camera_audio_detection_drops_smoke_cmonx(
+    protect_client: Any,
+) -> None:
+    """The legacy ``smoke_cmonx`` audio type is not sent back on PATCH."""
+    cam = _camera(protect_client)
+    cam.feature_flags.smart_detect_audio_types = list(SmartDetectAudioType)
+    cam.smart_detect_settings.audio_types = [
+        SmartDetectAudioType.SMOKE_CMONX,
+        SmartDetectAudioType.SMOKE,
+    ]
+    protect_client.api_request_obj = AsyncMock(return_value=cam.unifi_dict())
+
+    await cam.set_speaking_detection(True)
+
+    protect_client.api_request_obj.assert_called_once_with(
+        url="/v1/cameras/cam-1",
+        method="patch",
+        json={"smartDetectSettings": {"audioTypes": ["alrmSmoke", "alrmSpeak"]}},
+        public_api=True,
+    )

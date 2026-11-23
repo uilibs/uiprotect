@@ -1395,6 +1395,44 @@ def test_camera_smart_audio_detects_remove_uses_public() -> None:
     )
 
 
+def test_camera_smart_audio_detects_rejects_smoke_cmonx() -> None:
+    """An explicit ``smoke_cmonx`` value exits non-zero without a write."""
+    ctx, camera = _make_smart_detect_camera_ctx()
+    camera.feature_flags.smart_detect_audio_types.append(
+        SmartDetectAudioType.SMOKE_CMONX
+    )
+    with pytest.raises(typer.Exit) as exc:
+        cameras_cli.smart_audio_detects(
+            ctx, [SmartDetectAudioType.SMOKE_CMONX], add=False, remove=False
+        )
+    assert exc.value.exit_code == 1
+    ctx.obj.protect.update_camera_public.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("add", "remove", "expected"),
+    [
+        (True, False, {SmartDetectAudioType.SMOKE, SmartDetectAudioType.CMONX}),
+        (False, True, {SmartDetectAudioType.SMOKE}),
+    ],
+)
+def test_camera_smart_audio_detects_merge_drops_smoke_cmonx(
+    add: bool, remove: bool, expected: set[SmartDetectAudioType]
+) -> None:
+    """``--add``/``--remove`` drop ``smoke_cmonx`` from the current types."""
+    ctx, camera = _make_smart_detect_camera_ctx()
+    camera.smart_detect_settings.audio_types = [
+        SmartDetectAudioType.SMOKE_CMONX,
+        SmartDetectAudioType.SMOKE,
+    ]
+    cameras_cli.smart_audio_detects(
+        ctx, [SmartDetectAudioType.CMONX], add=add, remove=remove
+    )
+    ctx.obj.protect.update_camera_public.assert_awaited_once()
+    _args, kwargs = ctx.obj.protect.update_camera_public.call_args
+    assert set(kwargs["smart_detect_audio_types"]) == expected
+
+
 def test_set_name_nvr_stays_private() -> None:
     """The NVR has no public name setter, so it keeps the private setter."""
     ctx, device, _protect = _device_ctx(NVR)
