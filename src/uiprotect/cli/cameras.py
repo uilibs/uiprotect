@@ -313,6 +313,10 @@ def smart_audio_detects(
         values = []
 
     for value in values:
+        # The public PATCH schema rejects the legacy smoke_cmonx value.
+        if value == d.SmartDetectAudioType.SMOKE_CMONX:
+            typer.secho(f"{value} cannot be set", fg="red")
+            raise typer.Exit(1)
         if (
             obj.feature_flags.smart_detect_audio_types is None
             or value not in obj.feature_flags.smart_detect_audio_types
@@ -320,10 +324,13 @@ def smart_audio_detects(
             typer.secho(f"Camera does not support {value}", fg="red")
             raise typer.Exit(1)
 
+    current = set(obj.smart_detect_settings.audio_types) - {
+        d.SmartDetectAudioType.SMOKE_CMONX
+    }
     if add:
-        values = list(set(obj.smart_detect_settings.audio_types) | set(values))
+        values = list(current | set(values))
     elif remove:
-        values = list(set(obj.smart_detect_settings.audio_types) - set(values))
+        values = list(current - set(values))
 
     protect: ProtectApiClient = ctx.obj.protect
     base.run(

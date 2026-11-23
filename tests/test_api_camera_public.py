@@ -285,15 +285,14 @@ async def test_update_camera_public_parses_public_response_schema(
 
 
 @pytest.mark.asyncio()
-async def test_update_camera_public_audio_types_drop_smoke_cmonx(
+async def test_update_camera_public_audio_types_passed_through(
     protect_client: ProtectApiClient,
     patched_camera_response: Mock,
 ) -> None:
-    """Audio types pass through except the legacy SMOKE_CMONX value."""
+    """Audio types are passed through as-is; SMOKE_CMONX is not a valid public API value."""
     await protect_client.update_camera_public(
         CAMERA_ID,
         smart_detect_audio_types=[
-            SmartDetectAudioType.SMOKE_CMONX,
             SmartDetectAudioType.SMOKE,
             SmartDetectAudioType.CMONX,
         ],
