@@ -4333,7 +4333,13 @@ class ProtectApiClient(BaseApiClient):
         if smart_detect_object_types is not None:
             detect["objectTypes"] = list(smart_detect_object_types)
         if smart_detect_audio_types is not None:
-            detect["audioTypes"] = list(smart_detect_audio_types)
+            # Cameras can report the legacy smoke_cmonx audio type, but the
+            # PATCH schema rejects it with a 400.
+            detect["audioTypes"] = [
+                t
+                for t in smart_detect_audio_types
+                if t != SmartDetectAudioType.SMOKE_CMONX
+            ]
         if detect:
             body["smartDetectSettings"] = detect
         osd = self._filter_none(
