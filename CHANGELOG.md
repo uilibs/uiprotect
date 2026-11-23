@@ -1,5 +1,13 @@
 # Changelog
 
+## v25.8.1 (2026-11-23)
+
+### Bug fixes
+
+
+- Drop legacy smoke_cmonx from public camera audio types ([`a699db2`](https://github.com/uilibs/uiprotect/commit/a699db2c3c932602d643068d178f3e4898225d6a))
+
+
 ## v25.8.0 (2026-11-20)
 
 ### Features
